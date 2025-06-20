@@ -202,7 +202,7 @@ function App() {
       
       // Validate form data
       if (!appointmentForm.patient_id || !appointmentForm.doctor_id || !appointmentForm.appointment_date || !appointmentForm.appointment_time) {
-        setError('Пожалуйста, заполните все обязательные поля');
+        setErrorMessage('Пожалуйста, заполните все обязательные поля');
         setLoading(false);
         return;
       }
