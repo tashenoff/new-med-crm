@@ -108,6 +108,156 @@ class Token(BaseModel):
 class TokenData(BaseModel):
     email: Optional[str] = None
 
+# Medical Records Models
+class MedicalRecord(BaseModel):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    patient_id: str
+    blood_type: Optional[str] = None
+    height: Optional[float] = None  # в см
+    weight: Optional[float] = None  # в кг
+    emergency_contact: Optional[str] = None
+    emergency_phone: Optional[str] = None
+    insurance_number: Optional[str] = None
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_at: datetime = Field(default_factory=datetime.utcnow)
+
+class MedicalEntry(BaseModel):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    patient_id: str
+    doctor_id: str
+    appointment_id: Optional[str] = None  # Связь с записью на прием
+    entry_type: EntryType
+    title: str
+    description: str
+    severity: Optional[SeverityLevel] = None
+    date: datetime = Field(default_factory=datetime.utcnow)
+    is_active: bool = True  # Для диагнозов/аллергий - активно ли сейчас
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_at: datetime = Field(default_factory=datetime.utcnow)
+
+class Allergy(BaseModel):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    patient_id: str
+    allergen: str
+    reaction: str
+    severity: SeverityLevel
+    discovered_date: Optional[datetime] = None
+    is_active: bool = True
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_at: datetime = Field(default_factory=datetime.utcnow)
+
+class Medication(BaseModel):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    patient_id: str
+    doctor_id: str
+    medication_name: str
+    dosage: str
+    frequency: str
+    start_date: datetime = Field(default_factory=datetime.utcnow)
+    end_date: Optional[datetime] = None
+    instructions: Optional[str] = None
+    is_active: bool = True
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_at: datetime = Field(default_factory=datetime.utcnow)
+
+class Diagnosis(BaseModel):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    patient_id: str
+    doctor_id: str
+    diagnosis_code: Optional[str] = None  # МКБ-10 код
+    diagnosis_name: str
+    description: Optional[str] = None
+    diagnosed_date: datetime = Field(default_factory=datetime.utcnow)
+    is_active: bool = True
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_at: datetime = Field(default_factory=datetime.utcnow)
+
+# Create/Update models
+class MedicalRecordCreate(BaseModel):
+    patient_id: str
+    blood_type: Optional[str] = None
+    height: Optional[float] = None
+    weight: Optional[float] = None
+    emergency_contact: Optional[str] = None
+    emergency_phone: Optional[str] = None
+    insurance_number: Optional[str] = None
+
+class MedicalEntryCreate(BaseModel):
+    patient_id: str
+    appointment_id: Optional[str] = None
+    entry_type: EntryType
+    title: str
+    description: str
+    severity: Optional[SeverityLevel] = None
+
+class AllergyCreate(BaseModel):
+    patient_id: str
+    allergen: str
+    reaction: str
+    severity: SeverityLevel
+    discovered_date: Optional[datetime] = None
+
+class MedicationCreate(BaseModel):
+    patient_id: str
+    medication_name: str
+    dosage: str
+    frequency: str
+    end_date: Optional[datetime] = None
+    instructions: Optional[str] = None
+
+class DiagnosisCreate(BaseModel):
+    patient_id: str
+    diagnosis_code: Optional[str] = None
+    diagnosis_name: str
+    description: Optional[str] = None
+
+# Response models with doctor/patient details
+class MedicalEntryWithDetails(BaseModel):
+    id: str
+    patient_id: str
+    doctor_id: str
+    appointment_id: Optional[str]
+    entry_type: EntryType
+    title: str
+    description: str
+    severity: Optional[SeverityLevel]
+    date: datetime
+    is_active: bool
+    created_at: datetime
+    updated_at: datetime
+    doctor_name: str
+    patient_name: str
+
+class MedicationWithDetails(BaseModel):
+    id: str
+    patient_id: str
+    doctor_id: str
+    medication_name: str
+    dosage: str
+    frequency: str
+    start_date: datetime
+    end_date: Optional[datetime]
+    instructions: Optional[str]
+    is_active: bool
+    created_at: datetime
+    updated_at: datetime
+    doctor_name: str
+    patient_name: str
+
+class DiagnosisWithDetails(BaseModel):
+    id: str
+    patient_id: str
+    doctor_id: str
+    diagnosis_code: Optional[str]
+    diagnosis_name: str
+    description: Optional[str]
+    diagnosed_date: datetime
+    is_active: bool
+    created_at: datetime
+    updated_at: datetime
+    doctor_name: str
+    patient_name: str
+
 # Existing Models (updated to link with users)
 class Patient(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
