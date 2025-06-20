@@ -213,9 +213,13 @@ function App() {
   const handleDeleteAppointment = async (id) => {
     if (window.confirm('Вы уверены, что хотите переместить эту запись в архив?')) {
       try {
-        // Instead of deleting, we'll mark it as cancelled
-        await axios.put(`${API}/appointments/${id}`, { status: 'cancelled' });
+        console.log('Archiving appointment:', id);
+        const response = await axios.put(`${API}/appointments/${id}`, { status: 'cancelled' });
+        console.log('Archive response:', response.data);
+        
+        // Force refresh of appointments
         await fetchAppointments();
+        console.log('Appointments refreshed after archiving');
       } catch (error) {
         console.error('Error archiving appointment:', error);
         alert('Ошибка при архивировании записи');
