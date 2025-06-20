@@ -297,7 +297,7 @@ function App() {
         <h2 className="text-2xl font-bold text-gray-900">Расписание (±7 дней)</h2>
         <button
           onClick={() => {
-            setError(null);
+            setErrorMessage(null);
             setShowAppointmentModal(true);
           }}
           className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
