@@ -1000,7 +1000,19 @@ async def create_diagnosis(
     current_user: UserInDB = Depends(require_role([UserRole.ADMIN, UserRole.DOCTOR]))
 ):
     diagnosis_dict = diagnosis.dict()
-    diagnosis_dict["doctor_id"] = current_user.doctor_id if current_user.role == UserRole.DOCTOR else diagnosis_dict.get("doctor_id")
+    # Set doctor_id based on current user
+    if current_user.role == UserRole.DOCTOR and current_user.doctor_id:
+        diagnosis_dict["doctor_id"] = current_user.doctor_id
+    elif current_user.role == UserRole.ADMIN:
+        # For admin, try to find a doctor or use a default
+        doctors = await db.doctors.find({"is_active": True}).limit(1).to_list(1)
+        if doctors:
+            diagnosis_dict["doctor_id"] = doctors[0]["id"]
+        else:
+            raise HTTPException(status_code=400, detail="No active doctors found")
+    else:
+        raise HTTPException(status_code=400, detail="User not associated with any doctor")
+    
     diagnosis_obj = Diagnosis(**diagnosis_dict)
     await db.diagnoses.insert_one(diagnosis_obj.dict())
     return diagnosis_obj
