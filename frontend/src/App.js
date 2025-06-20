@@ -820,7 +820,9 @@ function ClinicApp() {
                       return (
                         <div
                           key={doctor.id}
-                          className="p-1 border-r last:border-r-0 min-h-[60px] relative cursor-pointer hover:bg-blue-50 transition-colors"
+                          className={`p-1 border-r last:border-r-0 min-h-[60px] relative cursor-pointer transition-colors ${
+                            draggedAppointment ? 'hover:bg-green-100 border-2 border-dashed border-green-300' : 'hover:bg-blue-50'
+                          }`}
                           onDragOver={handleDragOver}
                           onDrop={(e) => handleDrop(e, doctor.id, date, time)}
                           onClick={() => !appointment && canCreateAppointments && handleSlotClick(doctor.id, date, time)}
