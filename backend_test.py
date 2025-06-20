@@ -213,7 +213,7 @@ def main():
     # Setup
     tester = ClinicAPITester(backend_url)
     
-    # Get tomorrow's date for appointments
+    # Get tomorrow's date for appointments in ISO format (YYYY-MM-DD)
     tomorrow = (datetime.now() + timedelta(days=1)).strftime("%Y-%m-%d")
     
     print("=" * 50)
