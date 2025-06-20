@@ -19,6 +19,10 @@ class ClinicAPITester:
         url = f"{self.base_url}/api/{endpoint}"
         headers = {'Content-Type': 'application/json'}
         
+        # Add authorization token if available
+        if self.token:
+            headers['Authorization'] = f'Bearer {self.token}'
+        
         self.tests_run += 1
         print(f"\n🔍 Testing {name}...")
         
