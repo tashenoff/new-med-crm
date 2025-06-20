@@ -242,39 +242,94 @@ class ClinicAPITester:
                     success = False
         return success
 
-def test_get_appointments_with_date_filter(self, date_from=None, date_to=None):
-        """Get appointments with date filter"""
-        params = {}
-        if date_from:
-            params["date_from"] = date_from
-        if date_to:
-            params["date_to"] = date_to
-        
-        filter_desc = ""
-        if date_from and date_to:
-            filter_desc = f" from {date_from} to {date_to}"
-        elif date_from:
-            filter_desc = f" from {date_from}"
-        elif date_to:
-            filter_desc = f" until {date_to}"
-            
+    def test_delete_appointment(self, appointment_id):
+        """Delete an appointment"""
         success, response = self.run_test(
-            f"Get Appointments{filter_desc}",
-            "GET",
-            "appointments",
-            200,
-            params=params
+            "Delete Appointment",
+            "DELETE",
+            f"appointments/{appointment_id}",
+            200
         )
-        if success and response:
-            print(f"Found {len(response)} appointments{filter_desc}")
-            if len(response) > 0:
-                # Check if appointments have full details
-                appointment = response[0]
-                has_details = all(key in appointment for key in ["patient_name", "doctor_name", "doctor_specialty"])
-                if has_details:
-                    print("✅ Appointments include full details")
+        if success:
+            print(f"✅ Successfully deleted appointment with ID: {appointment_id}")
+            
+            # Verify the appointment was deleted
+            verify_success, _ = self.run_test(
+                "Verify Appointment Deletion",
+                "GET",
+                f"appointments/{appointment_id}",
+                404  # Should return 404 Not Found
+            )
+            if verify_success:
+                print("✅ Appointment deletion verified")
+            else:
+                print("❌ Appointment still exists after deletion")
+                success = False
+        return success
+    
+    def test_delete_patient(self, patient_id):
+        """Delete a patient"""
+        success, response = self.run_test(
+            "Delete Patient",
+            "DELETE",
+            f"patients/{patient_id}",
+            200
+        )
+        if success:
+            print(f"✅ Successfully deleted patient with ID: {patient_id}")
+            
+            # Verify the patient was deleted
+            verify_success, _ = self.run_test(
+                "Verify Patient Deletion",
+                "GET",
+                f"patients/{patient_id}",
+                404  # Should return 404 Not Found
+            )
+            if verify_success:
+                print("✅ Patient deletion verified")
+            else:
+                print("❌ Patient still exists after deletion")
+                success = False
+        return success
+    
+    def test_delete_doctor(self, doctor_id):
+        """Delete (deactivate) a doctor"""
+        success, response = self.run_test(
+            "Delete Doctor",
+            "DELETE",
+            f"doctors/{doctor_id}",
+            200
+        )
+        if success:
+            print(f"✅ Successfully deactivated doctor with ID: {doctor_id}")
+            
+            # For doctors, we're doing a soft delete (deactivation)
+            # So we should still be able to get the doctor, but is_active should be False
+            verify_success, doctor = self.run_test(
+                "Verify Doctor Deactivation",
+                "GET",
+                f"doctors/{doctor_id}",
+                200
+            )
+            if verify_success and doctor and doctor.get("is_active") == False:
+                print("✅ Doctor deactivation verified")
+            else:
+                print("❌ Doctor deactivation failed")
+                success = False
+                
+            # Also verify the doctor doesn't appear in the active doctors list
+            list_success, doctors = self.run_test(
+                "Verify Doctor Not in Active List",
+                "GET",
+                "doctors",
+                200
+            )
+            if list_success:
+                doctor_still_active = any(d["id"] == doctor_id for d in doctors)
+                if not doctor_still_active:
+                    print("✅ Deactivated doctor not in active doctors list")
                 else:
-                    print("❌ Appointments missing full details")
+                    print("❌ Deactivated doctor still in active doctors list")
                     success = False
         return success
 
