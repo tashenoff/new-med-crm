@@ -256,6 +256,7 @@ async def create_appointment(appointment: AppointmentCreate):
         raise HTTPException(status_code=404, detail="Doctor not found")
     
     # Check for time conflicts
+    print(f"Checking conflicts for doctor {appointment.doctor_id} on {appointment.appointment_date} at {appointment.appointment_time}")
     existing_appointment = await db.appointments.find_one({
         "doctor_id": appointment.doctor_id,
         "appointment_date": appointment.appointment_date,  # Now both are strings
@@ -263,7 +264,9 @@ async def create_appointment(appointment: AppointmentCreate):
         "status": {"$nin": [AppointmentStatus.CANCELLED.value, AppointmentStatus.NO_SHOW.value]}
     })
     
+    print(f"Found existing appointment: {existing_appointment}")
     if existing_appointment:
+        print(f"Conflict detected with appointment ID: {existing_appointment['id']}")
         raise HTTPException(status_code=400, detail="Time slot already booked")
     
     appointment_dict = appointment.dict()
