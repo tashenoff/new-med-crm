@@ -823,7 +823,10 @@ function ClinicApp() {
 
   // Get available tabs based on user role
   const getAvailableTabs = () => {
-    const tabs = [{ key: 'schedule', label: 'Расписание' }];
+    const tabs = [
+      { key: 'schedule', label: 'Расписание' },
+      { key: 'calendar', label: 'Календарь' }
+    ];
     
     if (user?.role === 'admin' || user?.role === 'doctor') {
       tabs.push({ key: 'patients', label: 'Пациенты' });
