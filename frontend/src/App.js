@@ -166,7 +166,7 @@ function App() {
     if (window.confirm('Вы уверены, что хотите деактивировать этого врача?')) {
       try {
         await axios.delete(`${API}/doctors/${id}`);
-        fetchDoctors();
+        await fetchDoctors();
       } catch (error) {
         console.error('Error deleting doctor:', error);
         alert('Ошибка при деактивации врача');
