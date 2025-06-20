@@ -602,11 +602,11 @@ def main():
     # Logout admin
     tester.test_logout()
     
-    # Register doctor user
+    # Login as doctor user (already exists)
     doctor_email = "doctor@test.com"
     doctor_password = "test123"
-    if not tester.test_register_user(doctor_email, doctor_password, "Доктор Врач", "doctor"):
-        print("❌ Doctor registration failed")
+    if not tester.test_login_user(doctor_email, doctor_password):
+        print("❌ Doctor login failed")
         return 1
     
     # Test doctor access (should be able to access patients but not create doctors)
