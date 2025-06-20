@@ -120,6 +120,8 @@ function App() {
     if (window.confirm('Вы уверены, что хотите удалить этого пациента?')) {
       try {
         await axios.delete(`${API}/patients/${id}`);
+        // Clear search term to ensure fresh data fetch
+        setSearchTerm('');
         fetchPatients();
       } catch (error) {
         console.error('Error deleting patient:', error);
