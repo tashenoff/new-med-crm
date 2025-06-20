@@ -169,8 +169,11 @@ function App() {
   const handleDeleteDoctor = async (id) => {
     if (window.confirm('Вы уверены, что хотите деактивировать этого врача?')) {
       try {
-        await axios.delete(`${API}/doctors/${id}`);
+        console.log('Deactivating doctor:', id);
+        const response = await axios.delete(`${API}/doctors/${id}`);
+        console.log('Deactivate doctor response:', response.data);
         await fetchDoctors();
+        console.log('Doctors refreshed after deactivation');
       } catch (error) {
         console.error('Error deleting doctor:', error);
         alert('Ошибка при деактивации врача');
