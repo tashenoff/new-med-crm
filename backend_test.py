@@ -205,6 +205,42 @@ class ClinicAPITester:
                 print(f"❌ Status update failed: expected {status}, got {response['status']}")
                 success = False
         return success
+        
+    def test_get_appointments_with_date_filter(self, date_from=None, date_to=None):
+        """Get appointments with date filter"""
+        params = {}
+        if date_from:
+            params["date_from"] = date_from
+        if date_to:
+            params["date_to"] = date_to
+        
+        filter_desc = ""
+        if date_from and date_to:
+            filter_desc = f" from {date_from} to {date_to}"
+        elif date_from:
+            filter_desc = f" from {date_from}"
+        elif date_to:
+            filter_desc = f" until {date_to}"
+            
+        success, response = self.run_test(
+            f"Get Appointments{filter_desc}",
+            "GET",
+            "appointments",
+            200,
+            params=params
+        )
+        if success and response:
+            print(f"Found {len(response)} appointments{filter_desc}")
+            if len(response) > 0:
+                # Check if appointments have full details
+                appointment = response[0]
+                has_details = all(key in appointment for key in ["patient_name", "doctor_name", "doctor_specialty"])
+                if has_details:
+                    print("✅ Appointments include full details")
+                else:
+                    print("❌ Appointments missing full details")
+                    success = False
+        return success
 
 def test_get_appointments_with_date_filter(self, date_from=None, date_to=None):
         """Get appointments with date filter"""
