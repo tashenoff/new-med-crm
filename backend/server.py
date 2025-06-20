@@ -96,7 +96,7 @@ class Appointment(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     patient_id: str
     doctor_id: str
-    appointment_date: date
+    appointment_date: str  # Store as string in ISO format (YYYY-MM-DD)
     appointment_time: str  # Format: "HH:MM"
     status: AppointmentStatus = AppointmentStatus.UNCONFIRMED
     reason: Optional[str] = None
@@ -107,7 +107,7 @@ class Appointment(BaseModel):
 class AppointmentCreate(BaseModel):
     patient_id: str
     doctor_id: str
-    appointment_date: date
+    appointment_date: str  # Accept as string in ISO format (YYYY-MM-DD)
     appointment_time: str
     reason: Optional[str] = None
     notes: Optional[str] = None
@@ -115,7 +115,7 @@ class AppointmentCreate(BaseModel):
 class AppointmentUpdate(BaseModel):
     patient_id: Optional[str] = None
     doctor_id: Optional[str] = None
-    appointment_date: Optional[date] = None
+    appointment_date: Optional[str] = None  # Accept as string in ISO format (YYYY-MM-DD)
     appointment_time: Optional[str] = None
     status: Optional[AppointmentStatus] = None
     reason: Optional[str] = None
@@ -125,7 +125,7 @@ class AppointmentWithDetails(BaseModel):
     id: str
     patient_id: str
     doctor_id: str
-    appointment_date: date
+    appointment_date: str  # Return as string in ISO format (YYYY-MM-DD)
     appointment_time: str
     status: AppointmentStatus
     reason: Optional[str]
