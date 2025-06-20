@@ -53,13 +53,13 @@ function App() {
 
   // Clear error after some time
   useEffect(() => {
-    if (error) {
+    if (errorMessage) {
       const timer = setTimeout(() => {
-        setError(null);
+        setErrorMessage(null);
       }, 5000);
       return () => clearTimeout(timer);
     }
-  }, [error]);
+  }, [errorMessage]);
 
   useEffect(() => {
     fetchPatients();
