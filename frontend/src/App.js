@@ -32,6 +32,7 @@ function App() {
   const [appointments, setAppointments] = useState([]);
   const [loading, setLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
+  const [error, setError] = useState(null);
 
   // Modal states
   const [showPatientModal, setShowPatientModal] = useState(false);
