@@ -510,8 +510,8 @@ class ClinicAPITester:
     
     def test_create_diagnosis(self, patient_id, diagnosis_name, diagnosis_code=None, description=None):
         """Create a diagnosis for a patient"""
-        # Get the current user's doctor_id if they are a doctor, otherwise use a placeholder
-        doctor_id = self.current_user.get("doctor_id") if self.current_user and self.current_user.get("role") == "doctor" else "00000000-0000-0000-0000-000000000000"
+        # For testing purposes, we'll use the test doctor ID
+        doctor_id = "00000000-0000-0000-0000-000000000001"
         
         data = {
             "patient_id": patient_id,
