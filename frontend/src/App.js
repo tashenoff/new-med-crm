@@ -712,7 +712,6 @@ function App() {
                 value={appointmentForm.patient_id}
                 onChange={(e) => setAppointmentForm({...appointmentForm, patient_id: e.target.value})}
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                required
               >
                 <option value="">Выберите пациента</option>
                 {patients.map(patient => (
@@ -723,7 +722,6 @@ function App() {
                 value={appointmentForm.doctor_id}
                 onChange={(e) => setAppointmentForm({...appointmentForm, doctor_id: e.target.value})}
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                required
               >
                 <option value="">Выберите врача</option>
                 {doctors.map(doctor => (
@@ -735,14 +733,12 @@ function App() {
                 value={appointmentForm.appointment_date}
                 onChange={(e) => setAppointmentForm({...appointmentForm, appointment_date: e.target.value})}
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                required
               />
               <input
                 type="time"
                 value={appointmentForm.appointment_time}
                 onChange={(e) => setAppointmentForm({...appointmentForm, appointment_time: e.target.value})}
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                required
               />
               <input
                 type="text"
