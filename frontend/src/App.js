@@ -56,9 +56,9 @@ function App() {
     fetchAppointments();
   }, []);
 
-  const fetchPatients = async () => {
+  const fetchPatients = async (search = searchTerm) => {
     try {
-      const response = await axios.get(`${API}/patients${searchTerm ? `?search=${searchTerm}` : ''}`);
+      const response = await axios.get(`${API}/patients${search ? `?search=${search}` : ''}`);
       setPatients(response.data);
     } catch (error) {
       console.error('Error fetching patients:', error);
