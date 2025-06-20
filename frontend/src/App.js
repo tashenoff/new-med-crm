@@ -51,6 +51,16 @@ function App() {
     patient_id: '', doctor_id: '', appointment_date: '', appointment_time: '', reason: '', notes: ''
   });
 
+  // Clear error after some time
+  useEffect(() => {
+    if (error) {
+      const timer = setTimeout(() => {
+        setError(null);
+      }, 5000);
+      return () => clearTimeout(timer);
+    }
+  }, [error]);
+
   useEffect(() => {
     fetchPatients();
     fetchDoctors();
