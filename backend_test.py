@@ -619,11 +619,11 @@ def main():
     # Logout doctor
     tester.test_logout()
     
-    # Register patient user
+    # Login as patient user (already exists)
     patient_email = "patient@test.com"
     patient_password = "test123"
-    if not tester.test_register_user(patient_email, patient_password, "Пациент Тест", "patient"):
-        print("❌ Patient registration failed")
+    if not tester.test_login_user(patient_email, patient_password):
+        print("❌ Patient login failed")
         return 1
     
     # Test patient access (should not be able to access patients list)
