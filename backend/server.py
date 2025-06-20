@@ -859,6 +859,436 @@ async def delete_appointment(
         raise HTTPException(status_code=404, detail="Appointment not found")
     return {"message": "Appointment deleted successfully"}
 
+# Medical Records endpoints
+@api_router.post("/medical-records", response_model=MedicalRecord)
+async def create_medical_record(
+    record: MedicalRecordCreate,
+    current_user: UserInDB = Depends(require_role([UserRole.ADMIN, UserRole.DOCTOR]))
+):
+    # Check if patient exists
+    patient = await db.patients.find_one({"id": record.patient_id})
+    if not patient:
+        raise HTTPException(status_code=404, detail="Patient not found")
+    
+    # Check if medical record already exists
+    existing = await db.medical_records.find_one({"patient_id": record.patient_id})
+    if existing:
+        raise HTTPException(status_code=400, detail="Medical record already exists for this patient")
+    
+    record_dict = record.dict()
+    record_obj = MedicalRecord(**record_dict)
+    await db.medical_records.insert_one(record_obj.dict())
+    return record_obj
+
+@api_router.get("/medical-records/{patient_id}", response_model=MedicalRecord)
+async def get_medical_record(
+    patient_id: str,
+    current_user: UserInDB = Depends(get_current_active_user)
+):
+    # Check access rights
+    if current_user.role == UserRole.PATIENT and current_user.patient_id != patient_id:
+        raise HTTPException(status_code=403, detail="Access denied")
+    
+    record = await db.medical_records.find_one({"patient_id": patient_id})
+    if not record:
+        raise HTTPException(status_code=404, detail="Medical record not found")
+    return MedicalRecord(**record)
+
+@api_router.put("/medical-records/{patient_id}", response_model=MedicalRecord)
+async def update_medical_record(
+    patient_id: str,
+    record_update: MedicalRecordCreate,
+    current_user: UserInDB = Depends(require_role([UserRole.ADMIN, UserRole.DOCTOR]))
+):
+    update_dict = {k: v for k, v in record_update.dict().items() if v is not None}
+    update_dict["updated_at"] = datetime.utcnow()
+    
+    result = await db.medical_records.update_one(
+        {"patient_id": patient_id}, 
+        {"$set": update_dict}
+    )
+    
+    if result.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Medical record not found")
+    
+    updated_record = await db.medical_records.find_one({"patient_id": patient_id})
+    return MedicalRecord(**updated_record)
+
+# Medical Entries endpoints
+@api_router.post("/medical-entries", response_model=MedicalEntry)
+async def create_medical_entry(
+    entry: MedicalEntryCreate,
+    current_user: UserInDB = Depends(require_role([UserRole.ADMIN, UserRole.DOCTOR]))
+):
+    entry_dict = entry.dict()
+    entry_dict["doctor_id"] = current_user.doctor_id if current_user.role == UserRole.DOCTOR else entry_dict.get("doctor_id")
+    entry_obj = MedicalEntry(**entry_dict)
+    await db.medical_entries.insert_one(entry_obj.dict())
+    return entry_obj
+
+@api_router.get("/medical-entries/{patient_id}", response_model=List[MedicalEntryWithDetails])
+async def get_patient_medical_entries(
+    patient_id: str,
+    current_user: UserInDB = Depends(get_current_active_user)
+):
+    # Check access rights
+    if current_user.role == UserRole.PATIENT and current_user.patient_id != patient_id:
+        raise HTTPException(status_code=403, detail="Access denied")
+    
+    # Aggregate entries with doctor and patient details
+    pipeline = [
+        {"$match": {"patient_id": patient_id}},
+        {
+            "$lookup": {
+                "from": "patients",
+                "localField": "patient_id",
+                "foreignField": "id",
+                "as": "patient"
+            }
+        },
+        {
+            "$lookup": {
+                "from": "doctors",
+                "localField": "doctor_id",
+                "foreignField": "id",
+                "as": "doctor"
+            }
+        },
+        {"$unwind": "$patient"},
+        {"$unwind": "$doctor"},
+        {
+            "$project": {
+                "_id": 0,
+                "id": 1,
+                "patient_id": 1,
+                "doctor_id": 1,
+                "appointment_id": 1,
+                "entry_type": 1,
+                "title": 1,
+                "description": 1,
+                "severity": 1,
+                "date": 1,
+                "is_active": 1,
+                "created_at": 1,
+                "updated_at": 1,
+                "doctor_name": "$doctor.full_name",
+                "patient_name": "$patient.full_name"
+            }
+        },
+        {"$sort": {"date": -1}}
+    ]
+    
+    entries = await db.medical_entries.aggregate(pipeline).to_list(1000)
+    return [MedicalEntryWithDetails(**entry) for entry in entries]
+
+# Diagnoses endpoints
+@api_router.post("/diagnoses", response_model=Diagnosis)
+async def create_diagnosis(
+    diagnosis: DiagnosisCreate,
+    current_user: UserInDB = Depends(require_role([UserRole.ADMIN, UserRole.DOCTOR]))
+):
+    diagnosis_dict = diagnosis.dict()
+    diagnosis_dict["doctor_id"] = current_user.doctor_id if current_user.role == UserRole.DOCTOR else diagnosis_dict.get("doctor_id")
+    diagnosis_obj = Diagnosis(**diagnosis_dict)
+    await db.diagnoses.insert_one(diagnosis_obj.dict())
+    return diagnosis_obj
+
+@api_router.get("/diagnoses/{patient_id}", response_model=List[DiagnosisWithDetails])
+async def get_patient_diagnoses(
+    patient_id: str,
+    active_only: bool = True,
+    current_user: UserInDB = Depends(get_current_active_user)
+):
+    # Check access rights
+    if current_user.role == UserRole.PATIENT and current_user.patient_id != patient_id:
+        raise HTTPException(status_code=403, detail="Access denied")
+    
+    query = {"patient_id": patient_id}
+    if active_only:
+        query["is_active"] = True
+    
+    # Aggregate diagnoses with doctor and patient details
+    pipeline = [
+        {"$match": query},
+        {
+            "$lookup": {
+                "from": "patients",
+                "localField": "patient_id",
+                "foreignField": "id",
+                "as": "patient"
+            }
+        },
+        {
+            "$lookup": {
+                "from": "doctors",
+                "localField": "doctor_id",
+                "foreignField": "id",
+                "as": "doctor"
+            }
+        },
+        {"$unwind": "$patient"},
+        {"$unwind": "$doctor"},
+        {
+            "$project": {
+                "_id": 0,
+                "id": 1,
+                "patient_id": 1,
+                "doctor_id": 1,
+                "diagnosis_code": 1,
+                "diagnosis_name": 1,
+                "description": 1,
+                "diagnosed_date": 1,
+                "is_active": 1,
+                "created_at": 1,
+                "updated_at": 1,
+                "doctor_name": "$doctor.full_name",
+                "patient_name": "$patient.full_name"
+            }
+        },
+        {"$sort": {"diagnosed_date": -1}}
+    ]
+    
+    diagnoses = await db.diagnoses.aggregate(pipeline).to_list(1000)
+    return [DiagnosisWithDetails(**diagnosis) for diagnosis in diagnoses]
+
+# Medications endpoints
+@api_router.post("/medications", response_model=Medication)
+async def create_medication(
+    medication: MedicationCreate,
+    current_user: UserInDB = Depends(require_role([UserRole.ADMIN, UserRole.DOCTOR]))
+):
+    medication_dict = medication.dict()
+    medication_dict["doctor_id"] = current_user.doctor_id if current_user.role == UserRole.DOCTOR else medication_dict.get("doctor_id")
+    medication_obj = Medication(**medication_dict)
+    await db.medications.insert_one(medication_obj.dict())
+    return medication_obj
+
+@api_router.get("/medications/{patient_id}", response_model=List[MedicationWithDetails])
+async def get_patient_medications(
+    patient_id: str,
+    active_only: bool = True,
+    current_user: UserInDB = Depends(get_current_active_user)
+):
+    # Check access rights
+    if current_user.role == UserRole.PATIENT and current_user.patient_id != patient_id:
+        raise HTTPException(status_code=403, detail="Access denied")
+    
+    query = {"patient_id": patient_id}
+    if active_only:
+        query["is_active"] = True
+    
+    # Aggregate medications with doctor and patient details
+    pipeline = [
+        {"$match": query},
+        {
+            "$lookup": {
+                "from": "patients",
+                "localField": "patient_id",
+                "foreignField": "id",
+                "as": "patient"
+            }
+        },
+        {
+            "$lookup": {
+                "from": "doctors",
+                "localField": "doctor_id",
+                "foreignField": "id",
+                "as": "doctor"
+            }
+        },
+        {"$unwind": "$patient"},
+        {"$unwind": "$doctor"},
+        {
+            "$project": {
+                "_id": 0,
+                "id": 1,
+                "patient_id": 1,
+                "doctor_id": 1,
+                "medication_name": 1,
+                "dosage": 1,
+                "frequency": 1,
+                "start_date": 1,
+                "end_date": 1,
+                "instructions": 1,
+                "is_active": 1,
+                "created_at": 1,
+                "updated_at": 1,
+                "doctor_name": "$doctor.full_name",
+                "patient_name": "$patient.full_name"
+            }
+        },
+        {"$sort": {"start_date": -1}}
+    ]
+    
+    medications = await db.medications.aggregate(pipeline).to_list(1000)
+    return [MedicationWithDetails(**medication) for medication in medications]
+
+# Allergies endpoints
+@api_router.post("/allergies", response_model=Allergy)
+async def create_allergy(
+    allergy: AllergyCreate,
+    current_user: UserInDB = Depends(require_role([UserRole.ADMIN, UserRole.DOCTOR]))
+):
+    allergy_obj = Allergy(**allergy.dict())
+    await db.allergies.insert_one(allergy_obj.dict())
+    return allergy_obj
+
+@api_router.get("/allergies/{patient_id}", response_model=List[Allergy])
+async def get_patient_allergies(
+    patient_id: str,
+    active_only: bool = True,
+    current_user: UserInDB = Depends(get_current_active_user)
+):
+    # Check access rights
+    if current_user.role == UserRole.PATIENT and current_user.patient_id != patient_id:
+        raise HTTPException(status_code=403, detail="Access denied")
+    
+    query = {"patient_id": patient_id}
+    if active_only:
+        query["is_active"] = True
+    
+    allergies = await db.allergies.find(query).sort("created_at", -1).to_list(1000)
+    return [Allergy(**allergy) for allergy in allergies]
+
+# Patient Medical Summary endpoint
+@api_router.get("/patients/{patient_id}/medical-summary", response_model=PatientMedicalSummary)
+async def get_patient_medical_summary(
+    patient_id: str,
+    current_user: UserInDB = Depends(get_current_active_user)
+):
+    # Check access rights
+    if current_user.role == UserRole.PATIENT and current_user.patient_id != patient_id:
+        raise HTTPException(status_code=403, detail="Access denied")
+    
+    # Get patient
+    patient = await db.patients.find_one({"id": patient_id})
+    if not patient:
+        raise HTTPException(status_code=404, detail="Patient not found")
+    
+    # Get medical record
+    medical_record = await db.medical_records.find_one({"patient_id": patient_id})
+    
+    # Get active diagnoses (last 5)
+    diagnoses_pipeline = [
+        {"$match": {"patient_id": patient_id, "is_active": True}},
+        {
+            "$lookup": {
+                "from": "doctors",
+                "localField": "doctor_id",
+                "foreignField": "id",
+                "as": "doctor"
+            }
+        },
+        {"$unwind": "$doctor"},
+        {
+            "$project": {
+                "_id": 0,
+                "id": 1,
+                "patient_id": 1,
+                "doctor_id": 1,
+                "diagnosis_code": 1,
+                "diagnosis_name": 1,
+                "description": 1,
+                "diagnosed_date": 1,
+                "is_active": 1,
+                "created_at": 1,
+                "updated_at": 1,
+                "doctor_name": "$doctor.full_name",
+                "patient_name": patient["full_name"]
+            }
+        },
+        {"$sort": {"diagnosed_date": -1}},
+        {"$limit": 5}
+    ]
+    
+    diagnoses = await db.diagnoses.aggregate(diagnoses_pipeline).to_list(5)
+    
+    # Get active medications (last 5)
+    medications_pipeline = [
+        {"$match": {"patient_id": patient_id, "is_active": True}},
+        {
+            "$lookup": {
+                "from": "doctors",
+                "localField": "doctor_id",
+                "foreignField": "id",
+                "as": "doctor"
+            }
+        },
+        {"$unwind": "$doctor"},
+        {
+            "$project": {
+                "_id": 0,
+                "id": 1,
+                "patient_id": 1,
+                "doctor_id": 1,
+                "medication_name": 1,
+                "dosage": 1,
+                "frequency": 1,
+                "start_date": 1,
+                "end_date": 1,
+                "instructions": 1,
+                "is_active": 1,
+                "created_at": 1,
+                "updated_at": 1,
+                "doctor_name": "$doctor.full_name",
+                "patient_name": patient["full_name"]
+            }
+        },
+        {"$sort": {"start_date": -1}},
+        {"$limit": 5}
+    ]
+    
+    medications = await db.medications.aggregate(medications_pipeline).to_list(5)
+    
+    # Get allergies
+    allergies = await db.allergies.find({"patient_id": patient_id, "is_active": True}).to_list(1000)
+    
+    # Get recent medical entries (last 10)
+    entries_pipeline = [
+        {"$match": {"patient_id": patient_id}},
+        {
+            "$lookup": {
+                "from": "doctors",
+                "localField": "doctor_id",
+                "foreignField": "id",
+                "as": "doctor"
+            }
+        },
+        {"$unwind": "$doctor"},
+        {
+            "$project": {
+                "_id": 0,
+                "id": 1,
+                "patient_id": 1,
+                "doctor_id": 1,
+                "appointment_id": 1,
+                "entry_type": 1,
+                "title": 1,
+                "description": 1,
+                "severity": 1,
+                "date": 1,
+                "is_active": 1,
+                "created_at": 1,
+                "updated_at": 1,
+                "doctor_name": "$doctor.full_name",
+                "patient_name": patient["full_name"]
+            }
+        },
+        {"$sort": {"date": -1}},
+        {"$limit": 10}
+    ]
+    
+    entries = await db.medical_entries.aggregate(entries_pipeline).to_list(10)
+    
+    return PatientMedicalSummary(
+        patient=Patient(**patient),
+        medical_record=MedicalRecord(**medical_record) if medical_record else None,
+        active_diagnoses=[DiagnosisWithDetails(**d) for d in diagnoses],
+        active_medications=[MedicationWithDetails(**m) for m in medications],
+        allergies=[Allergy(**a) for a in allergies],
+        recent_entries=[MedicalEntryWithDetails(**e) for e in entries]
+    )
+
 # Include the router in the main app
 app.include_router(api_router)
 
