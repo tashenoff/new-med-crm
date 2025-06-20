@@ -196,7 +196,7 @@ function App() {
   const handleSaveAppointment = async (e) => {
     e.preventDefault();
     setLoading(true);
-    setError(null);
+    setErrorMessage(null);
     try {
       console.log('Saving appointment:', appointmentForm);
       
