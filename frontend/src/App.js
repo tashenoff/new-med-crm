@@ -134,6 +134,9 @@ function App() {
         const response = await axios.delete(`${API}/patients/${id}`);
         console.log('Delete patient response:', response.data);
         
+        // Update patients state immediately
+        setPatients(prevPatients => prevPatients.filter(patient => patient.id !== id));
+        
         // Clear search term to ensure fresh data fetch
         setSearchTerm('');
         await fetchPatients('');
