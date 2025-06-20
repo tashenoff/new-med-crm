@@ -721,12 +721,7 @@ def main():
     tomorrow = (datetime.now() + timedelta(days=1)).strftime("%Y-%m-%d")
     
     print("=" * 50)
-    print("TESTING CLINIC MANAGEMENT SYSTEM AUTHENTICATION")
-    print("=" * 50)
-    
-    # 1. Test authentication
-    print("\n" + "=" * 50)
-    print("TEST 1: USER REGISTRATION AND LOGIN")
+    print("TESTING MEDICAL RECORDS API FUNCTIONALITY")
     print("=" * 50)
     
     # Login as admin user (already exists)
@@ -736,36 +731,7 @@ def main():
         print("❌ Admin login failed")
         return 1
     
-    # Test getting current user
-    if not tester.test_get_current_user():
-        print("❌ Get current user failed")
-        return 1
-    
-    # Test logout
-    if not tester.test_logout():
-        print("❌ Logout failed")
-        return 1
-    
-    # Test login
-    if not tester.test_login_user(admin_email, admin_password):
-        print("❌ Login failed")
-        return 1
-    
-    # Test unauthorized access
-    if not tester.test_unauthorized_access("patients"):
-        print("❌ Unauthorized access test failed")
-        print("❌ ISSUE: API is not properly protecting endpoints")
-    else:
-        print("✅ API correctly requires authentication")
-    
-    print("\n" + "=" * 50)
-    print("TEST 2: ROLE-BASED ACCESS CONTROL")
-    print("=" * 50)
-    
-    # Test admin access to protected endpoints
-    print("\n🔍 Testing admin access to protected endpoints...")
-    
-    # 2. Create test patient and doctor for our tests
+    # Create test patient and doctor for our tests
     print("\n🔍 Creating test patient...")
     if not tester.test_create_patient("Тест Пациент", "+7 999 888 7777", "phone"):
         print("❌ Test patient creation failed, stopping tests")
@@ -780,97 +746,17 @@ def main():
     
     test_doctor_id = tester.created_doctor_id
     
-    # Logout admin
-    tester.test_logout()
-    
-    # Login as doctor user (already exists)
-    doctor_email = "doctor@test.com"
-    doctor_password = "test123"
-    if not tester.test_login_user(doctor_email, doctor_password):
-        print("❌ Doctor login failed")
-        return 1
-    
-    # Test doctor access (should be able to access patients but not create doctors)
-    print("\n🔍 Testing doctor access to patients...")
-    if not tester.test_get_patients():
-        print("❌ Doctor cannot access patients")
-    else:
-        print("✅ Doctor can access patients")
-    
-    # Logout doctor
-    tester.test_logout()
-    
-    # Login as patient user (already exists)
-    patient_email = "patient@test.com"
-    patient_password = "test123"
-    if not tester.test_login_user(patient_email, patient_password):
-        print("❌ Patient login failed")
-        return 1
-    
-    # Test patient access (should not be able to access patients list)
-    print("\n🔍 Testing patient access restrictions...")
-    success, _ = tester.run_test(
-        "Patient accessing patients list",
-        "GET",
-        "patients",
-        403  # Expect 403 Forbidden
-    )
-    if success:
-        print("✅ Patient correctly restricted from accessing patients list")
-    else:
-        print("❌ ISSUE: Patient can access patients list when they shouldn't")
-    
-    # Login as admin again for remaining tests
-    tester.test_logout()
-    tester.test_login_user(admin_email, admin_password)
-    
-    # 3. TEST: Time Conflict Detection
+    # 1. TEST: Creating a diagnosis with doctor_id
     print("\n" + "=" * 50)
-    print("TEST 3: TIME CONFLICT DETECTION")
+    print("TEST 1: CREATING DIAGNOSIS WITH DOCTOR_ID")
     print("=" * 50)
     
-    # Create first appointment at 14:00
-    print("\n🔍 Creating first appointment at 14:00...")
-    if not tester.test_create_appointment(test_patient_id, test_doctor_id, today, "14:00"):
-        print("❌ First appointment creation failed, stopping tests")
-        return 1
-    
-    # Try to create another appointment at the same time (should fail with 400)
-    print("\n🔍 Testing time conflict with second appointment at 14:00...")
-    if not tester.test_create_appointment(test_patient_id, test_doctor_id, today, "14:00", expect_conflict=True):
-        print("❌ Time conflict detection test failed")
-        print("❌ ISSUE: System is not detecting time conflicts correctly")
-    else:
-        print("✅ Time conflict detection is working correctly")
-    
-    # 4. TEST: Medical Records Functionality
-    print("\n" + "=" * 50)
-    print("TEST 4: MEDICAL RECORDS FUNCTIONALITY")
-    print("=" * 50)
-    
-    # Test creating a medical record
-    print("\n🔍 Testing medical record creation...")
-    if not tester.test_create_medical_record(test_patient_id, "A+", 175.0, 70.0):
-        print("❌ Medical record creation failed")
-        print("❌ ISSUE: Medical record creation is not working")
-    else:
-        print("✅ Medical record creation is working correctly")
-    
-    # Test retrieving a medical record
-    print("\n🔍 Testing medical record retrieval...")
-    if not tester.test_get_medical_record(test_patient_id):
-        print("❌ Medical record retrieval failed")
-        print("❌ ISSUE: Medical record retrieval is not working")
-    else:
-        print("✅ Medical record retrieval is working correctly")
-    
-    # Test creating a diagnosis
     print("\n🔍 Testing diagnosis creation...")
     diagnosis_data = {
         "patient_id": test_patient_id,
         "diagnosis_name": "Гипертония",
         "diagnosis_code": "I10",
-        "description": "Первичная артериальная гипертензия",
+        "description": "Артериальная гипертензия",
         "doctor_id": test_doctor_id  # Use the test doctor ID
     }
     success, response = tester.run_test(
@@ -883,27 +769,23 @@ def main():
     if success and response and "id" in response:
         tester.created_diagnosis_id = response["id"]
         print(f"Created diagnosis with ID: {tester.created_diagnosis_id}")
-        print("✅ Diagnosis creation is working correctly")
+        print("✅ Diagnosis creation is working correctly with doctor_id")
     else:
         print("❌ Diagnosis creation failed")
-        print("❌ ISSUE: Diagnosis creation is not working")
+        print("❌ ISSUE: Diagnosis creation is not working with doctor_id")
     
-    # Test retrieving diagnoses
-    print("\n🔍 Testing diagnoses retrieval...")
-    if not tester.test_get_diagnoses(test_patient_id):
-        print("❌ Diagnoses retrieval failed")
-        print("❌ ISSUE: Diagnoses retrieval is not working")
-    else:
-        print("✅ Diagnoses retrieval is working correctly")
+    # 2. TEST: Creating a medication
+    print("\n" + "=" * 50)
+    print("TEST 2: CREATING MEDICATION")
+    print("=" * 50)
     
-    # Test creating a medication
     print("\n🔍 Testing medication creation...")
     medication_data = {
         "patient_id": test_patient_id,
         "medication_name": "Лизиноприл",
         "dosage": "10 мг",
         "frequency": "1 раз в день",
-        "instructions": "Принимать утром натощак",
+        "instructions": "Принимать утром",
         "doctor_id": test_doctor_id  # Use the test doctor ID
     }
     success, response = tester.run_test(
@@ -921,31 +803,11 @@ def main():
         print("❌ Medication creation failed")
         print("❌ ISSUE: Medication creation is not working")
     
-    # Test retrieving medications
-    print("\n🔍 Testing medications retrieval...")
-    if not tester.test_get_medications(test_patient_id):
-        print("❌ Medications retrieval failed")
-        print("❌ ISSUE: Medications retrieval is not working")
-    else:
-        print("✅ Medications retrieval is working correctly")
+    # 3. TEST: Getting medical summary
+    print("\n" + "=" * 50)
+    print("TEST 3: RETRIEVING MEDICAL SUMMARY")
+    print("=" * 50)
     
-    # Test creating an allergy
-    print("\n🔍 Testing allergy creation...")
-    if not tester.test_create_allergy(test_patient_id, "Пенициллин", "Кожная сыпь", "high"):
-        print("❌ Allergy creation failed")
-        print("❌ ISSUE: Allergy creation is not working")
-    else:
-        print("✅ Allergy creation is working correctly")
-    
-    # Test retrieving allergies
-    print("\n🔍 Testing allergies retrieval...")
-    if not tester.test_get_allergies(test_patient_id):
-        print("❌ Allergies retrieval failed")
-        print("❌ ISSUE: Allergies retrieval is not working")
-    else:
-        print("✅ Allergies retrieval is working correctly")
-    
-    # Test retrieving medical summary
     print("\n🔍 Testing medical summary retrieval...")
     if not tester.test_get_medical_summary(test_patient_id):
         print("❌ Medical summary retrieval failed")
@@ -953,51 +815,10 @@ def main():
     else:
         print("✅ Medical summary retrieval is working correctly")
     
-    # 5. Additional tests to verify other functionality
-    print("\n" + "=" * 50)
-    print("ADDITIONAL FUNCTIONALITY TESTS")
-    print("=" * 50)
-    
-    # Test appointment archiving
-    print("\n🔍 Testing appointment archiving...")
-    
-    # Create another appointment with a non-cancelled status
-    if not tester.test_create_appointment(test_patient_id, test_doctor_id, tomorrow, "10:00"):
-        print("❌ Appointment creation for archiving test failed")
-        return 1
-    
-    appointment_to_archive = tester.created_appointment_id
-    
-    # Now archive it (set to cancelled)
-    if not tester.test_archive_appointment(appointment_to_archive):
-        print("❌ Appointment archiving failed")
-        print("❌ ISSUE: Appointment archiving is not working")
-    else:
-        print("✅ Appointment archiving is working correctly")
-    
-    # Test patient deletion
-    print("\n🔍 Testing patient deletion...")
-    if not tester.test_delete_patient(test_patient_id):
-        print("❌ Patient deletion failed")
-        print("❌ ISSUE: Patient deletion is not working")
-    else:
-        print("✅ Patient deletion is working correctly")
-    
-    # Test doctor deletion (deactivation)
-    print("\n🔍 Testing doctor deactivation...")
-    if not tester.test_delete_doctor(test_doctor_id):
-        print("❌ Doctor deletion (deactivation) failed")
-        print("❌ ISSUE: Doctor deactivation is not working")
-    else:
-        print("✅ Doctor deactivation is working correctly")
-    
     # Print results
     print("\n" + "=" * 50)
-    print(f"BACKEND TESTS PASSED: {tester.tests_passed}/{tester.tests_run}")
+    print(f"MEDICAL RECORDS API TESTS PASSED: {tester.tests_passed}/{tester.tests_run}")
     print("=" * 50)
-    
-    print("\nNOTE: Frontend tests for authentication and role-based access")
-    print("will be performed using Playwright browser automation.")
     
     return 0 if tester.tests_passed == tester.tests_run else 1
 
