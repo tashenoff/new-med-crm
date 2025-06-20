@@ -672,6 +672,7 @@ function ClinicApp() {
 
   const handleSlotClick = (doctorId, date, time) => {
     // Quick create appointment
+    console.log('Slot clicked:', { doctorId, date, time });
     setAppointmentForm({
       patient_id: '',
       doctor_id: doctorId,
