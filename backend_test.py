@@ -206,6 +206,42 @@ class ClinicAPITester:
                 success = False
         return success
 
+def test_get_appointments_with_date_filter(self, date_from=None, date_to=None):
+        """Get appointments with date filter"""
+        params = {}
+        if date_from:
+            params["date_from"] = date_from
+        if date_to:
+            params["date_to"] = date_to
+        
+        filter_desc = ""
+        if date_from and date_to:
+            filter_desc = f" from {date_from} to {date_to}"
+        elif date_from:
+            filter_desc = f" from {date_from}"
+        elif date_to:
+            filter_desc = f" until {date_to}"
+            
+        success, response = self.run_test(
+            f"Get Appointments{filter_desc}",
+            "GET",
+            "appointments",
+            200,
+            params=params
+        )
+        if success and response:
+            print(f"Found {len(response)} appointments{filter_desc}")
+            if len(response) > 0:
+                # Check if appointments have full details
+                appointment = response[0]
+                has_details = all(key in appointment for key in ["patient_name", "doctor_name", "doctor_specialty"])
+                if has_details:
+                    print("✅ Appointments include full details")
+                else:
+                    print("❌ Appointments missing full details")
+                    success = False
+        return success
+
 def main():
     # Get the backend URL from the environment
     backend_url = "https://7d433966-f30b-4b81-bfd7-cc9019b064af.preview.emergentagent.com"
@@ -247,9 +283,29 @@ def main():
     if not tester.test_get_doctors():
         print("❌ Get doctors failed")
     
-    # 4. Skip appointment tests due to date serialization issue
-    print("\n⚠️ Skipping appointment tests due to date serialization issue in the backend")
-    print("⚠️ The backend has an issue with storing date objects in MongoDB")
+    # 4. Test appointment operations
+    print("\n🔍 Testing appointment functionality...")
+    
+    # Create an appointment
+    if not tester.test_create_appointment(tester.created_patient_id, tester.created_doctor_id, tomorrow, "10:00"):
+        print("❌ Appointment creation failed, stopping tests")
+        return 1
+    
+    # Get all appointments
+    if not tester.test_get_appointments():
+        print("❌ Get appointments failed")
+    
+    # Test appointment date filtering
+    if not tester.test_get_appointments_with_date_filter(date_from=tomorrow):
+        print("❌ Get appointments with date filter failed")
+    
+    # Update appointment status
+    if not tester.test_update_appointment_status(tester.created_appointment_id, "confirmed"):
+        print("❌ Appointment status update failed")
+    
+    # Test time conflict detection
+    if not tester.test_create_appointment(tester.created_patient_id, tester.created_doctor_id, tomorrow, "10:00", expect_conflict=True):
+        print("❌ Time conflict test failed")
     
     # Print results
     print("\n" + "=" * 50)
