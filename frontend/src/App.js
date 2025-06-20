@@ -717,6 +717,7 @@ function ClinicApp() {
   };
 
   const scheduleAppointments = getScheduleAppointments();
+  const renderCalendar = () => (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <h2 className="text-2xl font-bold text-gray-900">Календарь записей</h2>
