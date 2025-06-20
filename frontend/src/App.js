@@ -249,7 +249,14 @@ function App() {
         const response = await axios.put(`${API}/appointments/${id}`, { status: 'cancelled' });
         console.log('Archive response:', response.data);
         
-        // Force refresh of appointments
+        // Update the appointment in the current state immediately
+        setAppointments(prevAppointments => 
+          prevAppointments.map(apt => 
+            apt.id === id ? { ...apt, status: 'cancelled' } : apt
+          )
+        );
+        
+        // Also fetch fresh data from server
         await fetchAppointments();
         console.log('Appointments refreshed after archiving');
       } catch (error) {
