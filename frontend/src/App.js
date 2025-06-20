@@ -1,52 +1,679 @@
-import { useEffect } from "react";
-import "./App.css";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
-import axios from "axios";
+import React, { useState, useEffect } from 'react';
+import axios from 'axios';
+import './App.css';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
 
-const Home = () => {
-  const helloWorldApi = async () => {
-    try {
-      const response = await axios.get(`${API}/`);
-      console.log(response.data.message);
-    } catch (e) {
-      console.error(e, `errored out requesting / api`);
-    }
-  };
+// Status configurations
+const statusConfig = {
+  unconfirmed: { label: 'Не подтверждено', color: 'bg-yellow-100 text-yellow-800 border-yellow-300' },
+  confirmed: { label: 'Подтверждено', color: 'bg-green-100 text-green-800 border-green-300' },
+  arrived: { label: 'Пациент пришел', color: 'bg-blue-100 text-blue-800 border-blue-300' },
+  in_progress: { label: 'На приеме', color: 'bg-orange-100 text-orange-800 border-orange-300' },
+  completed: { label: 'Завершен', color: 'bg-emerald-100 text-emerald-800 border-emerald-300' },
+  cancelled: { label: 'Отменено', color: 'bg-red-100 text-red-800 border-red-300' },
+  no_show: { label: 'Не явился', color: 'bg-gray-100 text-gray-800 border-gray-300' }
+};
 
-  useEffect(() => {
-    helloWorldApi();
-  }, []);
-
-  return (
-    <div>
-      <header className="App-header">
-        <a
-          className="App-link"
-          href="https://emergent.sh"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <img src="https://avatars.githubusercontent.com/in/1201222?s=120&u=2686cf91179bbafbc7a71bfbc43004cf9ae1acea&v=4" />
-        </a>
-        <p className="mt-5">Building something incredible ~!</p>
-      </header>
-    </div>
-  );
+const sourceConfig = {
+  website: 'Сайт',
+  phone: 'Телефон',
+  referral: 'Рекомендация',
+  walk_in: 'Самообращение',
+  social_media: 'Соц. сети',
+  other: 'Другое'
 };
 
 function App() {
+  const [activeTab, setActiveTab] = useState('schedule');
+  const [patients, setPatients] = useState([]);
+  const [doctors, setDoctors] = useState([]);
+  const [appointments, setAppointments] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [searchTerm, setSearchTerm] = useState('');
+
+  // Modal states
+  const [showPatientModal, setShowPatientModal] = useState(false);
+  const [showDoctorModal, setShowDoctorModal] = useState(false);
+  const [showAppointmentModal, setShowAppointmentModal] = useState(false);
+  const [editingItem, setEditingItem] = useState(null);
+
+  // Form data
+  const [patientForm, setPatientForm] = useState({
+    full_name: '', phone: '', iin: '', source: 'other', notes: ''
+  });
+  const [doctorForm, setDoctorForm] = useState({
+    full_name: '', specialty: '', phone: '', calendar_color: '#3B82F6'
+  });
+  const [appointmentForm, setAppointmentForm] = useState({
+    patient_id: '', doctor_id: '', appointment_date: '', appointment_time: '', reason: '', notes: ''
+  });
+
+  useEffect(() => {
+    fetchPatients();
+    fetchDoctors();
+    fetchAppointments();
+  }, []);
+
+  const fetchPatients = async () => {
+    try {
+      const response = await axios.get(`${API}/patients${searchTerm ? `?search=${searchTerm}` : ''}`);
+      setPatients(response.data);
+    } catch (error) {
+      console.error('Error fetching patients:', error);
+    }
+  };
+
+  const fetchDoctors = async () => {
+    try {
+      const response = await axios.get(`${API}/doctors`);
+      setDoctors(response.data);
+    } catch (error) {
+      console.error('Error fetching doctors:', error);
+    }
+  };
+
+  const fetchAppointments = async () => {
+    try {
+      const response = await axios.get(`${API}/appointments`);
+      setAppointments(response.data);
+    } catch (error) {
+      console.error('Error fetching appointments:', error);
+    }
+  };
+
+  // Patient functions
+  const handleSavePatient = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+    try {
+      if (editingItem) {
+        await axios.put(`${API}/patients/${editingItem.id}`, patientForm);
+      } else {
+        await axios.post(`${API}/patients`, patientForm);
+      }
+      setShowPatientModal(false);
+      setEditingItem(null);
+      setPatientForm({ full_name: '', phone: '', iin: '', source: 'other', notes: '' });
+      fetchPatients();
+    } catch (error) {
+      console.error('Error saving patient:', error);
+      alert('Ошибка при сохранении пациента');
+    }
+    setLoading(false);
+  };
+
+  const handleEditPatient = (patient) => {
+    setEditingItem(patient);
+    setPatientForm({
+      full_name: patient.full_name,
+      phone: patient.phone,
+      iin: patient.iin || '',
+      source: patient.source,
+      notes: patient.notes || ''
+    });
+    setShowPatientModal(true);
+  };
+
+  const handleDeletePatient = async (id) => {
+    if (window.confirm('Вы уверены, что хотите удалить этого пациента?')) {
+      try {
+        await axios.delete(`${API}/patients/${id}`);
+        fetchPatients();
+      } catch (error) {
+        console.error('Error deleting patient:', error);
+        alert('Ошибка при удалении пациента');
+      }
+    }
+  };
+
+  // Doctor functions
+  const handleSaveDoctor = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+    try {
+      if (editingItem) {
+        await axios.put(`${API}/doctors/${editingItem.id}`, doctorForm);
+      } else {
+        await axios.post(`${API}/doctors`, doctorForm);
+      }
+      setShowDoctorModal(false);
+      setEditingItem(null);
+      setDoctorForm({ full_name: '', specialty: '', phone: '', calendar_color: '#3B82F6' });
+      fetchDoctors();
+    } catch (error) {
+      console.error('Error saving doctor:', error);
+      alert('Ошибка при сохранении врача');
+    }
+    setLoading(false);
+  };
+
+  const handleEditDoctor = (doctor) => {
+    setEditingItem(doctor);
+    setDoctorForm({
+      full_name: doctor.full_name,
+      specialty: doctor.specialty,
+      phone: doctor.phone || '',
+      calendar_color: doctor.calendar_color
+    });
+    setShowDoctorModal(true);
+  };
+
+  const handleDeleteDoctor = async (id) => {
+    if (window.confirm('Вы уверены, что хотите деактивировать этого врача?')) {
+      try {
+        await axios.delete(`${API}/doctors/${id}`);
+        fetchDoctors();
+      } catch (error) {
+        console.error('Error deleting doctor:', error);
+        alert('Ошибка при деактивации врача');
+      }
+    }
+  };
+
+  // Appointment functions
+  const handleSaveAppointment = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+    try {
+      if (editingItem) {
+        await axios.put(`${API}/appointments/${editingItem.id}`, appointmentForm);
+      } else {
+        await axios.post(`${API}/appointments`, appointmentForm);
+      }
+      setShowAppointmentModal(false);
+      setEditingItem(null);
+      setAppointmentForm({ patient_id: '', doctor_id: '', appointment_date: '', appointment_time: '', reason: '', notes: '' });
+      fetchAppointments();
+    } catch (error) {
+      console.error('Error saving appointment:', error);
+      alert(error.response?.data?.detail || 'Ошибка при сохранении записи');
+    }
+    setLoading(false);
+  };
+
+  const handleEditAppointment = (appointment) => {
+    setEditingItem(appointment);
+    setAppointmentForm({
+      patient_id: appointment.patient_id,
+      doctor_id: appointment.doctor_id,
+      appointment_date: appointment.appointment_date,
+      appointment_time: appointment.appointment_time,
+      reason: appointment.reason || '',
+      notes: appointment.notes || ''
+    });
+    setShowAppointmentModal(true);
+  };
+
+  const handleDeleteAppointment = async (id) => {
+    if (window.confirm('Вы уверены, что хотите удалить эту запись?')) {
+      try {
+        await axios.delete(`${API}/appointments/${id}`);
+        fetchAppointments();
+      } catch (error) {
+        console.error('Error deleting appointment:', error);
+        alert('Ошибка при удалении записи');
+      }
+    }
+  };
+
+  const handleStatusChange = async (appointmentId, newStatus) => {
+    try {
+      await axios.put(`${API}/appointments/${appointmentId}`, { status: newStatus });
+      fetchAppointments();
+    } catch (error) {
+      console.error('Error updating status:', error);
+      alert('Ошибка при обновлении статуса');
+    }
+  };
+
+  // Get today's appointments for schedule view
+  const todayAppointments = appointments.filter(apt => 
+    apt.appointment_date === new Date().toISOString().split('T')[0]
+  ).sort((a, b) => a.appointment_time.localeCompare(b.appointment_time));
+
+  const renderSchedule = () => (
+    <div className="space-y-6">
+      <div className="flex justify-between items-center">
+        <h2 className="text-2xl font-bold text-gray-900">Расписание на сегодня</h2>
+        <button
+          onClick={() => setShowAppointmentModal(true)}
+          className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
+        >
+          + Новая запись
+        </button>
+      </div>
+
+      {todayAppointments.length === 0 ? (
+        <div className="text-center py-12 bg-gray-50 rounded-lg">
+          <p className="text-gray-500">На сегодня записей нет</p>
+        </div>
+      ) : (
+        <div className="grid gap-4">
+          {todayAppointments.map(appointment => (
+            <div key={appointment.id} className="bg-white border rounded-lg p-4 shadow-sm">
+              <div className="flex justify-between items-start">
+                <div className="flex-1">
+                  <div className="flex items-center space-x-3 mb-2">
+                    <span className="text-lg font-semibold">{appointment.appointment_time}</span>
+                    <span 
+                      className="w-3 h-3 rounded-full"
+                      style={{ backgroundColor: appointment.doctor_color }}
+                    ></span>
+                    <span className="font-medium">{appointment.doctor_name}</span>
+                    <span className="text-sm text-gray-500">({appointment.doctor_specialty})</span>
+                  </div>
+                  <p className="text-lg font-medium mb-1">{appointment.patient_name}</p>
+                  {appointment.reason && (
+                    <p className="text-gray-600 mb-2">Причина: {appointment.reason}</p>
+                  )}
+                  {appointment.notes && (
+                    <p className="text-sm text-gray-500">Заметки: {appointment.notes}</p>
+                  )}
+                </div>
+                <div className="flex items-center space-x-2">
+                  <select
+                    value={appointment.status}
+                    onChange={(e) => handleStatusChange(appointment.id, e.target.value)}
+                    className={`px-3 py-1 rounded-full text-sm border font-medium ${statusConfig[appointment.status].color}`}
+                  >
+                    {Object.entries(statusConfig).map(([value, config]) => (
+                      <option key={value} value={value}>{config.label}</option>
+                    ))}
+                  </select>
+                  <button
+                    onClick={() => handleEditAppointment(appointment)}
+                    className="text-blue-600 hover:text-blue-800 p-1"
+                  >
+                    ✏️
+                  </button>
+                  <button
+                    onClick={() => handleDeleteAppointment(appointment.id)}
+                    className="text-red-600 hover:text-red-800 p-1"
+                  >
+                    🗑️
+                  </button>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+
+  const renderPatients = () => (
+    <div className="space-y-6">
+      <div className="flex justify-between items-center">
+        <h2 className="text-2xl font-bold text-gray-900">Пациенты</h2>
+        <button
+          onClick={() => setShowPatientModal(true)}
+          className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
+        >
+          + Новый пациент
+        </button>
+      </div>
+
+      <div className="mb-4">
+        <input
+          type="text"
+          placeholder="Поиск по имени, телефону или ИИН..."
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+          onKeyPress={(e) => e.key === 'Enter' && fetchPatients()}
+          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+        />
+        <button
+          onClick={fetchPatients}
+          className="mt-2 bg-gray-600 text-white px-4 py-2 rounded-lg hover:bg-gray-700 transition-colors"
+        >
+          Найти
+        </button>
+      </div>
+
+      <div className="grid gap-4">
+        {patients.map(patient => (
+          <div key={patient.id} className="bg-white border rounded-lg p-4 shadow-sm">
+            <div className="flex justify-between items-start">
+              <div>
+                <h3 className="text-lg font-semibold">{patient.full_name}</h3>
+                <p className="text-gray-600">Телефон: {patient.phone}</p>
+                {patient.iin && <p className="text-gray-600">ИИН: {patient.iin}</p>}
+                <p className="text-sm text-gray-500">Источник: {sourceConfig[patient.source]}</p>
+                {patient.notes && <p className="text-sm text-gray-500 mt-2">Заметки: {patient.notes}</p>}
+              </div>
+              <div className="flex space-x-2">
+                <button
+                  onClick={() => handleEditPatient(patient)}
+                  className="text-blue-600 hover:text-blue-800 p-1"
+                >
+                  ✏️
+                </button>
+                <button
+                  onClick={() => handleDeletePatient(patient.id)}
+                  className="text-red-600 hover:text-red-800 p-1"
+                >
+                  🗑️
+                </button>
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+
+  const renderDoctors = () => (
+    <div className="space-y-6">
+      <div className="flex justify-between items-center">
+        <h2 className="text-2xl font-bold text-gray-900">Врачи</h2>
+        <button
+          onClick={() => setShowDoctorModal(true)}
+          className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
+        >
+          + Новый врач
+        </button>
+      </div>
+
+      <div className="grid gap-4">
+        {doctors.map(doctor => (
+          <div key={doctor.id} className="bg-white border rounded-lg p-4 shadow-sm">
+            <div className="flex justify-between items-start">
+              <div className="flex items-center space-x-3">
+                <span 
+                  className="w-4 h-4 rounded-full"
+                  style={{ backgroundColor: doctor.calendar_color }}
+                ></span>
+                <div>
+                  <h3 className="text-lg font-semibold">{doctor.full_name}</h3>
+                  <p className="text-gray-600">Специальность: {doctor.specialty}</p>
+                  {doctor.phone && <p className="text-gray-600">Телефон: {doctor.phone}</p>}
+                </div>
+              </div>
+              <div className="flex space-x-2">
+                <button
+                  onClick={() => handleEditDoctor(doctor)}
+                  className="text-blue-600 hover:text-blue-800 p-1"
+                >
+                  ✏️
+                </button>
+                <button
+                  onClick={() => handleDeleteDoctor(doctor.id)}
+                  className="text-red-600 hover:text-red-800 p-1"
+                >
+                  🗑️
+                </button>
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+
   return (
-    <div className="App">
-      <BrowserRouter>
-        <Routes>
-          <Route path="/" element={<Home />}>
-            <Route index element={<Home />} />
-          </Route>
-        </Routes>
-      </BrowserRouter>
+    <div className="min-h-screen bg-gray-50">
+      {/* Header */}
+      <header className="bg-white shadow-sm border-b">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex justify-between items-center py-6">
+            <h1 className="text-3xl font-bold text-gray-900">Система управления клиникой</h1>
+          </div>
+        </div>
+      </header>
+
+      {/* Navigation */}
+      <nav className="bg-white shadow-sm">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex space-x-8 py-4">
+            {[
+              { key: 'schedule', label: 'Расписание' },
+              { key: 'patients', label: 'Пациенты' },
+              { key: 'doctors', label: 'Врачи' }
+            ].map(tab => (
+              <button
+                key={tab.key}
+                onClick={() => setActiveTab(tab.key)}
+                className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+                  activeTab === tab.key
+                    ? 'bg-blue-100 text-blue-700'
+                    : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
+                }`}
+              >
+                {tab.label}
+              </button>
+            ))}
+          </div>
+        </div>
+      </nav>
+
+      {/* Main Content */}
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {activeTab === 'schedule' && renderSchedule()}
+        {activeTab === 'patients' && renderPatients()}
+        {activeTab === 'doctors' && renderDoctors()}
+      </main>
+
+      {/* Patient Modal */}
+      {showPatientModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 w-full max-w-md mx-4">
+            <h3 className="text-lg font-semibold mb-4">
+              {editingItem ? 'Редактировать пациента' : 'Новый пациент'}
+            </h3>
+            <form onSubmit={handleSavePatient} className="space-y-4">
+              <input
+                type="text"
+                placeholder="ФИО"
+                value={patientForm.full_name}
+                onChange={(e) => setPatientForm({...patientForm, full_name: e.target.value})}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                required
+              />
+              <input
+                type="tel"
+                placeholder="Телефон"
+                value={patientForm.phone}
+                onChange={(e) => setPatientForm({...patientForm, phone: e.target.value})}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                required
+              />
+              <input
+                type="text"
+                placeholder="ИИН (опционально)"
+                value={patientForm.iin}
+                onChange={(e) => setPatientForm({...patientForm, iin: e.target.value})}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+              />
+              <select
+                value={patientForm.source}
+                onChange={(e) => setPatientForm({...patientForm, source: e.target.value})}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+              >
+                {Object.entries(sourceConfig).map(([value, label]) => (
+                  <option key={value} value={value}>{label}</option>
+                ))}
+              </select>
+              <textarea
+                placeholder="Заметки"
+                value={patientForm.notes}
+                onChange={(e) => setPatientForm({...patientForm, notes: e.target.value})}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                rows="3"
+              />
+              <div className="flex space-x-3">
+                <button
+                  type="submit"
+                  disabled={loading}
+                  className="flex-1 bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700 disabled:opacity-50"
+                >
+                  {loading ? 'Сохранение...' : 'Сохранить'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowPatientModal(false);
+                    setEditingItem(null);
+                    setPatientForm({ full_name: '', phone: '', iin: '', source: 'other', notes: '' });
+                  }}
+                  className="flex-1 bg-gray-300 text-gray-700 py-2 rounded-lg hover:bg-gray-400"
+                >
+                  Отмена
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Doctor Modal */}
+      {showDoctorModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 w-full max-w-md mx-4">
+            <h3 className="text-lg font-semibold mb-4">
+              {editingItem ? 'Редактировать врача' : 'Новый врач'}
+            </h3>
+            <form onSubmit={handleSaveDoctor} className="space-y-4">
+              <input
+                type="text"
+                placeholder="ФИО"
+                value={doctorForm.full_name}
+                onChange={(e) => setDoctorForm({...doctorForm, full_name: e.target.value})}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                required
+              />
+              <input
+                type="text"
+                placeholder="Специальность"
+                value={doctorForm.specialty}
+                onChange={(e) => setDoctorForm({...doctorForm, specialty: e.target.value})}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                required
+              />
+              <input
+                type="tel"
+                placeholder="Телефон (опционально)"
+                value={doctorForm.phone}
+                onChange={(e) => setDoctorForm({...doctorForm, phone: e.target.value})}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+              />
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Цвет календаря</label>
+                <input
+                  type="color"
+                  value={doctorForm.calendar_color}
+                  onChange={(e) => setDoctorForm({...doctorForm, calendar_color: e.target.value})}
+                  className="w-full h-10 border border-gray-300 rounded-lg"
+                />
+              </div>
+              <div className="flex space-x-3">
+                <button
+                  type="submit"
+                  disabled={loading}
+                  className="flex-1 bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700 disabled:opacity-50"
+                >
+                  {loading ? 'Сохранение...' : 'Сохранить'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowDoctorModal(false);
+                    setEditingItem(null);
+                    setDoctorForm({ full_name: '', specialty: '', phone: '', calendar_color: '#3B82F6' });
+                  }}
+                  className="flex-1 bg-gray-300 text-gray-700 py-2 rounded-lg hover:bg-gray-400"
+                >
+                  Отмена
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Appointment Modal */}
+      {showAppointmentModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 w-full max-w-md mx-4">
+            <h3 className="text-lg font-semibold mb-4">
+              {editingItem ? 'Редактировать запись' : 'Новая запись'}
+            </h3>
+            <form onSubmit={handleSaveAppointment} className="space-y-4">
+              <select
+                value={appointmentForm.patient_id}
+                onChange={(e) => setAppointmentForm({...appointmentForm, patient_id: e.target.value})}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                required
+              >
+                <option value="">Выберите пациента</option>
+                {patients.map(patient => (
+                  <option key={patient.id} value={patient.id}>{patient.full_name}</option>
+                ))}
+              </select>
+              <select
+                value={appointmentForm.doctor_id}
+                onChange={(e) => setAppointmentForm({...appointmentForm, doctor_id: e.target.value})}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                required
+              >
+                <option value="">Выберите врача</option>
+                {doctors.map(doctor => (
+                  <option key={doctor.id} value={doctor.id}>{doctor.full_name} - {doctor.specialty}</option>
+                ))}
+              </select>
+              <input
+                type="date"
+                value={appointmentForm.appointment_date}
+                onChange={(e) => setAppointmentForm({...appointmentForm, appointment_date: e.target.value})}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                required
+              />
+              <input
+                type="time"
+                value={appointmentForm.appointment_time}
+                onChange={(e) => setAppointmentForm({...appointmentForm, appointment_time: e.target.value})}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                required
+              />
+              <input
+                type="text"
+                placeholder="Причина обращения"
+                value={appointmentForm.reason}
+                onChange={(e) => setAppointmentForm({...appointmentForm, reason: e.target.value})}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+              />
+              <textarea
+                placeholder="Заметки"
+                value={appointmentForm.notes}
+                onChange={(e) => setAppointmentForm({...appointmentForm, notes: e.target.value})}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                rows="3"
+              />
+              <div className="flex space-x-3">
+                <button
+                  type="submit"
+                  disabled={loading}
+                  className="flex-1 bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700 disabled:opacity-50"
+                >
+                  {loading ? 'Сохранение...' : 'Сохранить'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowAppointmentModal(false);
+                    setEditingItem(null);
+                    setAppointmentForm({ patient_id: '', doctor_id: '', appointment_date: '', appointment_time: '', reason: '', notes: '' });
+                  }}
+                  className="flex-1 bg-gray-300 text-gray-700 py-2 rounded-lg hover:bg-gray-400"
+                >
+                  Отмена
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
