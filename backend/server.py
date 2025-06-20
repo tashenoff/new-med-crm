@@ -60,6 +60,20 @@ class PatientSource(str, Enum):
     SOCIAL_MEDIA = "social_media"
     OTHER = "other"
 
+class EntryType(str, Enum):
+    VISIT = "visit"          # Запись о приеме
+    DIAGNOSIS = "diagnosis"  # Диагноз
+    TREATMENT = "treatment"  # Лечение
+    MEDICATION = "medication" # Назначение лекарств
+    ALLERGY = "allergy"      # Аллергия
+    NOTE = "note"           # Заметка врача
+
+class SeverityLevel(str, Enum):
+    LOW = "low"
+    MEDIUM = "medium"
+    HIGH = "high"
+    CRITICAL = "critical"
+
 # Auth Models
 class User(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
