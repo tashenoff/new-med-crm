@@ -333,6 +333,68 @@ class ClinicAPITester:
                     success = False
         return success
 
+    def test_date_range_appointments(self):
+        """Test appointments with date range (±7 days)"""
+        # Get dates for ±7 days range
+        today = datetime.now()
+        seven_days_ago = (today - timedelta(days=7)).strftime("%Y-%m-%d")
+        seven_days_from_now = (today + timedelta(days=7)).strftime("%Y-%m-%d")
+        
+        success, response = self.run_test(
+            "Get Appointments with ±7 days range",
+            "GET",
+            "appointments",
+            200,
+            params={"date_from": seven_days_ago, "date_to": seven_days_from_now}
+        )
+        
+        if success and response:
+            print(f"Found {len(response)} appointments in ±7 days range")
+            
+            # Check if appointments are sorted by date and time
+            if len(response) > 1:
+                is_sorted = True
+                for i in range(len(response) - 1):
+                    curr_date = response[i]["appointment_date"]
+                    next_date = response[i+1]["appointment_date"]
+                    
+                    if curr_date > next_date:
+                        is_sorted = False
+                        break
+                    elif curr_date == next_date:
+                        curr_time = response[i]["appointment_time"]
+                        next_time = response[i+1]["appointment_time"]
+                        if curr_time > next_time:
+                            is_sorted = False
+                            break
+                
+                if is_sorted:
+                    print("✅ Appointments are correctly sorted by date and time")
+                else:
+                    print("❌ Appointments are not correctly sorted by date and time")
+                    success = False
+        
+        return success
+
+    def test_archive_appointment(self, appointment_id):
+        """Test archiving an appointment (setting status to cancelled)"""
+        success, response = self.run_test(
+            "Archive Appointment",
+            "PUT",
+            f"appointments/{appointment_id}",
+            200,
+            data={"status": "cancelled"}
+        )
+        
+        if success and response:
+            if response["status"] == "cancelled":
+                print("✅ Appointment successfully archived (status set to cancelled)")
+            else:
+                print(f"❌ Appointment archiving failed: expected status 'cancelled', got '{response['status']}'")
+                success = False
+        
+        return success
+
 def test_date_range_appointments(self):
     """Test appointments with date range (±7 days)"""
     # Get dates for ±7 days range
