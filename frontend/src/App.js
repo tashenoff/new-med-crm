@@ -233,10 +233,29 @@ function App() {
     }
   };
 
-  // Get today's appointments for schedule view
-  const todayAppointments = appointments.filter(apt => 
-    apt.appointment_date === new Date().toISOString().split('T')[0]
-  ).sort((a, b) => a.appointment_time.localeCompare(b.appointment_time));
+  // Get appointments for schedule view (show last 7 days and next 7 days)
+  const getScheduleAppointments = () => {
+    const today = new Date();
+    const sevenDaysAgo = new Date(today);
+    sevenDaysAgo.setDate(today.getDate() - 7);
+    const sevenDaysFromNow = new Date(today);
+    sevenDaysFromNow.setDate(today.getDate() + 7);
+    
+    const fromDate = sevenDaysAgo.toISOString().split('T')[0];
+    const toDate = sevenDaysFromNow.toISOString().split('T')[0];
+    
+    return appointments.filter(apt => 
+      apt.appointment_date >= fromDate && apt.appointment_date <= toDate
+    ).sort((a, b) => {
+      // Sort by date first, then by time
+      if (a.appointment_date !== b.appointment_date) {
+        return a.appointment_date.localeCompare(b.appointment_date);
+      }
+      return a.appointment_time.localeCompare(b.appointment_time);
+    });
+  };
+
+  const scheduleAppointments = getScheduleAppointments();
 
   const renderSchedule = () => (
     <div className="space-y-6">
