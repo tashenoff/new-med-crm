@@ -186,6 +186,10 @@ function App() {
         console.log('Deactivating doctor:', id);
         const response = await axios.delete(`${API}/doctors/${id}`);
         console.log('Deactivate doctor response:', response.data);
+        
+        // Update doctors state immediately (remove deactivated doctor)
+        setDoctors(prevDoctors => prevDoctors.filter(doctor => doctor.id !== id));
+        
         await fetchDoctors();
         console.log('Doctors refreshed after deactivation');
       } catch (error) {
