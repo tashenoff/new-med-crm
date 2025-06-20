@@ -626,10 +626,10 @@ function ClinicApp() {
 
   // Drag and drop handlers
   const handleDragStart = (e, appointment) => {
+    console.log('Drag started:', appointment);
     setDraggedAppointment(appointment);
     e.dataTransfer.effectAllowed = 'move';
     e.dataTransfer.setData('text/html', e.target.outerHTML);
-    e.dataTransfer.setDragImage(e.target, 0, 0);
   };
 
   const handleDragOver = (e) => {
@@ -639,8 +639,12 @@ function ClinicApp() {
 
   const handleDrop = async (e, doctorId, date, time) => {
     e.preventDefault();
+    console.log('Drop event:', { doctorId, date, time, draggedAppointment });
     
-    if (!draggedAppointment) return;
+    if (!draggedAppointment) {
+      console.log('No dragged appointment');
+      return;
+    }
 
     // Don't drop on the same slot
     if (
@@ -648,11 +652,22 @@ function ClinicApp() {
       draggedAppointment.appointment_date === date &&
       draggedAppointment.appointment_time === time
     ) {
+      console.log('Dropping on same slot, ignoring');
+      setDraggedAppointment(null);
+      return;
+    }
+
+    // Check if target slot is occupied
+    const targetAppointment = getAppointmentForSlot(doctorId, date, time);
+    if (targetAppointment) {
+      console.log('Target slot occupied');
+      setErrorMessage('Время уже занято другой записью');
       setDraggedAppointment(null);
       return;
     }
 
     try {
+      console.log('Moving appointment to new slot');
       // Update appointment with new date/time/doctor
       await axios.put(`${API}/appointments/${draggedAppointment.id}`, {
         doctor_id: doctorId,
@@ -663,6 +678,7 @@ function ClinicApp() {
       // Refresh appointments
       await fetchAppointments();
       setDraggedAppointment(null);
+      console.log('Appointment moved successfully');
     } catch (error) {
       console.error('Error moving appointment:', error);
       setErrorMessage(error.response?.data?.detail || 'Ошибка при перемещении записи');
