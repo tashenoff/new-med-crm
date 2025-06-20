@@ -866,6 +866,8 @@ function ClinicApp() {
   const canManageDoctors = user?.role === 'admin';
   const canCreateAppointments = true; // All users can create appointments
 
+  );
+
   const renderSchedule = () => (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
