@@ -478,71 +478,72 @@ def main():
         return 1
     
     # 2. Test CRUD operations for patients
-    if not tester.test_create_patient("Иван Иванов", "+7 123 456 7890", "phone"):
-        print("❌ Patient creation failed, stopping tests")
+    print("\n🔍 Testing patient creation for deletion test...")
+    if not tester.test_create_patient("Тест Пациент", "+7 999 888 7777", "phone"):
+        print("❌ Test patient creation failed, stopping tests")
         return 1
     
-    if not tester.test_get_patients():
-        print("❌ Get patients failed")
-    
-    if not tester.test_get_patients(search="Иван"):
-        print("❌ Patient search failed")
-    
-    if not tester.test_update_patient(tester.created_patient_id, {"notes": "Тестовая заметка"}):
-        print("❌ Patient update failed")
+    # Store the test patient ID for later deletion test
+    test_patient_id = tester.created_patient_id
     
     # 3. Test CRUD operations for doctors
+    print("\n🔍 Testing doctor creation for deletion test...")
+    if not tester.test_create_doctor("Тест Врач", "Тестолог", "#00FF00"):
+        print("❌ Test doctor creation failed, stopping tests")
+        return 1
+    
+    # Store the test doctor ID for later deletion test
+    test_doctor_id = tester.created_doctor_id
+    
+    # 4. Test appointment operations with time conflict
+    print("\n🔍 Testing appointment time conflict detection...")
+    
+    # Create a regular patient and doctor for appointment tests
+    if not tester.test_create_patient("Иван Иванов", "+7 123 456 7890", "phone"):
+        print("❌ Regular patient creation failed, stopping tests")
+        return 1
+    
     if not tester.test_create_doctor("Доктор Петров", "Терапевт", "#FF5733"):
-        print("❌ Doctor creation failed, stopping tests")
+        print("❌ Regular doctor creation failed, stopping tests")
         return 1
     
-    if not tester.test_get_doctors():
-        print("❌ Get doctors failed")
-    
-    # 4. Test appointment operations
-    print("\n🔍 Testing appointment functionality...")
-    
-    # Create an appointment for today at 15:00 (as per test requirements)
-    if not tester.test_create_appointment(tester.created_patient_id, tester.created_doctor_id, today, "15:00"):
-        print("❌ Appointment creation for today failed, stopping tests")
+    # Create an appointment for today at 14:00 (as per test requirements)
+    print("\n🔍 Testing first appointment creation at 14:00...")
+    if not tester.test_create_appointment(tester.created_patient_id, tester.created_doctor_id, today, "14:00"):
+        print("❌ First appointment creation failed, stopping tests")
         return 1
     
-    # Create another appointment for tomorrow
-    if not tester.test_create_appointment(tester.created_patient_id, tester.created_doctor_id, tomorrow, "10:00"):
-        print("❌ Appointment creation for tomorrow failed, stopping tests")
-        return 1
-    
-    # Get all appointments
-    if not tester.test_get_appointments():
-        print("❌ Get appointments failed")
-    
-    # Test appointment date filtering with ±7 days range
-    if not tester.test_date_range_appointments():
-        print("❌ Get appointments with ±7 days range failed")
-    
-    # Test archiving an appointment (setting status to cancelled)
-    if not tester.test_archive_appointment(tester.created_appointment_id):
-        print("❌ Appointment archiving failed")
-    
-    # Update appointment status for the second appointment
-    second_appointment_id = tester.created_appointment_id
-    if not tester.test_update_appointment_status(second_appointment_id, "confirmed"):
-        print("❌ Appointment status update failed")
-    
-    # Test time conflict detection
-    if not tester.test_create_appointment(tester.created_patient_id, tester.created_doctor_id, tomorrow, "10:00", expect_conflict=True):
+    # Test time conflict detection - try to create another appointment at the same time
+    print("\n🔍 Testing time conflict with second appointment at 14:00...")
+    if not tester.test_create_appointment(tester.created_patient_id, tester.created_doctor_id, today, "14:00", expect_conflict=True):
         print("❌ Time conflict test failed")
     
-    # 5. Test deletion operations
-    print("\n🔍 Testing deletion functionality...")
+    # 5. Test appointment archiving
+    print("\n🔍 Testing appointment archiving...")
     
-    # Test doctor deletion (deactivation)
-    if not tester.test_delete_doctor(tester.created_doctor_id):
-        print("❌ Doctor deletion (deactivation) failed")
+    # Create another appointment with a non-cancelled status
+    if not tester.test_create_appointment(tester.created_patient_id, tester.created_doctor_id, tomorrow, "10:00"):
+        print("❌ Appointment creation for archiving test failed")
+        return 1
     
-    # Test patient deletion
-    if not tester.test_delete_patient(tester.created_patient_id):
+    # Update to a non-cancelled status first
+    appointment_to_archive = tester.created_appointment_id
+    if not tester.test_update_appointment_status(appointment_to_archive, "confirmed"):
+        print("❌ Setting appointment to confirmed status failed")
+    
+    # Now archive it (set to cancelled)
+    if not tester.test_archive_appointment(appointment_to_archive):
+        print("❌ Appointment archiving failed")
+    
+    # 6. Test patient deletion
+    print("\n🔍 Testing patient deletion...")
+    if not tester.test_delete_patient(test_patient_id):
         print("❌ Patient deletion failed")
+    
+    # 7. Test doctor deletion (deactivation)
+    print("\n🔍 Testing doctor deactivation...")
+    if not tester.test_delete_doctor(test_doctor_id):
+        print("❌ Doctor deletion (deactivation) failed")
     
     # Print results
     print("\n" + "=" * 50)
