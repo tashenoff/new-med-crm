@@ -1,15 +1,18 @@
-from fastapi import FastAPI, APIRouter, HTTPException
+from fastapi import FastAPI, APIRouter, HTTPException, Depends, status
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from dotenv import load_dotenv
 from starlette.middleware.cors import CORSMiddleware
 from motor.motor_asyncio import AsyncIOMotorClient
 import os
 import logging
 from pathlib import Path
-from pydantic import BaseModel, Field
-from typing import List, Optional
+from pydantic import BaseModel, Field, EmailStr
+from typing import List, Optional, Union
 import uuid
-from datetime import datetime
+from datetime import datetime, timedelta
 from enum import Enum
+from passlib.context import CryptContext
+from jose import JWTError, jwt
 
 
 ROOT_DIR = Path(__file__).parent
@@ -20,6 +23,14 @@ mongo_url = os.environ['MONGO_URL']
 client = AsyncIOMotorClient(mongo_url)
 db = client[os.environ['DB_NAME']]
 
+# Security
+SECRET_KEY = os.environ.get("SECRET_KEY", "fallback-secret-key")
+ALGORITHM = os.environ.get("ALGORITHM", "HS256")
+ACCESS_TOKEN_EXPIRE_MINUTES = int(os.environ.get("ACCESS_TOKEN_EXPIRE_MINUTES", "30"))
+
+pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+security = HTTPBearer()
+
 # Create the main app without a prefix
 app = FastAPI()
 
@@ -27,6 +38,11 @@ app = FastAPI()
 api_router = APIRouter(prefix="/api")
 
 # Enums
+class UserRole(str, Enum):
+    ADMIN = "admin"
+    DOCTOR = "doctor"
+    PATIENT = "patient"
+
 class AppointmentStatus(str, Enum):
     UNCONFIRMED = "unconfirmed"       # Не подтверждено - желтый
     CONFIRMED = "confirmed"           # Подтверждено - зеленый
@@ -44,7 +60,41 @@ class PatientSource(str, Enum):
     SOCIAL_MEDIA = "social_media"
     OTHER = "other"
 
-# Models
+# Auth Models
+class User(BaseModel):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    email: EmailStr
+    full_name: str
+    role: UserRole
+    is_active: bool = True
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_at: datetime = Field(default_factory=datetime.utcnow)
+    # Optional reference fields
+    doctor_id: Optional[str] = None  # If role is doctor
+    patient_id: Optional[str] = None  # If role is patient
+
+class UserInDB(User):
+    hashed_password: str
+
+class UserCreate(BaseModel):
+    email: EmailStr
+    password: str
+    full_name: str
+    role: UserRole = UserRole.PATIENT
+
+class UserLogin(BaseModel):
+    email: EmailStr
+    password: str
+
+class Token(BaseModel):
+    access_token: str
+    token_type: str
+    user: User
+
+class TokenData(BaseModel):
+    email: Optional[str] = None
+
+# Existing Models (updated to link with users)
 class Patient(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     full_name: str
@@ -52,6 +102,7 @@ class Patient(BaseModel):
     iin: Optional[str] = None  # ИИН (Individual Identification Number)
     source: PatientSource = PatientSource.OTHER
     notes: Optional[str] = None
+    user_id: Optional[str] = None  # Link to User if patient has account
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)
 
@@ -61,6 +112,7 @@ class PatientCreate(BaseModel):
     iin: Optional[str] = None
     source: PatientSource = PatientSource.OTHER
     notes: Optional[str] = None
+    user_id: Optional[str] = None
 
 class PatientUpdate(BaseModel):
     full_name: Optional[str] = None
@@ -76,6 +128,7 @@ class Doctor(BaseModel):
     phone: Optional[str] = None
     calendar_color: str = "#3B82F6"  # Default blue color
     is_active: bool = True
+    user_id: Optional[str] = None  # Link to User if doctor has account
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)
 
@@ -84,6 +137,7 @@ class DoctorCreate(BaseModel):
     specialty: str
     phone: Optional[str] = None
     calendar_color: str = "#3B82F6"
+    user_id: Optional[str] = None
 
 class DoctorUpdate(BaseModel):
     full_name: Optional[str] = None
@@ -137,21 +191,151 @@ class AppointmentWithDetails(BaseModel):
     created_at: datetime
     updated_at: datetime
 
+# Auth utility functions
+def verify_password(plain_password, hashed_password):
+    return pwd_context.verify(plain_password, hashed_password)
+
+def get_password_hash(password):
+    return pwd_context.hash(password)
+
+def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):
+    to_encode = data.copy()
+    if expires_delta:
+        expire = datetime.utcnow() + expires_delta
+    else:
+        expire = datetime.utcnow() + timedelta(minutes=15)
+    to_encode.update({"exp": expire})
+    encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
+    return encoded_jwt
+
+async def get_user_by_email(email: str):
+    user = await db.users.find_one({"email": email})
+    if user:
+        return UserInDB(**user)
+    return None
+
+async def authenticate_user(email: str, password: str):
+    user = await get_user_by_email(email)
+    if not user:
+        return False
+    if not verify_password(password, user.hashed_password):
+        return False
+    return user
+
+async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(security)):
+    credentials_exception = HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="Could not validate credentials",
+        headers={"WWW-Authenticate": "Bearer"},
+    )
+    try:
+        token = credentials.credentials
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        email: str = payload.get("sub")
+        if email is None:
+            raise credentials_exception
+        token_data = TokenData(email=email)
+    except JWTError:
+        raise credentials_exception
+    
+    user = await get_user_by_email(email=token_data.email)
+    if user is None:
+        raise credentials_exception
+    return user
+
+async def get_current_active_user(current_user: UserInDB = Depends(get_current_user)):
+    if not current_user.is_active:
+        raise HTTPException(status_code=400, detail="Inactive user")
+    return current_user
+
+def require_role(allowed_roles: List[UserRole]):
+    def role_checker(current_user: UserInDB = Depends(get_current_active_user)):
+        if current_user.role not in allowed_roles:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Not enough permissions"
+            )
+        return current_user
+    return role_checker
+
+# Auth endpoints
+@api_router.post("/auth/register", response_model=Token)
+async def register(user: UserCreate):
+    # Check if user already exists
+    existing_user = await get_user_by_email(user.email)
+    if existing_user:
+        raise HTTPException(
+            status_code=400,
+            detail="Email already registered"
+        )
+    
+    # Hash password
+    hashed_password = get_password_hash(user.password)
+    
+    # Create user
+    user_dict = user.dict()
+    user_dict.pop("password")
+    user_dict["hashed_password"] = hashed_password
+    user_obj = UserInDB(**user_dict)
+    
+    await db.users.insert_one(user_obj.dict())
+    
+    # Create access token
+    access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+    access_token = create_access_token(
+        data={"sub": user_obj.email}, expires_delta=access_token_expires
+    )
+    
+    # Convert to public user model
+    public_user = User(**{k: v for k, v in user_obj.dict().items() if k != "hashed_password"})
+    
+    return {"access_token": access_token, "token_type": "bearer", "user": public_user}
+
+@api_router.post("/auth/login", response_model=Token)
+async def login(form_data: UserLogin):
+    user = await authenticate_user(form_data.email, form_data.password)
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Incorrect email or password",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+    access_token = create_access_token(
+        data={"sub": user.email}, expires_delta=access_token_expires
+    )
+    
+    # Convert to public user model
+    public_user = User(**{k: v for k, v in user.dict().items() if k != "hashed_password"})
+    
+    return {"access_token": access_token, "token_type": "bearer", "user": public_user}
+
+@api_router.get("/auth/me", response_model=User)
+async def read_users_me(current_user: UserInDB = Depends(get_current_active_user)):
+    # Convert to public user model
+    return User(**{k: v for k, v in current_user.dict().items() if k != "hashed_password"})
+
 # Root endpoint
 @api_router.get("/")
 async def root():
-    return {"message": "Clinic Management System API"}
+    return {"message": "Clinic Management System API with Authentication"}
 
-# Patient endpoints
+# Protected Patient endpoints
 @api_router.post("/patients", response_model=Patient)
-async def create_patient(patient: PatientCreate):
+async def create_patient(
+    patient: PatientCreate,
+    current_user: UserInDB = Depends(require_role([UserRole.ADMIN, UserRole.DOCTOR]))
+):
     patient_dict = patient.dict()
     patient_obj = Patient(**patient_dict)
     await db.patients.insert_one(patient_obj.dict())
     return patient_obj
 
 @api_router.get("/patients", response_model=List[Patient])
-async def get_patients(search: Optional[str] = None):
+async def get_patients(
+    search: Optional[str] = None,
+    current_user: UserInDB = Depends(require_role([UserRole.ADMIN, UserRole.DOCTOR]))
+):
     query = {}
     if search:
         query = {
@@ -166,14 +350,25 @@ async def get_patients(search: Optional[str] = None):
     return [Patient(**patient) for patient in patients]
 
 @api_router.get("/patients/{patient_id}", response_model=Patient)
-async def get_patient(patient_id: str):
+async def get_patient(
+    patient_id: str,
+    current_user: UserInDB = Depends(get_current_active_user)
+):
+    # Patients can only see their own data, doctors and admins can see any
+    if current_user.role == UserRole.PATIENT and current_user.patient_id != patient_id:
+        raise HTTPException(status_code=403, detail="Access denied")
+    
     patient = await db.patients.find_one({"id": patient_id})
     if not patient:
         raise HTTPException(status_code=404, detail="Patient not found")
     return Patient(**patient)
 
 @api_router.put("/patients/{patient_id}", response_model=Patient)
-async def update_patient(patient_id: str, patient_update: PatientUpdate):
+async def update_patient(
+    patient_id: str,
+    patient_update: PatientUpdate,
+    current_user: UserInDB = Depends(require_role([UserRole.ADMIN, UserRole.DOCTOR]))
+):
     update_dict = {k: v for k, v in patient_update.dict().items() if v is not None}
     update_dict["updated_at"] = datetime.utcnow()
     
@@ -189,34 +384,47 @@ async def update_patient(patient_id: str, patient_update: PatientUpdate):
     return Patient(**updated_patient)
 
 @api_router.delete("/patients/{patient_id}")
-async def delete_patient(patient_id: str):
+async def delete_patient(
+    patient_id: str,
+    current_user: UserInDB = Depends(require_role([UserRole.ADMIN]))
+):
     result = await db.patients.delete_one({"id": patient_id})
     if result.deleted_count == 0:
         raise HTTPException(status_code=404, detail="Patient not found")
     return {"message": "Patient deleted successfully"}
 
-# Doctor endpoints
+# Protected Doctor endpoints
 @api_router.post("/doctors", response_model=Doctor)
-async def create_doctor(doctor: DoctorCreate):
+async def create_doctor(
+    doctor: DoctorCreate,
+    current_user: UserInDB = Depends(require_role([UserRole.ADMIN]))
+):
     doctor_dict = doctor.dict()
     doctor_obj = Doctor(**doctor_dict)
     await db.doctors.insert_one(doctor_obj.dict())
     return doctor_obj
 
 @api_router.get("/doctors", response_model=List[Doctor])
-async def get_doctors():
+async def get_doctors(current_user: UserInDB = Depends(get_current_active_user)):
     doctors = await db.doctors.find({"is_active": True}).sort("full_name", 1).to_list(1000)
     return [Doctor(**doctor) for doctor in doctors]
 
 @api_router.get("/doctors/{doctor_id}", response_model=Doctor)
-async def get_doctor(doctor_id: str):
+async def get_doctor(
+    doctor_id: str,
+    current_user: UserInDB = Depends(get_current_active_user)
+):
     doctor = await db.doctors.find_one({"id": doctor_id})
     if not doctor:
         raise HTTPException(status_code=404, detail="Doctor not found")
     return Doctor(**doctor)
 
 @api_router.put("/doctors/{doctor_id}", response_model=Doctor)
-async def update_doctor(doctor_id: str, doctor_update: DoctorUpdate):
+async def update_doctor(
+    doctor_id: str,
+    doctor_update: DoctorUpdate,
+    current_user: UserInDB = Depends(require_role([UserRole.ADMIN]))
+):
     update_dict = {k: v for k, v in doctor_update.dict().items() if v is not None}
     update_dict["updated_at"] = datetime.utcnow()
     
@@ -232,7 +440,10 @@ async def update_doctor(doctor_id: str, doctor_update: DoctorUpdate):
     return Doctor(**updated_doctor)
 
 @api_router.delete("/doctors/{doctor_id}")
-async def delete_doctor(doctor_id: str):
+async def delete_doctor(
+    doctor_id: str,
+    current_user: UserInDB = Depends(require_role([UserRole.ADMIN]))
+):
     # Soft delete - mark as inactive
     result = await db.doctors.update_one(
         {"id": doctor_id}, 
@@ -242,9 +453,12 @@ async def delete_doctor(doctor_id: str):
         raise HTTPException(status_code=404, detail="Doctor not found")
     return {"message": "Doctor deactivated successfully"}
 
-# Appointment endpoints
+# Protected Appointment endpoints
 @api_router.post("/appointments", response_model=Appointment)
-async def create_appointment(appointment: AppointmentCreate):
+async def create_appointment(
+    appointment: AppointmentCreate,
+    current_user: UserInDB = Depends(get_current_active_user)
+):
     # Check if patient exists
     patient = await db.patients.find_one({"id": appointment.patient_id})
     if not patient:
@@ -254,6 +468,10 @@ async def create_appointment(appointment: AppointmentCreate):
     doctor = await db.doctors.find_one({"id": appointment.doctor_id})
     if not doctor:
         raise HTTPException(status_code=404, detail="Doctor not found")
+    
+    # Patients can only create appointments for themselves
+    if current_user.role == UserRole.PATIENT and current_user.patient_id != appointment.patient_id:
+        raise HTTPException(status_code=403, detail="You can only create appointments for yourself")
     
     # Check for time conflicts
     print(f"Checking conflicts for doctor {appointment.doctor_id} on {appointment.appointment_date} at {appointment.appointment_time}")
@@ -270,14 +488,24 @@ async def create_appointment(appointment: AppointmentCreate):
         raise HTTPException(status_code=400, detail="Time slot already booked")
     
     appointment_dict = appointment.dict()
-    # No need to convert date since it's already a string
     appointment_obj = Appointment(**appointment_dict)
     await db.appointments.insert_one(appointment_obj.dict())
     return appointment_obj
 
 @api_router.get("/appointments", response_model=List[AppointmentWithDetails])
-async def get_appointments(date_from: Optional[str] = None, date_to: Optional[str] = None):
+async def get_appointments(
+    date_from: Optional[str] = None, 
+    date_to: Optional[str] = None,
+    current_user: UserInDB = Depends(get_current_active_user)
+):
     query = {}
+    
+    # Role-based filtering
+    if current_user.role == UserRole.PATIENT:
+        query["patient_id"] = current_user.patient_id
+    elif current_user.role == UserRole.DOCTOR:
+        query["doctor_id"] = current_user.doctor_id
+    # Admins can see all appointments
     
     if date_from or date_to:
         date_query = {}
@@ -334,7 +562,10 @@ async def get_appointments(date_from: Optional[str] = None, date_to: Optional[st
     return [AppointmentWithDetails(**appointment) for appointment in appointments]
 
 @api_router.get("/appointments/{appointment_id}", response_model=AppointmentWithDetails)
-async def get_appointment(appointment_id: str):
+async def get_appointment(
+    appointment_id: str,
+    current_user: UserInDB = Depends(get_current_active_user)
+):
     pipeline = [
         {"$match": {"id": appointment_id}},
         {
@@ -380,18 +611,45 @@ async def get_appointment(appointment_id: str):
     if not appointments:
         raise HTTPException(status_code=404, detail="Appointment not found")
     
-    return AppointmentWithDetails(**appointments[0])
+    appointment = appointments[0]
+    
+    # Check access rights
+    if current_user.role == UserRole.PATIENT and current_user.patient_id != appointment["patient_id"]:
+        raise HTTPException(status_code=403, detail="Access denied")
+    elif current_user.role == UserRole.DOCTOR and current_user.doctor_id != appointment["doctor_id"]:
+        raise HTTPException(status_code=403, detail="Access denied")
+    
+    return AppointmentWithDetails(**appointment)
 
 @api_router.put("/appointments/{appointment_id}", response_model=Appointment)
-async def update_appointment(appointment_id: str, appointment_update: AppointmentUpdate):
+async def update_appointment(
+    appointment_id: str,
+    appointment_update: AppointmentUpdate,
+    current_user: UserInDB = Depends(get_current_active_user)
+):
     # Check if appointment exists
     existing = await db.appointments.find_one({"id": appointment_id})
     if not existing:
         raise HTTPException(status_code=404, detail="Appointment not found")
     
-    update_dict = {k: v for k, v in appointment_update.dict().items() if v is not None}
+    # Check access rights
+    if current_user.role == UserRole.PATIENT:
+        if current_user.patient_id != existing["patient_id"]:
+            raise HTTPException(status_code=403, detail="Access denied")
+        # Patients can only update limited fields
+        allowed_fields = {"reason", "notes"}
+        update_dict = {k: v for k, v in appointment_update.dict().items() 
+                      if v is not None and k in allowed_fields}
+    elif current_user.role == UserRole.DOCTOR:
+        if current_user.doctor_id != existing["doctor_id"]:
+            raise HTTPException(status_code=403, detail="Access denied")
+        # Doctors can update more fields but not reassign to other doctors
+        update_dict = {k: v for k, v in appointment_update.dict().items() if v is not None}
+        if "doctor_id" in update_dict and update_dict["doctor_id"] != current_user.doctor_id:
+            del update_dict["doctor_id"]  # Don't allow doctors to reassign appointments
+    else:  # Admin
+        update_dict = {k: v for k, v in appointment_update.dict().items() if v is not None}
     
-    # No need to convert date since it's already a string
     update_dict["updated_at"] = datetime.utcnow()
     
     # Check for time conflicts if updating time/date
@@ -420,7 +678,10 @@ async def update_appointment(appointment_id: str, appointment_update: Appointmen
     return Appointment(**updated_appointment)
 
 @api_router.delete("/appointments/{appointment_id}")
-async def delete_appointment(appointment_id: str):
+async def delete_appointment(
+    appointment_id: str,
+    current_user: UserInDB = Depends(require_role([UserRole.ADMIN]))
+):
     result = await db.appointments.delete_one({"id": appointment_id})
     if result.deleted_count == 0:
         raise HTTPException(status_code=404, detail="Appointment not found")
