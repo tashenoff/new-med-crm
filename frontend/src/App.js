@@ -752,6 +752,7 @@ function App() {
                   onClick={() => {
                     setShowAppointmentModal(false);
                     setEditingItem(null);
+                    setError(null);
                     setAppointmentForm({ patient_id: '', doctor_id: '', appointment_date: '', appointment_time: '', reason: '', notes: '' });
                   }}
                   className="flex-1 bg-gray-300 text-gray-700 py-2 rounded-lg hover:bg-gray-400"
