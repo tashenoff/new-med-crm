@@ -179,15 +179,17 @@ function App() {
     e.preventDefault();
     setLoading(true);
     try {
+      console.log('Saving appointment:', appointmentForm);
       if (editingItem) {
         await axios.put(`${API}/appointments/${editingItem.id}`, appointmentForm);
       } else {
-        await axios.post(`${API}/appointments`, appointmentForm);
+        const response = await axios.post(`${API}/appointments`, appointmentForm);
+        console.log('Appointment created:', response.data);
       }
       setShowAppointmentModal(false);
       setEditingItem(null);
       setAppointmentForm({ patient_id: '', doctor_id: '', appointment_date: '', appointment_time: '', reason: '', notes: '' });
-      fetchAppointments();
+      await fetchAppointments();
     } catch (error) {
       console.error('Error saving appointment:', error);
       alert(error.response?.data?.detail || 'Ошибка при сохранении записи');
