@@ -215,7 +215,7 @@ function App() {
       try {
         // Instead of deleting, we'll mark it as cancelled
         await axios.put(`${API}/appointments/${id}`, { status: 'cancelled' });
-        fetchAppointments();
+        await fetchAppointments();
       } catch (error) {
         console.error('Error archiving appointment:', error);
         alert('Ошибка при архивировании записи');
