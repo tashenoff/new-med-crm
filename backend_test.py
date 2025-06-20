@@ -55,16 +55,81 @@ class ClinicAPITester:
             print(f"❌ Failed - Error: {str(e)}")
             return False, None
 
-    def test_api_root(self):
-        """Test the API root endpoint"""
+    def test_register_user(self, email, password, full_name, role="patient"):
+        """Register a new user"""
         success, response = self.run_test(
-            "API Root",
+            f"Register {role} user",
+            "POST",
+            "auth/register",
+            200,
+            data={
+                "email": email,
+                "password": password,
+                "full_name": full_name,
+                "role": role
+            }
+        )
+        if success and response and "access_token" in response:
+            self.token = response["access_token"]
+            self.current_user = response["user"]
+            print(f"✅ Registered user: {full_name} ({role}) with email: {email}")
+            print(f"✅ Received token: {self.token[:10]}...")
+        return success
+
+    def test_login_user(self, email, password):
+        """Login a user"""
+        success, response = self.run_test(
+            "Login user",
+            "POST",
+            "auth/login",
+            200,
+            data={
+                "email": email,
+                "password": password
+            }
+        )
+        if success and response and "access_token" in response:
+            self.token = response["access_token"]
+            self.current_user = response["user"]
+            print(f"✅ Logged in user: {response['user']['full_name']} ({response['user']['role']})")
+            print(f"✅ Received token: {self.token[:10]}...")
+        return success
+
+    def test_get_current_user(self):
+        """Get current user info"""
+        success, response = self.run_test(
+            "Get current user",
             "GET",
-            "",
+            "auth/me",
             200
         )
-        if success and response and "message" in response:
-            print(f"API Message: {response['message']}")
+        if success and response and "email" in response:
+            print(f"✅ Current user: {response['full_name']} ({response['role']})")
+        return success
+
+    def test_logout(self):
+        """Logout (clear token)"""
+        self.token = None
+        self.current_user = None
+        print("✅ Logged out (token cleared)")
+        return True
+
+    def test_unauthorized_access(self, endpoint):
+        """Test unauthorized access to protected endpoint"""
+        # Save current token
+        saved_token = self.token
+        # Clear token
+        self.token = None
+        
+        success, _ = self.run_test(
+            f"Unauthorized access to {endpoint}",
+            "GET",
+            endpoint,
+            401  # Expect 401 Unauthorized
+        )
+        
+        # Restore token
+        self.token = saved_token
         return success
 
     def test_create_patient(self, full_name, phone, source):
