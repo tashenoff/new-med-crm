@@ -835,7 +835,84 @@ def main():
     else:
         print("✅ Time conflict detection is working correctly")
     
-    # 4. Additional tests to verify other functionality
+    # 4. TEST: Medical Records Functionality
+    print("\n" + "=" * 50)
+    print("TEST 4: MEDICAL RECORDS FUNCTIONALITY")
+    print("=" * 50)
+    
+    # Test creating a medical record
+    print("\n🔍 Testing medical record creation...")
+    if not tester.test_create_medical_record(test_patient_id, "A+", 175.0, 70.0):
+        print("❌ Medical record creation failed")
+        print("❌ ISSUE: Medical record creation is not working")
+    else:
+        print("✅ Medical record creation is working correctly")
+    
+    # Test retrieving a medical record
+    print("\n🔍 Testing medical record retrieval...")
+    if not tester.test_get_medical_record(test_patient_id):
+        print("❌ Medical record retrieval failed")
+        print("❌ ISSUE: Medical record retrieval is not working")
+    else:
+        print("✅ Medical record retrieval is working correctly")
+    
+    # Test creating a diagnosis
+    print("\n🔍 Testing diagnosis creation...")
+    if not tester.test_create_diagnosis(test_patient_id, "Гипертония", "I10", "Первичная артериальная гипертензия"):
+        print("❌ Diagnosis creation failed")
+        print("❌ ISSUE: Diagnosis creation is not working")
+    else:
+        print("✅ Diagnosis creation is working correctly")
+    
+    # Test retrieving diagnoses
+    print("\n🔍 Testing diagnoses retrieval...")
+    if not tester.test_get_diagnoses(test_patient_id):
+        print("❌ Diagnoses retrieval failed")
+        print("❌ ISSUE: Diagnoses retrieval is not working")
+    else:
+        print("✅ Diagnoses retrieval is working correctly")
+    
+    # Test creating a medication
+    print("\n🔍 Testing medication creation...")
+    if not tester.test_create_medication(test_patient_id, "Лизиноприл", "10 мг", "1 раз в день", "Принимать утром натощак"):
+        print("❌ Medication creation failed")
+        print("❌ ISSUE: Medication creation is not working")
+    else:
+        print("✅ Medication creation is working correctly")
+    
+    # Test retrieving medications
+    print("\n🔍 Testing medications retrieval...")
+    if not tester.test_get_medications(test_patient_id):
+        print("❌ Medications retrieval failed")
+        print("❌ ISSUE: Medications retrieval is not working")
+    else:
+        print("✅ Medications retrieval is working correctly")
+    
+    # Test creating an allergy
+    print("\n🔍 Testing allergy creation...")
+    if not tester.test_create_allergy(test_patient_id, "Пенициллин", "Кожная сыпь", "high"):
+        print("❌ Allergy creation failed")
+        print("❌ ISSUE: Allergy creation is not working")
+    else:
+        print("✅ Allergy creation is working correctly")
+    
+    # Test retrieving allergies
+    print("\n🔍 Testing allergies retrieval...")
+    if not tester.test_get_allergies(test_patient_id):
+        print("❌ Allergies retrieval failed")
+        print("❌ ISSUE: Allergies retrieval is not working")
+    else:
+        print("✅ Allergies retrieval is working correctly")
+    
+    # Test retrieving medical summary
+    print("\n🔍 Testing medical summary retrieval...")
+    if not tester.test_get_medical_summary(test_patient_id):
+        print("❌ Medical summary retrieval failed")
+        print("❌ ISSUE: Medical summary retrieval is not working")
+    else:
+        print("✅ Medical summary retrieval is working correctly")
+    
+    # 5. Additional tests to verify other functionality
     print("\n" + "=" * 50)
     print("ADDITIONAL FUNCTIONALITY TESTS")
     print("=" * 50)
