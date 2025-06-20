@@ -152,7 +152,7 @@ class ClinicAPITester:
             data={
                 "patient_id": patient_id,
                 "doctor_id": doctor_id,
-                "appointment_date": date,
+                "appointment_date": date,  # This should be a string in ISO format (YYYY-MM-DD)
                 "appointment_time": time
             }
         )
