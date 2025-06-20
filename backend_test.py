@@ -548,11 +548,11 @@ def main():
     print("TEST 1: USER REGISTRATION AND LOGIN")
     print("=" * 50)
     
-    # Register admin user
+    # Login as admin user (already exists)
     admin_email = "admin@test.com"
     admin_password = "test123"
-    if not tester.test_register_user(admin_email, admin_password, "Администратор Тест", "admin"):
-        print("❌ Admin registration failed")
+    if not tester.test_login_user(admin_email, admin_password):
+        print("❌ Admin login failed")
         return 1
     
     # Test getting current user
