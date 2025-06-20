@@ -209,13 +209,14 @@ function App() {
   };
 
   const handleDeleteAppointment = async (id) => {
-    if (window.confirm('Вы уверены, что хотите удалить эту запись?')) {
+    if (window.confirm('Вы уверены, что хотите переместить эту запись в архив?')) {
       try {
-        await axios.delete(`${API}/appointments/${id}`);
+        // Instead of deleting, we'll mark it as cancelled
+        await axios.put(`${API}/appointments/${id}`, { status: 'cancelled' });
         fetchAppointments();
       } catch (error) {
-        console.error('Error deleting appointment:', error);
-        alert('Ошибка при удалении записи');
+        console.error('Error archiving appointment:', error);
+        alert('Ошибка при архивировании записи');
       }
     }
   };
