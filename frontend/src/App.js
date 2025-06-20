@@ -596,8 +596,27 @@ function ClinicApp() {
     }
   };
 
-  // Calendar specific functions
-  const [draggedAppointment, setDraggedAppointment] = useState(null);
+  // Medical records state
+  const [selectedPatient, setSelectedPatient] = useState(null);
+  const [medicalSummary, setMedicalSummary] = useState(null);
+  const [showMedicalEntryModal, setShowMedicalEntryModal] = useState(false);
+  const [showDiagnosisModal, setShowDiagnosisModal] = useState(false);
+  const [showMedicationModal, setShowMedicationModal] = useState(false);
+  const [showAllergyModal, setShowAllergyModal] = useState(false);
+
+  // Medical forms
+  const [medicalEntryForm, setMedicalEntryForm] = useState({
+    entry_type: 'visit', title: '', description: '', severity: 'medium'
+  });
+  const [diagnosisForm, setDiagnosisForm] = useState({
+    diagnosis_code: '', diagnosis_name: '', description: ''
+  });
+  const [medicationForm, setMedicationForm] = useState({
+    medication_name: '', dosage: '', frequency: '', instructions: '', end_date: ''
+  });
+  const [allergyForm, setAllergyForm] = useState({
+    allergen: '', reaction: '', severity: 'medium'
+  });
   
   // Generate time slots (8:00 - 20:00, 30 min intervals)
   const generateTimeSlots = () => {
