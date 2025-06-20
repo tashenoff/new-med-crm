@@ -540,13 +540,49 @@ def main():
     tomorrow = (datetime.now() + timedelta(days=1)).strftime("%Y-%m-%d")
     
     print("=" * 50)
-    print("FINAL TESTING OF CLINIC MANAGEMENT SYSTEM API")
+    print("TESTING CLINIC MANAGEMENT SYSTEM AUTHENTICATION")
     print("=" * 50)
     
-    # 1. Test basic API endpoints
-    if not tester.test_api_root():
-        print("❌ API root test failed, stopping tests")
+    # 1. Test authentication
+    print("\n" + "=" * 50)
+    print("TEST 1: USER REGISTRATION AND LOGIN")
+    print("=" * 50)
+    
+    # Register admin user
+    admin_email = "admin@test.com"
+    admin_password = "test123"
+    if not tester.test_register_user(admin_email, admin_password, "Администратор Тест", "admin"):
+        print("❌ Admin registration failed")
         return 1
+    
+    # Test getting current user
+    if not tester.test_get_current_user():
+        print("❌ Get current user failed")
+        return 1
+    
+    # Test logout
+    if not tester.test_logout():
+        print("❌ Logout failed")
+        return 1
+    
+    # Test login
+    if not tester.test_login_user(admin_email, admin_password):
+        print("❌ Login failed")
+        return 1
+    
+    # Test unauthorized access
+    if not tester.test_unauthorized_access("patients"):
+        print("❌ Unauthorized access test failed")
+        print("❌ ISSUE: API is not properly protecting endpoints")
+    else:
+        print("✅ API correctly requires authentication")
+    
+    print("\n" + "=" * 50)
+    print("TEST 2: ROLE-BASED ACCESS CONTROL")
+    print("=" * 50)
+    
+    # Test admin access to protected endpoints
+    print("\n🔍 Testing admin access to protected endpoints...")
     
     # 2. Create test patient and doctor for our tests
     print("\n🔍 Creating test patient...")
@@ -563,9 +599,53 @@ def main():
     
     test_doctor_id = tester.created_doctor_id
     
-    # 3. TEST 1: Time Conflict Detection
+    # Logout admin
+    tester.test_logout()
+    
+    # Register doctor user
+    doctor_email = "doctor@test.com"
+    doctor_password = "test123"
+    if not tester.test_register_user(doctor_email, doctor_password, "Доктор Врач", "doctor"):
+        print("❌ Doctor registration failed")
+        return 1
+    
+    # Test doctor access (should be able to access patients but not create doctors)
+    print("\n🔍 Testing doctor access to patients...")
+    if not tester.test_get_patients():
+        print("❌ Doctor cannot access patients")
+    else:
+        print("✅ Doctor can access patients")
+    
+    # Logout doctor
+    tester.test_logout()
+    
+    # Register patient user
+    patient_email = "patient@test.com"
+    patient_password = "test123"
+    if not tester.test_register_user(patient_email, patient_password, "Пациент Тест", "patient"):
+        print("❌ Patient registration failed")
+        return 1
+    
+    # Test patient access (should not be able to access patients list)
+    print("\n🔍 Testing patient access restrictions...")
+    success, _ = tester.run_test(
+        "Patient accessing patients list",
+        "GET",
+        "patients",
+        403  # Expect 403 Forbidden
+    )
+    if success:
+        print("✅ Patient correctly restricted from accessing patients list")
+    else:
+        print("❌ ISSUE: Patient can access patients list when they shouldn't")
+    
+    # Login as admin again for remaining tests
+    tester.test_logout()
+    tester.test_login_user(admin_email, admin_password)
+    
+    # 3. TEST: Time Conflict Detection
     print("\n" + "=" * 50)
-    print("TEST 1: TIME CONFLICT DETECTION")
+    print("TEST 3: TIME CONFLICT DETECTION")
     print("=" * 50)
     
     # Create first appointment at 14:00
@@ -580,7 +660,7 @@ def main():
         print("❌ Time conflict detection test failed")
         print("❌ ISSUE: System is not detecting time conflicts correctly")
     else:
-        print("✅ FIXED: Time conflict detection is working correctly")
+        print("✅ Time conflict detection is working correctly")
     
     # 4. Additional tests to verify other functionality
     print("\n" + "=" * 50)
@@ -625,7 +705,7 @@ def main():
     print(f"BACKEND TESTS PASSED: {tester.tests_passed}/{tester.tests_run}")
     print("=" * 50)
     
-    print("\nNOTE: Frontend tests for error auto-hiding and manual closing")
+    print("\nNOTE: Frontend tests for authentication and role-based access")
     print("will be performed using Playwright browser automation.")
     
     return 0 if tester.tests_passed == tester.tests_run else 1
