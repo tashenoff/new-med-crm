@@ -11,6 +11,10 @@ class ClinicAPITester:
         self.created_patient_id = None
         self.created_doctor_id = None
         self.created_appointment_id = None
+        self.created_medical_record_id = None
+        self.created_diagnosis_id = None
+        self.created_medication_id = None
+        self.created_allergy_id = None
         self.token = None
         self.current_user = None
 
