@@ -680,6 +680,14 @@ function App() {
             <h3 className="text-lg font-semibold mb-4">
               {editingItem ? 'Редактировать запись' : 'Новая запись'}
             </h3>
+            
+            {/* Error display in modal */}
+            {error && (
+              <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
+                <span className="block">{error}</span>
+              </div>
+            )}
+            
             <form onSubmit={handleSaveAppointment} className="space-y-4">
               <select
                 value={appointmentForm.patient_id}
