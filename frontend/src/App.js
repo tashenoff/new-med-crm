@@ -180,8 +180,17 @@ function App() {
     setLoading(true);
     try {
       console.log('Saving appointment:', appointmentForm);
+      
+      // Validate form data
+      if (!appointmentForm.patient_id || !appointmentForm.doctor_id || !appointmentForm.appointment_date || !appointmentForm.appointment_time) {
+        alert('Пожалуйста, заполните все обязательные поля');
+        setLoading(false);
+        return;
+      }
+      
       if (editingItem) {
-        await axios.put(`${API}/appointments/${editingItem.id}`, appointmentForm);
+        const response = await axios.put(`${API}/appointments/${editingItem.id}`, appointmentForm);
+        console.log('Appointment updated:', response.data);
       } else {
         const response = await axios.post(`${API}/appointments`, appointmentForm);
         console.log('Appointment created:', response.data);
@@ -190,9 +199,11 @@ function App() {
       setEditingItem(null);
       setAppointmentForm({ patient_id: '', doctor_id: '', appointment_date: '', appointment_time: '', reason: '', notes: '' });
       await fetchAppointments();
+      console.log('Appointments refreshed after save');
     } catch (error) {
       console.error('Error saving appointment:', error);
-      alert(error.response?.data?.detail || 'Ошибка при сохранении записи');
+      const errorMessage = error.response?.data?.detail || error.message || 'Ошибка при сохранении записи';
+      alert(errorMessage);
     }
     setLoading(false);
   };
