@@ -270,6 +270,14 @@ class Patient(BaseModel):
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)
 
+class PatientMedicalSummary(BaseModel):
+    patient: Patient
+    medical_record: Optional[MedicalRecord]
+    active_diagnoses: List[DiagnosisWithDetails]
+    active_medications: List[MedicationWithDetails]
+    allergies: List[Allergy]
+    recent_entries: List[MedicalEntryWithDetails]
+
 class PatientCreate(BaseModel):
     full_name: str
     phone: str
