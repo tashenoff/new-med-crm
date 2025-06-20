@@ -1092,6 +1092,11 @@ function ClinicApp() {
     
     if (user?.role === 'admin' || user?.role === 'doctor') {
       tabs.push({ key: 'patients', label: 'Пациенты' });
+      tabs.push({ key: 'medical', label: 'Медкарты' });
+    }
+    
+    if (user?.role === 'patient') {
+      tabs.push({ key: 'medical', label: 'Моя медкарта' });
     }
     
     if (user?.role === 'admin') {
