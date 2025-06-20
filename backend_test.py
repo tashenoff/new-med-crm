@@ -333,6 +333,68 @@ class ClinicAPITester:
                     success = False
         return success
 
+def test_date_range_appointments(self):
+    """Test appointments with date range (±7 days)"""
+    # Get dates for ±7 days range
+    today = datetime.now()
+    seven_days_ago = (today - timedelta(days=7)).strftime("%Y-%m-%d")
+    seven_days_from_now = (today + timedelta(days=7)).strftime("%Y-%m-%d")
+    
+    success, response = self.run_test(
+        "Get Appointments with ±7 days range",
+        "GET",
+        "appointments",
+        200,
+        params={"date_from": seven_days_ago, "date_to": seven_days_from_now}
+    )
+    
+    if success and response:
+        print(f"Found {len(response)} appointments in ±7 days range")
+        
+        # Check if appointments are sorted by date and time
+        if len(response) > 1:
+            is_sorted = True
+            for i in range(len(response) - 1):
+                curr_date = response[i]["appointment_date"]
+                next_date = response[i+1]["appointment_date"]
+                
+                if curr_date > next_date:
+                    is_sorted = False
+                    break
+                elif curr_date == next_date:
+                    curr_time = response[i]["appointment_time"]
+                    next_time = response[i+1]["appointment_time"]
+                    if curr_time > next_time:
+                        is_sorted = False
+                        break
+            
+            if is_sorted:
+                print("✅ Appointments are correctly sorted by date and time")
+            else:
+                print("❌ Appointments are not correctly sorted by date and time")
+                success = False
+    
+    return success
+
+def test_archive_appointment(self, appointment_id):
+    """Test archiving an appointment (setting status to cancelled)"""
+    success, response = self.run_test(
+        "Archive Appointment",
+        "PUT",
+        f"appointments/{appointment_id}",
+        200,
+        data={"status": "cancelled"}
+    )
+    
+    if success and response:
+        if response["status"] == "cancelled":
+            print("✅ Appointment successfully archived (status set to cancelled)")
+        else:
+            print(f"❌ Appointment archiving failed: expected status 'cancelled', got '{response['status']}'")
+            success = False
+    
+    return success
+
 def main():
     # Get the backend URL from the environment
     backend_url = "https://7d433966-f30b-4b81-bfd7-cc9019b064af.preview.emergentagent.com"
@@ -340,7 +402,8 @@ def main():
     # Setup
     tester = ClinicAPITester(backend_url)
     
-    # Get tomorrow's date for appointments in ISO format (YYYY-MM-DD)
+    # Get today's and tomorrow's date for appointments in ISO format (YYYY-MM-DD)
+    today = datetime.now().strftime("%Y-%m-%d")
     tomorrow = (datetime.now() + timedelta(days=1)).strftime("%Y-%m-%d")
     
     print("=" * 50)
@@ -377,21 +440,31 @@ def main():
     # 4. Test appointment operations
     print("\n🔍 Testing appointment functionality...")
     
-    # Create an appointment
+    # Create an appointment for today at 15:00 (as per test requirements)
+    if not tester.test_create_appointment(tester.created_patient_id, tester.created_doctor_id, today, "15:00"):
+        print("❌ Appointment creation for today failed, stopping tests")
+        return 1
+    
+    # Create another appointment for tomorrow
     if not tester.test_create_appointment(tester.created_patient_id, tester.created_doctor_id, tomorrow, "10:00"):
-        print("❌ Appointment creation failed, stopping tests")
+        print("❌ Appointment creation for tomorrow failed, stopping tests")
         return 1
     
     # Get all appointments
     if not tester.test_get_appointments():
         print("❌ Get appointments failed")
     
-    # Test appointment date filtering
-    if not tester.test_get_appointments_with_date_filter(date_from=tomorrow):
-        print("❌ Get appointments with date filter failed")
+    # Test appointment date filtering with ±7 days range
+    if not tester.test_date_range_appointments():
+        print("❌ Get appointments with ±7 days range failed")
     
-    # Update appointment status
-    if not tester.test_update_appointment_status(tester.created_appointment_id, "confirmed"):
+    # Test archiving an appointment (setting status to cancelled)
+    if not tester.test_archive_appointment(tester.created_appointment_id):
+        print("❌ Appointment archiving failed")
+    
+    # Update appointment status for the second appointment
+    second_appointment_id = tester.created_appointment_id
+    if not tester.test_update_appointment_status(second_appointment_id, "confirmed"):
         print("❌ Appointment status update failed")
     
     # Test time conflict detection
@@ -400,14 +473,6 @@ def main():
     
     # 5. Test deletion operations
     print("\n🔍 Testing deletion functionality...")
-    
-    # Test appointment deletion
-    if not tester.test_delete_appointment(tester.created_appointment_id):
-        print("❌ Appointment deletion failed")
-    
-    # Create a new appointment for doctor deletion test
-    if not tester.test_create_appointment(tester.created_patient_id, tester.created_doctor_id, tomorrow, "11:00"):
-        print("❌ Second appointment creation failed")
     
     # Test doctor deletion (deactivation)
     if not tester.test_delete_doctor(tester.created_doctor_id):
