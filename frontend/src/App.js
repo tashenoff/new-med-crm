@@ -196,12 +196,13 @@ function App() {
   const handleSaveAppointment = async (e) => {
     e.preventDefault();
     setLoading(true);
+    setError(null);
     try {
       console.log('Saving appointment:', appointmentForm);
       
       // Validate form data
       if (!appointmentForm.patient_id || !appointmentForm.doctor_id || !appointmentForm.appointment_date || !appointmentForm.appointment_time) {
-        alert('Пожалуйста, заполните все обязательные поля');
+        setError('Пожалуйста, заполните все обязательные поля');
         setLoading(false);
         return;
       }
@@ -221,7 +222,7 @@ function App() {
     } catch (error) {
       console.error('Error saving appointment:', error);
       const errorMessage = error.response?.data?.detail || error.message || 'Ошибка при сохранении записи';
-      alert(errorMessage);
+      setError(errorMessage);
     }
     setLoading(false);
   };
