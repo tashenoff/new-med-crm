@@ -258,7 +258,7 @@ async def create_appointment(appointment: AppointmentCreate):
     # Check for time conflicts
     existing_appointment = await db.appointments.find_one({
         "doctor_id": appointment.doctor_id,
-        "appointment_date": appointment.appointment_date.isoformat(),
+        "appointment_date": appointment.appointment_date,  # Now both are strings
         "appointment_time": appointment.appointment_time,
         "status": {"$nin": [AppointmentStatus.CANCELLED.value, AppointmentStatus.NO_SHOW.value]}
     })
@@ -267,7 +267,7 @@ async def create_appointment(appointment: AppointmentCreate):
         raise HTTPException(status_code=400, detail="Time slot already booked")
     
     appointment_dict = appointment.dict()
-    appointment_dict["appointment_date"] = appointment_dict["appointment_date"].isoformat()
+    # No need to convert date since it's already a string
     appointment_obj = Appointment(**appointment_dict)
     await db.appointments.insert_one(appointment_obj.dict())
     return appointment_obj
