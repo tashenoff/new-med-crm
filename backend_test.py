@@ -864,17 +864,29 @@ def main():
     else:
         print("✅ Medical record retrieval is working correctly")
     
-    # Login as doctor to test diagnosis and medication creation
-    tester.test_logout()
-    tester.test_login_user(doctor_email, doctor_password)
-    
     # Test creating a diagnosis
     print("\n🔍 Testing diagnosis creation...")
-    if not tester.test_create_diagnosis(test_patient_id, "Гипертония", "I10", "Первичная артериальная гипертензия"):
+    diagnosis_data = {
+        "patient_id": test_patient_id,
+        "diagnosis_name": "Гипертония",
+        "diagnosis_code": "I10",
+        "description": "Первичная артериальная гипертензия",
+        "doctor_id": test_doctor_id  # Use the test doctor ID
+    }
+    success, response = tester.run_test(
+        "Create Diagnosis",
+        "POST",
+        "diagnoses",
+        200,
+        data=diagnosis_data
+    )
+    if success and response and "id" in response:
+        tester.created_diagnosis_id = response["id"]
+        print(f"Created diagnosis with ID: {tester.created_diagnosis_id}")
+        print("✅ Diagnosis creation is working correctly")
+    else:
         print("❌ Diagnosis creation failed")
         print("❌ ISSUE: Diagnosis creation is not working")
-    else:
-        print("✅ Diagnosis creation is working correctly")
     
     # Test retrieving diagnoses
     print("\n🔍 Testing diagnoses retrieval...")
@@ -886,11 +898,28 @@ def main():
     
     # Test creating a medication
     print("\n🔍 Testing medication creation...")
-    if not tester.test_create_medication(test_patient_id, "Лизиноприл", "10 мг", "1 раз в день", "Принимать утром натощак"):
+    medication_data = {
+        "patient_id": test_patient_id,
+        "medication_name": "Лизиноприл",
+        "dosage": "10 мг",
+        "frequency": "1 раз в день",
+        "instructions": "Принимать утром натощак",
+        "doctor_id": test_doctor_id  # Use the test doctor ID
+    }
+    success, response = tester.run_test(
+        "Create Medication",
+        "POST",
+        "medications",
+        200,
+        data=medication_data
+    )
+    if success and response and "id" in response:
+        tester.created_medication_id = response["id"]
+        print(f"Created medication with ID: {tester.created_medication_id}")
+        print("✅ Medication creation is working correctly")
+    else:
         print("❌ Medication creation failed")
         print("❌ ISSUE: Medication creation is not working")
-    else:
-        print("✅ Medication creation is working correctly")
     
     # Test retrieving medications
     print("\n🔍 Testing medications retrieval...")
@@ -899,10 +928,6 @@ def main():
         print("❌ ISSUE: Medications retrieval is not working")
     else:
         print("✅ Medications retrieval is working correctly")
-    
-    # Login back as admin
-    tester.test_logout()
-    tester.test_login_user(admin_email, admin_password)
     
     # Test creating an allergy
     print("\n🔍 Testing allergy creation...")
