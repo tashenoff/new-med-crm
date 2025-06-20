@@ -1082,7 +1082,19 @@ async def create_medication(
     current_user: UserInDB = Depends(require_role([UserRole.ADMIN, UserRole.DOCTOR]))
 ):
     medication_dict = medication.dict()
-    medication_dict["doctor_id"] = current_user.doctor_id if current_user.role == UserRole.DOCTOR else medication_dict.get("doctor_id")
+    # Set doctor_id based on current user
+    if current_user.role == UserRole.DOCTOR and current_user.doctor_id:
+        medication_dict["doctor_id"] = current_user.doctor_id
+    elif current_user.role == UserRole.ADMIN:
+        # For admin, try to find a doctor or use a default
+        doctors = await db.doctors.find({"is_active": True}).limit(1).to_list(1)
+        if doctors:
+            medication_dict["doctor_id"] = doctors[0]["id"]
+        else:
+            raise HTTPException(status_code=400, detail="No active doctors found")
+    else:
+        raise HTTPException(status_code=400, detail="User not associated with any doctor")
+    
     medication_obj = Medication(**medication_dict)
     await db.medications.insert_one(medication_obj.dict())
     return medication_obj
