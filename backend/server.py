@@ -388,10 +388,7 @@ async def update_appointment(appointment_id: str, appointment_update: Appointmen
     
     update_dict = {k: v for k, v in appointment_update.dict().items() if v is not None}
     
-    # Convert date to string if present
-    if "appointment_date" in update_dict:
-        update_dict["appointment_date"] = update_dict["appointment_date"].isoformat()
-    
+    # No need to convert date since it's already a string
     update_dict["updated_at"] = datetime.utcnow()
     
     # Check for time conflicts if updating time/date
