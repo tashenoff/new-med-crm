@@ -1277,6 +1277,15 @@ function ClinicApp() {
         </div>
       </nav>
 
+      {/* Main Content */}
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {activeTab === 'schedule' && renderSchedule()}
+        {activeTab === 'calendar' && renderCalendar()}
+        {activeTab === 'patients' && renderPatients()}
+        {activeTab === 'doctors' && renderDoctors()}
+        {activeTab === 'medical' && renderMedical()}
+      </main>
+
   const renderMedical = () => {
     if (user?.role === 'patient') {
       // For patients, show their own medical record
