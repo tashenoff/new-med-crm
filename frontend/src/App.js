@@ -54,10 +54,15 @@ function App() {
   // Clear error after some time
   useEffect(() => {
     if (errorMessage) {
+      console.log('Setting timer to clear error after 5 seconds:', errorMessage);
       const timer = setTimeout(() => {
+        console.log('Auto-clearing error message');
         setErrorMessage(null);
       }, 5000);
-      return () => clearTimeout(timer);
+      return () => {
+        console.log('Clearing error timer');
+        clearTimeout(timer);
+      };
     }
   }, [errorMessage]);
 
