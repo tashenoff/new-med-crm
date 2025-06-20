@@ -198,15 +198,17 @@ function App() {
     setLoading(true);
     setErrorMessage(null);
     try {
-      console.log('Saving appointment:', appointmentForm);
+      console.log('Saving appointment form data:', appointmentForm);
       
       // Validate form data
       if (!appointmentForm.patient_id || !appointmentForm.doctor_id || !appointmentForm.appointment_date || !appointmentForm.appointment_time) {
+        console.log('Form validation failed - missing required fields');
         setErrorMessage('Пожалуйста, заполните все обязательные поля');
         setLoading(false);
         return;
       }
       
+      console.log('Form validation passed, submitting...');
       if (editingItem) {
         const response = await axios.put(`${API}/appointments/${editingItem.id}`, appointmentForm);
         console.log('Appointment updated:', response.data);
