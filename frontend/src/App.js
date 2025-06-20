@@ -831,8 +831,10 @@ function ClinicApp() {
                               onDragStart={(e) => handleDragStart(e, appointment)}
                               className={`p-2 rounded text-xs cursor-move transition-all hover:shadow-md ${statusConfig[appointment.status].color}`}
                               style={{
-                                borderLeft: `3px solid ${doctor.calendar_color}`
+                                borderLeft: `3px solid ${doctor.calendar_color}`,
+                                opacity: draggedAppointment?.id === appointment.id ? 0.5 : 1
                               }}
+                              title="Перетащите для изменения времени или врача"
                             >
                               <div className="font-medium truncate">{appointment.patient_name}</div>
                               <div className="text-xs opacity-75 truncate">
@@ -847,7 +849,7 @@ function ClinicApp() {
                           ) : (
                             canCreateAppointments && (
                               <div className="h-full flex items-center justify-center text-gray-400 hover:text-blue-500 transition-colors">
-                                <span className="text-2xl">+</span>
+                                <span className="text-lg" title="Кликните для создания записи">+</span>
                               </div>
                             )
                           )}
