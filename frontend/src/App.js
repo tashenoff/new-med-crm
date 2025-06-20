@@ -618,6 +618,93 @@ function ClinicApp() {
     allergen: '', reaction: '', severity: 'medium'
   });
 
+  // Calendar specific functions
+  const [draggedAppointment, setDraggedAppointment] = useState(null);
+
+  // Medical records functions
+  const fetchMedicalSummary = async (patientId) => {
+    try {
+      const response = await axios.get(`${API}/patients/${patientId}/medical-summary`);
+      setMedicalSummary(response.data);
+    } catch (error) {
+      console.error('Error fetching medical summary:', error);
+      setErrorMessage('Ошибка при загрузке медицинской карты');
+    }
+  };
+
+  const handleSaveMedicalEntry = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+    try {
+      await axios.post(`${API}/medical-entries`, {
+        ...medicalEntryForm,
+        patient_id: selectedPatient.id
+      });
+      setShowMedicalEntryModal(false);
+      setMedicalEntryForm({ entry_type: 'visit', title: '', description: '', severity: 'medium' });
+      fetchMedicalSummary(selectedPatient.id);
+    } catch (error) {
+      console.error('Error saving medical entry:', error);
+      setErrorMessage('Ошибка при сохранении записи');
+    }
+    setLoading(false);
+  };
+
+  const handleSaveDiagnosis = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+    try {
+      await axios.post(`${API}/diagnoses`, {
+        ...diagnosisForm,
+        patient_id: selectedPatient.id
+      });
+      setShowDiagnosisModal(false);
+      setDiagnosisForm({ diagnosis_code: '', diagnosis_name: '', description: '' });
+      fetchMedicalSummary(selectedPatient.id);
+    } catch (error) {
+      console.error('Error saving diagnosis:', error);
+      setErrorMessage('Ошибка при сохранении диагноза');
+    }
+    setLoading(false);
+  };
+
+  const handleSaveMedication = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+    try {
+      await axios.post(`${API}/medications`, {
+        ...medicationForm,
+        patient_id: selectedPatient.id,
+        end_date: medicationForm.end_date || null
+      });
+      setShowMedicationModal(false);
+      setMedicationForm({ medication_name: '', dosage: '', frequency: '', instructions: '', end_date: '' });
+      fetchMedicalSummary(selectedPatient.id);
+    } catch (error) {
+      console.error('Error saving medication:', error);
+      setErrorMessage('Ошибка при сохранении лекарства');
+    }
+    setLoading(false);
+  };
+
+  const handleSaveAllergy = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+    try {
+      await axios.post(`${API}/allergies`, {
+        ...allergyForm,
+        patient_id: selectedPatient.id
+      });
+      setShowAllergyModal(false);
+      setAllergyForm({ allergen: '', reaction: '', severity: 'medium' });
+      fetchMedicalSummary(selectedPatient.id);
+    } catch (error) {
+      console.error('Error saving allergy:', error);
+      setErrorMessage('Ошибка при сохранении аллергии');
+    }
+    setLoading(false);
+  };
+
   // Medical records functions
   const fetchMedicalSummary = async (patientId) => {
     try {
