@@ -222,7 +222,7 @@ function App() {
     } catch (error) {
       console.error('Error saving appointment:', error);
       const errorMessage = error.response?.data?.detail || error.message || 'Ошибка при сохранении записи';
-      setError(errorMessage);
+      setErrorMessage(errorMessage);
     }
     setLoading(false);
   };
