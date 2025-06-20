@@ -469,6 +469,175 @@ class ClinicAPITester:
                 success = False
         
         return success
+        
+    # Medical Records Testing Methods
+    def test_create_medical_record(self, patient_id, blood_type="A+", height=175.0, weight=70.0):
+        """Create a medical record for a patient"""
+        success, response = self.run_test(
+            "Create Medical Record",
+            "POST",
+            "medical-records",
+            200,
+            data={
+                "patient_id": patient_id,
+                "blood_type": blood_type,
+                "height": height,
+                "weight": weight
+            }
+        )
+        if success and response and "id" in response:
+            self.created_medical_record_id = response["id"]
+            print(f"Created medical record with ID: {self.created_medical_record_id}")
+        return success
+    
+    def test_get_medical_record(self, patient_id):
+        """Get a patient's medical record"""
+        success, response = self.run_test(
+            "Get Medical Record",
+            "GET",
+            f"medical-records/{patient_id}",
+            200
+        )
+        if success and response:
+            print(f"Retrieved medical record for patient: {patient_id}")
+            if "blood_type" in response:
+                print(f"Blood Type: {response['blood_type']}")
+            if "height" in response:
+                print(f"Height: {response['height']} cm")
+            if "weight" in response:
+                print(f"Weight: {response['weight']} kg")
+        return success
+    
+    def test_create_diagnosis(self, patient_id, diagnosis_name, diagnosis_code=None, description=None):
+        """Create a diagnosis for a patient"""
+        data = {
+            "patient_id": patient_id,
+            "diagnosis_name": diagnosis_name
+        }
+        if diagnosis_code:
+            data["diagnosis_code"] = diagnosis_code
+        if description:
+            data["description"] = description
+            
+        success, response = self.run_test(
+            "Create Diagnosis",
+            "POST",
+            "diagnoses",
+            200,
+            data=data
+        )
+        if success and response and "id" in response:
+            self.created_diagnosis_id = response["id"]
+            print(f"Created diagnosis with ID: {self.created_diagnosis_id}")
+        return success
+    
+    def test_get_diagnoses(self, patient_id, active_only=True):
+        """Get a patient's diagnoses"""
+        params = {"active_only": "true" if active_only else "false"}
+        success, response = self.run_test(
+            f"Get Diagnoses (active_only={active_only})",
+            "GET",
+            f"diagnoses/{patient_id}",
+            200,
+            params=params
+        )
+        if success and response:
+            print(f"Found {len(response)} diagnoses for patient {patient_id}")
+            if len(response) > 0:
+                print(f"Sample diagnosis: {response[0]['diagnosis_name']}")
+        return success
+    
+    def test_create_medication(self, patient_id, medication_name, dosage, frequency, instructions=None):
+        """Create a medication for a patient"""
+        data = {
+            "patient_id": patient_id,
+            "medication_name": medication_name,
+            "dosage": dosage,
+            "frequency": frequency
+        }
+        if instructions:
+            data["instructions"] = instructions
+            
+        success, response = self.run_test(
+            "Create Medication",
+            "POST",
+            "medications",
+            200,
+            data=data
+        )
+        if success and response and "id" in response:
+            self.created_medication_id = response["id"]
+            print(f"Created medication with ID: {self.created_medication_id}")
+        return success
+    
+    def test_get_medications(self, patient_id, active_only=True):
+        """Get a patient's medications"""
+        params = {"active_only": "true" if active_only else "false"}
+        success, response = self.run_test(
+            f"Get Medications (active_only={active_only})",
+            "GET",
+            f"medications/{patient_id}",
+            200,
+            params=params
+        )
+        if success and response:
+            print(f"Found {len(response)} medications for patient {patient_id}")
+            if len(response) > 0:
+                print(f"Sample medication: {response[0]['medication_name']} - {response[0]['dosage']}")
+        return success
+    
+    def test_create_allergy(self, patient_id, allergen, reaction, severity="high"):
+        """Create an allergy for a patient"""
+        success, response = self.run_test(
+            "Create Allergy",
+            "POST",
+            "allergies",
+            data={
+                "patient_id": patient_id,
+                "allergen": allergen,
+                "reaction": reaction,
+                "severity": severity
+            },
+            expected_status=200
+        )
+        if success and response and "id" in response:
+            self.created_allergy_id = response["id"]
+            print(f"Created allergy with ID: {self.created_allergy_id}")
+        return success
+    
+    def test_get_allergies(self, patient_id, active_only=True):
+        """Get a patient's allergies"""
+        params = {"active_only": "true" if active_only else "false"}
+        success, response = self.run_test(
+            f"Get Allergies (active_only={active_only})",
+            "GET",
+            f"allergies/{patient_id}",
+            200,
+            params=params
+        )
+        if success and response:
+            print(f"Found {len(response)} allergies for patient {patient_id}")
+            if len(response) > 0:
+                print(f"Sample allergy: {response[0]['allergen']} - {response[0]['reaction']}")
+        return success
+    
+    def test_get_medical_summary(self, patient_id):
+        """Get a patient's complete medical summary"""
+        success, response = self.run_test(
+            "Get Medical Summary",
+            "GET",
+            f"patients/{patient_id}/medical-summary",
+            200
+        )
+        if success and response:
+            print(f"Retrieved medical summary for patient: {patient_id}")
+            print(f"Patient name: {response['patient']['full_name']}")
+            print(f"Medical record: {'Present' if response['medical_record'] else 'Not present'}")
+            print(f"Active diagnoses: {len(response['active_diagnoses'])}")
+            print(f"Active medications: {len(response['active_medications'])}")
+            print(f"Allergies: {len(response['allergies'])}")
+            print(f"Recent entries: {len(response['recent_entries'])}")
+        return success
 
 def test_date_range_appointments(self):
     """Test appointments with date range (±7 days)"""
