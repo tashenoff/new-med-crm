@@ -685,9 +685,9 @@ function App() {
             </h3>
             
             {/* Error display in modal */}
-            {error && (
+            {errorMessage && (
               <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
-                <span className="block">{error}</span>
+                <span className="block">{errorMessage}</span>
               </div>
             )}
             
