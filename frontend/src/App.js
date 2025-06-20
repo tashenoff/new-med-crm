@@ -280,6 +280,9 @@ function App() {
               <div className="flex justify-between items-start">
                 <div className="flex-1">
                   <div className="flex items-center space-x-3 mb-2">
+                    <span className="text-sm font-medium text-gray-500">
+                      {new Date(appointment.appointment_date).toLocaleDateString('ru-RU')}
+                    </span>
                     <span className="text-lg font-semibold">{appointment.appointment_time}</span>
                     <span 
                       className="w-3 h-3 rounded-full"
