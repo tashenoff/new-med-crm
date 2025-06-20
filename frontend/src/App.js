@@ -293,9 +293,10 @@ function App() {
                   </button>
                   <button
                     onClick={() => handleDeleteAppointment(appointment.id)}
-                    className="text-red-600 hover:text-red-800 p-1"
+                    className="text-orange-600 hover:text-orange-800 p-1"
+                    title="Архивировать запись"
                   >
-                    🗑️
+                    📥
                   </button>
                 </div>
               </div>
