@@ -235,8 +235,15 @@ function App() {
       console.log('Appointments refreshed after save');
     } catch (error) {
       console.error('Error saving appointment:', error);
-      const errorMessage = error.response?.data?.detail || error.message || 'Ошибка при сохранении записи';
-      setErrorMessage(errorMessage);
+      if (error.response?.status === 400) {
+        // Handle time conflict specifically
+        const errorMessage = error.response?.data?.detail || 'Время уже занято';
+        console.log('Time conflict detected:', errorMessage);
+        setErrorMessage(errorMessage);
+      } else {
+        const errorMessage = error.response?.data?.detail || error.message || 'Ошибка при сохранении записи';
+        setErrorMessage(errorMessage);
+      }
     }
     setLoading(false);
   };
