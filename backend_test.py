@@ -864,6 +864,10 @@ def main():
     else:
         print("✅ Medical record retrieval is working correctly")
     
+    # Login as doctor to test diagnosis and medication creation
+    tester.test_logout()
+    tester.test_login_user(doctor_email, doctor_password)
+    
     # Test creating a diagnosis
     print("\n🔍 Testing diagnosis creation...")
     if not tester.test_create_diagnosis(test_patient_id, "Гипертония", "I10", "Первичная артериальная гипертензия"):
@@ -895,6 +899,10 @@ def main():
         print("❌ ISSUE: Medications retrieval is not working")
     else:
         print("✅ Medications retrieval is working correctly")
+    
+    # Login back as admin
+    tester.test_logout()
+    tester.test_login_user(admin_email, admin_password)
     
     # Test creating an allergy
     print("\n🔍 Testing allergy creation...")
