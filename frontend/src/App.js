@@ -119,10 +119,14 @@ function App() {
   const handleDeletePatient = async (id) => {
     if (window.confirm('Вы уверены, что хотите удалить этого пациента?')) {
       try {
-        await axios.delete(`${API}/patients/${id}`);
+        console.log('Deleting patient:', id);
+        const response = await axios.delete(`${API}/patients/${id}`);
+        console.log('Delete patient response:', response.data);
+        
         // Clear search term to ensure fresh data fetch
         setSearchTerm('');
         await fetchPatients('');
+        console.log('Patients refreshed after deletion');
       } catch (error) {
         console.error('Error deleting patient:', error);
         alert('Ошибка при удалении пациента');
