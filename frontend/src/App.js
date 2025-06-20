@@ -25,7 +25,308 @@ const sourceConfig = {
   other: 'Другое'
 };
 
-function App() {
+// Auth Context
+const AuthContext = React.createContext();
+
+function AuthProvider({ children }) {
+  const [user, setUser] = useState(null);
+  const [token, setToken] = useState(localStorage.getItem('token'));
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (token) {
+      axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+      fetchCurrentUser();
+    } else {
+      setLoading(false);
+    }
+  }, [token]);
+
+  const fetchCurrentUser = async () => {
+    try {
+      const response = await axios.get(`${API}/auth/me`);
+      setUser(response.data);
+    } catch (error) {
+      console.error('Failed to fetch current user:', error);
+      logout();
+    }
+    setLoading(false);
+  };
+
+  const login = async (email, password) => {
+    try {
+      const response = await axios.post(`${API}/auth/login`, { email, password });
+      const { access_token, user: userData } = response.data;
+      
+      setToken(access_token);
+      setUser(userData);
+      localStorage.setItem('token', access_token);
+      axios.defaults.headers.common['Authorization'] = `Bearer ${access_token}`;
+      
+      return { success: true };
+    } catch (error) {
+      return { 
+        success: false, 
+        error: error.response?.data?.detail || 'Ошибка входа' 
+      };
+    }
+  };
+
+  const register = async (email, password, fullName, role = 'patient') => {
+    try {
+      const response = await axios.post(`${API}/auth/register`, {
+        email,
+        password,
+        full_name: fullName,
+        role
+      });
+      const { access_token, user: userData } = response.data;
+      
+      setToken(access_token);
+      setUser(userData);
+      localStorage.setItem('token', access_token);
+      axios.defaults.headers.common['Authorization'] = `Bearer ${access_token}`;
+      
+      return { success: true };
+    } catch (error) {
+      return { 
+        success: false, 
+        error: error.response?.data?.detail || 'Ошибка регистрации' 
+      };
+    }
+  };
+
+  const logout = () => {
+    setToken(null);
+    setUser(null);
+    localStorage.removeItem('token');
+    delete axios.defaults.headers.common['Authorization'];
+  };
+
+  return (
+    <AuthContext.Provider value={{ user, token, login, register, logout, loading }}>
+      {children}
+    </AuthContext.Provider>
+  );
+}
+
+// Login Component
+function LoginForm({ onSwitchToRegister }) {
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
+  const { login } = React.useContext(AuthContext);
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+    setError('');
+
+    const result = await login(email, password);
+    if (!result.success) {
+      setError(result.error);
+    }
+    setLoading(false);
+  };
+
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
+      <div className="max-w-md w-full space-y-8">
+        <div>
+          <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900">
+            Вход в систему
+          </h2>
+          <p className="mt-2 text-center text-sm text-gray-600">
+            Система управления клиникой
+          </p>
+        </div>
+        <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
+          {error && (
+            <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded">
+              {error}
+            </div>
+          )}
+          <div>
+            <label htmlFor="email" className="sr-only">
+              Email
+            </label>
+            <input
+              id="email"
+              name="email"
+              type="email"
+              required
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              className="appearance-none rounded-md relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 focus:z-10 sm:text-sm"
+              placeholder="Email"
+            />
+          </div>
+          <div>
+            <label htmlFor="password" className="sr-only">
+              Пароль
+            </label>
+            <input
+              id="password"
+              name="password"
+              type="password"
+              required
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              className="appearance-none rounded-md relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 focus:z-10 sm:text-sm"
+              placeholder="Пароль"
+            />
+          </div>
+          <div>
+            <button
+              type="submit"
+              disabled={loading}
+              className="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50"
+            >
+              {loading ? 'Вход...' : 'Войти'}
+            </button>
+          </div>
+          <div className="text-center">
+            <button
+              type="button"
+              onClick={onSwitchToRegister}
+              className="text-indigo-600 hover:text-indigo-500"
+            >
+              Нет аккаунта? Зарегистрироваться
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+// Register Component
+function RegisterForm({ onSwitchToLogin }) {
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [fullName, setFullName] = useState('');
+  const [role, setRole] = useState('patient');
+  const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
+  const { register } = React.useContext(AuthContext);
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+    setError('');
+
+    const result = await register(email, password, fullName, role);
+    if (!result.success) {
+      setError(result.error);
+    }
+    setLoading(false);
+  };
+
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
+      <div className="max-w-md w-full space-y-8">
+        <div>
+          <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900">
+            Регистрация
+          </h2>
+          <p className="mt-2 text-center text-sm text-gray-600">
+            Создать аккаунт в системе
+          </p>
+        </div>
+        <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
+          {error && (
+            <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded">
+              {error}
+            </div>
+          )}
+          <div>
+            <label htmlFor="fullName" className="sr-only">
+              ФИО
+            </label>
+            <input
+              id="fullName"
+              name="fullName"
+              type="text"
+              required
+              value={fullName}
+              onChange={(e) => setFullName(e.target.value)}
+              className="appearance-none rounded-md relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 focus:z-10 sm:text-sm"
+              placeholder="ФИО"
+            />
+          </div>
+          <div>
+            <label htmlFor="email" className="sr-only">
+              Email
+            </label>
+            <input
+              id="email"
+              name="email"
+              type="email"
+              required
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              className="appearance-none rounded-md relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 focus:z-10 sm:text-sm"
+              placeholder="Email"
+            />
+          </div>
+          <div>
+            <label htmlFor="password" className="sr-only">
+              Пароль
+            </label>
+            <input
+              id="password"
+              name="password"
+              type="password"
+              required
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              className="appearance-none rounded-md relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 focus:z-10 sm:text-sm"
+              placeholder="Пароль"
+            />
+          </div>
+          <div>
+            <label htmlFor="role" className="block text-sm font-medium text-gray-700">
+              Роль
+            </label>
+            <select
+              id="role"
+              value={role}
+              onChange={(e) => setRole(e.target.value)}
+              className="mt-1 block w-full px-3 py-2 border border-gray-300 bg-white rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+            >
+              <option value="patient">Пациент</option>
+              <option value="doctor">Врач</option>
+              <option value="admin">Администратор</option>
+            </select>
+          </div>
+          <div>
+            <button
+              type="submit"
+              disabled={loading}
+              className="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50"
+            >
+              {loading ? 'Регистрация...' : 'Зарегистрироваться'}
+            </button>
+          </div>
+          <div className="text-center">
+            <button
+              type="button"
+              onClick={onSwitchToLogin}
+              className="text-indigo-600 hover:text-indigo-500"
+            >
+              Уже есть аккаунт? Войти
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+// Main Clinic App (existing functionality)
+function ClinicApp() {
+  const { user, logout } = React.useContext(AuthContext);
   const [activeTab, setActiveTab] = useState('schedule');
   const [patients, setPatients] = useState([]);
   const [doctors, setDoctors] = useState([]);
@@ -115,7 +416,7 @@ function App() {
       fetchPatients();
     } catch (error) {
       console.error('Error saving patient:', error);
-      alert('Ошибка при сохранении пациента');
+      setErrorMessage('Ошибка при сохранении пациента');
     }
     setLoading(false);
   };
@@ -148,7 +449,7 @@ function App() {
         console.log('Patients refreshed after deletion');
       } catch (error) {
         console.error('Error deleting patient:', error);
-        alert('Ошибка при удалении пациента');
+        setErrorMessage('Ошибка при удалении пациента');
       }
     }
   };
@@ -169,7 +470,7 @@ function App() {
       fetchDoctors();
     } catch (error) {
       console.error('Error saving doctor:', error);
-      alert('Ошибка при сохранении врача');
+      setErrorMessage('Ошибка при сохранении врача');
     }
     setLoading(false);
   };
@@ -199,7 +500,7 @@ function App() {
         console.log('Doctors refreshed after deactivation');
       } catch (error) {
         console.error('Error deleting doctor:', error);
-        alert('Ошибка при деактивации врача');
+        setErrorMessage('Ошибка при деактивации врача');
       }
     }
   };
@@ -280,7 +581,7 @@ function App() {
         console.log('Appointments refreshed after archiving');
       } catch (error) {
         console.error('Error archiving appointment:', error);
-        alert('Ошибка при архивировании записи');
+        setErrorMessage('Ошибка при архивировании записи');
       }
     }
   };
@@ -291,7 +592,7 @@ function App() {
       fetchAppointments();
     } catch (error) {
       console.error('Error updating status:', error);
-      alert('Ошибка при обновлении статуса');
+      setErrorMessage('Ошибка при обновлении статуса');
     }
   };
 
@@ -319,19 +620,26 @@ function App() {
 
   const scheduleAppointments = getScheduleAppointments();
 
+  // Check user permissions
+  const canManagePatients = user?.role === 'admin' || user?.role === 'doctor';
+  const canManageDoctors = user?.role === 'admin';
+  const canCreateAppointments = true; // All users can create appointments
+
   const renderSchedule = () => (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <h2 className="text-2xl font-bold text-gray-900">Расписание (±7 дней)</h2>
-        <button
-          onClick={() => {
-            setErrorMessage(null);
-            setShowAppointmentModal(true);
-          }}
-          className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
-        >
-          + Новая запись
-        </button>
+        {canCreateAppointments && (
+          <button
+            onClick={() => {
+              setErrorMessage(null);
+              setShowAppointmentModal(true);
+            }}
+            className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
+          >
+            + Новая запись
+          </button>
+        )}
       </div>
 
       {scheduleAppointments.length === 0 ? (
@@ -400,12 +708,14 @@ function App() {
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <h2 className="text-2xl font-bold text-gray-900">Пациенты</h2>
-        <button
-          onClick={() => setShowPatientModal(true)}
-          className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
-        >
-          + Новый пациент
-        </button>
+        {canManagePatients && (
+          <button
+            onClick={() => setShowPatientModal(true)}
+            className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
+          >
+            + Новый пациент
+          </button>
+        )}
       </div>
 
       <div className="mb-4">
@@ -436,20 +746,22 @@ function App() {
                 <p className="text-sm text-gray-500">Источник: {sourceConfig[patient.source]}</p>
                 {patient.notes && <p className="text-sm text-gray-500 mt-2">Заметки: {patient.notes}</p>}
               </div>
-              <div className="flex space-x-2">
-                <button
-                  onClick={() => handleEditPatient(patient)}
-                  className="text-blue-600 hover:text-blue-800 p-1"
-                >
-                  ✏️
-                </button>
-                <button
-                  onClick={() => handleDeletePatient(patient.id)}
-                  className="text-red-600 hover:text-red-800 p-1"
-                >
-                  🗑️
-                </button>
-              </div>
+              {canManagePatients && (
+                <div className="flex space-x-2">
+                  <button
+                    onClick={() => handleEditPatient(patient)}
+                    className="text-blue-600 hover:text-blue-800 p-1"
+                  >
+                    ✏️
+                  </button>
+                  <button
+                    onClick={() => handleDeletePatient(patient.id)}
+                    className="text-red-600 hover:text-red-800 p-1"
+                  >
+                    🗑️
+                  </button>
+                </div>
+              )}
             </div>
           </div>
         ))}
@@ -461,12 +773,14 @@ function App() {
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <h2 className="text-2xl font-bold text-gray-900">Врачи</h2>
-        <button
-          onClick={() => setShowDoctorModal(true)}
-          className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
-        >
-          + Новый врач
-        </button>
+        {canManageDoctors && (
+          <button
+            onClick={() => setShowDoctorModal(true)}
+            className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
+          >
+            + Новый врач
+          </button>
+        )}
       </div>
 
       <div className="grid gap-4">
@@ -484,26 +798,43 @@ function App() {
                   {doctor.phone && <p className="text-gray-600">Телефон: {doctor.phone}</p>}
                 </div>
               </div>
-              <div className="flex space-x-2">
-                <button
-                  onClick={() => handleEditDoctor(doctor)}
-                  className="text-blue-600 hover:text-blue-800 p-1"
-                >
-                  ✏️
-                </button>
-                <button
-                  onClick={() => handleDeleteDoctor(doctor.id)}
-                  className="text-red-600 hover:text-red-800 p-1"
-                >
-                  🗑️
-                </button>
-              </div>
+              {canManageDoctors && (
+                <div className="flex space-x-2">
+                  <button
+                    onClick={() => handleEditDoctor(doctor)}
+                    className="text-blue-600 hover:text-blue-800 p-1"
+                  >
+                    ✏️
+                  </button>
+                  <button
+                    onClick={() => handleDeleteDoctor(doctor.id)}
+                    className="text-red-600 hover:text-red-800 p-1"
+                  >
+                    🗑️
+                  </button>
+                </div>
+              )}
             </div>
           </div>
         ))}
       </div>
     </div>
   );
+
+  // Get available tabs based on user role
+  const getAvailableTabs = () => {
+    const tabs = [{ key: 'schedule', label: 'Расписание' }];
+    
+    if (user?.role === 'admin' || user?.role === 'doctor') {
+      tabs.push({ key: 'patients', label: 'Пациенты' });
+    }
+    
+    if (user?.role === 'admin') {
+      tabs.push({ key: 'doctors', label: 'Врачи' });
+    }
+    
+    return tabs;
+  };
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -512,6 +843,17 @@ function App() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center py-6">
             <h1 className="text-3xl font-bold text-gray-900">Система управления клиникой</h1>
+            <div className="flex items-center space-x-4">
+              <span className="text-sm text-gray-500">
+                {user?.full_name} ({user?.role === 'admin' ? 'Администратор' : user?.role === 'doctor' ? 'Врач' : 'Пациент'})
+              </span>
+              <button
+                onClick={logout}
+                className="bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 transition-colors"
+              >
+                Выйти
+              </button>
+            </div>
           </div>
         </div>
       </header>
@@ -542,11 +884,7 @@ function App() {
       <nav className="bg-white shadow-sm">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex space-x-8 py-4">
-            {[
-              { key: 'schedule', label: 'Расписание' },
-              { key: 'patients', label: 'Пациенты' },
-              { key: 'doctors', label: 'Врачи' }
-            ].map(tab => (
+            {getAvailableTabs().map(tab => (
               <button
                 key={tab.key}
                 onClick={() => setActiveTab(tab.key)}
@@ -571,7 +909,7 @@ function App() {
       </main>
 
       {/* Patient Modal */}
-      {showPatientModal && (
+      {showPatientModal && canManagePatients && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-white rounded-lg p-6 w-full max-w-md mx-4">
             <h3 className="text-lg font-semibold mb-4">
@@ -643,7 +981,7 @@ function App() {
       )}
 
       {/* Doctor Modal */}
-      {showDoctorModal && (
+      {showDoctorModal && canManageDoctors && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-white rounded-lg p-6 w-full max-w-md mx-4">
             <h3 className="text-lg font-semibold mb-4">
@@ -708,7 +1046,7 @@ function App() {
       )}
 
       {/* Appointment Modal */}
-      {showAppointmentModal && (
+      {showAppointmentModal && canCreateAppointments && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-white rounded-lg p-6 w-full max-w-md mx-4">
             <h3 className="text-lg font-semibold mb-4">
@@ -795,6 +1133,40 @@ function App() {
         </div>
       )}
     </div>
+  );
+}
+
+// Main App Component
+function App() {
+  const [isLogin, setIsLogin] = useState(true);
+  
+  return (
+    <AuthProvider>
+      <AuthContext.Consumer>
+        {({ user, loading }) => {
+          if (loading) {
+            return (
+              <div className="min-h-screen flex items-center justify-center bg-gray-50">
+                <div className="text-center">
+                  <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-gray-900 mx-auto"></div>
+                  <p className="mt-4 text-gray-600">Загрузка...</p>
+                </div>
+              </div>
+            );
+          }
+          
+          if (!user) {
+            return isLogin ? (
+              <LoginForm onSwitchToRegister={() => setIsLogin(false)} />
+            ) : (
+              <RegisterForm onSwitchToLogin={() => setIsLogin(true)} />
+            );
+          }
+          
+          return <ClinicApp />;
+        }}
+      </AuthContext.Consumer>
+    </AuthProvider>
   );
 }
 
