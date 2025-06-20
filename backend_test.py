@@ -398,6 +398,25 @@ def main():
     if not tester.test_create_appointment(tester.created_patient_id, tester.created_doctor_id, tomorrow, "10:00", expect_conflict=True):
         print("❌ Time conflict test failed")
     
+    # 5. Test deletion operations
+    print("\n🔍 Testing deletion functionality...")
+    
+    # Test appointment deletion
+    if not tester.test_delete_appointment(tester.created_appointment_id):
+        print("❌ Appointment deletion failed")
+    
+    # Create a new appointment for doctor deletion test
+    if not tester.test_create_appointment(tester.created_patient_id, tester.created_doctor_id, tomorrow, "11:00"):
+        print("❌ Second appointment creation failed")
+    
+    # Test doctor deletion (deactivation)
+    if not tester.test_delete_doctor(tester.created_doctor_id):
+        print("❌ Doctor deletion (deactivation) failed")
+    
+    # Test patient deletion
+    if not tester.test_delete_patient(tester.created_patient_id):
+        print("❌ Patient deletion failed")
+    
     # Print results
     print("\n" + "=" * 50)
     print(f"TESTS PASSED: {tester.tests_passed}/{tester.tests_run}")
