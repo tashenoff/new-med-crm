@@ -596,29 +596,247 @@ function ClinicApp() {
     }
   };
 
-  // Get appointments for schedule view (show last 7 days and next 7 days)
-  const getScheduleAppointments = () => {
-    const today = new Date();
-    const sevenDaysAgo = new Date(today);
-    sevenDaysAgo.setDate(today.getDate() - 7);
-    const sevenDaysFromNow = new Date(today);
-    sevenDaysFromNow.setDate(today.getDate() + 7);
-    
-    const fromDate = sevenDaysAgo.toISOString().split('T')[0];
-    const toDate = sevenDaysFromNow.toISOString().split('T')[0];
-    
-    return appointments.filter(apt => 
-      apt.appointment_date >= fromDate && apt.appointment_date <= toDate
-    ).sort((a, b) => {
-      // Sort by date first, then by time
-      if (a.appointment_date !== b.appointment_date) {
-        return a.appointment_date.localeCompare(b.appointment_date);
-      }
-      return a.appointment_time.localeCompare(b.appointment_time);
-    });
+  // Calendar specific functions
+  const [draggedAppointment, setDraggedAppointment] = useState(null);
+  
+  // Generate time slots (8:00 - 20:00, 30 min intervals)
+  const generateTimeSlots = () => {
+    const slots = [];
+    for (let hour = 8; hour < 20; hour++) {
+      slots.push(`${hour.toString().padStart(2, '0')}:00`);
+      slots.push(`${hour.toString().padStart(2, '0')}:30`);
+    }
+    return slots;
   };
 
-  const scheduleAppointments = getScheduleAppointments();
+  // Generate calendar dates (today + 6 days)
+  const generateCalendarDates = () => {
+    const dates = [];
+    const today = new Date();
+    for (let i = 0; i < 7; i++) {
+      const date = new Date(today);
+      date.setDate(today.getDate() + i);
+      dates.push(date.toISOString().split('T')[0]);
+    }
+    return dates;
+  };
+
+  const timeSlots = generateTimeSlots();
+  const calendarDates = generateCalendarDates();
+
+  // Drag and drop handlers
+  const handleDragStart = (e, appointment) => {
+    setDraggedAppointment(appointment);
+    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/html', e.target.outerHTML);
+    e.dataTransfer.setDragImage(e.target, 0, 0);
+  };
+
+  const handleDragOver = (e) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+  };
+
+  const handleDrop = async (e, doctorId, date, time) => {
+    e.preventDefault();
+    
+    if (!draggedAppointment) return;
+
+    // Don't drop on the same slot
+    if (
+      draggedAppointment.doctor_id === doctorId &&
+      draggedAppointment.appointment_date === date &&
+      draggedAppointment.appointment_time === time
+    ) {
+      setDraggedAppointment(null);
+      return;
+    }
+
+    try {
+      // Update appointment with new date/time/doctor
+      await axios.put(`${API}/appointments/${draggedAppointment.id}`, {
+        doctor_id: doctorId,
+        appointment_date: date,
+        appointment_time: time
+      });
+
+      // Refresh appointments
+      await fetchAppointments();
+      setDraggedAppointment(null);
+    } catch (error) {
+      console.error('Error moving appointment:', error);
+      setErrorMessage(error.response?.data?.detail || 'Ошибка при перемещении записи');
+      setDraggedAppointment(null);
+    }
+  };
+
+  const handleSlotClick = (doctorId, date, time) => {
+    // Quick create appointment
+    setAppointmentForm({
+      patient_id: '',
+      doctor_id: doctorId,
+      appointment_date: date,
+      appointment_time: time,
+      reason: '',
+      notes: ''
+    });
+    setErrorMessage(null);
+    setShowAppointmentModal(true);
+  };
+
+  // Get appointment for specific slot
+  const getAppointmentForSlot = (doctorId, date, time) => {
+    return appointments.find(
+      apt => apt.doctor_id === doctorId && 
+             apt.appointment_date === date && 
+             apt.appointment_time === time &&
+             apt.status !== 'cancelled'
+    );
+  };
+
+  const renderCalendar = () => (
+    <div className="space-y-6">
+      <div className="flex justify-between items-center">
+        <h2 className="text-2xl font-bold text-gray-900">Календарь записей</h2>
+        <div className="flex space-x-2">
+          <button
+            onClick={() => {
+              setErrorMessage(null);
+              setShowAppointmentModal(true);
+            }}
+            className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
+          >
+            + Новая запись
+          </button>
+        </div>
+      </div>
+
+      {doctors.length === 0 ? (
+        <div className="text-center py-12 bg-gray-50 rounded-lg">
+          <p className="text-gray-500">Сначала добавьте врачей для отображения календаря</p>
+        </div>
+      ) : (
+        <div className="bg-white rounded-lg shadow overflow-hidden">
+          {/* Calendar Header */}
+          <div className="grid" style={{ gridTemplateColumns: `120px repeat(${doctors.length}, 1fr)` }}>
+            {/* Time column header */}
+            <div className="p-3 bg-gray-50 border-b border-r font-medium text-gray-700">
+              Время
+            </div>
+            {/* Doctor columns headers */}
+            {doctors.map(doctor => (
+              <div
+                key={doctor.id}
+                className="p-3 bg-gray-50 border-b border-r last:border-r-0 text-center"
+              >
+                <div className="flex items-center justify-center space-x-2">
+                  <span
+                    className="w-3 h-3 rounded-full"
+                    style={{ backgroundColor: doctor.calendar_color }}
+                  ></span>
+                  <div>
+                    <div className="font-medium text-gray-900">{doctor.full_name}</div>
+                    <div className="text-xs text-gray-500">{doctor.specialty}</div>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* Calendar Body */}
+          <div className="max-h-96 overflow-y-auto">
+            {calendarDates.map(date => (
+              <div key={date}>
+                {/* Date separator */}
+                <div className="grid border-b bg-blue-50" style={{ gridTemplateColumns: `120px repeat(${doctors.length}, 1fr)` }}>
+                  <div className="p-2 font-medium text-blue-700 border-r">
+                    {new Date(date).toLocaleDateString('ru-RU', { 
+                      weekday: 'short', 
+                      month: 'short', 
+                      day: 'numeric' 
+                    })}
+                  </div>
+                  {doctors.map(doctor => (
+                    <div key={doctor.id} className="p-2 border-r last:border-r-0"></div>
+                  ))}
+                </div>
+
+                {/* Time slots for this date */}
+                {timeSlots.map(time => (
+                  <div
+                    key={`${date}-${time}`}
+                    className="grid border-b last:border-b-0 hover:bg-gray-50"
+                    style={{ gridTemplateColumns: `120px repeat(${doctors.length}, 1fr)` }}
+                  >
+                    {/* Time label */}
+                    <div className="p-3 bg-gray-50 border-r font-mono text-sm text-gray-600">
+                      {time}
+                    </div>
+
+                    {/* Doctor slots */}
+                    {doctors.map(doctor => {
+                      const appointment = getAppointmentForSlot(doctor.id, date, time);
+                      
+                      return (
+                        <div
+                          key={doctor.id}
+                          className="p-1 border-r last:border-r-0 min-h-[60px] relative cursor-pointer hover:bg-blue-50 transition-colors"
+                          onDragOver={handleDragOver}
+                          onDrop={(e) => handleDrop(e, doctor.id, date, time)}
+                          onClick={() => !appointment && canCreateAppointments && handleSlotClick(doctor.id, date, time)}
+                        >
+                          {appointment ? (
+                            <div
+                              draggable={canCreateAppointments}
+                              onDragStart={(e) => handleDragStart(e, appointment)}
+                              className={`p-2 rounded text-xs cursor-move transition-all hover:shadow-md ${statusConfig[appointment.status].color}`}
+                              style={{
+                                borderLeft: `3px solid ${doctor.calendar_color}`
+                              }}
+                            >
+                              <div className="font-medium truncate">{appointment.patient_name}</div>
+                              <div className="text-xs opacity-75 truncate">
+                                {appointment.reason || 'Прием'}
+                              </div>
+                              <div className="text-xs mt-1">
+                                <span className={`px-1 py-0.5 rounded ${statusConfig[appointment.status].color}`}>
+                                  {statusConfig[appointment.status].label}
+                                </span>
+                              </div>
+                            </div>
+                          ) : (
+                            canCreateAppointments && (
+                              <div className="h-full flex items-center justify-center text-gray-400 hover:text-blue-500 transition-colors">
+                                <span className="text-2xl">+</span>
+                              </div>
+                            )
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                ))}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Legend */}
+      <div className="bg-white rounded-lg p-4 shadow">
+        <h3 className="font-medium text-gray-900 mb-3">Легенда статусов:</h3>
+        <div className="flex flex-wrap gap-3">
+          {Object.entries(statusConfig).map(([status, config]) => (
+            <div key={status} className="flex items-center space-x-2">
+              <span className={`px-2 py-1 rounded text-xs ${config.color}`}>
+                {config.label}
+              </span>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
 
   // Check user permissions
   const canManagePatients = user?.role === 'admin' || user?.role === 'doctor';
