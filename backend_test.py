@@ -11,6 +11,8 @@ class ClinicAPITester:
         self.created_patient_id = None
         self.created_doctor_id = None
         self.created_appointment_id = None
+        self.token = None
+        self.current_user = None
 
     def run_test(self, name, method, endpoint, expected_status, data=None, params=None):
         """Run a single API test"""
