@@ -260,7 +260,7 @@ function App() {
   const renderSchedule = () => (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
-        <h2 className="text-2xl font-bold text-gray-900">Расписание на сегодня</h2>
+        <h2 className="text-2xl font-bold text-gray-900">Расписание (±7 дней)</h2>
         <button
           onClick={() => setShowAppointmentModal(true)}
           className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
@@ -269,13 +269,13 @@ function App() {
         </button>
       </div>
 
-      {todayAppointments.length === 0 ? (
+      {scheduleAppointments.length === 0 ? (
         <div className="text-center py-12 bg-gray-50 rounded-lg">
-          <p className="text-gray-500">На сегодня записей нет</p>
+          <p className="text-gray-500">Записей нет</p>
         </div>
       ) : (
         <div className="grid gap-4">
-          {todayAppointments.map(appointment => (
+          {scheduleAppointments.map(appointment => (
             <div key={appointment.id} className="bg-white border rounded-lg p-4 shadow-sm">
               <div className="flex justify-between items-start">
                 <div className="flex-1">
