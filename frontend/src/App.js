@@ -651,27 +651,6 @@ function ClinicApp() {
     setErrorMessage(null);
     
     try {
-      // Проверяем наличие медкарты у пациента перед созданием записи
-      if (!editingItem && appointmentForm.patient_id) {
-        const medicalRecord = await checkMedicalRecord(appointmentForm.patient_id);
-        
-        if (!medicalRecord) {
-          // Медкарта не найдена - требуем создать
-          const patient = patients.find(p => p.id === appointmentForm.patient_id);
-          setErrorMessage(`У пациента ${patient?.full_name || 'выбранного пациента'} отсутствует медицинская карта. Необходимо создать медкарту перед записью на прием.`);
-          
-          // Сохраняем данные записи для создания после медкарты
-          setPendingAppointment(appointmentForm);
-          setMedicalRecordForm({
-            ...medicalRecordForm,
-            patient_id: appointmentForm.patient_id
-          });
-          setShowMedicalRecordModal(true);
-          setLoading(false);
-          return;
-        }
-      }
-      
       if (editingItem) {
         await updateAppointment(editingItem.id, appointmentForm);
       } else {
