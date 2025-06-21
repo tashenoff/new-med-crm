@@ -426,7 +426,11 @@ function ClinicApp() {
       setShowAddDiagnosisModal(false);
       setDiagnosisForm({ patient_id: '', diagnosis_name: '', diagnosis_code: '', description: '' });
     } catch (error) {
-      setErrorMessage(error.response?.data?.detail || 'Ошибка при добавлении диагноза');
+      console.error('Error creating diagnosis:', error);
+      const errorMsg = typeof error.response?.data?.detail === 'string' 
+        ? error.response.data.detail 
+        : 'Ошибка при добавлении диагноза';
+      setErrorMessage(errorMsg);
     } finally {
       setLoading(false);
     }
