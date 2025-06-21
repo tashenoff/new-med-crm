@@ -1356,15 +1356,15 @@ function ClinicApp() {
               <div>
                 <h3 className="text-xl font-semibold">{medical.selectedPatient.full_name}</h3>
                 <div className="mt-2 text-sm text-gray-600 space-y-1">
-                  <p>Телефон: {medicalSummary.patient.phone}</p>
-                  {medicalSummary.medical_record?.blood_type && (
-                    <p>Группа крови: {medicalSummary.medical_record.blood_type}</p>
+                  <p>Телефон: {medical.medicalSummary.patient.phone}</p>
+                  {medical.medicalSummary.medical_record?.blood_type && (
+                    <p>Группа крови: {medical.medicalSummary.medical_record.blood_type}</p>
                   )}
-                  {medicalSummary.medical_record?.height && (
-                    <p>Рост: {medicalSummary.medical_record.height} см</p>
+                  {medical.medicalSummary.medical_record?.height && (
+                    <p>Рост: {medical.medicalSummary.medical_record.height} см</p>
                   )}
-                  {medicalSummary.medical_record?.weight && (
-                    <p>Вес: {medicalSummary.medical_record.weight} кг</p>
+                  {medical.medicalSummary.medical_record?.weight && (
+                    <p>Вес: {medical.medicalSummary.medical_record.weight} кг</p>
                   )}
                 </div>
               </div>
