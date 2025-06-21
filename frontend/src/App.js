@@ -976,6 +976,20 @@ function ClinicApp() {
     setShowAppointmentModal(true);
   };
 
+  const handleNewAppointment = () => {
+    const today = new Date().toISOString().split('T')[0];
+    setAppointmentForm({
+      patient_id: '',
+      doctor_id: '',
+      appointment_date: today,
+      appointment_time: '',
+      reason: '',
+      notes: ''
+    });
+    setErrorMessage(null);
+    setShowAppointmentModal(true);
+  };
+
   const getAppointmentForSlot = (doctorId, date, time) => {
     return appointments.find(
       apt => apt.doctor_id === doctorId && 
