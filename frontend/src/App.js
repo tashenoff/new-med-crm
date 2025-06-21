@@ -622,7 +622,7 @@ function ClinicApp() {
   // Appointment functions
   const createAppointment = async (appointmentData) => {
     try {
-      const response = await axios.post(`${BACKEND_URL}/appointments`, appointmentData, {
+      const response = await axios.post(`${BACKEND_URL}/api/appointments`, appointmentData, {
         headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
       });
       return response.data;
@@ -634,7 +634,7 @@ function ClinicApp() {
 
   const updateAppointment = async (appointmentId, appointmentData) => {
     try {
-      const response = await axios.put(`${BACKEND_URL}/appointments/${appointmentId}`, appointmentData, {
+      const response = await axios.put(`${BACKEND_URL}/api/appointments/${appointmentId}`, appointmentData, {
         headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
       });
       return response.data;
