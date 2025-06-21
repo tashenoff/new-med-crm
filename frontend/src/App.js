@@ -1386,7 +1386,7 @@ function ClinicApp() {
                       📝 Добавить запись
                     </button>
                     <button
-                      onClick={() => handleAddDiagnosis(selectedPatient.id)}
+                      onClick={() => handleAddDiagnosis(medical.selectedPatient.id)}
                       className="bg-purple-600 text-white px-3 py-2 rounded-lg hover:bg-purple-700 transition-colors text-sm"
                       title="Добавить диагноз"
                     >
