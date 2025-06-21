@@ -570,6 +570,30 @@ function ClinicApp() {
   };
 
   // Appointment functions
+  const createAppointment = async (appointmentData) => {
+    try {
+      const response = await axios.post(`${BACKEND_URL}/appointments`, appointmentData, {
+        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
+      });
+      return response.data;
+    } catch (error) {
+      console.error('Error creating appointment:', error);
+      throw error;
+    }
+  };
+
+  const updateAppointment = async (appointmentId, appointmentData) => {
+    try {
+      const response = await axios.put(`${BACKEND_URL}/appointments/${appointmentId}`, appointmentData, {
+        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
+      });
+      return response.data;
+    } catch (error) {
+      console.error('Error updating appointment:', error);
+      throw error;
+    }
+  };
+
   const handleSaveAppointment = async (e) => {
     e.preventDefault();
     setLoading(true);
