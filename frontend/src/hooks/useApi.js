@@ -100,7 +100,7 @@ export const useApi = () => {
   // Medical Entry API
   const createMedicalEntry = async (entryData) => {
     try {
-      const response = await axios.post(`${API}/medical-entries`, entryData, {
+      const response = await axios.post(`${BACKEND_URL}/api/medical-entries`, entryData, {
         headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
       });
       return response.data;
