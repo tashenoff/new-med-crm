@@ -1379,7 +1379,7 @@ function ClinicApp() {
                       ✏️ Редактировать медкарту
                     </button>
                     <button
-                      onClick={() => handleAddMedicalEntry(selectedPatient.id)}
+                      onClick={() => handleAddMedicalEntry(medical.selectedPatient.id)}
                       className="bg-indigo-600 text-white px-3 py-2 rounded-lg hover:bg-indigo-700 transition-colors text-sm"
                       title="Добавить запись о приеме"
                     >
