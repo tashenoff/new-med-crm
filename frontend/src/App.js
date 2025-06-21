@@ -1468,7 +1468,7 @@ function ClinicApp() {
             <div className="bg-red-50 border border-red-200 rounded-lg p-4">
               <h4 className="font-semibold text-red-800 mb-2">⚠️ Аллергии:</h4>
               <div className="space-y-2">
-                {medicalSummary.allergies.map(allergy => (
+                {medical.medicalSummary.allergies.map(allergy => (
                   <div key={allergy.id} className="text-red-700">
                     <span className="font-medium">{allergy.allergen}</span>: {allergy.reaction}
                     <span className={`ml-2 px-2 py-0.5 text-xs rounded ${
