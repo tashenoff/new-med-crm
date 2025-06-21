@@ -1404,7 +1404,7 @@ function ClinicApp() {
                 {user?.role !== 'patient' && (
                   <button
                     onClick={() => {
-                      setSelectedPatient(null);
+                      medical.selectPatient(null);
                       setMedicalSummary(null);
                     }}
                     className="text-gray-400 hover:text-gray-600 px-2"
