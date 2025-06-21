@@ -541,6 +541,56 @@ function ClinicApp() {
     }
   };
 
+  const updateMedicalRecord = async (patientId, recordData) => {
+    try {
+      const response = await axios.put(`${BACKEND_URL}/medical-records/${patientId}`, recordData, {
+        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
+      });
+      return response.data;
+    } catch (error) {
+      console.error('Error updating medical record:', error);
+      throw error;
+    }
+  };
+
+  const handleEditMedicalRecord = (patientId, existingRecord) => {
+    setMedicalRecordForm({
+      patient_id: patientId,
+      blood_type: existingRecord?.blood_type || '',
+      height: existingRecord?.height || '',
+      weight: existingRecord?.weight || '',
+      emergency_contact: existingRecord?.emergency_contact || '',
+      emergency_phone: existingRecord?.emergency_phone || '',
+      insurance_number: existingRecord?.insurance_number || ''
+    });
+    setShowEditMedicalRecordModal(true);
+  };
+
+  const handleSaveEditMedicalRecord = async (e) => {
+    e.preventDefault();
+    if (!medicalRecordForm.patient_id) return;
+    
+    setLoading(true);
+    setErrorMessage(null);
+    
+    try {
+      await updateMedicalRecord(medicalRecordForm.patient_id, medicalRecordForm);
+      
+      // Refresh medical summary
+      await fetchMedicalSummary(medicalRecordForm.patient_id);
+      
+      setShowEditMedicalRecordModal(false);
+      setMedicalRecordForm({
+        patient_id: '', blood_type: '', height: '', weight: '', 
+        emergency_contact: '', emergency_phone: '', insurance_number: ''
+      });
+    } catch (error) {
+      setErrorMessage(error.response?.data?.detail || 'Ошибка при обновлении медкарты');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleSaveMedicalRecord = async (e) => {
     e.preventDefault();
     if (!medicalRecordForm.patient_id) return;
