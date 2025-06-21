@@ -457,7 +457,11 @@ function ClinicApp() {
       setShowAddMedicationModal(false);
       setMedicationForm({ patient_id: '', medication_name: '', dosage: '', frequency: '', instructions: '', end_date: '' });
     } catch (error) {
-      setErrorMessage(error.response?.data?.detail || 'Ошибка при добавлении лекарства');
+      console.error('Error creating medication:', error);
+      const errorMsg = typeof error.response?.data?.detail === 'string' 
+        ? error.response.data.detail 
+        : 'Ошибка при добавлении лекарства';
+      setErrorMessage(errorMsg);
     } finally {
       setLoading(false);
     }
