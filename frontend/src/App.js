@@ -1490,7 +1490,7 @@ function ClinicApp() {
               <p className="text-gray-500">Диагнозы не установлены</p>
             ) : (
               <div className="space-y-3">
-                {medicalSummary.active_diagnoses.map(diagnosis => (
+                {medical.medicalSummary.active_diagnoses.map(diagnosis => (
                   <div key={diagnosis.id} className="border-l-4 border-blue-500 pl-4">
                     <div className="font-medium">{diagnosis.diagnosis_name}</div>
                     {diagnosis.diagnosis_code && (
