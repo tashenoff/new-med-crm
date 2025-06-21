@@ -158,11 +158,11 @@ const MedicalView = ({
         </div>
 
         {/* Последние записи */}
-        {medicalSummary.entries && medicalSummary.entries.length > 0 && (
+        {medicalSummary.recent_entries && medicalSummary.recent_entries.length > 0 && (
           <div className="bg-white rounded-lg p-6 shadow">
             <h4 className="font-semibold mb-3">📝 Последние записи</h4>
             <div className="space-y-3">
-              {medicalSummary.entries.map(entry => (
+              {medicalSummary.recent_entries.map(entry => (
                 <div key={entry.id} className="border-l-4 border-green-500 pl-4 bg-green-50 p-3 rounded">
                   <div className="font-medium text-green-900">{entry.title}</div>
                   <div className="text-sm text-green-700 mt-1">{entry.description}</div>
@@ -201,11 +201,11 @@ const MedicalView = ({
         )}
 
         {/* Диагнозы */}
-        {medicalSummary.diagnoses && medicalSummary.diagnoses.length > 0 && (
+        {medicalSummary.active_diagnoses && medicalSummary.active_diagnoses.length > 0 && (
           <div className="bg-white rounded-lg p-6 shadow">
             <h4 className="font-semibold mb-3">🩺 Диагнозы</h4>
             <div className="space-y-3">
-              {medicalSummary.diagnoses.map(diagnosis => (
+              {medicalSummary.active_diagnoses.map(diagnosis => (
                 <div key={diagnosis.id} className="border-l-4 border-purple-500 pl-4 bg-purple-50 p-3 rounded">
                   <div className="font-medium text-purple-900">
                     {diagnosis.diagnosis_name}
@@ -226,11 +226,11 @@ const MedicalView = ({
         )}
 
         {/* Лекарства */}
-        {medicalSummary.medications && medicalSummary.medications.length > 0 && (
+        {medicalSummary.active_medications && medicalSummary.active_medications.length > 0 && (
           <div className="bg-white rounded-lg p-6 shadow">
             <h4 className="font-semibold mb-3">💊 Назначенные лекарства</h4>
             <div className="space-y-3">
-              {medicalSummary.medications.map(medication => (
+              {medicalSummary.active_medications.map(medication => (
                 <div key={medication.id} className="border-l-4 border-green-500 pl-4 bg-green-50 p-3 rounded">
                   <div className="font-medium text-green-900">{medication.medication_name}</div>
                   <div className="text-sm text-green-700 mt-1">
