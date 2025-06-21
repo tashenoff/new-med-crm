@@ -17,7 +17,8 @@ const CalendarView = ({
     const dates = [];
     const today = new Date();
     
-    for (let i = -3; i <= 10; i++) {
+    // Начинаем с текущего дня и показываем 14 дней вперед
+    for (let i = 0; i <= 13; i++) {
       const date = new Date(today);
       date.setDate(today.getDate() + i);
       dates.push(date.toISOString().split('T')[0]);
