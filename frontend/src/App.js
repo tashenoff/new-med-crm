@@ -1292,7 +1292,7 @@ function ClinicApp() {
                 key={patient.id}
                 onClick={() => {
                   setSelectedPatient(patient);
-                  fetchMedicalSummary(patient.id);
+                  medical.fetchMedicalSummary(patient.id);
                 }}
                 className="text-left p-3 border rounded-lg hover:bg-gray-50 transition-colors"
               >
