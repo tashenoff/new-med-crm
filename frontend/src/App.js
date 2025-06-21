@@ -1872,6 +1872,7 @@ function ClinicApp() {
                 type="date"
                 value={appointmentForm.appointment_date}
                 onChange={(e) => setAppointmentForm({...appointmentForm, appointment_date: e.target.value})}
+                min={new Date().toISOString().split('T')[0]}
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
               />
               <input
