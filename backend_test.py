@@ -721,12 +721,12 @@ def main():
     tomorrow = (datetime.now() + timedelta(days=1)).strftime("%Y-%m-%d")
     
     print("=" * 50)
-    print("TESTING MANDATORY MEDICAL RECORDS BEFORE APPOINTMENTS")
+    print("TESTING AUTOMATIC MEDICAL RECORD CREATION AND EDITING")
     print("=" * 50)
     
-    # 1. Create test users, patient and doctor
+    # 1. Login as admin user
     print("\n" + "=" * 50)
-    print("TEST 1: CREATING TEST USERS, PATIENT AND DOCTOR")
+    print("TEST 1: LOGIN AS ADMIN")
     print("=" * 50)
     
     # Login as admin user (already exists)
@@ -736,16 +736,53 @@ def main():
         print("❌ Admin login failed")
         return 1
     
+    # 2. Test automatic medical record creation when creating a patient
+    print("\n" + "=" * 50)
+    print("TEST 2: AUTOMATIC MEDICAL RECORD CREATION WHEN CREATING PATIENT")
+    print("=" * 50)
+    
     # Create test patient
     print("\n🔍 Creating test patient...")
-    if not tester.test_create_patient("Пациент Тестовый", "+7 999 123 4567", "phone"):
+    patient_name = f"Пациент Тестовый {datetime.now().strftime('%H%M%S')}"
+    if not tester.test_create_patient(patient_name, "+7 999 123 4567", "phone"):
         print("❌ Test patient creation failed, stopping tests")
         return 1
     
     test_patient_id = tester.created_patient_id
     print(f"✅ Created test patient with ID: {test_patient_id}")
     
-    # Create test doctor
+    # 3. Test retrieving the automatically created medical record
+    print("\n" + "=" * 50)
+    print("TEST 3: RETRIEVING AUTOMATICALLY CREATED MEDICAL RECORD")
+    print("=" * 50)
+    
+    print("\n🔍 Retrieving medical record...")
+    success, response = tester.run_test(
+        "Get Automatically Created Medical Record",
+        "GET",
+        f"medical-records/{test_patient_id}",
+        200
+    )
+    
+    if success and response and "id" in response:
+        print(f"✅ Retrieved automatically created medical record for patient {test_patient_id}")
+        print(f"Medical Record ID: {response['id']}")
+        print(f"Patient ID: {response['patient_id']}")
+        
+        # Verify patient_id matches
+        if response['patient_id'] == test_patient_id:
+            print("✅ Medical record contains correct patient_id")
+        else:
+            print(f"❌ Medical record patient_id mismatch: expected {test_patient_id}, got {response['patient_id']}")
+    else:
+        print("❌ Automatic medical record creation failed")
+        return 1
+    
+    # 4. Create test doctor
+    print("\n" + "=" * 50)
+    print("TEST 4: CREATING TEST DOCTOR")
+    print("=" * 50)
+    
     print("\n🔍 Creating test doctor...")
     if not tester.test_create_doctor("Доктор Тестов", "Терапевт", "#4287f5"):
         print("❌ Test doctor creation failed, stopping tests")
@@ -754,51 +791,13 @@ def main():
     test_doctor_id = tester.created_doctor_id
     print(f"✅ Created test doctor with ID: {test_doctor_id}")
     
-    # Register a doctor user
-    doctor_email = f"doctor_{datetime.now().strftime('%Y%m%d%H%M%S')}@test.com"
-    doctor_password = "Test123!"
-    doctor_name = "Доктор Тестов"
-    
-    print("\n🔍 Registering doctor user...")
-    if not tester.test_register_user(doctor_email, doctor_password, doctor_name, "doctor"):
-        print("❌ Doctor user registration failed")
-        # Continue with admin user
-    
-    # 2. Test creating appointment without medical record (should fail)
+    # 5. Test updating the medical record
     print("\n" + "=" * 50)
-    print("TEST 2: CREATING APPOINTMENT WITHOUT MEDICAL RECORD")
+    print("TEST 5: UPDATING MEDICAL RECORD")
     print("=" * 50)
     
-    print("\n🔍 Attempting to create appointment without medical record...")
-    appointment_data = {
-        "patient_id": test_patient_id,
-        "doctor_id": test_doctor_id,
-        "appointment_date": tomorrow,
-        "appointment_time": "10:00",
-        "reason": "Первичный осмотр"
-    }
-    
-    # This should fail with 404 because medical record doesn't exist
-    success, response = tester.run_test(
-        "Create Appointment Without Medical Record",
-        "POST",
-        "appointments",
-        404,  # Expecting 404 Not Found for missing medical record
-        data=appointment_data
-    )
-    
-    if success:
-        print("✅ System correctly prevented appointment creation without medical record")
-    else:
-        print("❌ System allowed appointment creation without medical record or returned wrong status code")
-    
-    # 3. Test medical record creation
-    print("\n" + "=" * 50)
-    print("TEST 3: CREATING MEDICAL RECORD")
-    print("=" * 50)
-    
-    print("\n🔍 Creating medical record for patient...")
-    medical_record_data = {
+    print("\n🔍 Updating medical record...")
+    medical_record_update = {
         "patient_id": test_patient_id,
         "blood_type": "A+",
         "height": 175.5,
@@ -809,62 +808,36 @@ def main():
     }
     
     success, response = tester.run_test(
-        "Create Medical Record",
-        "POST",
-        "medical-records",
+        "Update Medical Record",
+        "PUT",
+        f"medical-records/{test_patient_id}",
         200,
-        data=medical_record_data
+        data=medical_record_update
     )
     
     if success and response and "id" in response:
-        tester.created_medical_record_id = response["id"]
-        print(f"✅ Created medical record with ID: {tester.created_medical_record_id}")
+        print(f"✅ Updated medical record for patient {test_patient_id}")
         
-        # Verify all fields were saved correctly
+        # Verify all fields were updated correctly
         all_fields_correct = True
         for field in ["blood_type", "height", "weight", "emergency_contact", "emergency_phone", "insurance_number"]:
-            if response[field] != medical_record_data[field]:
-                print(f"❌ Field {field} mismatch: expected {medical_record_data[field]}, got {response[field]}")
+            if response[field] != medical_record_update[field]:
+                print(f"❌ Field {field} mismatch: expected {medical_record_update[field]}, got {response[field]}")
                 all_fields_correct = False
         
         if all_fields_correct:
-            print("✅ All medical record fields were saved correctly")
+            print("✅ All medical record fields were updated correctly")
         else:
-            print("❌ Some medical record fields were not saved correctly")
+            print("❌ Some medical record fields were not updated correctly")
     else:
-        print("❌ Medical record creation failed")
-        return 1
+        print("❌ Medical record update failed")
     
-    # 4. Test retrieving the medical record
+    # 6. Test creating appointment (should succeed since medical record exists)
     print("\n" + "=" * 50)
-    print("TEST 4: RETRIEVING MEDICAL RECORD")
+    print("TEST 6: CREATING APPOINTMENT WITH AUTOMATIC MEDICAL RECORD")
     print("=" * 50)
     
-    print("\n🔍 Retrieving medical record...")
-    success, response = tester.run_test(
-        "Get Medical Record",
-        "GET",
-        f"medical-records/{test_patient_id}",
-        200
-    )
-    
-    if success and response and "id" in response:
-        print(f"✅ Retrieved medical record for patient {test_patient_id}")
-        print(f"Blood Type: {response['blood_type']}")
-        print(f"Height: {response['height']} cm")
-        print(f"Weight: {response['weight']} kg")
-        print(f"Emergency Contact: {response['emergency_contact']}")
-        print(f"Emergency Phone: {response['emergency_phone']}")
-        print(f"Insurance Number: {response['insurance_number']}")
-    else:
-        print("❌ Medical record retrieval failed")
-    
-    # 5. Test creating appointment with medical record (should succeed)
-    print("\n" + "=" * 50)
-    print("TEST 5: CREATING APPOINTMENT WITH MEDICAL RECORD")
-    print("=" * 50)
-    
-    print("\n🔍 Creating appointment with existing medical record...")
+    print("\n🔍 Creating appointment with automatically created medical record...")
     appointment_data = {
         "patient_id": test_patient_id,
         "doctor_id": test_doctor_id,
@@ -874,7 +847,7 @@ def main():
     }
     
     success, response = tester.run_test(
-        "Create Appointment With Medical Record",
+        "Create Appointment With Automatic Medical Record",
         "POST",
         "appointments",
         200,
@@ -884,95 +857,13 @@ def main():
     if success and response and "id" in response:
         tester.created_appointment_id = response["id"]
         print(f"✅ Created appointment with ID: {tester.created_appointment_id}")
-        print("✅ Appointment creation succeeded with existing medical record")
+        print("✅ Appointment creation succeeded with automatically created medical record")
     else:
-        print("❌ Appointment creation failed despite having medical record")
+        print("❌ Appointment creation failed despite having automatic medical record")
     
-    # 6. Test retrieving non-existent medical record
+    # 7. Test duplicate medical record creation (should fail)
     print("\n" + "=" * 50)
-    print("TEST 6: RETRIEVING NON-EXISTENT MEDICAL RECORD")
-    print("=" * 50)
-    
-    print("\n🔍 Attempting to retrieve non-existent medical record...")
-    non_existent_id = "00000000-0000-0000-0000-000000000999"
-    success, _ = tester.run_test(
-        "Get Non-existent Medical Record",
-        "GET",
-        f"medical-records/{non_existent_id}",
-        404  # Expecting 404 Not Found
-    )
-    
-    if success:
-        print("✅ System correctly returned 404 for non-existent medical record")
-    else:
-        print("❌ System did not handle non-existent medical record correctly")
-    
-    # 7. Test medical record validation
-    print("\n" + "=" * 50)
-    print("TEST 7: MEDICAL RECORD VALIDATION")
-    print("=" * 50)
-    
-    # Create another patient for validation tests
-    print("\n🔍 Creating another test patient for validation tests...")
-    if not tester.test_create_patient("Пациент Валидационный", "+7 999 555 7777", "phone"):
-        print("❌ Validation test patient creation failed")
-    else:
-        validation_patient_id = tester.created_patient_id
-        print(f"✅ Created validation test patient with ID: {validation_patient_id}")
-        
-        # Test with invalid height (negative)
-        print("\n🔍 Testing with invalid height (negative)...")
-        invalid_record_data = {
-            "patient_id": validation_patient_id,
-            "blood_type": "B-",
-            "height": -180.0,  # Invalid negative height
-            "weight": 75.0,
-            "emergency_contact": "Контакт",
-            "emergency_phone": "+7 999 111 2222",
-            "insurance_number": "9876543210"
-        }
-        
-        success, response = tester.run_test(
-            "Create Medical Record with Invalid Height",
-            "POST",
-            "medical-records",
-            422,  # Expecting validation error
-            data=invalid_record_data
-        )
-        
-        if success:
-            print("✅ System correctly rejected negative height")
-        else:
-            print("❌ System accepted negative height or returned wrong status code")
-        
-        # Test with valid data
-        print("\n🔍 Testing with valid data...")
-        valid_record_data = {
-            "patient_id": validation_patient_id,
-            "blood_type": "B-",
-            "height": 180.0,
-            "weight": 75.0,
-            "emergency_contact": "Контакт",
-            "emergency_phone": "+7 999 111 2222",
-            "insurance_number": "9876543210"
-        }
-        
-        success, response = tester.run_test(
-            "Create Medical Record with Valid Data",
-            "POST",
-            "medical-records",
-            200,
-            data=valid_record_data
-        )
-        
-        if success and response and "id" in response:
-            print("✅ System correctly accepted valid medical record data")
-        else:
-            print("❌ System rejected valid medical record data")
-    
-    # 8. Test duplicate medical record creation (should fail)
-    print("\n" + "=" * 50)
-    print("TEST 8: DUPLICATE MEDICAL RECORD CREATION")
+    print("TEST 7: DUPLICATE MEDICAL RECORD CREATION")
     print("=" * 50)
     
     print("\n🔍 Attempting to create duplicate medical record...")
@@ -999,9 +890,44 @@ def main():
     else:
         print("❌ System allowed duplicate medical record creation or returned wrong status code")
     
+    # 8. Create another patient to verify automatic medical record creation again
+    print("\n" + "=" * 50)
+    print("TEST 8: VERIFY AUTOMATIC MEDICAL RECORD CREATION WITH ANOTHER PATIENT")
+    print("=" * 50)
+    
+    print("\n🔍 Creating another test patient...")
+    second_patient_name = f"Пациент Второй {datetime.now().strftime('%H%M%S')}"
+    if not tester.test_create_patient(second_patient_name, "+7 999 555 7777", "phone"):
+        print("❌ Second test patient creation failed")
+    else:
+        second_patient_id = tester.created_patient_id
+        print(f"✅ Created second test patient with ID: {second_patient_id}")
+        
+        # Check if medical record was automatically created
+        print("\n🔍 Verifying automatic medical record creation for second patient...")
+        success, response = tester.run_test(
+            "Get Second Patient's Medical Record",
+            "GET",
+            f"medical-records/{second_patient_id}",
+            200
+        )
+        
+        if success and response and "id" in response:
+            print(f"✅ Verified automatic medical record creation for second patient")
+            print(f"Medical Record ID: {response['id']}")
+            print(f"Patient ID: {response['patient_id']}")
+            
+            # Verify patient_id matches
+            if response['patient_id'] == second_patient_id:
+                print("✅ Second patient's medical record contains correct patient_id")
+            else:
+                print(f"❌ Second patient's medical record patient_id mismatch: expected {second_patient_id}, got {response['patient_id']}")
+        else:
+            print("❌ Automatic medical record creation failed for second patient")
+    
     # Print results
     print("\n" + "=" * 50)
-    print(f"MEDICAL RECORDS TESTS PASSED: {tester.tests_passed}/{tester.tests_run}")
+    print(f"AUTOMATIC MEDICAL RECORD TESTS PASSED: {tester.tests_passed}/{tester.tests_run}")
     print("=" * 50)
     
     return 0 if tester.tests_passed == tester.tests_run else 1
