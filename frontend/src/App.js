@@ -405,33 +405,6 @@ function ClinicApp() {
     fetchAppointments();
   }, []);
 
-  // Medical records functions
-  const fetchMedicalSummary = async (patientId) => {
-    try {
-      const response = await axios.get(`${API}/patients/${patientId}/medical-summary`);
-      setMedicalSummary(response.data);
-      
-      // Также получаем историю приемов пациента
-      await fetchPatientAppointments(patientId);
-    } catch (error) {
-      console.error('Error fetching medical summary:', error);
-      setErrorMessage('Ошибка при загрузке медицинской карты');
-    }
-  };
-
-  const fetchPatientAppointments = async (patientId) => {
-    try {
-      const response = await axios.get(`${API}/appointments`, {
-        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
-      });
-      // Фильтруем записи только для текущего пациента
-      const appointments = response.data.filter(apt => apt.patient_id === patientId);
-      setPatientAppointments(appointments);
-    } catch (error) {
-      console.error('Error fetching patient appointments:', error);
-    }
-  };
-
   // Функции для диагнозов
 
   const handleAddDiagnosis = (patientId) => {
