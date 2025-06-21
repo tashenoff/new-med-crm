@@ -599,9 +599,10 @@ function ClinicApp() {
     setErrorMessage(null);
     
     try {
-      await createMedicalRecord(medicalRecordForm);
+      // Пытаемся обновить существующую медкарту (так как она создается автоматически)
+      await updateMedicalRecord(medicalRecordForm.patient_id, medicalRecordForm);
       
-      // После создания медкарты, создаем запись на прием
+      // После обновления медкарты, создаем запись на прием
       if (pendingAppointment) {
         await createAppointment(pendingAppointment);
         setPendingAppointment(null);
@@ -614,7 +615,7 @@ function ClinicApp() {
         emergency_contact: '', emergency_phone: '', insurance_number: ''
       });
     } catch (error) {
-      setErrorMessage(error.response?.data?.detail || 'Ошибка при создании медкарты');
+      setErrorMessage(error.response?.data?.detail || 'Ошибка при обновлении медкарты');
     } finally {
       setLoading(false);
     }
