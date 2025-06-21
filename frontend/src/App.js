@@ -359,6 +359,9 @@ function ClinicApp() {
   const [medicationForm, setMedicationForm] = useState({
     patient_id: '', medication_name: '', dosage: '', frequency: '', instructions: '', end_date: ''
   });
+  const [medicalEntryForm, setMedicalEntryForm] = useState({
+    patient_id: '', entry_type: 'visit', title: '', description: '', severity: ''
+  });
 
   // Calendar specific functions
   const [draggedAppointment, setDraggedAppointment] = useState(null);
