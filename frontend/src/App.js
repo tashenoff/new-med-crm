@@ -738,6 +738,23 @@ function ClinicApp() {
     setShowAppointmentModal(true);
   };
 
+  const handleMoveAppointment = async (appointmentId, newDoctorId, newDate, newTime) => {
+    try {
+      setLoading(true);
+      await updateAppointment(appointmentId, {
+        doctor_id: newDoctorId,
+        appointment_date: newDate,
+        appointment_time: newTime
+      });
+      fetchAppointments();
+    } catch (error) {
+      console.error('Error moving appointment:', error);
+      setErrorMessage(error.response?.data?.detail || 'Ошибка при перемещении записи');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleDeleteAppointment = async (id) => {
     if (window.confirm('Вы уверены, что хотите переместить эту запись в архив?')) {
       try {
