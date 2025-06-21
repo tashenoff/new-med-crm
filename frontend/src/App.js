@@ -1005,8 +1005,6 @@ function ClinicApp() {
     });
   };
 
-  const scheduleAppointments = getScheduleAppointments();
-
   // Check user permissions
   const canManagePatients = user?.role === 'admin' || user?.role === 'doctor';
   const canManageDoctors = user?.role === 'admin';
