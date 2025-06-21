@@ -388,9 +388,101 @@ function ClinicApp() {
     try {
       const response = await axios.get(`${API}/patients/${patientId}/medical-summary`);
       setMedicalSummary(response.data);
+      
+      // Также получаем историю приемов пациента
+      await fetchPatientAppointments(patientId);
     } catch (error) {
       console.error('Error fetching medical summary:', error);
       setErrorMessage('Ошибка при загрузке медицинской карты');
+    }
+  };
+
+  const fetchPatientAppointments = async (patientId) => {
+    try {
+      const response = await axios.get(`${API}/appointments`, {
+        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
+      });
+      // Фильтруем записи только для текущего пациента
+      const appointments = response.data.filter(apt => apt.patient_id === patientId);
+      setPatientAppointments(appointments);
+    } catch (error) {
+      console.error('Error fetching patient appointments:', error);
+    }
+  };
+
+  // Функции для диагнозов
+  const createDiagnosis = async (diagnosisData) => {
+    try {
+      const response = await axios.post(`${API}/diagnoses`, diagnosisData, {
+        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
+      });
+      return response.data;
+    } catch (error) {
+      console.error('Error creating diagnosis:', error);
+      throw error;
+    }
+  };
+
+  const handleAddDiagnosis = (patientId) => {
+    setDiagnosisForm({ ...diagnosisForm, patient_id: patientId });
+    setShowAddDiagnosisModal(true);
+  };
+
+  const handleSaveDiagnosis = async (e) => {
+    e.preventDefault();
+    if (!diagnosisForm.patient_id || !diagnosisForm.diagnosis_name) return;
+    
+    setLoading(true);
+    setErrorMessage(null);
+    
+    try {
+      await createDiagnosis(diagnosisForm);
+      await fetchMedicalSummary(diagnosisForm.patient_id);
+      
+      setShowAddDiagnosisModal(false);
+      setDiagnosisForm({ patient_id: '', diagnosis_name: '', diagnosis_code: '', description: '' });
+    } catch (error) {
+      setErrorMessage(error.response?.data?.detail || 'Ошибка при добавлении диагноза');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Функции для лекарств
+  const createMedication = async (medicationData) => {
+    try {
+      const response = await axios.post(`${API}/medications`, medicationData, {
+        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
+      });
+      return response.data;
+    } catch (error) {
+      console.error('Error creating medication:', error);
+      throw error;
+    }
+  };
+
+  const handleAddMedication = (patientId) => {
+    setMedicationForm({ ...medicationForm, patient_id: patientId });
+    setShowAddMedicationModal(true);
+  };
+
+  const handleSaveMedication = async (e) => {
+    e.preventDefault();
+    if (!medicationForm.patient_id || !medicationForm.medication_name) return;
+    
+    setLoading(true);
+    setErrorMessage(null);
+    
+    try {
+      await createMedication(medicationForm);
+      await fetchMedicalSummary(medicationForm.patient_id);
+      
+      setShowAddMedicationModal(false);
+      setMedicationForm({ patient_id: '', medication_name: '', dosage: '', frequency: '', instructions: '', end_date: '' });
+    } catch (error) {
+      setErrorMessage(error.response?.data?.detail || 'Ошибка при добавлении лекарства');
+    } finally {
+      setLoading(false);
     }
   };
 
