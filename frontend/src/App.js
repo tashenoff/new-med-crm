@@ -1312,7 +1312,7 @@ function ClinicApp() {
         </h2>
       </div>
 
-      {user?.role !== 'patient' && !selectedPatient && (
+      {user?.role !== 'patient' && !medical.selectedPatient && (
         <div className="bg-white rounded-lg p-6 shadow">
           <h3 className="text-lg font-semibold mb-4">Выберите пациента для просмотра медкарты</h3>
           <div className="grid gap-3">
