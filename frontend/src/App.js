@@ -474,7 +474,7 @@ function ClinicApp() {
     
     try {
       await createMedicalEntry(medicalEntryForm);
-      await fetchMedicalSummary(medicalEntryForm.patient_id);
+      await medical.fetchMedicalSummary(medicalEntryForm.patient_id);
       
       setShowAddMedicalEntryModal(false);
       setMedicalEntryForm({ patient_id: '', entry_type: 'visit', title: '', description: '', severity: '' });
