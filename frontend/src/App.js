@@ -325,6 +325,7 @@ function ClinicApp() {
   const { user, logout } = React.useContext(AuthContext);
   const [activeTab, setActiveTab] = useState('schedule');
   const [errorMessage, setErrorMessage] = useState(null);
+  const [searchTerm, setSearchTerm] = useState('');
   const [patients, setPatients] = useState([]);
   const [doctors, setDoctors] = useState([]);
   const [appointments, setAppointments] = useState([]);
