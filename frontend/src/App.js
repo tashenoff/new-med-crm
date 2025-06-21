@@ -655,7 +655,7 @@ function ClinicApp() {
       await updateMedicalRecord(medicalRecordForm.patient_id, medicalRecordForm);
       
       // Refresh medical summary
-      await fetchMedicalSummary(medicalRecordForm.patient_id);
+      await medical.fetchMedicalSummary(medicalRecordForm.patient_id);
       
       setShowEditMedicalRecordModal(false);
       setMedicalRecordForm({
