@@ -11,7 +11,7 @@ export const useMedical = () => {
 
   const fetchMedicalSummary = async (patientId) => {
     try {
-      const response = await axios.get(`${API}/patients/${patientId}/medical-summary`);
+      const response = await axios.get(`${BACKEND_URL}/api/patients/${patientId}/medical-summary`);
       setMedicalSummary(response.data);
       
       // Также получаем историю приемов пациента
@@ -24,7 +24,7 @@ export const useMedical = () => {
 
   const fetchPatientAppointments = async (patientId) => {
     try {
-      const response = await axios.get(`${API}/appointments`, {
+      const response = await axios.get(`${BACKEND_URL}/api/appointments`, {
         headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
       });
       // Фильтруем записи только для текущего пациента
