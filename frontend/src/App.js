@@ -327,7 +327,9 @@ function ClinicApp() {
   const [showPatientModal, setShowPatientModal] = useState(false);
   const [showDoctorModal, setShowDoctorModal] = useState(false);
   const [showAppointmentModal, setShowAppointmentModal] = useState(false);
+  const [showMedicalRecordModal, setShowMedicalRecordModal] = useState(false);
   const [editingItem, setEditingItem] = useState(null);
+  const [pendingAppointment, setPendingAppointment] = useState(null);
 
   // Medical records state
   const [selectedPatient, setSelectedPatient] = useState(null);
