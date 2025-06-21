@@ -93,14 +93,43 @@ const CalendarView = ({
     <div>
       <div className="flex justify-between items-center mb-6">
         <h2 className="text-2xl font-bold">Календарь приемов</h2>
-        {canEdit && (
-          <button
-            onClick={onNewAppointment}
-            className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
-          >
-            + Новая запись
-          </button>
-        )}
+        <div className="flex items-center space-x-4">
+          {/* Навигация по неделям */}
+          <div className="flex items-center space-x-2">
+            <button
+              onClick={() => navigateWeek(-1)}
+              className="p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded"
+              title="Предыдущая неделя"
+            >
+              ←
+            </button>
+            
+            <button
+              onClick={goToToday}
+              className="px-3 py-1 text-sm bg-gray-100 text-gray-700 rounded hover:bg-gray-200"
+              title="Сегодня"
+            >
+              Сегодня
+            </button>
+            
+            <button
+              onClick={() => navigateWeek(1)}
+              className="p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded"
+              title="Следующая неделя"
+            >
+              →
+            </button>
+          </div>
+          
+          {canEdit && (
+            <button
+              onClick={onNewAppointment}
+              className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
+            >
+              + Новая запись
+            </button>
+          )}
+        </div>
       </div>
 
       <div className="bg-white rounded-lg shadow overflow-hidden">
@@ -121,14 +150,23 @@ const CalendarView = ({
             {/* Calendar Grid */}
             {dates.map(date => (
               <React.Fragment key={date}>
-                {/* Date Header */}
-                <div className="col-span-full bg-gray-50 p-2 font-medium text-center border-t border-b">
-                  {new Date(date + 'T00:00:00').toLocaleDateString('ru-RU', { 
-                    weekday: 'long', 
-                    year: 'numeric', 
-                    month: 'long', 
-                    day: 'numeric' 
-                  })}
+                {/* Date Header with Today Highlight */}
+                <div className={`col-span-full p-3 font-medium text-center border-t border-b ${
+                  isToday(date) 
+                    ? 'bg-blue-100 text-blue-800 border-blue-300' 
+                    : 'bg-gray-50'
+                }`}>
+                  <div className="flex items-center justify-center space-x-2">
+                    {isToday(date) && <span className="text-blue-600">●</span>}
+                    <span>
+                      {new Date(date + 'T00:00:00').toLocaleDateString('ru-RU', { 
+                        weekday: 'long', 
+                        month: 'long', 
+                        day: 'numeric' 
+                      })}
+                    </span>
+                    {isToday(date) && <span className="text-sm text-blue-600">(Сегодня)</span>}
+                  </div>
                 </div>
 
                 {/* Time Slots for this date */}
