@@ -774,17 +774,6 @@ function ClinicApp() {
   };
 
   // Функции для медицинских записей
-  const createMedicalEntry = async (entryData) => {
-    try {
-      const response = await axios.post(`${API}/medical-entries`, entryData, {
-        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
-      });
-      return response.data;
-    } catch (error) {
-      console.error('Error creating medical entry:', error);
-      throw error;
-    }
-  };
 
   const handleStatusChange = async (appointmentId, newStatus) => {
     try {
