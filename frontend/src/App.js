@@ -479,7 +479,23 @@ function ClinicApp() {
       setShowAddMedicalEntryModal(false);
       setMedicalEntryForm({ patient_id: '', entry_type: 'visit', title: '', description: '', severity: '' });
     } catch (error) {
-      setErrorMessage(error.response?.data?.detail || 'Ошибка при добавлении записи');
+      console.error('Error creating medical entry:', error);
+      
+      // Безопасная обработка ошибки
+      let errorMsg = 'Ошибка при добавлении записи';
+      
+      if (error.response?.data) {
+        if (typeof error.response.data.detail === 'string') {
+          errorMsg = error.response.data.detail;
+        } else if (Array.isArray(error.response.data.detail)) {
+          // Обработка ошибок валидации FastAPI
+          errorMsg = error.response.data.detail.map(err => err.msg || err.message || 'Ошибка валидации').join(', ');
+        } else if (error.response.data.message) {
+          errorMsg = error.response.data.message;
+        }
+      }
+      
+      setErrorMessage(errorMsg);
     } finally {
       setLoading(false);
     }
