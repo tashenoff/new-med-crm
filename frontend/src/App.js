@@ -475,18 +475,31 @@ function ClinicApp() {
 
   const handleSaveMedicalEntry = async (e) => {
     e.preventDefault();
-    if (!medicalEntryForm.patient_id || !medicalEntryForm.title) return;
+    if (!medicalEntryForm.patient_id || !medicalEntryForm.title || !medicalEntryForm.description) return;
     
     setLoading(true);
     setErrorMessage(null);
     
     try {
-      console.log('Sending medical entry data:', medicalEntryForm);
-      await createMedicalEntry(medicalEntryForm);
+      // Подготавливаем данные, убираем пустые поля
+      const entryData = {
+        patient_id: medicalEntryForm.patient_id,
+        entry_type: medicalEntryForm.entry_type,
+        title: medicalEntryForm.title,
+        description: medicalEntryForm.description,
+      };
+      
+      // Добавляем severity только если выбрано
+      if (medicalEntryForm.severity && medicalEntryForm.severity !== '') {
+        entryData.severity = medicalEntryForm.severity;
+      }
+      
+      console.log('Sending medical entry data:', entryData);
+      await createMedicalEntry(entryData);
       await medical.fetchMedicalSummary(medicalEntryForm.patient_id);
       
       setShowAddMedicalEntryModal(false);
-      setMedicalEntryForm({ patient_id: '', entry_type: 'visit', title: '', description: '', severity: '' });
+      setMedicalEntryForm({ patient_id: '', entry_type: 'visit', title: '', description: '', severity: null });
     } catch (error) {
       console.error('Error creating medical entry:', error);
       console.error('Error details:', error.response?.data);
