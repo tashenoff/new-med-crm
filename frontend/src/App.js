@@ -352,6 +352,12 @@ function ClinicApp() {
     patient_id: '', blood_type: '', height: '', weight: '', emergency_contact: '', 
     emergency_phone: '', insurance_number: ''
   });
+  const [diagnosisForm, setDiagnosisForm] = useState({
+    patient_id: '', diagnosis_name: '', diagnosis_code: '', description: ''
+  });
+  const [medicationForm, setMedicationForm] = useState({
+    patient_id: '', medication_name: '', dosage: '', frequency: '', instructions: '', end_date: ''
+  });
 
   // Calendar specific functions
   const [draggedAppointment, setDraggedAppointment] = useState(null);
