@@ -469,7 +469,13 @@ function ClinicApp() {
 
   // Функции для медицинских записей
   const handleAddMedicalEntry = (patientId) => {
-    setMedicalEntryForm({ ...medicalEntryForm, patient_id: patientId });
+    setMedicalEntryForm({ 
+      patient_id: patientId, 
+      entry_type: 'visit', 
+      title: '', 
+      description: '', 
+      severity: null 
+    });
     setShowAddMedicalEntryModal(true);
   };
 
