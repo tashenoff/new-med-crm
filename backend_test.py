@@ -729,18 +729,12 @@ def main():
     print("TEST 1: CREATING TEST USERS, PATIENT AND DOCTOR")
     print("=" * 50)
     
-    # Register a doctor user
-    doctor_email = f"doctor_{datetime.now().strftime('%Y%m%d%H%M%S')}@test.com"
-    doctor_password = "Test123!"
-    doctor_name = "Доктор Тестов"
-    
-    print("\n🔍 Registering doctor user...")
-    if not tester.test_register_user(doctor_email, doctor_password, doctor_name, "doctor"):
-        print("❌ Doctor user registration failed")
-        # Try to login as admin as fallback
-        if not tester.test_login_user("admin@test.com", "test123"):
-            print("❌ Admin login failed as fallback")
-            return 1
+    # Login as admin user (already exists)
+    admin_email = "admin@test.com"
+    admin_password = "test123"
+    if not tester.test_login_user(admin_email, admin_password):
+        print("❌ Admin login failed")
+        return 1
     
     # Create test patient
     print("\n🔍 Creating test patient...")
@@ -759,6 +753,16 @@ def main():
     
     test_doctor_id = tester.created_doctor_id
     print(f"✅ Created test doctor with ID: {test_doctor_id}")
+    
+    # Register a doctor user
+    doctor_email = f"doctor_{datetime.now().strftime('%Y%m%d%H%M%S')}@test.com"
+    doctor_password = "Test123!"
+    doctor_name = "Доктор Тестов"
+    
+    print("\n🔍 Registering doctor user...")
+    if not tester.test_register_user(doctor_email, doctor_password, doctor_name, "doctor"):
+        print("❌ Doctor user registration failed")
+        # Continue with admin user
     
     # 2. Test creating appointment without medical record (should fail)
     print("\n" + "=" * 50)
