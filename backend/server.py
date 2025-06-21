@@ -500,7 +500,19 @@ async def create_patient(
 ):
     patient_dict = patient.dict()
     patient_obj = Patient(**patient_dict)
+    
+    # Insert patient first
     await db.patients.insert_one(patient_obj.dict())
+    
+    # Automatically create an empty medical record for the new patient
+    try:
+        medical_record = MedicalRecord(patient_id=patient_obj.id)
+        await db.medical_records.insert_one(medical_record.dict())
+        print(f"✅ Auto-created medical record for patient {patient_obj.id}")
+    except Exception as e:
+        print(f"⚠️ Failed to auto-create medical record for patient {patient_obj.id}: {e}")
+        # Don't fail patient creation if medical record creation fails
+    
     return patient_obj
 
 @api_router.get("/patients", response_model=List[Patient])
