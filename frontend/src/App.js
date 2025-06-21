@@ -1486,7 +1486,7 @@ function ClinicApp() {
 
           <div className="bg-white rounded-lg p-6 shadow">
             <h4 className="font-semibold mb-3">Текущие диагнозы</h4>
-            {medicalSummary.active_diagnoses.length === 0 ? (
+            {medical.medicalSummary.active_diagnoses.length === 0 ? (
               <p className="text-gray-500">Диагнозы не установлены</p>
             ) : (
               <div className="space-y-3">
