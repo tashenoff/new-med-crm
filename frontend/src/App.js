@@ -1790,7 +1790,7 @@ function ClinicApp() {
         onClose={() => {
           setShowAddMedicalEntryModal(false);
           setErrorMessage(null);
-          setMedicalEntryForm({ patient_id: '', entry_type: 'visit', title: '', description: '', severity: '' });
+          setMedicalEntryForm({ patient_id: '', entry_type: 'visit', title: '', description: '', severity: null });
         }}
         onSave={handleSaveMedicalEntry}
         medicalEntryForm={medicalEntryForm}
