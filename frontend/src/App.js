@@ -1420,26 +1420,33 @@ function ClinicApp() {
                   )}
                 </div>
               </div>
-              <div className="flex space-x-2">
+              <div className="flex flex-wrap gap-2">
                 {user?.role !== 'patient' && (
                   <>
                     <button
                       onClick={() => handleEditMedicalRecord(selectedPatient.id, medicalSummary.medical_record)}
-                      className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
+                      className="bg-blue-600 text-white px-3 py-2 rounded-lg hover:bg-blue-700 transition-colors text-sm"
                       title="Редактировать медицинскую карту"
                     >
                       ✏️ Редактировать медкарту
                     </button>
                     <button
+                      onClick={() => handleAddMedicalEntry(selectedPatient.id)}
+                      className="bg-indigo-600 text-white px-3 py-2 rounded-lg hover:bg-indigo-700 transition-colors text-sm"
+                      title="Добавить запись о приеме"
+                    >
+                      📝 Добавить запись
+                    </button>
+                    <button
                       onClick={() => handleAddDiagnosis(selectedPatient.id)}
-                      className="bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700 transition-colors"
+                      className="bg-purple-600 text-white px-3 py-2 rounded-lg hover:bg-purple-700 transition-colors text-sm"
                       title="Добавить диагноз"
                     >
                       🩺 Добавить диагноз
                     </button>
                     <button
                       onClick={() => handleAddMedication(selectedPatient.id)}
-                      className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors"
+                      className="bg-green-600 text-white px-3 py-2 rounded-lg hover:bg-green-700 transition-colors text-sm"
                       title="Назначить лекарство"
                     >
                       💊 Назначить лекарство
@@ -1452,7 +1459,7 @@ function ClinicApp() {
                       setSelectedPatient(null);
                       setMedicalSummary(null);
                     }}
-                    className="text-gray-400 hover:text-gray-600"
+                    className="text-gray-400 hover:text-gray-600 px-2"
                   >
                     ✕
                   </button>
