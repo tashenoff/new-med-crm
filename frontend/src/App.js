@@ -1682,6 +1682,36 @@ function ClinicApp() {
         errorMessage={errorMessage}
       />
 
+      <PatientModal
+        show={showPatientModal}
+        onClose={() => {
+          setShowPatientModal(false);
+          setEditingItem(null);
+          setPatientForm({ full_name: '', phone: '', iin: '', source: 'other', notes: '' });
+        }}
+        onSave={handleSavePatient}
+        patientForm={patientForm}
+        setPatientForm={setPatientForm}
+        editingItem={editingItem}
+        loading={loading}
+        errorMessage={errorMessage}
+      />
+
+      <DoctorModal
+        show={showDoctorModal}
+        onClose={() => {
+          setShowDoctorModal(false);
+          setEditingItem(null);
+          setDoctorForm({ full_name: '', specialty: '', phone: '', email: '' });
+        }}
+        onSave={handleSaveDoctor}
+        doctorForm={doctorForm}
+        setDoctorForm={setDoctorForm}
+        editingItem={editingItem}
+        loading={loading}
+        errorMessage={errorMessage}
+      />
+
       <MedicalRecordModal
         show={showEditMedicalRecordModal}
         onClose={() => {
@@ -1695,6 +1725,48 @@ function ClinicApp() {
         onSave={handleSaveEditMedicalRecord}
         medicalRecordForm={medicalRecordForm}
         setMedicalRecordForm={setMedicalRecordForm}
+        loading={loading}
+        errorMessage={errorMessage}
+      />
+
+      <DiagnosisModal
+        show={showAddDiagnosisModal}
+        onClose={() => {
+          setShowAddDiagnosisModal(false);
+          setErrorMessage(null);
+          setDiagnosisForm({ patient_id: '', diagnosis_name: '', diagnosis_code: '', description: '' });
+        }}
+        onSave={handleSaveDiagnosis}
+        diagnosisForm={diagnosisForm}
+        setDiagnosisForm={setDiagnosisForm}
+        loading={loading}
+        errorMessage={errorMessage}
+      />
+
+      <MedicationModal
+        show={showAddMedicationModal}
+        onClose={() => {
+          setShowAddMedicationModal(false);
+          setErrorMessage(null);
+          setMedicationForm({ patient_id: '', medication_name: '', dosage: '', frequency: '', instructions: '', end_date: '' });
+        }}
+        onSave={handleSaveMedication}
+        medicationForm={medicationForm}
+        setMedicationForm={setMedicationForm}
+        loading={loading}
+        errorMessage={errorMessage}
+      />
+
+      <MedicalEntryModal
+        show={showAddMedicalEntryModal}
+        onClose={() => {
+          setShowAddMedicalEntryModal(false);
+          setErrorMessage(null);
+          setMedicalEntryForm({ patient_id: '', entry_type: 'visit', title: '', description: '', severity: '' });
+        }}
+        onSave={handleSaveMedicalEntry}
+        medicalEntryForm={medicalEntryForm}
+        setMedicalEntryForm={setMedicalEntryForm}
         loading={loading}
         errorMessage={errorMessage}
       />
