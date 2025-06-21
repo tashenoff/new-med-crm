@@ -1405,7 +1405,7 @@ function ClinicApp() {
                   <button
                     onClick={() => {
                       medical.selectPatient(null);
-                      setMedicalSummary(null);
+                      medical.setMedicalSummary(null);
                     }}
                     className="text-gray-400 hover:text-gray-600 px-2"
                   >
