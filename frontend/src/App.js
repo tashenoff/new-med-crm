@@ -713,17 +713,7 @@ function ClinicApp() {
 
   // Appointment functions
 
-  const updateAppointment = async (appointmentId, appointmentData) => {
-    try {
-      const response = await axios.put(`${BACKEND_URL}/api/appointments/${appointmentId}`, appointmentData, {
-        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
-      });
-      return response.data;
-    } catch (error) {
-      console.error('Error updating appointment:', error);
-      throw error;
-    }
-  };
+
 
   const handleSaveAppointment = async (e) => {
     e.preventDefault();
