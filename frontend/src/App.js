@@ -1056,7 +1056,7 @@ function ClinicApp() {
         </div>
       ) : (
         <div className="grid gap-4">
-          {scheduleAppointments.map(appointment => (
+          {getScheduleAppointments().map(appointment => (
             <div key={appointment.id} className="bg-white border rounded-lg p-4 shadow-sm">
               <div className="flex justify-between items-start">
                 <div className="flex-1">
