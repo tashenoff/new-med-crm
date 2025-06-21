@@ -513,6 +513,62 @@ function ClinicApp() {
     }
   };
 
+  // Medical Records functions
+  const checkMedicalRecord = async (patientId) => {
+    try {
+      const response = await axios.get(`${BACKEND_URL}/medical-records/${patientId}`, {
+        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
+      });
+      return response.data;
+    } catch (error) {
+      if (error.response?.status === 404) {
+        return null; // No medical record exists
+      }
+      throw error;
+    }
+  };
+
+  const createMedicalRecord = async (recordData) => {
+    try {
+      const response = await axios.post(`${BACKEND_URL}/medical-records`, recordData, {
+        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
+      });
+      return response.data;
+    } catch (error) {
+      console.error('Error creating medical record:', error);
+      throw error;
+    }
+  };
+
+  const handleSaveMedicalRecord = async (e) => {
+    e.preventDefault();
+    if (!medicalRecordForm.patient_id) return;
+    
+    setLoading(true);
+    setErrorMessage(null);
+    
+    try {
+      await createMedicalRecord(medicalRecordForm);
+      
+      // После создания медкарты, создаем запись на прием
+      if (pendingAppointment) {
+        await createAppointment(pendingAppointment);
+        setPendingAppointment(null);
+        fetchAppointments();
+      }
+      
+      setShowMedicalRecordModal(false);
+      setMedicalRecordForm({
+        patient_id: '', blood_type: '', height: '', weight: '', 
+        emergency_contact: '', emergency_phone: '', insurance_number: ''
+      });
+    } catch (error) {
+      setErrorMessage(error.response?.data?.detail || 'Ошибка при создании медкарты');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   // Appointment functions
   const handleSaveAppointment = async (e) => {
     e.preventDefault();
