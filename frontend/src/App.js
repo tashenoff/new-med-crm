@@ -1676,8 +1676,12 @@ function ClinicApp() {
         </div>
       )}
 
-    </div>
-  );
+      {/* Edit Medical Record Modal */}
+      {showEditMedicalRecordModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 w-full max-w-md mx-4">
+            <h3 className="text-lg font-semibold mb-4 text-blue-700">
+              ✏️ Редактирование медицинской карты
             </h3>
             
             <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
