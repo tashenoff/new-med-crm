@@ -1535,7 +1535,7 @@ function ClinicApp() {
 
           <div className="bg-white rounded-lg p-6 shadow">
             <h4 className="font-semibold mb-3">Последние записи</h4>
-            {medicalSummary.recent_entries.length === 0 ? (
+            {medical.medicalSummary.recent_entries.length === 0 ? (
               <p className="text-gray-500">Записей нет</p>
             ) : (
               <div className="space-y-4">
