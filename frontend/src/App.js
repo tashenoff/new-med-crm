@@ -651,44 +651,20 @@ function ClinicApp() {
     }
   };
 
-  // Medical Records functions
-  const checkMedicalRecord = async (patientId) => {
-    try {
-      const response = await axios.get(`${BACKEND_URL}/api/medical-records/${patientId}`, {
-        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
-      });
-      return response.data;
-    } catch (error) {
-      if (error.response?.status === 404) {
-        return null; // No medical record exists
-      }
-      throw error;
-    }
-  };
-
-  const createMedicalRecord = async (recordData) => {
-    try {
-      const response = await axios.post(`${BACKEND_URL}/api/medical-records`, recordData, {
-        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
-      });
-      return response.data;
-    } catch (error) {
-      console.error('Error creating medical record:', error);
-      throw error;
-    }
-  };
-
-  const updateMedicalRecord = async (patientId, recordData) => {
-    try {
-      const response = await axios.put(`${BACKEND_URL}/api/medical-records/${patientId}`, recordData, {
-        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
-      });
-      return response.data;
-    } catch (error) {
-      console.error('Error updating medical record:', error);
-      throw error;
-    }
-  };
+  // API функции из хука
+  const { 
+    loading, 
+    setLoading, 
+    checkMedicalRecord, 
+    createMedicalRecord, 
+    updateMedicalRecord,
+    createAppointment, 
+    updateAppointment,
+    createDiagnosis,
+    createMedication,
+    createMedicalEntry,
+    API 
+  } = api;
 
   const handleEditMedicalRecord = (patientId, existingRecord) => {
     setMedicalRecordForm({
