@@ -1554,23 +1554,7 @@ function ClinicApp() {
     </div>
   );
 
-  // Определяем доступные табы
-  const getAvailableTabs = () => {
-    const tabs = [
-      { key: 'schedule', label: 'Расписание' },
-      { key: 'calendar', label: 'Календарь' },
-      { key: 'medical', label: 'Медицинские карты' },
-    ];
 
-    if (user.role === 'admin' || user.role === 'doctor') {
-      tabs.push(
-        { key: 'patients', label: 'Пациенты' },
-        { key: 'doctors', label: 'Врачи' }
-      );
-    }
-
-    return tabs;
-  };
 
   return (
     <div className="min-h-screen bg-gray-50">
