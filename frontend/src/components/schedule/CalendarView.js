@@ -89,9 +89,9 @@ const CalendarView = ({
           {/* Навигация по неделям */}
           <div className="flex items-center space-x-2">
             <button
-              onClick={() => navigateWeek(-1)}
+              onClick={() => navigateDay(-1)}
               className="p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded"
-              title="Предыдущая неделя"
+              title="Предыдущий день"
             >
               ←
             </button>
