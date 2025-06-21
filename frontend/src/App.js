@@ -3,7 +3,12 @@ import axios from 'axios';
 import Header from './components/layout/Header';
 import Navigation from './components/layout/Navigation';
 import ErrorMessage from './components/layout/ErrorMessage';
+import AppointmentModal from './components/modals/AppointmentModal';
+import MedicalRecordModal from './components/modals/MedicalRecordModal';
+import ScheduleView from './components/schedule/ScheduleView';
+import MedicalView from './components/medical/MedicalView';
 import { useApi } from './hooks/useApi';
+import { useMedical } from './hooks/useMedical';
 import './App.css';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
