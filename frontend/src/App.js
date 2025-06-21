@@ -1050,7 +1050,7 @@ function ClinicApp() {
         )}
       </div>
 
-      {scheduleAppointments.length === 0 ? (
+      {getScheduleAppointments().length === 0 ? (
         <div className="text-center py-12 bg-gray-50 rounded-lg">
           <p className="text-gray-500">Записей нет</p>
         </div>
