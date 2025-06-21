@@ -1514,7 +1514,7 @@ function ClinicApp() {
               <p className="text-gray-500">Лекарства не назначены</p>
             ) : (
               <div className="space-y-3">
-                {medicalSummary.active_medications.map(medication => (
+                {medical.medicalSummary.active_medications.map(medication => (
                   <div key={medication.id} className="border-l-4 border-green-500 pl-4">
                     <div className="font-medium">{medication.medication_name}</div>
                     <div className="text-sm text-gray-600">
