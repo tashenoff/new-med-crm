@@ -448,7 +448,7 @@ function ClinicApp() {
     
     try {
       await createMedication(medicationForm);
-      await fetchMedicalSummary(medicationForm.patient_id);
+      await medical.fetchMedicalSummary(medicationForm.patient_id);
       
       setShowAddMedicationModal(false);
       setMedicationForm({ patient_id: '', medication_name: '', dosage: '', frequency: '', instructions: '', end_date: '' });
