@@ -1320,7 +1320,7 @@ function ClinicApp() {
               <button
                 key={patient.id}
                 onClick={() => {
-                  setSelectedPatient(patient);
+                  medical.selectPatient(patient);
                   medical.fetchMedicalSummary(patient.id);
                 }}
                 className="text-left p-3 border rounded-lg hover:bg-gray-50 transition-colors"
