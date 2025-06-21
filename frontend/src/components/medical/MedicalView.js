@@ -158,7 +158,7 @@ const MedicalView = ({
         </div>
 
         {/* Последние записи */}
-        {medicalSummary.entries.length > 0 && (
+        {medicalSummary.entries && medicalSummary.entries.length > 0 && (
           <div className="bg-white rounded-lg p-6 shadow">
             <h4 className="font-semibold mb-3">📝 Последние записи</h4>
             <div className="space-y-3">
@@ -175,7 +175,81 @@ const MedicalView = ({
           </div>
         )}
 
-        {/* Остальные секции аналогично */}
+        {/* Аллергии */}
+        {medicalSummary.allergies && medicalSummary.allergies.length > 0 && (
+          <div className="bg-white rounded-lg p-6 shadow">
+            <h4 className="font-semibold mb-3">🚨 Аллергии</h4>
+            <div className="space-y-2">
+              {medicalSummary.allergies.map(allergy => (
+                <div key={allergy.id} className="bg-red-50 border border-red-200 rounded p-3">
+                  <div className="font-medium text-red-900">{allergy.allergen}</div>
+                  <div className="text-sm text-red-700">{allergy.reaction}</div>
+                  {allergy.severity && (
+                    <span className={`inline-block px-2 py-1 text-xs rounded mt-1 ${
+                      allergy.severity === 'high' ? 'bg-red-200 text-red-800' :
+                      allergy.severity === 'medium' ? 'bg-yellow-200 text-yellow-800' :
+                      'bg-green-200 text-green-800'
+                    }`}>
+                      {allergy.severity === 'high' ? 'Высокая' :
+                       allergy.severity === 'medium' ? 'Средняя' : 'Низкая'} опасность
+                    </span>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Диагнозы */}
+        {medicalSummary.diagnoses && medicalSummary.diagnoses.length > 0 && (
+          <div className="bg-white rounded-lg p-6 shadow">
+            <h4 className="font-semibold mb-3">🩺 Диагнозы</h4>
+            <div className="space-y-3">
+              {medicalSummary.diagnoses.map(diagnosis => (
+                <div key={diagnosis.id} className="border-l-4 border-purple-500 pl-4 bg-purple-50 p-3 rounded">
+                  <div className="font-medium text-purple-900">
+                    {diagnosis.diagnosis_name}
+                    {diagnosis.diagnosis_code && (
+                      <span className="ml-2 text-sm text-purple-600">({diagnosis.diagnosis_code})</span>
+                    )}
+                  </div>
+                  {diagnosis.description && (
+                    <div className="text-sm text-purple-700 mt-1">{diagnosis.description}</div>
+                  )}
+                  <div className="text-xs text-gray-500 mt-2">
+                    {new Date(diagnosis.created_at).toLocaleDateString('ru-RU')}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Лекарства */}
+        {medicalSummary.medications && medicalSummary.medications.length > 0 && (
+          <div className="bg-white rounded-lg p-6 shadow">
+            <h4 className="font-semibold mb-3">💊 Назначенные лекарства</h4>
+            <div className="space-y-3">
+              {medicalSummary.medications.map(medication => (
+                <div key={medication.id} className="border-l-4 border-green-500 pl-4 bg-green-50 p-3 rounded">
+                  <div className="font-medium text-green-900">{medication.medication_name}</div>
+                  <div className="text-sm text-green-700 mt-1">
+                    {medication.dosage && `Дозировка: ${medication.dosage}`}
+                    {medication.frequency && ` | Частота: ${medication.frequency}`}
+                  </div>
+                  {medication.instructions && (
+                    <div className="text-sm text-green-600 mt-1">{medication.instructions}</div>
+                  )}
+                  {medication.end_date && (
+                    <div className="text-xs text-gray-500 mt-2">
+                      До: {new Date(medication.end_date).toLocaleDateString('ru-RU')}
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
