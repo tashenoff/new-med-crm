@@ -711,7 +711,7 @@ def test_archive_appointment(self, appointment_id):
 
 def main():
     # Get the backend URL from the environment
-    backend_url = "https://7d433966-f30b-4b81-bfd7-cc9019b064af.preview.emergentagent.com"
+    backend_url = "https://d08434c3-ddca-464a-ab71-21d74ac73cf2.preview.emergentagent.com"
     
     # Setup
     tester = ClinicAPITester(backend_url)
