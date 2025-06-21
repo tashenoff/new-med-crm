@@ -1510,7 +1510,7 @@ function ClinicApp() {
 
           <div className="bg-white rounded-lg p-6 shadow">
             <h4 className="font-semibold mb-3">Текущие лекарства</h4>
-            {medicalSummary.active_medications.length === 0 ? (
+            {medical.medicalSummary.active_medications.length === 0 ? (
               <p className="text-gray-500">Лекарства не назначены</p>
             ) : (
               <div className="space-y-3">
