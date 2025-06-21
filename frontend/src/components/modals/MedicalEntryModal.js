@@ -54,8 +54,8 @@ const MedicalEntryModal = ({
           />
           
           <select
-            value={medicalEntryForm.severity}
-            onChange={(e) => setMedicalEntryForm({...medicalEntryForm, severity: e.target.value})}
+            value={medicalEntryForm.severity || ''}
+            onChange={(e) => setMedicalEntryForm({...medicalEntryForm, severity: e.target.value || null})}
             className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
           >
             <option value="">Без указания важности</option>
