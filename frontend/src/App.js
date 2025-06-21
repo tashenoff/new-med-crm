@@ -1354,7 +1354,7 @@ function ClinicApp() {
           <div className="bg-white rounded-lg p-6 shadow">
             <div className="flex justify-between items-start">
               <div>
-                <h3 className="text-xl font-semibold">{selectedPatient.full_name}</h3>
+                <h3 className="text-xl font-semibold">{medical.selectedPatient.full_name}</h3>
                 <div className="mt-2 text-sm text-gray-600 space-y-1">
                   <p>Телефон: {medicalSummary.patient.phone}</p>
                   {medicalSummary.medical_record?.blood_type && (
