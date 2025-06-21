@@ -806,9 +806,44 @@ function ClinicApp() {
     }
   };
 
+  // Функции для медицинских записей
+  const createMedicalEntry = async (entryData) => {
+    try {
+      const response = await axios.post(`${API}/medical-entries`, entryData, {
+        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
+      });
+      return response.data;
+    } catch (error) {
+      console.error('Error creating medical entry:', error);
+      throw error;
+    }
+  };
+
   const handleStatusChange = async (appointmentId, newStatus) => {
     try {
       await axios.put(`${API}/appointments/${appointmentId}`, { status: newStatus });
+      
+      // Если прием завершен, автоматически создаем медицинскую запись
+      if (newStatus === 'completed') {
+        const appointment = appointments.find(apt => apt.id === appointmentId);
+        if (appointment) {
+          const entryData = {
+            patient_id: appointment.patient_id,
+            appointment_id: appointmentId,
+            entry_type: 'visit',
+            title: `Прием у врача ${appointment.doctor_name}`,
+            description: `Прием завершен. Специальность: ${appointment.doctor_specialty}. ${appointment.reason ? `Причина: ${appointment.reason}.` : ''} ${appointment.notes ? `Заметки: ${appointment.notes}` : ''}`
+          };
+          
+          try {
+            await createMedicalEntry(entryData);
+            console.log('✅ Автоматически создана медицинская запись для завершенного приема');
+          } catch (error) {
+            console.error('⚠️ Не удалось создать медицинскую запись:', error);
+          }
+        }
+      }
+      
       fetchAppointments();
     } catch (error) {
       console.error('Error updating status:', error);
