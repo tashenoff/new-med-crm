@@ -74,7 +74,7 @@ export const useApi = () => {
   // Diagnosis API
   const createDiagnosis = async (diagnosisData) => {
     try {
-      const response = await axios.post(`${API}/diagnoses`, diagnosisData, {
+      const response = await axios.post(`${BACKEND_URL}/api/diagnoses`, diagnosisData, {
         headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
       });
       return response.data;
@@ -87,7 +87,7 @@ export const useApi = () => {
   // Medication API
   const createMedication = async (medicationData) => {
     try {
-      const response = await axios.post(`${API}/medications`, medicationData, {
+      const response = await axios.post(`${BACKEND_URL}/api/medications`, medicationData, {
         headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
       });
       return response.data;
