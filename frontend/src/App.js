@@ -1539,7 +1539,7 @@ function ClinicApp() {
               <p className="text-gray-500">Записей нет</p>
             ) : (
               <div className="space-y-4">
-                {medicalSummary.recent_entries.map(entry => (
+                {medical.medicalSummary.recent_entries.map(entry => (
                   <div key={entry.id} className="border-b border-gray-200 pb-3 last:border-b-0">
                     <div className="flex justify-between items-start">
                       <div>
