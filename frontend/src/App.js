@@ -1396,6 +1396,54 @@ function ClinicApp() {
             </div>
           </div>
 
+          {/* История приемов */}
+          <div className="bg-white rounded-lg p-6 shadow">
+            <h4 className="font-semibold mb-3">📅 История приемов</h4>
+            {patientAppointments.length === 0 ? (
+              <p className="text-gray-500">Записей на прием нет</p>
+            ) : (
+              <div className="space-y-3">
+                {patientAppointments.map(appointment => (
+                  <div key={appointment.id} className="border-l-4 border-indigo-500 pl-4 bg-indigo-50 p-3 rounded">
+                    <div className="flex justify-between items-start">
+                      <div>
+                        <div className="font-medium text-indigo-900">
+                          {appointment.doctor_name} ({appointment.doctor_specialty})
+                        </div>
+                        <div className="text-sm text-indigo-700">
+                          📅 {appointment.appointment_date} в {appointment.appointment_time}
+                        </div>
+                        {appointment.reason && (
+                          <div className="text-sm text-gray-600 mt-1">
+                            Причина: {appointment.reason}
+                          </div>
+                        )}
+                        {appointment.notes && (
+                          <div className="text-sm text-gray-600">
+                            Заметки: {appointment.notes}
+                          </div>
+                        )}
+                      </div>
+                      <span className={`px-2 py-1 text-xs rounded font-medium ${
+                        appointment.status === 'completed' ? 'bg-green-100 text-green-800' :
+                        appointment.status === 'confirmed' ? 'bg-blue-100 text-blue-800' :
+                        appointment.status === 'in_progress' ? 'bg-orange-100 text-orange-800' :
+                        appointment.status === 'cancelled' ? 'bg-red-100 text-red-800' :
+                        'bg-gray-100 text-gray-800'
+                      }`}>
+                        {appointment.status === 'completed' ? 'Завершен' :
+                         appointment.status === 'confirmed' ? 'Подтвержден' :
+                         appointment.status === 'in_progress' ? 'В процессе' :
+                         appointment.status === 'cancelled' ? 'Отменен' :
+                         'Не подтвержден'}
+                      </span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
           {medicalSummary.allergies.length > 0 && (
             <div className="bg-red-50 border border-red-200 rounded-lg p-4">
               <h4 className="font-semibold text-red-800 mb-2">⚠️ Аллергии:</h4>
