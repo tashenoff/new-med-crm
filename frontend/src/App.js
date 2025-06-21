@@ -608,7 +608,6 @@ function ClinicApp() {
         fetchAppointments();
       }
       
-      setShowMedicalRecordModal(false);
       setMedicalRecordForm({
         patient_id: '', blood_type: '', height: '', weight: '', 
         emergency_contact: '', emergency_phone: '', insurance_number: ''
