@@ -105,9 +105,9 @@ const CalendarView = ({
             </button>
             
             <button
-              onClick={() => navigateWeek(1)}
+              onClick={() => navigateDay(1)}
               className="p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded"
-              title="Следующая неделя"
+              title="Следующий день"
             >
               →
             </button>
