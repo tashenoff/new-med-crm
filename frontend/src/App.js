@@ -421,6 +421,9 @@ function ClinicApp() {
         await axios.put(`${API}/patients/${editingItem.id}`, patientForm);
       } else {
         await axios.post(`${API}/patients`, patientForm);
+        // Показываем уведомление о создании медкарты
+        setErrorMessage(`✅ Пациент создан успешно! Медицинская карта создана автоматически.`);
+        setTimeout(() => setErrorMessage(null), 3000); // Убираем через 3 секунды
       }
       setShowPatientModal(false);
       setEditingItem(null);
