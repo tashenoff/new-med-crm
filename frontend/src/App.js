@@ -490,6 +490,32 @@ function ClinicApp() {
     }
   };
 
+  // Функции для медицинских записей
+  const handleAddMedicalEntry = (patientId) => {
+    setMedicalEntryForm({ ...medicalEntryForm, patient_id: patientId });
+    setShowAddMedicalEntryModal(true);
+  };
+
+  const handleSaveMedicalEntry = async (e) => {
+    e.preventDefault();
+    if (!medicalEntryForm.patient_id || !medicalEntryForm.title) return;
+    
+    setLoading(true);
+    setErrorMessage(null);
+    
+    try {
+      await createMedicalEntry(medicalEntryForm);
+      await fetchMedicalSummary(medicalEntryForm.patient_id);
+      
+      setShowAddMedicalEntryModal(false);
+      setMedicalEntryForm({ patient_id: '', entry_type: 'visit', title: '', description: '', severity: '' });
+    } catch (error) {
+      setErrorMessage(error.response?.data?.detail || 'Ошибка при добавлении записи');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const fetchPatients = async (search = searchTerm) => {
     try {
       const response = await axios.get(`${API}/patients${search ? `?search=${search}` : ''}`);
