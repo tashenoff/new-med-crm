@@ -421,7 +421,7 @@ function ClinicApp() {
     
     try {
       await createDiagnosis(diagnosisForm);
-      await fetchMedicalSummary(diagnosisForm.patient_id);
+      await medical.fetchMedicalSummary(diagnosisForm.patient_id);
       
       setShowAddDiagnosisModal(false);
       setDiagnosisForm({ patient_id: '', diagnosis_name: '', diagnosis_code: '', description: '' });
