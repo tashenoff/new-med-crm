@@ -345,6 +345,10 @@ function ClinicApp() {
   const [appointmentForm, setAppointmentForm] = useState({
     patient_id: '', doctor_id: '', appointment_date: '', appointment_time: '', reason: '', notes: ''
   });
+  const [medicalRecordForm, setMedicalRecordForm] = useState({
+    patient_id: '', blood_type: '', height: '', weight: '', emergency_contact: '', 
+    emergency_phone: '', insurance_number: ''
+  });
 
   // Calendar specific functions
   const [draggedAppointment, setDraggedAppointment] = useState(null);
