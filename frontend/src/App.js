@@ -318,16 +318,21 @@ function RegisterForm({ onSwitchToLogin }) {
 
 // Main Clinic App
 function ClinicApp() {
+  // API hook
+  const api = useApi();
+  
+  // Состояния
   const { user, logout } = React.useContext(AuthContext);
   const [activeTab, setActiveTab] = useState('schedule');
+  const [errorMessage, setErrorMessage] = useState(null);
   const [patients, setPatients] = useState([]);
   const [doctors, setDoctors] = useState([]);
   const [appointments, setAppointments] = useState([]);
-  const [loading, setLoading] = useState(false);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [errorMessage, setErrorMessage] = useState(null);
+  const [selectedPatient, setSelectedPatient] = useState(null);
+  const [medicalSummary, setMedicalSummary] = useState(null);
+  const [patientAppointments, setPatientAppointments] = useState([]);
 
-  // Modal states
+  // Модальные окна
   const [showPatientModal, setShowPatientModal] = useState(false);
   const [showDoctorModal, setShowDoctorModal] = useState(false);
   const [showAppointmentModal, setShowAppointmentModal] = useState(false);
@@ -337,13 +342,8 @@ function ClinicApp() {
   const [showAddMedicalEntryModal, setShowAddMedicalEntryModal] = useState(false);
   const [editingItem, setEditingItem] = useState(null);
   const [pendingAppointment, setPendingAppointment] = useState(null);
-  const [patientAppointments, setPatientAppointments] = useState([]);
 
-  // Medical records state
-  const [selectedPatient, setSelectedPatient] = useState(null);
-  const [medicalSummary, setMedicalSummary] = useState(null);
-
-  // Form data
+  // Формы
   const [patientForm, setPatientForm] = useState({
     full_name: '', phone: '', iin: '', source: 'other', notes: ''
   });
