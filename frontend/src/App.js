@@ -419,17 +419,6 @@ function ClinicApp() {
   };
 
   // Функции для диагнозов
-  const createDiagnosis = async (diagnosisData) => {
-    try {
-      const response = await axios.post(`${API}/diagnoses`, diagnosisData, {
-        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
-      });
-      return response.data;
-    } catch (error) {
-      console.error('Error creating diagnosis:', error);
-      throw error;
-    }
-  };
 
   const handleAddDiagnosis = (patientId) => {
     setDiagnosisForm({ ...diagnosisForm, patient_id: patientId });
