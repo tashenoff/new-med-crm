@@ -1273,17 +1273,28 @@ function ClinicApp() {
                   )}
                 </div>
               </div>
-              {user?.role !== 'patient' && (
-                <button
-                  onClick={() => {
-                    setSelectedPatient(null);
-                    setMedicalSummary(null);
-                  }}
-                  className="text-gray-400 hover:text-gray-600"
-                >
-                  ✕
-                </button>
-              )}
+              <div className="flex space-x-2">
+                {user?.role !== 'patient' && (
+                  <button
+                    onClick={() => handleEditMedicalRecord(selectedPatient.id, medicalSummary.medical_record)}
+                    className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
+                    title="Редактировать медицинскую карту"
+                  >
+                    ✏️ Редактировать медкарту
+                  </button>
+                )}
+                {user?.role !== 'patient' && (
+                  <button
+                    onClick={() => {
+                      setSelectedPatient(null);
+                      setMedicalSummary(null);
+                    }}
+                    className="text-gray-400 hover:text-gray-600"
+                  >
+                    ✕
+                  </button>
+                )}
+              </div>
             </div>
           </div>
 
