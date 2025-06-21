@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 
 const CalendarView = ({ 
   appointments, 
@@ -13,18 +13,34 @@ const CalendarView = ({
   onMoveAppointment,
   canEdit 
 }) => {
+  const [currentDate, setCurrentDate] = useState(new Date());
+
   const generateCalendarDates = () => {
     const dates = [];
-    const today = new Date();
     
-    // Начинаем с текущего дня и показываем 14 дней вперед
-    for (let i = 0; i <= 13; i++) {
-      const date = new Date(today);
-      date.setDate(today.getDate() + i);
+    // Начинаем с выбранной даты и показываем 7 дней
+    for (let i = 0; i <= 6; i++) {
+      const date = new Date(currentDate);
+      date.setDate(currentDate.getDate() + i);
       dates.push(date.toISOString().split('T')[0]);
     }
     
     return dates;
+  };
+
+  const navigateWeek = (direction) => {
+    const newDate = new Date(currentDate);
+    newDate.setDate(currentDate.getDate() + (direction * 7));
+    setCurrentDate(newDate);
+  };
+
+  const goToToday = () => {
+    setCurrentDate(new Date());
+  };
+
+  const isToday = (dateString) => {
+    const today = new Date().toISOString().split('T')[0];
+    return dateString === today;
   };
 
   const generateTimeSlots = () => {
