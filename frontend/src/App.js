@@ -326,6 +326,9 @@ function ClinicApp() {
   // API hook
   const api = useApi();
   
+  // Medical hook
+  const medical = useMedical();
+  
   // Состояния
   const { user, logout } = React.useContext(AuthContext);
   const [activeTab, setActiveTab] = useState('schedule');
@@ -334,9 +337,6 @@ function ClinicApp() {
   const [patients, setPatients] = useState([]);
   const [doctors, setDoctors] = useState([]);
   const [appointments, setAppointments] = useState([]);
-  const [selectedPatient, setSelectedPatient] = useState(null);
-  const [medicalSummary, setMedicalSummary] = useState(null);
-  const [patientAppointments, setPatientAppointments] = useState([]);
 
   // Модальные окна
   const [showPatientModal, setShowPatientModal] = useState(false);
