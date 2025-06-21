@@ -446,17 +446,6 @@ function ClinicApp() {
   };
 
   // Функции для лекарств
-  const createMedication = async (medicationData) => {
-    try {
-      const response = await axios.post(`${API}/medications`, medicationData, {
-        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
-      });
-      return response.data;
-    } catch (error) {
-      console.error('Error creating medication:', error);
-      throw error;
-    }
-  };
 
   const handleAddMedication = (patientId) => {
     setMedicationForm({ ...medicationForm, patient_id: patientId });
