@@ -16,21 +16,13 @@ const CalendarView = ({
   const [currentDate, setCurrentDate] = useState(new Date());
 
   const generateCalendarDates = () => {
-    const dates = [];
-    
-    // Начинаем с выбранной даты и показываем 7 дней
-    for (let i = 0; i <= 6; i++) {
-      const date = new Date(currentDate);
-      date.setDate(currentDate.getDate() + i);
-      dates.push(date.toISOString().split('T')[0]);
-    }
-    
-    return dates;
+    // Показываем только выбранный день
+    return [currentDate.toISOString().split('T')[0]];
   };
 
-  const navigateWeek = (direction) => {
+  const navigateDay = (direction) => {
     const newDate = new Date(currentDate);
-    newDate.setDate(currentDate.getDate() + (direction * 7));
+    newDate.setDate(currentDate.getDate() + direction);
     setCurrentDate(newDate);
   };
 
