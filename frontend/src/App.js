@@ -1423,7 +1423,7 @@ function ClinicApp() {
               <p className="text-gray-500">Записей на прием нет</p>
             ) : (
               <div className="space-y-3">
-                {patientAppointments.map(appointment => (
+                {medical.patientAppointments.map(appointment => (
                   <div key={appointment.id} className="border-l-4 border-indigo-500 pl-4 bg-indigo-50 p-3 rounded">
                     <div className="flex justify-between items-start">
                       <div>
