@@ -641,6 +641,11 @@ async def create_appointment(
     if not doctor:
         raise HTTPException(status_code=404, detail="Doctor not found")
     
+    # Check if medical record exists for the patient
+    medical_record = await db.medical_records.find_one({"patient_id": appointment.patient_id})
+    if not medical_record:
+        raise HTTPException(status_code=404, detail="Medical record not found. Patient must have a medical record before creating an appointment")
+    
     # Patients can only create appointments for themselves
     if current_user.role == UserRole.PATIENT and current_user.patient_id != appointment.patient_id:
         raise HTTPException(status_code=403, detail="You can only create appointments for yourself")
