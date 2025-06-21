@@ -3,7 +3,9 @@ import React from 'react';
 const ErrorMessage = ({ errorMessage, setErrorMessage }) => {
   if (!errorMessage) return null;
 
-  const isSuccess = errorMessage.startsWith('✅');
+  // Проверяем что errorMessage это строка
+  const messageText = typeof errorMessage === 'string' ? errorMessage : String(errorMessage);
+  const isSuccess = messageText.startsWith('✅');
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
@@ -15,7 +17,7 @@ const ErrorMessage = ({ errorMessage, setErrorMessage }) => {
         <strong className="font-bold">
           {isSuccess ? 'Успех: ' : 'Ошибка: '}
         </strong>
-        <span className="block sm:inline">{errorMessage.replace('✅ ', '')}</span>
+        <span className="block sm:inline">{messageText.replace('✅ ', '')}</span>
         <button
           className="absolute top-0 bottom-0 right-0 px-4 py-3 cursor-pointer"
           onClick={() => {
