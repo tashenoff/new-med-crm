@@ -100,12 +100,17 @@ export const useApi = () => {
   // Medical Entry API
   const createMedicalEntry = async (entryData) => {
     try {
+      console.log('Creating medical entry with data:', entryData);
       const response = await axios.post(`${BACKEND_URL}/api/medical-entries`, entryData, {
-        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
+        headers: { 
+          'Authorization': `Bearer ${localStorage.getItem('token')}`,
+          'Content-Type': 'application/json'
+        }
       });
       return response.data;
     } catch (error) {
       console.error('Error creating medical entry:', error);
+      console.error('Error response:', error.response?.data);
       throw error;
     }
   };
