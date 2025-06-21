@@ -742,7 +742,7 @@ async def get_appointments(
         {"$sort": {"appointment_date": 1, "appointment_time": 1}}
     ]
     
-    appointments = await db.appointments.aggregate(pipeline).to_list(1000)
+    appointments = await db.appointments.aggregate(pipeline).to_list(None)  # Убираем лимит
     return [AppointmentWithDetails(**appointment) for appointment in appointments]
 
 @api_router.get("/appointments/{appointment_id}", response_model=AppointmentWithDetails)
