@@ -1600,7 +1600,21 @@ function ClinicApp() {
           />
         )}
         
-        {activeTab === 'calendar' && renderCalendar()}
+        {activeTab === 'calendar' && (
+          <CalendarView
+            appointments={appointments}
+            doctors={doctors}
+            patients={patients}
+            user={user}
+            onNewAppointment={handleNewAppointment}
+            onSlotClick={handleSlotClick}
+            onEditAppointment={handleEditAppointment}
+            onDeleteAppointment={handleDeleteAppointment}
+            onStatusChange={handleStatusChange}
+            onMoveAppointment={handleMoveAppointment}
+            canEdit={user?.role === 'admin' || user?.role === 'doctor'}
+          />
+        )}
         
         {activeTab === 'medical' && (
           <MedicalView
@@ -1617,8 +1631,37 @@ function ClinicApp() {
           />
         )}
         
-        {activeTab === 'patients' && renderPatients()}
-        {activeTab === 'doctors' && renderDoctors()}
+        {activeTab === 'patients' && (
+          <PatientsView
+            patients={patients}
+            searchTerm={searchTerm}
+            setSearchTerm={setSearchTerm}
+            onAddPatient={() => {
+              setEditingItem(null);
+              setPatientForm({ full_name: '', phone: '', iin: '', source: 'other', notes: '' });
+              setShowPatientModal(true);
+            }}
+            onEditPatient={handleEditPatient}
+            onDeletePatient={handleDeletePatient}
+            canManage={user?.role === 'admin' || user?.role === 'doctor'}
+          />
+        )}
+        
+        {activeTab === 'doctors' && (
+          <DoctorsView
+            doctors={doctors}
+            searchTerm={searchTerm}
+            setSearchTerm={setSearchTerm}
+            onAddDoctor={() => {
+              setEditingItem(null);
+              setDoctorForm({ full_name: '', specialty: '', phone: '', email: '' });
+              setShowDoctorModal(true);
+            }}
+            onEditDoctor={handleEditDoctor}
+            onDeleteDoctor={handleDeleteDoctor}
+            canManage={user?.role === 'admin'}
+          />
+        )}
       </main>
 
       {/* Модальные окна */}
