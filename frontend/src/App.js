@@ -1419,7 +1419,7 @@ function ClinicApp() {
           {/* История приемов */}
           <div className="bg-white rounded-lg p-6 shadow">
             <h4 className="font-semibold mb-3">📅 История приемов</h4>
-            {patientAppointments.length === 0 ? (
+            {medical.patientAppointments.length === 0 ? (
               <p className="text-gray-500">Записей на прием нет</p>
             ) : (
               <div className="space-y-3">
