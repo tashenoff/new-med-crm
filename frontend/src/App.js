@@ -516,7 +516,7 @@ function ClinicApp() {
   // Medical Records functions
   const checkMedicalRecord = async (patientId) => {
     try {
-      const response = await axios.get(`${BACKEND_URL}/medical-records/${patientId}`, {
+      const response = await axios.get(`${BACKEND_URL}/api/medical-records/${patientId}`, {
         headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
       });
       return response.data;
@@ -530,7 +530,7 @@ function ClinicApp() {
 
   const createMedicalRecord = async (recordData) => {
     try {
-      const response = await axios.post(`${BACKEND_URL}/medical-records`, recordData, {
+      const response = await axios.post(`${BACKEND_URL}/api/medical-records`, recordData, {
         headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
       });
       return response.data;
@@ -542,7 +542,7 @@ function ClinicApp() {
 
   const updateMedicalRecord = async (patientId, recordData) => {
     try {
-      const response = await axios.put(`${BACKEND_URL}/medical-records/${patientId}`, recordData, {
+      const response = await axios.put(`${BACKEND_URL}/api/medical-records/${patientId}`, recordData, {
         headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
       });
       return response.data;
