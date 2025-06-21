@@ -1372,7 +1372,7 @@ function ClinicApp() {
                 {user?.role !== 'patient' && (
                   <>
                     <button
-                      onClick={() => handleEditMedicalRecord(selectedPatient.id, medicalSummary.medical_record)}
+                      onClick={() => handleEditMedicalRecord(medical.selectedPatient.id, medical.medicalSummary.medical_record)}
                       className="bg-blue-600 text-white px-3 py-2 rounded-lg hover:bg-blue-700 transition-colors text-sm"
                       title="Редактировать медицинскую карту"
                     >
