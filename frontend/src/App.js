@@ -481,6 +481,7 @@ function ClinicApp() {
     setErrorMessage(null);
     
     try {
+      console.log('Sending medical entry data:', medicalEntryForm);
       await createMedicalEntry(medicalEntryForm);
       await medical.fetchMedicalSummary(medicalEntryForm.patient_id);
       
@@ -488,9 +489,21 @@ function ClinicApp() {
       setMedicalEntryForm({ patient_id: '', entry_type: 'visit', title: '', description: '', severity: '' });
     } catch (error) {
       console.error('Error creating medical entry:', error);
-      const errorMsg = typeof error.response?.data?.detail === 'string' 
-        ? error.response.data.detail 
-        : 'Ошибка при добавлении записи';
+      console.error('Error details:', error.response?.data);
+      
+      let errorMsg = 'Ошибка при добавлении записи';
+      
+      if (error.response?.data?.detail) {
+        if (Array.isArray(error.response.data.detail)) {
+          // FastAPI validation errors
+          errorMsg = error.response.data.detail.map(err => 
+            `${err.loc ? err.loc.join('.') : 'field'}: ${err.msg}`
+          ).join(', ');
+        } else if (typeof error.response.data.detail === 'string') {
+          errorMsg = error.response.data.detail;
+        }
+      }
+      
       setErrorMessage(errorMsg);
     } finally {
       setLoading(false);
