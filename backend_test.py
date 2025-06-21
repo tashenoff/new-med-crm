@@ -724,16 +724,19 @@ def main():
     print("TESTING AUTOMATIC MEDICAL RECORD CREATION AND EDITING")
     print("=" * 50)
     
-    # 1. Login as admin user
+    # 1. Register admin user
     print("\n" + "=" * 50)
-    print("TEST 1: LOGIN AS ADMIN")
+    print("TEST 1: REGISTER ADMIN USER")
     print("=" * 50)
     
-    # Login as admin user (already exists)
-    admin_email = "admin@test.com"
-    admin_password = "test123"
-    if not tester.test_login_user(admin_email, admin_password):
-        print("❌ Admin login failed")
+    # Register a new admin user
+    admin_email = f"admin_{datetime.now().strftime('%Y%m%d%H%M%S')}@test.com"
+    admin_password = "Test123!"
+    admin_name = "Администратор Тестовый"
+    
+    print(f"\n🔍 Registering admin user with email {admin_email}...")
+    if not tester.test_register_user(admin_email, admin_password, admin_name, "admin"):
+        print("❌ Admin user registration failed")
         return 1
     
     # 2. Test automatic medical record creation when creating a patient
