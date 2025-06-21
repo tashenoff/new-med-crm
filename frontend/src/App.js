@@ -1408,13 +1408,19 @@ function ClinicApp() {
 
       {errorMessage && (
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-          <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative">
-            <strong className="font-bold">Ошибка: </strong>
-            <span className="block sm:inline">{errorMessage}</span>
+          <div className={`px-4 py-3 rounded relative ${
+            errorMessage.startsWith('✅') 
+              ? 'bg-green-100 border border-green-400 text-green-700' 
+              : 'bg-red-100 border border-red-400 text-red-700'
+          }`}>
+            <strong className="font-bold">
+              {errorMessage.startsWith('✅') ? 'Успех: ' : 'Ошибка: '}
+            </strong>
+            <span className="block sm:inline">{errorMessage.replace('✅ ', '')}</span>
             <button
               className="absolute top-0 bottom-0 right-0 px-4 py-3 cursor-pointer"
               onClick={() => {
-                console.log('Manually closing error message');
+                console.log('Manually closing message');
                 setErrorMessage(null);
               }}
             >
