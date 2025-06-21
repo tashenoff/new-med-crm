@@ -630,41 +630,44 @@ function ClinicApp() {
     e.preventDefault();
     setLoading(true);
     setErrorMessage(null);
+    
     try {
-      console.log('Saving appointment form data:', appointmentForm);
-      
-      if (!appointmentForm.patient_id || !appointmentForm.doctor_id || !appointmentForm.appointment_date || !appointmentForm.appointment_time) {
-        console.log('Form validation failed - missing required fields');
-        setErrorMessage('Пожалуйста, заполните все обязательные поля');
-        setLoading(false);
-        return;
+      // Проверяем наличие медкарты у пациента перед созданием записи
+      if (!editingItem && appointmentForm.patient_id) {
+        const medicalRecord = await checkMedicalRecord(appointmentForm.patient_id);
+        
+        if (!medicalRecord) {
+          // Медкарта не найдена - требуем создать
+          const patient = patients.find(p => p.id === appointmentForm.patient_id);
+          setErrorMessage(`У пациента ${patient?.full_name || 'выбранного пациента'} отсутствует медицинская карта. Необходимо создать медкарту перед записью на прием.`);
+          
+          // Сохраняем данные записи для создания после медкарты
+          setPendingAppointment(appointmentForm);
+          setMedicalRecordForm({
+            ...medicalRecordForm,
+            patient_id: appointmentForm.patient_id
+          });
+          setShowMedicalRecordModal(true);
+          setLoading(false);
+          return;
+        }
       }
       
-      console.log('Form validation passed, submitting...');
       if (editingItem) {
-        const response = await axios.put(`${API}/appointments/${editingItem.id}`, appointmentForm);
-        console.log('Appointment updated:', response.data);
+        await updateAppointment(editingItem.id, appointmentForm);
       } else {
-        const response = await axios.post(`${API}/appointments`, appointmentForm);
-        console.log('Appointment created:', response.data);
+        await createAppointment(appointmentForm);
       }
+      
+      fetchAppointments();
       setShowAppointmentModal(false);
       setEditingItem(null);
       setAppointmentForm({ patient_id: '', doctor_id: '', appointment_date: '', appointment_time: '', reason: '', notes: '' });
-      await fetchAppointments();
-      console.log('Appointments refreshed after save');
     } catch (error) {
-      console.error('Error saving appointment:', error);
-      if (error.response?.status === 400) {
-        const errorMessage = error.response?.data?.detail || 'Время уже занято';
-        console.log('Time conflict detected:', errorMessage);
-        setErrorMessage(errorMessage);
-      } else {
-        const errorMessage = error.response?.data?.detail || error.message || 'Ошибка при сохранении записи';
-        setErrorMessage(errorMessage);
-      }
+      setErrorMessage(error.response?.data?.detail || 'Ошибка при сохранении записи');
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   };
 
   const handleEditAppointment = (appointment) => {
