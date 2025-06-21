@@ -1578,12 +1578,75 @@ function ClinicApp() {
       />
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {activeTab === 'schedule' && renderSchedule()}
+        {activeTab === 'schedule' && (
+          <ScheduleView
+            appointments={appointments}
+            doctors={doctors}
+            patients={patients}
+            user={user}
+            onNewAppointment={handleNewAppointment}
+            onEditAppointment={handleEditAppointment}
+            onDeleteAppointment={handleDeleteAppointment}
+            onStatusChange={handleStatusChange}
+            canEdit={user?.role === 'admin' || user?.role === 'doctor'}
+          />
+        )}
+        
         {activeTab === 'calendar' && renderCalendar()}
+        
+        {activeTab === 'medical' && (
+          <MedicalView
+            patients={patients}
+            selectedPatient={medical.selectedPatient}
+            medicalSummary={medical.medicalSummary}
+            patientAppointments={medical.patientAppointments}
+            user={user}
+            onSelectPatient={medical.selectPatient}
+            onEditMedicalRecord={handleEditMedicalRecord}
+            onAddMedicalEntry={handleAddMedicalEntry}
+            onAddDiagnosis={handleAddDiagnosis}
+            onAddMedication={handleAddMedication}
+          />
+        )}
+        
         {activeTab === 'patients' && renderPatients()}
         {activeTab === 'doctors' && renderDoctors()}
-        {activeTab === 'medical' && renderMedical()}
       </main>
+
+      {/* Модальные окна */}
+      <AppointmentModal
+        show={showAppointmentModal}
+        onClose={() => {
+          setShowAppointmentModal(false);
+          setEditingItem(null);
+          setAppointmentForm({ patient_id: '', doctor_id: '', appointment_date: '', appointment_time: '', reason: '', notes: '' });
+        }}
+        onSave={handleSaveAppointment}
+        appointmentForm={appointmentForm}
+        setAppointmentForm={setAppointmentForm}
+        patients={patients}
+        doctors={doctors}
+        editingItem={editingItem}
+        loading={loading}
+        errorMessage={errorMessage}
+      />
+
+      <MedicalRecordModal
+        show={showEditMedicalRecordModal}
+        onClose={() => {
+          setShowEditMedicalRecordModal(false);
+          setErrorMessage(null);
+          setMedicalRecordForm({
+            patient_id: '', blood_type: '', height: '', weight: '', 
+            emergency_contact: '', emergency_phone: '', insurance_number: ''
+          });
+        }}
+        onSave={handleSaveEditMedicalRecord}
+        medicalRecordForm={medicalRecordForm}
+        setMedicalRecordForm={setMedicalRecordForm}
+        loading={loading}
+        errorMessage={errorMessage}
+      />
 
       {/* Patient Modal */}
       {showPatientModal && canManagePatients && (
