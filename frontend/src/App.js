@@ -3,6 +3,7 @@ import axios from 'axios';
 import Header from './components/layout/Header';
 import Navigation from './components/layout/Navigation';
 import ErrorMessage from './components/layout/ErrorMessage';
+import BackgroundSelector from './components/layout/BackgroundSelector';
 import AppointmentModal from './components/modals/AppointmentModal';
 import MedicalRecordModal from './components/modals/MedicalRecordModal';
 import PatientModal from './components/modals/PatientModal';
