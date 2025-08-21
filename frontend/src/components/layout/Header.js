@@ -9,8 +9,9 @@ const Header = ({ user, onLogout, onToggleSidebar, sidebarOpen }) => {
             {/* Hamburger Menu Button */}
             <button
               onClick={onToggleSidebar}
-              className="p-2 rounded-lg text-gray-600 hover:text-gray-900 hover:bg-gray-100 transition-colors lg:hidden"
+              className="p-2 rounded-lg text-gray-600 hover:text-gray-900 hover:bg-gray-100 transition-colors lg:hidden z-50 relative"
               aria-label="Toggle sidebar"
+              data-testid="mobile-hamburger"
             >
               <svg
                 className="w-6 h-6"
