@@ -16,6 +16,7 @@ import CalendarView from './components/schedule/CalendarView';
 import MedicalView from './components/medical/MedicalView';
 import PatientsView from './components/patients/PatientsView';
 import DoctorsView from './components/doctors/DoctorsView';
+import TreatmentStatistics from './components/statistics/TreatmentStatistics';
 import { useApi } from './hooks/useApi';
 import { useMedical } from './hooks/useMedical';
 import './App.css';
