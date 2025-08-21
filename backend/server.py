@@ -1707,6 +1707,82 @@ async def delete_treatment_plan(
     logger.info(f"Treatment plan deleted: {plan_id}")
     return {"message": "Treatment plan deleted successfully"}
 
+# Service endpoints
+@api_router.get("/services", response_model=List[Service])
+async def get_services(
+    category: Optional[str] = None,
+    current_user: UserInDB = Depends(require_role([UserRole.ADMIN, UserRole.DOCTOR]))
+):
+    """Get all services, optionally filtered by category"""
+    query = {}
+    if category:
+        query["category"] = category
+    
+    services = await db.services.find(query).sort("category", 1).sort("name", 1).to_list(1000)
+    return [Service(**service) for service in services]
+
+@api_router.get("/service-categories")
+async def get_service_categories(
+    current_user: UserInDB = Depends(require_role([UserRole.ADMIN, UserRole.DOCTOR]))
+):
+    """Get all service categories"""
+    categories = await db.services.distinct("category")
+    return {"categories": sorted(categories)}
+
+@api_router.post("/services", response_model=Service)
+async def create_service(
+    service_data: ServiceCreate,
+    current_user: UserInDB = Depends(require_role([UserRole.ADMIN]))
+):
+    """Create a new service (admin only)"""
+    service = Service(**service_data.dict())
+    await db.services.insert_one(service.dict())
+    
+    logger.info(f"Service created: {service.name} in category {service.category}")
+    return service
+
+# Initialize default services if none exist
+@api_router.post("/services/initialize")
+async def initialize_default_services(
+    current_user: UserInDB = Depends(require_role([UserRole.ADMIN]))
+):
+    """Initialize default services (admin only)"""
+    existing_count = await db.services.count_documents({})
+    if existing_count > 0:
+        return {"message": f"Services already exist ({existing_count} services found)"}
+    
+    default_services = [
+        # Стоматология
+        {"name": "14C-уреазный дыхательный тест на определение Хеликобактер пилори (Helicobacter pylori)", "category": "Стоматолог", "price": 9960.0},
+        {"name": "17-OH Прогестерон (17-ОП)", "category": "Стоматолог", "price": 4200.0},
+        {"name": "Лечение кариеса", "category": "Стоматолог", "price": 15000.0},
+        {"name": "Удаление зуба", "category": "Стоматолог", "price": 8000.0},
+        {"name": "Установка пломбы", "category": "Стоматолог", "price": 12000.0},
+        {"name": "Чистка зубов", "category": "Стоматолог", "price": 6000.0},
+        
+        # Гинекология
+        {"name": "Консультация гинеколога", "category": "Гинекология", "price": 5000.0},
+        {"name": "УЗИ органов малого таза", "category": "Гинекология", "price": 7000.0},
+        
+        # Ортодонт
+        {"name": "Установка брекетов", "category": "Ортодонт", "price": 150000.0},
+        {"name": "Коррекция прикуса", "category": "Ортодонт", "price": 25000.0},
+        
+        # Дерматовенеролог
+        {"name": "Консультация дерматолога", "category": "Дерматовенеролог", "price": 4500.0},
+        {"name": "Удаление новообразований", "category": "Дерматовенеролог", "price": 8000.0},
+        
+        # Медикаменты
+        {"name": "Антибиотики", "category": "Медикаменты", "price": 2500.0},
+        {"name": "Обезболивающие", "category": "Медикаменты", "price": 1200.0},
+    ]
+    
+    services = [Service(**service_data) for service_data in default_services]
+    await db.services.insert_many([service.dict() for service in services])
+    
+    logger.info(f"Initialized {len(services)} default services")
+    return {"message": f"Successfully initialized {len(services)} default services"}
+
 # Include the router in the main app
 app.include_router(api_router)
 
