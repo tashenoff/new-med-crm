@@ -808,22 +808,6 @@ async def get_appointment(
                 "as": "doctor"
             }
         },
-        {
-            "$lookup": {
-                "from": "doctors",
-                "localField": "assistant_id",
-                "foreignField": "id",
-                "as": "assistant"
-            }
-        },
-        {
-            "$lookup": {
-                "from": "doctors",
-                "localField": "second_doctor_id",
-                "foreignField": "id",
-                "as": "second_doctor"
-            }
-        },
         {"$unwind": "$patient"},
         {"$unwind": "$doctor"},
         {
@@ -836,9 +820,7 @@ async def get_appointment(
                 "appointment_time": 1,
                 "end_time": {"$ifNull": ["$end_time", None]},
                 "chair_number": {"$ifNull": ["$chair_number", None]},
-                "assistant_id": {"$ifNull": ["$assistant_id", None]},
-                "second_doctor_id": {"$ifNull": ["$second_doctor_id", None]},
-                "extra_hours": {"$ifNull": ["$extra_hours", False]},
+                "price": {"$ifNull": ["$price", None]},
                 "status": 1,
                 "reason": 1,
                 "notes": 1,
@@ -848,9 +830,7 @@ async def get_appointment(
                 "patient_name": "$patient.full_name",
                 "doctor_name": "$doctor.full_name",
                 "doctor_specialty": "$doctor.specialty",
-                "doctor_color": "$doctor.calendar_color",
-                "assistant_name": {"$arrayElemAt": ["$assistant.full_name", 0]},
-                "second_doctor_name": {"$arrayElemAt": ["$second_doctor.full_name", 0]}
+                "doctor_color": "$doctor.calendar_color"
             }
         }
     ]
