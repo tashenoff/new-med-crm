@@ -638,6 +638,8 @@ const AppointmentModal = ({
               </button>
             </div>
           </div>
+        )}
+
         {/* Treatment Plans Tab Content */}
         {activeTab === 'plans' && selectedPatient && (
           <div className="space-y-4">
@@ -803,9 +805,5 @@ const AppointmentModal = ({
             </div>
           </div>
         )}
-      </div>
-    </div>
-  );
-};
 
 export default AppointmentModal;
