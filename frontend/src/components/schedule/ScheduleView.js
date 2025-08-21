@@ -233,100 +233,135 @@ const ScheduleView = ({
     console.log('🔄 Перетаскивание завершено');
   };
 
-  // Компонент карточки встречи
-  const AppointmentCard = ({ appointment }) => (
-    <div
-      draggable={canEdit}
-      onDragStart={(e) => handleDragStart(e, appointment)}
-      onDragEnd={handleDragEnd}
-      className={`bg-white p-4 rounded-lg shadow-sm border-l-4 mb-3 cursor-pointer hover:shadow-md transition-all duration-200 ${
-        draggedAppointment?.id === appointment.id ? 'opacity-50 transform rotate-2' : ''
-      } ${getStatusColor(appointment.status).replace('bg-', 'border-').replace('text-', '').replace('100', '400')}`}
-    >
-      <div className="flex justify-between items-start">
-        <div className="flex-1 min-w-0">
-          {/* Имя пациента */}
-          <div className="font-semibold text-lg truncate">
-            {appointment.patient_name}
+  // Компонент карточки встречи с улучшенным drag & drop
+  const AppointmentCard = ({ appointment }) => {
+    const isDragging = draggedAppointment?.id === appointment.id;
+    
+    return (
+      <div
+        draggable={canEdit}
+        onDragStart={(e) => handleDragStart(e, appointment)}
+        onDragEnd={handleDragEnd}
+        className={`
+          bg-white p-4 rounded-lg shadow-sm border-l-4 mb-3 transition-all duration-300
+          ${canEdit ? 'cursor-move hover:shadow-lg hover:scale-105' : 'cursor-default'}
+          ${isDragging ? 'opacity-30 transform rotate-3 scale-95 shadow-2xl' : 'opacity-100'}
+          ${getStatusColor(appointment.status).replace('bg-', 'border-').replace('text-', '').replace('100', '400')}
+        `}
+        style={{
+          transform: isDragging ? 'rotate(5deg) scale(0.95)' : 'none',
+          transition: 'all 0.2s ease-in-out'
+        }}
+      >
+        {/* Индикатор перетаскивания */}
+        {canEdit && (
+          <div className="absolute top-2 right-2 text-gray-400 text-lg opacity-70">
+            ⋮⋮
+          </div>
+        )}
+        
+        <div className="flex justify-between items-start">
+          <div className="flex-1 min-w-0">
+            {/* Имя пациента с иконкой */}
+            <div className="font-semibold text-lg truncate flex items-center">
+              <span className="mr-2">👤</span>
+              {appointment.patient_name}
+            </div>
+            
+            {/* Врач */}
+            <div className="text-gray-600 text-sm flex items-center mt-1">
+              👨‍⚕️ {appointment.doctor_name} 
+              <span className="ml-1 text-xs text-gray-500">({appointment.doctor_specialty})</span>
+            </div>
+            
+            {/* Дата и время */}
+            <div className="text-gray-600 text-sm flex items-center mt-2 bg-gray-50 rounded px-2 py-1">
+              📅 {appointment.appointment_date} в {appointment.appointment_time}
+              {appointment.end_time && ` - ${appointment.end_time}`}
+            </div>
+            
+            {/* Дополнительная информация в ряд */}
+            <div className="flex flex-wrap gap-2 mt-2">
+              {appointment.chair_number && (
+                <span className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded-full">
+                  🪑 Кресло {appointment.chair_number}
+                </span>
+              )}
+              
+              {appointment.price && (
+                <span className="text-xs bg-green-100 text-green-800 px-2 py-1 rounded-full font-medium">
+                  💰 {appointment.price} ₸
+                </span>
+              )}
+            </div>
+            
+            {/* Причина */}
+            {appointment.reason && (
+              <div className="text-gray-600 text-sm mt-2 p-2 bg-yellow-50 rounded border-l-2 border-yellow-300">
+                📝 {appointment.reason}
+              </div>
+            )}
+            
+            {/* Заметки */}
+            {appointment.notes && (
+              <div className="text-gray-500 text-xs mt-2 p-2 bg-gray-50 rounded">
+                💭 {appointment.notes}
+              </div>
+            )}
+            
+            {/* Заметки о пациенте */}
+            {appointment.patient_notes && (
+              <div className="text-gray-500 text-xs mt-2 p-2 bg-purple-50 rounded">
+                👤 {appointment.patient_notes}
+              </div>
+            )}
           </div>
           
-          {/* Врач */}
-          <div className="text-gray-600 text-sm">
-            👨‍⚕️ {appointment.doctor_name} ({appointment.doctor_specialty})
-          </div>
-          
-          {/* Дата и время */}
-          <div className="text-gray-600 text-sm flex items-center mt-1">
-            📅 {appointment.appointment_date} в {appointment.appointment_time}
-            {appointment.end_time && ` - ${appointment.end_time}`}
-          </div>
-          
-          {/* Кресло */}
-          {appointment.chair_number && (
-            <div className="text-gray-600 text-sm">
-              🪑 Кресло: {appointment.chair_number}
-            </div>
-          )}
-          
-          {/* Цена */}
-          {appointment.price && (
-            <div className="text-green-600 font-medium text-sm">
-              💰 {appointment.price} ₸
-            </div>
-          )}
-          
-          {/* Причина */}
-          {appointment.reason && (
-            <div className="text-gray-600 text-sm mt-1 truncate">
-              📝 {appointment.reason}
-            </div>
-          )}
-          
-          {/* Заметки */}
-          {appointment.notes && (
-            <div className="text-gray-500 text-xs mt-1 truncate">
-              💭 {appointment.notes}
-            </div>
-          )}
-          
-          {/* Заметки о пациенте */}
-          {appointment.patient_notes && (
-            <div className="text-gray-500 text-xs mt-1 truncate">
-              👤 {appointment.patient_notes}
+          {/* Действия */}
+          {canEdit && (
+            <div className="flex flex-col space-y-1 ml-2">
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onEditAppointment(appointment);
+                }}
+                className="text-blue-600 hover:text-blue-800 p-2 rounded-full hover:bg-blue-50 transition-colors"
+                title="Редактировать"
+              >
+                ✏️
+              </button>
+              
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onDeleteAppointment(appointment.id);
+                }}
+                className="text-red-600 hover:text-red-800 p-2 rounded-full hover:bg-red-50 transition-colors"
+                title="Удалить"
+              >
+                🗑️
+              </button>
             </div>
           )}
         </div>
         
-        {/* Действия */}
-        {canEdit && (
-          <div className="flex flex-col space-y-1 ml-2">
-            <button
-              onClick={() => onEditAppointment(appointment)}
-              className="text-blue-600 hover:text-blue-800 p-1 rounded hover:bg-blue-50"
-              title="Редактировать"
-            >
-              ✏️
-            </button>
-            
-            <button
-              onClick={() => onDeleteAppointment(appointment.id)}
-              className="text-red-600 hover:text-red-800 p-1 rounded hover:bg-red-50"
-              title="Удалить"
-            >
-              🗑️
-            </button>
-          </div>
-        )}
+        {/* Статус бейдж */}
+        <div className="mt-3 flex justify-between items-center">
+          <span className={`px-3 py-1 text-xs rounded-full font-medium flex items-center ${getStatusColor(appointment.status)}`}>
+            <span className="mr-1">{kanbanColumns.find(col => col.id === appointment.status)?.icon || '📋'}</span>
+            {getStatusText(appointment.status)}
+          </span>
+          
+          {/* Инструкция по перетаскиванию */}
+          {canEdit && (
+            <span className="text-xs text-gray-400 italic">
+              Перетащите для смены статуса
+            </span>
+          )}
+        </div>
       </div>
-      
-      {/* Статус бейдж */}
-      <div className="mt-2">
-        <span className={`px-2 py-1 text-xs rounded-full font-medium ${getStatusColor(appointment.status)}`}>
-          {getStatusText(appointment.status)}
-        </span>
-      </div>
-    </div>
-  );
+    );
+  };
 
   return (
     <div className="h-full">
