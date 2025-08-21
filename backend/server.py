@@ -451,10 +451,19 @@ class TreatmentPlan(BaseModel):
     description: Optional[str] = None
     services: List[dict] = []  # List of services with details like tooth number, service name, price, quantity, discount
     total_cost: Optional[float] = 0.0
-    status: str = "draft"  # draft, approved, completed, cancelled
+    status: str = "draft"  # draft, approved, completed, cancelled, in_progress
     created_by: str  # User ID who created the plan
     created_by_name: str  # Name of the user who created
     notes: Optional[str] = None
+    # Payment tracking
+    payment_status: str = "unpaid"  # unpaid, partially_paid, paid, overdue
+    paid_amount: Optional[float] = 0.0
+    payment_date: Optional[datetime] = None
+    # Execution tracking  
+    execution_status: str = "pending"  # pending, in_progress, completed, cancelled, no_show
+    started_at: Optional[datetime] = None
+    completed_at: Optional[datetime] = None
+    appointment_ids: List[str] = []  # Related appointment IDs
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)
 
