@@ -349,11 +349,13 @@ function ClinicApp() {
   const [appointments, setAppointments] = useState([]);
   const [sidebarOpen, setSidebarOpen] = useState(true); // По умолчанию открыт на десктопе
 
-  // Закрываем сайдбар на мобильных устройствах при первом рендере
+  // Управляем сайдбаром в зависимости от размера экрана
   useEffect(() => {
     const handleResize = () => {
-      if (window.innerWidth < 1024 && sidebarOpen) {
-        setSidebarOpen(false);
+      if (window.innerWidth < 1024) {
+        setSidebarOpen(false); // Закрываем на мобильных
+      } else {
+        setSidebarOpen(true);  // Открываем на десктопе
       }
     };
     
