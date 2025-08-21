@@ -30,10 +30,8 @@ const AppointmentModal = ({
   const handleCreateNewPatient = async (e) => {
     e.preventDefault();
     try {
-      // Here we would call the API to create a new patient
-      // For now, let's simulate this
-      console.log('Creating new patient:', newPatientForm);
-      // After creating, we should update the patients list and select the new patient
+      const newPatient = await onCreatePatient(newPatientForm);
+      // Reset form and hide the new patient section
       setShowNewPatientForm(false);
       setNewPatientForm({
         full_name: '',
