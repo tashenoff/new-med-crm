@@ -291,7 +291,10 @@ class PatientCreate(BaseModel):
     full_name: str
     phone: str
     iin: Optional[str] = None
+    birth_date: Optional[str] = None
+    gender: Optional[str] = None
     source: PatientSource = PatientSource.OTHER
+    referrer: Optional[str] = None
     notes: Optional[str] = None
     user_id: Optional[str] = None
 
