@@ -8,6 +8,7 @@ const DoctorStatistics = () => {
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
   const [activeTab, setActiveTab] = useState('overview');
+  const [searchTerm, setSearchTerm] = useState('');
 
   const API = process.env.REACT_APP_BACKEND_URL;
 
