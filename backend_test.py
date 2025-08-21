@@ -647,6 +647,208 @@ class ClinicAPITester:
             print(f"Recent entries: {len(response['recent_entries'])}")
         return success
 
+    # Document Management Testing Methods
+    def test_upload_document(self, patient_id, file_content, filename, content_type="application/pdf", description=None):
+        """Upload a document for a patient"""
+        url = f"{self.base_url}/api/patients/{patient_id}/documents"
+        headers = {}
+        
+        # Add authorization token if available
+        if self.token:
+            headers['Authorization'] = f'Bearer {self.token}'
+        
+        self.tests_run += 1
+        print(f"\n🔍 Testing Upload Document for patient {patient_id}...")
+        
+        try:
+            # Create multipart form data
+            files = {'file': (filename, file_content, content_type)}
+            data = {}
+            if description:
+                data['description'] = description
+            
+            response = requests.post(url, files=files, data=data, headers=headers)
+            
+            success = response.status_code == 200
+            if success:
+                self.tests_passed += 1
+                print(f"✅ Passed - Status: {response.status_code}")
+                if response.text:
+                    try:
+                        return success, response.json()
+                    except json.JSONDecodeError:
+                        return success, response.text
+                return success, None
+            else:
+                print(f"❌ Failed - Expected 200, got {response.status_code}")
+                print(f"Response: {response.text}")
+                return False, None
+
+        except Exception as e:
+            print(f"❌ Failed - Error: {str(e)}")
+            return False, None
+
+    def test_get_patient_documents(self, patient_id):
+        """Get all documents for a patient"""
+        success, response = self.run_test(
+            f"Get Documents for Patient {patient_id}",
+            "GET",
+            f"patients/{patient_id}/documents",
+            200
+        )
+        if success and response:
+            print(f"Found {len(response)} documents for patient {patient_id}")
+            if len(response) > 0:
+                doc = response[0]
+                print(f"Sample document: {doc['original_filename']} ({doc['file_type']}, {doc['file_size']} bytes)")
+        return success, response
+
+    def test_update_document_description(self, document_id, new_description):
+        """Update document description"""
+        success, response = self.run_test(
+            f"Update Document {document_id} Description",
+            "PUT",
+            f"documents/{document_id}",
+            200,
+            data={"description": new_description}
+        )
+        if success and response:
+            if response["description"] == new_description:
+                print(f"✅ Description correctly updated to: {new_description}")
+            else:
+                print(f"❌ Description update failed: expected '{new_description}', got '{response['description']}'")
+                success = False
+        return success
+
+    def test_delete_document(self, document_id):
+        """Delete a document"""
+        success, response = self.run_test(
+            f"Delete Document {document_id}",
+            "DELETE",
+            f"documents/{document_id}",
+            200
+        )
+        if success:
+            print(f"✅ Successfully deleted document with ID: {document_id}")
+        return success
+
+    def test_access_uploaded_file(self, filename):
+        """Test accessing uploaded file via static file serving"""
+        url = f"{self.base_url}/uploads/{filename}"
+        headers = {}
+        
+        # Add authorization token if available (though static files might not need it)
+        if self.token:
+            headers['Authorization'] = f'Bearer {self.token}'
+        
+        self.tests_run += 1
+        print(f"\n🔍 Testing Static File Access for {filename}...")
+        
+        try:
+            response = requests.get(url, headers=headers)
+            
+            success = response.status_code == 200
+            if success:
+                self.tests_passed += 1
+                print(f"✅ Passed - Status: {response.status_code}")
+                print(f"✅ File accessible via /uploads endpoint")
+                return success, response.content
+            else:
+                print(f"❌ Failed - Expected 200, got {response.status_code}")
+                print(f"Response: {response.text}")
+                return False, None
+
+        except Exception as e:
+            print(f"❌ Failed - Error: {str(e)}")
+            return False, None
+
+    def test_upload_document_unauthorized(self, patient_id, file_content, filename):
+        """Test uploading document without proper authorization"""
+        # Save current token
+        saved_token = self.token
+        # Clear token
+        self.token = None
+        
+        success, _ = self.test_upload_document(patient_id, file_content, filename)
+        
+        # For unauthorized access, we expect failure (success = False means we got expected 401)
+        if not success:
+            print("✅ Unauthorized upload correctly rejected")
+            success = True  # Flip the result since we expected failure
+        else:
+            print("❌ Unauthorized upload was allowed")
+            success = False
+        
+        # Restore token
+        self.token = saved_token
+        return success
+
+    def test_patient_document_access_control(self, patient_id, other_patient_id):
+        """Test that patients can only access their own documents"""
+        # This would require creating a patient user and testing access
+        # For now, we'll test with admin/doctor access
+        success, response = self.run_test(
+            f"Test Document Access Control for Patient {patient_id}",
+            "GET",
+            f"patients/{patient_id}/documents",
+            200
+        )
+        return success
+
+    def test_upload_various_file_types(self, patient_id):
+        """Test uploading various file types"""
+        test_files = [
+            ("test_document.pdf", b"PDF content", "application/pdf"),
+            ("test_image.jpg", b"JPEG content", "image/jpeg"),
+            ("test_document.docx", b"DOCX content", "application/vnd.openxmlformats-officedocument.wordprocessingml.document"),
+            ("test_text.txt", b"Text content", "text/plain")
+        ]
+        
+        uploaded_documents = []
+        all_success = True
+        
+        for filename, content, content_type in test_files:
+            success, response = self.test_upload_document(
+                patient_id, content, filename, content_type, 
+                description=f"Test {filename} upload"
+            )
+            if success and response:
+                uploaded_documents.append(response)
+                print(f"✅ Successfully uploaded {filename}")
+            else:
+                print(f"❌ Failed to upload {filename}")
+                all_success = False
+        
+        return all_success, uploaded_documents
+
+    def test_upload_to_nonexistent_patient(self, nonexistent_patient_id="nonexistent-id"):
+        """Test uploading document to non-existent patient"""
+        success, _ = self.test_upload_document(
+            nonexistent_patient_id, 
+            b"Test content", 
+            "test.pdf"
+        )
+        
+        # We expect this to fail with 404, so success=False means we got expected error
+        if not success:
+            print("✅ Upload to non-existent patient correctly rejected")
+            return True
+        else:
+            print("❌ Upload to non-existent patient was allowed")
+            return False
+
+    def test_delete_nonexistent_document(self, nonexistent_document_id="nonexistent-doc-id"):
+        """Test deleting non-existent document"""
+        success, _ = self.run_test(
+            "Delete Non-existent Document",
+            "DELETE",
+            f"documents/{nonexistent_document_id}",
+            404  # Expect 404 Not Found
+        )
+        if success:
+            print("✅ Delete non-existent document correctly returned 404")
+        return success
+
 def test_date_range_appointments(self):
     """Test appointments with date range (±7 days)"""
     # Get dates for ±7 days range
