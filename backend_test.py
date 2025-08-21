@@ -1578,7 +1578,7 @@ def test_treatment_plan_422_validation_error():
     SPECIFIC TEST FOR 422 VALIDATION ERROR INVESTIGATION
     Testing treatment plan creation with patient ID: 1db07558-3805-4588-95d1-f79fe4bcd7ce
     """
-    backend_url = "https://medentry-portal.preview.emergentagent.com"
+    backend_url = "https://medrecord-field.preview.emergentagent.com"
     tester = ClinicAPITester(backend_url)
     
     print("=" * 80)
@@ -1841,7 +1841,7 @@ def main():
 
 def main_original():
     # Get the backend URL from the environment
-    backend_url = "https://medentry-portal.preview.emergentagent.com"
+    backend_url = "https://medrecord-field.preview.emergentagent.com"
     
     # Setup
     tester = ClinicAPITester(backend_url)

@@ -1,109 +1,82 @@
 <analysis>
-The AI engineer successfully guided the medical record application from an MVP to a feature-rich system. Key achievements include implementing automatic medical record creation, expanding patient and appointment data, and introducing robust document management with upload/download capabilities. The engineer adeptly handled UI refactoring by extracting components, resolving critical bugs like duplicate modals and environment variable access, and debugging complex API routing issues. The development process was iterative, responding to user feedback and progressively enhancing features. The most complex phase involved building a comprehensive treatment planning system, integrating new backend models and frontend components like  and . At the point of summary, the engineer was in the process of integrating these new components into the frontend modals.
+The previous AI engineer successfully evolved a medical record application from an MVP. Initial efforts focused on automatic medical record creation, patient/appointment data expansion, and document management. A significant phase involved building a comprehensive treatment planning system, integrating backend models and frontend components like  and .
+
+The trajectory then details a series of iterative enhancements and bug fixes. Key issues resolved include authentication (401 errors requiring login) and treatment plan saving (422 validation error due to redundant ). Feature additions include detailed treatment plan statistics, general and doctor-specific statistics with search capabilities, and a major UI overhaul to implement a collapsible sidebar navigation with an accordion menu for statistics. The process involved constant backend and frontend updates, often debugging in response to user feedback. The work concluded with the user reporting that the source/channel field for clients had been inadvertently removed.
 </analysis>
 
 <product_requirements>
-The initial problem was the absence of medical record creation functionality. The user desired an automated process where an empty medical record would be created upon patient registration. Subsequently, doctors needed the ability to edit existing medical records to add details like blood group, height, weight, emergency contacts, and insurance information. The system also required features for adding diagnoses, medications, and medical entries (notes for visits), with automatic entry creation upon appointment completion. UI improvements were requested, including consistent appointment displays across schedule/calendar views, day-by-day calendar navigation, and general error fixes.
+The initial core problem was the absence of medical record creation. The system needed to automatically generate empty medical records upon patient registration, allowing doctors to subsequently edit them with details like blood group, height, weight, emergency contacts, and insurance. Functionality for adding diagnoses, medications, and medical entries (visit notes) was also required, with automatic entry creation post-appointment. UI consistency was a priority for appointment displays across views, alongside general bug fixes.
 
-During the development trajectory, the following enhancements were requested:
-1.  **Expanded Medical Entry Fields**: Adding new fields to the medical entry form, initially for general medical entries, then specifically for Patient and Appointment forms, including birthday, gender, referrer, financial data (revenue, debt, overpayment), appointment details (end time, chair number, patient notes, price, source), and simplification to a single doctor per appointment.
-2.  **Document Management**: Ability to upload, view, and download documents for a patient directly within the patient profile modal and the appointment booking modal, displayed under a Документы (Documents) tab.
-3.  **Treatment Plan Management**: Introduction of a План лечения (Treatment Plan) tab in both patient profile and appointment booking modals. This evolved to include a detailed system for treatment plans with categories of services, prices, and a dental chart for tooth selection.
+Subsequent enhancements included expanding medical entry fields for patients (birthday, gender, referrer, financial data) and appointments (end time, chair number, patient notes, price, source). A key feature was comprehensive document management, enabling upload, viewing, and download for patients via dedicated Документы tabs in both patient and appointment modals. A detailed План лечения (Treatment Plan) system was introduced, featuring service categories, pricing, and a dental chart for tooth selection, accessible through a dedicated tab. Later, a request for an Statistics page for treatment plans (tracking execution, missed payments, unpaid plans) was added. This evolved to include detailed doctor statistics and a collapsible sidebar navigation with an accordion menu for different statistical views, along with search functionality for patients and doctors. The most recent implicit request is to restore the source/channel field for client appointments.
 </product_requirements>
 
 <key_technical_concepts>
--   **Full-stack Development**: Utilizes React for the frontend, FastAPI for the backend, and MongoDB as the database.
--   **RESTful APIs**: Backend API routes are consistently prefixed with .
--   **Component-Based UI**: Extensive refactoring of  into modular React components and custom hooks (, ).
--   **Data Validation**: Pydantic models in FastAPI for robust data validation.
--   **File Upload/Download**: Implemented using FastAPI's  and , with  on the frontend.
--   **Tabbed Modals**: UI pattern for organizing related forms and information (e.g., PatientModal, AppointmentModal).
+- **Full-stack Development**: React (frontend), FastAPI (backend), MongoDB (database).
+- **RESTful APIs**: Consistent  prefix for backend routes.
+- **Component-Based UI**: Modular React components, custom hooks.
+- **Data Validation**: Pydantic models in FastAPI.
+- **File Management**: FastAPI  & , Frontend .
+- **UI Patterns**: Tabbed modals, collapsible sidebar, accordion menu.
+- **Environment Variables**: Strict usage of , .
 </key_technical_concepts>
 
 <code_architecture>
-The application is structured as a full-stack React frontend, FastAPI backend, and MongoDB database.
+The application uses a full-stack architecture: React for the frontend, FastAPI for the backend, and MongoDB as the database.
 
 
-
-**Key Files and Changes:**
 
 -   :
-    -   **Importance**: Core backend logic, API endpoints, and database models.
-    -   **Changes**:
-        -   Expanded  model with , , , , , , , .
-        -   Expanded  model with , , , . Removed , ,  to simplify.
-        -   Added  model (id, patient_id, filename, filepath, upload_date, uploaded_by, description, content_type).
-        -   Added  model (id, patient_id, created_at, created_by, status, total_cost, services: list of ). Also  model (service_name, price, quantity, notes, tooth_number, status).
-        -   Added  model (id, name, category, price, description).
-        -   Implemented API endpoints for  (upload, list, delete) and  (create, list, get, update, delete) and  (create, list, delete).
-        -   Added  for file storage.
-        -   Added  endpoint using  as a workaround for Kubernetes ingress static file routing.
-        -   Updated aggregation pipelines to reflect new/removed fields and lookups.
+    -   **Importance**: Handles all API endpoints, database interactions, and data models.
+    -   **Changes**: Expanded  and  models. Added , , ,  models for new features. Implemented CRUD operations for these models and their respective API endpoints (, , ). Introduced  for file storage and a  endpoint for file downloads. Fixed a 422 validation error by making  optional in . Added  and  fields to  and implemented new API endpoints for treatment plan statistics () and doctor statistics ().
 
 -   :
-    -   **Importance**: Main application orchestrator, managing global state and routing.
-    -   **Changes**:
-        -   Integrated logic for new patient and appointment fields, updating form initialization (, ), reset functions, and edit handlers (, ).
-        -   Implemented  to allow patient creation directly from the Appointment modal.
-        -   **Crucially, fixed duplicate modal rendering**: Removed old, inline HTML modal definitions for  and , relying solely on the imported components.
-        -   Added state management for new tabs (Documents, Treatment Plans) and related data fetching/upload functions for both Patient and Appointment contexts.
+    -   **Importance**: The central component for routing, global state management, and overall application layout.
+    -   **Changes**: Refactored to integrate new patient and appointment fields into forms. Critical bug fix involved removing duplicate modal definitions. Added state management for new UI tabs and introduced  state and  function for the new collapsible sidebar. Integrated the new  component (later replaced by  and ) into the main view, controlling visibility based on active tabs. Managed user authentication state and logout logic, which was crucial for resolving initial 401 errors. Updated layout structure to accommodate the sidebar.
 
 -   :
-    -   **Importance**: Form for creating/editing patient information.
-    -   **Changes**:
-        -   Added input fields for new patient attributes (birthday, gender, referrer, financial info).
-        -   Implemented a tabbed interface with Информация о пациенте, Документы, and План лечения tabs.
-        -   Integrated document upload/management logic (upload, list, delete, download) under the Документы tab.
-        -   Fixed  access from  to .
-        -   Corrected API URLs for documents to include  prefix.
-        -   Integrated treatment plan viewing/management under План лечения tab, fetching and displaying plans.
-        -   Updated download links to use the new  endpoint.
+    -   **Importance**: Enables creation and editing of appointments, now including detailed patient and treatment plan management.
+    -   **Changes**: Extended with input fields for new appointment attributes (end time, chair, patient notes, price). Integrated document upload/management under a Документы пациента tab. Significantly updated to include a План лечения tab, which now incorporates the  and  components for comprehensive treatment plan creation. Form state () was updated to include  and  fields, with corresponding UI elements added for these new statuses.
 
 -   :
-    -   **Importance**: Form for creating/editing appointments.
-    -   **Changes**:
-        -   Added input fields for new appointment attributes (end time, chair, patient notes, price). Removed assistant, second doctor, extra hours fields.
-        -   Implemented logic to create a new patient directly within the modal.
-        -   Implemented a tabbed interface with Запись на прием, Документы пациента, and План лечения tabs.
-        -   Integrated document upload/management logic under the Документы пациента tab.
-        -   Corrected API URLs for documents to include  prefix.
-        -   Integrated treatment plan viewing/management under План лечения tab, including forms for creating/editing plans and later integrating  and .
-        -   Updated download links to use the new  endpoint.
+    -   **Importance**: Displays the application's header and provides navigation controls.
+    -   **Changes**: Modified to include a hamburger menu button () for controlling the new collapsible sidebar. The application title Мед Ассистент was removed from this component to avoid duplication after it was moved into the sidebar. Adjusted z-index for the hamburger button to ensure clickability.
 
 -   :
-    -   **Importance**: Displays the list of patients.
-    -   **Changes**: Updated to display the new patient fields in the patient cards.
-
--   :
-    -   **Importance**: Displays daily appointments.
-    -   **Changes**: Updated to display the new appointment fields in the schedule view.
+    -   **Importance**: Provides the main navigation links for the application.
+    -   **Changes**: Transformed into a collapsible left sidebar component. Implemented logic to show/hide based on  state, supporting both desktop and mobile responsiveness. Critical changes involved integrating an accordion menu structure for the Статистика section, allowing sub-categories like Планы лечения and Врачи to expand/collapse. The  structure was updated to define these nested navigation links.
 
 -    (NEW):
-    -   **Importance**: Component intended for selecting teeth in a dental treatment plan.
-    -   **Changes**: Newly created, but its full integration into the plan form is ongoing.
+    -   **Importance**: A newly created component for graphically selecting teeth in a dental treatment plan.
+    -   **Changes**: This component was added early in the trajectory but its full integration into the treatment plan form within  was an ongoing task.
 
 -    (NEW):
-    -   **Importance**: Component for selecting services for a treatment plan.
-    -   **Changes**: Newly created, integration into 's plan form is in progress.
+    -   **Importance**: A newly created component for selecting services to be included in a treatment plan.
+    -   **Changes**: This component was added early in the trajectory, with its integration into 's План лечения tab being an ongoing task.
+
+-    (NEW):
+    -   **Importance**: A dedicated component for displaying statistics related to treatment plans.
+    -   **Changes**: Created by splitting functionality from the original . Includes overview, monthly, and patient-specific statistics for treatment plans. Enhanced with a search input, filtering logic for patients, a display for the number of found records, a clear search button, and a message for no search results.
+
+-    (NEW):
+    -   **Importance**: A dedicated component for displaying statistics related to doctors.
+    -   **Changes**: Created by splitting functionality from the original . Includes overview, monthly, and doctor-specific statistics. Enhanced with a search input, filtering logic for doctors, a display for the number of found records, a clear search button, and a message for no search results.
+
+-   :
+    -   **Importance**: Manages global and component-specific styling using Tailwind CSS.
+    -   **Changes**: Added styles for the new collapsible sidebar, the accordion menu functionality within the navigation, and specific styles for the search input fields within the statistics components.
+
 </code_architecture>
 
 <pending_tasks>
--   **Complete Treatment Plan UI Integration**: Finish integrating the  and  components into the План лечения tab within  and , ensuring all new fields (service categories, prices, tooth selection) are fully functional and displayed.
--   **Image Background Integration**: Finalize the integration of the  component into  and ensure it functions correctly, as it was noted as pending earlier in the trajectory.
+- **Restore Source/Channel Field**: Re-introduce the source field for client appointments in the backend  model and update all relevant frontend forms (e.g., ) to capture and display this information.
 </pending_tasks>
 
 <current_work>
-Immediately before this summary request, the AI engineer was implementing the enhanced План лечения (Treatment Plan) functionality, particularly focusing on the frontend integration. This involved:
+Immediately before this summary request, the AI engineer was engaged in addressing a bug reported by the user: the accidental removal of the source (источник/канал) field, which tracks how a client was acquired. The user provided an image highlighting its absence.
 
-1.  **Backend Models and Endpoints for Services**: New  model (name, category, price, description) and corresponding API endpoints () were added to  to manage treatment services. This backend part was tested and reported as working correctly.
-2.  **Frontend Components for Treatment Plan**:
-    *    was created, intended for graphical tooth selection.
-    *    was created, designed for selecting services.
-3.  **Integrating Service Selection in AppointmentModal**: The AI engineer was actively modifying  to replace simple text fields in the План лечения tab with the new  component. This process involved addressing and resolving linting errors and duplicate function declarations ().
-
-The last action recorded was the AI engineer taking a screenshot, indicating an attempt to visually verify the ongoing integration of the treatment plan components. The implementation of the detailed treatment plan, including displaying service categories, prices, and the dental chart, is currently in progress on the frontend.
+The AI engineer's last action was initiating an investigation into the  file to verify the presence of the  field within the  model. This indicates the start of the process to restore this crucial piece of data. The current state is that the field is confirmed missing, and the next step is to re-integrate it into the backend data models and then propagate the changes to the frontend forms and display logic. This bug is a regression, as the field was likely present before and now needs to be re-added.
 </current_work>
 
 <optional_next_step>
-Complete the frontend integration of  and  into  and 's План лечения tabs.
+Re-add the 'source' field to the  model in .
 </optional_next_step>

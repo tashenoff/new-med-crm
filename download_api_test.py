@@ -395,7 +395,7 @@ class DownloadAPITester:
 
 def main():
     # Get the backend URL
-    backend_url = "https://medentry-portal.preview.emergentagent.com"
+    backend_url = "https://medrecord-field.preview.emergentagent.com"
     
     # Setup tester
     tester = DownloadAPITester(backend_url)

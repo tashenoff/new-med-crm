@@ -779,7 +779,7 @@ class DoctorStatisticsAPITester:
 def main():
     """Main function to run doctor statistics API tests"""
     # Use the production URL from frontend/.env
-    backend_url = "https://medentry-portal.preview.emergentagent.com"
+    backend_url = "https://medrecord-field.preview.emergentagent.com"
     
     print("Starting Doctor Statistics API Testing...")
     print(f"Backend URL: {backend_url}")
