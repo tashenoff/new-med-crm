@@ -1797,6 +1797,10 @@ function ClinicApp() {
             canManage={user?.role === 'admin'}
           />
         )}
+        
+        {activeTab === 'statistics' && (
+          <TreatmentStatistics />
+        )}
       </main>
 
       {/* Модальные окна */}
