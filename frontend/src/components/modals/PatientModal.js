@@ -58,7 +58,7 @@ const PatientModal = ({
       }
 
       console.log('Uploading file for patient:', editingItem.id);
-      console.log('API endpoint:', `${API}/patients/${editingItem.id}/documents`);
+      console.log('API endpoint:', `${API}/api/patients/${editingItem.id}/documents`);
       console.log('File:', selectedFile);
 
       const response = await fetch(`${API}/patients/${editingItem.id}/documents`, {
