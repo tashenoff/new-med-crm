@@ -107,7 +107,131 @@ const ScheduleView = ({
     }
   };
 
-  return (
+  // Группировка встреч по статусам
+  const getAppointmentsByStatus = (status) => {
+    return scheduleAppointments.filter(apt => apt.status === status);
+  };
+
+  // Drag & Drop функции
+  const handleDragStart = (e, appointment) => {
+    if (!canEdit) return;
+    setDraggedAppointment(appointment);
+    e.dataTransfer.effectAllowed = 'move';
+  };
+
+  const handleDragOver = (e) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+  };
+
+  const handleDrop = (e, newStatus) => {
+    e.preventDefault();
+    if (!canEdit || !draggedAppointment) return;
+    
+    if (draggedAppointment.status !== newStatus) {
+      onStatusChange(draggedAppointment.id, newStatus);
+    }
+    setDraggedAppointment(null);
+  };
+
+  const handleDragEnd = () => {
+    setDraggedAppointment(null);
+  };
+
+  // Компонент карточки встречи
+  const AppointmentCard = ({ appointment }) => (
+    <div
+      draggable={canEdit}
+      onDragStart={(e) => handleDragStart(e, appointment)}
+      onDragEnd={handleDragEnd}
+      className={`bg-white p-4 rounded-lg shadow-sm border-l-4 mb-3 cursor-pointer hover:shadow-md transition-all duration-200 ${
+        draggedAppointment?.id === appointment.id ? 'opacity-50 transform rotate-2' : ''
+      } ${getStatusColor(appointment.status).replace('bg-', 'border-').replace('text-', '').replace('100', '400')}`}
+    >
+      <div className="flex justify-between items-start">
+        <div className="flex-1 min-w-0">
+          {/* Имя пациента */}
+          <div className="font-semibold text-lg truncate">
+            {appointment.patient_name}
+          </div>
+          
+          {/* Врач */}
+          <div className="text-gray-600 text-sm">
+            👨‍⚕️ {appointment.doctor_name} ({appointment.doctor_specialty})
+          </div>
+          
+          {/* Дата и время */}
+          <div className="text-gray-600 text-sm flex items-center mt-1">
+            📅 {appointment.appointment_date} в {appointment.appointment_time}
+            {appointment.end_time && ` - ${appointment.end_time}`}
+          </div>
+          
+          {/* Кресло */}
+          {appointment.chair_number && (
+            <div className="text-gray-600 text-sm">
+              🪑 Кресло: {appointment.chair_number}
+            </div>
+          )}
+          
+          {/* Цена */}
+          {appointment.price && (
+            <div className="text-green-600 font-medium text-sm">
+              💰 {appointment.price} ₸
+            </div>
+          )}
+          
+          {/* Причина */}
+          {appointment.reason && (
+            <div className="text-gray-600 text-sm mt-1 truncate">
+              📝 {appointment.reason}
+            </div>
+          )}
+          
+          {/* Заметки */}
+          {appointment.notes && (
+            <div className="text-gray-500 text-xs mt-1 truncate">
+              💭 {appointment.notes}
+            </div>
+          )}
+          
+          {/* Заметки о пациенте */}
+          {appointment.patient_notes && (
+            <div className="text-gray-500 text-xs mt-1 truncate">
+              👤 {appointment.patient_notes}
+            </div>
+          )}
+        </div>
+        
+        {/* Действия */}
+        {canEdit && (
+          <div className="flex flex-col space-y-1 ml-2">
+            <button
+              onClick={() => onEditAppointment(appointment)}
+              className="text-blue-600 hover:text-blue-800 p-1 rounded hover:bg-blue-50"
+              title="Редактировать"
+            >
+              ✏️
+            </button>
+            
+            <button
+              onClick={() => onDeleteAppointment(appointment.id)}
+              className="text-red-600 hover:text-red-800 p-1 rounded hover:bg-red-50"
+              title="Удалить"
+            >
+              🗑️
+            </button>
+          </div>
+        )}
+      </div>
+      
+      {/* Статус бейдж */}
+      <div className="mt-2">
+        <span className={`px-2 py-1 text-xs rounded-full font-medium ${getStatusColor(appointment.status)}`}>
+          {getStatusText(appointment.status)}
+        </span>
+      </div>
+    </div>
+  );
     <div>
       <div className="flex justify-between items-center mb-6">
         <h2 className="text-2xl font-bold">Расписание (±7 дней)</h2>
