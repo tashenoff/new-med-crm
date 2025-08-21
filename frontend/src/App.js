@@ -2342,6 +2342,7 @@ function ClinicApp() {
           </div>
         </div>
       )}
+      </div>
     </div>
   );
 }
