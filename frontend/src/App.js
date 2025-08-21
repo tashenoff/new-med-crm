@@ -624,8 +624,16 @@ function ClinicApp() {
       full_name: patient.full_name,
       phone: patient.phone,
       iin: patient.iin || '',
+      birth_date: patient.birth_date || '',
+      gender: patient.gender || '',
       source: patient.source,
-      notes: patient.notes || ''
+      referrer: patient.referrer || '',
+      notes: patient.notes || '',
+      revenue: patient.revenue || 0,
+      debt: patient.debt || 0,
+      overpayment: patient.overpayment || 0,
+      appointments_count: patient.appointments_count || 0,
+      records_count: patient.records_count || 0
     });
     setShowPatientModal(true);
   };
