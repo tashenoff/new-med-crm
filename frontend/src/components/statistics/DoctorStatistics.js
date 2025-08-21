@@ -420,7 +420,15 @@ const DoctorStatistics = () => {
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
-                  {individualDoctorStats.doctor_statistics.slice(0, 20).map((doctor, index) => (
+                  {individualDoctorStats.doctor_statistics
+                    .filter(doctor => 
+                      !searchTerm || 
+                      doctor.doctor_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                      doctor.doctor_specialty.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                      (doctor.doctor_phone && doctor.doctor_phone.includes(searchTerm))
+                    )
+                    .slice(0, 20)
+                    .map((doctor, index) => (
                     <tr key={doctor.doctor_id} className="hover:bg-gray-50">
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div>
