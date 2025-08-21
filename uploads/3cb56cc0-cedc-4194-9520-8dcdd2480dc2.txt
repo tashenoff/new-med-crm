@@ -1,0 +1,1 @@
+Test content for static serving verification
