@@ -131,31 +131,98 @@ const Navigation = ({ activeTab, setActiveTab, availableTabs, sidebarOpen, setSi
           {/* Navigation Items */}
           <div className="flex-1 py-6">
             <div className="px-3 space-y-1">
-              {availableTabs.map(tab => (
-                <button
-                  key={tab.key}
-                  onClick={() => handleTabClick(tab.key)}
-                  className={`
-                    w-full flex items-center px-3 py-3 text-left rounded-lg font-medium transition-all duration-200
-                    ${activeTab === tab.key
-                      ? 'bg-blue-50 text-blue-700 border-r-2 border-blue-600 shadow-sm'
-                      : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
-                    }
-                  `}
-                >
-                  <span className={`
-                    mr-3 flex-shrink-0
-                    ${activeTab === tab.key ? 'text-blue-600' : 'text-gray-400'}
-                  `}>
-                    {getTabIcon(tab.key)}
-                  </span>
-                  <span className="text-sm">{tab.label}</span>
-                  {activeTab === tab.key && (
-                    <span className="ml-auto">
-                      <div className="w-2 h-2 bg-blue-600 rounded-full"></div>
-                    </span>
+              {getMenuStructure().map(item => (
+                <div key={item.key}>
+                  {item.type === 'tab' && (
+                    <button
+                      onClick={() => handleTabClick(item.key)}
+                      className={`
+                        w-full flex items-center px-3 py-3 text-left rounded-lg font-medium transition-all duration-200
+                        ${activeTab === item.key
+                          ? 'bg-blue-50 text-blue-700 border-r-2 border-blue-600 shadow-sm'
+                          : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
+                        }
+                      `}
+                    >
+                      <span className={`
+                        mr-3 flex-shrink-0
+                        ${activeTab === item.key ? 'text-blue-600' : 'text-gray-400'}
+                      `}>
+                        {getTabIcon(item.key)}
+                      </span>
+                      <span className="text-sm">{item.label}</span>
+                      {activeTab === item.key && (
+                        <span className="ml-auto">
+                          <div className="w-2 h-2 bg-blue-600 rounded-full"></div>
+                        </span>
+                      )}
+                    </button>
                   )}
-                </button>
+
+                  {item.type === 'section' && (
+                    <div>
+                      {/* Section Header */}
+                      <button
+                        onClick={() => toggleSection(item.key)}
+                        className={`
+                          w-full flex items-center px-3 py-3 text-left rounded-lg font-medium transition-all duration-200
+                          ${(activeTab === 'treatment-statistics' || activeTab === 'doctor-statistics')
+                            ? 'bg-blue-50 text-blue-700'
+                            : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
+                          }
+                        `}
+                      >
+                        <span className={`
+                          mr-3 flex-shrink-0
+                          ${(activeTab === 'treatment-statistics' || activeTab === 'doctor-statistics') ? 'text-blue-600' : 'text-gray-400'}
+                        `}>
+                          {getTabIcon(item.key)}
+                        </span>
+                        <span className="text-sm flex-1">{item.label}</span>
+                        <svg
+                          className={`w-4 h-4 transition-transform duration-200 ${
+                            expandedSections[item.key] ? 'rotate-180' : ''
+                          }`}
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                        </svg>
+                      </button>
+
+                      {/* Submenu */}
+                      <div className={`
+                        overflow-hidden transition-all duration-300 ease-in-out
+                        ${expandedSections[item.key] ? 'max-h-96 opacity-100' : 'max-h-0 opacity-0'}
+                      `}>
+                        <div className="pl-6 pt-1 space-y-1">
+                          {item.children?.map(subItem => (
+                            <button
+                              key={subItem.key}
+                              onClick={() => handleSubTabClick(subItem.key)}
+                              className={`
+                                w-full flex items-center px-3 py-2 text-left rounded-lg font-medium transition-all duration-200
+                                ${activeTab === subItem.key
+                                  ? 'bg-blue-100 text-blue-700 border-l-2 border-blue-600'
+                                  : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'
+                                }
+                              `}
+                            >
+                              <span className="mr-3 w-2 h-2 bg-current rounded-full opacity-60"></span>
+                              <span className="text-sm">{subItem.label}</span>
+                              {activeTab === subItem.key && (
+                                <span className="ml-auto">
+                                  <div className="w-1.5 h-1.5 bg-blue-600 rounded-full"></div>
+                                </span>
+                              )}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
               ))}
             </div>
           </div>
