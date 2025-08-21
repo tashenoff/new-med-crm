@@ -169,8 +169,8 @@ metadata:
 test_plan:
   current_focus:
     - "Automatic medical record creation when creating patient"
-    - "Medical record editing interface"
-    - "Medical record update functionality"
+    - "Enhanced patient fields"
+    - "Enhanced appointment fields"
   stuck_tasks: []
   test_all: false
   test_priority: "high_first"
