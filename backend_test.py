@@ -1573,7 +1573,273 @@ def test_archive_appointment(self, appointment_id):
     
     return success
 
+def test_treatment_plan_422_validation_error():
+    """
+    SPECIFIC TEST FOR 422 VALIDATION ERROR INVESTIGATION
+    Testing treatment plan creation with patient ID: 1db07558-3805-4588-95d1-f79fe4bcd7ce
+    """
+    backend_url = "https://medentry-portal.preview.emergentagent.com"
+    tester = ClinicAPITester(backend_url)
+    
+    print("=" * 80)
+    print("INVESTIGATING 422 VALIDATION ERROR FOR TREATMENT PLANS")
+    print("=" * 80)
+    
+    # Target patient ID from the review request
+    target_patient_id = "1db07558-3805-4588-95d1-f79fe4bcd7ce"
+    
+    # 1. First, register and login as admin/doctor to have proper permissions
+    print("\n" + "=" * 60)
+    print("STEP 1: AUTHENTICATION SETUP")
+    print("=" * 60)
+    
+    admin_email = f"admin_422_test_{datetime.now().strftime('%Y%m%d%H%M%S')}@test.com"
+    admin_password = "Test123!"
+    admin_name = "Admin 422 Test"
+    
+    if not tester.test_register_user(admin_email, admin_password, admin_name, "admin"):
+        print("❌ Admin registration failed")
+        return False
+    
+    print("✅ Admin user registered and authenticated")
+    
+    # 2. Check if the specific patient exists
+    print("\n" + "=" * 60)
+    print("STEP 2: VERIFY PATIENT EXISTS")
+    print("=" * 60)
+    
+    print(f"🔍 Checking if patient {target_patient_id} exists...")
+    success, patient_data = tester.run_test(
+        f"Get Patient {target_patient_id}",
+        "GET",
+        f"patients/{target_patient_id}",
+        200
+    )
+    
+    if not success:
+        print(f"❌ Patient {target_patient_id} does not exist")
+        print("🔧 Creating test patient with this ID...")
+        
+        # Create patient with the specific ID (this might not work due to UUID generation)
+        # Let's create a regular patient first
+        if not tester.test_create_patient("Test Patient 422", "+77771234567", "other"):
+            print("❌ Failed to create test patient")
+            return False
+        
+        # Use the created patient ID instead
+        target_patient_id = tester.created_patient_id
+        print(f"✅ Using created patient ID: {target_patient_id}")
+    else:
+        print(f"✅ Patient {target_patient_id} exists: {patient_data.get('full_name', 'Unknown')}")
+    
+    # 3. Test treatment plan creation with minimal required fields
+    print("\n" + "=" * 60)
+    print("STEP 3: TEST MINIMAL TREATMENT PLAN CREATION")
+    print("=" * 60)
+    
+    print("🔍 Testing with just required fields (title, patient_id)...")
+    success, response = tester.run_test(
+        "Create Treatment Plan - Minimal Fields",
+        "POST",
+        f"patients/{target_patient_id}/treatment-plans",
+        200,
+        data={
+            "patient_id": target_patient_id,
+            "title": "Minimal Treatment Plan Test"
+        }
+    )
+    
+    if not success:
+        print("❌ Minimal treatment plan creation failed")
+        print("📋 This might be the source of the 422 error")
+    else:
+        print("✅ Minimal treatment plan creation succeeded")
+    
+    # 4. Test with complete treatment plan data
+    print("\n" + "=" * 60)
+    print("STEP 4: TEST COMPLETE TREATMENT PLAN CREATION")
+    print("=" * 60)
+    
+    print("🔍 Testing with complete treatment plan data...")
+    complete_data = {
+        "patient_id": target_patient_id,
+        "title": "Complete Treatment Plan Test",
+        "description": "Complete treatment plan with all fields",
+        "services": [
+            {
+                "tooth": "11",
+                "service": "Test Service",
+                "price": 5000.0,
+                "quantity": 1
+            }
+        ],
+        "total_cost": 5000.0,
+        "status": "draft",
+        "notes": "Test notes for complete plan"
+    }
+    
+    success, response = tester.run_test(
+        "Create Treatment Plan - Complete Fields",
+        "POST",
+        f"patients/{target_patient_id}/treatment-plans",
+        200,
+        data=complete_data
+    )
+    
+    if not success:
+        print("❌ Complete treatment plan creation failed")
+        print("📋 This confirms there's a validation issue")
+    else:
+        print("✅ Complete treatment plan creation succeeded")
+    
+    # 5. Test with services array variations
+    print("\n" + "=" * 60)
+    print("STEP 5: TEST SERVICES ARRAY VALIDATION")
+    print("=" * 60)
+    
+    # Test with empty services array
+    print("🔍 Testing with empty services array...")
+    success, response = tester.run_test(
+        "Create Treatment Plan - Empty Services",
+        "POST",
+        f"patients/{target_patient_id}/treatment-plans",
+        200,
+        data={
+            "patient_id": target_patient_id,
+            "title": "Empty Services Test",
+            "services": []
+        }
+    )
+    
+    if not success:
+        print("❌ Empty services array failed")
+    else:
+        print("✅ Empty services array succeeded")
+    
+    # Test without services field
+    print("🔍 Testing without services field...")
+    success, response = tester.run_test(
+        "Create Treatment Plan - No Services Field",
+        "POST",
+        f"patients/{target_patient_id}/treatment-plans",
+        200,
+        data={
+            "patient_id": target_patient_id,
+            "title": "No Services Field Test"
+        }
+    )
+    
+    if not success:
+        print("❌ No services field failed")
+    else:
+        print("✅ No services field succeeded")
+    
+    # 6. Test field validation issues
+    print("\n" + "=" * 60)
+    print("STEP 6: TEST FIELD VALIDATION ISSUES")
+    print("=" * 60)
+    
+    # Test missing title (should cause 422)
+    print("🔍 Testing missing title (expecting 422)...")
+    success, response = tester.run_test(
+        "Create Treatment Plan - Missing Title",
+        "POST",
+        f"patients/{target_patient_id}/treatment-plans",
+        422,  # Expecting validation error
+        data={
+            "patient_id": target_patient_id
+            # Missing title
+        }
+    )
+    
+    if success:
+        print("✅ Missing title correctly returns 422")
+    else:
+        print("❌ Missing title validation not working")
+    
+    # Test invalid patient_id format
+    print("🔍 Testing invalid patient_id format...")
+    success, response = tester.run_test(
+        "Create Treatment Plan - Invalid Patient ID",
+        "POST",
+        f"patients/invalid-patient-id/treatment-plans",
+        404,  # Expecting not found
+        data={
+            "patient_id": "invalid-patient-id",
+            "title": "Invalid Patient ID Test"
+        }
+    )
+    
+    if success:
+        print("✅ Invalid patient ID correctly returns 404")
+    else:
+        print("❌ Invalid patient ID validation not working")
+    
+    # 7. Test the exact endpoint that's failing
+    print("\n" + "=" * 60)
+    print("STEP 7: TEST EXACT FAILING ENDPOINT")
+    print("=" * 60)
+    
+    original_patient_id = "1db07558-3805-4588-95d1-f79fe4bcd7ce"
+    print(f"🔍 Testing exact endpoint: /api/patients/{original_patient_id}/treatment-plans")
+    
+    # First check if this patient exists
+    success, patient_check = tester.run_test(
+        f"Check Original Patient {original_patient_id}",
+        "GET",
+        f"patients/{original_patient_id}",
+        200
+    )
+    
+    if success:
+        print(f"✅ Original patient {original_patient_id} exists")
+        
+        # Try creating treatment plan for this specific patient
+        success, response = tester.run_test(
+            "Create Treatment Plan - Original Patient",
+            "POST",
+            f"patients/{original_patient_id}/treatment-plans",
+            200,
+            data={
+                "patient_id": original_patient_id,
+                "title": "Test Plan for Original Patient"
+            }
+        )
+        
+        if not success:
+            print("❌ Treatment plan creation failed for original patient")
+            print("📋 This is likely the source of the 422 error")
+        else:
+            print("✅ Treatment plan creation succeeded for original patient")
+    else:
+        print(f"❌ Original patient {original_patient_id} does not exist")
+        print("📋 This could be the cause of the 422 error - patient not found")
+    
+    # 8. Summary and recommendations
+    print("\n" + "=" * 60)
+    print("INVESTIGATION SUMMARY")
+    print("=" * 60)
+    
+    print(f"🔍 Tests completed: {tester.tests_run}")
+    print(f"✅ Tests passed: {tester.tests_passed}")
+    print(f"❌ Tests failed: {tester.tests_run - tester.tests_passed}")
+    
+    if tester.tests_passed < tester.tests_run:
+        print("\n📋 POTENTIAL ISSUES IDENTIFIED:")
+        print("1. Patient ID validation might be failing")
+        print("2. Required fields validation might be too strict")
+        print("3. Services array validation might have issues")
+        print("4. Patient existence check might be failing")
+    else:
+        print("\n✅ All tests passed - 422 error might be intermittent or context-specific")
+    
+    return tester.tests_passed == tester.tests_run
+
 def main():
+    # Run the specific 422 validation error test
+    return test_treatment_plan_422_validation_error()
+
+def main_original():
     # Get the backend URL from the environment
     backend_url = "https://medentry-portal.preview.emergentagent.com"
     
