@@ -211,6 +211,18 @@ test_plan:
         agent: "testing"
         comment: "COMPREHENSIVE TESTING COMPLETED: Enhanced appointment model fully functional. ✅ Created appointment with all new fields (end_time, chair_number, assistant_id, second_doctor_id, extra_hours, patient_notes) - all stored correctly. ✅ Appointment update with enhanced fields works perfectly. ✅ GET /api/appointments returns enhanced fields with correct aggregation. ✅ Assistant_name and second_doctor_name properly populated from IDs via MongoDB aggregation. ✅ Time conflict detection still works with enhanced appointments. ✅ Fixed MongoDB aggregation pipeline to handle missing fields in older appointments using $ifNull operators."
 
+  - task: "Simplified appointment model after removing assistant and second doctor fields"
+    implemented: true
+    working: true
+    file: "server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - working: true
+        agent: "testing"
+        comment: "COMPREHENSIVE SIMPLIFIED APPOINTMENT MODEL TESTING COMPLETED: ✅ Verified appointment model contains only simplified fields: patient_id, doctor_id, appointment_date, appointment_time, end_time, chair_number, price, reason, notes, patient_notes. ✅ Confirmed removed fields (assistant_id, second_doctor_id, extra_hours) are completely absent from model and API responses. ✅ Price field testing: Decimal values (15000.50) stored correctly as float, supports zero prices, null for backward compatibility. ✅ API endpoints work perfectly: POST /api/appointments creates with simplified structure, PUT /api/appointments/{id} updates simplified fields, GET /api/appointments returns without removed fields. ✅ Backward compatibility verified: Existing appointments without price field work with null defaults. ✅ Aggregation queries correctly handle simplified model, time conflict detection functional. ✅ All 8/8 focused tests and 21/22 comprehensive API calls passed successfully."
+
 frontend:
   - task: "Enhanced patient modal form"
     implemented: true
