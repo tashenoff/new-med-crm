@@ -778,20 +778,72 @@ const AppointmentModal = ({
                   </div>
                 )}
 
-                <div className="grid grid-cols-2 gap-3">
-                  <select
-                    value={planForm.status}
-                    onChange={(e) => setPlanForm({...planForm, status: e.target.value})}
-                    className="px-3 py-2 border border-gray-300 rounded-lg"
-                  >
-                    <option value="draft">Черновик</option>
-                    <option value="approved">Утвержден</option>
-                    <option value="completed">Завершен</option>
-                    <option value="cancelled">Отменен</option>
-                  </select>
+                <div className="grid grid-cols-3 gap-3">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Статус плана</label>
+                    <select
+                      value={planForm.status}
+                      onChange={(e) => setPlanForm({...planForm, status: e.target.value})}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                    >
+                      <option value="draft">Черновик</option>
+                      <option value="approved">Утвержден</option>
+                      <option value="in_progress">В процессе</option>
+                      <option value="completed">Завершен</option>
+                      <option value="cancelled">Отменен</option>
+                    </select>
+                  </div>
                   
-                  <div className="px-3 py-2 bg-gray-100 border border-gray-300 rounded-lg font-medium">
-                    Итого: {planForm.total_cost.toFixed(0)} ₸
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Статус выполнения</label>
+                    <select
+                      value={planForm.execution_status}
+                      onChange={(e) => setPlanForm({...planForm, execution_status: e.target.value})}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                    >
+                      <option value="pending">Ожидание</option>
+                      <option value="in_progress">В процессе</option>
+                      <option value="completed">Выполнено</option>
+                      <option value="cancelled">Отменено</option>
+                      <option value="no_show">Не пришел</option>
+                    </select>
+                  </div>
+                  
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Статус оплаты</label>
+                    <select
+                      value={planForm.payment_status}
+                      onChange={(e) => setPlanForm({...planForm, payment_status: e.target.value})}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                    >
+                      <option value="unpaid">Не оплачено</option>
+                      <option value="partially_paid">Частично</option>
+                      <option value="paid">Оплачено</option>
+                      <option value="overdue">Просрочено</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Сумма к оплате</label>
+                    <div className="px-3 py-2 bg-gray-100 border border-gray-300 rounded-lg font-medium">
+                      {planForm.total_cost.toFixed(0)} ₸
+                    </div>
+                  </div>
+                  
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Оплачено</label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      max={planForm.total_cost}
+                      value={planForm.paid_amount}
+                      onChange={(e) => setPlanForm({...planForm, paid_amount: parseFloat(e.target.value) || 0})}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                      placeholder="0"
+                    />
                   </div>
                 </div>
                 
