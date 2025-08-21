@@ -349,6 +349,21 @@ function ClinicApp() {
   const [appointments, setAppointments] = useState([]);
   const [sidebarOpen, setSidebarOpen] = useState(true); // По умолчанию открыт на десктопе
 
+  // Закрываем сайдбар на мобильных устройствах при первом рендере
+  useEffect(() => {
+    const handleResize = () => {
+      if (window.innerWidth < 1024 && sidebarOpen) {
+        setSidebarOpen(false);
+      }
+    };
+    
+    // Проверяем размер экрана при загрузке
+    handleResize();
+    
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
   // Модальные окна
   const [showPatientModal, setShowPatientModal] = useState(false);
   const [showDoctorModal, setShowDoctorModal] = useState(false);
