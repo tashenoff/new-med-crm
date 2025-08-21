@@ -213,6 +213,18 @@ backend:
         agent: "testing"
         comment: "COMPREHENSIVE ACCESS CONTROL TESTING COMPLETED: ✅ Admin users can upload, view, update, and delete all documents. ✅ Doctor users can upload, view, update, and delete all patient documents. ✅ Patient users correctly restricted from uploading documents (403 Forbidden response). ✅ Patient users can view their own documents (when properly linked). ✅ Unauthorized access properly blocked (401/403 responses). ✅ Role-based permissions enforced at API level using require_role decorators. ✅ All access control tests passed successfully with proper HTTP status codes."
 
+  - task: "New file download API endpoint (workaround for ingress routing)"
+    implemented: true
+    working: true
+    file: "server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - working: true
+        agent: "testing"
+        comment: "NEW DOWNLOAD API ENDPOINT COMPREHENSIVE TESTING COMPLETED: ✅ GET /api/uploads/{filename} endpoint fully functional as workaround for ingress routing issue. ✅ COMPLETE FILE DOWNLOAD WORKFLOW: Upload via POST /api/patients/{patient_id}/documents -> List via GET /api/patients/{patient_id}/documents -> Download via GET /api/uploads/{filename} works perfectly. ✅ CONTENT-TYPE VERIFICATION: Tested 5 file types with correct headers - PDF (application/pdf), DOCX (application/vnd.openxmlformats-officedocument.wordprocessingml.document), JPG (image/jpeg), TXT (text/plain), unknown extensions (application/octet-stream). ✅ CONTENT INTEGRITY: Downloaded content matches uploaded content exactly for all file types. ✅ ERROR HANDLING: Proper 404 responses for non-existent files (nonexistent-file-12345.pdf) and invalid filenames. ✅ FILERESPONSE IMPLEMENTATION: Proper filename parameter set for download behavior. ✅ INTEGRATION: Seamless integration with existing document management system. ✅ WORKAROUND SUCCESS: New API endpoint successfully bypasses Kubernetes ingress routing issue and provides complete file download functionality."
+
 frontend:
   - task: "Medical record editing interface"
     implemented: true
