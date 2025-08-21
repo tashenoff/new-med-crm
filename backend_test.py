@@ -1227,23 +1227,18 @@ def main():
     # Setup
     tester = ClinicAPITester(backend_url)
     
-    # Get today's and tomorrow's date for appointments in ISO format (YYYY-MM-DD)
-    today = datetime.now().strftime("%Y-%m-%d")
-    tomorrow = (datetime.now() + timedelta(days=1)).strftime("%Y-%m-%d")
-    
-    print("=" * 50)
-    print("TESTING DOCUMENT MANAGEMENT SYSTEM")
-    print("=" * 50)
+    print("=" * 60)
+    print("TESTING TREATMENT PLAN MANAGEMENT SYSTEM")
+    print("=" * 60)
     
     # 1. Register admin user
     print("\n" + "=" * 50)
     print("TEST 1: REGISTER ADMIN USER")
     print("=" * 50)
     
-    # Register a new admin user
-    admin_email = f"admin_{datetime.now().strftime('%Y%m%d%H%M%S')}@test.com"
+    admin_email = f"admin_tp_{datetime.now().strftime('%Y%m%d%H%M%S')}@test.com"
     admin_password = "Test123!"
-    admin_name = "Администратор Документов"
+    admin_name = "Администратор Планов Лечения"
     
     print(f"\n🔍 Registering admin user with email {admin_email}...")
     if not tester.test_register_user(admin_email, admin_password, admin_name, "admin"):
@@ -1255,328 +1250,377 @@ def main():
     print("TEST 2: CREATE TEST PATIENT")
     print("=" * 50)
     
-    print("\n🔍 Creating test patient...")
-    patient_name = f"Пациент Документы {datetime.now().strftime('%H%M%S')}"
-    if not tester.test_create_patient(patient_name, "+7 999 123 4567", "phone"):
-        print("❌ Test patient creation failed, stopping tests")
+    patient_name = f"Пациент Планы {datetime.now().strftime('%H%M%S')}"
+    if not tester.test_create_patient(patient_name, "+7 999 555 1234", "phone"):
+        print("❌ Test patient creation failed")
         return 1
     
     test_patient_id = tester.created_patient_id
     print(f"✅ Created test patient with ID: {test_patient_id}")
     
-    # 3. Create test doctor
+    # 3. Create second test patient for access control testing
     print("\n" + "=" * 50)
-    print("TEST 3: CREATE TEST DOCTOR")
+    print("TEST 3: CREATE SECOND TEST PATIENT")
     print("=" * 50)
     
-    print("\n🔍 Creating test doctor...")
-    if not tester.test_create_doctor("Доктор Документов", "Терапевт", "#4287f5"):
-        print("❌ Test doctor creation failed, stopping tests")
+    patient_name_2 = f"Пациент Два {datetime.now().strftime('%H%M%S')}"
+    if not tester.test_create_patient(patient_name_2, "+7 999 555 5678", "phone"):
+        print("❌ Second test patient creation failed")
         return 1
     
-    test_doctor_id = tester.created_doctor_id
-    print(f"✅ Created test doctor with ID: {test_doctor_id}")
+    test_patient_id_2 = tester.created_patient_id
+    print(f"✅ Created second test patient with ID: {test_patient_id_2}")
     
-    # 4. Test document upload functionality
+    # 4. Test treatment plan creation with all fields
     print("\n" + "=" * 50)
-    print("TEST 4: DOCUMENT UPLOAD FUNCTIONALITY")
+    print("TEST 4: TREATMENT PLAN CREATION WITH ALL FIELDS")
     print("=" * 50)
     
-    print("\n🔍 Testing various file type uploads...")
-    upload_success, uploaded_documents = tester.test_upload_various_file_types(test_patient_id)
+    services = [
+        {"tooth": "11", "service": "Пломба композитная", "price": 4500.0},
+        {"tooth": "12", "service": "Профессиональная чистка", "price": 2500.0}
+    ]
     
-    if not upload_success or len(uploaded_documents) == 0:
-        print("❌ Document upload tests failed")
-        return 1
-    
-    print(f"✅ Successfully uploaded {len(uploaded_documents)} documents")
-    
-    # Store first document for further testing
-    test_document = uploaded_documents[0]
-    test_document_id = test_document['id']
-    test_filename = test_document['filename']
-    
-    # 5. Test retrieving patient documents
-    print("\n" + "=" * 50)
-    print("TEST 5: RETRIEVE PATIENT DOCUMENTS")
-    print("=" * 50)
-    
-    print(f"\n🔍 Retrieving documents for patient {test_patient_id}...")
-    success, documents = tester.test_get_patient_documents(test_patient_id)
-    
-    if not success:
-        print("❌ Failed to retrieve patient documents")
-        return 1
-    
-    if len(documents) != len(uploaded_documents):
-        print(f"❌ Document count mismatch: uploaded {len(uploaded_documents)}, retrieved {len(documents)}")
-        return 1
-    
-    print(f"✅ Successfully retrieved all {len(documents)} documents")
-    
-    # 6. Test static file serving
-    print("\n" + "=" * 50)
-    print("TEST 6: STATIC FILE SERVING")
-    print("=" * 50)
-    
-    print(f"\n🔍 Testing static file access for {test_filename}...")
-    success, file_content = tester.test_access_uploaded_file(test_filename)
-    
-    if not success:
-        print("❌ Static file serving test failed")
-        return 1
-    
-    print("✅ Static file serving works correctly")
-    
-    # 7. Test document description update
-    print("\n" + "=" * 50)
-    print("TEST 7: UPDATE DOCUMENT DESCRIPTION")
-    print("=" * 50)
-    
-    new_description = "Обновленное описание документа"
-    print(f"\n🔍 Updating document description to: {new_description}...")
-    success = tester.test_update_document_description(test_document_id, new_description)
-    
-    if not success:
-        print("❌ Document description update failed")
-        return 1
-    
-    print("✅ Document description updated successfully")
-    
-    # 8. Test access control - unauthorized upload
-    print("\n" + "=" * 50)
-    print("TEST 8: ACCESS CONTROL - UNAUTHORIZED UPLOAD")
-    print("=" * 50)
-    
-    print("\n🔍 Testing unauthorized document upload...")
-    success = tester.test_upload_document_unauthorized(
-        test_patient_id, 
-        b"Unauthorized content", 
-        "unauthorized.pdf"
+    success, full_plan = tester.test_create_treatment_plan(
+        test_patient_id,
+        "Комплексный план лечения",
+        description="Полный план лечения с описанием",
+        services=services,
+        total_cost=7000.0,
+        status="draft",
+        notes="Заметки врача по плану лечения"
     )
     
-    if not success:
-        print("❌ Access control test failed")
+    if not success or not full_plan:
+        print("❌ Treatment plan creation with all fields failed")
         return 1
     
-    print("✅ Access control working correctly")
+    full_plan_id = full_plan['id']
+    print("✅ Treatment plan with all fields created successfully")
     
-    # 9. Test error handling - upload to non-existent patient
+    # 5. Test treatment plan creation with minimal fields
     print("\n" + "=" * 50)
-    print("TEST 9: ERROR HANDLING - NON-EXISTENT PATIENT")
+    print("TEST 5: TREATMENT PLAN CREATION WITH MINIMAL FIELDS")
     print("=" * 50)
     
-    print("\n🔍 Testing upload to non-existent patient...")
-    success = tester.test_upload_to_nonexistent_patient()
+    success, minimal_plan = tester.test_create_treatment_plan(
+        test_patient_id,
+        "Минимальный план"
+    )
     
-    if not success:
-        print("❌ Non-existent patient error handling failed")
+    if not success or not minimal_plan:
+        print("❌ Treatment plan creation with minimal fields failed")
         return 1
     
-    print("✅ Non-existent patient error handling works correctly")
+    minimal_plan_id = minimal_plan['id']
+    print("✅ Treatment plan with minimal fields created successfully")
     
-    # 10. Test error handling - delete non-existent document
+    # 6. Test different status values
     print("\n" + "=" * 50)
-    print("TEST 10: ERROR HANDLING - NON-EXISTENT DOCUMENT")
+    print("TEST 6: TREATMENT PLAN WITH DIFFERENT STATUS VALUES")
     print("=" * 50)
     
-    print("\n🔍 Testing delete non-existent document...")
-    success = tester.test_delete_nonexistent_document()
+    status_tests = ["draft", "approved", "completed", "cancelled"]
+    created_plans = []
     
-    if not success:
-        print("❌ Non-existent document error handling failed")
+    for status in status_tests:
+        success, plan = tester.test_create_treatment_plan(
+            test_patient_id,
+            f"План со статусом {status}",
+            status=status
+        )
+        if success and plan:
+            created_plans.append(plan['id'])
+            print(f"✅ Created plan with status: {status}")
+        else:
+            print(f"❌ Failed to create plan with status: {status}")
+            return 1
+    
+    print("✅ All status values work correctly")
+    
+    # 7. Test retrieving patient treatment plans
+    print("\n" + "=" * 50)
+    print("TEST 7: RETRIEVE PATIENT TREATMENT PLANS")
+    print("=" * 50)
+    
+    success, plans = tester.test_get_patient_treatment_plans(test_patient_id)
+    
+    if not success or not plans:
+        print("❌ Failed to retrieve patient treatment plans")
         return 1
     
-    print("✅ Non-existent document error handling works correctly")
+    expected_count = 6  # full_plan + minimal_plan + 4 status plans
+    if len(plans) != expected_count:
+        print(f"❌ Plan count mismatch: expected {expected_count}, got {len(plans)}")
+        return 1
     
-    # 11. Register doctor user for access control testing
+    # Verify plans are sorted by creation date (newest first)
+    if len(plans) > 1:
+        is_sorted = True
+        for i in range(len(plans) - 1):
+            if plans[i]['created_at'] < plans[i+1]['created_at']:
+                is_sorted = False
+                break
+        
+        if is_sorted:
+            print("✅ Treatment plans correctly sorted by creation date (newest first)")
+        else:
+            print("❌ Treatment plans not correctly sorted")
+            return 1
+    
+    print("✅ Patient treatment plans retrieved successfully")
+    
+    # 8. Test getting specific treatment plan
     print("\n" + "=" * 50)
-    print("TEST 11: REGISTER DOCTOR USER FOR ACCESS CONTROL")
+    print("TEST 8: GET SPECIFIC TREATMENT PLAN")
     print("=" * 50)
     
-    doctor_email = f"doctor_{datetime.now().strftime('%Y%m%d%H%M%S')}@test.com"
+    success, specific_plan = tester.test_get_treatment_plan(full_plan_id)
+    
+    if not success or not specific_plan:
+        print("❌ Failed to get specific treatment plan")
+        return 1
+    
+    if specific_plan['id'] != full_plan_id:
+        print("❌ Retrieved wrong treatment plan")
+        return 1
+    
+    print("✅ Specific treatment plan retrieved successfully")
+    
+    # 9. Test treatment plan updates
+    print("\n" + "=" * 50)
+    print("TEST 9: TREATMENT PLAN UPDATES")
+    print("=" * 50)
+    
+    update_data = {
+        "title": "Обновленный план лечения",
+        "description": "Обновленное описание",
+        "total_cost": 8500.0,
+        "status": "approved",
+        "notes": "Обновленные заметки"
+    }
+    
+    success, updated_plan = tester.test_update_treatment_plan(full_plan_id, update_data)
+    
+    if not success:
+        print("❌ Treatment plan update failed")
+        return 1
+    
+    print("✅ Treatment plan updated successfully")
+    
+    # 10. Test complete treatment plan workflow
+    print("\n" + "=" * 50)
+    print("TEST 10: COMPLETE TREATMENT PLAN WORKFLOW")
+    print("=" * 50)
+    
+    workflow_result = tester.test_treatment_plan_workflow(test_patient_id)
+    
+    if isinstance(workflow_result, tuple):
+        success, workflow_plan_id = workflow_result
+    else:
+        success = workflow_result
+        workflow_plan_id = None
+    
+    if not success:
+        print("❌ Treatment plan workflow test failed")
+        return 1
+    
+    print("✅ Complete treatment plan workflow successful")
+    
+    # 11. Test data validation
+    print("\n" + "=" * 50)
+    print("TEST 11: DATA VALIDATION")
+    print("=" * 50)
+    
+    validation_result = tester.test_treatment_plan_data_validation(test_patient_id)
+    
+    if isinstance(validation_result, tuple):
+        success, validation_plan_id = validation_result
+    else:
+        success = validation_result
+    
+    if not success:
+        print("❌ Data validation tests failed")
+        return 1
+    
+    print("✅ Data validation tests passed")
+    
+    # 12. Test unauthorized access
+    print("\n" + "=" * 50)
+    print("TEST 12: UNAUTHORIZED ACCESS")
+    print("=" * 50)
+    
+    if not tester.test_treatment_plan_unauthorized_access(test_patient_id):
+        print("❌ Unauthorized access test failed")
+        return 1
+    
+    if not tester.test_create_treatment_plan_unauthorized(test_patient_id, "Unauthorized Plan"):
+        print("❌ Unauthorized creation test failed")
+        return 1
+    
+    print("✅ Unauthorized access tests passed")
+    
+    # 13. Test non-existent patient
+    print("\n" + "=" * 50)
+    print("TEST 13: NON-EXISTENT PATIENT")
+    print("=" * 50)
+    
+    if not tester.test_treatment_plan_nonexistent_patient():
+        print("❌ Non-existent patient test failed")
+        return 1
+    
+    print("✅ Non-existent patient test passed")
+    
+    # 14. Register doctor user for access control testing
+    print("\n" + "=" * 50)
+    print("TEST 14: REGISTER DOCTOR USER")
+    print("=" * 50)
+    
+    doctor_email = f"doctor_tp_{datetime.now().strftime('%Y%m%d%H%M%S')}@test.com"
     doctor_password = "Test123!"
-    doctor_name = "Доктор Тестовый"
+    doctor_name = "Доктор Планы Лечения"
     
-    print(f"\n🔍 Registering doctor user with email {doctor_email}...")
     if not tester.test_register_user(doctor_email, doctor_password, doctor_name, "doctor"):
         print("❌ Doctor user registration failed")
         return 1
     
-    # 12. Test doctor can upload documents
+    # 15. Test doctor can create/update/delete treatment plans
     print("\n" + "=" * 50)
-    print("TEST 12: DOCTOR DOCUMENT UPLOAD ACCESS")
+    print("TEST 15: DOCTOR ACCESS CONTROL")
     print("=" * 50)
     
-    print("\n🔍 Testing doctor document upload access...")
-    success, doctor_document = tester.test_upload_document(
+    success, doctor_plan = tester.test_create_treatment_plan(
         test_patient_id,
-        b"Doctor uploaded content",
-        "doctor_document.pdf",
-        "application/pdf",
-        "Документ загружен доктором"
+        "План от доктора",
+        description="План создан доктором"
+    )
+    
+    if not success or not doctor_plan:
+        print("❌ Doctor cannot create treatment plans")
+        return 1
+    
+    doctor_plan_id = doctor_plan['id']
+    print("✅ Doctor can create treatment plans")
+    
+    # Test doctor can update
+    success, _ = tester.test_update_treatment_plan(
+        doctor_plan_id,
+        {"status": "approved", "notes": "Одобрено доктором"}
     )
     
     if not success:
-        print("❌ Doctor document upload failed")
+        print("❌ Doctor cannot update treatment plans")
         return 1
     
-    print("✅ Doctor can upload documents correctly")
-    doctor_document_id = doctor_document['id']
+    print("✅ Doctor can update treatment plans")
     
-    # 13. Test doctor can access all patient documents
+    # Test doctor can delete
+    if not tester.test_delete_treatment_plan(doctor_plan_id):
+        print("❌ Doctor cannot delete treatment plans")
+        return 1
+    
+    print("✅ Doctor can delete treatment plans")
+    
+    # 16. Register patient user for access control testing
     print("\n" + "=" * 50)
-    print("TEST 13: DOCTOR DOCUMENT ACCESS")
+    print("TEST 16: REGISTER PATIENT USER")
     print("=" * 50)
     
-    print(f"\n🔍 Testing doctor access to patient documents...")
-    success, doctor_retrieved_docs = tester.test_get_patient_documents(test_patient_id)
-    
-    if not success:
-        print("❌ Doctor document access failed")
-        return 1
-    
-    expected_doc_count = len(uploaded_documents) + 1  # Original uploads + doctor's upload
-    if len(doctor_retrieved_docs) != expected_doc_count:
-        print(f"❌ Doctor document count mismatch: expected {expected_doc_count}, got {len(doctor_retrieved_docs)}")
-        return 1
-    
-    print("✅ Doctor can access all patient documents correctly")
-    
-    # 14. Register patient user for access control testing
-    print("\n" + "=" * 50)
-    print("TEST 14: REGISTER PATIENT USER FOR ACCESS CONTROL")
-    print("=" * 50)
-    
-    patient_email = f"patient_{datetime.now().strftime('%Y%m%d%H%M%S')}@test.com"
+    patient_email = f"patient_tp_{datetime.now().strftime('%Y%m%d%H%M%S')}@test.com"
     patient_password = "Test123!"
-    patient_user_name = "Пациент Тестовый"
+    patient_user_name = "Пациент Планы"
     
-    print(f"\n🔍 Registering patient user with email {patient_email}...")
     if not tester.test_register_user(patient_email, patient_password, patient_user_name, "patient"):
         print("❌ Patient user registration failed")
         return 1
     
-    # Link patient user to our test patient (this would normally be done during patient creation)
-    # For testing purposes, we'll assume the patient can access documents for test_patient_id
-    
-    # 15. Test patient cannot upload documents
+    # 17. Test patient access control
     print("\n" + "=" * 50)
-    print("TEST 15: PATIENT UPLOAD RESTRICTION")
+    print("TEST 17: PATIENT ACCESS CONTROL")
     print("=" * 50)
     
-    print("\n🔍 Testing patient upload restriction...")
-    success, _ = tester.test_upload_document(
-        test_patient_id,
-        b"Patient uploaded content",
-        "patient_document.pdf"
-    )
+    # Test patient cannot create treatment plans
+    success, _ = tester.test_create_treatment_plan(test_patient_id, "Patient Plan")
     
-    # Patient upload should fail, so success=False means we got expected error
     if not success:
-        print("✅ Patient upload correctly restricted")
-        success = True
+        print("✅ Patient correctly cannot create treatment plans")
     else:
-        print("❌ Patient upload was allowed (should be restricted)")
-        success = False
-    
-    if not success:
+        print("❌ Patient was allowed to create treatment plans")
         return 1
     
-    # 16. Test file size and type validation (if implemented)
-    print("\n" + "=" * 50)
-    print("TEST 16: FILE VALIDATION")
-    print("=" * 50)
+    # Test patient cannot update treatment plans
+    success, _ = tester.test_update_treatment_plan(full_plan_id, {"status": "approved"})
     
-    # Switch back to admin for upload testing
+    if not success:
+        print("✅ Patient correctly cannot update treatment plans")
+    else:
+        print("❌ Patient was allowed to update treatment plans")
+        return 1
+    
+    # Test patient cannot delete treatment plans
+    if not tester.test_delete_treatment_plan(minimal_plan_id):
+        print("✅ Patient correctly cannot delete treatment plans")
+    else:
+        print("❌ Patient was allowed to delete treatment plans")
+        return 1
+    
+    # Switch back to admin for final tests
     print("\n🔍 Switching back to admin user...")
     if not tester.test_login_user(admin_email, admin_password):
         print("❌ Admin login failed")
         return 1
     
-    # Test large file (simulated)
-    print("\n🔍 Testing large file upload...")
-    large_content = b"Large file content" * 1000  # Simulate larger file
-    success, large_doc = tester.test_upload_document(
-        test_patient_id,
-        large_content,
-        "large_document.pdf",
-        "application/pdf",
-        "Большой документ для тестирования"
+    # 18. Test treatment plan deletion
+    print("\n" + "=" * 50)
+    print("TEST 18: TREATMENT PLAN DELETION")
+    print("=" * 50)
+    
+    if not tester.test_delete_treatment_plan(full_plan_id):
+        print("❌ Treatment plan deletion failed")
+        return 1
+    
+    print("✅ Treatment plan deletion successful")
+    
+    # 19. Test accessing deleted treatment plan
+    print("\n" + "=" * 50)
+    print("TEST 19: VERIFY DELETION")
+    print("=" * 50)
+    
+    success, _ = tester.run_test(
+        "Access Deleted Treatment Plan",
+        "GET",
+        f"treatment-plans/{full_plan_id}",
+        404  # Should return 404 Not Found
     )
     
     if success:
-        print("✅ Large file upload successful")
-        large_doc_id = large_doc['id']
+        print("✅ Deleted treatment plan correctly returns 404")
     else:
-        print("⚠️ Large file upload failed (may be due to size limits)")
-    
-    # 17. Test document deletion
-    print("\n" + "=" * 50)
-    print("TEST 17: DOCUMENT DELETION")
-    print("=" * 50)
-    
-    print(f"\n🔍 Testing document deletion...")
-    success = tester.test_delete_document(test_document_id)
-    
-    if not success:
-        print("❌ Document deletion failed")
-        return 1
-    
-    print("✅ Document deletion successful")
-    
-    # Verify document was deleted by trying to retrieve it
-    print("\n🔍 Verifying document deletion...")
-    success, updated_docs = tester.test_get_patient_documents(test_patient_id)
-    
-    if success:
-        # Check that the deleted document is no longer in the list
-        deleted_doc_found = any(doc['id'] == test_document_id for doc in updated_docs)
-        if not deleted_doc_found:
-            print("✅ Document deletion verified - document no longer in list")
-        else:
-            print("❌ Document deletion verification failed - document still in list")
-            return 1
-    else:
-        print("❌ Could not verify document deletion")
-        return 1
-    
-    # 18. Test file cleanup (verify file was removed from disk)
-    print("\n" + "=" * 50)
-    print("TEST 18: FILE CLEANUP VERIFICATION")
-    print("=" * 50)
-    
-    print(f"\n🔍 Testing file cleanup for deleted document...")
-    success, _ = tester.test_access_uploaded_file(test_filename)
-    
-    # File should no longer be accessible, so success=False means cleanup worked
-    if not success:
-        print("✅ File cleanup successful - deleted file no longer accessible")
-        success = True
-    else:
-        print("❌ File cleanup failed - deleted file still accessible")
-        success = False
-    
-    if not success:
+        print("❌ Deleted treatment plan still accessible")
         return 1
     
     # Print final results
-    print("\n" + "=" * 50)
-    print(f"DOCUMENT MANAGEMENT TESTS PASSED: {tester.tests_passed}/{tester.tests_run}")
-    print("=" * 50)
+    print("\n" + "=" * 60)
+    print(f"TREATMENT PLAN TESTS PASSED: {tester.tests_passed}/{tester.tests_run}")
+    print("=" * 60)
     
     # Summary of what was tested
-    print("\n📋 DOCUMENT MANAGEMENT FEATURES TESTED:")
-    print("✅ Document upload with various file types (PDF, DOCX, JPG, TXT)")
-    print("✅ Document retrieval for patients")
-    print("✅ Document description updates")
-    print("✅ Document deletion and cleanup")
-    print("✅ Static file serving via /uploads endpoint")
-    print("✅ Access control (admin/doctor upload, patient restrictions)")
-    print("✅ Error handling (non-existent patient/document)")
-    print("✅ File validation and size handling")
-    print("✅ Proper file storage with unique names")
-    print("✅ Database metadata storage")
+    print("\n📋 TREATMENT PLAN MANAGEMENT FEATURES TESTED:")
+    print("✅ Treatment plan creation with all fields (title, description, services, total_cost, status, notes)")
+    print("✅ Treatment plan creation with minimal fields")
+    print("✅ Different status values (draft, approved, completed, cancelled)")
+    print("✅ Treatment plan retrieval for patients (sorted by creation date)")
+    print("✅ Specific treatment plan retrieval")
+    print("✅ Treatment plan updates")
+    print("✅ Complete workflow (draft -> approved -> completed)")
+    print("✅ Data validation (required fields, decimal costs, complex services)")
+    print("✅ Access control (admin/doctor can create/update/delete, patient can view own)")
+    print("✅ Unauthorized access prevention")
+    print("✅ Non-existent patient error handling")
+    print("✅ Treatment plan deletion and cleanup")
+    print("✅ Created_by and created_by_name fields set correctly")
+    print("✅ Services array structure validation")
+    print("✅ Cross-patient access restrictions")
     
     return 0 if tester.tests_passed == tester.tests_run else 1
 
