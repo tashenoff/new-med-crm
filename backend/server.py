@@ -361,8 +361,14 @@ class AppointmentCreate(BaseModel):
     doctor_id: str
     appointment_date: str  # Accept as string in ISO format (YYYY-MM-DD)
     appointment_time: str
+    end_time: Optional[str] = None
+    chair_number: Optional[str] = None
+    assistant_id: Optional[str] = None
+    second_doctor_id: Optional[str] = None
+    extra_hours: Optional[bool] = False
     reason: Optional[str] = None
     notes: Optional[str] = None
+    patient_notes: Optional[str] = None
 
 class AppointmentUpdate(BaseModel):
     patient_id: Optional[str] = None
