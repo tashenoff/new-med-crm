@@ -1649,7 +1649,15 @@ async def create_treatment_plan(
         status=plan_data.status,
         created_by=current_user.id,
         created_by_name=current_user.full_name,
-        notes=plan_data.notes
+        notes=plan_data.notes,
+        # Enhanced tracking fields
+        payment_status=plan_data.payment_status,
+        paid_amount=plan_data.paid_amount,
+        payment_date=plan_data.payment_date,
+        execution_status=plan_data.execution_status,
+        started_at=plan_data.started_at,
+        completed_at=plan_data.completed_at,
+        appointment_ids=plan_data.appointment_ids
     )
     
     # Insert to database
