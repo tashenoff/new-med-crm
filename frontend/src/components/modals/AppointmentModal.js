@@ -16,9 +16,19 @@ const AppointmentModal = ({
   const [showNewPatientForm, setShowNewPatientForm] = useState(false);
   const [activeTab, setActiveTab] = useState('appointment');
   const [documents, setDocuments] = useState([]);
+  const [treatmentPlans, setTreatmentPlans] = useState([]);
   const [uploading, setUploading] = useState(false);
   const [selectedFile, setSelectedFile] = useState(null);
   const [documentDescription, setDocumentDescription] = useState('');
+  const [planForm, setPlanForm] = useState({
+    title: '',
+    description: '',
+    services: [],
+    total_cost: 0,
+    status: 'draft',
+    notes: ''
+  });
+  const [editingPlan, setEditingPlan] = useState(null);
   const [newPatientForm, setNewPatientForm] = useState({
     full_name: '',
     phone: '',
