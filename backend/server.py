@@ -492,6 +492,15 @@ class TreatmentPlanUpdate(BaseModel):
     total_cost: Optional[float] = None
     status: Optional[str] = None
     notes: Optional[str] = None
+    # Payment tracking
+    payment_status: Optional[str] = None
+    paid_amount: Optional[float] = None
+    payment_date: Optional[datetime] = None
+    # Execution tracking
+    execution_status: Optional[str] = None
+    started_at: Optional[datetime] = None
+    completed_at: Optional[datetime] = None
+    appointment_ids: Optional[List[str]] = None
 
 # Auth utility functions
 def verify_password(plain_password, hashed_password):
