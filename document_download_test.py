@@ -164,7 +164,7 @@ class DocumentDownloadTester:
             expected_content = file_info['expected_content']
             
             # Test with full production URL
-            full_url = f"https://medrec-system-1.preview.emergentagent.com/uploads/{filename}"
+            full_url = f"https://medentry-portal.preview.emergentagent.com/uploads/{filename}"
             response = requests.get(full_url)
             
             if response.status_code == 200:
@@ -365,7 +365,7 @@ class DocumentDownloadTester:
             return False
 
 def main():
-    backend_url = "https://medrec-system-1.preview.emergentagent.com"
+    backend_url = "https://medentry-portal.preview.emergentagent.com"
     tester = DocumentDownloadTester(backend_url)
     
     success = tester.run_all_tests()

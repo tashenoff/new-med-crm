@@ -623,7 +623,7 @@ class SimplifiedAppointmentTester:
 
 def main():
     # Get the backend URL from the environment
-    backend_url = "https://medrec-system-1.preview.emergentagent.com"
+    backend_url = "https://medentry-portal.preview.emergentagent.com"
     
     # Setup
     tester = SimplifiedAppointmentTester(backend_url)
