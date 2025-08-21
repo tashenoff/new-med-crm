@@ -849,6 +849,315 @@ class ClinicAPITester:
             print("✅ Delete non-existent document correctly returned 404")
         return success
 
+    # Treatment Plan Testing Methods
+    def test_create_treatment_plan(self, patient_id, title, description=None, services=None, total_cost=0.0, status="draft", notes=None):
+        """Create a treatment plan for a patient"""
+        data = {
+            "patient_id": patient_id,
+            "title": title,
+            "total_cost": total_cost,
+            "status": status
+        }
+        if description:
+            data["description"] = description
+        if services:
+            data["services"] = services
+        if notes:
+            data["notes"] = notes
+            
+        success, response = self.run_test(
+            "Create Treatment Plan",
+            "POST",
+            f"patients/{patient_id}/treatment-plans",
+            200,
+            data=data
+        )
+        if success and response and "id" in response:
+            print(f"Created treatment plan with ID: {response['id']}")
+            print(f"Title: {response['title']}")
+            print(f"Status: {response['status']}")
+            print(f"Total Cost: {response['total_cost']}")
+            return success, response
+        return success, None
+
+    def test_get_patient_treatment_plans(self, patient_id):
+        """Get all treatment plans for a patient"""
+        success, response = self.run_test(
+            f"Get Treatment Plans for Patient {patient_id}",
+            "GET",
+            f"patients/{patient_id}/treatment-plans",
+            200
+        )
+        if success and response:
+            print(f"Found {len(response)} treatment plans for patient {patient_id}")
+            if len(response) > 0:
+                plan = response[0]
+                print(f"Sample plan: {plan['title']} (Status: {plan['status']}, Cost: {plan['total_cost']})")
+        return success, response
+
+    def test_get_treatment_plan(self, plan_id):
+        """Get a specific treatment plan"""
+        success, response = self.run_test(
+            f"Get Treatment Plan {plan_id}",
+            "GET",
+            f"treatment-plans/{plan_id}",
+            200
+        )
+        if success and response:
+            print(f"Retrieved treatment plan: {response['title']}")
+            print(f"Status: {response['status']}")
+            print(f"Total Cost: {response['total_cost']}")
+            print(f"Created by: {response['created_by_name']}")
+        return success, response
+
+    def test_update_treatment_plan(self, plan_id, update_data):
+        """Update a treatment plan"""
+        success, response = self.run_test(
+            f"Update Treatment Plan {plan_id}",
+            "PUT",
+            f"treatment-plans/{plan_id}",
+            200,
+            data=update_data
+        )
+        if success and response:
+            print(f"Updated treatment plan: {response['title']}")
+            # Verify the update was applied
+            for key, value in update_data.items():
+                if response[key] != value:
+                    print(f"❌ Update verification failed: {key} expected {value}, got {response[key]}")
+                    success = False
+                    break
+            if success:
+                print("✅ All updates verified successfully")
+        return success, response
+
+    def test_delete_treatment_plan(self, plan_id):
+        """Delete a treatment plan"""
+        success, response = self.run_test(
+            f"Delete Treatment Plan {plan_id}",
+            "DELETE",
+            f"treatment-plans/{plan_id}",
+            200
+        )
+        if success:
+            print(f"✅ Successfully deleted treatment plan with ID: {plan_id}")
+            
+            # Verify the treatment plan was deleted
+            verify_success, _ = self.run_test(
+                "Verify Treatment Plan Deletion",
+                "GET",
+                f"treatment-plans/{plan_id}",
+                404  # Should return 404 Not Found
+            )
+            if verify_success:
+                print("✅ Treatment plan deletion verified")
+            else:
+                print("❌ Treatment plan still exists after deletion")
+                success = False
+        return success
+
+    def test_treatment_plan_access_control_patient(self, patient_id, other_patient_id):
+        """Test that patients can only access their own treatment plans"""
+        # This test assumes we have a patient user logged in
+        success, response = self.run_test(
+            f"Test Patient Access to Own Treatment Plans",
+            "GET",
+            f"patients/{patient_id}/treatment-plans",
+            200
+        )
+        
+        if success:
+            print("✅ Patient can access their own treatment plans")
+            
+            # Try to access other patient's treatment plans (should fail)
+            fail_success, _ = self.run_test(
+                f"Test Patient Access to Other's Treatment Plans",
+                "GET",
+                f"patients/{other_patient_id}/treatment-plans",
+                403  # Should return 403 Forbidden
+            )
+            if fail_success:
+                print("✅ Patient correctly denied access to other patient's treatment plans")
+                return True
+            else:
+                print("❌ Patient was allowed access to other patient's treatment plans")
+                return False
+        return success
+
+    def test_treatment_plan_unauthorized_access(self, patient_id):
+        """Test unauthorized access to treatment plans"""
+        # Save current token
+        saved_token = self.token
+        # Clear token
+        self.token = None
+        
+        success, _ = self.run_test(
+            f"Unauthorized access to treatment plans",
+            "GET",
+            f"patients/{patient_id}/treatment-plans",
+            401  # Expect 401 Unauthorized
+        )
+        
+        # Restore token
+        self.token = saved_token
+        
+        if success:
+            print("✅ Unauthorized access correctly rejected")
+        return success
+
+    def test_create_treatment_plan_unauthorized(self, patient_id, title):
+        """Test creating treatment plan without authorization"""
+        # Save current token
+        saved_token = self.token
+        # Clear token
+        self.token = None
+        
+        success, _ = self.run_test(
+            "Unauthorized Treatment Plan Creation",
+            "POST",
+            f"patients/{patient_id}/treatment-plans",
+            401,  # Expect 401 Unauthorized
+            data={"patient_id": patient_id, "title": title}
+        )
+        
+        # Restore token
+        self.token = saved_token
+        
+        if success:
+            print("✅ Unauthorized treatment plan creation correctly rejected")
+        return success
+
+    def test_treatment_plan_nonexistent_patient(self, nonexistent_patient_id="nonexistent-patient-id"):
+        """Test creating treatment plan for non-existent patient"""
+        success, _ = self.run_test(
+            "Create Treatment Plan for Non-existent Patient",
+            "POST",
+            f"patients/{nonexistent_patient_id}/treatment-plans",
+            404,  # Expect 404 Not Found
+            data={
+                "patient_id": nonexistent_patient_id,
+                "title": "Test Plan for Non-existent Patient"
+            }
+        )
+        
+        if success:
+            print("✅ Treatment plan creation for non-existent patient correctly rejected")
+        return success
+
+    def test_treatment_plan_workflow(self, patient_id):
+        """Test complete treatment plan workflow: draft -> approved -> completed"""
+        # Create draft treatment plan
+        services = [
+            {"tooth": "11", "service": "Пломба", "price": 5000.0},
+            {"tooth": "12", "service": "Чистка", "price": 2000.0}
+        ]
+        
+        success, draft_plan = self.test_create_treatment_plan(
+            patient_id,
+            "Комплексное лечение",
+            description="План лечения для пациента",
+            services=services,
+            total_cost=7000.0,
+            status="draft",
+            notes="Начальный план лечения"
+        )
+        
+        if not success or not draft_plan:
+            print("❌ Failed to create draft treatment plan")
+            return False
+        
+        plan_id = draft_plan['id']
+        
+        # Update to approved status
+        success, approved_plan = self.test_update_treatment_plan(
+            plan_id,
+            {"status": "approved", "notes": "План одобрен врачом"}
+        )
+        
+        if not success or approved_plan['status'] != 'approved':
+            print("❌ Failed to update treatment plan to approved status")
+            return False
+        
+        print("✅ Treatment plan successfully updated to approved")
+        
+        # Update to completed status
+        success, completed_plan = self.test_update_treatment_plan(
+            plan_id,
+            {"status": "completed", "notes": "Лечение завершено"}
+        )
+        
+        if not success or completed_plan['status'] != 'completed':
+            print("❌ Failed to update treatment plan to completed status")
+            return False
+        
+        print("✅ Treatment plan workflow completed successfully")
+        return True, plan_id
+
+    def test_treatment_plan_data_validation(self, patient_id):
+        """Test treatment plan data validation"""
+        # Test with missing required fields
+        success, _ = self.run_test(
+            "Create Treatment Plan with Missing Title",
+            "POST",
+            f"patients/{patient_id}/treatment-plans",
+            422,  # Expect validation error
+            data={"patient_id": patient_id}  # Missing title
+        )
+        
+        if success:
+            print("✅ Missing title validation working correctly")
+        else:
+            print("❌ Missing title validation failed")
+            return False
+        
+        # Test with invalid status
+        success, _ = self.run_test(
+            "Create Treatment Plan with Invalid Status",
+            "POST",
+            f"patients/{patient_id}/treatment-plans",
+            200,  # Should still work, just use the provided status
+            data={
+                "patient_id": patient_id,
+                "title": "Test Plan",
+                "status": "invalid_status"
+            }
+        )
+        
+        # Test with decimal total_cost
+        success, plan = self.test_create_treatment_plan(
+            patient_id,
+            "План с десятичной стоимостью",
+            total_cost=1500.75
+        )
+        
+        if success and plan and plan['total_cost'] == 1500.75:
+            print("✅ Decimal total_cost validation working correctly")
+        else:
+            print("❌ Decimal total_cost validation failed")
+            return False
+        
+        # Test with complex services array
+        complex_services = [
+            {"tooth": "11", "service": "Пломба композитная", "price": 4500.0, "notes": "Глубокий кариес"},
+            {"tooth": "12", "service": "Профессиональная чистка", "price": 2500.0},
+            {"tooth": "21", "service": "Лечение пульпита", "price": 8000.0, "sessions": 2}
+        ]
+        
+        success, complex_plan = self.test_create_treatment_plan(
+            patient_id,
+            "Сложный план лечения",
+            description="План с множественными услугами",
+            services=complex_services,
+            total_cost=15000.0
+        )
+        
+        if success and complex_plan and len(complex_plan['services']) == 3:
+            print("✅ Complex services array validation working correctly")
+            return True, complex_plan['id']
+        else:
+            print("❌ Complex services array validation failed")
+            return False
+
 def test_date_range_appointments(self):
     """Test appointments with date range (±7 days)"""
     # Get dates for ±7 days range
