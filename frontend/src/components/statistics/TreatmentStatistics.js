@@ -232,7 +232,7 @@ const TreatmentStatistics = () => {
     <div className="space-y-6">
       {/* Header */}
       <div className="flex justify-between items-center">
-        <h1 className="text-3xl font-bold text-gray-900">Статистика планов лечения</h1>
+        <h1 className="text-3xl font-bold text-gray-900">Статистика клиники</h1>
         
         {/* Date Filter */}
         <div className="flex items-center space-x-4">
