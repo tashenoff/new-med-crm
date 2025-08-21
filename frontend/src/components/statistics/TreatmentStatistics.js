@@ -15,9 +15,14 @@ const TreatmentStatistics = () => {
   const API = process.env.REACT_APP_BACKEND_URL;
 
   useEffect(() => {
-    fetchStatistics();
-    fetchPatientStatistics();
-  }, []);
+    if (activeCategory === 'treatment') {
+      fetchStatistics();
+      fetchPatientStatistics();
+    } else if (activeCategory === 'doctors') {
+      fetchDoctorStatistics();
+      fetchIndividualDoctorStatistics();
+    }
+  }, [activeCategory]);
 
   const fetchStatistics = async (customDateFrom = null, customDateTo = null) => {
     try {
