@@ -459,7 +459,7 @@ class TreatmentPlan(BaseModel):
     updated_at: datetime = Field(default_factory=datetime.utcnow)
 
 class TreatmentPlanCreate(BaseModel):
-    patient_id: str
+    patient_id: Optional[str] = None  # Made optional since it's provided in URL path
     title: str
     description: Optional[str] = None
     services: List[dict] = []
