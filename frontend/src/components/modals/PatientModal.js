@@ -537,6 +537,172 @@ const PatientModal = ({
             </div>
           </div>
         )}
+
+        {/* Treatment Plans Tab */}
+        {activeTab === 'plans' && editingItem && (
+          <div className="space-y-4">
+            <div className="bg-green-50 p-3 rounded-lg">
+              <h4 className="font-medium text-green-800">
+                План лечения для пациента: {editingItem.full_name}
+              </h4>
+            </div>
+
+            {/* Add/Edit Plan Form */}
+            <div className="bg-gray-50 p-4 rounded-lg border">
+              <h4 className="font-medium mb-3">
+                {editingPlan ? 'Редактировать план лечения' : 'Добавить план лечения'}
+              </h4>
+              <form onSubmit={handleSaveTreatmentPlan} className="space-y-3">
+                <input
+                  type="text"
+                  placeholder="Название плана лечения *"
+                  value={planForm.title}
+                  onChange={(e) => setPlanForm({...planForm, title: e.target.value})}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                  required
+                />
+                <textarea
+                  placeholder="Описание плана"
+                  value={planForm.description}
+                  onChange={(e) => setPlanForm({...planForm, description: e.target.value})}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                  rows="3"
+                />
+                <div className="grid grid-cols-2 gap-3">
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    placeholder="Стоимость (₸)"
+                    value={planForm.total_cost}
+                    onChange={(e) => setPlanForm({...planForm, total_cost: parseFloat(e.target.value) || 0})}
+                    className="px-3 py-2 border border-gray-300 rounded-lg"
+                  />
+                  <select
+                    value={planForm.status}
+                    onChange={(e) => setPlanForm({...planForm, status: e.target.value})}
+                    className="px-3 py-2 border border-gray-300 rounded-lg"
+                  >
+                    <option value="draft">Черновик</option>
+                    <option value="approved">Утвержден</option>
+                    <option value="completed">Завершен</option>
+                    <option value="cancelled">Отменен</option>
+                  </select>
+                </div>
+                <textarea
+                  placeholder="Дополнительные заметки"
+                  value={planForm.notes}
+                  onChange={(e) => setPlanForm({...planForm, notes: e.target.value})}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                  rows="2"
+                />
+                <div className="flex gap-2">
+                  <button
+                    type="submit"
+                    className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700"
+                  >
+                    {editingPlan ? 'Обновить план' : 'Создать план'}
+                  </button>
+                  {editingPlan && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setEditingPlan(null);
+                        setPlanForm({
+                          title: '',
+                          description: '',
+                          services: [],
+                          total_cost: 0,
+                          status: 'draft',
+                          notes: ''
+                        });
+                      }}
+                      className="px-4 py-2 bg-gray-300 text-gray-700 rounded-lg hover:bg-gray-400"
+                    >
+                      Отмена
+                    </button>
+                  )}
+                </div>
+              </form>
+            </div>
+
+            {/* Treatment Plans List */}
+            <div>
+              <h4 className="font-medium mb-3">Планы лечения</h4>
+              {treatmentPlans.length === 0 ? (
+                <p className="text-gray-500 text-center py-4">
+                  Планы лечения не найдены
+                </p>
+              ) : (
+                <div className="space-y-2">
+                  {treatmentPlans.map((plan) => (
+                    <div key={plan.id} className="border rounded-lg p-4">
+                      <div className="flex items-start justify-between">
+                        <div className="flex-1">
+                          <div className="font-medium text-lg">{plan.title}</div>
+                          {plan.description && (
+                            <div className="text-gray-600 mt-1">{plan.description}</div>
+                          )}
+                          <div className="text-sm text-gray-500 mt-2">
+                            Создан {new Date(plan.created_at).toLocaleDateString('ru-RU')} 
+                            {' '}пользователем {plan.created_by_name}
+                          </div>
+                          <div className="flex items-center gap-4 mt-2">
+                            <span className={`px-2 py-1 text-xs rounded font-medium ${
+                              plan.status === 'draft' ? 'bg-gray-100 text-gray-800' :
+                              plan.status === 'approved' ? 'bg-blue-100 text-blue-800' :
+                              plan.status === 'completed' ? 'bg-green-100 text-green-800' :
+                              'bg-red-100 text-red-800'
+                            }`}>
+                              {plan.status === 'draft' ? 'Черновик' :
+                               plan.status === 'approved' ? 'Утвержден' :
+                               plan.status === 'completed' ? 'Завершен' :
+                               'Отменен'}
+                            </span>
+                            {plan.total_cost > 0 && (
+                              <span className="text-green-600 font-medium">
+                                💰 {plan.total_cost} ₸
+                              </span>
+                            )}
+                          </div>
+                          {plan.notes && (
+                            <div className="text-sm text-gray-600 mt-2">
+                              Заметки: {plan.notes}
+                            </div>
+                          )}
+                        </div>
+                        <div className="flex flex-col space-y-2">
+                          <button
+                            onClick={() => handleEditTreatmentPlan(plan)}
+                            className="px-3 py-1 text-blue-600 border border-blue-600 rounded hover:bg-blue-50 text-sm"
+                          >
+                            Редактировать
+                          </button>
+                          <button
+                            onClick={() => handleDeleteTreatmentPlan(plan.id)}
+                            className="px-3 py-1 text-red-600 border border-red-600 rounded hover:bg-red-50 text-sm"
+                          >
+                            Удалить
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <div className="flex justify-end">
+              <button
+                type="button"
+                onClick={onClose}
+                className="px-6 py-2 bg-gray-300 text-gray-700 rounded-lg hover:bg-gray-400"
+              >
+                Закрыть
+              </button>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
