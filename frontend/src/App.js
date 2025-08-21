@@ -1692,22 +1692,37 @@ function ClinicApp() {
 
 
 
+  // Функция для переключения сайдбара
+  const toggleSidebar = () => {
+    setSidebarOpen(!sidebarOpen);
+  };
+
   return (
-    <div className="min-h-screen bg-gray-50">
-      <Header user={user} logout={logout} />
-      
+    <div className="min-h-screen bg-gray-50 flex">
+      {/* Sidebar Navigation */}
       <Navigation 
         activeTab={activeTab} 
         setActiveTab={setActiveTab} 
         availableTabs={getAvailableTabs()}
+        sidebarOpen={sidebarOpen}
+        setSidebarOpen={setSidebarOpen}
       />
 
-      <ErrorMessage 
-        errorMessage={errorMessage} 
-        setErrorMessage={setErrorMessage} 
-      />
+      {/* Main Content Area */}
+      <div className={`flex-1 flex flex-col transition-all duration-300 ${sidebarOpen ? 'lg:ml-64' : 'lg:ml-0'}`}>
+        <Header 
+          user={user} 
+          onLogout={logout} 
+          onToggleSidebar={toggleSidebar}
+          sidebarOpen={sidebarOpen}
+        />
+        
+        <ErrorMessage 
+          errorMessage={errorMessage} 
+          setErrorMessage={setErrorMessage} 
+        />
 
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <main className="flex-1 px-4 sm:px-6 lg:px-8 py-8">
         {activeTab === 'schedule' && (
           <ScheduleView
             appointments={appointments}
