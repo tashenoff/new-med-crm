@@ -120,30 +120,117 @@ const ScheduleView = ({
     return scheduleAppointments.filter(apt => apt.status === status);
   };
 
-  // Drag & Drop функции
+  // Drag & Drop функции с улучшенной визуализацией
   const handleDragStart = (e, appointment) => {
     if (!canEdit) return;
+    
     setDraggedAppointment(appointment);
     e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/plain', appointment.id);
+    
+    // Создаем кастомное изображение для перетаскивания
+    const dragImage = document.createElement('div');
+    dragImage.innerHTML = `
+      <div style="
+        background: white; 
+        border: 2px dashed #3B82F6; 
+        border-radius: 8px; 
+        padding: 12px; 
+        box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        font-family: system-ui;
+        font-size: 14px;
+        max-width: 200px;
+      ">
+        <div style="font-weight: bold; color: #1F2937;">📋 ${appointment.patient_name}</div>
+        <div style="color: #6B7280; margin-top: 4px;">🕒 ${appointment.appointment_time}</div>
+      </div>
+    `;
+    dragImage.style.position = 'absolute';
+    dragImage.style.top = '-1000px';
+    document.body.appendChild(dragImage);
+    
+    // Устанавливаем кастомное изображение
+    e.dataTransfer.setDragImage(dragImage, 100, 30);
+    
+    // Удаляем элемент после установки
+    setTimeout(() => {
+      document.body.removeChild(dragImage);
+    }, 0);
+    
+    console.log('🔄 Начинаем перетаскивание:', appointment.patient_name);
   };
 
-  const handleDragOver = (e) => {
+  const handleDragOver = (e, columnId) => {
     e.preventDefault();
     e.dataTransfer.dropEffect = 'move';
+    
+    if (dragOverColumn !== columnId) {
+      setDragOverColumn(columnId);
+    }
+  };
+
+  const handleDragEnter = (e, columnId) => {
+    e.preventDefault();
+    setDragOverColumn(columnId);
+  };
+
+  const handleDragLeave = (e, columnId) => {
+    e.preventDefault();
+    // Проверяем, действительно ли мы покинули колонку
+    const rect = e.currentTarget.getBoundingClientRect();
+    const x = e.clientX;
+    const y = e.clientY;
+    
+    if (x < rect.left || x > rect.right || y < rect.top || y > rect.bottom) {
+      setDragOverColumn(null);
+    }
   };
 
   const handleDrop = (e, newStatus) => {
     e.preventDefault();
+    setDragOverColumn(null);
+    
     if (!canEdit || !draggedAppointment) return;
     
+    const appointmentId = e.dataTransfer.getData('text/plain');
+    
     if (draggedAppointment.status !== newStatus) {
+      console.log(`🔄 Меняем статус записи ${draggedAppointment.patient_name} с "${draggedAppointment.status}" на "${newStatus}"`);
       onStatusChange(draggedAppointment.id, newStatus);
+      
+      // Показываем уведомление об успехе
+      const notification = document.createElement('div');
+      notification.innerHTML = `
+        <div style="
+          position: fixed; 
+          top: 20px; 
+          right: 20px; 
+          background: #10B981; 
+          color: white; 
+          padding: 12px 20px; 
+          border-radius: 8px; 
+          box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+          z-index: 1000;
+          font-family: system-ui;
+        ">
+          ✅ Статус изменен: ${draggedAppointment.patient_name}
+        </div>
+      `;
+      document.body.appendChild(notification);
+      setTimeout(() => {
+        if (document.body.contains(notification)) {
+          document.body.removeChild(notification);
+        }
+      }, 3000);
     }
+    
     setDraggedAppointment(null);
   };
 
   const handleDragEnd = () => {
     setDraggedAppointment(null);
+    setDragOverColumn(null);
+    console.log('🔄 Перетаскивание завершено');
   };
 
   // Компонент карточки встречи
