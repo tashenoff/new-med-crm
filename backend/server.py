@@ -1810,6 +1810,215 @@ async def initialize_default_services(
     logger.info(f"Initialized {len(services)} default services")
     return {"message": f"Successfully initialized {len(services)} default services"}
 
+# Treatment Plan Statistics endpoints
+@api_router.get("/treatment-plans/statistics")
+async def get_treatment_plan_statistics(
+    date_from: Optional[str] = None,
+    date_to: Optional[str] = None,
+    current_user: UserInDB = Depends(require_role([UserRole.ADMIN, UserRole.DOCTOR]))
+):
+    """Get treatment plan statistics"""
+    
+    # Build date filter
+    date_filter = {}
+    if date_from or date_to:
+        date_query = {}
+        if date_from:
+            date_query["$gte"] = datetime.fromisoformat(date_from.replace('Z', '+00:00'))
+        if date_to:
+            date_query["$lte"] = datetime.fromisoformat(date_to.replace('Z', '+00:00'))
+        date_filter["created_at"] = date_query
+    
+    # Get all treatment plans
+    all_plans = await db.treatment_plans.find(date_filter).to_list(None)
+    
+    # Calculate statistics
+    total_plans = len(all_plans)
+    
+    # Status statistics
+    status_counts = {}
+    execution_counts = {}
+    payment_counts = {}
+    
+    total_cost = 0
+    total_paid = 0
+    
+    for plan in all_plans:
+        # Status counts
+        status = plan.get('status', 'draft')
+        status_counts[status] = status_counts.get(status, 0) + 1
+        
+        # Execution status counts
+        execution_status = plan.get('execution_status', 'pending')
+        execution_counts[execution_status] = execution_counts.get(execution_status, 0) + 1
+        
+        # Payment status counts
+        payment_status = plan.get('payment_status', 'unpaid')
+        payment_counts[payment_status] = payment_counts.get(payment_status, 0) + 1
+        
+        # Financial calculations
+        total_cost += plan.get('total_cost', 0)
+        total_paid += plan.get('paid_amount', 0)
+    
+    # Calculate percentages and additional metrics
+    completed_plans = execution_counts.get('completed', 0)
+    no_show_plans = execution_counts.get('no_show', 0)
+    in_progress_plans = execution_counts.get('in_progress', 0)
+    pending_plans = execution_counts.get('pending', 0)
+    
+    paid_plans = payment_counts.get('paid', 0)
+    unpaid_plans = payment_counts.get('unpaid', 0)
+    partially_paid_plans = payment_counts.get('partially_paid', 0)
+    overdue_plans = payment_counts.get('overdue', 0)
+    
+    # Monthly statistics
+    monthly_stats = {}
+    for plan in all_plans:
+        created_date = plan.get('created_at')
+        if created_date:
+            if isinstance(created_date, str):
+                created_date = datetime.fromisoformat(created_date.replace('Z', '+00:00'))
+            month_key = f"{created_date.year}-{created_date.month:02d}"
+            if month_key not in monthly_stats:
+                monthly_stats[month_key] = {
+                    'created': 0,
+                    'completed': 0,
+                    'no_show': 0,
+                    'total_cost': 0,
+                    'paid_amount': 0
+                }
+            monthly_stats[month_key]['created'] += 1
+            monthly_stats[month_key]['total_cost'] += plan.get('total_cost', 0)
+            monthly_stats[month_key]['paid_amount'] += plan.get('paid_amount', 0)
+            
+            if plan.get('execution_status') == 'completed':
+                monthly_stats[month_key]['completed'] += 1
+            elif plan.get('execution_status') == 'no_show':
+                monthly_stats[month_key]['no_show'] += 1
+    
+    return {
+        "overview": {
+            "total_plans": total_plans,
+            "completed_plans": completed_plans,
+            "no_show_plans": no_show_plans,
+            "in_progress_plans": in_progress_plans,
+            "pending_plans": pending_plans,
+            "completion_rate": round((completed_plans / total_plans * 100) if total_plans > 0 else 0, 1),
+            "no_show_rate": round((no_show_plans / total_plans * 100) if total_plans > 0 else 0, 1),
+            "total_cost": total_cost,
+            "total_paid": total_paid,
+            "outstanding_amount": total_cost - total_paid,
+            "collection_rate": round((total_paid / total_cost * 100) if total_cost > 0 else 0, 1)
+        },
+        "status_distribution": status_counts,
+        "execution_distribution": execution_counts,
+        "payment_distribution": payment_counts,
+        "payment_summary": {
+            "paid_plans": paid_plans,
+            "unpaid_plans": unpaid_plans,
+            "partially_paid_plans": partially_paid_plans,
+            "overdue_plans": overdue_plans,
+            "total_revenue": total_paid,
+            "outstanding_revenue": total_cost - total_paid
+        },
+        "monthly_statistics": [
+            {
+                "month": month,
+                "created": data["created"],
+                "completed": data["completed"], 
+                "no_show": data["no_show"],
+                "completion_rate": round((data["completed"] / data["created"] * 100) if data["created"] > 0 else 0, 1),
+                "no_show_rate": round((data["no_show"] / data["created"] * 100) if data["created"] > 0 else 0, 1),
+                "total_cost": data["total_cost"],
+                "paid_amount": data["paid_amount"],
+                "collection_rate": round((data["paid_amount"] / data["total_cost"] * 100) if data["total_cost"] > 0 else 0, 1)
+            }
+            for month, data in sorted(monthly_stats.items())
+        ]
+    }
+
+@api_router.get("/treatment-plans/statistics/patients")
+async def get_patient_statistics(
+    current_user: UserInDB = Depends(require_role([UserRole.ADMIN, UserRole.DOCTOR]))
+):
+    """Get patient-specific treatment plan statistics"""
+    
+    # Aggregate patient statistics
+    pipeline = [
+        {
+            "$group": {
+                "_id": "$patient_id",
+                "total_plans": {"$sum": 1},
+                "completed_plans": {
+                    "$sum": {"$cond": [{"$eq": ["$execution_status", "completed"]}, 1, 0]}
+                },
+                "no_show_plans": {
+                    "$sum": {"$cond": [{"$eq": ["$execution_status", "no_show"]}, 1, 0]}
+                },
+                "total_cost": {"$sum": "$total_cost"},
+                "total_paid": {"$sum": "$paid_amount"},
+                "unpaid_plans": {
+                    "$sum": {"$cond": [{"$eq": ["$payment_status", "unpaid"]}, 1, 0]}
+                }
+            }
+        },
+        {
+            "$lookup": {
+                "from": "patients",
+                "localField": "_id",
+                "foreignField": "id",
+                "as": "patient"
+            }
+        },
+        {"$unwind": "$patient"},
+        {
+            "$project": {
+                "_id": 0,
+                "patient_id": "$_id",
+                "patient_name": "$patient.full_name",
+                "patient_phone": "$patient.phone",
+                "total_plans": 1,
+                "completed_plans": 1,
+                "no_show_plans": 1,
+                "total_cost": 1,
+                "total_paid": 1,
+                "outstanding_amount": {"$subtract": ["$total_cost", "$total_paid"]},
+                "unpaid_plans": 1,
+                "completion_rate": {
+                    "$multiply": [
+                        {"$divide": ["$completed_plans", "$total_plans"]},
+                        100
+                    ]
+                },
+                "no_show_rate": {
+                    "$multiply": [
+                        {"$divide": ["$no_show_plans", "$total_plans"]},
+                        100
+                    ]
+                },
+                "collection_rate": {
+                    "$multiply": [
+                        {"$divide": ["$total_paid", "$total_cost"]},
+                        100
+                    ]
+                }
+            }
+        },
+        {"$sort": {"total_cost": -1}}
+    ]
+    
+    patient_stats = await db.treatment_plans.aggregate(pipeline).to_list(None)
+    
+    return {
+        "patient_statistics": patient_stats,
+        "summary": {
+            "total_patients": len(patient_stats),
+            "patients_with_unpaid": len([p for p in patient_stats if p["unpaid_plans"] > 0]),
+            "patients_with_no_shows": len([p for p in patient_stats if p["no_show_plans"] > 0]),
+            "high_value_patients": len([p for p in patient_stats if p["total_cost"] > 50000])
+        }
+    }
+
 # Include the router in the main app
 app.include_router(api_router)
 
