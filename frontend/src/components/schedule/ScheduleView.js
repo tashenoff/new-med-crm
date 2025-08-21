@@ -12,6 +12,7 @@ const ScheduleView = ({
   canEdit 
 }) => {
   const [draggedAppointment, setDraggedAppointment] = useState(null);
+  const [dragOverColumn, setDragOverColumn] = useState(null);
 
   const getScheduleAppointments = () => {
     const today = new Date();
@@ -41,43 +42,50 @@ const ScheduleView = ({
       id: 'unconfirmed',
       title: 'Не подтверждено',
       color: 'bg-yellow-50 border-yellow-200',
-      headerColor: 'bg-yellow-100 text-yellow-800'
+      headerColor: 'bg-yellow-100 text-yellow-800',
+      icon: '⏳'
     },
     {
       id: 'confirmed',
       title: 'Подтверждено',
       color: 'bg-blue-50 border-blue-200',
-      headerColor: 'bg-blue-100 text-blue-800'
+      headerColor: 'bg-blue-100 text-blue-800',
+      icon: '✅'
     },
     {
       id: 'arrived',
       title: 'Пациент пришел',
       color: 'bg-purple-50 border-purple-200',
-      headerColor: 'bg-purple-100 text-purple-800'
+      headerColor: 'bg-purple-100 text-purple-800',
+      icon: '🏥'
     },
     {
       id: 'in_progress',
       title: 'На приеме',
       color: 'bg-orange-50 border-orange-200',
-      headerColor: 'bg-orange-100 text-orange-800'
+      headerColor: 'bg-orange-100 text-orange-800',
+      icon: '🔄'
     },
     {
       id: 'completed',
       title: 'Завершено',
       color: 'bg-green-50 border-green-200',
-      headerColor: 'bg-green-100 text-green-800'
+      headerColor: 'bg-green-100 text-green-800',
+      icon: '✔️'
     },
     {
       id: 'cancelled',
       title: 'Отменено',
       color: 'bg-red-50 border-red-200',
-      headerColor: 'bg-red-100 text-red-800'
+      headerColor: 'bg-red-100 text-red-800',
+      icon: '❌'
     },
     {
       id: 'no_show',
       title: 'Не явился',
       color: 'bg-gray-50 border-gray-200',
-      headerColor: 'bg-gray-100 text-gray-800'
+      headerColor: 'bg-gray-100 text-gray-800',
+      icon: '👻'
     }
   ];
 
