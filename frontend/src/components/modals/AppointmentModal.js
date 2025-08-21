@@ -47,6 +47,9 @@ const AppointmentModal = ({
     if (selectedPatient && activeTab === 'documents') {
       fetchDocuments();
     }
+    if (selectedPatient && activeTab === 'plans') {
+      fetchTreatmentPlans();
+    }
   }, [selectedPatient, activeTab]);
 
   const fetchDocuments = async () => {
