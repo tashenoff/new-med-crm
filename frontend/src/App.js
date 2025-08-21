@@ -1769,7 +1769,20 @@ function ClinicApp() {
         onClose={() => {
           setShowAppointmentModal(false);
           setEditingItem(null);
-          setAppointmentForm({ patient_id: '', doctor_id: '', appointment_date: '', appointment_time: '', reason: '', notes: '' });
+          setAppointmentForm({ 
+            patient_id: '', 
+            doctor_id: '', 
+            appointment_date: '', 
+            appointment_time: '', 
+            end_time: '',
+            chair_number: '',
+            assistant_id: '',
+            second_doctor_id: '',
+            extra_hours: false,
+            reason: '', 
+            notes: '',
+            patient_notes: ''
+          });
         }}
         onSave={handleSaveAppointment}
         appointmentForm={appointmentForm}
