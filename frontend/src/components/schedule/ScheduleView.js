@@ -83,16 +83,6 @@ const ScheduleView = ({
                   <div className="text-gray-600 mt-1">
                     Врач: {appointment.doctor_name} ({appointment.doctor_specialty})
                   </div>
-                  {appointment.assistant_name && (
-                    <div className="text-gray-600">
-                      Ассистент: {appointment.assistant_name}
-                    </div>
-                  )}
-                  {appointment.second_doctor_name && (
-                    <div className="text-gray-600">
-                      Второй врач: {appointment.second_doctor_name}
-                    </div>
-                  )}
                   <div className="text-gray-600">
                     📅 {appointment.appointment_date} в {appointment.appointment_time}
                     {appointment.end_time && ` - ${appointment.end_time}`}
@@ -102,9 +92,9 @@ const ScheduleView = ({
                       🪑 Кресло: {appointment.chair_number}
                     </div>
                   )}
-                  {appointment.extra_hours && (
-                    <div className="text-yellow-600 font-medium">
-                      ⏰ Дополнительные часы
+                  {appointment.price && (
+                    <div className="text-green-600 font-medium">
+                      💰 Цена: {appointment.price} ₸
                     </div>
                   )}
                   {appointment.reason && (
