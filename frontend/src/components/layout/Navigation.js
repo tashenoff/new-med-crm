@@ -1,6 +1,7 @@
 import React from 'react';
 
 const Navigation = ({ activeTab, setActiveTab, availableTabs, sidebarOpen, setSidebarOpen }) => {
+  const [expandedSections, setExpandedSections] = React.useState({});
   const getTabIcon = (tabKey) => {
     const icons = {
       schedule: (
