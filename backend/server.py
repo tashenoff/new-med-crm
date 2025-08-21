@@ -387,9 +387,7 @@ class AppointmentWithDetails(BaseModel):
     appointment_time: str
     end_time: Optional[str]
     chair_number: Optional[str]
-    assistant_id: Optional[str]
-    second_doctor_id: Optional[str]
-    extra_hours: Optional[bool]
+    price: Optional[float]
     status: AppointmentStatus
     reason: Optional[str]
     notes: Optional[str]
@@ -398,8 +396,6 @@ class AppointmentWithDetails(BaseModel):
     doctor_name: str
     doctor_specialty: str
     doctor_color: str
-    assistant_name: Optional[str] = None  # Assistant doctor name if assistant_id exists
-    second_doctor_name: Optional[str] = None  # Second doctor name if second_doctor_id exists
     created_at: datetime
     updated_at: datetime
 
