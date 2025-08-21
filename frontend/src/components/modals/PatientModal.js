@@ -16,7 +16,7 @@ const PatientModal = ({
   const [selectedFile, setSelectedFile] = useState(null);
   const [documentDescription, setDocumentDescription] = useState('');
 
-  const API = import.meta.env.REACT_APP_BACKEND_URL || process.env.REACT_APP_BACKEND_URL;
+  const API = process.env.REACT_APP_BACKEND_URL;
 
   useEffect(() => {
     if (editingItem && activeTab === 'documents') {
