@@ -282,8 +282,7 @@ metadata:
 
 test_plan:
   current_focus:
-    - "Medical record editing interface"
-    - "Medical record update functionality"
+    - "Treatment plan management system"
   stuck_tasks: []
   test_all: false
   test_priority: "high_first"
