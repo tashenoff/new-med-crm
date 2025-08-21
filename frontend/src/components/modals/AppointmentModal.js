@@ -805,5 +805,9 @@ const AppointmentModal = ({
             </div>
           </div>
         )}
+      </div>
+    </div>
+  );
+};
 
 export default AppointmentModal;
