@@ -288,7 +288,29 @@ test_plan:
   test_all: false
   test_priority: "high_first"
 
-  - task: "Enhanced patient fields"
+  - task: "Service management system"
+    implemented: true
+    working: true
+    file: "server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - working: true
+        agent: "testing"
+        comment: "COMPREHENSIVE SERVICE MANAGEMENT SYSTEM TESTING COMPLETED: ✅ SERVICE INITIALIZATION: POST /api/services/initialize successfully creates 14 default services across 5 categories (Стоматолог, Гинекология, Ортодонт, Дерматовенеролог, Медикаменты). ✅ SERVICE RETRIEVAL: GET /api/services returns all services with proper data structure (id, name, category, price, description, created_at). ✅ CATEGORY FILTERING: GET /api/services?category=Стоматолог correctly filters 6 dental services with proper validation. ✅ SERVICE CATEGORIES: GET /api/service-categories returns sorted categories array with all expected medical specialties. ✅ DENTAL SERVICES: All 6 dental services verified with proper names and reasonable prices (9960.0 to 15000.0 тенге). ✅ OTHER CATEGORIES: Verified services in Гинекология (2), Ортодонт (2), Дерматовенеролог (2), Медикаменты (2). ✅ ACCESS CONTROL: Admins can create services, doctors can view services/categories, unauthorized users blocked (403). ✅ TREATMENT PLAN INTEGRATION: Services successfully referenced in treatment plans with proper service_id, service_name, category, price structure. ✅ DATA VALIDATION: Service data structure matches frontend expectations with all required fields. ✅ IDEMPOTENCY: Service initialization prevents duplicates (returns 'Services already exist' message). ✅ SERVICE CREATION: Admin can create new services with proper validation. All 30/31 tests passed - service management system fully functional and production-ready."
+
+  - task: "Service initialization and default data"
+    implemented: true
+    working: true
+    file: "server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - working: true
+        agent: "testing"
+        comment: "SERVICE INITIALIZATION COMPREHENSIVE TESTING COMPLETED: ✅ DEFAULT SERVICES CREATION: POST /api/services/initialize successfully creates 14 default services with proper categories and prices. ✅ DENTAL SERVICES (Стоматолог): 6 services including '14C-уреазный дыхательный тест на определение Хеликобактер пилори', '17-OH Прогестерон', 'Лечение кариеса' (15000.0), 'Удаление зуба' (8000.0), 'Установка пломбы' (12000.0), 'Чистка зубов' (6000.0). ✅ GYNECOLOGY SERVICES (Гинекология): 2 services - 'Консультация гинеколога' (5000.0), 'УЗИ органов малого таза' (7000.0). ✅ ORTHODONTIC SERVICES (Ортодонт): 2 services - 'Установка брекетов' (150000.0), 'Коррекция прикуса' (25000.0). ✅ DERMATOLOGY SERVICES (Дерматовенеролог): 2 services - 'Консультация дерматолога' (4500.0), 'Лечение акне' (8000.0). ✅ MEDICATION SERVICES (Медикаменты): 2 services - 'Антибиотики' (2500.0), 'Витамины' (1500.0). ✅ IDEMPOTENCY: Multiple initialization calls return 'Services already exist' without creating duplicates. ✅ CATEGORY SORTING: All categories returned in alphabetical order. ✅ PRICE VALIDATION: All service prices are positive numeric values within reasonable ranges. Default service initialization system working perfectly."
     implemented: true
     working: true
     file: "server.py"
