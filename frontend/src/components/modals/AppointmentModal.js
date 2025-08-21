@@ -73,6 +73,27 @@ const AppointmentModal = ({
     }
   };
 
+  const fetchTreatmentPlans = async () => {
+    if (!selectedPatient) return;
+    
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch(`${API}/api/patients/${selectedPatient.id}/treatment-plans`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+      
+      if (response.ok) {
+        const plans = await response.json();
+        setTreatmentPlans(plans);
+      }
+    } catch (error) {
+      console.error('Error fetching treatment plans:', error);
+    }
+  };
+
   const handleFileUpload = async () => {
     if (!selectedFile || !selectedPatient) return;
 
