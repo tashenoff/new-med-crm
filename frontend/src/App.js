@@ -1710,7 +1710,21 @@ function ClinicApp() {
             setSearchTerm={setSearchTerm}
             onAddPatient={() => {
               setEditingItem(null);
-              setPatientForm({ full_name: '', phone: '', iin: '', source: 'other', notes: '' });
+              setPatientForm({ 
+                full_name: '', 
+                phone: '', 
+                iin: '', 
+                birth_date: '', 
+                gender: '', 
+                source: 'other', 
+                referrer: '', 
+                notes: '',
+                revenue: 0,
+                debt: 0,
+                overpayment: 0,
+                appointments_count: 0,
+                records_count: 0
+              });
               setShowPatientModal(true);
             }}
             onEditPatient={handleEditPatient}
