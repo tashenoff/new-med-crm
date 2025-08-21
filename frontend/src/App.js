@@ -835,8 +835,14 @@ function ClinicApp() {
       doctor_id: appointment.doctor_id,
       appointment_date: appointment.appointment_date,
       appointment_time: appointment.appointment_time,
+      end_time: appointment.end_time || '',
+      chair_number: appointment.chair_number || '',
+      assistant_id: appointment.assistant_id || '',
+      second_doctor_id: appointment.second_doctor_id || '',
+      extra_hours: appointment.extra_hours || false,
       reason: appointment.reason || '',
-      notes: appointment.notes || ''
+      notes: appointment.notes || '',
+      patient_notes: appointment.patient_notes || ''
     });
     setShowAppointmentModal(true);
   };
