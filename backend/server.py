@@ -1416,7 +1416,7 @@ async def get_patient_medical_summary(
 async def upload_document(
     patient_id: str,
     file: UploadFile = File(...),
-    description: Optional[str] = None,
+    description: Optional[str] = Form(None),
     current_user: UserInDB = Depends(require_role([UserRole.ADMIN, UserRole.DOCTOR]))
 ):
     """Upload a document for a patient"""
