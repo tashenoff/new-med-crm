@@ -213,7 +213,7 @@ test_plan:
 
 frontend:
   - task: "Enhanced patient modal form"
-    implemented: false
+    implemented: true
     working: "NA"
     file: "PatientModal.js"
     stuck_count: 0
@@ -223,9 +223,12 @@ frontend:
       - working: "NA"
         agent: "main"
         comment: "Need to add birth_date, gender, referrer fields to patient creation form"
+      - working: "NA"
+        agent: "main"
+        comment: "Updated PatientModal to include birth_date, gender, referrer fields, and financial fields display for editing existing patients. Also updated all form resets in App.js"
 
   - task: "Enhanced appointment modal form"
-    implemented: false
+    implemented: true
     working: "NA"
     file: "AppointmentModal.js"
     stuck_count: 0
@@ -235,6 +238,33 @@ frontend:
       - working: "NA"
         agent: "main"
         comment: "Need to add chair_number, assistant_id, end_time, second_doctor_id, extra_hours to appointment form"
+      - working: "NA"
+        agent: "main"
+        comment: "Updated AppointmentModal to include end_time, chair_number, assistant_id, second_doctor_id, extra_hours, patient_notes fields. Also updated all form resets and edit handlers in App.js"
+
+  - task: "Enhanced patient display"
+    implemented: true
+    working: "NA"
+    file: "PatientsView.js"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "Updated PatientsView to display new fields: personal data (birth_date, gender), referrer information, and financial summary (revenue, debt, overpayment, appointments count)"
+
+  - task: "Enhanced appointment display"
+    implemented: true
+    working: "NA"
+    file: "ScheduleView.js"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "Updated ScheduleView to display new appointment fields: assistant_name, second_doctor_name, end_time, chair_number, extra_hours, patient_notes"
 
 agent_communication:
   - agent: "main"
