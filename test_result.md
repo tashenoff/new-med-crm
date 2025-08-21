@@ -177,11 +177,11 @@ test_plan:
 
   - task: "Enhanced patient fields"
     implemented: true
-    working: "NA"
+    working: true
     file: "server.py"
     stuck_count: 0
     priority: "high"
-    needs_retesting: true
+    needs_retesting: false
     status_history:
       - working: "NA"
         agent: "main"
@@ -189,14 +189,17 @@ test_plan:
       - working: "NA"
         agent: "main"
         comment: "Added birth_date, gender, referrer, revenue, debt, overpayment, appointments_count, records_count to Patient model and PatientCreate/PatientUpdate models"
+      - working: true
+        agent: "testing"
+        comment: "COMPREHENSIVE TESTING COMPLETED: Enhanced patient model fully functional. ✅ Created patient with new fields (birth_date, gender, referrer) - all stored correctly. ✅ Financial fields (revenue, debt, overpayment, appointments_count, records_count) properly initialized to 0.0/0. ✅ Patient update with enhanced fields works perfectly. ✅ GET /api/patients returns all enhanced fields. ✅ Backward compatibility verified - simple patients get correct defaults. ✅ Automatic medical record creation still works with enhanced patients."
 
   - task: "Enhanced appointment fields"
     implemented: true
-    working: "NA"
+    working: true
     file: "server.py"
     stuck_count: 0
     priority: "high"
-    needs_retesting: true
+    needs_retesting: false
     status_history:
       - working: "NA"
         agent: "main"
@@ -204,6 +207,9 @@ test_plan:
       - working: "NA"
         agent: "main"
         comment: "Added end_time, chair_number, assistant_id, second_doctor_id, extra_hours, patient_notes to Appointment model and updated AppointmentCreate/Update models and aggregation queries to include assistant and second doctor names"
+      - working: true
+        agent: "testing"
+        comment: "COMPREHENSIVE TESTING COMPLETED: Enhanced appointment model fully functional. ✅ Created appointment with all new fields (end_time, chair_number, assistant_id, second_doctor_id, extra_hours, patient_notes) - all stored correctly. ✅ Appointment update with enhanced fields works perfectly. ✅ GET /api/appointments returns enhanced fields with correct aggregation. ✅ Assistant_name and second_doctor_name properly populated from IDs via MongoDB aggregation. ✅ Time conflict detection still works with enhanced appointments. ✅ Fixed MongoDB aggregation pipeline to handle missing fields in older appointments using $ifNull operators."
 
 frontend:
   - task: "Enhanced patient modal form"
