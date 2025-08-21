@@ -1698,7 +1698,7 @@ function ClinicApp() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 flex">
+    <div className="min-h-screen bg-gray-50">
       {/* Sidebar Navigation */}
       <Navigation 
         activeTab={activeTab} 
@@ -1709,7 +1709,7 @@ function ClinicApp() {
       />
 
       {/* Main Content Area */}
-      <div className={`flex-1 flex flex-col transition-all duration-300 ${sidebarOpen ? 'lg:ml-64' : 'lg:ml-0'}`}>
+      <div className={`transition-all duration-300 ${sidebarOpen ? 'lg:ml-64' : 'lg:ml-0'} flex flex-col min-h-screen`}>
         <Header 
           user={user} 
           onLogout={logout} 
