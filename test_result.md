@@ -282,7 +282,8 @@ metadata:
 
 test_plan:
   current_focus:
-    - "Treatment plan management system"
+    - "Service management system"
+    - "Service initialization and default data"
   stuck_tasks: []
   test_all: false
   test_priority: "high_first"
