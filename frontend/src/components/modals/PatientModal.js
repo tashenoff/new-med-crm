@@ -57,24 +57,35 @@ const PatientModal = ({
         formData.append('description', documentDescription);
       }
 
+      console.log('Uploading file for patient:', editingItem.id);
+      console.log('API endpoint:', `${API}/patients/${editingItem.id}/documents`);
+      console.log('File:', selectedFile);
+
       const response = await fetch(`${API}/patients/${editingItem.id}/documents`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`
+          // Don't set Content-Type - let browser set it automatically for FormData
         },
         body: formData
       });
+
+      console.log('Upload response status:', response.status);
 
       if (response.ok) {
         setSelectedFile(null);
         setDocumentDescription('');
         fetchDocuments(); // Refresh documents list
         document.getElementById('file-input').value = ''; // Clear file input
+        console.log('File uploaded successfully');
       } else {
-        console.error('Error uploading file');
+        const errorText = await response.text();
+        console.error('Error uploading file:', response.status, errorText);
+        alert(`Ошибка загрузки файла: ${response.status} ${errorText}`);
       }
     } catch (error) {
       console.error('Error uploading file:', error);
+      alert(`Ошибка загрузки файла: ${error.message}`);
     } finally {
       setUploading(false);
     }
