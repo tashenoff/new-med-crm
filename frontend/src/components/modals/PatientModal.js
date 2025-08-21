@@ -61,7 +61,7 @@ const PatientModal = ({
       console.log('API endpoint:', `${API}/api/patients/${editingItem.id}/documents`);
       console.log('File:', selectedFile);
 
-      const response = await fetch(`${API}/patients/${editingItem.id}/documents`, {
+      const response = await fetch(`${API}/api/patients/${editingItem.id}/documents`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`
