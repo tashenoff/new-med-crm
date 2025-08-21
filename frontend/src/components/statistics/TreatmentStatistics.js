@@ -83,6 +83,76 @@ const TreatmentStatistics = () => {
     }
   };
 
+  const fetchDoctorStatistics = async (customDateFrom = null, customDateTo = null) => {
+    try {
+      setLoading(true);
+      const token = localStorage.getItem('token');
+      
+      let url = `${API}/api/doctors/statistics`;
+      const params = new URLSearchParams();
+      
+      if (customDateFrom || dateFrom) {
+        params.append('date_from', customDateFrom || dateFrom);
+      }
+      if (customDateTo || dateTo) {
+        params.append('date_to', customDateTo || dateTo);
+      }
+      
+      if (params.toString()) {
+        url += `?${params.toString()}`;
+      }
+
+      const response = await fetch(url, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setDoctorStats(data);
+      } else {
+        setError('Ошибка загрузки статистики врачей');
+      }
+    } catch (err) {
+      setError('Ошибка сети');
+      console.error('Error fetching doctor statistics:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const fetchIndividualDoctorStatistics = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      
+      let url = `${API}/api/doctors/statistics/individual`;
+      const params = new URLSearchParams();
+      
+      if (dateFrom) params.append('date_from', dateFrom);
+      if (dateTo) params.append('date_to', dateTo);
+      
+      if (params.toString()) {
+        url += `?${params.toString()}`;
+      }
+
+      const response = await fetch(url, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setIndividualDoctorStats(data);
+      }
+    } catch (err) {
+      console.error('Error fetching individual doctor statistics:', err);
+    }
+  };
+
   const handleDateFilter = () => {
     fetchStatistics(dateFrom, dateTo);
   };
