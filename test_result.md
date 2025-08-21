@@ -185,9 +185,9 @@ backend:
 
   - task: "Static file serving for documents"
     implemented: true
-    working: false
+    working: true
     file: "server.py"
-    stuck_count: 1
+    stuck_count: 0
     priority: "high"
     needs_retesting: false
     status_history:
@@ -197,6 +197,9 @@ backend:
       - working: false
         agent: "testing"
         comment: "CRITICAL INFRASTRUCTURE ISSUE DISCOVERED: ✅ Backend static file serving implementation is PERFECT - works flawlessly on internal port (localhost:8001/uploads) with correct content-types, file content, and headers. ❌ EXTERNAL ROUTING BROKEN: Production URL /uploads requests are being served by frontend React app instead of backend due to Kubernetes ingress misconfiguration. Files return HTML instead of actual content. ✅ Document upload/retrieval APIs work perfectly. ✅ File storage, metadata, access control all functional. DIAGNOSIS: Backend code is correct, but external routing configuration must be fixed to route /uploads/* to backend (port 8001) instead of frontend (port 3000). This is an infrastructure/deployment issue, not a code issue."
+      - working: true
+        agent: "testing"
+        comment: "NEW DOWNLOAD API ENDPOINT SOLUTION IMPLEMENTED AND TESTED: ✅ GET /api/uploads/{filename} endpoint successfully provides file download functionality as workaround for ingress routing issue. ✅ COMPREHENSIVE TESTING COMPLETED: Tested 5 different file types (PDF, DOCX, JPG, TXT, unknown extensions) with correct Content-Type headers (application/pdf, application/vnd.openxmlformats-officedocument.wordprocessingml.document, image/jpeg, text/plain, application/octet-stream). ✅ Complete workflow verified: upload via POST /api/patients/{patient_id}/documents -> retrieve list via GET /api/patients/{patient_id}/documents -> download via GET /api/uploads/{filename}. ✅ Content verification: Downloaded content matches uploaded content exactly. ✅ Error handling: 404 responses for non-existent files and invalid filenames. ✅ FileResponse with proper filename parameter for download behavior. ✅ Integration with existing document management system confirmed. ✅ WORKAROUND SUCCESSFUL: New API endpoint bypasses ingress routing issue and provides full file download functionality."
 
   - task: "Document access control and permissions"
     implemented: true
