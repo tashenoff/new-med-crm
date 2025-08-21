@@ -1573,6 +1573,380 @@ def test_archive_appointment(self, appointment_id):
     
     return success
 
+    def test_patient_statistics_endpoint(self):
+        """Test the patient statistics endpoint that was causing 500 errors"""
+        success, response = self.run_test(
+            "Get Patient Statistics",
+            "GET",
+            "treatment-plans/statistics/patients",
+            200
+        )
+        if success and response:
+            print("✅ Patient statistics endpoint working correctly")
+            
+            # Verify response structure
+            if "patient_statistics" in response and "summary" in response:
+                print("✅ Response has correct structure")
+                
+                # Check summary fields
+                summary = response["summary"]
+                required_summary_fields = ["total_patients", "patients_with_unpaid", "patients_with_no_shows", "high_value_patients"]
+                for field in required_summary_fields:
+                    if field not in summary:
+                        print(f"❌ Missing summary field: {field}")
+                        return False
+                
+                # Check patient statistics structure
+                patient_stats = response["patient_statistics"]
+                if len(patient_stats) > 0:
+                    patient = patient_stats[0]
+                    required_patient_fields = [
+                        "patient_id", "patient_name", "patient_phone", "total_plans", 
+                        "completed_plans", "no_show_plans", "total_cost", "total_paid",
+                        "outstanding_amount", "unpaid_plans", "completion_rate", 
+                        "no_show_rate", "collection_rate"
+                    ]
+                    for field in required_patient_fields:
+                        if field not in patient:
+                            print(f"❌ Missing patient field: {field}")
+                            return False
+                    
+                    # Verify calculations don't cause division by zero
+                    if patient["completion_rate"] is not None and not isinstance(patient["completion_rate"], (int, float)):
+                        print(f"❌ Invalid completion_rate: {patient['completion_rate']}")
+                        return False
+                    
+                    if patient["no_show_rate"] is not None and not isinstance(patient["no_show_rate"], (int, float)):
+                        print(f"❌ Invalid no_show_rate: {patient['no_show_rate']}")
+                        return False
+                    
+                    if patient["collection_rate"] is not None and not isinstance(patient["collection_rate"], (int, float)):
+                        print(f"❌ Invalid collection_rate: {patient['collection_rate']}")
+                        return False
+                    
+                    print("✅ All calculation fields are valid numbers")
+                
+                print(f"✅ Found {len(patient_stats)} patient statistics")
+                print(f"✅ Summary: {summary['total_patients']} total patients")
+                return True
+            else:
+                print("❌ Response missing required structure")
+                return False
+        return success
+
+    def test_patient_statistics_with_edge_cases(self):
+        """Test patient statistics endpoint with edge cases (zero costs, zero plans)"""
+        # First create some test data with edge cases
+        print("\n🔍 Creating test data with edge cases...")
+        
+        # Create a patient with zero cost treatment plan
+        if not self.test_create_patient("Zero Cost Patient", "+77771111111", "other"):
+            print("❌ Failed to create zero cost patient")
+            return False
+        
+        zero_cost_patient_id = self.created_patient_id
+        
+        # Create treatment plan with zero cost
+        success, zero_plan = self.test_create_treatment_plan(
+            zero_cost_patient_id,
+            "Zero Cost Plan",
+            description="Plan with zero cost for testing division by zero",
+            total_cost=0.0,
+            status="completed"
+        )
+        
+        if not success:
+            print("❌ Failed to create zero cost treatment plan")
+            return False
+        
+        # Create another patient with no treatment plans (will not appear in stats)
+        if not self.test_create_patient("No Plans Patient", "+77772222222", "other"):
+            print("❌ Failed to create no plans patient")
+            return False
+        
+        print("✅ Test data created successfully")
+        
+        # Now test the statistics endpoint
+        success, response = self.run_test(
+            "Get Patient Statistics with Edge Cases",
+            "GET",
+            "treatment-plans/statistics/patients",
+            200
+        )
+        
+        if success and response:
+            print("✅ Patient statistics endpoint handles edge cases correctly")
+            
+            # Find our zero cost patient in the results
+            patient_stats = response["patient_statistics"]
+            zero_cost_patient = None
+            
+            for patient in patient_stats:
+                if patient["patient_id"] == zero_cost_patient_id:
+                    zero_cost_patient = patient
+                    break
+            
+            if zero_cost_patient:
+                print(f"✅ Found zero cost patient in statistics")
+                print(f"   Total cost: {zero_cost_patient['total_cost']}")
+                print(f"   Collection rate: {zero_cost_patient['collection_rate']}")
+                
+                # Verify collection rate is 0 when total cost is 0 (not NaN or error)
+                if zero_cost_patient["collection_rate"] == 0:
+                    print("✅ Collection rate correctly calculated as 0 for zero cost")
+                else:
+                    print(f"❌ Collection rate should be 0 for zero cost, got: {zero_cost_patient['collection_rate']}")
+                    return False
+                
+                # Verify completion rate calculation
+                if zero_cost_patient["total_plans"] > 0:
+                    expected_completion_rate = (zero_cost_patient["completed_plans"] / zero_cost_patient["total_plans"]) * 100
+                    if abs(zero_cost_patient["completion_rate"] - expected_completion_rate) < 0.01:
+                        print("✅ Completion rate correctly calculated")
+                    else:
+                        print(f"❌ Completion rate calculation error: expected {expected_completion_rate}, got {zero_cost_patient['completion_rate']}")
+                        return False
+                
+                return True
+            else:
+                print("❌ Zero cost patient not found in statistics")
+                return False
+        
+        return success
+
+    def test_patient_statistics_authentication(self):
+        """Test authentication requirements for patient statistics endpoint"""
+        # Save current token
+        saved_token = self.token
+        
+        # Test unauthorized access
+        self.token = None
+        success, _ = self.run_test(
+            "Unauthorized access to patient statistics",
+            "GET",
+            "treatment-plans/statistics/patients",
+            401  # Expect 401 Unauthorized
+        )
+        
+        if success:
+            print("✅ Unauthorized access correctly rejected")
+        else:
+            print("❌ Unauthorized access was allowed")
+            self.token = saved_token
+            return False
+        
+        # Restore token
+        self.token = saved_token
+        return True
+
+def test_patient_statistics_endpoint_comprehensive():
+    """
+    COMPREHENSIVE TEST FOR PATIENT STATISTICS ENDPOINT
+    Testing the /api/treatment-plans/statistics/patients endpoint that was causing 500 errors
+    """
+    backend_url = "https://medrecord-field.preview.emergentagent.com"
+    tester = ClinicAPITester(backend_url)
+    
+    print("=" * 80)
+    print("COMPREHENSIVE PATIENT STATISTICS ENDPOINT TESTING")
+    print("=" * 80)
+    
+    # Use existing test credentials from test_result.md
+    admin_email = "admin_test_20250821110240@medentry.com"
+    admin_password = "AdminTest123!"
+    doctor_email = "doctor_test_20250821110240@medentry.com"
+    doctor_password = "DoctorTest123!"
+    
+    print("\n" + "=" * 60)
+    print("STEP 1: AUTHENTICATION WITH ADMIN USER")
+    print("=" * 60)
+    
+    if not tester.test_login_user(admin_email, admin_password):
+        print("❌ Admin login failed")
+        return False
+    
+    print("✅ Admin user authenticated successfully")
+    
+    # Test 1: Basic endpoint functionality
+    print("\n" + "=" * 60)
+    print("STEP 2: BASIC ENDPOINT FUNCTIONALITY TEST")
+    print("=" * 60)
+    
+    if not tester.test_patient_statistics_endpoint():
+        print("❌ Basic patient statistics test failed")
+        return False
+    
+    # Test 2: Edge cases with zero costs and zero plans
+    print("\n" + "=" * 60)
+    print("STEP 3: EDGE CASES TEST (ZERO COSTS, ZERO PLANS)")
+    print("=" * 60)
+    
+    if not tester.test_patient_statistics_with_edge_cases():
+        print("❌ Edge cases test failed")
+        return False
+    
+    # Test 3: Authentication requirements
+    print("\n" + "=" * 60)
+    print("STEP 4: AUTHENTICATION REQUIREMENTS TEST")
+    print("=" * 60)
+    
+    if not tester.test_patient_statistics_authentication():
+        print("❌ Authentication test failed")
+        return False
+    
+    # Test 4: Doctor role access
+    print("\n" + "=" * 60)
+    print("STEP 5: DOCTOR ROLE ACCESS TEST")
+    print("=" * 60)
+    
+    if not tester.test_login_user(doctor_email, doctor_password):
+        print("❌ Doctor login failed")
+        return False
+    
+    print("✅ Doctor user authenticated successfully")
+    
+    if not tester.test_patient_statistics_endpoint():
+        print("❌ Doctor access to patient statistics failed")
+        return False
+    
+    print("✅ Doctor can access patient statistics")
+    
+    # Test 5: Create more complex test data and verify calculations
+    print("\n" + "=" * 60)
+    print("STEP 6: COMPLEX DATA SCENARIOS TEST")
+    print("=" * 60)
+    
+    # Create patient with multiple treatment plans
+    if not tester.test_create_patient("Multi Plan Patient", "+77773333333", "other"):
+        print("❌ Failed to create multi plan patient")
+        return False
+    
+    multi_plan_patient_id = tester.created_patient_id
+    
+    # Create multiple treatment plans with different statuses and costs
+    test_plans = [
+        {"title": "Plan 1 - Completed", "total_cost": 10000.0, "status": "completed", "execution_status": "completed", "payment_status": "paid", "paid_amount": 10000.0},
+        {"title": "Plan 2 - No Show", "total_cost": 5000.0, "status": "approved", "execution_status": "no_show", "payment_status": "unpaid", "paid_amount": 0.0},
+        {"title": "Plan 3 - Partial Payment", "total_cost": 8000.0, "status": "in_progress", "execution_status": "in_progress", "payment_status": "partially_paid", "paid_amount": 4000.0}
+    ]
+    
+    created_plans = []
+    for plan_data in test_plans:
+        success, plan = tester.test_create_treatment_plan(
+            multi_plan_patient_id,
+            plan_data["title"],
+            total_cost=plan_data["total_cost"],
+            status=plan_data["status"]
+        )
+        
+        if success and plan:
+            # Update the plan with enhanced fields
+            update_data = {
+                "execution_status": plan_data["execution_status"],
+                "payment_status": plan_data["payment_status"],
+                "paid_amount": plan_data["paid_amount"]
+            }
+            
+            success, updated_plan = tester.test_update_treatment_plan(plan["id"], update_data)
+            if success:
+                created_plans.append(updated_plan)
+                print(f"✅ Created and updated plan: {plan_data['title']}")
+            else:
+                print(f"❌ Failed to update plan: {plan_data['title']}")
+        else:
+            print(f"❌ Failed to create plan: {plan_data['title']}")
+    
+    if len(created_plans) != len(test_plans):
+        print("❌ Failed to create all test plans")
+        return False
+    
+    # Now test the statistics endpoint with this complex data
+    success, response = tester.run_test(
+        "Get Patient Statistics with Complex Data",
+        "GET",
+        "treatment-plans/statistics/patients",
+        200
+    )
+    
+    if success and response:
+        print("✅ Patient statistics endpoint works with complex data")
+        
+        # Find our multi-plan patient and verify calculations
+        patient_stats = response["patient_statistics"]
+        multi_plan_patient = None
+        
+        for patient in patient_stats:
+            if patient["patient_id"] == multi_plan_patient_id:
+                multi_plan_patient = patient
+                break
+        
+        if multi_plan_patient:
+            print(f"✅ Found multi-plan patient in statistics")
+            print(f"   Total plans: {multi_plan_patient['total_plans']}")
+            print(f"   Completed plans: {multi_plan_patient['completed_plans']}")
+            print(f"   No show plans: {multi_plan_patient['no_show_plans']}")
+            print(f"   Total cost: {multi_plan_patient['total_cost']}")
+            print(f"   Total paid: {multi_plan_patient['total_paid']}")
+            print(f"   Completion rate: {multi_plan_patient['completion_rate']}%")
+            print(f"   No show rate: {multi_plan_patient['no_show_rate']}%")
+            print(f"   Collection rate: {multi_plan_patient['collection_rate']}%")
+            
+            # Verify calculations
+            expected_total_cost = sum(plan["total_cost"] for plan in test_plans)
+            expected_total_paid = sum(plan["paid_amount"] for plan in test_plans)
+            expected_completion_rate = (1 / 3) * 100  # 1 completed out of 3 plans
+            expected_no_show_rate = (1 / 3) * 100     # 1 no show out of 3 plans
+            expected_collection_rate = (expected_total_paid / expected_total_cost) * 100
+            
+            if abs(multi_plan_patient["total_cost"] - expected_total_cost) < 0.01:
+                print("✅ Total cost calculation correct")
+            else:
+                print(f"❌ Total cost calculation error: expected {expected_total_cost}, got {multi_plan_patient['total_cost']}")
+                return False
+            
+            if abs(multi_plan_patient["total_paid"] - expected_total_paid) < 0.01:
+                print("✅ Total paid calculation correct")
+            else:
+                print(f"❌ Total paid calculation error: expected {expected_total_paid}, got {multi_plan_patient['total_paid']}")
+                return False
+            
+            if abs(multi_plan_patient["completion_rate"] - expected_completion_rate) < 0.01:
+                print("✅ Completion rate calculation correct")
+            else:
+                print(f"❌ Completion rate calculation error: expected {expected_completion_rate}, got {multi_plan_patient['completion_rate']}")
+                return False
+            
+            if abs(multi_plan_patient["no_show_rate"] - expected_no_show_rate) < 0.01:
+                print("✅ No show rate calculation correct")
+            else:
+                print(f"❌ No show rate calculation error: expected {expected_no_show_rate}, got {multi_plan_patient['no_show_rate']}")
+                return False
+            
+            if abs(multi_plan_patient["collection_rate"] - expected_collection_rate) < 0.01:
+                print("✅ Collection rate calculation correct")
+            else:
+                print(f"❌ Collection rate calculation error: expected {expected_collection_rate}, got {multi_plan_patient['collection_rate']}")
+                return False
+            
+            print("✅ All calculations verified successfully")
+        else:
+            print("❌ Multi-plan patient not found in statistics")
+            return False
+    else:
+        print("❌ Patient statistics endpoint failed with complex data")
+        return False
+    
+    print("\n" + "=" * 80)
+    print("✅ ALL PATIENT STATISTICS ENDPOINT TESTS PASSED")
+    print("✅ The 500 error issue has been resolved")
+    print("✅ Division by zero handling is working correctly")
+    print("✅ Authentication and authorization are working")
+    print("✅ Response structure is correct")
+    print("✅ Calculations are accurate")
+    print("=" * 80)
+    
+    return True
+
 def test_treatment_plan_422_validation_error():
     """
     SPECIFIC TEST FOR 422 VALIDATION ERROR INVESTIGATION
