@@ -161,6 +161,77 @@ const AppointmentModal = ({
     }
   };
 
+  const handleSaveTreatmentPlan = async (e) => {
+    e.preventDefault();
+    if (!selectedPatient) return;
+
+    try {
+      const token = localStorage.getItem('token');
+      const url = editingPlan 
+        ? `${API}/api/treatment-plans/${editingPlan.id}`
+        : `${API}/api/patients/${selectedPatient.id}/treatment-plans`;
+      
+      const response = await fetch(url, {
+        method: editingPlan ? 'PUT' : 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(planForm)
+      });
+
+      if (response.ok) {
+        setPlanForm({
+          title: '',
+          description: '',
+          services: [],
+          total_cost: 0,
+          status: 'draft',
+          notes: ''
+        });
+        setEditingPlan(null);
+        fetchTreatmentPlans(); // Refresh plans list
+      } else {
+        console.error('Error saving treatment plan');
+      }
+    } catch (error) {
+      console.error('Error saving treatment plan:', error);
+    }
+  };
+
+  const handleEditTreatmentPlan = (plan) => {
+    setEditingPlan(plan);
+    setPlanForm({
+      title: plan.title,
+      description: plan.description || '',
+      services: plan.services || [],
+      total_cost: plan.total_cost || 0,
+      status: plan.status,
+      notes: plan.notes || ''
+    });
+  };
+
+  const handleDeleteTreatmentPlan = async (planId) => {
+    if (!window.confirm('Удалить этот план лечения?')) return;
+
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch(`${API}/api/treatment-plans/${planId}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (response.ok) {
+        fetchTreatmentPlans(); // Refresh plans list
+      }
+    } catch (error) {
+      console.error('Error deleting treatment plan:', error);
+    }
+  };
+
   const handleCreateNewPatient = async (e) => {
     e.preventDefault();
     try {
