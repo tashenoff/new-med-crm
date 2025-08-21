@@ -264,8 +264,17 @@ class Patient(BaseModel):
     full_name: str
     phone: str
     iin: Optional[str] = None  # ИИН (Individual Identification Number)
+    birth_date: Optional[str] = None  # Date of birth (YYYY-MM-DD format)
+    gender: Optional[str] = None  # "male", "female", "other"
     source: PatientSource = PatientSource.OTHER
+    referrer: Optional[str] = None  # Who referred this patient
     notes: Optional[str] = None
+    # Financial information
+    revenue: Optional[float] = 0.0  # Total revenue from this patient
+    debt: Optional[float] = 0.0  # Patient's debt
+    overpayment: Optional[float] = 0.0  # Patient's overpayment
+    appointments_count: Optional[int] = 0  # Total completed appointments
+    records_count: Optional[int] = 0  # Total records count
     user_id: Optional[str] = None  # Link to User if patient has account
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)
