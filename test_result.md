@@ -214,11 +214,11 @@ test_plan:
 frontend:
   - task: "Enhanced patient modal form"
     implemented: true
-    working: "NA"
+    working: true
     file: "PatientModal.js"
     stuck_count: 0
     priority: "high"
-    needs_retesting: true
+    needs_retesting: false
     status_history:
       - working: "NA"
         agent: "main"
@@ -226,14 +226,17 @@ frontend:
       - working: "NA"
         agent: "main"
         comment: "Updated PatientModal to include birth_date, gender, referrer fields, and financial fields display for editing existing patients. Also updated all form resets in App.js"
+      - working: true
+        agent: "testing"
+        comment: "COMPREHENSIVE TESTING COMPLETED: ✅ Enhanced patient modal fully functional. All new fields (birth_date, gender, referrer) are present and working correctly. ✅ Financial fields are properly displayed for editing existing patients. ✅ Form submission works perfectly with new fields. ✅ Modal duplication bug FIXED - only ONE modal overlay appears when opening patient modal. ✅ Modal closes properly after successful submission. ✅ Created test patient 'Иван Петров' with all enhanced fields successfully."
 
   - task: "Enhanced appointment modal form"
     implemented: true
-    working: "NA"
+    working: true
     file: "AppointmentModal.js"
     stuck_count: 0
     priority: "high"
-    needs_retesting: true
+    needs_retesting: false
     status_history:
       - working: "NA"
         agent: "main"
@@ -241,30 +244,51 @@ frontend:
       - working: "NA"
         agent: "main"
         comment: "Updated AppointmentModal to include end_time, chair_number, assistant_id, second_doctor_id, extra_hours, patient_notes fields. Also updated all form resets and edit handlers in App.js"
+      - working: true
+        agent: "testing"
+        comment: "COMPREHENSIVE TESTING COMPLETED: ✅ Enhanced appointment modal fully functional. All 6/6 new fields found and working: end_time, chair_number, assistant_id, second_doctor_id, extra_hours checkbox, patient_notes. ✅ Assistant and second doctor dropdowns are properly populated with doctors list. ✅ Modal duplication bug FIXED - only ONE modal overlay appears when opening appointment modal. ✅ All form controls are responsive and properly styled."
 
   - task: "Enhanced patient display"
     implemented: true
-    working: "NA"
+    working: true
     file: "PatientsView.js"
     stuck_count: 0
     priority: "high"
-    needs_retesting: true
+    needs_retesting: false
     status_history:
       - working: "NA"
         agent: "main"
         comment: "Updated PatientsView to display new fields: personal data (birth_date, gender), referrer information, and financial summary (revenue, debt, overpayment, appointments count)"
+      - working: true
+        agent: "testing"
+        comment: "COMPREHENSIVE TESTING COMPLETED: ✅ Enhanced patient display working perfectly. Birth date displayed correctly as '15.05.1990', gender shown as 'Мужской', referrer information displayed as 'Направил: Доктор Смирнов'. ✅ Financial information properly displayed with color coding (green for revenue, red for debt, blue for overpayment). ✅ Appointments count shown correctly. ✅ All enhanced fields are properly formatted and visible in the patients table."
 
   - task: "Enhanced appointment display"
     implemented: true
-    working: "NA"
+    working: true
     file: "ScheduleView.js"
     stuck_count: 0
     priority: "high"
-    needs_retesting: true
+    needs_retesting: false
     status_history:
       - working: "NA"
         agent: "main"
         comment: "Updated ScheduleView to display new appointment fields: assistant_name, second_doctor_name, end_time, chair_number, extra_hours, patient_notes"
+      - working: true
+        agent: "testing"
+        comment: "COMPREHENSIVE TESTING COMPLETED: ✅ Enhanced appointment display working perfectly. All new fields are properly displayed in ScheduleView: assistant_name, second_doctor_name, end_time (shown as time range), chair_number with chair emoji, extra_hours with clock emoji, patient_notes. ✅ Enhanced appointment cards show comprehensive information with proper formatting and visual indicators. ✅ No layout issues or overlapping content detected."
+
+  - task: "Modal duplication bug fix"
+    implemented: true
+    working: true
+    file: "App.js"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - working: true
+        agent: "testing"
+        comment: "CRITICAL BUG FIX VERIFIED: ✅ Modal duplication bug has been completely FIXED. ✅ Patient modal: Only 1 overlay (.fixed.inset-0.bg-black.bg-opacity-50) appears when clicking 'Добавить пациента'. ✅ Appointment modal: Only 1 overlay appears when clicking 'Новая запись'. ✅ No overlapping or duplicate modals detected during comprehensive testing. ✅ Modal system is now working correctly with proper z-index and overlay management."
 
 agent_communication:
   - agent: "main"
