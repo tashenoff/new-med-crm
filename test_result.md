@@ -243,8 +243,9 @@ metadata:
 
 test_plan:
   current_focus:
-    - "Document management system testing completed"
-  stuck_tasks: []
+    - "Static file serving for documents"
+  stuck_tasks:
+    - "Static file serving for documents"
   test_all: false
   test_priority: "high_first"
 
