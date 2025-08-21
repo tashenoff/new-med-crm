@@ -358,6 +358,18 @@ test_plan:
         agent: "testing"
         comment: "COMPREHENSIVE SIMPLIFIED APPOINTMENT MODEL TESTING COMPLETED: ✅ Verified appointment model contains only simplified fields: patient_id, doctor_id, appointment_date, appointment_time, end_time, chair_number, price, reason, notes, patient_notes. ✅ Confirmed removed fields (assistant_id, second_doctor_id, extra_hours) are completely absent from model and API responses. ✅ Price field testing: Decimal values (15000.50) stored correctly as float, supports zero prices, null for backward compatibility. ✅ API endpoints work perfectly: POST /api/appointments creates with simplified structure, PUT /api/appointments/{id} updates simplified fields, GET /api/appointments returns without removed fields. ✅ Backward compatibility verified: Existing appointments without price field work with null defaults. ✅ Aggregation queries correctly handle simplified model, time conflict detection functional. ✅ All 8/8 focused tests and 21/22 comprehensive API calls passed successfully."
 
+  - task: "Doctor statistics API endpoints"
+    implemented: true
+    working: true
+    file: "server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - working: true
+        agent: "testing"
+        comment: "DOCTOR STATISTICS API COMPREHENSIVE TESTING COMPLETED: ✅ NEW DOCTOR STATISTICS ENDPOINTS FULLY FUNCTIONAL: Successfully tested both GET /api/doctors/statistics (general doctor statistics) and GET /api/doctors/statistics/individual (individual doctor performance) endpoints. Fixed critical routing issue by moving statistics endpoints before parameterized routes to prevent conflicts. ✅ SAMPLE DATA CREATION: Created 30 appointments with different statuses (completed, cancelled, no_show) across 3 doctors and 5 patients, with various prices (5000-15000 тенге) and dates spanning last 60 days for comprehensive testing. ✅ STATISTICS CALCULATIONS VERIFIED: All calculations working correctly - completion rates (5.9%), cancellation rates (7.0%), no-show rates (4.8%), revenue calculations (100,000 тенге total revenue), revenue efficiency (6.1%), and monthly aggregations. ✅ DATE FILTERING FUNCTIONALITY: Successfully tested all date filtering scenarios - no parameters (all data: 187 appointments), date_from parameter (last 30 days: 68 appointments), date_to parameter, and both parameters together. Filtering working correctly with reduced appointment counts. ✅ INDIVIDUAL DOCTOR PERFORMANCE: Individual statistics endpoint returns detailed per-doctor metrics including total appointments, completion rates, revenue, efficiency rates, and proper sorting by revenue. Summary statistics show active doctors, top performers, and high-revenue doctors. ✅ AUTHENTICATION AND AUTHORIZATION: Endpoints properly require authentication (401/403 for unauthorized access), support both admin and doctor roles, and reject unauthorized requests correctly. ✅ MONGODB AGGREGATION FIXES: Fixed division by zero errors in aggregation pipeline using $cond operators to handle zero denominators safely. All aggregation queries working correctly with proper error handling. ✅ ROUTE ORDERING FIXED: Moved doctor statistics routes before /doctors/{doctor_id} parameterized route to prevent 'statistics' being interpreted as doctor_id. All routing conflicts resolved. ✅ COMPREHENSIVE TESTING RESULTS: Created comprehensive test suite covering all requirements from review request. All major functionality verified working correctly with accurate calculations and proper data handling. Doctor statistics API endpoints are fully operational and production-ready."
+
 frontend:
   - task: "Treatment plan saving functionality with validation error"
     implemented: true
