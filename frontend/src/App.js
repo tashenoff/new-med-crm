@@ -654,6 +654,32 @@ function ClinicApp() {
     }
   };
 
+  // Function to create patient from appointment modal
+  const handleCreatePatientFromAppointment = async (newPatientData) => {
+    try {
+      setLoading(true);
+      const response = await axios.post(`${API}/patients`, newPatientData);
+      const newPatient = response.data;
+      
+      // Add to patients list
+      setPatients(prev => [...prev, newPatient]);
+      
+      // Set as selected patient in appointment form
+      setAppointmentForm(prev => ({...prev, patient_id: newPatient.id}));
+      
+      setErrorMessage(`✅ Пациент "${newPatient.full_name}" создан успешно!`);
+      setTimeout(() => setErrorMessage(null), 3000);
+      
+      return newPatient;
+    } catch (error) {
+      console.error('Error creating patient:', error);
+      setErrorMessage('Ошибка при создании пациента');
+      throw error;
+    } finally {
+      setLoading(false);
+    }
+  };
+
   // Doctor functions
   const handleSaveDoctor = async (e) => {
     e.preventDefault();
