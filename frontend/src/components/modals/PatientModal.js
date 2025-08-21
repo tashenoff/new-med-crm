@@ -390,9 +390,8 @@ const PatientModal = ({
                       </div>
                       <div className="flex space-x-2">
                         <a
-                          href={`${API}/uploads/${doc.filename}`}
-                          target="_blank"
-                          rel="noopener noreferrer"
+                          href={`${API}/api/uploads/${doc.filename}`}
+                          download={doc.original_filename}
                           className="px-3 py-1 text-blue-600 border border-blue-600 rounded hover:bg-blue-50 text-sm"
                         >
                           Скачать
