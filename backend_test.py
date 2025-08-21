@@ -1158,6 +1158,359 @@ class ClinicAPITester:
             print("❌ Complex services array validation failed")
             return False
 
+    # Service Management Testing Methods
+    def test_initialize_default_services(self):
+        """Initialize default services"""
+        success, response = self.run_test(
+            "Initialize Default Services",
+            "POST",
+            "services/initialize",
+            200
+        )
+        if success and response:
+            print(f"✅ Default services initialization: {response.get('message', 'Success')}")
+        return success, response
+
+    def test_get_services(self, category=None):
+        """Get all services or services by category"""
+        params = {"category": category} if category else None
+        filter_desc = f" (category: {category})" if category else ""
+        
+        success, response = self.run_test(
+            f"Get Services{filter_desc}",
+            "GET",
+            "services",
+            200,
+            params=params
+        )
+        if success and response:
+            print(f"Found {len(response)} services{filter_desc}")
+            if len(response) > 0:
+                service = response[0]
+                print(f"Sample service: {service['name']} - {service['category']} - {service['price']} тенге")
+                
+                # Verify all services have required fields
+                required_fields = ['id', 'name', 'category', 'price']
+                for field in required_fields:
+                    if field not in service:
+                        print(f"❌ Service missing required field: {field}")
+                        return False, None
+                
+                # If category filter is specified, verify all services match
+                if category:
+                    for svc in response:
+                        if svc['category'] != category:
+                            print(f"❌ Category filter failed: expected {category}, got {svc['category']}")
+                            return False, None
+                    print(f"✅ All services match category filter: {category}")
+        return success, response
+
+    def test_get_service_categories(self):
+        """Get all service categories"""
+        success, response = self.run_test(
+            "Get Service Categories",
+            "GET",
+            "service-categories",
+            200
+        )
+        if success and response:
+            categories = response.get('categories', [])
+            print(f"Found {len(categories)} service categories")
+            print(f"Categories: {', '.join(categories)}")
+            
+            # Verify expected categories are present
+            expected_categories = ["Стоматолог", "Гинекология", "Ортодонт", "Дерматовенеролог", "Медикаменты"]
+            for expected in expected_categories:
+                if expected not in categories:
+                    print(f"❌ Expected category missing: {expected}")
+                    return False, None
+            
+            # Verify categories are sorted
+            if categories == sorted(categories):
+                print("✅ Categories are properly sorted")
+            else:
+                print("❌ Categories are not sorted")
+                return False, None
+                
+        return success, response
+
+    def test_create_service(self, name, category, price, description=None):
+        """Create a new service (admin only)"""
+        data = {
+            "name": name,
+            "category": category,
+            "price": price
+        }
+        if description:
+            data["description"] = description
+            
+        success, response = self.run_test(
+            "Create Service",
+            "POST",
+            "services",
+            200,
+            data=data
+        )
+        if success and response and "id" in response:
+            print(f"Created service: {response['name']} in category {response['category']} for {response['price']} тенге")
+            return success, response
+        return success, None
+
+    def test_service_access_control_doctor(self):
+        """Test that doctors can view services but not create them"""
+        # Test doctor can view services
+        success, services = self.test_get_services()
+        if not success:
+            print("❌ Doctor cannot view services")
+            return False
+        print("✅ Doctor can view services")
+        
+        # Test doctor can view categories
+        success, categories = self.test_get_service_categories()
+        if not success:
+            print("❌ Doctor cannot view service categories")
+            return False
+        print("✅ Doctor can view service categories")
+        
+        # Test doctor cannot create services
+        success, _ = self.test_create_service("Test Service", "Стоматолог", 5000.0)
+        if not success:
+            print("✅ Doctor correctly cannot create services")
+            return True
+        else:
+            print("❌ Doctor was allowed to create services")
+            return False
+
+    def test_service_access_control_unauthorized(self):
+        """Test unauthorized access to service endpoints"""
+        # Save current token
+        saved_token = self.token
+        # Clear token
+        self.token = None
+        
+        # Test unauthorized access to services
+        success, _ = self.run_test(
+            "Unauthorized access to services",
+            "GET",
+            "services",
+            403  # Expect 403 Forbidden
+        )
+        
+        if not success:
+            print("❌ Unauthorized services access test failed")
+            self.token = saved_token
+            return False
+        
+        # Test unauthorized access to categories
+        success, _ = self.run_test(
+            "Unauthorized access to service categories",
+            "GET",
+            "service-categories",
+            403  # Expect 403 Forbidden
+        )
+        
+        if not success:
+            print("❌ Unauthorized categories access test failed")
+            self.token = saved_token
+            return False
+        
+        # Test unauthorized service creation
+        success, _ = self.run_test(
+            "Unauthorized service creation",
+            "POST",
+            "services",
+            403,  # Expect 403 Forbidden
+            data={"name": "Unauthorized Service", "category": "Test", "price": 1000.0}
+        )
+        
+        # Restore token
+        self.token = saved_token
+        
+        if success:
+            print("✅ All unauthorized access tests passed")
+            return True
+        else:
+            print("❌ Unauthorized service creation test failed")
+            return False
+
+    def test_service_integration_with_treatment_plans(self, patient_id):
+        """Test that services can be referenced in treatment plans"""
+        # First get available services
+        success, services = self.test_get_services()
+        if not success or not services:
+            print("❌ Cannot get services for integration test")
+            return False
+        
+        # Create treatment plan using services from different categories
+        dental_services = [svc for svc in services if svc['category'] == 'Стоматолог']
+        other_services = [svc for svc in services if svc['category'] != 'Стоматолог']
+        
+        if not dental_services:
+            print("❌ No dental services found for integration test")
+            return False
+        
+        # Create services array for treatment plan
+        treatment_services = []
+        total_cost = 0.0
+        
+        # Add dental service
+        dental_svc = dental_services[0]
+        treatment_services.append({
+            "service_id": dental_svc['id'],
+            "service_name": dental_svc['name'],
+            "category": dental_svc['category'],
+            "price": dental_svc['price'],
+            "tooth": "11",
+            "quantity": 1
+        })
+        total_cost += dental_svc['price']
+        
+        # Add service from another category if available
+        if other_services:
+            other_svc = other_services[0]
+            treatment_services.append({
+                "service_id": other_svc['id'],
+                "service_name": other_svc['name'],
+                "category": other_svc['category'],
+                "price": other_svc['price'],
+                "quantity": 1
+            })
+            total_cost += other_svc['price']
+        
+        # Create treatment plan with services
+        success, plan = self.test_create_treatment_plan(
+            patient_id,
+            "План с услугами из каталога",
+            description="План лечения с использованием услуг из каталога",
+            services=treatment_services,
+            total_cost=total_cost,
+            status="draft"
+        )
+        
+        if not success or not plan:
+            print("❌ Failed to create treatment plan with catalog services")
+            return False
+        
+        # Verify services are properly stored
+        if len(plan['services']) != len(treatment_services):
+            print(f"❌ Service count mismatch: expected {len(treatment_services)}, got {len(plan['services'])}")
+            return False
+        
+        # Verify service data structure
+        for i, service in enumerate(plan['services']):
+            expected = treatment_services[i]
+            if service['service_name'] != expected['service_name']:
+                print(f"❌ Service name mismatch: expected {expected['service_name']}, got {service['service_name']}")
+                return False
+            if service['category'] != expected['category']:
+                print(f"❌ Service category mismatch: expected {expected['category']}, got {service['category']}")
+                return False
+        
+        print("✅ Services successfully integrated with treatment plans")
+        print(f"✅ Created treatment plan with {len(treatment_services)} services from catalog")
+        return True, plan['id']
+
+    def test_service_data_structure(self):
+        """Test that service data structure matches frontend expectations"""
+        success, services = self.test_get_services()
+        if not success or not services:
+            print("❌ Cannot get services for data structure test")
+            return False
+        
+        # Check required fields for frontend
+        required_fields = ['id', 'name', 'category', 'price', 'created_at']
+        optional_fields = ['description']
+        
+        for service in services[:3]:  # Check first 3 services
+            for field in required_fields:
+                if field not in service:
+                    print(f"❌ Service missing required field: {field}")
+                    return False
+            
+            # Verify data types
+            if not isinstance(service['price'], (int, float)):
+                print(f"❌ Service price is not numeric: {type(service['price'])}")
+                return False
+            
+            if service['price'] <= 0:
+                print(f"❌ Service price is not positive: {service['price']}")
+                return False
+        
+        print("✅ Service data structure matches frontend expectations")
+        return True
+
+    def test_service_category_filtering(self):
+        """Test service filtering by different categories"""
+        # Get all services first
+        success, all_services = self.test_get_services()
+        if not success or not all_services:
+            print("❌ Cannot get all services for filtering test")
+            return False
+        
+        # Get unique categories
+        categories = list(set(svc['category'] for svc in all_services))
+        
+        # Test filtering by each category
+        for category in categories:
+            success, filtered_services = self.test_get_services(category=category)
+            if not success:
+                print(f"❌ Failed to filter services by category: {category}")
+                return False
+            
+            # Verify all returned services match the category
+            for service in filtered_services:
+                if service['category'] != category:
+                    print(f"❌ Category filter failed for {category}: found {service['category']}")
+                    return False
+            
+            # Count services in this category from all services
+            expected_count = len([svc for svc in all_services if svc['category'] == category])
+            if len(filtered_services) != expected_count:
+                print(f"❌ Category filter count mismatch for {category}: expected {expected_count}, got {len(filtered_services)}")
+                return False
+            
+            print(f"✅ Category filter working correctly for {category}: {len(filtered_services)} services")
+        
+        return True
+
+    def test_dental_services_specifically(self):
+        """Test dental services (Стоматолог category) with prices"""
+        success, dental_services = self.test_get_services(category="Стоматолог")
+        if not success or not dental_services:
+            print("❌ Cannot get dental services")
+            return False
+        
+        print(f"Found {len(dental_services)} dental services")
+        
+        # Verify we have expected dental services
+        expected_dental_services = [
+            "14C-уреазный дыхательный тест на определение Хеликобактер пилори (Helicobacter pylori)",
+            "17-OH Прогестерон (17-ОП)",
+            "Лечение кариеса",
+            "Удаление зуба",
+            "Установка пломбы",
+            "Чистка зубов"
+        ]
+        
+        found_services = [svc['name'] for svc in dental_services]
+        
+        for expected in expected_dental_services:
+            if expected not in found_services:
+                print(f"❌ Expected dental service not found: {expected}")
+                return False
+        
+        # Verify prices are reasonable
+        for service in dental_services:
+            if service['price'] <= 0:
+                print(f"❌ Invalid price for {service['name']}: {service['price']}")
+                return False
+            if service['price'] > 200000:  # Reasonable upper limit
+                print(f"❌ Price too high for {service['name']}: {service['price']}")
+                return False
+        
+        print("✅ Dental services verified with proper prices")
+        return True
+
 def test_date_range_appointments(self):
     """Test appointments with date range (±7 days)"""
     # Get dates for ±7 days range
