@@ -10,7 +10,8 @@ const AppointmentModal = ({
   doctors, 
   editingItem, 
   loading, 
-  errorMessage 
+  errorMessage,
+  onCreatePatient
 }) => {
   const [showNewPatientForm, setShowNewPatientForm] = useState(false);
   const [newPatientForm, setNewPatientForm] = useState({
