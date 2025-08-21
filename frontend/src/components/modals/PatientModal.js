@@ -32,6 +32,9 @@ const PatientModal = ({
     if (editingItem && activeTab === 'documents') {
       fetchDocuments();
     }
+    if (editingItem && activeTab === 'plans') {
+      fetchTreatmentPlans();
+    }
   }, [editingItem, activeTab]);
 
   const fetchDocuments = async () => {
