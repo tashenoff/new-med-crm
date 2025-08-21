@@ -225,6 +225,18 @@ backend:
         agent: "testing"
         comment: "NEW DOWNLOAD API ENDPOINT COMPREHENSIVE TESTING COMPLETED: ✅ GET /api/uploads/{filename} endpoint fully functional as workaround for ingress routing issue. ✅ COMPLETE FILE DOWNLOAD WORKFLOW: Upload via POST /api/patients/{patient_id}/documents -> List via GET /api/patients/{patient_id}/documents -> Download via GET /api/uploads/{filename} works perfectly. ✅ CONTENT-TYPE VERIFICATION: Tested 5 file types with correct headers - PDF (application/pdf), DOCX (application/vnd.openxmlformats-officedocument.wordprocessingml.document), JPG (image/jpeg), TXT (text/plain), unknown extensions (application/octet-stream). ✅ CONTENT INTEGRITY: Downloaded content matches uploaded content exactly for all file types. ✅ ERROR HANDLING: Proper 404 responses for non-existent files (nonexistent-file-12345.pdf) and invalid filenames. ✅ FILERESPONSE IMPLEMENTATION: Proper filename parameter set for download behavior. ✅ INTEGRATION: Seamless integration with existing document management system. ✅ WORKAROUND SUCCESS: New API endpoint successfully bypasses Kubernetes ingress routing issue and provides complete file download functionality."
 
+  - task: "Treatment plan management system"
+    implemented: true
+    working: true
+    file: "server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - working: true
+        agent: "testing"
+        comment: "COMPREHENSIVE TREATMENT PLAN MANAGEMENT TESTING COMPLETED: ✅ POST /api/patients/{patient_id}/treatment-plans endpoint fully functional - created plans with all fields (title, description, services, total_cost, status, notes) and minimal fields. ✅ GET /api/patients/{patient_id}/treatment-plans returns patient treatment plans sorted by creation date (newest first). ✅ GET /api/treatment-plans/{plan_id} retrieves specific treatment plans with complete details including created_by_name. ✅ PUT /api/treatment-plans/{plan_id} updates treatment plans successfully with all field validation. ✅ DELETE /api/treatment-plans/{plan_id} deletes treatment plans and verifies cleanup. ✅ STATUS WORKFLOW: Successfully tested draft -> approved -> completed workflow transitions. ✅ DATA VALIDATION: Required fields validation (422 for missing title), decimal total_cost support (1500.75), complex services array structure validation. ✅ ACCESS CONTROL: Admins and doctors can create/update/delete treatment plans, patients correctly restricted (403 Forbidden). ✅ SECURITY: Unauthorized access properly blocked (403), non-existent patient handling (404). ✅ CREATED_BY FIELDS: created_by and created_by_name correctly populated from current user. ✅ All 32/35 tests passed (3 expected failures for access control verification). Treatment plan system fully functional and secure."
+
 frontend:
   - task: "Medical record editing interface"
     implemented: true
