@@ -486,7 +486,7 @@ const TreatmentStatistics = () => {
       )}
 
       {/* Patients Tab */}
-      {activeTab === 'patients' && patientStats && (
+      {activeCategory === 'treatment' && activeTab === 'patients' && patientStats && (
         <div className="space-y-6">
           {/* Patient Summary */}
           <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
