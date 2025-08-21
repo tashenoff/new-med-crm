@@ -812,9 +812,7 @@ function ClinicApp() {
         appointment_time: '', 
         end_time: '',
         chair_number: '',
-        assistant_id: '',
-        second_doctor_id: '',
-        extra_hours: false,
+        price: '',
         reason: '', 
         notes: '',
         patient_notes: ''
