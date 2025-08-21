@@ -62,9 +62,9 @@ const Navigation = ({ activeTab, setActiveTab, availableTabs, sidebarOpen, setSi
       {/* Sidebar */}
       <nav className={`
         fixed left-0 top-0 h-full bg-white shadow-lg z-50 transform transition-transform duration-300 ease-in-out
-        ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}
-        lg:translate-x-0 lg:static lg:z-auto
         w-64 border-r border-gray-200
+        ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}
+        lg:relative lg:z-auto lg:shadow-none
       `}>
         <div className="flex flex-col h-full">
           {/* Sidebar Header */}
