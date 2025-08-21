@@ -1,7 +1,9 @@
 import React from 'react';
 
 const Navigation = ({ activeTab, setActiveTab, availableTabs, sidebarOpen, setSidebarOpen }) => {
-  const [expandedSections, setExpandedSections] = React.useState({});
+  const [expandedSections, setExpandedSections] = React.useState({
+    statistics: true // Автоматически раскрываем статистику
+  });
   // Структура меню с поддержкой подразделов
   const getMenuStructure = () => {
     const baseItems = [
