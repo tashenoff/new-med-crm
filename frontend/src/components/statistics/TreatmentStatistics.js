@@ -603,8 +603,8 @@ const TreatmentStatistics = () => {
         </div>
       )}
 
-      {/* Monthly Tab */}
-      {activeTab === 'monthly' && statistics && statistics.monthly_statistics && (
+      {/* Treatment Plans Monthly Tab */}
+      {activeCategory === 'treatment' && activeTab === 'monthly' && statistics && statistics.monthly_statistics && (
         <div className="space-y-6">
           <div className="bg-white rounded-lg shadow overflow-hidden">
             <div className="px-6 py-4 border-b border-gray-200">
