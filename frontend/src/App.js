@@ -347,7 +347,7 @@ function ClinicApp() {
   const [patients, setPatients] = useState([]);
   const [doctors, setDoctors] = useState([]);
   const [appointments, setAppointments] = useState([]);
-  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [sidebarOpen, setSidebarOpen] = useState(true); // По умолчанию открыт на десктопе
 
   // Модальные окна
   const [showPatientModal, setShowPatientModal] = useState(false);
