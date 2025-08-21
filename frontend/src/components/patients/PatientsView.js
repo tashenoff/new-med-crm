@@ -83,25 +83,61 @@ const PatientsView = ({
                       {patient.notes && (
                         <div className="text-sm text-gray-500">{patient.notes}</div>
                       )}
+                      {patient.referrer && (
+                        <div className="text-sm text-blue-600">Направил: {patient.referrer}</div>
+                      )}
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      {patient.phone}
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="text-sm text-gray-900">{patient.phone}</div>
+                      {patient.iin && (
+                        <div className="text-sm text-gray-500">ИИН: {patient.iin}</div>
+                      )}
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      {patient.iin || '-'}
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      {patient.birth_date && (
+                        <div className="text-sm text-gray-900">
+                          {new Date(patient.birth_date).toLocaleDateString('ru-RU')}
+                        </div>
+                      )}
+                      {patient.gender && (
+                        <div className="text-sm text-gray-500">
+                          {patient.gender === 'male' ? 'Мужской' : 
+                           patient.gender === 'female' ? 'Женский' : 'Другой'}
+                        </div>
+                      )}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <span className={`px-2 py-1 text-xs rounded font-medium ${
                         patient.source === 'phone' ? 'bg-blue-100 text-blue-800' :
                         patient.source === 'walk_in' ? 'bg-green-100 text-green-800' :
                         patient.source === 'referral' ? 'bg-purple-100 text-purple-800' :
+                        patient.source === 'website' ? 'bg-indigo-100 text-indigo-800' :
+                        patient.source === 'social_media' ? 'bg-pink-100 text-pink-800' :
                         'bg-gray-100 text-gray-800'
                       }`}>
                         {patient.source === 'phone' ? 'Телефон' :
                          patient.source === 'walk_in' ? 'Обращение' :
                          patient.source === 'referral' ? 'Направление' :
+                         patient.source === 'website' ? 'Веб-сайт' :
+                         patient.source === 'social_media' ? 'Соц. сети' :
                          'Другое'}
                       </span>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="text-sm">
+                        {(patient.revenue || 0) > 0 && (
+                          <div className="text-green-600">↗ {patient.revenue} ₸</div>
+                        )}
+                        {(patient.debt || 0) > 0 && (
+                          <div className="text-red-600">↘ {patient.debt} ₸</div>
+                        )}
+                        {(patient.overpayment || 0) > 0 && (
+                          <div className="text-blue-600">↖ {patient.overpayment} ₸</div>
+                        )}
+                        <div className="text-xs text-gray-500">
+                          {patient.appointments_count || 0} приемов
+                        </div>
+                      </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                       {new Date(patient.created_at).toLocaleDateString('ru-RU')}
