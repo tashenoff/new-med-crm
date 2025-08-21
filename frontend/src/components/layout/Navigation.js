@@ -91,6 +91,11 @@ const Navigation = ({ activeTab, setActiveTab, availableTabs, sidebarOpen, setSi
 
   const handleSubTabClick = (subTabKey) => {
     setActiveTab(subTabKey);
+    // Автоматически раскрываем родительскую секцию
+    setExpandedSections(prev => ({
+      ...prev,
+      statistics: true
+    }));
     // Close sidebar on mobile after selection
     if (window.innerWidth < 1024) {
       setSidebarOpen(false);
