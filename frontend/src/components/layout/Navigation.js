@@ -2,6 +2,36 @@ import React from 'react';
 
 const Navigation = ({ activeTab, setActiveTab, availableTabs, sidebarOpen, setSidebarOpen }) => {
   const [expandedSections, setExpandedSections] = React.useState({});
+  // Структура меню с поддержкой подразделов
+  const getMenuStructure = () => {
+    const baseItems = [
+      { key: 'schedule', label: 'Расписание', type: 'tab' },
+      { key: 'calendar', label: 'Календарь', type: 'tab' },
+    ];
+
+    if (availableTabs.some(tab => tab.key === 'patients')) {
+      baseItems.push({ key: 'patients', label: 'Пациенты', type: 'tab' });
+      baseItems.push({ key: 'medical', label: 'Медкарты', type: 'tab' });
+      
+      // Добавляем секцию статистики с подразделами
+      baseItems.push({
+        key: 'statistics',
+        label: 'Статистика',
+        type: 'section',
+        children: [
+          { key: 'treatment-statistics', label: 'Планы лечения', type: 'subtab' },
+          { key: 'doctor-statistics', label: 'Врачи', type: 'subtab' }
+        ]
+      });
+    }
+
+    if (availableTabs.some(tab => tab.key === 'doctors')) {
+      baseItems.push({ key: 'doctors', label: 'Врачи', type: 'tab' });
+    }
+
+    return baseItems;
+  };
+
   const getTabIcon = (tabKey) => {
     const icons = {
       schedule: (
