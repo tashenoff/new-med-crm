@@ -1511,6 +1511,172 @@ class ClinicAPITester:
         print("✅ Dental services verified with proper prices")
         return True
 
+    def test_patient_statistics_endpoint(self):
+        """Test the patient statistics endpoint that was causing 500 errors"""
+        success, response = self.run_test(
+            "Get Patient Statistics",
+            "GET",
+            "treatment-plans/statistics/patients",
+            200
+        )
+        if success and response:
+            print("✅ Patient statistics endpoint working correctly")
+            
+            # Verify response structure
+            if "patient_statistics" in response and "summary" in response:
+                print("✅ Response has correct structure")
+                
+                # Check summary fields
+                summary = response["summary"]
+                required_summary_fields = ["total_patients", "patients_with_unpaid", "patients_with_no_shows", "high_value_patients"]
+                for field in required_summary_fields:
+                    if field not in summary:
+                        print(f"❌ Missing summary field: {field}")
+                        return False
+                
+                # Check patient statistics structure
+                patient_stats = response["patient_statistics"]
+                if len(patient_stats) > 0:
+                    patient = patient_stats[0]
+                    required_patient_fields = [
+                        "patient_id", "patient_name", "patient_phone", "total_plans", 
+                        "completed_plans", "no_show_plans", "total_cost", "total_paid",
+                        "outstanding_amount", "unpaid_plans", "completion_rate", 
+                        "no_show_rate", "collection_rate"
+                    ]
+                    for field in required_patient_fields:
+                        if field not in patient:
+                            print(f"❌ Missing patient field: {field}")
+                            return False
+                    
+                    # Verify calculations don't cause division by zero
+                    if patient["completion_rate"] is not None and not isinstance(patient["completion_rate"], (int, float)):
+                        print(f"❌ Invalid completion_rate: {patient['completion_rate']}")
+                        return False
+                    
+                    if patient["no_show_rate"] is not None and not isinstance(patient["no_show_rate"], (int, float)):
+                        print(f"❌ Invalid no_show_rate: {patient['no_show_rate']}")
+                        return False
+                    
+                    if patient["collection_rate"] is not None and not isinstance(patient["collection_rate"], (int, float)):
+                        print(f"❌ Invalid collection_rate: {patient['collection_rate']}")
+                        return False
+                    
+                    print("✅ All calculation fields are valid numbers")
+                
+                print(f"✅ Found {len(patient_stats)} patient statistics")
+                print(f"✅ Summary: {summary['total_patients']} total patients")
+                return True
+            else:
+                print("❌ Response missing required structure")
+                return False
+        return success
+
+    def test_patient_statistics_with_edge_cases(self):
+        """Test patient statistics endpoint with edge cases (zero costs, zero plans)"""
+        # First create some test data with edge cases
+        print("\n🔍 Creating test data with edge cases...")
+        
+        # Create a patient with zero cost treatment plan
+        if not self.test_create_patient("Zero Cost Patient", "+77771111111", "other"):
+            print("❌ Failed to create zero cost patient")
+            return False
+        
+        zero_cost_patient_id = self.created_patient_id
+        
+        # Create treatment plan with zero cost
+        success, zero_plan = self.test_create_treatment_plan(
+            zero_cost_patient_id,
+            "Zero Cost Plan",
+            description="Plan with zero cost for testing division by zero",
+            total_cost=0.0,
+            status="completed"
+        )
+        
+        if not success:
+            print("❌ Failed to create zero cost treatment plan")
+            return False
+        
+        # Create another patient with no treatment plans (will not appear in stats)
+        if not self.test_create_patient("No Plans Patient", "+77772222222", "other"):
+            print("❌ Failed to create no plans patient")
+            return False
+        
+        print("✅ Test data created successfully")
+        
+        # Now test the statistics endpoint
+        success, response = self.run_test(
+            "Get Patient Statistics with Edge Cases",
+            "GET",
+            "treatment-plans/statistics/patients",
+            200
+        )
+        
+        if success and response:
+            print("✅ Patient statistics endpoint handles edge cases correctly")
+            
+            # Find our zero cost patient in the results
+            patient_stats = response["patient_statistics"]
+            zero_cost_patient = None
+            
+            for patient in patient_stats:
+                if patient["patient_id"] == zero_cost_patient_id:
+                    zero_cost_patient = patient
+                    break
+            
+            if zero_cost_patient:
+                print(f"✅ Found zero cost patient in statistics")
+                print(f"   Total cost: {zero_cost_patient['total_cost']}")
+                print(f"   Collection rate: {zero_cost_patient['collection_rate']}")
+                
+                # Verify collection rate is 0 when total cost is 0 (not NaN or error)
+                if zero_cost_patient["collection_rate"] == 0:
+                    print("✅ Collection rate correctly calculated as 0 for zero cost")
+                else:
+                    print(f"❌ Collection rate should be 0 for zero cost, got: {zero_cost_patient['collection_rate']}")
+                    return False
+                
+                # Verify completion rate calculation
+                if zero_cost_patient["total_plans"] > 0:
+                    expected_completion_rate = (zero_cost_patient["completed_plans"] / zero_cost_patient["total_plans"]) * 100
+                    if abs(zero_cost_patient["completion_rate"] - expected_completion_rate) < 0.01:
+                        print("✅ Completion rate correctly calculated")
+                    else:
+                        print(f"❌ Completion rate calculation error: expected {expected_completion_rate}, got {zero_cost_patient['completion_rate']}")
+                        return False
+                
+                return True
+            else:
+                print("❌ Zero cost patient not found in statistics")
+                return False
+        
+        return success
+
+    def test_patient_statistics_authentication(self):
+        """Test authentication requirements for patient statistics endpoint"""
+        # Save current token
+        saved_token = self.token
+        
+        # Test unauthorized access
+        self.token = None
+        success, _ = self.run_test(
+            "Unauthorized access to patient statistics",
+            "GET",
+            "treatment-plans/statistics/patients",
+            401  # Expect 401 Unauthorized
+        )
+        
+        if success:
+            print("✅ Unauthorized access correctly rejected")
+        else:
+            print("❌ Unauthorized access was allowed")
+            self.token = saved_token
+            return False
+        
+        # Restore token
+        self.token = saved_token
+        return True
+
 def test_date_range_appointments(self):
     """Test appointments with date range (±7 days)"""
     # Get dates for ±7 days range
