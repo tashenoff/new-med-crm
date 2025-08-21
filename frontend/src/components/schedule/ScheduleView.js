@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 
 const ScheduleView = ({ 
   appointments, 
@@ -11,6 +11,8 @@ const ScheduleView = ({
   onStatusChange,
   canEdit 
 }) => {
+  const [draggedAppointment, setDraggedAppointment] = useState(null);
+
   const getScheduleAppointments = () => {
     const today = new Date();
     const sevenDaysAgo = new Date(today);
@@ -33,22 +35,74 @@ const ScheduleView = ({
 
   const scheduleAppointments = getScheduleAppointments();
 
+  // Канбан колонки с статусами
+  const kanbanColumns = [
+    {
+      id: 'unconfirmed',
+      title: 'Не подтверждено',
+      color: 'bg-yellow-50 border-yellow-200',
+      headerColor: 'bg-yellow-100 text-yellow-800'
+    },
+    {
+      id: 'confirmed',
+      title: 'Подтверждено',
+      color: 'bg-blue-50 border-blue-200',
+      headerColor: 'bg-blue-100 text-blue-800'
+    },
+    {
+      id: 'arrived',
+      title: 'Пациент пришел',
+      color: 'bg-purple-50 border-purple-200',
+      headerColor: 'bg-purple-100 text-purple-800'
+    },
+    {
+      id: 'in_progress',
+      title: 'На приеме',
+      color: 'bg-orange-50 border-orange-200',
+      headerColor: 'bg-orange-100 text-orange-800'
+    },
+    {
+      id: 'completed',
+      title: 'Завершено',
+      color: 'bg-green-50 border-green-200',
+      headerColor: 'bg-green-100 text-green-800'
+    },
+    {
+      id: 'cancelled',
+      title: 'Отменено',
+      color: 'bg-red-50 border-red-200',
+      headerColor: 'bg-red-100 text-red-800'
+    },
+    {
+      id: 'no_show',
+      title: 'Не явился',
+      color: 'bg-gray-50 border-gray-200',
+      headerColor: 'bg-gray-100 text-gray-800'
+    }
+  ];
+
   const getStatusColor = (status) => {
     switch (status) {
-      case 'confirmed': return 'bg-blue-100 text-blue-800';
-      case 'completed': return 'bg-green-100 text-green-800';
-      case 'cancelled': return 'bg-red-100 text-red-800';
-      case 'in_progress': return 'bg-orange-100 text-orange-800';
-      default: return 'bg-gray-100 text-gray-800';
+      case 'unconfirmed': return 'bg-yellow-100 text-yellow-800 border-yellow-300';
+      case 'confirmed': return 'bg-blue-100 text-blue-800 border-blue-300';
+      case 'arrived': return 'bg-purple-100 text-purple-800 border-purple-300';
+      case 'in_progress': return 'bg-orange-100 text-orange-800 border-orange-300';
+      case 'completed': return 'bg-green-100 text-green-800 border-green-300';
+      case 'cancelled': return 'bg-red-100 text-red-800 border-red-300';
+      case 'no_show': return 'bg-gray-100 text-gray-800 border-gray-300';
+      default: return 'bg-gray-100 text-gray-800 border-gray-300';
     }
   };
 
   const getStatusText = (status) => {
     switch (status) {
+      case 'unconfirmed': return 'Не подтвержден';
       case 'confirmed': return 'Подтвержден';
+      case 'arrived': return 'Пациент пришел';
+      case 'in_progress': return 'В процессе';
       case 'completed': return 'Завершен';
       case 'cancelled': return 'Отменен';
-      case 'in_progress': return 'В процессе';
+      case 'no_show': return 'Не явился';
       default: return 'Не подтвержден';
     }
   };
