@@ -697,7 +697,8 @@ const AppointmentModal = ({
               <h4 className="font-medium mb-3">
                 {editingPlan ? 'Редактировать план лечения' : 'Добавить план лечения'}
               </h4>
-              <form onSubmit={handleSaveTreatmentPlan} className="space-y-3">
+              
+              <div className="space-y-4">
                 <input
                   type="text"
                   placeholder="Название плана лечения *"
@@ -706,23 +707,86 @@ const AppointmentModal = ({
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg"
                   required
                 />
+                
                 <textarea
                   placeholder="Описание плана"
                   value={planForm.description}
                   onChange={(e) => setPlanForm({...planForm, description: e.target.value})}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg"
-                  rows="3"
+                  rows="2"
                 />
+
+                {/* Service Selector */}
+                <ServiceSelector 
+                  onServiceAdd={(serviceItem) => {
+                    const updatedServices = [...planForm.services, serviceItem];
+                    const totalCost = updatedServices.reduce((sum, service) => sum + service.total_price, 0);
+                    setPlanForm(prev => ({
+                      ...prev,
+                      services: updatedServices,
+                      total_cost: totalCost
+                    }));
+                  }}
+                  selectedPatient={selectedPatient}
+                />
+
+                {/* Services Table */}
+                {planForm.services.length > 0 && (
+                  <div className="bg-white p-4 rounded-lg border">
+                    <h5 className="font-medium mb-3">Выбранные услуги</h5>
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-sm">
+                        <thead>
+                          <tr className="border-b">
+                            <th className="text-left py-2">Услуга</th>
+                            <th className="text-left py-2">Зуб</th>
+                            <th className="text-right py-2">Цена за ед.</th>
+                            <th className="text-right py-2">Кол-во</th>
+                            <th className="text-right py-2">Скидка</th>
+                            <th className="text-right py-2">Итого</th>
+                            <th className="text-right py-2">Действия</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {planForm.services.map((service, index) => (
+                            <tr key={index} className="border-b last:border-b-0">
+                              <td className="py-2">{service.service_name}</td>
+                              <td className="py-2">{service.tooth_number || '-'}</td>
+                              <td className="py-2 text-right">{service.unit_price} ₸</td>
+                              <td className="py-2 text-right">{service.quantity}</td>
+                              <td className="py-2 text-right">{service.discount_percent}%</td>
+                              <td className="py-2 text-right font-medium">{service.total_price.toFixed(0)} ₸</td>
+                              <td className="py-2 text-right">
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    const updatedServices = planForm.services.filter((_, i) => i !== index);
+                                    const totalCost = updatedServices.reduce((sum, svc) => sum + svc.total_price, 0);
+                                    setPlanForm(prev => ({ ...prev, services: updatedServices, total_cost: totalCost }));
+                                  }}
+                                  className="text-red-600 hover:text-red-800 text-xs"
+                                >
+                                  Удалить
+                                </button>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                        <tfoot>
+                          <tr className="border-t font-medium">
+                            <td colSpan="5" className="py-2 text-right">Общая стоимость:</td>
+                            <td className="py-2 text-right text-lg text-green-600">
+                              {planForm.total_cost.toFixed(0)} ₸
+                            </td>
+                            <td></td>
+                          </tr>
+                        </tfoot>
+                      </table>
+                    </div>
+                  </div>
+                )}
+
                 <div className="grid grid-cols-2 gap-3">
-                  <input
-                    type="number"
-                    step="0.01"
-                    min="0"
-                    placeholder="Стоимость (₸)"
-                    value={planForm.total_cost}
-                    onChange={(e) => setPlanForm({...planForm, total_cost: parseFloat(e.target.value) || 0})}
-                    className="px-3 py-2 border border-gray-300 rounded-lg"
-                  />
                   <select
                     value={planForm.status}
                     onChange={(e) => setPlanForm({...planForm, status: e.target.value})}
@@ -733,7 +797,12 @@ const AppointmentModal = ({
                     <option value="completed">Завершен</option>
                     <option value="cancelled">Отменен</option>
                   </select>
+                  
+                  <div className="px-3 py-2 bg-gray-100 border border-gray-300 rounded-lg font-medium">
+                    Итого: {planForm.total_cost.toFixed(0)} ₸
+                  </div>
                 </div>
+                
                 <textarea
                   placeholder="Дополнительные заметки"
                   value={planForm.notes}
@@ -741,9 +810,11 @@ const AppointmentModal = ({
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg"
                   rows="2"
                 />
+                
                 <div className="flex gap-2">
                   <button
-                    type="submit"
+                    type="button"
+                    onClick={handleSaveTreatmentPlan}
                     className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700"
                   >
                     {editingPlan ? 'Обновить план' : 'Создать план'}
@@ -768,7 +839,7 @@ const AppointmentModal = ({
                     </button>
                   )}
                 </div>
-              </form>
+              </div>
             </div>
 
             {/* Treatment Plans List */}
