@@ -44,7 +44,7 @@ const AppointmentModal = ({
     
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch(`${API}/patients/${selectedPatient.id}/documents`, {
+      const response = await fetch(`${API}/api/patients/${selectedPatient.id}/documents`, {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
