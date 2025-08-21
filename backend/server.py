@@ -1585,6 +1585,114 @@ async def update_document(
     updated_document = await db.documents.find_one({"id": document_id})
     return Document(**updated_document)
 
+# Treatment Plan endpoints
+@api_router.post("/patients/{patient_id}/treatment-plans", response_model=TreatmentPlan)
+async def create_treatment_plan(
+    patient_id: str,
+    plan_data: TreatmentPlanCreate,
+    current_user: UserInDB = Depends(require_role([UserRole.ADMIN, UserRole.DOCTOR]))
+):
+    """Create a treatment plan for a patient"""
+    # Check if patient exists
+    patient = await db.patients.find_one({"id": patient_id})
+    if not patient:
+        raise HTTPException(status_code=404, detail="Patient not found")
+    
+    # Create treatment plan record
+    treatment_plan = TreatmentPlan(
+        patient_id=patient_id,
+        title=plan_data.title,
+        description=plan_data.description,
+        services=plan_data.services,
+        total_cost=plan_data.total_cost,
+        status=plan_data.status,
+        created_by=current_user.id,
+        created_by_name=current_user.full_name,
+        notes=plan_data.notes
+    )
+    
+    # Insert to database
+    await db.treatment_plans.insert_one(treatment_plan.dict())
+    
+    logger.info(f"Treatment plan created: {treatment_plan.title} for patient {patient_id}")
+    return treatment_plan
+
+@api_router.get("/patients/{patient_id}/treatment-plans", response_model=List[TreatmentPlan])
+async def get_patient_treatment_plans(
+    patient_id: str,
+    current_user: UserInDB = Depends(require_role([UserRole.ADMIN, UserRole.DOCTOR, UserRole.PATIENT]))
+):
+    """Get all treatment plans for a patient"""
+    # Check if patient exists
+    patient = await db.patients.find_one({"id": patient_id})
+    if not patient:
+        raise HTTPException(status_code=404, detail="Patient not found")
+    
+    # Patients can only access their own treatment plans
+    if current_user.role == UserRole.PATIENT and current_user.patient_id != patient_id:
+        raise HTTPException(status_code=403, detail="Access denied")
+    
+    treatment_plans = await db.treatment_plans.find({"patient_id": patient_id}).sort("created_at", -1).to_list(100)
+    return [TreatmentPlan(**plan) for plan in treatment_plans]
+
+@api_router.get("/treatment-plans/{plan_id}", response_model=TreatmentPlan)
+async def get_treatment_plan(
+    plan_id: str,
+    current_user: UserInDB = Depends(require_role([UserRole.ADMIN, UserRole.DOCTOR, UserRole.PATIENT]))
+):
+    """Get a specific treatment plan"""
+    treatment_plan = await db.treatment_plans.find_one({"id": plan_id})
+    if not treatment_plan:
+        raise HTTPException(status_code=404, detail="Treatment plan not found")
+    
+    # Patients can only access their own treatment plans
+    if current_user.role == UserRole.PATIENT:
+        patient = await db.patients.find_one({"id": treatment_plan["patient_id"]})
+        if not patient or current_user.patient_id != treatment_plan["patient_id"]:
+            raise HTTPException(status_code=403, detail="Access denied")
+    
+    return TreatmentPlan(**treatment_plan)
+
+@api_router.put("/treatment-plans/{plan_id}", response_model=TreatmentPlan)
+async def update_treatment_plan(
+    plan_id: str,
+    update_data: TreatmentPlanUpdate,
+    current_user: UserInDB = Depends(require_role([UserRole.ADMIN, UserRole.DOCTOR]))
+):
+    """Update treatment plan"""
+    treatment_plan = await db.treatment_plans.find_one({"id": plan_id})
+    if not treatment_plan:
+        raise HTTPException(status_code=404, detail="Treatment plan not found")
+    
+    # Update treatment plan
+    update_dict = update_data.dict(exclude_unset=True)
+    if update_dict:
+        update_dict["updated_at"] = datetime.utcnow()
+        await db.treatment_plans.update_one(
+            {"id": plan_id},
+            {"$set": update_dict}
+        )
+    
+    # Return updated treatment plan
+    updated_plan = await db.treatment_plans.find_one({"id": plan_id})
+    return TreatmentPlan(**updated_plan)
+
+@api_router.delete("/treatment-plans/{plan_id}")
+async def delete_treatment_plan(
+    plan_id: str,
+    current_user: UserInDB = Depends(require_role([UserRole.ADMIN, UserRole.DOCTOR]))
+):
+    """Delete a treatment plan"""
+    treatment_plan = await db.treatment_plans.find_one({"id": plan_id})
+    if not treatment_plan:
+        raise HTTPException(status_code=404, detail="Treatment plan not found")
+    
+    # Delete from database
+    await db.treatment_plans.delete_one({"id": plan_id})
+    
+    logger.info(f"Treatment plan deleted: {plan_id}")
+    return {"message": "Treatment plan deleted successfully"}
+
 # Include the router in the main app
 app.include_router(api_router)
 
