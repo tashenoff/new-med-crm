@@ -162,6 +162,28 @@ const AppointmentModal = ({
     }
   };
 
+  const handleAddServiceToTreatmentPlan = (serviceItem) => {
+    const updatedServices = [...planForm.services, serviceItem];
+    const totalCost = updatedServices.reduce((sum, service) => sum + service.total_price, 0);
+    
+    setPlanForm(prev => ({
+      ...prev,
+      services: updatedServices,
+      total_cost: totalCost
+    }));
+  };
+
+  const handleRemoveServiceFromTreatmentPlan = (index) => {
+    const updatedServices = planForm.services.filter((_, i) => i !== index);
+    const totalCost = updatedServices.reduce((sum, service) => sum + service.total_price, 0);
+    
+    setPlanForm(prev => ({
+      ...prev,
+      services: updatedServices,
+      total_cost: totalCost
+    }));
+  };
+
   const handleSaveTreatmentPlan = async (e) => {
     e.preventDefault();
     if (!selectedPatient) return;
