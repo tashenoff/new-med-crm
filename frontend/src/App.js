@@ -1832,8 +1832,12 @@ function ClinicApp() {
           />
         )}
         
-        {activeTab === 'statistics' && (
-          <TreatmentStatistics />
+        {activeTab === 'treatment-statistics' && (
+          <TreatmentPlanStatistics />
+        )}
+        
+        {activeTab === 'doctor-statistics' && (
+          <DoctorStatistics />
         )}
       </main>
 
