@@ -168,7 +168,7 @@ metadata:
 
 test_plan:
   current_focus:
-    - "Automatic medical record creation when creating patient"
+    - "Modal duplication bug fix"
     - "Enhanced patient fields"
     - "Enhanced appointment fields"
   stuck_tasks: []
