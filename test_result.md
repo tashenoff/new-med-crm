@@ -176,7 +176,7 @@ test_plan:
   test_priority: "high_first"
 
   - task: "Enhanced patient fields"
-    implemented: false
+    implemented: true
     working: "NA"
     file: "server.py"
     stuck_count: 0
@@ -186,9 +186,12 @@ test_plan:
       - working: "NA"
         agent: "main"
         comment: "Need to add birth_date, gender, referrer, and financial fields to Patient model"
+      - working: "NA"
+        agent: "main"
+        comment: "Added birth_date, gender, referrer, revenue, debt, overpayment, appointments_count, records_count to Patient model and PatientCreate/PatientUpdate models"
 
   - task: "Enhanced appointment fields"
-    implemented: false
+    implemented: true
     working: "NA"
     file: "server.py"
     stuck_count: 0
@@ -198,6 +201,9 @@ test_plan:
       - working: "NA"
         agent: "main"
         comment: "Need to add chair_number, assistant_id, end_time, second_doctor_id, extra_hours to Appointment model"
+      - working: "NA"
+        agent: "main"
+        comment: "Added end_time, chair_number, assistant_id, second_doctor_id, extra_hours, patient_notes to Appointment model and updated AppointmentCreate/Update models and aggregation queries to include assistant and second doctor names"
 
 frontend:
   - task: "Enhanced patient modal form"
