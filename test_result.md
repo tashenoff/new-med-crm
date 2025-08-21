@@ -359,11 +359,11 @@ test_plan:
         comment: "COMPREHENSIVE SIMPLIFIED APPOINTMENT MODEL TESTING COMPLETED: ✅ Verified appointment model contains only simplified fields: patient_id, doctor_id, appointment_date, appointment_time, end_time, chair_number, price, reason, notes, patient_notes. ✅ Confirmed removed fields (assistant_id, second_doctor_id, extra_hours) are completely absent from model and API responses. ✅ Price field testing: Decimal values (15000.50) stored correctly as float, supports zero prices, null for backward compatibility. ✅ API endpoints work perfectly: POST /api/appointments creates with simplified structure, PUT /api/appointments/{id} updates simplified fields, GET /api/appointments returns without removed fields. ✅ Backward compatibility verified: Existing appointments without price field work with null defaults. ✅ Aggregation queries correctly handle simplified model, time conflict detection functional. ✅ All 8/8 focused tests and 21/22 comprehensive API calls passed successfully."
 
 frontend:
-  - task: "Treatment plan saving functionality with authentication issue"
+  - task: "Treatment plan saving functionality with validation error"
     implemented: true
     working: true
-    file: "AppointmentModal.js, ServiceSelector.js, ToothChart.js"
-    stuck_count: 0
+    file: "AppointmentModal.js, ServiceSelector.js, ToothChart.js, backend/server.py"
+    stuck_count: 1
     priority: "high"
     needs_retesting: false
     status_history:
@@ -373,6 +373,12 @@ frontend:
       - working: false
         agent: "main"
         comment: "DIAGNOSIS: User is not authenticated (login page showing). 401 errors on /api/auth/me indicate authentication required. Treatment plan functionality works but needs user to log in first. Components ServiceSelector and ToothChart are properly integrated into AppointmentModal."
+      - working: false
+        agent: "user"
+        comment: "After authentication, still getting 422 validation error when saving treatment plans to /api/patients/{id}/treatment-plans endpoint"
+      - working: true
+        agent: "testing"
+        comment: "ISSUE RESOLVED: Fixed 422 validation error by making patient_id optional in TreatmentPlanCreate model since it's already provided in URL path. All treatment plan creation scenarios now work correctly including minimal requests, complete data, and services arrays."
       - working: true
         agent: "testing"
         comment: "COMPREHENSIVE AUTHENTICATION AND TREATMENT PLAN TESTING COMPLETED: ✅ AUTHENTICATION SYSTEM FULLY FUNCTIONAL: Successfully created test users with different roles (admin, doctor, patient), all user registration working correctly, login/logout functionality working perfectly, /api/auth/me endpoint working correctly, JWT token authentication working properly. ✅ TREATMENT PLAN FUNCTIONALITY FULLY WORKING: Created treatment plans with services from catalog, retrieved patient treatment plans successfully, updated treatment plan status (draft -> approved), access control working correctly (doctors can access, patients restricted from creation, unauthorized access blocked). ✅ SERVICES INITIALIZATION WORKING: Default services already initialized (15 services across 5 categories), services available for treatment plan creation. ✅ TEST CREDENTIALS PROVIDED: Created admin (admin_test_20250821110240@medentry.com / AdminTest123!), doctor (doctor_test_20250821110240@medentry.com / DoctorTest123!), and patient (patient_test_20250821110240@medentry.com / PatientTest123!) users for testing. ✅ COMPLETE WORKFLOW VERIFIED: User can now log in with provided credentials and successfully create treatment plans. All 24/24 tests passed with 100% success rate. The original authentication issue has been resolved - users just need to log in first."
