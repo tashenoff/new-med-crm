@@ -1500,6 +1500,38 @@ async def delete_document(
     logger.info(f"Document deleted: {document_id}")
     return {"message": "Document deleted successfully"}
 
+@api_router.get("/uploads/{filename}")
+async def download_file(filename: str):
+    """Serve uploaded files through API endpoint (workaround for ingress routing)"""
+    file_path = UPLOAD_DIR / filename
+    
+    if not file_path.exists():
+        raise HTTPException(status_code=404, detail="File not found")
+    
+    # Import here to avoid circular imports
+    from fastapi.responses import FileResponse
+    
+    # Determine content type based on file extension
+    content_type_map = {
+        '.pdf': 'application/pdf',
+        '.doc': 'application/msword',
+        '.docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+        '.txt': 'text/plain',
+        '.jpg': 'image/jpeg',
+        '.jpeg': 'image/jpeg',
+        '.png': 'image/png',
+        '.gif': 'image/gif'
+    }
+    
+    file_extension = file_path.suffix.lower()
+    media_type = content_type_map.get(file_extension, 'application/octet-stream')
+    
+    return FileResponse(
+        path=str(file_path),
+        media_type=media_type,
+        filename=filename
+    )
+
 @api_router.put("/documents/{document_id}", response_model=Document)
 async def update_document(
     document_id: str,
