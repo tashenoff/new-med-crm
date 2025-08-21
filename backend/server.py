@@ -344,9 +344,15 @@ class Appointment(BaseModel):
     doctor_id: str
     appointment_date: str  # Store as string in ISO format (YYYY-MM-DD)
     appointment_time: str  # Format: "HH:MM"
+    end_time: Optional[str] = None  # Format: "HH:MM"
+    chair_number: Optional[str] = None  # Chair/Station number
+    assistant_id: Optional[str] = None  # Assistant doctor ID
+    second_doctor_id: Optional[str] = None  # Second doctor ID
+    extra_hours: Optional[bool] = False  # Additional hours flag
     status: AppointmentStatus = AppointmentStatus.UNCONFIRMED
     reason: Optional[str] = None
     notes: Optional[str] = None
+    patient_notes: Optional[str] = None  # Notes about the patient (separate from appointment notes)
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)
 
