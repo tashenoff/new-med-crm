@@ -175,6 +175,55 @@ test_plan:
   test_all: false
   test_priority: "high_first"
 
+  - task: "Enhanced patient fields"
+    implemented: false
+    working: "NA"
+    file: "server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "Need to add birth_date, gender, referrer, and financial fields to Patient model"
+
+  - task: "Enhanced appointment fields"
+    implemented: false
+    working: "NA"
+    file: "server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "Need to add chair_number, assistant_id, end_time, second_doctor_id, extra_hours to Appointment model"
+
+frontend:
+  - task: "Enhanced patient modal form"
+    implemented: false
+    working: "NA"
+    file: "PatientModal.js"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "Need to add birth_date, gender, referrer fields to patient creation form"
+
+  - task: "Enhanced appointment modal form"
+    implemented: false
+    working: "NA"
+    file: "AppointmentModal.js"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "Need to add chair_number, assistant_id, end_time, second_doctor_id, extra_hours to appointment form"
+
 agent_communication:
   - agent: "main"
     message: "SOLUTION IMPLEMENTED: Fixed the original issue by adding automatic empty medical record creation when creating patients. Also added editing interface so doctors can fill medical data. Now workflow is: 1) Create patient -> auto-creates empty medical record, 2) Doctor can edit medical record anytime via Edit button, 3) No more blocking of appointments due to missing medical records."
@@ -182,3 +231,5 @@ agent_communication:
     message: "BACKEND TESTING COMPLETED: Successfully verified that medical records are automatically created when creating a new patient. The PUT endpoint for updating medical records works correctly. Creating appointments works without issues since medical records are automatically created. Duplicate medical record creation is properly prevented. All backend tests passed successfully."
   - agent: "testing"
     message: "ADDITIONAL TESTING COMPLETED: Ran comprehensive tests for automatic medical record creation. Verified that: 1) Medical records are automatically created when a new patient is created, 2) The patient_id is correctly set in the medical record, 3) The medical record contains empty fields as expected, 4) The system prevents duplicate medical record creation, 5) Patient creation succeeds even if there would be an issue with medical record creation (error handling). Server logs confirm the auto-creation with messages: '✅ Auto-created medical record for patient'. All tests passed successfully."
+  - agent: "main"
+    message: "NEW TASK STARTED: Adding enhanced fields based on user's image. Need to expand Patient model with birth_date, gender, referrer, financial data and Appointment model with chair, assistant, end_time, second_doctor, extra_hours. Will update backend models first, then frontend forms."
