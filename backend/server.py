@@ -430,12 +430,26 @@ class DocumentUpdate(BaseModel):
     description: Optional[str] = None
 
 # Treatment Plan models
+class Service(BaseModel):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    name: str
+    category: str  # "Стоматолог", "Гинекология", "Ортодонт" etc.
+    price: float
+    description: Optional[str] = None
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+
+class ServiceCreate(BaseModel):
+    name: str
+    category: str
+    price: float
+    description: Optional[str] = None
+
 class TreatmentPlan(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     patient_id: str
     title: str
     description: Optional[str] = None
-    services: List[dict] = []  # List of services with details like tooth number, service name, price
+    services: List[dict] = []  # List of services with details like tooth number, service name, price, quantity, discount
     total_cost: Optional[float] = 0.0
     status: str = "draft"  # draft, approved, completed, cancelled
     created_by: str  # User ID who created the plan
