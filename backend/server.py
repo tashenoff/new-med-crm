@@ -373,9 +373,7 @@ class AppointmentUpdate(BaseModel):
     appointment_time: Optional[str] = None
     end_time: Optional[str] = None
     chair_number: Optional[str] = None
-    assistant_id: Optional[str] = None
-    second_doctor_id: Optional[str] = None
-    extra_hours: Optional[bool] = None
+    price: Optional[float] = None
     status: Optional[AppointmentStatus] = None
     reason: Optional[str] = None
     notes: Optional[str] = None
