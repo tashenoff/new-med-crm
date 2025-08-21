@@ -96,7 +96,7 @@ const PatientModal = ({
 
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch(`${API}/documents/${documentId}`, {
+      const response = await fetch(`${API}/api/documents/${documentId}`, {
         method: 'DELETE',
         headers: {
           'Authorization': `Bearer ${token}`,
