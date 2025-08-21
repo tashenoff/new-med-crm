@@ -282,8 +282,8 @@ metadata:
 
 test_plan:
   current_focus:
-    - "Service management system"
-    - "Service initialization and default data"
+    - "Authentication system testing completed"
+    - "Treatment plan functionality verified"
   stuck_tasks: []
   test_all: false
   test_priority: "high_first"
