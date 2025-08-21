@@ -238,7 +238,11 @@ const AppointmentModal = ({
       services: plan.services || [],
       total_cost: plan.total_cost || 0,
       status: plan.status,
-      notes: plan.notes || ''
+      notes: plan.notes || '',
+      payment_status: plan.payment_status || 'unpaid',
+      paid_amount: plan.paid_amount || 0,
+      execution_status: plan.execution_status || 'pending',
+      appointment_ids: plan.appointment_ids || []
     });
   };
 
