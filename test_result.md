@@ -240,7 +240,7 @@ metadata:
 
 test_plan:
   current_focus:
-    - "Simplified appointment model after removing assistant and second doctor fields"
+    - "Document management system testing completed"
   stuck_tasks: []
   test_all: false
   test_priority: "high_first"
