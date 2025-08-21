@@ -346,9 +346,7 @@ class Appointment(BaseModel):
     appointment_time: str  # Format: "HH:MM"
     end_time: Optional[str] = None  # Format: "HH:MM"
     chair_number: Optional[str] = None  # Chair/Station number
-    assistant_id: Optional[str] = None  # Assistant doctor ID
-    second_doctor_id: Optional[str] = None  # Second doctor ID
-    extra_hours: Optional[bool] = False  # Additional hours flag
+    price: Optional[float] = None  # Price of the appointment
     status: AppointmentStatus = AppointmentStatus.UNCONFIRMED
     reason: Optional[str] = None
     notes: Optional[str] = None
