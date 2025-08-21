@@ -168,9 +168,7 @@ metadata:
 
 test_plan:
   current_focus:
-    - "Modal duplication bug fix"
-    - "Enhanced patient fields"
-    - "Enhanced appointment fields"
+    - "Simplified appointment model after removing assistant and second doctor fields"
   stuck_tasks: []
   test_all: false
   test_priority: "high_first"
