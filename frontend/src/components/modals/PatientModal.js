@@ -12,9 +12,19 @@ const PatientModal = ({
 }) => {
   const [activeTab, setActiveTab] = useState('info');
   const [documents, setDocuments] = useState([]);
+  const [treatmentPlans, setTreatmentPlans] = useState([]);
   const [uploading, setUploading] = useState(false);
   const [selectedFile, setSelectedFile] = useState(null);
   const [documentDescription, setDocumentDescription] = useState('');
+  const [planForm, setPlanForm] = useState({
+    title: '',
+    description: '',
+    services: [],
+    total_cost: 0,
+    status: 'draft',
+    notes: ''
+  });
+  const [editingPlan, setEditingPlan] = useState(null);
 
   const API = process.env.REACT_APP_BACKEND_URL;
 
