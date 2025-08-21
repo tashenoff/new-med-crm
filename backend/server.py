@@ -475,6 +475,15 @@ class TreatmentPlanCreate(BaseModel):
     total_cost: Optional[float] = 0.0
     status: str = "draft"
     notes: Optional[str] = None
+    # Payment tracking
+    payment_status: str = "unpaid"
+    paid_amount: Optional[float] = 0.0
+    payment_date: Optional[datetime] = None
+    # Execution tracking
+    execution_status: str = "pending"
+    started_at: Optional[datetime] = None
+    completed_at: Optional[datetime] = None
+    appointment_ids: List[str] = []
 
 class TreatmentPlanUpdate(BaseModel):
     title: Optional[str] = None
