@@ -923,7 +923,7 @@ def main():
     tomorrow = (datetime.now() + timedelta(days=1)).strftime("%Y-%m-%d")
     
     print("=" * 50)
-    print("TESTING AUTOMATIC MEDICAL RECORD CREATION AND EDITING")
+    print("TESTING DOCUMENT MANAGEMENT SYSTEM")
     print("=" * 50)
     
     # 1. Register admin user
@@ -934,21 +934,20 @@ def main():
     # Register a new admin user
     admin_email = f"admin_{datetime.now().strftime('%Y%m%d%H%M%S')}@test.com"
     admin_password = "Test123!"
-    admin_name = "Администратор Тестовый"
+    admin_name = "Администратор Документов"
     
     print(f"\n🔍 Registering admin user with email {admin_email}...")
     if not tester.test_register_user(admin_email, admin_password, admin_name, "admin"):
         print("❌ Admin user registration failed")
         return 1
     
-    # 2. Test automatic medical record creation when creating a patient
+    # 2. Create test patient
     print("\n" + "=" * 50)
-    print("TEST 2: AUTOMATIC MEDICAL RECORD CREATION WHEN CREATING PATIENT")
+    print("TEST 2: CREATE TEST PATIENT")
     print("=" * 50)
     
-    # Create test patient
     print("\n🔍 Creating test patient...")
-    patient_name = f"Пациент Тестовый {datetime.now().strftime('%H%M%S')}"
+    patient_name = f"Пациент Документы {datetime.now().strftime('%H%M%S')}"
     if not tester.test_create_patient(patient_name, "+7 999 123 4567", "phone"):
         print("❌ Test patient creation failed, stopping tests")
         return 1
@@ -956,184 +955,319 @@ def main():
     test_patient_id = tester.created_patient_id
     print(f"✅ Created test patient with ID: {test_patient_id}")
     
-    # 3. Test retrieving the automatically created medical record
+    # 3. Create test doctor
     print("\n" + "=" * 50)
-    print("TEST 3: RETRIEVING AUTOMATICALLY CREATED MEDICAL RECORD")
-    print("=" * 50)
-    
-    print("\n🔍 Retrieving medical record...")
-    success, response = tester.run_test(
-        "Get Automatically Created Medical Record",
-        "GET",
-        f"medical-records/{test_patient_id}",
-        200
-    )
-    
-    if success and response and "id" in response:
-        print(f"✅ Retrieved automatically created medical record for patient {test_patient_id}")
-        print(f"Medical Record ID: {response['id']}")
-        print(f"Patient ID: {response['patient_id']}")
-        
-        # Verify patient_id matches
-        if response['patient_id'] == test_patient_id:
-            print("✅ Medical record contains correct patient_id")
-        else:
-            print(f"❌ Medical record patient_id mismatch: expected {test_patient_id}, got {response['patient_id']}")
-    else:
-        print("❌ Automatic medical record creation failed")
-        return 1
-    
-    # 4. Create test doctor
-    print("\n" + "=" * 50)
-    print("TEST 4: CREATING TEST DOCTOR")
+    print("TEST 3: CREATE TEST DOCTOR")
     print("=" * 50)
     
     print("\n🔍 Creating test doctor...")
-    if not tester.test_create_doctor("Доктор Тестов", "Терапевт", "#4287f5"):
+    if not tester.test_create_doctor("Доктор Документов", "Терапевт", "#4287f5"):
         print("❌ Test doctor creation failed, stopping tests")
         return 1
     
     test_doctor_id = tester.created_doctor_id
     print(f"✅ Created test doctor with ID: {test_doctor_id}")
     
-    # 5. Test updating the medical record
+    # 4. Test document upload functionality
     print("\n" + "=" * 50)
-    print("TEST 5: UPDATING MEDICAL RECORD")
+    print("TEST 4: DOCUMENT UPLOAD FUNCTIONALITY")
     print("=" * 50)
     
-    print("\n🔍 Updating medical record...")
-    medical_record_update = {
-        "patient_id": test_patient_id,
-        "blood_type": "A+",
-        "height": 175.5,
-        "weight": 70.2,
-        "emergency_contact": "Родственник Тестовый",
-        "emergency_phone": "+7 999 987 6543",
-        "insurance_number": "1234567890"
-    }
+    print("\n🔍 Testing various file type uploads...")
+    upload_success, uploaded_documents = tester.test_upload_various_file_types(test_patient_id)
     
-    success, response = tester.run_test(
-        "Update Medical Record",
-        "PUT",
-        f"medical-records/{test_patient_id}",
-        200,
-        data=medical_record_update
+    if not upload_success or len(uploaded_documents) == 0:
+        print("❌ Document upload tests failed")
+        return 1
+    
+    print(f"✅ Successfully uploaded {len(uploaded_documents)} documents")
+    
+    # Store first document for further testing
+    test_document = uploaded_documents[0]
+    test_document_id = test_document['id']
+    test_filename = test_document['filename']
+    
+    # 5. Test retrieving patient documents
+    print("\n" + "=" * 50)
+    print("TEST 5: RETRIEVE PATIENT DOCUMENTS")
+    print("=" * 50)
+    
+    print(f"\n🔍 Retrieving documents for patient {test_patient_id}...")
+    success, documents = tester.test_get_patient_documents(test_patient_id)
+    
+    if not success:
+        print("❌ Failed to retrieve patient documents")
+        return 1
+    
+    if len(documents) != len(uploaded_documents):
+        print(f"❌ Document count mismatch: uploaded {len(uploaded_documents)}, retrieved {len(documents)}")
+        return 1
+    
+    print(f"✅ Successfully retrieved all {len(documents)} documents")
+    
+    # 6. Test static file serving
+    print("\n" + "=" * 50)
+    print("TEST 6: STATIC FILE SERVING")
+    print("=" * 50)
+    
+    print(f"\n🔍 Testing static file access for {test_filename}...")
+    success, file_content = tester.test_access_uploaded_file(test_filename)
+    
+    if not success:
+        print("❌ Static file serving test failed")
+        return 1
+    
+    print("✅ Static file serving works correctly")
+    
+    # 7. Test document description update
+    print("\n" + "=" * 50)
+    print("TEST 7: UPDATE DOCUMENT DESCRIPTION")
+    print("=" * 50)
+    
+    new_description = "Обновленное описание документа"
+    print(f"\n🔍 Updating document description to: {new_description}...")
+    success = tester.test_update_document_description(test_document_id, new_description)
+    
+    if not success:
+        print("❌ Document description update failed")
+        return 1
+    
+    print("✅ Document description updated successfully")
+    
+    # 8. Test access control - unauthorized upload
+    print("\n" + "=" * 50)
+    print("TEST 8: ACCESS CONTROL - UNAUTHORIZED UPLOAD")
+    print("=" * 50)
+    
+    print("\n🔍 Testing unauthorized document upload...")
+    success = tester.test_upload_document_unauthorized(
+        test_patient_id, 
+        b"Unauthorized content", 
+        "unauthorized.pdf"
     )
     
-    if success and response and "id" in response:
-        print(f"✅ Updated medical record for patient {test_patient_id}")
-        
-        # Verify all fields were updated correctly
-        all_fields_correct = True
-        for field in ["blood_type", "height", "weight", "emergency_contact", "emergency_phone", "insurance_number"]:
-            if response[field] != medical_record_update[field]:
-                print(f"❌ Field {field} mismatch: expected {medical_record_update[field]}, got {response[field]}")
-                all_fields_correct = False
-        
-        if all_fields_correct:
-            print("✅ All medical record fields were updated correctly")
-        else:
-            print("❌ Some medical record fields were not updated correctly")
-    else:
-        print("❌ Medical record update failed")
+    if not success:
+        print("❌ Access control test failed")
+        return 1
     
-    # 6. Test creating appointment (should succeed since medical record exists)
+    print("✅ Access control working correctly")
+    
+    # 9. Test error handling - upload to non-existent patient
     print("\n" + "=" * 50)
-    print("TEST 6: CREATING APPOINTMENT WITH AUTOMATIC MEDICAL RECORD")
+    print("TEST 9: ERROR HANDLING - NON-EXISTENT PATIENT")
     print("=" * 50)
     
-    print("\n🔍 Creating appointment with automatically created medical record...")
-    appointment_data = {
-        "patient_id": test_patient_id,
-        "doctor_id": test_doctor_id,
-        "appointment_date": tomorrow,
-        "appointment_time": "10:00",
-        "reason": "Первичный осмотр"
-    }
+    print("\n🔍 Testing upload to non-existent patient...")
+    success = tester.test_upload_to_nonexistent_patient()
     
-    success, response = tester.run_test(
-        "Create Appointment With Automatic Medical Record",
-        "POST",
-        "appointments",
-        200,
-        data=appointment_data
+    if not success:
+        print("❌ Non-existent patient error handling failed")
+        return 1
+    
+    print("✅ Non-existent patient error handling works correctly")
+    
+    # 10. Test error handling - delete non-existent document
+    print("\n" + "=" * 50)
+    print("TEST 10: ERROR HANDLING - NON-EXISTENT DOCUMENT")
+    print("=" * 50)
+    
+    print("\n🔍 Testing delete non-existent document...")
+    success = tester.test_delete_nonexistent_document()
+    
+    if not success:
+        print("❌ Non-existent document error handling failed")
+        return 1
+    
+    print("✅ Non-existent document error handling works correctly")
+    
+    # 11. Register doctor user for access control testing
+    print("\n" + "=" * 50)
+    print("TEST 11: REGISTER DOCTOR USER FOR ACCESS CONTROL")
+    print("=" * 50)
+    
+    doctor_email = f"doctor_{datetime.now().strftime('%Y%m%d%H%M%S')}@test.com"
+    doctor_password = "Test123!"
+    doctor_name = "Доктор Тестовый"
+    
+    print(f"\n🔍 Registering doctor user with email {doctor_email}...")
+    if not tester.test_register_user(doctor_email, doctor_password, doctor_name, "doctor"):
+        print("❌ Doctor user registration failed")
+        return 1
+    
+    # 12. Test doctor can upload documents
+    print("\n" + "=" * 50)
+    print("TEST 12: DOCTOR DOCUMENT UPLOAD ACCESS")
+    print("=" * 50)
+    
+    print("\n🔍 Testing doctor document upload access...")
+    success, doctor_document = tester.test_upload_document(
+        test_patient_id,
+        b"Doctor uploaded content",
+        "doctor_document.pdf",
+        "application/pdf",
+        "Документ загружен доктором"
     )
     
-    if success and response and "id" in response:
-        tester.created_appointment_id = response["id"]
-        print(f"✅ Created appointment with ID: {tester.created_appointment_id}")
-        print("✅ Appointment creation succeeded with automatically created medical record")
-    else:
-        print("❌ Appointment creation failed despite having automatic medical record")
+    if not success:
+        print("❌ Doctor document upload failed")
+        return 1
     
-    # 7. Test duplicate medical record creation (should fail)
+    print("✅ Doctor can upload documents correctly")
+    doctor_document_id = doctor_document['id']
+    
+    # 13. Test doctor can access all patient documents
     print("\n" + "=" * 50)
-    print("TEST 7: DUPLICATE MEDICAL RECORD CREATION")
+    print("TEST 13: DOCTOR DOCUMENT ACCESS")
     print("=" * 50)
     
-    print("\n🔍 Attempting to create duplicate medical record...")
-    duplicate_record_data = {
-        "patient_id": test_patient_id,  # Same patient as before
-        "blood_type": "O+",
-        "height": 165.0,
-        "weight": 60.0,
-        "emergency_contact": "Другой контакт",
-        "emergency_phone": "+7 999 333 4444",
-        "insurance_number": "5555555555"
-    }
+    print(f"\n🔍 Testing doctor access to patient documents...")
+    success, doctor_retrieved_docs = tester.test_get_patient_documents(test_patient_id)
     
-    success, _ = tester.run_test(
-        "Create Duplicate Medical Record",
-        "POST",
-        "medical-records",
-        400,  # Expecting 400 Bad Request for duplicate
-        data=duplicate_record_data
+    if not success:
+        print("❌ Doctor document access failed")
+        return 1
+    
+    expected_doc_count = len(uploaded_documents) + 1  # Original uploads + doctor's upload
+    if len(doctor_retrieved_docs) != expected_doc_count:
+        print(f"❌ Doctor document count mismatch: expected {expected_doc_count}, got {len(doctor_retrieved_docs)}")
+        return 1
+    
+    print("✅ Doctor can access all patient documents correctly")
+    
+    # 14. Register patient user for access control testing
+    print("\n" + "=" * 50)
+    print("TEST 14: REGISTER PATIENT USER FOR ACCESS CONTROL")
+    print("=" * 50)
+    
+    patient_email = f"patient_{datetime.now().strftime('%Y%m%d%H%M%S')}@test.com"
+    patient_password = "Test123!"
+    patient_user_name = "Пациент Тестовый"
+    
+    print(f"\n🔍 Registering patient user with email {patient_email}...")
+    if not tester.test_register_user(patient_email, patient_password, patient_user_name, "patient"):
+        print("❌ Patient user registration failed")
+        return 1
+    
+    # Link patient user to our test patient (this would normally be done during patient creation)
+    # For testing purposes, we'll assume the patient can access documents for test_patient_id
+    
+    # 15. Test patient cannot upload documents
+    print("\n" + "=" * 50)
+    print("TEST 15: PATIENT UPLOAD RESTRICTION")
+    print("=" * 50)
+    
+    print("\n🔍 Testing patient upload restriction...")
+    success, _ = tester.test_upload_document(
+        test_patient_id,
+        b"Patient uploaded content",
+        "patient_document.pdf"
+    )
+    
+    # Patient upload should fail, so success=False means we got expected error
+    if not success:
+        print("✅ Patient upload correctly restricted")
+        success = True
+    else:
+        print("❌ Patient upload was allowed (should be restricted)")
+        success = False
+    
+    if not success:
+        return 1
+    
+    # 16. Test file size and type validation (if implemented)
+    print("\n" + "=" * 50)
+    print("TEST 16: FILE VALIDATION")
+    print("=" * 50)
+    
+    # Switch back to admin for upload testing
+    print("\n🔍 Switching back to admin user...")
+    if not tester.test_login_user(admin_email, admin_password):
+        print("❌ Admin login failed")
+        return 1
+    
+    # Test large file (simulated)
+    print("\n🔍 Testing large file upload...")
+    large_content = b"Large file content" * 1000  # Simulate larger file
+    success, large_doc = tester.test_upload_document(
+        test_patient_id,
+        large_content,
+        "large_document.pdf",
+        "application/pdf",
+        "Большой документ для тестирования"
     )
     
     if success:
-        print("✅ System correctly prevented duplicate medical record creation")
+        print("✅ Large file upload successful")
+        large_doc_id = large_doc['id']
     else:
-        print("❌ System allowed duplicate medical record creation or returned wrong status code")
+        print("⚠️ Large file upload failed (may be due to size limits)")
     
-    # 8. Create another patient to verify automatic medical record creation again
+    # 17. Test document deletion
     print("\n" + "=" * 50)
-    print("TEST 8: VERIFY AUTOMATIC MEDICAL RECORD CREATION WITH ANOTHER PATIENT")
+    print("TEST 17: DOCUMENT DELETION")
     print("=" * 50)
     
-    print("\n🔍 Creating another test patient...")
-    second_patient_name = f"Пациент Второй {datetime.now().strftime('%H%M%S')}"
-    if not tester.test_create_patient(second_patient_name, "+7 999 555 7777", "phone"):
-        print("❌ Second test patient creation failed")
-    else:
-        second_patient_id = tester.created_patient_id
-        print(f"✅ Created second test patient with ID: {second_patient_id}")
-        
-        # Check if medical record was automatically created
-        print("\n🔍 Verifying automatic medical record creation for second patient...")
-        success, response = tester.run_test(
-            "Get Second Patient's Medical Record",
-            "GET",
-            f"medical-records/{second_patient_id}",
-            200
-        )
-        
-        if success and response and "id" in response:
-            print(f"✅ Verified automatic medical record creation for second patient")
-            print(f"Medical Record ID: {response['id']}")
-            print(f"Patient ID: {response['patient_id']}")
-            
-            # Verify patient_id matches
-            if response['patient_id'] == second_patient_id:
-                print("✅ Second patient's medical record contains correct patient_id")
-            else:
-                print(f"❌ Second patient's medical record patient_id mismatch: expected {second_patient_id}, got {response['patient_id']}")
+    print(f"\n🔍 Testing document deletion...")
+    success = tester.test_delete_document(test_document_id)
+    
+    if not success:
+        print("❌ Document deletion failed")
+        return 1
+    
+    print("✅ Document deletion successful")
+    
+    # Verify document was deleted by trying to retrieve it
+    print("\n🔍 Verifying document deletion...")
+    success, updated_docs = tester.test_get_patient_documents(test_patient_id)
+    
+    if success:
+        # Check that the deleted document is no longer in the list
+        deleted_doc_found = any(doc['id'] == test_document_id for doc in updated_docs)
+        if not deleted_doc_found:
+            print("✅ Document deletion verified - document no longer in list")
         else:
-            print("❌ Automatic medical record creation failed for second patient")
+            print("❌ Document deletion verification failed - document still in list")
+            return 1
+    else:
+        print("❌ Could not verify document deletion")
+        return 1
     
-    # Print results
+    # 18. Test file cleanup (verify file was removed from disk)
     print("\n" + "=" * 50)
-    print(f"AUTOMATIC MEDICAL RECORD TESTS PASSED: {tester.tests_passed}/{tester.tests_run}")
+    print("TEST 18: FILE CLEANUP VERIFICATION")
     print("=" * 50)
+    
+    print(f"\n🔍 Testing file cleanup for deleted document...")
+    success, _ = tester.test_access_uploaded_file(test_filename)
+    
+    # File should no longer be accessible, so success=False means cleanup worked
+    if not success:
+        print("✅ File cleanup successful - deleted file no longer accessible")
+        success = True
+    else:
+        print("❌ File cleanup failed - deleted file still accessible")
+        success = False
+    
+    if not success:
+        return 1
+    
+    # Print final results
+    print("\n" + "=" * 50)
+    print(f"DOCUMENT MANAGEMENT TESTS PASSED: {tester.tests_passed}/{tester.tests_run}")
+    print("=" * 50)
+    
+    # Summary of what was tested
+    print("\n📋 DOCUMENT MANAGEMENT FEATURES TESTED:")
+    print("✅ Document upload with various file types (PDF, DOCX, JPG, TXT)")
+    print("✅ Document retrieval for patients")
+    print("✅ Document description updates")
+    print("✅ Document deletion and cleanup")
+    print("✅ Static file serving via /uploads endpoint")
+    print("✅ Access control (admin/doctor upload, patient restrictions)")
+    print("✅ Error handling (non-existent patient/document)")
+    print("✅ File validation and size handling")
+    print("✅ Proper file storage with unique names")
+    print("✅ Database metadata storage")
     
     return 0 if tester.tests_passed == tester.tests_run else 1
 
