@@ -1824,6 +1824,7 @@ function ClinicApp() {
         editingItem={editingItem}
         loading={loading}
         errorMessage={errorMessage}
+        onCreatePatient={handleCreatePatientFromAppointment}
       />
 
       <PatientModal
