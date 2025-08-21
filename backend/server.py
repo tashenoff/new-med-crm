@@ -361,9 +361,7 @@ class AppointmentCreate(BaseModel):
     appointment_time: str
     end_time: Optional[str] = None
     chair_number: Optional[str] = None
-    assistant_id: Optional[str] = None
-    second_doctor_id: Optional[str] = None
-    extra_hours: Optional[bool] = False
+    price: Optional[float] = None
     reason: Optional[str] = None
     notes: Optional[str] = None
     patient_notes: Optional[str] = None
