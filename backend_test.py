@@ -995,7 +995,7 @@ class ClinicAPITester:
             f"Unauthorized access to treatment plans",
             "GET",
             f"patients/{patient_id}/treatment-plans",
-            401  # Expect 401 Unauthorized
+            403  # Expect 403 Forbidden (FastAPI returns 403 for missing auth)
         )
         
         # Restore token
@@ -1016,7 +1016,7 @@ class ClinicAPITester:
             "Unauthorized Treatment Plan Creation",
             "POST",
             f"patients/{patient_id}/treatment-plans",
-            401,  # Expect 401 Unauthorized
+            403,  # Expect 403 Forbidden (FastAPI returns 403 for missing auth)
             data={"patient_id": patient_id, "title": title}
         )
         
