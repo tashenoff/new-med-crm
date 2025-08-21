@@ -246,9 +246,9 @@ metadata:
 
 test_plan:
   current_focus:
-    - "Static file serving for documents"
-  stuck_tasks:
-    - "Static file serving for documents"
+    - "Medical record editing interface"
+    - "Medical record update functionality"
+  stuck_tasks: []
   test_all: false
   test_priority: "high_first"
 
