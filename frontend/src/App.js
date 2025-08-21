@@ -360,13 +360,36 @@ function ClinicApp() {
 
   // Формы
   const [patientForm, setPatientForm] = useState({
-    full_name: '', phone: '', iin: '', source: 'other', notes: ''
+    full_name: '', 
+    phone: '', 
+    iin: '', 
+    birth_date: '', 
+    gender: '', 
+    source: 'other', 
+    referrer: '', 
+    notes: '',
+    revenue: 0,
+    debt: 0,
+    overpayment: 0,
+    appointments_count: 0,
+    records_count: 0
   });
   const [doctorForm, setDoctorForm] = useState({
     full_name: '', specialty: '', phone: '', calendar_color: '#3B82F6'
   });
   const [appointmentForm, setAppointmentForm] = useState({
-    patient_id: '', doctor_id: '', appointment_date: '', appointment_time: '', reason: '', notes: ''
+    patient_id: '', 
+    doctor_id: '', 
+    appointment_date: '', 
+    appointment_time: '', 
+    end_time: '',
+    chair_number: '',
+    assistant_id: '',
+    second_doctor_id: '',
+    extra_hours: false,
+    reason: '', 
+    notes: '',
+    patient_notes: ''
   });
   const [medicalRecordForm, setMedicalRecordForm] = useState({
     patient_id: '', blood_type: '', height: '', weight: '', emergency_contact: '', 
