@@ -50,6 +50,21 @@ const Navigation = ({ activeTab, setActiveTab, availableTabs, sidebarOpen, setSi
     }
   };
 
+  const toggleSection = (sectionKey) => {
+    setExpandedSections(prev => ({
+      ...prev,
+      [sectionKey]: !prev[sectionKey]
+    }));
+  };
+
+  const handleSubTabClick = (subTabKey) => {
+    setActiveTab(subTabKey);
+    // Close sidebar on mobile after selection
+    if (window.innerWidth < 1024) {
+      setSidebarOpen(false);
+    }
+  };
+
   return (
     <>
       {/* Mobile Overlay */}
