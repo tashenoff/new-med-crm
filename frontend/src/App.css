@@ -295,3 +295,49 @@ textarea:focus {
 .stat-card.yellow { border-left-color: #f59e0b; }
 .stat-card.purple { border-left-color: #8b5cf6; }
 .stat-card.orange { border-left-color: #f97316; }
+
+/* Accordion Navigation Styles */
+.accordion-section {
+  transition: all 0.3s ease-in-out;
+}
+
+.accordion-submenu {
+  background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+  border-left: 2px solid #e2e8f0;
+  margin-left: 1rem;
+}
+
+.accordion-submenu .nav-item {
+  font-size: 0.875rem;
+  padding: 0.5rem 0.75rem;
+  margin: 0.125rem 0;
+}
+
+.accordion-submenu .nav-item:hover {
+  background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%);
+  border-left-color: #3b82f6;
+}
+
+.accordion-submenu .nav-item.active {
+  background: linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%);
+  border-left-color: #2563eb;
+  color: #1d4ed8;
+  font-weight: 600;
+}
+
+.accordion-arrow {
+  transition: transform 0.2s ease-in-out;
+}
+
+.accordion-arrow.expanded {
+  transform: rotate(180deg);
+}
+
+/* Enhanced sidebar animations */
+.sidebar-nav .section-header {
+  transition: all 0.2s ease-in-out;
+}
+
+.sidebar-nav .section-header:hover {
+  background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+}
