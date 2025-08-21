@@ -185,15 +185,18 @@ backend:
 
   - task: "Static file serving for documents"
     implemented: true
-    working: true
+    working: false
     file: "server.py"
-    stuck_count: 0
+    stuck_count: 1
     priority: "high"
     needs_retesting: false
     status_history:
       - working: true
         agent: "testing"
         comment: "STATIC FILE SERVING TESTING COMPLETED: ✅ /uploads endpoint properly configured and functional. ✅ Successfully served uploaded files via GET /uploads/{filename} with correct content-type headers. ✅ Files accessible with proper HTTP 200 responses. ✅ Static file mounting configured correctly using FastAPI StaticFiles. ✅ File download functionality working for all uploaded document types (PDF, DOCX, JPG, TXT). ✅ No authentication required for file access (as expected for static files)."
+      - working: false
+        agent: "testing"
+        comment: "CRITICAL INFRASTRUCTURE ISSUE DISCOVERED: ✅ Backend static file serving implementation is PERFECT - works flawlessly on internal port (localhost:8001/uploads) with correct content-types, file content, and headers. ❌ EXTERNAL ROUTING BROKEN: Production URL /uploads requests are being served by frontend React app instead of backend due to Kubernetes ingress misconfiguration. Files return HTML instead of actual content. ✅ Document upload/retrieval APIs work perfectly. ✅ File storage, metadata, access control all functional. DIAGNOSIS: Backend code is correct, but external routing configuration must be fixed to route /uploads/* to backend (port 8001) instead of frontend (port 3000). This is an infrastructure/deployment issue, not a code issue."
 
   - task: "Document access control and permissions"
     implemented: true
