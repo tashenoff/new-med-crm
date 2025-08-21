@@ -1581,7 +1581,7 @@ def main():
     tester = ClinicAPITester(backend_url)
     
     print("=" * 60)
-    print("TESTING TREATMENT PLAN MANAGEMENT SYSTEM")
+    print("TESTING SERVICE MANAGEMENT SYSTEM")
     print("=" * 60)
     
     # 1. Register admin user
@@ -1589,9 +1589,9 @@ def main():
     print("TEST 1: REGISTER ADMIN USER")
     print("=" * 50)
     
-    admin_email = f"admin_tp_{datetime.now().strftime('%Y%m%d%H%M%S')}@test.com"
+    admin_email = f"admin_svc_{datetime.now().strftime('%Y%m%d%H%M%S')}@test.com"
     admin_password = "Test123!"
-    admin_name = "Администратор Планов Лечения"
+    admin_name = "Администратор Услуг"
     
     print(f"\n🔍 Registering admin user with email {admin_email}...")
     if not tester.test_register_user(admin_email, admin_password, admin_name, "admin"):
