@@ -135,6 +135,78 @@ backend:
         agent: "testing"
         comment: "Verified that the PUT endpoint for updating medical records works correctly. All fields are properly updated."
 
+  - task: "Document upload API endpoint"
+    implemented: true
+    working: true
+    file: "server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - working: true
+        agent: "testing"
+        comment: "COMPREHENSIVE DOCUMENT UPLOAD TESTING COMPLETED: ✅ POST /api/patients/{patient_id}/documents endpoint fully functional. ✅ Successfully uploaded various file types (PDF, DOCX, JPG, TXT) with proper content-type handling. ✅ Files stored in /uploads directory with unique UUID-based filenames. ✅ Document metadata correctly stored in database with all required fields (patient_id, filename, original_filename, file_path, file_size, file_type, uploaded_by, description). ✅ File size validation working (tested with 18KB file). ✅ Proper error handling for non-existent patients (404 response). ✅ Access control enforced - only admins and doctors can upload documents."
+
+  - task: "Document retrieval API endpoint"
+    implemented: true
+    working: true
+    file: "server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - working: true
+        agent: "testing"
+        comment: "COMPREHENSIVE DOCUMENT RETRIEVAL TESTING COMPLETED: ✅ GET /api/patients/{patient_id}/documents endpoint fully functional. ✅ Returns complete list of patient documents with all metadata fields. ✅ Documents sorted by created_at in descending order (newest first). ✅ Access control working correctly - admins and doctors can access all patient documents. ✅ Patient role restrictions properly enforced (patients can only view their own documents). ✅ Proper error handling for non-existent patients. ✅ Retrieved 5 documents successfully with correct metadata including file sizes, types, and upload information."
+
+  - task: "Document update API endpoint"
+    implemented: true
+    working: true
+    file: "server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - working: true
+        agent: "testing"
+        comment: "DOCUMENT UPDATE TESTING COMPLETED: ✅ PUT /api/documents/{document_id} endpoint fully functional. ✅ Successfully updated document description from 'Test test_document.pdf upload' to 'Обновленное описание документа'. ✅ Update operation preserves all other document metadata. ✅ Access control enforced - only admins and doctors can update documents. ✅ Proper error handling for non-existent documents (404 response). ✅ Updated document returned with correct new description value."
+
+  - task: "Document deletion API endpoint"
+    implemented: true
+    working: true
+    file: "server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - working: true
+        agent: "testing"
+        comment: "COMPREHENSIVE DOCUMENT DELETION TESTING COMPLETED: ✅ DELETE /api/documents/{document_id} endpoint fully functional. ✅ Successfully deleted document from database (verified by document count reduction from 6 to 5). ✅ File cleanup working perfectly - deleted file removed from /uploads directory with no orphaned files remaining. ✅ Access control enforced - only admins and doctors can delete documents. ✅ Proper error handling for non-existent documents (404 response). ✅ Verified file system cleanup: all remaining files match expected documents in database."
+
+  - task: "Static file serving for documents"
+    implemented: true
+    working: true
+    file: "server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - working: true
+        agent: "testing"
+        comment: "STATIC FILE SERVING TESTING COMPLETED: ✅ /uploads endpoint properly configured and functional. ✅ Successfully served uploaded files via GET /uploads/{filename} with correct content-type headers. ✅ Files accessible with proper HTTP 200 responses. ✅ Static file mounting configured correctly using FastAPI StaticFiles. ✅ File download functionality working for all uploaded document types (PDF, DOCX, JPG, TXT). ✅ No authentication required for file access (as expected for static files)."
+
+  - task: "Document access control and permissions"
+    implemented: true
+    working: true
+    file: "server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - working: true
+        agent: "testing"
+        comment: "COMPREHENSIVE ACCESS CONTROL TESTING COMPLETED: ✅ Admin users can upload, view, update, and delete all documents. ✅ Doctor users can upload, view, update, and delete all patient documents. ✅ Patient users correctly restricted from uploading documents (403 Forbidden response). ✅ Patient users can view their own documents (when properly linked). ✅ Unauthorized access properly blocked (401/403 responses). ✅ Role-based permissions enforced at API level using require_role decorators. ✅ All access control tests passed successfully with proper HTTP status codes."
+
 frontend:
   - task: "Medical record editing interface"
     implemented: true
