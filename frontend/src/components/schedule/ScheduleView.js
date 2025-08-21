@@ -386,43 +386,79 @@ const ScheduleView = ({
         <div className="flex gap-4 overflow-x-auto pb-4" style={{ minHeight: '70vh' }}>
           {kanbanColumns.map(column => {
             const columnAppointments = getAppointmentsByStatus(column.id);
+            const isDropTarget = dragOverColumn === column.id;
+            const canDropHere = draggedAppointment && draggedAppointment.status !== column.id;
             
             return (
               <div
                 key={column.id}
-                className={`flex-shrink-0 w-80 ${column.color} border rounded-lg`}
-                onDragOver={handleDragOver}
+                className={`
+                  flex-shrink-0 w-80 border-2 rounded-lg transition-all duration-300
+                  ${column.color}
+                  ${isDropTarget && canDropHere ? 'border-blue-400 shadow-lg scale-105 bg-blue-50' : ''}
+                  ${draggedAppointment && !canDropHere ? 'opacity-50' : ''}
+                `}
+                onDragOver={(e) => handleDragOver(e, column.id)}
+                onDragEnter={(e) => handleDragEnter(e, column.id)}
+                onDragLeave={(e) => handleDragLeave(e, column.id)}
                 onDrop={(e) => handleDrop(e, column.id)}
               >
                 {/* Заголовок колонки */}
-                <div className={`${column.headerColor} p-4 rounded-t-lg border-b`}>
+                <div className={`${column.headerColor} p-4 rounded-t-lg border-b-2 transition-colors duration-300`}>
                   <div className="flex justify-between items-center">
-                    <h3 className="font-semibold text-lg">{column.title}</h3>
-                    <span className="bg-white bg-opacity-50 text-sm px-2 py-1 rounded-full">
+                    <div className="flex items-center">
+                      <span className="text-2xl mr-2">{column.icon}</span>
+                      <h3 className="font-semibold text-lg">{column.title}</h3>
+                    </div>
+                    <span className="bg-white bg-opacity-70 text-sm px-3 py-1 rounded-full font-medium">
                       {columnAppointments.length}
                     </span>
                   </div>
-                </div>
-                
-                {/* Карточки встреч */}
-                <div className="p-4 space-y-3 min-h-96">
-                  {columnAppointments.map(appointment => (
-                    <AppointmentCard 
-                      key={appointment.id} 
-                      appointment={appointment} 
-                    />
-                  ))}
                   
-                  {/* Пустое состояние */}
-                  {columnAppointments.length === 0 && (
-                    <div className="text-center py-8 text-gray-400">
-                      <div className="text-4xl mb-2">📋</div>
-                      <p className="text-sm">Нет записей</p>
-                      {canEdit && (
-                        <p className="text-xs mt-1">Перетащите сюда для смены статуса</p>
-                      )}
+                  {/* Индикатор возможности дропа */}
+                  {isDropTarget && canDropHere && (
+                    <div className="mt-2 text-sm text-blue-700 font-medium animate-pulse">
+                      ⬇️ Отпустите для смены статуса
                     </div>
                   )}
+                </div>
+                
+                {/* Drop зона с визуальным индикатором */}
+                <div className={`
+                  p-4 min-h-96 transition-all duration-300 relative
+                  ${isDropTarget && canDropHere ? 'bg-blue-50 bg-opacity-50' : ''}
+                `}>
+                  {/* Визуальный индикатор drop зоны */}
+                  {isDropTarget && canDropHere && (
+                    <div className="absolute inset-0 border-2 border-dashed border-blue-400 rounded-lg bg-blue-50 bg-opacity-30 flex items-center justify-center">
+                      <div className="text-blue-600 font-medium text-lg animate-bounce">
+                        📥 Перенести сюда
+                      </div>
+                    </div>
+                  )}
+                  
+                  {/* Карточки встреч */}
+                  <div className={`space-y-3 ${isDropTarget && canDropHere ? 'relative z-10' : ''}`}>
+                    {columnAppointments.map(appointment => (
+                      <AppointmentCard 
+                        key={appointment.id} 
+                        appointment={appointment} 
+                      />
+                    ))}
+                    
+                    {/* Пустое состояние */}
+                    {columnAppointments.length === 0 && !isDropTarget && (
+                      <div className="text-center py-8 text-gray-400">
+                        <div className="text-4xl mb-2">{column.icon}</div>
+                        <p className="text-sm font-medium">Нет записей</p>
+                        {canEdit && (
+                          <p className="text-xs mt-2 text-gray-500">
+                            Перетащите карточку сюда для смены статуса
+                          </p>
+                        )}
+                      </div>
+                    )}
+                  </div>
                 </div>
               </div>
             );
