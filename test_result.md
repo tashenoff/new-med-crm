@@ -359,6 +359,21 @@ test_plan:
         comment: "COMPREHENSIVE SIMPLIFIED APPOINTMENT MODEL TESTING COMPLETED: ✅ Verified appointment model contains only simplified fields: patient_id, doctor_id, appointment_date, appointment_time, end_time, chair_number, price, reason, notes, patient_notes. ✅ Confirmed removed fields (assistant_id, second_doctor_id, extra_hours) are completely absent from model and API responses. ✅ Price field testing: Decimal values (15000.50) stored correctly as float, supports zero prices, null for backward compatibility. ✅ API endpoints work perfectly: POST /api/appointments creates with simplified structure, PUT /api/appointments/{id} updates simplified fields, GET /api/appointments returns without removed fields. ✅ Backward compatibility verified: Existing appointments without price field work with null defaults. ✅ Aggregation queries correctly handle simplified model, time conflict detection functional. ✅ All 8/8 focused tests and 21/22 comprehensive API calls passed successfully."
 
 frontend:
+  - task: "Treatment plan saving functionality with authentication issue"
+    implemented: true
+    working: false
+    file: "AppointmentModal.js, ServiceSelector.js, ToothChart.js"
+    stuck_count: 1
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: false
+        agent: "user"
+        comment: "User reports treatment plans not saving (план не сохраняется). Getting 401 auth errors and 422 validation errors. ServiceSelector and ToothChart components are integrated but user cannot save plans."
+      - working: false
+        agent: "main"
+        comment: "DIAGNOSIS: User is not authenticated (login page showing). 401 errors on /api/auth/me indicate authentication required. Treatment plan functionality works but needs user to log in first. Components ServiceSelector and ToothChart are properly integrated into AppointmentModal."
+
   - task: "Enhanced patient modal form"
     implemented: true
     working: true
