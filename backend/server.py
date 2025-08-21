@@ -302,8 +302,16 @@ class PatientUpdate(BaseModel):
     full_name: Optional[str] = None
     phone: Optional[str] = None
     iin: Optional[str] = None
+    birth_date: Optional[str] = None
+    gender: Optional[str] = None
     source: Optional[PatientSource] = None
+    referrer: Optional[str] = None
     notes: Optional[str] = None
+    revenue: Optional[float] = None
+    debt: Optional[float] = None
+    overpayment: Optional[float] = None
+    appointments_count: Optional[int] = None
+    records_count: Optional[int] = None
 
 class Doctor(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
