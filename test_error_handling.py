@@ -5,7 +5,7 @@ import sys
 
 def run_test(name, method, endpoint, expected_status, data=None, params=None, token=None):
     """Run a single API test"""
-    url = f"https://d08434c3-ddca-464a-ab71-21d74ac73cf2.preview.emergentagent.com/api/{endpoint}"
+    url = f"https://medrec-system-1.preview.emergentagent.com/api/{endpoint}"
     headers = {'Content-Type': 'application/json'}
     
     # Add authorization token if available
