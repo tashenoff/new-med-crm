@@ -250,6 +250,18 @@ frontend:
         agent: "main"
         comment: "Added updateMedicalRecord function and form handling for editing medical records"
 
+  - task: "Fixed document download functionality with new API endpoint"
+    implemented: true
+    working: "NA"
+    file: "PatientModal.js, AppointmentModal.js"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: "NA"
+        agent: "testing"
+        comment: "Need to test the FIXED document download functionality using the new /api/uploads/{filename} endpoint to resolve popup blocking and ingress routing issues. Both PatientModal and AppointmentModal have document tabs with upload/download functionality using the new API endpoint with download attribute."
+
 metadata:
   created_by: "main_agent"
   version: "4.0"
