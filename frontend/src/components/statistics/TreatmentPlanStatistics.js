@@ -421,7 +421,14 @@ const TreatmentPlanStatistics = () => {
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
-                  {patientStats.patient_statistics.slice(0, 20).map((patient, index) => (
+                  {patientStats.patient_statistics
+                    .filter(patient => 
+                      !searchTerm || 
+                      patient.patient_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                      (patient.patient_phone && patient.patient_phone.includes(searchTerm))
+                    )
+                    .slice(0, 20)
+                    .map((patient, index) => (
                     <tr key={patient.patient_id} className="hover:bg-gray-50">
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div>
