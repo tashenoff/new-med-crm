@@ -401,6 +401,27 @@ class AppointmentWithDetails(BaseModel):
     created_at: datetime
     updated_at: datetime
 
+# Document models
+class Document(BaseModel):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    patient_id: str
+    filename: str
+    original_filename: str
+    file_path: str
+    file_size: int
+    file_type: str
+    uploaded_by: str  # User ID who uploaded the file
+    uploaded_by_name: str  # Name of the user who uploaded
+    description: Optional[str] = None
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+
+class DocumentCreate(BaseModel):
+    patient_id: str
+    description: Optional[str] = None
+
+class DocumentUpdate(BaseModel):
+    description: Optional[str] = None
+
 # Auth utility functions
 def verify_password(plain_password, hashed_password):
     return pwd_context.verify(plain_password, hashed_password)
