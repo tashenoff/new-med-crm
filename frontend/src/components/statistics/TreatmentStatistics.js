@@ -3,11 +3,14 @@ import React, { useState, useEffect } from 'react';
 const TreatmentStatistics = () => {
   const [statistics, setStatistics] = useState(null);
   const [patientStats, setPatientStats] = useState(null);
+  const [doctorStats, setDoctorStats] = useState(null);
+  const [individualDoctorStats, setIndividualDoctorStats] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
   const [activeTab, setActiveTab] = useState('overview');
+  const [activeCategory, setActiveCategory] = useState('treatment'); // 'treatment' or 'doctors'
 
   const API = process.env.REACT_APP_BACKEND_URL;
 
