@@ -327,7 +327,7 @@ def main():
         "Check if any user is logged in",
         "GET",
         "auth/me",
-        401  # Expect 401 Unauthorized
+        403  # Expect 403 Forbidden (FastAPI returns 403 for missing auth)
     )
     
     if success:
