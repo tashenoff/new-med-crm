@@ -232,9 +232,12 @@ const ScheduleView = ({
       </div>
     </div>
   );
-    <div>
+
+  return (
+    <div className="h-full">
+      {/* Заголовок */}
       <div className="flex justify-between items-center mb-6">
-        <h2 className="text-2xl font-bold">Расписание (±7 дней)</h2>
+        <h2 className="text-2xl font-bold">Расписание - Канбан (±7 дней)</h2>
         {canEdit && (
           <button
             onClick={onNewAppointment}
@@ -250,86 +253,50 @@ const ScheduleView = ({
           <p>Записей на прием нет</p>
         </div>
       ) : (
-        <div className="grid gap-4">
-          {scheduleAppointments.map(appointment => (
-            <div key={appointment.id} className="bg-white p-6 rounded-lg shadow border-l-4 border-blue-500">
-              <div className="flex justify-between items-start">
-                <div className="flex-1">
-                  <div className="font-semibold text-lg">
-                    {appointment.patient_name}
+        <div className="flex gap-4 overflow-x-auto pb-4" style={{ minHeight: '70vh' }}>
+          {kanbanColumns.map(column => {
+            const columnAppointments = getAppointmentsByStatus(column.id);
+            
+            return (
+              <div
+                key={column.id}
+                className={`flex-shrink-0 w-80 ${column.color} border rounded-lg`}
+                onDragOver={handleDragOver}
+                onDrop={(e) => handleDrop(e, column.id)}
+              >
+                {/* Заголовок колонки */}
+                <div className={`${column.headerColor} p-4 rounded-t-lg border-b`}>
+                  <div className="flex justify-between items-center">
+                    <h3 className="font-semibold text-lg">{column.title}</h3>
+                    <span className="bg-white bg-opacity-50 text-sm px-2 py-1 rounded-full">
+                      {columnAppointments.length}
+                    </span>
                   </div>
-                  <div className="text-gray-600 mt-1">
-                    Врач: {appointment.doctor_name} ({appointment.doctor_specialty})
-                  </div>
-                  <div className="text-gray-600">
-                    📅 {appointment.appointment_date} в {appointment.appointment_time}
-                    {appointment.end_time && ` - ${appointment.end_time}`}
-                  </div>
-                  {appointment.chair_number && (
-                    <div className="text-gray-600">
-                      🪑 Кресло: {appointment.chair_number}
-                    </div>
-                  )}
-                  {appointment.price && (
-                    <div className="text-green-600 font-medium">
-                      💰 Цена: {appointment.price} ₸
-                    </div>
-                  )}
-                  {appointment.reason && (
-                    <div className="text-gray-600">
-                      Причина: {appointment.reason}
-                    </div>
-                  )}
-                  {appointment.notes && (
-                    <div className="text-gray-600">
-                      Заметки: {appointment.notes}
-                    </div>
-                  )}
-                  {appointment.patient_notes && (
-                    <div className="text-gray-600">
-                      Заметки о пациенте: {appointment.patient_notes}
-                    </div>
-                  )}
                 </div>
                 
-                <div className="flex flex-col items-end space-y-2">
-                  <span className={`px-2 py-1 text-xs rounded font-medium ${getStatusColor(appointment.status)}`}>
-                    {getStatusText(appointment.status)}
-                  </span>
+                {/* Карточки встреч */}
+                <div className="p-4 space-y-3 min-h-96">
+                  {columnAppointments.map(appointment => (
+                    <AppointmentCard 
+                      key={appointment.id} 
+                      appointment={appointment} 
+                    />
+                  ))}
                   
-                  {canEdit && (
-                    <div className="flex space-x-2">
-                      <select
-                        value={appointment.status}
-                        onChange={(e) => onStatusChange(appointment.id, e.target.value)}
-                        className="text-xs border rounded px-2 py-1"
-                      >
-                        <option value="pending">Не подтвержден</option>
-                        <option value="confirmed">Подтвержден</option>
-                        <option value="in_progress">В процессе</option>
-                        <option value="completed">Завершен</option>
-                        <option value="cancelled">Отменен</option>
-                      </select>
-                      
-                      <button
-                        onClick={() => onEditAppointment(appointment)}
-                        className="text-blue-600 hover:text-blue-800 text-sm"
-                      >
-                        ✏️
-                      </button>
-                      
-                      <button
-                        onClick={() => onDeleteAppointment(appointment.id)}
-                        className="text-red-600 hover:text-red-800 text-sm"
-                      >
-                        🗑️
-                      </button>
+                  {/* Пустое состояние */}
+                  {columnAppointments.length === 0 && (
+                    <div className="text-center py-8 text-gray-400">
+                      <div className="text-4xl mb-2">📋</div>
+                      <p className="text-sm">Нет записей</p>
+                      {canEdit && (
+                        <p className="text-xs mt-1">Перетащите сюда для смены статуса</p>
+                      )}
                     </div>
                   )}
                 </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
     </div>
