@@ -154,13 +154,23 @@ const TreatmentStatistics = () => {
   };
 
   const handleDateFilter = () => {
-    fetchStatistics(dateFrom, dateTo);
+    if (activeCategory === 'treatment') {
+      fetchStatistics(dateFrom, dateTo);
+    } else if (activeCategory === 'doctors') {
+      fetchDoctorStatistics(dateFrom, dateTo);
+      fetchIndividualDoctorStatistics();
+    }
   };
 
   const resetDateFilter = () => {
     setDateFrom('');
     setDateTo('');
-    fetchStatistics('', '');
+    if (activeCategory === 'treatment') {
+      fetchStatistics('', '');
+    } else if (activeCategory === 'doctors') {
+      fetchDoctorStatistics('', '');
+      fetchIndividualDoctorStatistics();
+    }
   };
 
   const StatCard = ({ title, value, subtitle, color = "blue", icon }) => (
