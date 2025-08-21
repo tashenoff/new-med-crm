@@ -391,7 +391,19 @@ const TreatmentPlanStatistics = () => {
           {/* Patient Table */}
           <div className="bg-white rounded-lg shadow overflow-hidden">
             <div className="px-6 py-4 border-b border-gray-200">
-              <h3 className="text-lg font-semibold text-gray-900">Детализация по пациентам</h3>
+              <div className="flex justify-between items-center">
+                <h3 className="text-lg font-semibold text-gray-900">Детализация по пациентам</h3>
+                <span className="text-sm text-gray-500">
+                  {(() => {
+                    const filteredCount = patientStats.patient_statistics.filter(patient => 
+                      !searchTerm || 
+                      patient.patient_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                      (patient.patient_phone && patient.patient_phone.includes(searchTerm))
+                    ).length;
+                    return searchTerm ? `Найдено: ${filteredCount} из ${patientStats.patient_statistics.length}` : `Всего: ${patientStats.patient_statistics.length}`;
+                  })()}
+                </span>
+              </div>
             </div>
             <div className="overflow-x-auto">
               <table className="min-w-full divide-y divide-gray-200">
