@@ -390,7 +390,20 @@ const DoctorStatistics = () => {
           {/* Doctors Table */}
           <div className="bg-white rounded-lg shadow overflow-hidden">
             <div className="px-6 py-4 border-b border-gray-200">
-              <h3 className="text-lg font-semibold text-gray-900">Детализация по врачам</h3>
+              <div className="flex justify-between items-center">
+                <h3 className="text-lg font-semibold text-gray-900">Детализация по врачам</h3>
+                <span className="text-sm text-gray-500">
+                  {(() => {
+                    const filteredCount = individualDoctorStats.doctor_statistics.filter(doctor => 
+                      !searchTerm || 
+                      doctor.doctor_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                      doctor.doctor_specialty.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                      (doctor.doctor_phone && doctor.doctor_phone.includes(searchTerm))
+                    ).length;
+                    return searchTerm ? `Найдено: ${filteredCount} из ${individualDoctorStats.doctor_statistics.length}` : `Всего: ${individualDoctorStats.doctor_statistics.length}`;
+                  })()}
+                </span>
+              </div>
             </div>
             <div className="overflow-x-auto">
               <table className="min-w-full divide-y divide-gray-200">
