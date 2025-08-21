@@ -429,6 +429,38 @@ class DocumentCreate(BaseModel):
 class DocumentUpdate(BaseModel):
     description: Optional[str] = None
 
+# Treatment Plan models
+class TreatmentPlan(BaseModel):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    patient_id: str
+    title: str
+    description: Optional[str] = None
+    services: List[dict] = []  # List of services with details like tooth number, service name, price
+    total_cost: Optional[float] = 0.0
+    status: str = "draft"  # draft, approved, completed, cancelled
+    created_by: str  # User ID who created the plan
+    created_by_name: str  # Name of the user who created
+    notes: Optional[str] = None
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_at: datetime = Field(default_factory=datetime.utcnow)
+
+class TreatmentPlanCreate(BaseModel):
+    patient_id: str
+    title: str
+    description: Optional[str] = None
+    services: List[dict] = []
+    total_cost: Optional[float] = 0.0
+    status: str = "draft"
+    notes: Optional[str] = None
+
+class TreatmentPlanUpdate(BaseModel):
+    title: Optional[str] = None
+    description: Optional[str] = None
+    services: Optional[List[dict]] = None
+    total_cost: Optional[float] = None
+    status: Optional[str] = None
+    notes: Optional[str] = None
+
 # Auth utility functions
 def verify_password(plain_password, hashed_password):
     return pwd_context.verify(plain_password, hashed_password)
