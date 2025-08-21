@@ -1598,12 +1598,90 @@ def main():
         print("❌ Admin user registration failed")
         return 1
     
-    # 2. Create test patient
+    # 2. Initialize default services
     print("\n" + "=" * 50)
-    print("TEST 2: CREATE TEST PATIENT")
+    print("TEST 2: INITIALIZE DEFAULT SERVICES")
     print("=" * 50)
     
-    patient_name = f"Пациент Планы {datetime.now().strftime('%H%M%S')}"
+    success, init_response = tester.test_initialize_default_services()
+    if not success:
+        print("❌ Default services initialization failed")
+        return 1
+    
+    print("✅ Default services initialized successfully")
+    
+    # 3. Test getting all services
+    print("\n" + "=" * 50)
+    print("TEST 3: GET ALL SERVICES")
+    print("=" * 50)
+    
+    success, all_services = tester.test_get_services()
+    if not success or not all_services:
+        print("❌ Failed to get all services")
+        return 1
+    
+    print(f"✅ Retrieved {len(all_services)} services successfully")
+    
+    # 4. Test service categories
+    print("\n" + "=" * 50)
+    print("TEST 4: GET SERVICE CATEGORIES")
+    print("=" * 50)
+    
+    success, categories_response = tester.test_get_service_categories()
+    if not success or not categories_response:
+        print("❌ Failed to get service categories")
+        return 1
+    
+    print("✅ Service categories retrieved and validated successfully")
+    
+    # 5. Test dental services specifically
+    print("\n" + "=" * 50)
+    print("TEST 5: TEST DENTAL SERVICES (Стоматолог)")
+    print("=" * 50)
+    
+    if not tester.test_dental_services_specifically():
+        print("❌ Dental services test failed")
+        return 1
+    
+    print("✅ Dental services test passed")
+    
+    # 6. Test service filtering by category
+    print("\n" + "=" * 50)
+    print("TEST 6: TEST SERVICE CATEGORY FILTERING")
+    print("=" * 50)
+    
+    # Test filtering by Стоматолог category
+    success, dental_services = tester.test_get_services(category="Стоматолог")
+    if not success or not dental_services:
+        print("❌ Failed to filter services by Стоматолог category")
+        return 1
+    
+    print(f"✅ Found {len(dental_services)} dental services")
+    
+    # Test filtering by other categories
+    if not tester.test_service_category_filtering():
+        print("❌ Service category filtering test failed")
+        return 1
+    
+    print("✅ Service category filtering test passed")
+    
+    # 7. Test service data structure
+    print("\n" + "=" * 50)
+    print("TEST 7: TEST SERVICE DATA STRUCTURE")
+    print("=" * 50)
+    
+    if not tester.test_service_data_structure():
+        print("❌ Service data structure test failed")
+        return 1
+    
+    print("✅ Service data structure test passed")
+    
+    # 8. Create test patient for treatment plan integration
+    print("\n" + "=" * 50)
+    print("TEST 8: CREATE TEST PATIENT")
+    print("=" * 50)
+    
+    patient_name = f"Пациент Услуги {datetime.now().strftime('%H%M%S')}"
     if not tester.test_create_patient(patient_name, "+7 999 555 1234", "phone"):
         print("❌ Test patient creation failed")
         return 1
@@ -1611,369 +1689,155 @@ def main():
     test_patient_id = tester.created_patient_id
     print(f"✅ Created test patient with ID: {test_patient_id}")
     
-    # 3. Create second test patient for access control testing
+    # 9. Test service integration with treatment plans
     print("\n" + "=" * 50)
-    print("TEST 3: CREATE SECOND TEST PATIENT")
+    print("TEST 9: SERVICE INTEGRATION WITH TREATMENT PLANS")
     print("=" * 50)
     
-    patient_name_2 = f"Пациент Два {datetime.now().strftime('%H%M%S')}"
-    if not tester.test_create_patient(patient_name_2, "+7 999 555 5678", "phone"):
-        print("❌ Second test patient creation failed")
+    integration_result = tester.test_service_integration_with_treatment_plans(test_patient_id)
+    if isinstance(integration_result, tuple):
+        success, plan_id = integration_result
+    else:
+        success = integration_result
+    
+    if not success:
+        print("❌ Service integration with treatment plans failed")
         return 1
     
-    test_patient_id_2 = tester.created_patient_id
-    print(f"✅ Created second test patient with ID: {test_patient_id_2}")
+    print("✅ Service integration with treatment plans successful")
     
-    # 4. Test treatment plan creation with all fields
+    # 10. Test service creation by admin
     print("\n" + "=" * 50)
-    print("TEST 4: TREATMENT PLAN CREATION WITH ALL FIELDS")
+    print("TEST 10: CREATE NEW SERVICE (ADMIN)")
     print("=" * 50)
     
-    services = [
-        {"tooth": "11", "service": "Пломба композитная", "price": 4500.0},
-        {"tooth": "12", "service": "Профессиональная чистка", "price": 2500.0}
-    ]
-    
-    success, full_plan = tester.test_create_treatment_plan(
-        test_patient_id,
-        "Комплексный план лечения",
-        description="Полный план лечения с описанием",
-        services=services,
-        total_cost=7000.0,
-        status="draft",
-        notes="Заметки врача по плану лечения"
+    success, new_service = tester.test_create_service(
+        "Тестовая услуга администратора",
+        "Стоматолог",
+        5500.0,
+        "Описание тестовой услуги"
     )
     
-    if not success or not full_plan:
-        print("❌ Treatment plan creation with all fields failed")
+    if not success or not new_service:
+        print("❌ Admin service creation failed")
         return 1
     
-    full_plan_id = full_plan['id']
-    print("✅ Treatment plan with all fields created successfully")
+    print("✅ Admin can create services successfully")
     
-    # 5. Test treatment plan creation with minimal fields
+    # 11. Register doctor user for access control testing
     print("\n" + "=" * 50)
-    print("TEST 5: TREATMENT PLAN CREATION WITH MINIMAL FIELDS")
+    print("TEST 11: REGISTER DOCTOR USER")
     print("=" * 50)
     
-    success, minimal_plan = tester.test_create_treatment_plan(
-        test_patient_id,
-        "Минимальный план"
-    )
-    
-    if not success or not minimal_plan:
-        print("❌ Treatment plan creation with minimal fields failed")
-        return 1
-    
-    minimal_plan_id = minimal_plan['id']
-    print("✅ Treatment plan with minimal fields created successfully")
-    
-    # 6. Test different status values
-    print("\n" + "=" * 50)
-    print("TEST 6: TREATMENT PLAN WITH DIFFERENT STATUS VALUES")
-    print("=" * 50)
-    
-    status_tests = ["draft", "approved", "completed", "cancelled"]
-    created_plans = []
-    
-    for status in status_tests:
-        success, plan = tester.test_create_treatment_plan(
-            test_patient_id,
-            f"План со статусом {status}",
-            status=status
-        )
-        if success and plan:
-            created_plans.append(plan['id'])
-            print(f"✅ Created plan with status: {status}")
-        else:
-            print(f"❌ Failed to create plan with status: {status}")
-            return 1
-    
-    print("✅ All status values work correctly")
-    
-    # 7. Test retrieving patient treatment plans
-    print("\n" + "=" * 50)
-    print("TEST 7: RETRIEVE PATIENT TREATMENT PLANS")
-    print("=" * 50)
-    
-    success, plans = tester.test_get_patient_treatment_plans(test_patient_id)
-    
-    if not success or not plans:
-        print("❌ Failed to retrieve patient treatment plans")
-        return 1
-    
-    expected_count = 6  # full_plan + minimal_plan + 4 status plans
-    if len(plans) != expected_count:
-        print(f"❌ Plan count mismatch: expected {expected_count}, got {len(plans)}")
-        return 1
-    
-    # Verify plans are sorted by creation date (newest first)
-    if len(plans) > 1:
-        is_sorted = True
-        for i in range(len(plans) - 1):
-            if plans[i]['created_at'] < plans[i+1]['created_at']:
-                is_sorted = False
-                break
-        
-        if is_sorted:
-            print("✅ Treatment plans correctly sorted by creation date (newest first)")
-        else:
-            print("❌ Treatment plans not correctly sorted")
-            return 1
-    
-    print("✅ Patient treatment plans retrieved successfully")
-    
-    # 8. Test getting specific treatment plan
-    print("\n" + "=" * 50)
-    print("TEST 8: GET SPECIFIC TREATMENT PLAN")
-    print("=" * 50)
-    
-    success, specific_plan = tester.test_get_treatment_plan(full_plan_id)
-    
-    if not success or not specific_plan:
-        print("❌ Failed to get specific treatment plan")
-        return 1
-    
-    if specific_plan['id'] != full_plan_id:
-        print("❌ Retrieved wrong treatment plan")
-        return 1
-    
-    print("✅ Specific treatment plan retrieved successfully")
-    
-    # 9. Test treatment plan updates
-    print("\n" + "=" * 50)
-    print("TEST 9: TREATMENT PLAN UPDATES")
-    print("=" * 50)
-    
-    update_data = {
-        "title": "Обновленный план лечения",
-        "description": "Обновленное описание",
-        "total_cost": 8500.0,
-        "status": "approved",
-        "notes": "Обновленные заметки"
-    }
-    
-    success, updated_plan = tester.test_update_treatment_plan(full_plan_id, update_data)
-    
-    if not success:
-        print("❌ Treatment plan update failed")
-        return 1
-    
-    print("✅ Treatment plan updated successfully")
-    
-    # 10. Test complete treatment plan workflow
-    print("\n" + "=" * 50)
-    print("TEST 10: COMPLETE TREATMENT PLAN WORKFLOW")
-    print("=" * 50)
-    
-    workflow_result = tester.test_treatment_plan_workflow(test_patient_id)
-    
-    if isinstance(workflow_result, tuple):
-        success, workflow_plan_id = workflow_result
-    else:
-        success = workflow_result
-        workflow_plan_id = None
-    
-    if not success:
-        print("❌ Treatment plan workflow test failed")
-        return 1
-    
-    print("✅ Complete treatment plan workflow successful")
-    
-    # 11. Test data validation
-    print("\n" + "=" * 50)
-    print("TEST 11: DATA VALIDATION")
-    print("=" * 50)
-    
-    validation_result = tester.test_treatment_plan_data_validation(test_patient_id)
-    
-    if isinstance(validation_result, tuple):
-        success, validation_plan_id = validation_result
-    else:
-        success = validation_result
-    
-    if not success:
-        print("❌ Data validation tests failed")
-        return 1
-    
-    print("✅ Data validation tests passed")
-    
-    # 12. Test unauthorized access
-    print("\n" + "=" * 50)
-    print("TEST 12: UNAUTHORIZED ACCESS")
-    print("=" * 50)
-    
-    if not tester.test_treatment_plan_unauthorized_access(test_patient_id):
-        print("❌ Unauthorized access test failed")
-        return 1
-    
-    if not tester.test_create_treatment_plan_unauthorized(test_patient_id, "Unauthorized Plan"):
-        print("❌ Unauthorized creation test failed")
-        return 1
-    
-    print("✅ Unauthorized access tests passed")
-    
-    # 13. Test non-existent patient
-    print("\n" + "=" * 50)
-    print("TEST 13: NON-EXISTENT PATIENT")
-    print("=" * 50)
-    
-    if not tester.test_treatment_plan_nonexistent_patient():
-        print("❌ Non-existent patient test failed")
-        return 1
-    
-    print("✅ Non-existent patient test passed")
-    
-    # 14. Register doctor user for access control testing
-    print("\n" + "=" * 50)
-    print("TEST 14: REGISTER DOCTOR USER")
-    print("=" * 50)
-    
-    doctor_email = f"doctor_tp_{datetime.now().strftime('%Y%m%d%H%M%S')}@test.com"
+    doctor_email = f"doctor_svc_{datetime.now().strftime('%Y%m%d%H%M%S')}@test.com"
     doctor_password = "Test123!"
-    doctor_name = "Доктор Планы Лечения"
+    doctor_name = "Доктор Услуги"
     
     if not tester.test_register_user(doctor_email, doctor_password, doctor_name, "doctor"):
         print("❌ Doctor user registration failed")
         return 1
     
-    # 15. Test doctor can create/update/delete treatment plans
+    # 12. Test doctor access control
     print("\n" + "=" * 50)
-    print("TEST 15: DOCTOR ACCESS CONTROL")
+    print("TEST 12: DOCTOR ACCESS CONTROL")
     print("=" * 50)
     
-    success, doctor_plan = tester.test_create_treatment_plan(
-        test_patient_id,
-        "План от доктора",
-        description="План создан доктором"
-    )
-    
-    if not success or not doctor_plan:
-        print("❌ Doctor cannot create treatment plans")
+    if not tester.test_service_access_control_doctor():
+        print("❌ Doctor access control test failed")
         return 1
     
-    doctor_plan_id = doctor_plan['id']
-    print("✅ Doctor can create treatment plans")
+    print("✅ Doctor access control test passed")
     
-    # Test doctor can update
-    success, _ = tester.test_update_treatment_plan(
-        doctor_plan_id,
-        {"status": "approved", "notes": "Одобрено доктором"}
-    )
-    
-    if not success:
-        print("❌ Doctor cannot update treatment plans")
-        return 1
-    
-    print("✅ Doctor can update treatment plans")
-    
-    # Test doctor can delete
-    if not tester.test_delete_treatment_plan(doctor_plan_id):
-        print("❌ Doctor cannot delete treatment plans")
-        return 1
-    
-    print("✅ Doctor can delete treatment plans")
-    
-    # 16. Register patient user for access control testing
+    # 13. Test unauthorized access
     print("\n" + "=" * 50)
-    print("TEST 16: REGISTER PATIENT USER")
+    print("TEST 13: UNAUTHORIZED ACCESS CONTROL")
     print("=" * 50)
     
-    patient_email = f"patient_tp_{datetime.now().strftime('%Y%m%d%H%M%S')}@test.com"
-    patient_password = "Test123!"
-    patient_user_name = "Пациент Планы"
-    
-    if not tester.test_register_user(patient_email, patient_password, patient_user_name, "patient"):
-        print("❌ Patient user registration failed")
+    if not tester.test_service_access_control_unauthorized():
+        print("❌ Unauthorized access control test failed")
         return 1
     
-    # 17. Test patient access control
+    print("✅ Unauthorized access control test passed")
+    
+    # 14. Test other medical categories
     print("\n" + "=" * 50)
-    print("TEST 17: PATIENT ACCESS CONTROL")
+    print("TEST 14: TEST OTHER MEDICAL CATEGORIES")
     print("=" * 50)
     
-    # Test patient cannot create treatment plans
-    success, _ = tester.test_create_treatment_plan(test_patient_id, "Patient Plan")
+    other_categories = ["Гинекология", "Ортодонт", "Дерматовенеролог", "Медикаменты"]
     
-    if not success:
-        print("✅ Patient correctly cannot create treatment plans")
-    else:
-        print("❌ Patient was allowed to create treatment plans")
-        return 1
+    for category in other_categories:
+        success, category_services = tester.test_get_services(category=category)
+        if not success:
+            print(f"❌ Failed to get services for category: {category}")
+            return 1
+        
+        if len(category_services) == 0:
+            print(f"⚠️ No services found for category: {category}")
+        else:
+            print(f"✅ Found {len(category_services)} services in category: {category}")
+            # Show sample service
+            sample = category_services[0]
+            print(f"   Sample: {sample['name']} - {sample['price']} тенге")
     
-    # Test patient cannot update treatment plans
-    success, _ = tester.test_update_treatment_plan(full_plan_id, {"status": "approved"})
+    print("✅ Other medical categories test completed")
     
-    if not success:
-        print("✅ Patient correctly cannot update treatment plans")
-    else:
-        print("❌ Patient was allowed to update treatment plans")
-        return 1
+    # 15. Test service initialization idempotency
+    print("\n" + "=" * 50)
+    print("TEST 15: TEST SERVICE INITIALIZATION IDEMPOTENCY")
+    print("=" * 50)
     
-    # Test patient cannot delete treatment plans
-    if not tester.test_delete_treatment_plan(minimal_plan_id):
-        print("✅ Patient correctly cannot delete treatment plans")
-    else:
-        print("❌ Patient was allowed to delete treatment plans")
-        return 1
-    
-    # Switch back to admin for final tests
-    print("\n🔍 Switching back to admin user...")
+    # Switch back to admin
     if not tester.test_login_user(admin_email, admin_password):
         print("❌ Admin login failed")
         return 1
     
-    # 18. Test treatment plan deletion
-    print("\n" + "=" * 50)
-    print("TEST 18: TREATMENT PLAN DELETION")
-    print("=" * 50)
-    
-    if not tester.test_delete_treatment_plan(full_plan_id):
-        print("❌ Treatment plan deletion failed")
+    # Try to initialize services again (should not create duplicates)
+    success, second_init = tester.test_initialize_default_services()
+    if not success:
+        print("❌ Second services initialization failed")
         return 1
     
-    print("✅ Treatment plan deletion successful")
-    
-    # 19. Test accessing deleted treatment plan
-    print("\n" + "=" * 50)
-    print("TEST 19: VERIFY DELETION")
-    print("=" * 50)
-    
-    success, _ = tester.run_test(
-        "Access Deleted Treatment Plan",
-        "GET",
-        f"treatment-plans/{full_plan_id}",
-        404  # Should return 404 Not Found
-    )
-    
-    if success:
-        print("✅ Deleted treatment plan correctly returns 404")
+    if "already exist" in second_init.get('message', '').lower():
+        print("✅ Service initialization is idempotent (no duplicates created)")
     else:
-        print("❌ Deleted treatment plan still accessible")
+        print("⚠️ Service initialization response unclear")
+    
+    # Verify service count hasn't changed
+    success, final_services = tester.test_get_services()
+    if not success:
+        print("❌ Failed to get final service count")
+        return 1
+    
+    if len(final_services) == len(all_services) + 1:  # +1 for the service we created in test 10
+        print("✅ Service count is correct (no duplicates)")
+    else:
+        print(f"❌ Service count mismatch: expected {len(all_services) + 1}, got {len(final_services)}")
         return 1
     
     # Print final results
     print("\n" + "=" * 60)
-    print(f"TREATMENT PLAN TESTS PASSED: {tester.tests_passed}/{tester.tests_run}")
+    print(f"SERVICE MANAGEMENT TESTS PASSED: {tester.tests_passed}/{tester.tests_run}")
     print("=" * 60)
     
     # Summary of what was tested
-    print("\n📋 TREATMENT PLAN MANAGEMENT FEATURES TESTED:")
-    print("✅ Treatment plan creation with all fields (title, description, services, total_cost, status, notes)")
-    print("✅ Treatment plan creation with minimal fields")
-    print("✅ Different status values (draft, approved, completed, cancelled)")
-    print("✅ Treatment plan retrieval for patients (sorted by creation date)")
-    print("✅ Specific treatment plan retrieval")
-    print("✅ Treatment plan updates")
-    print("✅ Complete workflow (draft -> approved -> completed)")
-    print("✅ Data validation (required fields, decimal costs, complex services)")
-    print("✅ Access control (admin/doctor can create/update/delete, patient can view own)")
-    print("✅ Unauthorized access prevention")
-    print("✅ Non-existent patient error handling")
-    print("✅ Treatment plan deletion and cleanup")
-    print("✅ Created_by and created_by_name fields set correctly")
-    print("✅ Services array structure validation")
-    print("✅ Cross-patient access restrictions")
+    print("\n📋 SERVICE MANAGEMENT FEATURES TESTED:")
+    print("✅ Default services initialization (POST /api/services/initialize)")
+    print("✅ Service retrieval (GET /api/services)")
+    print("✅ Service category filtering (GET /api/services?category=Стоматолог)")
+    print("✅ Service categories endpoint (GET /api/service-categories)")
+    print("✅ Dental services with proper categories and prices")
+    print("✅ Other medical categories (Гинекология, Ортодонт, Дерматовенеролог, Медикаменты)")
+    print("✅ Service categories sorted order")
+    print("✅ Service data structure (id, name, category, price, description)")
+    print("✅ Service integration with treatment plans")
+    print("✅ Service creation by admin (POST /api/services)")
+    print("✅ Access control - admins can create services")
+    print("✅ Access control - doctors can view services and categories")
+    print("✅ Access control - unauthorized users blocked")
+    print("✅ Service initialization idempotency")
+    print("✅ Service filtering by multiple categories")
+    print("✅ Service data validation and structure")
     
     return 0 if tester.tests_passed == tester.tests_run else 1
 
