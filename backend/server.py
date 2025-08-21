@@ -2110,19 +2110,31 @@ async def get_patient_statistics(
                 "unpaid_plans": 1,
                 "completion_rate": {
                     "$multiply": [
-                        {"$divide": ["$completed_plans", "$total_plans"]},
+                        {"$cond": {
+                            "if": {"$eq": ["$total_plans", 0]},
+                            "then": 0,
+                            "else": {"$divide": ["$completed_plans", "$total_plans"]}
+                        }},
                         100
                     ]
                 },
                 "no_show_rate": {
                     "$multiply": [
-                        {"$divide": ["$no_show_plans", "$total_plans"]},
+                        {"$cond": {
+                            "if": {"$eq": ["$total_plans", 0]},
+                            "then": 0,
+                            "else": {"$divide": ["$no_show_plans", "$total_plans"]}
+                        }},
                         100
                     ]
                 },
                 "collection_rate": {
                     "$multiply": [
-                        {"$divide": ["$total_paid", "$total_cost"]},
+                        {"$cond": {
+                            "if": {"$eq": ["$total_cost", 0]},
+                            "then": 0,
+                            "else": {"$divide": ["$total_paid", "$total_cost"]}
+                        }},
                         100
                     ]
                 }
