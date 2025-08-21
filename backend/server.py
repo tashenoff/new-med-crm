@@ -1411,6 +1411,116 @@ async def get_patient_medical_summary(
         recent_entries=[MedicalEntryWithDetails(**e) for e in entries]
     )
 
+# Document endpoints
+@api_router.post("/patients/{patient_id}/documents", response_model=Document)
+async def upload_document(
+    patient_id: str,
+    file: UploadFile = File(...),
+    description: Optional[str] = None,
+    current_user: UserInDB = Depends(require_role([UserRole.ADMIN, UserRole.DOCTOR]))
+):
+    """Upload a document for a patient"""
+    # Check if patient exists
+    patient = await db.patients.find_one({"id": patient_id})
+    if not patient:
+        raise HTTPException(status_code=404, detail="Patient not found")
+    
+    # Generate unique filename
+    file_extension = os.path.splitext(file.filename)[1]
+    unique_filename = f"{uuid.uuid4()}{file_extension}"
+    file_path = UPLOAD_DIR / unique_filename
+    
+    try:
+        # Save file
+        with open(file_path, "wb") as buffer:
+            shutil.copyfileobj(file.file, buffer)
+        
+        # Create document record
+        document = Document(
+            patient_id=patient_id,
+            filename=unique_filename,
+            original_filename=file.filename,
+            file_path=str(file_path),
+            file_size=file_path.stat().st_size,
+            file_type=file.content_type or "application/octet-stream",
+            uploaded_by=current_user.id,
+            uploaded_by_name=current_user.full_name,
+            description=description
+        )
+        
+        # Insert to database
+        await db.documents.insert_one(document.dict())
+        
+        logger.info(f"Document uploaded: {file.filename} for patient {patient_id}")
+        return document
+        
+    except Exception as e:
+        # Clean up file if database insert fails
+        if file_path.exists():
+            file_path.unlink()
+        logger.error(f"Error uploading document: {e}")
+        raise HTTPException(status_code=500, detail="Error uploading document")
+
+@api_router.get("/patients/{patient_id}/documents", response_model=List[Document])
+async def get_patient_documents(
+    patient_id: str,
+    current_user: UserInDB = Depends(require_role([UserRole.ADMIN, UserRole.DOCTOR, UserRole.PATIENT]))
+):
+    """Get all documents for a patient"""
+    # Check if patient exists
+    patient = await db.patients.find_one({"id": patient_id})
+    if not patient:
+        raise HTTPException(status_code=404, detail="Patient not found")
+    
+    # Patients can only access their own documents
+    if current_user.role == UserRole.PATIENT and current_user.patient_id != patient_id:
+        raise HTTPException(status_code=403, detail="Access denied")
+    
+    documents = await db.documents.find({"patient_id": patient_id}).sort("created_at", -1).to_list(100)
+    return [Document(**doc) for doc in documents]
+
+@api_router.delete("/documents/{document_id}")
+async def delete_document(
+    document_id: str,
+    current_user: UserInDB = Depends(require_role([UserRole.ADMIN, UserRole.DOCTOR]))
+):
+    """Delete a document"""
+    document = await db.documents.find_one({"id": document_id})
+    if not document:
+        raise HTTPException(status_code=404, detail="Document not found")
+    
+    # Delete file from disk
+    file_path = Path(document["file_path"])
+    if file_path.exists():
+        file_path.unlink()
+    
+    # Delete from database
+    await db.documents.delete_one({"id": document_id})
+    
+    logger.info(f"Document deleted: {document_id}")
+    return {"message": "Document deleted successfully"}
+
+@api_router.put("/documents/{document_id}", response_model=Document)
+async def update_document(
+    document_id: str,
+    update_data: DocumentUpdate,
+    current_user: UserInDB = Depends(require_role([UserRole.ADMIN, UserRole.DOCTOR]))
+):
+    """Update document description"""
+    document = await db.documents.find_one({"id": document_id})
+    if not document:
+        raise HTTPException(status_code=404, detail="Document not found")
+    
+    # Update document
+    await db.documents.update_one(
+        {"id": document_id},
+        {"$set": update_data.dict(exclude_unset=True)}
+    )
+    
+    # Return updated document
+    updated_document = await db.documents.find_one({"id": document_id})
+    return Document(**updated_document)
+
 # Include the router in the main app
 app.include_router(api_router)
 
