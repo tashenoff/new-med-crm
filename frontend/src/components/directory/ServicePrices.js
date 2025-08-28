@@ -29,11 +29,6 @@ const ServicePrices = ({ user }) => {
     description: ''
   });
 
-  const [specialtyForm, setSpecialtyForm] = useState({
-    name: '',
-    description: ''
-  });
-
   const API = process.env.REACT_APP_BACKEND_URL;
 
   useEffect(() => {
