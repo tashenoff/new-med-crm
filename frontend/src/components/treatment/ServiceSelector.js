@@ -160,12 +160,22 @@ const ServiceSelector = ({ onServiceAdd, selectedPatient }) => {
 
       {/* Tooth chart for dental services */}
       {isToothService && (
-        <ToothChart 
-          selectedTeeth={selectedTeeth}
-          onTeethSelect={setSelectedTeeth}
-          multiSelect={true}
-          disabled={false}
-        />
+        <div className="space-y-3">
+          <div className="text-sm text-gray-600">
+            🦷 Выбор зубов для услуги: <span className="font-medium">{selectedServiceData.name}</span>
+          </div>
+          <ToothChart 
+            selectedTeeth={selectedTeeth}
+            onTeethSelect={setSelectedTeeth}
+            multiSelect={true}
+            disabled={false}
+          />
+          {selectedTeeth.length > 0 && (
+            <div className="text-sm text-green-600">
+              Выбрано зубов: {selectedTeeth.join(', ')} (всего: {selectedTeeth.length})
+            </div>
+          )}
+        </div>
       )}
 
       {/* Service details and quantity */}
