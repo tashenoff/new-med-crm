@@ -890,7 +890,7 @@ async def get_individual_doctor_statistics(
     date_to: Optional[str] = None,
     current_user: UserInDB = Depends(require_role([UserRole.ADMIN, UserRole.DOCTOR]))
 ):
-    """Get individual doctor statistics"""
+    """Get individual doctor statistics with working hours and utilization"""
     
     # Build date filter
     date_filter = {}
@@ -902,9 +902,58 @@ async def get_individual_doctor_statistics(
             date_query["$lte"] = date_to
         date_filter["appointment_date"] = date_query
     
+    # Helper function to calculate appointment duration in hours
+    def calculate_duration_hours(start_time, end_time):
+        """Calculate duration between start and end time in hours"""
+        if not start_time or not end_time:
+            return 0.5  # Default 30 minutes if no end time
+        try:
+            start = datetime.strptime(start_time, "%H:%M")
+            end = datetime.strptime(end_time, "%H:%M")
+            duration = (end - start).total_seconds() / 3600  # Convert to hours
+            return max(duration, 0)  # Ensure non-negative
+        except:
+            return 0.5  # Default 30 minutes on parse error
+    
     # Aggregate doctor statistics from appointments
     pipeline = [
         {"$match": date_filter},
+        {
+            "$addFields": {
+                "appointment_duration": {
+                    "$cond": [
+                        {"$and": [
+                            {"$ne": ["$end_time", None]},
+                            {"$ne": ["$appointment_time", None]}
+                        ]},
+                        {
+                            "$divide": [
+                                {
+                                    "$subtract": [
+                                        {
+                                            "$dateFromString": {
+                                                "dateString": {
+                                                    "$concat": ["1970-01-01T", "$end_time", ":00Z"]
+                                                }
+                                            }
+                                        },
+                                        {
+                                            "$dateFromString": {
+                                                "dateString": {
+                                                    "$concat": ["1970-01-01T", "$appointment_time", ":00Z"]
+                                                }
+                                            }
+                                        }
+                                    ]
+                                },
+                                3600000  # Convert milliseconds to hours
+                            ]
+                        },
+                        0.5  # Default 30 minutes if no end time
+                    ]
+                }
+            }
+        },
         {
             "$group": {
                 "_id": "$doctor_id",
@@ -917,6 +966,18 @@ async def get_individual_doctor_statistics(
                 },
                 "no_show_appointments": {
                     "$sum": {"$cond": [{"$eq": ["$status", "no_show"]}, 1, 0]}
+                },
+                "total_worked_hours": {
+                    "$sum": {
+                        "$cond": [
+                            {"$eq": ["$status", "completed"]},
+                            "$appointment_duration",
+                            0
+                        ]
+                    }
+                },
+                "total_scheduled_hours": {
+                    "$sum": "$appointment_duration"
                 },
                 "total_revenue": {
                     "$sum": {
