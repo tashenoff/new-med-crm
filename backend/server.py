@@ -1110,6 +1110,16 @@ async def create_appointment(
     if current_user.role == UserRole.PATIENT and current_user.patient_id != appointment.patient_id:
         raise HTTPException(status_code=403, detail="You can only create appointments for yourself")
     
+    # Check doctor's schedule availability
+    is_available, availability_message = await check_doctor_availability(
+        appointment.doctor_id, 
+        appointment.appointment_date, 
+        appointment.appointment_time
+    )
+    
+    if not is_available:
+        raise HTTPException(status_code=400, detail=availability_message)
+    
     # Check for time conflicts
     print(f"Checking conflicts for doctor {appointment.doctor_id} on {appointment.appointment_date} at {appointment.appointment_time}")
     existing_appointment = await db.appointments.find_one({
