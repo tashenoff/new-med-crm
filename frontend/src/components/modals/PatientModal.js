@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import ServiceSelector from '../treatment/ServiceSelector';
 
 const PatientModal = ({ 
   show, 
