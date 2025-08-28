@@ -445,6 +445,26 @@ class SpecialtyUpdate(BaseModel):
     description: Optional[str] = None
     is_active: Optional[bool] = None
 
+class PaymentType(BaseModel):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    name: str
+    commission_rate: float = 0.0  # Комиссия в процентах (например, 2.5 = 2.5%)
+    description: Optional[str] = None
+    is_active: bool = True
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_at: datetime = Field(default_factory=datetime.utcnow)
+
+class PaymentTypeCreate(BaseModel):
+    name: str
+    commission_rate: float = 0.0
+    description: Optional[str] = None
+
+class PaymentTypeUpdate(BaseModel):
+    name: Optional[str] = None
+    commission_rate: Optional[float] = None
+    description: Optional[str] = None
+    is_active: Optional[bool] = None
+
 class Appointment(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     patient_id: str
