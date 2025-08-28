@@ -31,6 +31,10 @@ const Navigation = ({ activeTab, setActiveTab, availableTabs, sidebarOpen, setSi
       baseItems.push({ key: 'doctors', label: 'Врачи', type: 'tab' });
     }
 
+    if (user?.role === 'admin') {
+      baseItems.push({ key: 'doctor-schedule', label: 'Расписание врачей', type: 'tab' });
+    }
+
     return baseItems;
   };
 
