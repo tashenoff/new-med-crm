@@ -78,7 +78,7 @@ const ServiceSelector = ({ onServiceAdd, selectedPatient }) => {
     if (!service) return;
 
     // Check if tooth is required for dental services
-    if (selectedCategory === 'Стоматолог' && !selectedTooth) {
+    if (selectedCategory === 'Стоматолог' && selectedTeeth.length === 0) {
       alert('Выберите зуб для стоматологической услуги');
       return;
     }
