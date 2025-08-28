@@ -189,6 +189,17 @@ const AppointmentModal = ({
       setPatientSearch('');
       setShowPatientDropdown(false);
       setFilteredPatients([]);
+      setEditingPlan(null);
+      setNewPatientForm({
+        full_name: '',
+        phone: '',
+        iin: '',
+        birth_date: '',
+        gender: '',
+        source: 'walk_in',
+        referrer: '',
+        notes: ''
+      });
       setPlanForm({
         title: '',
         description: '',
