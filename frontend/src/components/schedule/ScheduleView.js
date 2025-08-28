@@ -380,7 +380,7 @@ const ScheduleView = ({
           )}
         </div>
         
-        {/* Статус бейдж */}
+        {/* Статус бейдж и быстрые действия */}
         <div className="mt-3 flex justify-between items-center">
           <span className={`px-3 py-1 text-xs rounded-full font-medium flex items-center ${getStatusColor(appointment.status)}`}>
             <span className="mr-1">{kanbanColumns.find(col => col.id === appointment.status)?.icon || '📋'}</span>
@@ -394,6 +394,71 @@ const ScheduleView = ({
             </span>
           )}
         </div>
+        
+        {/* Быстрые кнопки смены статуса */}
+        {canEdit && appointment.status !== 'completed' && appointment.status !== 'cancelled' && appointment.status !== 'no_show' && (
+          <div className="mt-2 flex gap-1 flex-wrap">
+            {appointment.status === 'unconfirmed' && (
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onStatusChange(appointment.id, 'confirmed');
+                }}
+                className="px-2 py-1 text-xs bg-blue-100 text-blue-700 rounded hover:bg-blue-200 transition-colors"
+              >
+                ✅ Подтвердить
+              </button>
+            )}
+            
+            {(appointment.status === 'confirmed' || appointment.status === 'unconfirmed') && (
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onStatusChange(appointment.id, 'arrived');
+                }}
+                className="px-2 py-1 text-xs bg-purple-100 text-purple-700 rounded hover:bg-purple-200 transition-colors"
+              >
+                🚪 Пришел
+              </button>
+            )}
+            
+            {(appointment.status === 'arrived' || appointment.status === 'in_progress') && (
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onStatusChange(appointment.id, 'completed');
+                }}
+                className="px-2 py-1 text-xs bg-green-100 text-green-700 rounded hover:bg-green-200 transition-colors"
+              >
+                ✅ Завершить
+              </button>
+            )}
+            
+            {appointment.status !== 'cancelled' && (
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onStatusChange(appointment.id, 'cancelled');
+                }}
+                className="px-2 py-1 text-xs bg-red-100 text-red-700 rounded hover:bg-red-200 transition-colors"
+              >
+                ❌ Отменить
+              </button>
+            )}
+            
+            {appointment.status !== 'no_show' && (
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onStatusChange(appointment.id, 'no_show');
+                }}
+                className="px-2 py-1 text-xs bg-gray-100 text-gray-700 rounded hover:bg-gray-200 transition-colors"
+              >
+                👻 Не пришел
+              </button>
+            )}
+          </div>
+        )}
       </div>
     );
   };
