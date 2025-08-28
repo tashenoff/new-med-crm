@@ -491,7 +491,7 @@ const AppointmentModal = ({
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Пациент *</label>
               <div className="flex gap-2">
-                <div className="flex-1 relative">
+                <div className="flex-1 relative patient-search-container">
                   {/* Поисковое поле */}
                   <div className="relative">
                     <input
