@@ -5470,64 +5470,97 @@ def test_service_categories_api():
         return False
 
 def main():
-    # Use the backend URL from environment variable
-    import os
-    backend_url = os.getenv('REACT_APP_BACKEND_URL', 'https://dentalmanager-2.preview.emergentagent.com')
+    # Get backend URL from environment variable
+    backend_url = "https://dentalmanager-2.preview.emergentagent.com"
+    
+    print(f"🚀 Starting Treatment Plan Statistics Summation Bug Fix Tests")
+    print(f"Backend URL: {backend_url}")
+    print("=" * 80)
     
     tester = ClinicAPITester(backend_url)
     
-    print("🚀 Starting ServiceSelector Test Data Creation")
-    print(f"Backend URL: {backend_url}")
+    # Test authentication first - use existing admin credentials from review request
+    print("\n🔐 AUTHENTICATION TESTS")
+    print("-" * 40)
     
-    # Test authentication first
-    print("\n" + "="*50)
-    print("AUTHENTICATION")
-    print("="*50)
-    
-    # Use admin credentials as specified in the review request
+    # Use admin credentials from the review request
     admin_email = "admin_test_20250821110240@medentry.com"
     admin_password = "AdminTest123!"
     
     if not tester.test_login_user(admin_email, admin_password):
-        print("❌ Failed to login with admin credentials")
-        return
+        print("❌ Admin login failed - stopping tests")
+        print("ℹ️ Make sure the admin user exists from previous tests")
+        return False
     
     if not tester.test_get_current_user():
-        print("❌ Failed to get current user")
-        return
+        print("❌ Get current user failed")
+        return False
     
-    # Create ServiceSelector test data
-    print("\n" + "="*50)
-    print("SERVICESELECTOR TEST DATA CREATION")
-    print("="*50)
+    # Create a test patient for our statistics tests
+    print("\n👥 PATIENT SETUP FOR STATISTICS TESTS")
+    print("-" * 40)
     
-    categories_created, services_created = tester.test_create_service_selector_test_data()
+    test_patient_name = f"Тест Пациент Статистика {datetime.now().strftime('%H%M%S')}"
+    if not tester.test_create_patient(test_patient_name, "+7 777 999 8888", "website"):
+        print("❌ Test patient creation failed")
+        return False
     
-    print(f"\n📊 Created {categories_created} categories and {services_created} services")
+    patient_id = tester.created_patient_id
+    print(f"✅ Created test patient: {test_patient_name} (ID: {patient_id})")
     
-    # Verify the test data
-    print("\n" + "="*50)
-    print("VERIFICATION STEPS")
-    print("="*50)
+    # MAIN TEST: Treatment Plan Statistics Summation Bug Fix
+    print("\n🔍 MAIN TEST: TREATMENT PLAN STATISTICS SUMMATION BUG FIX")
+    print("=" * 80)
     
-    if not tester.test_verify_service_selector_data():
-        print("❌ ServiceSelector test data verification failed")
-        return
+    summation_test_success = tester.test_treatment_plan_statistics_summation_bug_fix(patient_id)
+    if not summation_test_success:
+        print("❌ CRITICAL: Treatment plan statistics summation bug fix test FAILED")
+        return False
     
-    print("\n" + "="*50)
-    print("SERVICESELECTOR TEST DATA CREATION COMPLETED SUCCESSFULLY")
-    print("="*50)
-    print("✅ Categories created: Терапия, Хирургия, Ортопедия")
-    print("✅ Services created with different units:")
-    print("   - Лечение кариеса (Терапия, зуб, 15000₸)")
-    print("   - Удаление зуба (Хирургия, зуб, 8000₸)")
-    print("   - Чистка зубов (Терапия, процедура, 5000₸)")
-    print("   - Установка коронки (Ортопедия, зуб, 25000₸)")
-    print("✅ Services with 'зуб' unit verified for ToothChart integration")
-    print("✅ All API endpoints tested and working")
+    # Additional edge case tests
+    print("\n🔍 ADDITIONAL TESTS: EDGE CASES")
+    print("-" * 50)
     
-    # Print final summary
-    tester.print_summary()
+    edge_case_success = tester.test_treatment_plan_statistics_edge_cases(patient_id)
+    if not edge_case_success:
+        print("❌ Edge case tests failed")
+        return False
+    
+    # Test general statistics endpoints to ensure they work
+    print("\n📊 GENERAL STATISTICS VERIFICATION")
+    print("-" * 40)
+    
+    if not tester.test_treatment_plan_statistics_general():
+        print("❌ General treatment plan statistics failed")
+        return False
+    
+    if not tester.test_treatment_plan_statistics_patients():
+        print("❌ Patient treatment plan statistics failed")
+        return False
+    
+    # Cleanup
+    print("\n🧹 CLEANUP")
+    print("-" * 20)
+    
+    if not tester.test_delete_patient(patient_id):
+        print("❌ Test patient cleanup failed")
+        return False
+    
+    # Final summary
+    print("\n" + "=" * 80)
+    print(f"🎉 TREATMENT PLAN STATISTICS SUMMATION BUG FIX TESTS COMPLETED!")
+    print(f"📊 Results: {tester.tests_passed}/{tester.tests_run} tests passed")
+    
+    if tester.tests_passed == tester.tests_run:
+        print("✅ ALL TESTS PASSED SUCCESSFULLY!")
+        print("✅ Treatment plan statistics summation bug has been FIXED!")
+        print("✅ Multiple treatment plans are correctly summed per patient")
+        print("✅ Outstanding amounts are calculated correctly (non-negative)")
+        return True
+    else:
+        print(f"❌ {tester.tests_run - tester.tests_passed} tests failed")
+        print("❌ Treatment plan statistics summation bug may still exist")
+        return False
 
 def main_original():
     # Get the backend URL from the environment
