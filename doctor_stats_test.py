@@ -356,7 +356,7 @@ class DoctorStatsAPITester:
 def main():
     """Test enhanced doctor statistics API with working hours and utilization metrics"""
     import os
-    backend_url = os.environ.get('REACT_APP_BACKEND_URL', 'https://dentalmanager-2.preview.emergentagent.com')
+    backend_url = os.environ.get('REACT_APP_BACKEND_URL', 'https://medrecord-enhance.preview.emergentagent.com')
     
     tester = DoctorStatsAPITester(backend_url)
     

@@ -7,7 +7,7 @@ def detailed_422_investigation():
     Detailed investigation of 422 validation errors for treatment plans
     Testing various edge cases and data combinations
     """
-    backend_url = "https://dentalmanager-2.preview.emergentagent.com"
+    backend_url = "https://medrecord-enhance.preview.emergentagent.com"
     
     # First authenticate as admin
     print("🔐 Authenticating as admin...")

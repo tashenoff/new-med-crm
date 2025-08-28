@@ -450,7 +450,7 @@ class KanbanTester:
 
 def main():
     # Get backend URL from environment
-    backend_url = os.environ.get('REACT_APP_BACKEND_URL', 'https://dentalmanager-2.preview.emergentagent.com')
+    backend_url = os.environ.get('REACT_APP_BACKEND_URL', 'https://medrecord-enhance.preview.emergentagent.com')
     
     print("🚀 Starting Kanban Appointments Testing")
     print(f"Backend URL: {backend_url}")

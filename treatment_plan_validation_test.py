@@ -6,7 +6,7 @@ def test_treatment_plan_validation_issue():
     """
     Test to demonstrate the 422 validation error issue with treatment plans
     """
-    backend_url = "https://dentalmanager-2.preview.emergentagent.com"
+    backend_url = "https://medrecord-enhance.preview.emergentagent.com"
     
     # Authenticate as admin
     print("🔐 Authenticating as admin...")

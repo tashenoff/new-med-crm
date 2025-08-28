@@ -164,7 +164,7 @@ class DocumentDownloadTester:
             expected_content = file_info['expected_content']
             
             # Test with full production URL
-            full_url = f"https://dentalmanager-2.preview.emergentagent.com/uploads/{filename}"
+            full_url = f"https://medrecord-enhance.preview.emergentagent.com/uploads/{filename}"
             response = requests.get(full_url)
             
             if response.status_code == 200:
@@ -365,7 +365,7 @@ class DocumentDownloadTester:
             return False
 
 def main():
-    backend_url = "https://dentalmanager-2.preview.emergentagent.com"
+    backend_url = "https://medrecord-enhance.preview.emergentagent.com"
     tester = DocumentDownloadTester(backend_url)
     
     success = tester.run_all_tests()
