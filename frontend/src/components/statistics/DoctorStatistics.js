@@ -307,7 +307,7 @@ const DoctorStatistics = () => {
               <StatCard
                 title="Высокая загруженность"
                 value={individualDoctorStats.summary.high_utilization_doctors || 0}
-                subtitle="врачей >80%"
+                subtitle="врачей свыше 80%"
                 color="emerald"
                 icon="⚡"
               />
