@@ -72,6 +72,15 @@ const ServiceSelector = ({ onServiceAdd, selectedPatient }) => {
   };
 
   const selectedServiceData = services.find(s => s.id === selectedService);
+  
+  // Debug logging для проверки проблемы с выбором единицы "зуб"
+  console.log('ServiceSelector Debug:', {
+    selectedService,
+    selectedServiceData,
+    unit: selectedServiceData?.unit,
+    isMatch: selectedServiceData?.unit === 'зуб'
+  });
+  
   const isToothService = selectedServiceData?.unit === 'зуб';
   const finalQuantity = isToothService ? selectedTeeth.length : quantity;
   const totalPrice = selectedServiceData ? (selectedServiceData.price * finalQuantity * (1 - discount / 100)) : 0;
