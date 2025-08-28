@@ -603,6 +603,36 @@ def require_role(allowed_roles: List[UserRole]):
         return current_user
     return role_checker
 
+async def check_doctor_availability(doctor_id: str, appointment_date: str, appointment_time: str):
+    """Check if doctor is available on the given date and time"""
+    try:
+        # Parse the date to get day of week (0 = Monday, 6 = Sunday)
+        date_obj = datetime.strptime(appointment_date, "%Y-%m-%d")
+        day_of_week = date_obj.weekday()  # 0 = Monday, 6 = Sunday
+        
+        # Get doctor's schedule for this day of week
+        schedule = await db.doctor_schedules.find_one({
+            "doctor_id": doctor_id,
+            "day_of_week": day_of_week,
+            "is_active": True
+        })
+        
+        if not schedule:
+            return False, f"Врач не работает в этот день недели"
+        
+        # Check if appointment time is within working hours
+        appointment_time_obj = datetime.strptime(appointment_time, "%H:%M").time()
+        start_time_obj = datetime.strptime(schedule["start_time"], "%H:%M").time()
+        end_time_obj = datetime.strptime(schedule["end_time"], "%H:%M").time()
+        
+        if not (start_time_obj <= appointment_time_obj <= end_time_obj):
+            return False, f"Врач не работает в это время. Рабочие часы: {schedule['start_time']}-{schedule['end_time']}"
+        
+        return True, "Врач доступен"
+        
+    except Exception as e:
+        return False, f"Ошибка при проверке расписания: {str(e)}"
+
 # Auth endpoints
 @api_router.post("/auth/register", response_model=Token)
 async def register(user: UserCreate):
