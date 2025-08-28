@@ -1092,6 +1092,59 @@ const ServicePrices = ({ user }) => {
           </div>
         </div>
       )}
+
+      {/* Модальное окно для создания/редактирования специальности */}
+      {showSpecialtyModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 w-full max-w-md">
+            <h3 className="text-lg font-semibold mb-4">
+              {editingSpecialty ? 'Редактировать специальность' : 'Добавить новую специальность'}
+            </h3>
+            
+            <form onSubmit={handleSpecialtySubmit} className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Название специальности *</label>
+                <input
+                  type="text"
+                  value={specialtyForm.name}
+                  onChange={(e) => setSpecialtyForm({...specialtyForm, name: e.target.value})}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500"
+                  required
+                  placeholder="Например: Терапевт, Хирург, Ортопед"
+                />
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Описание</label>
+                <textarea
+                  value={specialtyForm.description}
+                  onChange={(e) => setSpecialtyForm({...specialtyForm, description: e.target.value})}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500"
+                  rows="3"
+                  placeholder="Описание медицинской специальности..."
+                />
+              </div>
+              
+              <div className="flex gap-3 pt-4">
+                <button
+                  type="submit"
+                  disabled={loading}
+                  className="flex-1 bg-purple-600 text-white py-2 px-4 rounded-lg hover:bg-purple-700 disabled:opacity-50"
+                >
+                  {loading ? 'Сохранение...' : (editingSpecialty ? 'Обновить' : 'Создать')}
+                </button>
+                <button
+                  type="button"
+                  onClick={handleCloseSpecialtyModal}
+                  className="flex-1 bg-gray-300 text-gray-700 py-2 px-4 rounded-lg hover:bg-gray-400"
+                >
+                  Отмена
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
