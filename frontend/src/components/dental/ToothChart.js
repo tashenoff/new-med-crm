@@ -131,30 +131,3 @@ const ToothChart = ({ selectedTeeth = [], onTeethSelect, multiSelect = false, di
 };
 
 export default ToothChart;
-
-      {/* Lower jaw */}
-      <div>
-        <div className="text-sm text-gray-600 mb-2 text-center">Нижняя челюсть</div>
-        <div className="flex justify-center gap-1">
-          {lowerTeeth.map(tooth => (
-            <ToothButton 
-              key={tooth} 
-              toothNumber={tooth} 
-              isSelected={selectedTooth === tooth}
-            />
-          ))}
-        </div>
-      </div>
-
-      {selectedTooth && (
-        <div className="mt-4 p-2 bg-blue-50 rounded text-center">
-          <span className="text-sm font-medium text-blue-800">
-            Выбран зуб: {selectedTooth}
-          </span>
-        </div>
-      )}
-    </div>
-  );
-};
-
-export default ToothChart;
