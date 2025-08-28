@@ -33,7 +33,6 @@ const Navigation = ({ activeTab, setActiveTab, availableTabs, sidebarOpen, setSi
 
     if (user?.role === 'admin') {
       baseItems.push({ key: 'doctor-schedule', label: 'Расписание врачей', type: 'tab' });
-      baseItems.push({ key: 'specialties', label: 'Специальности', type: 'tab' });
     }
 
     // Справочник с подразделами (только для админов)
@@ -43,7 +42,8 @@ const Navigation = ({ activeTab, setActiveTab, availableTabs, sidebarOpen, setSi
         label: 'Справочник',
         type: 'accordion',
         subItems: [
-          { key: 'service-prices', label: 'Ценовая политика', type: 'tab' }
+          { key: 'service-prices', label: 'Ценовая политика', type: 'tab' },
+          { key: 'specialties', label: 'Специальности', type: 'tab' }
         ]
       });
     }
