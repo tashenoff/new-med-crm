@@ -2949,6 +2949,134 @@ class ClinicAPITester:
         print("✅ All ServiceSelector test data verified successfully!")
         return True
 
+    def test_create_medical_specialties_for_doctor_modal(self):
+        """
+        Create the 6 medical specialties requested for the doctor modal dropdown.
+        This addresses the issue where doctor modal shows 'Специальности не найдены'.
+        """
+        print("\n🏥 CREATING MEDICAL SPECIALTIES FOR DOCTOR MODAL DROPDOWN")
+        print("=" * 70)
+        
+        # Define the 6 required specialties as per the review request
+        specialties_to_create = [
+            {
+                "name": "Терапевт",
+                "description": "Врач общей практики, лечение терапевтических заболеваний"
+            },
+            {
+                "name": "Хирург", 
+                "description": "Врач-хирург, проведение хирургических операций"
+            },
+            {
+                "name": "Стоматолог",
+                "description": "Врач-стоматолог, лечение зубов и полости рта"
+            },
+            {
+                "name": "Кардиолог",
+                "description": "Врач-кардиолог, лечение заболеваний сердечно-сосудистой системы"
+            },
+            {
+                "name": "Невролог",
+                "description": "Врач-невролог, лечение заболеваний нервной системы"
+            },
+            {
+                "name": "Ортопед",
+                "description": "Врач-ортопед, лечение заболеваний опорно-двигательного аппарата"
+            }
+        ]
+        
+        created_specialties = []
+        all_success = True
+        
+        print(f"\n📋 Creating {len(specialties_to_create)} medical specialties...")
+        
+        for i, specialty_data in enumerate(specialties_to_create, 1):
+            print(f"\n{i}. Creating specialty: {specialty_data['name']}")
+            
+            success, specialty = self.test_create_specialty(
+                specialty_data['name'],
+                specialty_data['description']
+            )
+            
+            if success and specialty:
+                created_specialties.append(specialty)
+                print(f"   ✅ Successfully created: {specialty['name']}")
+                print(f"   📝 Description: {specialty['description']}")
+                print(f"   🆔 ID: {specialty['id']}")
+                print(f"   ✅ Active: {specialty.get('is_active', True)}")
+            else:
+                print(f"   ❌ Failed to create specialty: {specialty_data['name']}")
+                all_success = False
+        
+        print(f"\n📊 CREATION SUMMARY:")
+        print(f"   Total specialties to create: {len(specialties_to_create)}")
+        print(f"   Successfully created: {len(created_specialties)}")
+        print(f"   Failed: {len(specialties_to_create) - len(created_specialties)}")
+        
+        if all_success:
+            print("   🎉 ALL SPECIALTIES CREATED SUCCESSFULLY!")
+        else:
+            print("   ❌ Some specialties failed to create")
+        
+        # Step 2: Verify all specialties are retrievable
+        print(f"\n🔍 VERIFICATION: Retrieving all specialties...")
+        
+        success, all_specialties = self.test_get_specialties()
+        
+        if success and all_specialties:
+            print(f"✅ Successfully retrieved {len(all_specialties)} specialties from database")
+            
+            # Verify each created specialty is in the list
+            created_names = [s['name'] for s in created_specialties]
+            retrieved_names = [s['name'] for s in all_specialties]
+            
+            missing_specialties = []
+            for name in created_names:
+                if name not in retrieved_names:
+                    missing_specialties.append(name)
+            
+            if not missing_specialties:
+                print("✅ All created specialties are retrievable")
+            else:
+                print(f"❌ Missing specialties in retrieval: {missing_specialties}")
+                all_success = False
+        else:
+            print("❌ Failed to retrieve specialties for verification")
+            all_success = False
+        
+        # Step 3: Verify specialty properties
+        print(f"\n🔍 VERIFICATION: Checking specialty properties...")
+        
+        for specialty in all_specialties:
+            # Check required fields
+            required_fields = ['id', 'name', 'description', 'is_active', 'created_at', 'updated_at']
+            missing_fields = []
+            
+            for field in required_fields:
+                if field not in specialty:
+                    missing_fields.append(field)
+            
+            if missing_fields:
+                print(f"❌ Specialty '{specialty['name']}' missing fields: {missing_fields}")
+                all_success = False
+            else:
+                # Verify is_active is True
+                if not specialty.get('is_active', False):
+                    print(f"❌ Specialty '{specialty['name']}' is not active")
+                    all_success = False
+                else:
+                    print(f"✅ Specialty '{specialty['name']}' has all required fields and is active")
+        
+        print(f"\n🎯 FINAL RESULT:")
+        if all_success:
+            print("✅ ALL MEDICAL SPECIALTIES SUCCESSFULLY CREATED AND VERIFIED!")
+            print("✅ Doctor modal dropdown will now show specialties instead of 'Специальности не найдены'")
+            print(f"✅ Available specialties: {', '.join([s['name'] for s in all_specialties])}")
+        else:
+            print("❌ Some issues found during specialty creation or verification")
+        
+        return all_success, created_specialties
+
     # Specialties Management Testing Methods
     def test_get_specialties(self):
         """Get all active specialties"""
