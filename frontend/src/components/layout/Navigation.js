@@ -1,6 +1,6 @@
 import React from 'react';
 
-const Navigation = ({ activeTab, setActiveTab, availableTabs, sidebarOpen, setSidebarOpen }) => {
+const Navigation = ({ activeTab, setActiveTab, availableTabs, sidebarOpen, setSidebarOpen, user }) => {
   const [expandedSections, setExpandedSections] = React.useState({
     statistics: true // Автоматически раскрываем статистику
   });
