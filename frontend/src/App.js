@@ -1833,6 +1833,14 @@ function ClinicApp() {
           />
         )}
         
+        {activeTab === 'doctor-schedule' && (
+          <DoctorSchedule
+            doctors={doctors}
+            user={user}
+            canEdit={user?.role === 'admin'}
+          />
+        )}
+        
         {activeTab === 'treatment-statistics' && (
           <TreatmentPlanStatistics />
         )}
