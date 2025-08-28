@@ -891,8 +891,8 @@ async def get_doctor_statistics(
     cancelled_appointments = len([a for a in all_appointments if a.get('status') == 'cancelled'])
     no_show_appointments = len([a for a in all_appointments if a.get('status') == 'no_show'])
     
-    total_revenue = sum(float(a.get('price', 0)) for a in all_appointments if a.get('status') == 'completed')
-    potential_revenue = sum(float(a.get('price', 0)) for a in all_appointments if a.get('price'))
+    total_revenue = sum(float(a.get('price') or 0) for a in all_appointments if a.get('status') == 'completed' and a.get('price'))
+    potential_revenue = sum(float(a.get('price') or 0) for a in all_appointments if a.get('price'))
     
     # Monthly statistics for appointments
     monthly_stats = {}
