@@ -4432,9 +4432,238 @@ def test_service_price_directory_api():
         print("❌ SOME TESTS FAILED!")
         return False
 
+def test_service_categories_api():
+    """
+    COMPREHENSIVE TEST FOR SERVICE CATEGORIES API ENDPOINTS
+    Testing the new Service Categories management system as requested in the review
+    """
+    import os
+    backend_url = os.environ.get('REACT_APP_BACKEND_URL', 'https://dentalmanager-2.preview.emergentagent.com')
+    
+    tester = ClinicAPITester(backend_url)
+    
+    print(f"🚀 Starting Service Categories API Tests")
+    print(f"Backend URL: {backend_url}")
+    print(f"{'='*80}")
+    
+    # Test authentication with provided admin credentials
+    print("\n📋 AUTHENTICATION TESTS")
+    print("-" * 50)
+    
+    # Use the admin credentials from the review request
+    admin_email = "admin_test_20250821110240@medentry.com"
+    admin_password = "AdminTest123!"
+    
+    # Try to login (user should already exist from previous tests)
+    if not tester.test_login_user(admin_email, admin_password):
+        print("❌ Failed to login with admin credentials")
+        return False
+    
+    # Test getting current user info
+    if not tester.test_get_current_user():
+        print("❌ Failed to get current user info")
+        return False
+    
+    print("✅ Authentication successful with admin credentials")
+    
+    # Test Service Categories API endpoints
+    print("\n📋 SERVICE CATEGORIES API TESTS")
+    print("-" * 50)
+    
+    # Test 1: GET /api/service-categories - Get all active service categories
+    print("\n1. Testing GET /api/service-categories (get all active categories)")
+    success, initial_categories = tester.test_get_service_categories()
+    if not success:
+        print("❌ Failed to retrieve service categories")
+        return False
+    
+    print(f"✅ Retrieved {len(initial_categories)} existing service categories")
+    
+    # Test 2: POST /api/service-categories - Create new service categories
+    print("\n2. Testing POST /api/service-categories (create new categories)")
+    
+    # Create test categories as requested in the review
+    test_categories = [
+        {"name": "Терапия", "description": "Терапевтические услуги и лечение"},
+        {"name": "Хирургия", "description": "Хирургические вмешательства и операции"},
+        {"name": "Ортопедия", "description": "Ортопедические услуги и протезирование"}
+    ]
+    
+    created_categories = []
+    
+    for cat_data in test_categories:
+        success, category = tester.test_create_service_category(
+            cat_data["name"], 
+            cat_data["description"]
+        )
+        if success and category:
+            created_categories.append(category)
+            print(f"✅ Created category: {category['name']} - {category['description']}")
+        else:
+            print(f"❌ Failed to create category: {cat_data['name']}")
+            return False
+    
+    if len(created_categories) != len(test_categories):
+        print("❌ Failed to create all test categories")
+        return False
+    
+    print(f"✅ Successfully created {len(created_categories)} service categories")
+    
+    # Test 3: GET /api/service-categories - Retrieve all categories and verify data structure
+    print("\n3. Testing GET /api/service-categories (verify data structure)")
+    
+    success, all_categories = tester.test_get_service_categories()
+    if not success:
+        print("❌ Failed to retrieve categories after creation")
+        return False
+    
+    # Verify our created categories are in the list
+    created_names = [cat['name'] for cat in created_categories]
+    retrieved_names = [cat['name'] for cat in all_categories]
+    
+    for name in created_names:
+        if name in retrieved_names:
+            print(f"✅ Category '{name}' found in retrieved list")
+        else:
+            print(f"❌ Category '{name}' not found in retrieved list")
+            return False
+    
+    # Verify data structure
+    if len(all_categories) > 0:
+        sample_category = all_categories[0]
+        required_fields = ['id', 'name', 'is_active', 'created_at', 'updated_at']
+        for field in required_fields:
+            if field not in sample_category:
+                print(f"❌ Category missing required field: {field}")
+                return False
+        print("✅ Category data structure verified")
+    
+    # Test 4: PUT /api/service-categories/{category_id} - Update service category
+    print("\n4. Testing PUT /api/service-categories/{category_id} (update category)")
+    
+    # Update the first created category
+    category_to_update = created_categories[0]
+    new_name = f"{category_to_update['name']} (Обновлено)"
+    new_description = "Обновленное описание терапевтических услуг"
+    
+    success, updated_category = tester.test_update_service_category(
+        category_to_update['id'],
+        name=new_name,
+        description=new_description
+    )
+    
+    if success and updated_category:
+        print(f"✅ Successfully updated category to: {updated_category['name']}")
+        print(f"   New description: {updated_category['description']}")
+    else:
+        print("❌ Failed to update category")
+        return False
+    
+    # Test 5: Validation - Test duplicate category name prevention
+    print("\n5. Testing duplicate category name prevention")
+    
+    # Try to create a category with the same name as an existing one
+    duplicate_name = created_categories[1]['name']  # Use second category name
+    success = tester.test_create_duplicate_category(duplicate_name)
+    if not success:
+        print("❌ Duplicate prevention test failed")
+        return False
+    
+    print(f"✅ Duplicate category name correctly rejected: {duplicate_name}")
+    
+    # Test 6: Authentication - Verify admin role requirements for write operations
+    print("\n6. Testing authentication requirements for write operations")
+    
+    success = tester.test_category_unauthorized_access()
+    if not success:
+        print("❌ Authentication test failed")
+        return False
+    
+    print("✅ Authentication requirements verified - unauthorized access blocked")
+    
+    # Test 7: Error Handling - Test with invalid category IDs and missing data
+    print("\n7. Testing error handling (invalid IDs, missing data)")
+    
+    success = tester.test_category_invalid_operations()
+    if not success:
+        print("❌ Error handling test failed")
+        return False
+    
+    print("✅ Error handling working correctly for invalid operations")
+    
+    # Test 8: Integration - Verify categories appear in GET /api/service-prices/categories
+    print("\n8. Testing integration with service-prices/categories endpoint")
+    
+    success = tester.test_category_integration_with_service_prices()
+    if not success:
+        print("❌ Integration test failed")
+        return False
+    
+    print("✅ Integration with service-prices endpoint verified")
+    
+    # Test 9: DELETE /api/service-categories/{category_id} - Delete (deactivate) categories
+    print("\n9. Testing DELETE /api/service-categories/{category_id} (delete categories)")
+    
+    # Delete the categories we created (cleanup)
+    for category in created_categories:
+        success = tester.test_delete_service_category(category['id'])
+        if success:
+            print(f"✅ Successfully deleted category: {category['name']}")
+        else:
+            print(f"❌ Failed to delete category: {category['name']}")
+            return False
+    
+    # Verify categories are no longer in active list
+    success, final_categories = tester.test_get_service_categories()
+    if success:
+        final_names = [cat['name'] for cat in final_categories]
+        for created_cat in created_categories:
+            if created_cat['name'] not in final_names:
+                print(f"✅ Deleted category '{created_cat['name']}' correctly removed from active list")
+            else:
+                print(f"❌ Deleted category '{created_cat['name']}' still appears in active list")
+                return False
+    
+    # Test 10: Comprehensive CRUD operations test
+    print("\n10. Testing comprehensive CRUD operations")
+    
+    success = tester.test_service_categories_comprehensive()
+    if not success:
+        print("❌ Comprehensive CRUD test failed")
+        return False
+    
+    print("✅ All CRUD operations working correctly")
+    
+    print("\n📋 SPECIFIC TEST SCENARIOS FROM REVIEW REQUEST COMPLETED:")
+    print("✅ CREATE CATEGORIES: Created 'Терапия', 'Хирургия', 'Ортопедия' with descriptions")
+    print("✅ READ CATEGORIES: Retrieved all categories and verified data structure")
+    print("✅ UPDATE CATEGORIES: Updated category name and description")
+    print("✅ DELETE CATEGORIES: Tested category deletion and verified deactivation")
+    print("✅ VALIDATION: Tested duplicate category name prevention")
+    print("✅ AUTHENTICATION: Verified admin role requirements for write operations")
+    print("✅ ERROR HANDLING: Tested with invalid category IDs and missing data")
+    print("✅ INTEGRATION: Verified categories appear in GET /api/service-prices/categories")
+    
+    # Print final summary
+    print(f"\n{'='*80}")
+    print(f"SERVICE CATEGORIES API TEST SUMMARY")
+    print(f"{'='*80}")
+    print(f"Total tests run: {tester.tests_run}")
+    print(f"Tests passed: {tester.tests_passed}")
+    print(f"Tests failed: {tester.tests_run - tester.tests_passed}")
+    print(f"Success rate: {(tester.tests_passed / tester.tests_run * 100):.1f}%" if tester.tests_run > 0 else "No tests run")
+    
+    if tester.tests_passed == tester.tests_run:
+        print("🎉 ALL SERVICE CATEGORIES API TESTS PASSED!")
+        print("✅ The Service Categories API is fully functional and ready for production")
+        return True
+    else:
+        print("❌ SOME TESTS FAILED!")
+        return False
+
 def main():
-    # Run the Service Price Directory API test
-    return test_service_price_directory_api()
+    # Run the Service Categories API test
+    return test_service_categories_api()
 
 def main_original():
     # Get the backend URL from the environment
