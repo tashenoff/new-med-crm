@@ -222,7 +222,7 @@ const ServiceSelector = ({ onServiceAdd, selectedPatient }) => {
             <div>
               <label className="block text-sm text-gray-600 mb-1">Итого</label>
               <div className="w-full px-3 py-2 bg-gray-100 border border-gray-300 rounded-lg text-sm font-medium">
-                {totalPrice.toFixed(0)} ₸
+                {(totalPrice || 0).toFixed(0)} ₸
               </div>
             </div>
           </div>
