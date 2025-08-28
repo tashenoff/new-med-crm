@@ -911,7 +911,7 @@ async def get_doctor_statistics(
             monthly_stats[month_key]['total_appointments'] += 1
             if appointment.get('status') == 'completed':
                 monthly_stats[month_key]['completed_appointments'] += 1
-                monthly_stats[month_key]['total_revenue'] += float(appointment.get('price', 0))
+                monthly_stats[month_key]['total_revenue'] += float(appointment.get('price') or 0)
             elif appointment.get('status') == 'cancelled':
                 monthly_stats[month_key]['cancelled_appointments'] += 1
             elif appointment.get('status') == 'no_show':
