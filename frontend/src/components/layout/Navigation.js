@@ -197,6 +197,75 @@ const Navigation = ({ activeTab, setActiveTab, availableTabs, sidebarOpen, setSi
                     </button>
                   )}
 
+                  {item.type === 'accordion' && (
+                    <div>
+                      {/* Accordion Header */}
+                      <button
+                        onClick={() => toggleSection(item.key)}
+                        className={`
+                          w-full flex items-center px-3 py-3 text-left rounded-lg font-medium transition-all duration-200
+                          ${(item.subItems && item.subItems.some(subItem => activeTab === subItem.key))
+                            ? 'bg-blue-50 text-blue-700'
+                            : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
+                          }
+                        `}
+                      >
+                        <span className={`
+                          mr-3 flex-shrink-0
+                          ${(item.subItems && item.subItems.some(subItem => activeTab === subItem.key)) ? 'text-blue-600' : 'text-gray-400'}
+                        `}>
+                          {getTabIcon(item.key)}
+                        </span>
+                        <span className="text-sm flex-1">{item.label}</span>
+                        <svg
+                          className={`w-4 h-4 transition-transform duration-200 ${
+                            expandedSections[item.key] ? 'rotate-180' : ''
+                          }`}
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                        </svg>
+                      </button>
+
+                      {/* Accordion Content */}
+                      <div className={`
+                        transition-all duration-300 ease-in-out overflow-hidden
+                        ${expandedSections[item.key] ? 'max-h-96 opacity-100' : 'max-h-0 opacity-0'}
+                      `}>
+                        <div className="pl-6 pt-1 pb-2 space-y-1">
+                          {item.subItems && item.subItems.map(subItem => (
+                            <button
+                              key={subItem.key}
+                              onClick={() => handleSubTabClick(subItem.key)}
+                              className={`
+                                w-full flex items-center px-3 py-2 text-left rounded-lg transition-all duration-200 text-sm
+                                ${activeTab === subItem.key
+                                  ? 'bg-blue-100 text-blue-700 font-medium shadow-sm'
+                                  : 'text-gray-500 hover:text-gray-900 hover:bg-gray-50'
+                                }
+                              `}
+                            >
+                              <span className={`
+                                mr-3 flex-shrink-0 text-xs
+                                ${activeTab === subItem.key ? 'text-blue-600' : 'text-gray-400'}
+                              `}>
+                                {getTabIcon(subItem.key)}
+                              </span>
+                              <span>{subItem.label}</span>
+                              {activeTab === subItem.key && (
+                                <span className="ml-auto">
+                                  <div className="w-1.5 h-1.5 bg-blue-600 rounded-full"></div>
+                                </span>
+                              )}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
                   {item.type === 'section' && (
                     <div>
                       {/* Section Header */}
