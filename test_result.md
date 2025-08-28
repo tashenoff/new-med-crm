@@ -512,6 +512,21 @@ frontend:
         agent: "testing"
         comment: "COMPREHENSIVE SIDEBAR DESIGN AND NAVIGATION TESTING COMPLETED: ✅ AUTHENTICATION SUCCESSFUL: Successfully logged in with test credentials (doctor_test_20250821110240@medentry.com / DoctorTest123!) and accessed the main application. ✅ SIDEBAR BRANDING VERIFIED: 'Мед Ассистент' branding is prominently displayed in the sidebar header with beautiful gradient background (blue to purple), includes medical icon and 'Система управления' subtitle. ✅ NAVIGATION FUNCTIONALITY PERFECT: All 5 navigation tabs working flawlessly - Расписание, Календарь, Пациенты, Медкарты, Статистика. Each tab loads correctly with proper content and active state styling (blue highlighting with indicator dot). ✅ NAVIGATION ICONS CONFIRMED: All 5 navigation items have proper SVG icons - calendar for schedule, grid for calendar, users for patients, document for medical records, and bar chart for statistics. ✅ STATISTICS PAGE EXCELLENCE: New Statistics page loads perfectly with comprehensive layout including 3 sub-tabs (Обзор, По пациентам, По месяцам), date filtering controls, and rich data visualization with cards, progress bars, and detailed tables. ✅ MOBILE RESPONSIVENESS VERIFIED: Tested across Desktop (1920x1080), Tablet (768x1024), and Mobile (390x844) viewports. Sidebar adapts correctly - visible by default on desktop, collapsible on mobile with hamburger menu in header. ✅ PROFESSIONAL DESIGN: Modern, clean interface with consistent styling, proper spacing, gradient headers, and professional color scheme. Footer includes copyright and version information. ✅ SMOOTH ANIMATIONS: Sidebar transitions are smooth with CSS animations (300ms duration) for opening/closing. All interactions feel responsive and polished. The new sidebar design and navigation system is fully functional, beautifully designed, and provides excellent user experience across all device sizes."
 
+  - task: "Patient search field bug fix - 'not found' message persisting"
+    implemented: true
+    working: true
+    file: "AppointmentModal.js"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - working: false
+        agent: "user"
+        comment: "BUG REPORT: After selecting a patient from search results, the 'Пациенты не найдены' message was still showing incorrectly."
+      - working: true
+        agent: "main"
+        comment: "FIXED: Added condition `!appointmentForm.patient_id` to prevent showing 'not found' message when patient is already selected. Bug was in line 552 - condition didn't check if patient was selected. Now message only shows when actively searching with no results AND no patient selected."
+
   - task: "Patient search field in appointment modal"
     implemented: true
     working: true
