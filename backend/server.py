@@ -1660,6 +1660,77 @@ async def delete_specialty(
     
     return {"message": "Specialty deleted successfully"}
 
+# Payment Types Management
+@api_router.get("/payment-types", response_model=List[PaymentType])
+async def get_payment_types(
+    current_user: UserInDB = Depends(get_current_active_user)
+):
+    """Get all active payment types"""
+    payment_types = await db.payment_types.find({"is_active": True}).to_list(None)
+    return payment_types
+
+@api_router.post("/payment-types", response_model=PaymentType)
+async def create_payment_type(
+    payment_type: PaymentTypeCreate,
+    current_user: UserInDB = Depends(require_role([UserRole.ADMIN]))
+):
+    """Create new payment type"""
+    # Check if payment type name already exists
+    existing = await db.payment_types.find_one({"name": payment_type.name, "is_active": True})
+    if existing:
+        raise HTTPException(status_code=400, detail="Payment type with this name already exists")
+    
+    payment_type_data = PaymentType(**payment_type.dict())
+    await db.payment_types.insert_one(payment_type_data.dict())
+    return payment_type_data
+
+@api_router.put("/payment-types/{payment_type_id}", response_model=PaymentType)
+async def update_payment_type(
+    payment_type_id: str,
+    payment_type_update: PaymentTypeUpdate,
+    current_user: UserInDB = Depends(require_role([UserRole.ADMIN]))
+):
+    """Update payment type"""
+    existing = await db.payment_types.find_one({"id": payment_type_id})
+    if not existing:
+        raise HTTPException(status_code=404, detail="Payment type not found")
+    
+    # Check if new name already exists (if name is being updated)
+    if payment_type_update.name and payment_type_update.name != existing["name"]:
+        name_exists = await db.payment_types.find_one({"name": payment_type_update.name, "is_active": True, "id": {"$ne": payment_type_id}})
+        if name_exists:
+            raise HTTPException(status_code=400, detail="Payment type with this name already exists")
+    
+    update_data = {k: v for k, v in payment_type_update.dict().items() if v is not None}
+    update_data["updated_at"] = datetime.utcnow()
+    
+    result = await db.payment_types.update_one(
+        {"id": payment_type_id},
+        {"$set": update_data}
+    )
+    
+    if result.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Payment type not found")
+    
+    updated_payment_type = await db.payment_types.find_one({"id": payment_type_id})
+    return PaymentType(**updated_payment_type)
+
+@api_router.delete("/payment-types/{payment_type_id}")
+async def delete_payment_type(
+    payment_type_id: str,
+    current_user: UserInDB = Depends(require_role([UserRole.ADMIN]))
+):
+    """Delete (deactivate) payment type"""
+    result = await db.payment_types.update_one(
+        {"id": payment_type_id}, 
+        {"$set": {"is_active": False, "updated_at": datetime.utcnow()}}
+    )
+    
+    if result.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Payment type not found")
+    
+    return {"message": "Payment type deleted successfully"}
+
 # Protected Appointment endpoints
 @api_router.post("/appointments", response_model=Appointment)
 async def create_appointment(
