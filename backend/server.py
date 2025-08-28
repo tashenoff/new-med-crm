@@ -1090,6 +1090,188 @@ async def delete_doctor(
         raise HTTPException(status_code=404, detail="Doctor not found")
     return {"message": "Doctor deactivated successfully"}
 
+# Doctor Schedule endpoints
+@api_router.post("/doctors/{doctor_id}/schedule", response_model=DoctorSchedule)
+async def create_doctor_schedule(
+    doctor_id: str,
+    schedule: DoctorScheduleCreate,
+    current_user: UserInDB = Depends(require_role([UserRole.ADMIN]))
+):
+    """Create doctor's working schedule"""
+    # Check if doctor exists
+    doctor = await db.doctors.find_one({"id": doctor_id})
+    if not doctor:
+        raise HTTPException(status_code=404, detail="Doctor not found")
+    
+    # Validate day_of_week (0-6)
+    if schedule.day_of_week < 0 or schedule.day_of_week > 6:
+        raise HTTPException(status_code=400, detail="Invalid day_of_week. Must be 0-6 (Monday-Sunday)")
+    
+    # Validate time format
+    try:
+        datetime.strptime(schedule.start_time, "%H:%M")
+        datetime.strptime(schedule.end_time, "%H:%M")
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid time format. Use HH:MM")
+    
+    # Check for existing schedule for this day
+    existing = await db.doctor_schedules.find_one({
+        "doctor_id": doctor_id,
+        "day_of_week": schedule.day_of_week,
+        "is_active": True
+    })
+    
+    if existing:
+        raise HTTPException(status_code=400, detail="Schedule already exists for this day")
+    
+    schedule_dict = schedule.dict()
+    schedule_dict["doctor_id"] = doctor_id  # Ensure doctor_id is set
+    schedule_obj = DoctorSchedule(**schedule_dict)
+    await db.doctor_schedules.insert_one(schedule_obj.dict())
+    return schedule_obj
+
+@api_router.get("/doctors/{doctor_id}/schedule", response_model=List[DoctorSchedule])
+async def get_doctor_schedule(
+    doctor_id: str,
+    current_user: UserInDB = Depends(get_current_active_user)
+):
+    """Get doctor's working schedule"""
+    schedules = await db.doctor_schedules.find({
+        "doctor_id": doctor_id,
+        "is_active": True
+    }).sort("day_of_week", 1).to_list(7)  # Max 7 days
+    
+    return [DoctorSchedule(**schedule) for schedule in schedules]
+
+@api_router.put("/doctors/{doctor_id}/schedule/{schedule_id}", response_model=DoctorSchedule)
+async def update_doctor_schedule(
+    doctor_id: str,
+    schedule_id: str,
+    schedule_update: DoctorScheduleUpdate,
+    current_user: UserInDB = Depends(require_role([UserRole.ADMIN]))
+):
+    """Update doctor's working schedule"""
+    update_dict = {k: v for k, v in schedule_update.dict().items() if v is not None}
+    update_dict["updated_at"] = datetime.utcnow()
+    
+    # Validate time format if provided
+    if "start_time" in update_dict:
+        try:
+            datetime.strptime(update_dict["start_time"], "%H:%M")
+        except ValueError:
+            raise HTTPException(status_code=400, detail="Invalid start_time format. Use HH:MM")
+    
+    if "end_time" in update_dict:
+        try:
+            datetime.strptime(update_dict["end_time"], "%H:%M")
+        except ValueError:
+            raise HTTPException(status_code=400, detail="Invalid end_time format. Use HH:MM")
+    
+    result = await db.doctor_schedules.update_one(
+        {"id": schedule_id, "doctor_id": doctor_id}, 
+        {"$set": update_dict}
+    )
+    
+    if result.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Schedule not found")
+    
+    updated_schedule = await db.doctor_schedules.find_one({"id": schedule_id})
+    return DoctorSchedule(**updated_schedule)
+
+@api_router.delete("/doctors/{doctor_id}/schedule/{schedule_id}")
+async def delete_doctor_schedule(
+    doctor_id: str,
+    schedule_id: str,
+    current_user: UserInDB = Depends(require_role([UserRole.ADMIN]))
+):
+    """Delete doctor's working schedule"""
+    result = await db.doctor_schedules.update_one(
+        {"id": schedule_id, "doctor_id": doctor_id}, 
+        {"$set": {"is_active": False, "updated_at": datetime.utcnow()}}
+    )
+    
+    if result.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Schedule not found")
+    
+    return {"message": "Schedule deleted successfully"}
+
+@api_router.get("/doctors/available/{appointment_date}", response_model=List[DoctorWithSchedule])
+async def get_available_doctors(
+    appointment_date: str,
+    appointment_time: Optional[str] = None,
+    current_user: UserInDB = Depends(get_current_active_user)
+):
+    """Get doctors available on a specific date and optionally time"""
+    try:
+        # Parse date to get day of week
+        date_obj = datetime.strptime(appointment_date, "%Y-%m-%d")
+        day_of_week = date_obj.weekday()
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid date format. Use YYYY-MM-DD")
+    
+    # Get doctors with schedules for this day
+    pipeline = [
+        {"$match": {"is_active": True}},
+        {
+            "$lookup": {
+                "from": "doctor_schedules",
+                "localField": "id",
+                "foreignField": "doctor_id",
+                "as": "schedule"
+            }
+        },
+        {
+            "$match": {
+                "schedule": {
+                    "$elemMatch": {
+                        "day_of_week": day_of_week,
+                        "is_active": True
+                    }
+                }
+            }
+        }
+    ]
+    
+    available_doctors = []
+    doctors = await db.doctors.aggregate(pipeline).to_list(None)
+    
+    for doctor in doctors:
+        # Filter schedule for the requested day
+        day_schedules = [s for s in doctor["schedule"] if s["day_of_week"] == day_of_week and s["is_active"]]
+        
+        if appointment_time:
+            # Check if appointment time is within working hours
+            time_available = False
+            try:
+                appointment_time_obj = datetime.strptime(appointment_time, "%H:%M").time()
+                for schedule in day_schedules:
+                    start_time_obj = datetime.strptime(schedule["start_time"], "%H:%M").time()
+                    end_time_obj = datetime.strptime(schedule["end_time"], "%H:%M").time()
+                    if start_time_obj <= appointment_time_obj <= end_time_obj:
+                        time_available = True
+                        break
+            except ValueError:
+                raise HTTPException(status_code=400, detail="Invalid time format. Use HH:MM")
+            
+            if not time_available:
+                continue
+        
+        doctor_with_schedule = DoctorWithSchedule(
+            id=doctor["id"],
+            full_name=doctor["full_name"],
+            specialty=doctor["specialty"],
+            phone=doctor.get("phone"),
+            calendar_color=doctor["calendar_color"],
+            is_active=doctor["is_active"],
+            user_id=doctor.get("user_id"),
+            created_at=doctor["created_at"],
+            updated_at=doctor["updated_at"],
+            schedule=[DoctorSchedule(**s) for s in day_schedules]
+        )
+        available_doctors.append(doctor_with_schedule)
+    
+    return available_doctors
+
 # Protected Appointment endpoints
 @api_router.post("/appointments", response_model=Appointment)
 async def create_appointment(
