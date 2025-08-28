@@ -177,7 +177,11 @@ const PatientModal = ({
           services: [],
           total_cost: 0,
           status: 'draft',
-          notes: ''
+          notes: '',
+          payment_status: 'unpaid',
+          paid_amount: 0,
+          execution_status: 'pending',
+          appointment_ids: []
         });
         setEditingPlan(null);
         fetchTreatmentPlans(); // Refresh plans list
