@@ -1016,7 +1016,7 @@ const AppointmentModal = ({
                 <ServiceSelector 
                   onServiceAdd={(serviceItem) => {
                     const updatedServices = [...planForm.services, serviceItem];
-                    const totalCost = updatedServices.reduce((sum, service) => sum + service.total_price, 0);
+                    const totalCost = updatedServices.reduce((sum, service) => sum + (service.total_price || 0), 0);
                     setPlanForm(prev => ({
                       ...prev,
                       services: updatedServices,
