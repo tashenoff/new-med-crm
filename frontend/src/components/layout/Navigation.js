@@ -43,7 +43,8 @@ const Navigation = ({ activeTab, setActiveTab, availableTabs, sidebarOpen, setSi
         type: 'accordion',
         subItems: [
           { key: 'service-prices', label: 'Ценовая политика', type: 'tab' },
-          { key: 'specialties', label: 'Специальности', type: 'tab' }
+          { key: 'specialties', label: 'Специальности', type: 'tab' },
+          { key: 'payment-types', label: 'Тип оплаты', type: 'tab' }
         ]
       });
     }
