@@ -71,32 +71,37 @@ const ServiceSelector = ({ onServiceAdd, selectedPatient }) => {
     }
   };
 
+  const selectedServiceData = services.find(s => s.id === selectedService);
+  const isToothService = selectedServiceData?.unit === 'зуб';
+  const finalQuantity = isToothService ? selectedTeeth.length : quantity;
+  const totalPrice = selectedServiceData ? (selectedServiceData.price * finalQuantity * (1 - discount / 100)) : 0;
+
   const handleAddService = () => {
     if (!selectedService) return;
-
+    
     const service = services.find(s => s.id === selectedService);
     if (!service) return;
 
-    // Check if tooth is required for dental services
-    if (selectedCategory === 'Стоматолог' && selectedTeeth.length === 0) {
-      alert('Выберите зуб для стоматологической услуги');
+    // Проверка на выбор зубов для услуг по зубам
+    if (isToothService && selectedTeeth.length === 0) {
+      alert('Выберите зубы для данной услуги');
       return;
     }
 
-    const serviceItem = {
+    const serviceToAdd = {
       service_id: service.id,
       service_name: service.name,
       category: service.category,
-      tooth_number: selectedCategory === 'Стоматолог' ? selectedTeeth : null,
+      unit: service.unit,
+      teeth_numbers: isToothService ? selectedTeeth : null,
       unit_price: service.price,
-      quantity: quantity,
+      quantity: finalQuantity,
       discount_percent: discount,
-      total_price: (service.price * quantity) * (1 - discount / 100)
+      final_price: totalPrice,
+      description: service.description || ''
     };
 
-    if (onServiceAdd) {
-      onServiceAdd(serviceItem);
-    }
+    onServiceAdd(serviceToAdd);
 
     // Reset form
     setSelectedService('');
@@ -104,8 +109,6 @@ const ServiceSelector = ({ onServiceAdd, selectedPatient }) => {
     setQuantity(1);
     setDiscount(0);
   };
-
-  const selectedServiceData = services.find(s => s.id === selectedService);
 
   return (
     <div className="space-y-4">
