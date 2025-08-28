@@ -85,10 +85,13 @@ const DoctorModal = ({
               ))}
             </select>
             {specialties.length === 0 && (
-              <p className="text-sm text-gray-500 mt-1">
-                Сначала создайте специальности в разделе "Справочник → Специальности"
+              <p className="text-sm text-red-500 mt-1">
+                ⚠️ Специальности не найдены. Создайте специальности в разделе "Специальности"
               </p>
             )}
+            <p className="text-xs text-gray-400 mt-1">
+              Загружено специальностей: {specialties.length}
+            </p>
           </div>
           
           <input
