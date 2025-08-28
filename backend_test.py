@@ -3141,6 +3141,415 @@ def test_treatment_plan_422_validation_error():
         
         return False, None
 
+    # Service Price Directory Testing Methods
+    def test_get_service_prices(self, category=None, active_only=True):
+        """Get all service prices from directory"""
+        params = {}
+        if category:
+            params["category"] = category
+        if not active_only:
+            params["active_only"] = "false"
+            
+        filter_desc = ""
+        if category:
+            filter_desc += f" (category: {category})"
+        if not active_only:
+            filter_desc += " (including inactive)"
+            
+        success, response = self.run_test(
+            f"Get Service Prices{filter_desc}",
+            "GET",
+            "service-prices",
+            200,
+            params=params
+        )
+        
+        if success and response:
+            print(f"Found {len(response)} service prices{filter_desc}")
+            if len(response) > 0:
+                service = response[0]
+                print(f"Sample service: {service['service_name']} - {service.get('category', 'No category')} - {service['price']} тенге")
+                
+                # Verify all services have required fields
+                required_fields = ['id', 'service_name', 'price', 'is_active']
+                for field in required_fields:
+                    if field not in service:
+                        print(f"❌ Service price missing required field: {field}")
+                        return False, None
+                
+                # If category filter is specified, verify all services match
+                if category:
+                    for svc in response:
+                        if svc.get('category') != category:
+                            print(f"❌ Category filter failed: expected {category}, got {svc.get('category')}")
+                            return False, None
+                    print(f"✅ All service prices match category filter: {category}")
+                    
+                # If active_only is True, verify all services are active
+                if active_only:
+                    for svc in response:
+                        if not svc.get('is_active', True):
+                            print(f"❌ Found inactive service when active_only=True: {svc['service_name']}")
+                            return False, None
+                    print(f"✅ All service prices are active")
+                    
+        return success, response
+
+    def test_create_service_price(self, service_name, category, price, service_code=None, unit="процедура", description=None):
+        """Create new service price"""
+        data = {
+            "service_name": service_name,
+            "category": category,
+            "price": price,
+            "unit": unit
+        }
+        if service_code:
+            data["service_code"] = service_code
+        if description:
+            data["description"] = description
+            
+        success, response = self.run_test(
+            f"Create Service Price: {service_name}",
+            "POST",
+            "service-prices",
+            200,
+            data=data
+        )
+        
+        if success and response and "id" in response:
+            print(f"Created service price: {response['service_name']} in category {response.get('category', 'No category')} for {response['price']} тенге")
+            print(f"Service ID: {response['id']}")
+            return success, response
+        return success, None
+
+    def test_update_service_price(self, price_id, update_data):
+        """Update service price"""
+        success, response = self.run_test(
+            f"Update Service Price {price_id}",
+            "PUT",
+            f"service-prices/{price_id}",
+            200,
+            data=update_data
+        )
+        
+        if success and response:
+            print(f"Updated service price: {response['service_name']}")
+            # Verify the update was applied
+            for key, value in update_data.items():
+                if response.get(key) != value:
+                    print(f"❌ Update verification failed: {key} expected {value}, got {response.get(key)}")
+                    success = False
+                    break
+            if success:
+                print("✅ All updates verified successfully")
+        return success, response
+
+    def test_delete_service_price(self, price_id):
+        """Delete (deactivate) service price"""
+        success, response = self.run_test(
+            f"Delete Service Price {price_id}",
+            "DELETE",
+            f"service-prices/{price_id}",
+            200
+        )
+        
+        if success:
+            print(f"✅ Successfully deactivated service price with ID: {price_id}")
+            
+            # Verify the service price was deactivated (not deleted, just marked inactive)
+            verify_success, service_data = self.run_test(
+                "Verify Service Price Deactivation",
+                "GET",
+                "service-prices",
+                200,
+                params={"active_only": "false"}  # Include inactive services
+            )
+            
+            if verify_success and service_data:
+                # Find the deactivated service
+                deactivated_service = None
+                for service in service_data:
+                    if service['id'] == price_id:
+                        deactivated_service = service
+                        break
+                
+                if deactivated_service and not deactivated_service.get('is_active', True):
+                    print("✅ Service price deactivation verified")
+                else:
+                    print("❌ Service price still active after deletion")
+                    success = False
+            else:
+                print("❌ Could not verify service price deactivation")
+                success = False
+                
+        return success
+
+    def test_get_service_categories(self):
+        """Get all service categories"""
+        success, response = self.run_test(
+            "Get Service Categories",
+            "GET",
+            "service-prices/categories",
+            200
+        )
+        
+        if success and response:
+            categories = response.get('categories', [])
+            print(f"Found {len(categories)} service categories")
+            print(f"Categories: {', '.join(categories)}")
+            
+            # Verify categories are sorted
+            if categories == sorted(categories):
+                print("✅ Categories are properly sorted")
+            else:
+                print("❌ Categories are not sorted")
+                return False, None
+                
+        return success, response
+
+    def test_service_price_search_functionality(self, search_term):
+        """Test search functionality for service prices"""
+        # Get all services first
+        success, all_services = self.test_get_service_prices()
+        if not success:
+            print("❌ Could not get all services for search test")
+            return False
+        
+        # Filter services that should match the search term
+        matching_services = [
+            svc for svc in all_services 
+            if search_term.lower() in svc['service_name'].lower() or 
+               (svc.get('description') and search_term.lower() in svc['description'].lower())
+        ]
+        
+        print(f"Expected {len(matching_services)} services to match search term '{search_term}'")
+        
+        # For now, we'll just verify the services exist since the API doesn't have search endpoint
+        # This is a placeholder for when search functionality is added
+        if len(matching_services) > 0:
+            print(f"✅ Found services that would match search term '{search_term}':")
+            for svc in matching_services[:3]:  # Show first 3 matches
+                print(f"  - {svc['service_name']} ({svc.get('category', 'No category')})")
+        else:
+            print(f"❌ No services found that would match search term '{search_term}'")
+            return False
+            
+        return True
+
+    def test_service_price_validation(self):
+        """Test service price data validation"""
+        print("\n🔍 Testing service price validation...")
+        
+        # Test with missing required fields (should cause 422)
+        success, _ = self.run_test(
+            "Create Service Price with Missing Name",
+            "POST",
+            "service-prices",
+            422,  # Expect validation error
+            data={"price": 5000.0}  # Missing service_name
+        )
+        
+        if success:
+            print("✅ Missing service_name validation working correctly")
+        else:
+            print("❌ Missing service_name validation failed")
+            return False
+        
+        # Test with invalid price (negative)
+        success, _ = self.run_test(
+            "Create Service Price with Negative Price",
+            "POST",
+            "service-prices",
+            422,  # Expect validation error
+            data={
+                "service_name": "Invalid Price Service",
+                "price": -100.0,
+                "category": "Test"
+            }
+        )
+        
+        if success:
+            print("✅ Negative price validation working correctly")
+        else:
+            print("❌ Negative price validation failed")
+            return False
+        
+        # Test with valid decimal price
+        success, service = self.test_create_service_price(
+            "Decimal Price Service",
+            "Терапия",
+            1500.75,
+            description="Service with decimal price"
+        )
+        
+        if success and service and service['price'] == 1500.75:
+            print("✅ Decimal price validation working correctly")
+            return True, service['id']
+        else:
+            print("❌ Decimal price validation failed")
+            return False
+
+    def test_service_price_access_control(self):
+        """Test access control for service price endpoints"""
+        print("\n🔍 Testing service price access control...")
+        
+        # Save current token
+        saved_token = self.token
+        
+        # Test unauthorized access to service prices
+        self.token = None
+        success, _ = self.run_test(
+            "Unauthorized access to service prices",
+            "GET",
+            "service-prices",
+            401  # Expect 401 Unauthorized
+        )
+        
+        if not success:
+            print("❌ Unauthorized service prices access test failed")
+            self.token = saved_token
+            return False
+        
+        # Test unauthorized service price creation
+        success, _ = self.run_test(
+            "Unauthorized service price creation",
+            "POST",
+            "service-prices",
+            401,  # Expect 401 Unauthorized
+            data={"service_name": "Unauthorized Service", "price": 1000.0, "category": "Test"}
+        )
+        
+        if not success:
+            print("❌ Unauthorized service price creation test failed")
+            self.token = saved_token
+            return False
+        
+        # Restore token
+        self.token = saved_token
+        
+        print("✅ All unauthorized access tests passed")
+        return True
+
+    def test_service_price_crud_operations(self):
+        """Test complete CRUD operations for service prices"""
+        print("\n🔍 Testing complete CRUD operations for service prices...")
+        
+        # Create - Test creating service prices for different categories
+        test_services = [
+            {
+                "service_name": "Лечение кариеса",
+                "category": "Терапия",
+                "price": 15000.0,
+                "service_code": "T001",
+                "unit": "зуб",
+                "description": "Лечение кариеса с установкой пломбы"
+            },
+            {
+                "service_name": "Удаление зуба",
+                "category": "Хирургия",
+                "price": 8000.0,
+                "service_code": "S001",
+                "unit": "зуб",
+                "description": "Простое удаление зуба"
+            },
+            {
+                "service_name": "Протезирование",
+                "category": "Ортопедия",
+                "price": 45000.0,
+                "service_code": "P001",
+                "unit": "коронка",
+                "description": "Установка металлокерамической коронки"
+            }
+        ]
+        
+        created_services = []
+        
+        for service_data in test_services:
+            success, service = self.test_create_service_price(**service_data)
+            if success and service:
+                created_services.append(service)
+                print(f"✅ Created service: {service['service_name']}")
+            else:
+                print(f"❌ Failed to create service: {service_data['service_name']}")
+                return False
+        
+        if len(created_services) != len(test_services):
+            print("❌ Failed to create all test services")
+            return False
+        
+        # Read - Test retrieving service prices
+        success, all_services = self.test_get_service_prices()
+        if not success:
+            print("❌ Failed to retrieve service prices")
+            return False
+        
+        # Verify our created services are in the list
+        created_service_ids = [svc['id'] for svc in created_services]
+        found_services = [svc for svc in all_services if svc['id'] in created_service_ids]
+        
+        if len(found_services) != len(created_services):
+            print(f"❌ Not all created services found in list: expected {len(created_services)}, found {len(found_services)}")
+            return False
+        
+        print(f"✅ All {len(created_services)} created services found in service list")
+        
+        # Test category filtering
+        for category in ["Терапия", "Хирургия", "Ортопедия"]:
+            success, category_services = self.test_get_service_prices(category=category)
+            if not success:
+                print(f"❌ Failed to filter services by category: {category}")
+                return False
+            
+            # Verify all returned services match the category
+            category_matches = all(svc.get('category') == category for svc in category_services)
+            if not category_matches:
+                print(f"❌ Category filter failed for {category}")
+                return False
+            
+            print(f"✅ Category filter working for {category}: {len(category_services)} services")
+        
+        # Update - Test updating service prices
+        service_to_update = created_services[0]
+        update_data = {
+            "price": 18000.0,
+            "description": "Обновленное описание лечения кариеса",
+            "unit": "процедура"
+        }
+        
+        success, updated_service = self.test_update_service_price(service_to_update['id'], update_data)
+        if not success:
+            print("❌ Failed to update service price")
+            return False
+        
+        print(f"✅ Successfully updated service: {updated_service['service_name']}")
+        
+        # Delete - Test deactivating service prices
+        service_to_delete = created_services[1]
+        success = self.test_delete_service_price(service_to_delete['id'])
+        if not success:
+            print("❌ Failed to delete service price")
+            return False
+        
+        print(f"✅ Successfully deactivated service: {service_to_delete['service_name']}")
+        
+        # Verify categories endpoint
+        success, categories_response = self.test_get_service_categories()
+        if not success:
+            print("❌ Failed to get service categories")
+            return False
+        
+        categories = categories_response.get('categories', [])
+        expected_categories = ["Терапия", "Хирургия", "Ортопедия"]
+        
+        for expected_cat in expected_categories:
+            if expected_cat not in categories:
+                print(f"❌ Expected category not found: {expected_cat}")
+                return False
+        
+        print(f"✅ All expected categories found: {', '.join(expected_categories)}")
+        
+        return True, created_services
+
     def test_doctor_statistics_comprehensive(self):
         """Comprehensive test of doctor statistics with working hours and utilization"""
         print("\n🔍 Testing Doctor Statistics with Working Hours and Utilization...")
