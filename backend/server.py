@@ -411,6 +411,23 @@ class ServicePriceUpdate(BaseModel):
     description: Optional[str] = None
     is_active: Optional[bool] = None
 
+class ServiceCategory(BaseModel):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    name: str
+    description: Optional[str] = None
+    is_active: bool = True
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_at: datetime = Field(default_factory=datetime.utcnow)
+
+class ServiceCategoryCreate(BaseModel):
+    name: str
+    description: Optional[str] = None
+
+class ServiceCategoryUpdate(BaseModel):
+    name: Optional[str] = None
+    description: Optional[str] = None
+    is_active: Optional[bool] = None
+
 class Appointment(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     patient_id: str
