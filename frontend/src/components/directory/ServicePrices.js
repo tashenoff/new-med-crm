@@ -34,6 +34,7 @@ const ServicePrices = ({ user }) => {
   useEffect(() => {
     fetchServicePrices();
     fetchCategories();
+    fetchServiceCategories();
   }, []);
 
   const fetchServicePrices = async () => {
