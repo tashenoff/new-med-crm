@@ -364,181 +364,310 @@ const ServicePrices = ({ user }) => {
         </div>
       )}
 
-      {/* Фильтры */}
-      <div className="bg-white p-4 rounded-lg shadow border">
-        <div className="flex gap-4">
-          <div className="flex-1">
-            <label className="block text-sm font-medium text-gray-700 mb-1">Поиск по названию или коду</label>
-            <input
-              type="text"
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              placeholder="Введите название услуги или код..."
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-            />
+      {/* Содержимое вкладки Услуги */}
+      {activeTab === 'services' && (
+        <>
+          {/* Фильтры */}
+          <div className="bg-white p-4 rounded-lg shadow border">
+            <div className="flex gap-4">
+              <div className="flex-1">
+                <label className="block text-sm font-medium text-gray-700 mb-1">Поиск по названию или коду</label>
+                <input
+                  type="text"
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  placeholder="Введите название услуги или код..."
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+              <div className="w-64">
+                <label className="block text-sm font-medium text-gray-700 mb-1">Категория</label>
+                <select
+                  value={selectedCategory}
+                  onChange={(e) => setSelectedCategory(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                >
+                  <option value="">Все категории</option>
+                  {categories.map(category => (
+                    <option key={category} value={category}>{category}</option>
+                  ))}
+                </select>
+              </div>
+            </div>
           </div>
-          <div className="w-64">
-            <label className="block text-sm font-medium text-gray-700 mb-1">Категория</label>
-            <select
-              value={selectedCategory}
-              onChange={(e) => setSelectedCategory(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-            >
-              <option value="">Все категории</option>
-              {categories.map(category => (
-                <option key={category} value={category}>{category}</option>
-              ))}
-            </select>
-          </div>
-        </div>
-      </div>
 
-      {/* Статистика */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-        <div className="bg-white p-6 rounded-lg shadow border-l-4 border-blue-500">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-gray-600 text-sm font-medium">Всего услуг</p>
-              <p className="text-2xl font-bold text-blue-600">{servicePrices.length}</p>
+          {/* Статистика услуг */}
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+            <div className="bg-white p-6 rounded-lg shadow border-l-4 border-blue-500">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-gray-600 text-sm font-medium">Всего услуг</p>
+                  <p className="text-2xl font-bold text-blue-600">{servicePrices.length}</p>
+                </div>
+                <div className="text-blue-500 text-2xl">🏥</div>
+              </div>
             </div>
-            <div className="text-blue-500 text-2xl">🏥</div>
-          </div>
-        </div>
-        
-        <div className="bg-white p-6 rounded-lg shadow border-l-4 border-green-500">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-gray-600 text-sm font-medium">Категорий</p>
-              <p className="text-2xl font-bold text-green-600">{categories.length}</p>
+            
+            <div className="bg-white p-6 rounded-lg shadow border-l-4 border-green-500">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-gray-600 text-sm font-medium">Категорий</p>
+                  <p className="text-2xl font-bold text-green-600">{categories.length}</p>
+                </div>
+                <div className="text-green-500 text-2xl">📂</div>
+              </div>
             </div>
-            <div className="text-green-500 text-2xl">📂</div>
-          </div>
-        </div>
-        
-        <div className="bg-white p-6 rounded-lg shadow border-l-4 border-purple-500">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-gray-600 text-sm font-medium">Средняя цена</p>
-              <p className="text-2xl font-bold text-purple-600">
-                {servicePrices.length > 0 
-                  ? (servicePrices.reduce((sum, p) => sum + p.price, 0) / servicePrices.length).toFixed(0)
-                  : 0
-                } ₸
-              </p>
+            
+            <div className="bg-white p-6 rounded-lg shadow border-l-4 border-purple-500">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-gray-600 text-sm font-medium">Средняя цена</p>
+                  <p className="text-2xl font-bold text-purple-600">
+                    {servicePrices.length > 0 
+                      ? (servicePrices.reduce((sum, p) => sum + p.price, 0) / servicePrices.length).toFixed(0)
+                      : 0
+                    } ₸
+                  </p>
+                </div>
+                <div className="text-purple-500 text-2xl">💰</div>
+              </div>
             </div>
-            <div className="text-purple-500 text-2xl">💰</div>
-          </div>
-        </div>
-        
-        <div className="bg-white p-6 rounded-lg shadow border-l-4 border-orange-500">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-gray-600 text-sm font-medium">Найдено</p>
-              <p className="text-2xl font-bold text-orange-600">{filteredPrices.length}</p>
+            
+            <div className="bg-white p-6 rounded-lg shadow border-l-4 border-orange-500">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-gray-600 text-sm font-medium">Найдено</p>
+                  <p className="text-2xl font-bold text-orange-600">{filteredPrices.length}</p>
+                </div>
+                <div className="text-orange-500 text-2xl">🔍</div>
+              </div>
             </div>
-            <div className="text-orange-500 text-2xl">🔍</div>
           </div>
-        </div>
-      </div>
 
-      {/* Таблица услуг */}
-      <div className="bg-white rounded-lg shadow overflow-hidden">
-        {loading ? (
-          <div className="flex items-center justify-center h-64">
-            <div className="text-gray-500">Загружаем цены на услуги...</div>
+          {/* Таблица услуг */}
+          <div className="bg-white rounded-lg shadow overflow-hidden">
+            {loading ? (
+              <div className="flex items-center justify-center h-64">
+                <div className="text-gray-500">Загружаем цены на услуги...</div>
+              </div>
+            ) : filteredPrices.length === 0 ? (
+              <div className="flex items-center justify-center h-64">
+                <div className="text-center text-gray-500">
+                  <div className="text-4xl mb-2">💼</div>
+                  <p>Услуги не найдены</p>
+                  <p className="text-sm mt-1">Попробуйте изменить фильтры или добавьте новую услугу</p>
+                </div>
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="min-w-full divide-y divide-gray-200">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Услуга
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Код
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Категория
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Цена
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Единица
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Описание
+                      </th>
+                      {user?.role === 'admin' && (
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Действия
+                        </th>
+                      )}
+                    </tr>
+                  </thead>
+                  <tbody className="bg-white divide-y divide-gray-200">
+                    {filteredPrices.map(price => (
+                      <tr key={price.id} className="hover:bg-gray-50">
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="font-medium text-gray-900">{price.service_name}</div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                          {price.service_code || '—'}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                          {price.category ? (
+                            <span className="px-2 py-1 text-xs rounded-full bg-blue-100 text-blue-800">
+                              {price.category}
+                            </span>
+                          ) : '—'}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="text-lg font-medium text-green-600">
+                            {price.price.toLocaleString()} ₸
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                          {price.unit}
+                        </td>
+                        <td className="px-6 py-4 text-sm text-gray-500 max-w-xs">
+                          <div className="truncate" title={price.description}>
+                            {price.description || '—'}
+                          </div>
+                        </td>
+                        {user?.role === 'admin' && (
+                          <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                            <div className="flex gap-2">
+                              <button
+                                onClick={() => handleEdit(price)}
+                                className="text-blue-600 hover:text-blue-900"
+                              >
+                                Изменить
+                              </button>
+                              <button
+                                onClick={() => handleDelete(price.id)}
+                                className="text-red-600 hover:text-red-900"
+                              >
+                                Удалить
+                              </button>
+                            </div>
+                          </td>
+                        )}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </div>
-        ) : filteredPrices.length === 0 ? (
-          <div className="flex items-center justify-center h-64">
-            <div className="text-center text-gray-500">
-              <div className="text-4xl mb-2">💼</div>
-              <p>Услуги не найдены</p>
-              <p className="text-sm mt-1">Попробуйте изменить фильтры или добавьте новую услугу</p>
+        </>
+      )}
+
+      {/* Содержимое вкладки Категории */}
+      {activeTab === 'categories' && (
+        <>
+          {/* Статистика категорий */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div className="bg-white p-6 rounded-lg shadow border-l-4 border-green-500">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-gray-600 text-sm font-medium">Всего категорий</p>
+                  <p className="text-2xl font-bold text-green-600">{serviceCategories.length}</p>
+                </div>
+                <div className="text-green-500 text-2xl">📂</div>
+              </div>
+            </div>
+            
+            <div className="bg-white p-6 rounded-lg shadow border-l-4 border-blue-500">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-gray-600 text-sm font-medium">Услуг в категориях</p>
+                  <p className="text-2xl font-bold text-blue-600">{servicePrices.filter(p => p.category).length}</p>
+                </div>
+                <div className="text-blue-500 text-2xl">🏥</div>
+              </div>
+            </div>
+            
+            <div className="bg-white p-6 rounded-lg shadow border-l-4 border-purple-500">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-gray-600 text-sm font-medium">Без категории</p>
+                  <p className="text-2xl font-bold text-purple-600">{servicePrices.filter(p => !p.category).length}</p>
+                </div>
+                <div className="text-purple-500 text-2xl">❓</div>
+              </div>
             </div>
           </div>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Услуга
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Код
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Категория
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Цена
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Единица
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Описание
-                  </th>
-                  {user?.role === 'admin' && (
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Действия
-                    </th>
-                  )}
-                </tr>
-              </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
-                {filteredPrices.map(price => (
-                  <tr key={price.id} className="hover:bg-gray-50">
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="font-medium text-gray-900">{price.service_name}</div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {price.service_code || '—'}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {price.category ? (
-                        <span className="px-2 py-1 text-xs rounded-full bg-blue-100 text-blue-800">
-                          {price.category}
-                        </span>
-                      ) : '—'}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-lg font-medium text-green-600">
-                        {price.price.toLocaleString()} ₸
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {price.unit}
-                    </td>
-                    <td className="px-6 py-4 text-sm text-gray-500 max-w-xs">
-                      <div className="truncate" title={price.description}>
-                        {price.description || '—'}
-                      </div>
-                    </td>
-                    {user?.role === 'admin' && (
-                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                        <div className="flex gap-2">
-                          <button
-                            onClick={() => handleEdit(price)}
-                            className="text-blue-600 hover:text-blue-900"
-                          >
-                            Изменить
-                          </button>
-                          <button
-                            onClick={() => handleDelete(price.id)}
-                            className="text-red-600 hover:text-red-900"
-                          >
-                            Удалить
-                          </button>
-                        </div>
-                      </td>
-                    )}
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+
+          {/* Таблица категорий */}
+          <div className="bg-white rounded-lg shadow overflow-hidden">
+            {loading ? (
+              <div className="flex items-center justify-center h-64">
+                <div className="text-gray-500">Загружаем категории...</div>
+              </div>
+            ) : serviceCategories.length === 0 ? (
+              <div className="flex items-center justify-center h-64">
+                <div className="text-center text-gray-500">
+                  <div className="text-4xl mb-2">📂</div>
+                  <p>Категории не найдены</p>
+                  <p className="text-sm mt-1">Добавьте первую категорию для организации услуг</p>
+                </div>
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="min-w-full divide-y divide-gray-200">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Название категории
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Описание
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Услуг в категории
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Дата создания
+                      </th>
+                      {user?.role === 'admin' && (
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Действия
+                        </th>
+                      )}
+                    </tr>
+                  </thead>
+                  <tbody className="bg-white divide-y divide-gray-200">
+                    {serviceCategories.map(category => (
+                      <tr key={category.id} className="hover:bg-gray-50">
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="flex items-center">
+                            <div className="text-2xl mr-3">📂</div>
+                            <div className="font-medium text-gray-900">{category.name}</div>
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 text-sm text-gray-500 max-w-xs">
+                          <div className="truncate" title={category.description}>
+                            {category.description || '—'}
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                          <span className="px-2 py-1 text-xs rounded-full bg-blue-100 text-blue-800">
+                            {servicePrices.filter(p => p.category === category.name).length} услуг
+                          </span>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                          {new Date(category.created_at).toLocaleDateString('ru-RU')}
+                        </td>
+                        {user?.role === 'admin' && (
+                          <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                            <div className="flex gap-2">
+                              <button
+                                onClick={() => handleEditCategory(category)}
+                                className="text-blue-600 hover:text-blue-900"
+                              >
+                                Изменить
+                              </button>
+                              <button
+                                onClick={() => handleDeleteCategory(category.id)}
+                                className="text-red-600 hover:text-red-900"
+                              >
+                                Удалить
+                              </button>
+                            </div>
+                          </td>
+                        )}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </div>
-        )}
-      </div>
+        </>
+      )}
 
       {/* Модальное окно для создания/редактирования услуги */}
       {showModal && (
@@ -643,6 +772,59 @@ const ServicePrices = ({ user }) => {
                 <button
                   type="button"
                   onClick={handleCloseModal}
+                  className="flex-1 bg-gray-300 text-gray-700 py-2 px-4 rounded-lg hover:bg-gray-400"
+                >
+                  Отмена
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Модальное окно для создания/редактирования категории */}
+      {showCategoryModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 w-full max-w-md">
+            <h3 className="text-lg font-semibold mb-4">
+              {editingCategory ? 'Редактировать категорию' : 'Добавить новую категорию'}
+            </h3>
+            
+            <form onSubmit={handleCategorySubmit} className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Название категории *</label>
+                <input
+                  type="text"
+                  value={categoryForm.name}
+                  onChange={(e) => setCategoryForm({...categoryForm, name: e.target.value})}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500"
+                  required
+                  placeholder="Например: Терапия, Хирургия, Ортопедия"
+                />
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Описание</label>
+                <textarea
+                  value={categoryForm.description}
+                  onChange={(e) => setCategoryForm({...categoryForm, description: e.target.value})}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500"
+                  rows="3"
+                  placeholder="Описание категории услуг..."
+                />
+              </div>
+              
+              <div className="flex gap-3 pt-4">
+                <button
+                  type="submit"
+                  disabled={loading}
+                  className="flex-1 bg-green-600 text-white py-2 px-4 rounded-lg hover:bg-green-700 disabled:opacity-50"
+                >
+                  {loading ? 'Сохранение...' : (editingCategory ? 'Обновить' : 'Создать')}
+                </button>
+                <button
+                  type="button"
+                  onClick={handleCloseCategoryModal}
                   className="flex-1 bg-gray-300 text-gray-700 py-2 px-4 rounded-lg hover:bg-gray-400"
                 >
                   Отмена
