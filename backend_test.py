@@ -3374,6 +3374,73 @@ def test_archive_appointment(self, appointment_id):
     
     return success
 
+def main():
+    """Main function to run specialties management tests"""
+    # Get backend URL from environment
+    import os
+    backend_url = os.environ.get('REACT_APP_BACKEND_URL', 'https://dentalmanager-2.preview.emergentagent.com')
+    
+    print("🔍 SPECIALTIES MANAGEMENT API TESTING")
+    print("=" * 60)
+    print(f"Backend URL: {backend_url}")
+    print("=" * 60)
+    
+    # Initialize tester
+    tester = ClinicAPITester(backend_url)
+    
+    try:
+        # Login with admin credentials as specified in review request
+        admin_email = "admin_test_20250821110240@medentry.com"
+        admin_password = "AdminTest123!"
+        
+        print(f"\n🔐 Logging in as admin...")
+        login_success = tester.test_login_user(admin_email, admin_password)
+        
+        if not login_success:
+            print("❌ Failed to login with admin credentials")
+            print("ℹ️ Attempting to register admin user...")
+            
+            # Try to register the admin user
+            register_success = tester.test_register_user(
+                admin_email, 
+                admin_password, 
+                "Admin Test User", 
+                "admin"
+            )
+            
+            if not register_success:
+                print("❌ Failed to register admin user")
+                return False
+            
+            print("✅ Admin user registered successfully")
+        
+        print("✅ Admin authentication successful")
+        
+        # Run comprehensive specialties management tests
+        print(f"\n🚀 Starting Specialties Management API Tests...")
+        
+        success = tester.test_specialties_comprehensive()
+        
+        if success:
+            print(f"\n🎉 ALL SPECIALTIES MANAGEMENT TESTS COMPLETED SUCCESSFULLY!")
+        else:
+            print(f"\n❌ SOME SPECIALTIES MANAGEMENT TESTS FAILED!")
+        
+        # Print summary
+        tester.print_summary()
+        
+        return success
+        
+    except Exception as e:
+        print(f"❌ Test execution failed with error: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        return False
+
+if __name__ == "__main__":
+    success = main()
+    sys.exit(0 if success else 1)
+
     def test_patient_statistics_endpoint(self):
         """Test the patient statistics endpoint that was causing 500 errors"""
         success, response = self.run_test(
