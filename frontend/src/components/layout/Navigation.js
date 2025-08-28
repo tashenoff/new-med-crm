@@ -22,7 +22,7 @@ const Navigation = ({ activeTab, setActiveTab, availableTabs, sidebarOpen, setSi
         type: 'section',
         children: [
           { key: 'treatment-statistics', label: 'Планы лечения', type: 'subtab' },
-          { key: 'doctor-statistics', label: 'Врачи', type: 'subtab' }
+          { key: 'doctor-statistics', label: 'Статистика врачей', type: 'subtab' }
         ]
       });
     }
