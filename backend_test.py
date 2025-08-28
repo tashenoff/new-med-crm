@@ -1511,6 +1511,328 @@ class ClinicAPITester:
         print("✅ Dental services verified with proper prices")
         return True
 
+    # Treatment Plan Statistics Testing Methods (for -1000 bug fix)
+    def test_treatment_plan_statistics_general(self):
+        """Test general treatment plan statistics calculation"""
+        success, response = self.run_test(
+            "Get Treatment Plan Statistics (General)",
+            "GET",
+            "treatment-plans/statistics",
+            200
+        )
+        if success and response:
+            print("✅ General treatment plan statistics endpoint working")
+            
+            # Verify response structure
+            required_sections = ["overview", "status_distribution", "execution_distribution", 
+                               "payment_distribution", "payment_summary", "monthly_statistics"]
+            for section in required_sections:
+                if section not in response:
+                    print(f"❌ Missing section: {section}")
+                    return False
+            
+            # Verify overview calculations
+            overview = response["overview"]
+            required_overview_fields = ["total_plans", "completed_plans", "no_show_plans", 
+                                      "completion_rate", "no_show_rate", "total_cost", 
+                                      "total_paid", "outstanding_amount", "collection_rate"]
+            for field in required_overview_fields:
+                if field not in overview:
+                    print(f"❌ Missing overview field: {field}")
+                    return False
+            
+            # CRITICAL: Verify outstanding_amount is never negative (the -1000 bug fix)
+            outstanding_amount = overview["outstanding_amount"]
+            if outstanding_amount < 0:
+                print(f"❌ CRITICAL BUG: Outstanding amount is negative: {outstanding_amount}")
+                return False
+            else:
+                print(f"✅ Outstanding amount is non-negative: {outstanding_amount}")
+            
+            # Verify payment summary outstanding_revenue is also non-negative
+            payment_summary = response["payment_summary"]
+            outstanding_revenue = payment_summary.get("outstanding_revenue", 0)
+            if outstanding_revenue < 0:
+                print(f"❌ CRITICAL BUG: Outstanding revenue is negative: {outstanding_revenue}")
+                return False
+            else:
+                print(f"✅ Outstanding revenue is non-negative: {outstanding_revenue}")
+            
+            print(f"✅ Statistics overview: {overview['total_plans']} plans, {overview['total_cost']} total cost, {overview['total_paid']} paid")
+            return True
+        return success
+
+    def test_treatment_plan_statistics_patients(self):
+        """Test patient-specific treatment plan statistics calculation"""
+        success, response = self.run_test(
+            "Get Treatment Plan Statistics (Patients)",
+            "GET",
+            "treatment-plans/statistics/patients",
+            200
+        )
+        if success and response:
+            print("✅ Patient-specific treatment plan statistics endpoint working")
+            
+            # Verify response structure
+            if "patient_statistics" not in response or "summary" not in response:
+                print("❌ Response missing required structure")
+                return False
+            
+            patient_stats = response["patient_statistics"]
+            summary = response["summary"]
+            
+            # Verify summary fields
+            required_summary_fields = ["total_patients", "patients_with_unpaid", 
+                                     "patients_with_no_shows", "high_value_patients"]
+            for field in required_summary_fields:
+                if field not in summary:
+                    print(f"❌ Missing summary field: {field}")
+                    return False
+            
+            # Check each patient's statistics for the -1000 bug
+            for i, patient in enumerate(patient_stats):
+                required_patient_fields = ["patient_id", "patient_name", "patient_phone", 
+                                         "total_plans", "completed_plans", "no_show_plans", 
+                                         "total_cost", "total_paid", "outstanding_amount", 
+                                         "unpaid_plans", "completion_rate", "no_show_rate", 
+                                         "collection_rate"]
+                
+                for field in required_patient_fields:
+                    if field not in patient:
+                        print(f"❌ Patient {i} missing field: {field}")
+                        return False
+                
+                # CRITICAL: Verify outstanding_amount is never negative (the -1000 bug fix)
+                outstanding_amount = patient["outstanding_amount"]
+                if outstanding_amount < 0:
+                    print(f"❌ CRITICAL BUG: Patient {patient['patient_name']} has negative outstanding amount: {outstanding_amount}")
+                    return False
+                
+                # Verify calculation is correct: max(0, total_cost - total_paid)
+                expected_outstanding = max(0, patient["total_cost"] - patient["total_paid"])
+                if abs(outstanding_amount - expected_outstanding) > 0.01:  # Allow small floating point differences
+                    print(f"❌ Outstanding amount calculation error for {patient['patient_name']}: expected {expected_outstanding}, got {outstanding_amount}")
+                    return False
+                
+                print(f"✅ Patient {patient['patient_name']}: outstanding_amount = {outstanding_amount} (non-negative)")
+            
+            print(f"✅ Patient statistics: {len(patient_stats)} patients processed, all outstanding amounts non-negative")
+            return True
+        return success
+
+    def test_treatment_plan_statistics_with_various_payment_scenarios(self):
+        """Test treatment plan statistics with various payment scenarios to verify -1000 bug fix"""
+        print("\n🔍 Creating test treatment plans with various payment scenarios...")
+        
+        # Create test patients for different scenarios
+        test_scenarios = [
+            ("Unpaid Patient", "+77771000001", 0, 0, "unpaid"),           # No payment
+            ("Partial Payment Patient", "+77771000002", 10000, 5000, "partially_paid"),  # Partial payment
+            ("Fully Paid Patient", "+77771000003", 8000, 8000, "paid"),  # Full payment
+            ("Overpaid Patient", "+77771000004", 5000, 7000, "paid"),    # Overpayment (should not cause -1000)
+            ("Null Payment Patient", "+77771000005", 6000, None, "unpaid")  # Null paid_amount
+        ]
+        
+        created_plans = []
+        
+        for name, phone, total_cost, paid_amount, payment_status in test_scenarios:
+            # Create patient
+            if not self.test_create_patient(name, phone, "other"):
+                print(f"❌ Failed to create patient: {name}")
+                return False
+            
+            patient_id = self.created_patient_id
+            
+            # Create treatment plan
+            plan_data = {
+                "title": f"Test Plan for {name}",
+                "description": f"Testing payment scenario: {payment_status}",
+                "total_cost": total_cost,
+                "payment_status": payment_status,
+                "execution_status": "completed" if payment_status == "paid" else "pending"
+            }
+            
+            if paid_amount is not None:
+                plan_data["paid_amount"] = paid_amount
+            
+            success, plan = self.test_create_treatment_plan(
+                patient_id,
+                plan_data["title"],
+                description=plan_data["description"],
+                total_cost=plan_data["total_cost"],
+                status="approved"
+            )
+            
+            if not success or not plan:
+                print(f"❌ Failed to create treatment plan for {name}")
+                return False
+            
+            # Update the plan with payment information
+            update_data = {
+                "payment_status": payment_status,
+                "execution_status": plan_data["execution_status"]
+            }
+            if paid_amount is not None:
+                update_data["paid_amount"] = paid_amount
+            
+            success, updated_plan = self.test_update_treatment_plan(plan["id"], update_data)
+            if not success:
+                print(f"❌ Failed to update payment info for {name}")
+                return False
+            
+            created_plans.append({
+                "patient_name": name,
+                "plan_id": plan["id"],
+                "total_cost": total_cost,
+                "paid_amount": paid_amount,
+                "expected_outstanding": max(0, total_cost - (paid_amount or 0))
+            })
+            
+            print(f"✅ Created test plan for {name}: cost={total_cost}, paid={paid_amount}, status={payment_status}")
+        
+        print("✅ All test treatment plans created successfully")
+        
+        # Now test the statistics endpoints
+        print("\n🔍 Testing statistics with various payment scenarios...")
+        
+        # Test general statistics
+        success = self.test_treatment_plan_statistics_general()
+        if not success:
+            print("❌ General statistics test failed with payment scenarios")
+            return False
+        
+        # Test patient-specific statistics
+        success = self.test_treatment_plan_statistics_patients()
+        if not success:
+            print("❌ Patient statistics test failed with payment scenarios")
+            return False
+        
+        # Verify specific scenarios in patient statistics
+        success, response = self.run_test(
+            "Verify Payment Scenarios in Patient Statistics",
+            "GET",
+            "treatment-plans/statistics/patients",
+            200
+        )
+        
+        if success and response:
+            patient_stats = response["patient_statistics"]
+            
+            # Find our test patients and verify their outstanding amounts
+            for created_plan in created_plans:
+                patient_found = False
+                for patient in patient_stats:
+                    if created_plan["patient_name"] in patient["patient_name"]:
+                        patient_found = True
+                        outstanding = patient["outstanding_amount"]
+                        expected = created_plan["expected_outstanding"]
+                        
+                        if abs(outstanding - expected) > 0.01:
+                            print(f"❌ Outstanding amount mismatch for {created_plan['patient_name']}: expected {expected}, got {outstanding}")
+                            return False
+                        
+                        if outstanding < 0:
+                            print(f"❌ CRITICAL BUG: Negative outstanding amount for {created_plan['patient_name']}: {outstanding}")
+                            return False
+                        
+                        print(f"✅ {created_plan['patient_name']}: outstanding_amount = {outstanding} (correct)")
+                        break
+                
+                if not patient_found:
+                    print(f"❌ Test patient not found in statistics: {created_plan['patient_name']}")
+                    return False
+        
+        print("✅ All payment scenarios verified - no negative outstanding amounts found")
+        return True
+
+    def test_treatment_plan_statistics_edge_cases(self):
+        """Test treatment plan statistics with edge cases that could cause -1000 bug"""
+        print("\n🔍 Testing edge cases for treatment plan statistics...")
+        
+        # Test with date filtering
+        from datetime import datetime, timedelta
+        today = datetime.now()
+        date_from = (today - timedelta(days=30)).strftime("%Y-%m-%d")
+        date_to = today.strftime("%Y-%m-%d")
+        
+        success, response = self.run_test(
+            "Get Treatment Plan Statistics with Date Filter",
+            "GET",
+            "treatment-plans/statistics",
+            200,
+            params={"date_from": date_from, "date_to": date_to}
+        )
+        
+        if success and response:
+            overview = response["overview"]
+            outstanding_amount = overview["outstanding_amount"]
+            
+            if outstanding_amount < 0:
+                print(f"❌ CRITICAL BUG: Negative outstanding amount with date filter: {outstanding_amount}")
+                return False
+            
+            print(f"✅ Date filtered statistics: outstanding_amount = {outstanding_amount} (non-negative)")
+        else:
+            print("❌ Date filtered statistics test failed")
+            return False
+        
+        # Test monthly statistics for negative values
+        monthly_stats = response.get("monthly_statistics", [])
+        for month_data in monthly_stats:
+            if "total_cost" in month_data and "paid_amount" in month_data:
+                monthly_outstanding = month_data["total_cost"] - month_data["paid_amount"]
+                if monthly_outstanding < 0:
+                    # This is acceptable in monthly stats, but collection_rate should handle it
+                    collection_rate = month_data.get("collection_rate", 0)
+                    if collection_rate > 100:  # Should not exceed 100% even with overpayment
+                        print(f"❌ Collection rate over 100% in monthly stats: {collection_rate}%")
+                        return False
+        
+        print("✅ Monthly statistics calculations are correct")
+        
+        # Test with empty database scenario (if no plans exist)
+        # This is handled by checking if total_plans > 0 in calculations
+        
+        return True
+
+    def test_treatment_plan_statistics_comprehensive(self):
+        """Comprehensive test of treatment plan statistics -1000 bug fix"""
+        print("\n" + "="*80)
+        print("🔍 COMPREHENSIVE TREATMENT PLAN STATISTICS TESTING (-1000 BUG FIX)")
+        print("="*80)
+        
+        # Test 1: General statistics endpoint
+        print("\n📊 Test 1: General Statistics Endpoint")
+        if not self.test_treatment_plan_statistics_general():
+            print("❌ General statistics test failed")
+            return False
+        
+        # Test 2: Patient-specific statistics endpoint
+        print("\n📊 Test 2: Patient-Specific Statistics Endpoint")
+        if not self.test_treatment_plan_statistics_patients():
+            print("❌ Patient statistics test failed")
+            return False
+        
+        # Test 3: Various payment scenarios
+        print("\n📊 Test 3: Various Payment Scenarios")
+        if not self.test_treatment_plan_statistics_with_various_payment_scenarios():
+            print("❌ Payment scenarios test failed")
+            return False
+        
+        # Test 4: Edge cases
+        print("\n📊 Test 4: Edge Cases")
+        if not self.test_treatment_plan_statistics_edge_cases():
+            print("❌ Edge cases test failed")
+            return False
+        
+        print("\n" + "="*80)
+        print("✅ ALL TREATMENT PLAN STATISTICS TESTS PASSED")
+        print("✅ -1000 BUG FIX VERIFIED: No negative outstanding amounts found")
+        print("✅ Financial calculations are correct and non-negative")
+        print("="*80)
+        
+        return True
+
     def test_patient_statistics_endpoint(self):
         """Test the patient statistics endpoint that was causing 500 errors"""
         success, response = self.run_test(
