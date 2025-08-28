@@ -2535,9 +2535,18 @@ async def get_treatment_plan_statistics(
         payment_status = plan.get('payment_status', 'unpaid')
         payment_counts[payment_status] = payment_counts.get(payment_status, 0) + 1
         
-        # Financial calculations
-        total_cost += plan.get('total_cost', 0)
-        total_paid += plan.get('paid_amount', 0)
+        # Financial calculations with proper null handling
+        plan_total_cost = plan.get('total_cost', 0) or 0
+        plan_paid_amount = plan.get('paid_amount', 0) or 0
+        
+        # Ensure non-negative values
+        if plan_total_cost < 0:
+            plan_total_cost = 0
+        if plan_paid_amount < 0:
+            plan_paid_amount = 0
+            
+        total_cost += plan_total_cost
+        total_paid += plan_paid_amount
     
     # Calculate percentages and additional metrics
     completed_plans = execution_counts.get('completed', 0)
