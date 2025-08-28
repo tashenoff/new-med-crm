@@ -170,19 +170,38 @@ const CalendarView = ({
       </div>
 
       <div className="bg-white rounded-lg shadow overflow-hidden">
-        <div className="overflow-x-auto">
-          <div 
-            className="grid gap-1 p-4" 
-            style={{ gridTemplateColumns: `120px repeat(${doctors.length}, 1fr)` }}
-          >
-            {/* Header */}
-            <div className="font-medium text-gray-600 p-2">Время</div>
-            {doctors.map(doctor => (
-              <div key={doctor.id} className="font-medium text-gray-600 p-2 text-center border-b">
-                <div>{doctor.full_name}</div>
-                <div className="text-sm text-gray-500">{doctor.specialty}</div>
-              </div>
-            ))}
+        {loadingDoctors ? (
+          <div className="flex items-center justify-center p-8">
+            <div className="text-gray-500">Загружаем врачей на выбранную дату...</div>
+          </div>
+        ) : availableDoctors.length === 0 ? (
+          <div className="flex items-center justify-center p-8">
+            <div className="text-center text-gray-500">
+              <div className="text-4xl mb-2">👨‍⚕️</div>
+              <p>На выбранную дату нет работающих врачей</p>
+              <p className="text-sm mt-1">Выберите другую дату или настройте расписание</p>
+            </div>
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <div 
+              className="grid gap-1 p-4" 
+              style={{ gridTemplateColumns: `120px repeat(${availableDoctors.length}, 1fr)` }}
+            >
+              {/* Header */}
+              <div className="font-medium text-gray-600 p-2">Время</div>
+              {availableDoctors.map(doctor => (
+                <div key={doctor.id} className="font-medium text-gray-600 p-2 text-center border-b">
+                  <div>{doctor.full_name}</div>
+                  <div className="text-sm text-gray-500">{doctor.specialty}</div>
+                  {/* Показываем рабочие часы врача */}
+                  {doctor.schedule && doctor.schedule.length > 0 && (
+                    <div className="text-xs text-blue-600 mt-1">
+                      🕒 {doctor.schedule[0].start_time}-{doctor.schedule[0].end_time}
+                    </div>
+                  )}
+                </div>
+              ))}
 
             {/* Calendar Grid */}
             {dates.map(date => (
