@@ -198,6 +198,96 @@ const ServicePrices = ({ user }) => {
     });
   };
 
+  // Category management functions
+  const handleCategorySubmit = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+    
+    try {
+      const token = localStorage.getItem('token');
+      const url = editingCategory 
+        ? `${API}/api/service-categories/${editingCategory.id}`
+        : `${API}/api/service-categories`;
+      
+      const method = editingCategory ? 'PUT' : 'POST';
+      
+      const response = await fetch(url, {
+        method,
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(categoryForm)
+      });
+
+      if (response.ok) {
+        setSuccess(editingCategory ? 'Категория обновлена успешно' : 'Категория создана успешно');
+        fetchServiceCategories();
+        fetchCategories(); // Обновляем список категорий для услуг
+        handleCloseCategoryModal();
+        setTimeout(() => setSuccess(''), 3000);
+      } else {
+        const errorData = await response.json();
+        setError(errorData.detail || 'Ошибка при сохранении категории');
+        setTimeout(() => setError(''), 5000);
+      }
+    } catch (error) {
+      setError('Ошибка соединения');
+      console.error('Error saving category:', error);
+      setTimeout(() => setError(''), 5000);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleEditCategory = (category) => {
+    setEditingCategory(category);
+    setCategoryForm({
+      name: category.name,
+      description: category.description || ''
+    });
+    setShowCategoryModal(true);
+  };
+
+  const handleDeleteCategory = async (categoryId) => {
+    if (!window.confirm('Удалить эту категорию?')) return;
+
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch(`${API}/api/service-categories/${categoryId}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (response.ok) {
+        setSuccess('Категория удалена успешно');
+        fetchServiceCategories();
+        fetchCategories();
+        setTimeout(() => setSuccess(''), 3000);
+      } else {
+        const errorData = await response.json();
+        setError(errorData.detail || 'Ошибка при удалении категории');
+        setTimeout(() => setError(''), 5000);
+      }
+    } catch (error) {
+      setError('Ошибка соединения');
+      console.error('Error deleting category:', error);
+      setTimeout(() => setError(''), 5000);
+    }
+  };
+
+  const handleCloseCategoryModal = () => {
+    setShowCategoryModal(false);
+    setEditingCategory(null);
+    setCategoryForm({
+      name: '',
+      description: ''
+    });
+  };
+
   const filteredPrices = servicePrices.filter(price => {
     const matchesSearch = price.service_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          (price.service_code && price.service_code.toLowerCase().includes(searchTerm.toLowerCase()));
