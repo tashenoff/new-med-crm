@@ -657,12 +657,12 @@ frontend:
         comment: "IMPLEMENTED: Converted schedule view to kanban-style layout with drag & drop functionality. Added 7 status columns (unconfirmed, confirmed, arrived, in_progress, completed, cancelled, no_show), drag & drop for status changes, compact appointment cards with all existing information. UI now shows appointments grouped by status in horizontal scrollable columns."
 
   - task: "Patient statistics endpoint division by zero error"
-    implemented: false
-    working: false
+    implemented: true
+    working: true
     file: "server.py"
     stuck_count: 0
     priority: "high"
-    needs_retesting: true
+    needs_retesting: false
     status_history:
       - working: false
         agent: "user"
@@ -670,6 +670,24 @@ frontend:
       - working: false
         agent: "main"
         comment: "INVESTIGATION: Found division by zero error in MongoDB aggregation pipeline. Lines 2111-2128 in server.py have calculations for completion_rate and collection_rate that divide by $total_plans and $total_cost without checking for zero denominators. Need to add $cond operators to handle zero division safely."
+      - working: true
+        agent: "testing"
+        comment: "COMPREHENSIVE TESTING COMPLETED: ✅ Patient statistics endpoint fully functional. Successfully tested GET /api/treatment-plans/statistics/patients with 21 patients processed. ✅ All outstanding amounts are non-negative (verified fix for negative amounts bug). ✅ Division by zero errors resolved - completion rates, collection rates calculated correctly. ✅ Edge cases handled properly (zero costs, null payments). ✅ Authentication working correctly. ✅ Response structure validated with all required fields present. The MongoDB aggregation pipeline now uses proper $cond operators to prevent division by zero errors."
+
+  - task: "Treatment plan statistics summation bug fix"
+    implemented: true
+    working: true
+    file: "server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - working: false
+        agent: "user"
+        comment: "User reports that when a patient has 2 treatment plans, the statistics only show the cost of one plan instead of the total sum of both plans."
+      - working: true
+        agent: "testing"
+        comment: "CRITICAL BUG FIX VERIFIED: ✅ COMPREHENSIVE TESTING COMPLETED for treatment plan statistics summation. ✅ MULTI-PLAN SUMMATION WORKING: Created test patient with 3 treatment plans (Dental cleaning 10,000₸, Crown installation 25,000₸, Root canal 15,000₸) and verified correct summation: total_cost=50,000₸, total_paid=20,000₸, outstanding=30,000₸. ✅ MONGODB AGGREGATION FIXED: The aggregation pipeline in GET /api/treatment-plans/statistics/patients correctly uses $sum with $ifNull operators to sum ALL treatment plans per patient, not just one plan. ✅ OUTSTANDING AMOUNTS NON-NEGATIVE: Applied max(0, total_cost - total_paid) formula prevents negative outstanding amounts. ✅ EDGE CASES TESTED: Verified with null payments, zero costs, multiple payment statuses. ✅ GENERAL STATISTICS WORKING: Both patient-specific and general statistics endpoints return correct aggregated values. ✅ 25/25 tests passed with 100% success rate. The original summation bug has been completely fixed - multiple treatment plans are now correctly summed per patient."
 
   - task: "Doctor schedule management system"
     implemented: true
