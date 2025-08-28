@@ -100,7 +100,7 @@ const ServiceSelector = ({ onServiceAdd, selectedPatient }) => {
 
     // Reset form
     setSelectedService('');
-    setSelectedTooth('');
+    setSelectedTeeth([]);
     setQuantity(1);
     setDiscount(0);
   };
