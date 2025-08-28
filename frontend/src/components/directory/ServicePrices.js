@@ -5,16 +5,13 @@ const ServicePrices = ({ user }) => {
   const [servicePrices, setServicePrices] = useState([]);
   const [categories, setCategories] = useState([]);
   const [serviceCategories, setServiceCategories] = useState([]);
-  const [specialties, setSpecialties] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [showModal, setShowModal] = useState(false);
   const [showCategoryModal, setShowCategoryModal] = useState(false);
-  const [showSpecialtyModal, setShowSpecialtyModal] = useState(false);
   const [editingPrice, setEditingPrice] = useState(null);
   const [editingCategory, setEditingCategory] = useState(null);
-  const [editingSpecialty, setEditingSpecialty] = useState(null);
   const [selectedCategory, setSelectedCategory] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
   
