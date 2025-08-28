@@ -21,6 +21,9 @@ const AppointmentModal = ({
   const [uploading, setUploading] = useState(false);
   const [selectedFile, setSelectedFile] = useState(null);
   const [documentDescription, setDocumentDescription] = useState('');
+  const [availableDoctors, setAvailableDoctors] = useState([]);
+  const [loadingDoctors, setLoadingDoctors] = useState(false);
+  const [scheduleMessage, setScheduleMessage] = useState('');
   const [planForm, setPlanForm] = useState({
     title: '',
     description: '',
