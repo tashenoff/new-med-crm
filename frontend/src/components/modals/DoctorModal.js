@@ -13,6 +13,32 @@ const DoctorModal = ({
   const [specialties, setSpecialties] = useState([]);
   
   const API = process.env.REACT_APP_BACKEND_URL;
+
+  useEffect(() => {
+    if (show) {
+      fetchSpecialties();
+    }
+  }, [show]);
+
+  const fetchSpecialties = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch(`${API}/api/specialties`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setSpecialties(data || []);
+      }
+    } catch (error) {
+      console.error('Error fetching specialties:', error);
+    }
+  };
+
   if (!show) return null;
 
   return (
