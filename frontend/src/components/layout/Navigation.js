@@ -123,10 +123,14 @@ const Navigation = ({ activeTab, setActiveTab, availableTabs, sidebarOpen, setSi
   const handleSubTabClick = (subTabKey) => {
     setActiveTab(subTabKey);
     // Автоматически раскрываем родительскую секцию
-    setExpandedSections(prev => ({
-      ...prev,
-      statistics: true
-    }));
+    setExpandedSections(prev => {
+      if (subTabKey === 'treatment-statistics' || subTabKey === 'doctor-statistics') {
+        return { ...prev, statistics: true };
+      } else if (subTabKey === 'service-prices') {
+        return { ...prev, directory: true };
+      }
+      return prev;
+    });
     // Close sidebar on mobile after selection
     if (window.innerWidth < 1024) {
       setSidebarOpen(false);
