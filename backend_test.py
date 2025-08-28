@@ -1511,6 +1511,288 @@ class ClinicAPITester:
         print("✅ Dental services verified with proper prices")
         return True
 
+    # Treatment Plan Statistics Summation Bug Fix Tests
+    def test_treatment_plan_statistics_summation_bug_fix(self, patient_id):
+        """
+        CRITICAL TEST: Verify that when a patient has multiple treatment plans, 
+        the statistics show the sum of all plans, not just one plan.
+        
+        This test addresses the specific bug where patient statistics only showed 
+        the cost of one plan instead of the total sum of all plans.
+        """
+        print("\n🔍 TESTING TREATMENT PLAN STATISTICS SUMMATION BUG FIX")
+        print("=" * 70)
+        
+        # Step 1: Create multiple treatment plans for the same patient
+        print("\n📋 Step 1: Creating multiple treatment plans for the same patient...")
+        
+        # Plan 1: Dental cleaning - 10,000 ₸
+        success1, plan1 = self.test_create_treatment_plan(
+            patient_id,
+            "Dental cleaning",
+            description="Professional dental cleaning",
+            total_cost=10000.0,
+            status="approved",
+            payment_status="paid",
+            paid_amount=10000.0,
+            execution_status="completed"
+        )
+        
+        if not success1 or not plan1:
+            print("❌ Failed to create Plan 1 (Dental cleaning)")
+            return False
+        
+        plan1_id = plan1['id']
+        print(f"✅ Created Plan 1: Dental cleaning - 10,000 ₸ (ID: {plan1_id})")
+        
+        # Plan 2: Crown installation - 25,000 ₸  
+        success2, plan2 = self.test_create_treatment_plan(
+            patient_id,
+            "Crown installation",
+            description="Dental crown installation",
+            total_cost=25000.0,
+            status="approved", 
+            payment_status="partially_paid",
+            paid_amount=10000.0,
+            execution_status="in_progress"
+        )
+        
+        if not success2 or not plan2:
+            print("❌ Failed to create Plan 2 (Crown installation)")
+            return False
+            
+        plan2_id = plan2['id']
+        print(f"✅ Created Plan 2: Crown installation - 25,000 ₸ (ID: {plan2_id})")
+        
+        # Plan 3: Root canal - 15,000 ₸
+        success3, plan3 = self.test_create_treatment_plan(
+            patient_id,
+            "Root canal",
+            description="Root canal treatment",
+            total_cost=15000.0,
+            status="draft",
+            payment_status="unpaid", 
+            paid_amount=0.0,
+            execution_status="pending"
+        )
+        
+        if not success3 or not plan3:
+            print("❌ Failed to create Plan 3 (Root canal)")
+            return False
+            
+        plan3_id = plan3['id']
+        print(f"✅ Created Plan 3: Root canal - 15,000 ₸ (ID: {plan3_id})")
+        
+        # Expected totals
+        expected_total_cost = 10000.0 + 25000.0 + 15000.0  # 50,000 ₸
+        expected_total_paid = 10000.0 + 10000.0 + 0.0      # 20,000 ₸  
+        expected_outstanding = 50000.0 - 20000.0            # 30,000 ₸
+        expected_total_plans = 3
+        
+        print(f"\n📊 Expected totals:")
+        print(f"   Total plans: {expected_total_plans}")
+        print(f"   Total cost: {expected_total_cost:,.0f} ₸")
+        print(f"   Total paid: {expected_total_paid:,.0f} ₸")
+        print(f"   Outstanding: {expected_outstanding:,.0f} ₸")
+        
+        # Step 2: Test patient-specific statistics endpoint
+        print(f"\n📈 Step 2: Testing patient statistics aggregation...")
+        
+        success, response = self.run_test(
+            "Get Patient Treatment Plan Statistics",
+            "GET",
+            "treatment-plans/statistics/patients",
+            200
+        )
+        
+        if not success or not response:
+            print("❌ Failed to get patient statistics")
+            return False
+        
+        # Find our test patient in the statistics
+        patient_stats = response.get("patient_statistics", [])
+        test_patient_stats = None
+        
+        for patient_stat in patient_stats:
+            if patient_stat.get("patient_id") == patient_id:
+                test_patient_stats = patient_stat
+                break
+        
+        if not test_patient_stats:
+            print(f"❌ Patient {patient_id} not found in statistics")
+            return False
+        
+        print(f"✅ Found patient statistics for patient {patient_id}")
+        
+        # Step 3: Verify the summation is correct
+        print(f"\n🔍 Step 3: Verifying summation calculations...")
+        
+        actual_total_plans = test_patient_stats.get("total_plans", 0)
+        actual_total_cost = test_patient_stats.get("total_cost", 0)
+        actual_total_paid = test_patient_stats.get("total_paid", 0)
+        actual_outstanding = test_patient_stats.get("outstanding_amount", 0)
+        
+        print(f"\n📊 Actual results:")
+        print(f"   Total plans: {actual_total_plans}")
+        print(f"   Total cost: {actual_total_cost:,.0f} ₸")
+        print(f"   Total paid: {actual_total_paid:,.0f} ₸")
+        print(f"   Outstanding: {actual_outstanding:,.0f} ₸")
+        
+        # Verify total plans
+        if actual_total_plans != expected_total_plans:
+            print(f"❌ SUMMATION BUG: Total plans mismatch - expected {expected_total_plans}, got {actual_total_plans}")
+            return False
+        print(f"✅ Total plans correct: {actual_total_plans}")
+        
+        # Verify total cost (CRITICAL - this was the main bug)
+        if abs(actual_total_cost - expected_total_cost) > 0.01:
+            print(f"❌ SUMMATION BUG: Total cost mismatch - expected {expected_total_cost}, got {actual_total_cost}")
+            print("❌ This indicates the aggregation is NOT summing all plans correctly!")
+            return False
+        print(f"✅ Total cost correct: {actual_total_cost:,.0f} ₸ (sum of all 3 plans)")
+        
+        # Verify total paid
+        if abs(actual_total_paid - expected_total_paid) > 0.01:
+            print(f"❌ SUMMATION BUG: Total paid mismatch - expected {expected_total_paid}, got {actual_total_paid}")
+            return False
+        print(f"✅ Total paid correct: {actual_total_paid:,.0f} ₸ (sum of all payments)")
+        
+        # Verify outstanding amount (should be non-negative)
+        if actual_outstanding < 0:
+            print(f"❌ CRITICAL BUG: Outstanding amount is negative: {actual_outstanding}")
+            return False
+        
+        if abs(actual_outstanding - expected_outstanding) > 0.01:
+            print(f"❌ SUMMATION BUG: Outstanding amount mismatch - expected {expected_outstanding}, got {actual_outstanding}")
+            return False
+        print(f"✅ Outstanding amount correct: {actual_outstanding:,.0f} ₸ (non-negative)")
+        
+        # Step 4: Test general statistics endpoint as well
+        print(f"\n📈 Step 4: Testing general statistics endpoint...")
+        
+        success, general_response = self.run_test(
+            "Get General Treatment Plan Statistics",
+            "GET", 
+            "treatment-plans/statistics",
+            200
+        )
+        
+        if success and general_response:
+            overview = general_response.get("overview", {})
+            general_outstanding = overview.get("outstanding_amount", 0)
+            
+            if general_outstanding < 0:
+                print(f"❌ CRITICAL BUG: General outstanding amount is negative: {general_outstanding}")
+                return False
+            print(f"✅ General statistics outstanding amount is non-negative: {general_outstanding:,.0f} ₸")
+        
+        # Step 5: Cleanup - delete the test treatment plans
+        print(f"\n🧹 Step 5: Cleaning up test data...")
+        
+        cleanup_success = True
+        for plan_id, plan_name in [(plan1_id, "Plan 1"), (plan2_id, "Plan 2"), (plan3_id, "Plan 3")]:
+            success = self.test_delete_treatment_plan(plan_id)
+            if success:
+                print(f"✅ Deleted {plan_name}")
+            else:
+                print(f"❌ Failed to delete {plan_name}")
+                cleanup_success = False
+        
+        if not cleanup_success:
+            print("⚠️ Warning: Some test data may not have been cleaned up properly")
+        
+        print(f"\n🎉 TREATMENT PLAN STATISTICS SUMMATION BUG FIX TEST COMPLETED")
+        print("=" * 70)
+        print("✅ ALL SUMMATION TESTS PASSED!")
+        print("✅ Multiple treatment plans are correctly summed per patient")
+        print("✅ Outstanding amounts are calculated correctly (non-negative)")
+        print("✅ The original bug has been fixed!")
+        
+        return True
+
+    def test_treatment_plan_statistics_edge_cases(self, patient_id):
+        """Test edge cases for treatment plan statistics calculations"""
+        print("\n🔍 TESTING TREATMENT PLAN STATISTICS EDGE CASES")
+        print("=" * 60)
+        
+        # Test case 1: Plan with null/missing paid_amount
+        print("\n📋 Test Case 1: Plan with null paid_amount...")
+        success1, plan1 = self.test_create_treatment_plan(
+            patient_id,
+            "Plan with null payment",
+            total_cost=5000.0,
+            payment_status="unpaid"
+            # Note: not setting paid_amount (should default to 0 or null)
+        )
+        
+        if not success1 or not plan1:
+            print("❌ Failed to create plan with null payment")
+            return False
+        
+        plan1_id = plan1['id']
+        print(f"✅ Created plan with null payment (ID: {plan1_id})")
+        
+        # Test case 2: Plan with zero costs
+        print("\n📋 Test Case 2: Plan with zero costs...")
+        success2, plan2 = self.test_create_treatment_plan(
+            patient_id,
+            "Free consultation",
+            total_cost=0.0,
+            payment_status="paid",
+            paid_amount=0.0
+        )
+        
+        if not success2 or not plan2:
+            print("❌ Failed to create plan with zero costs")
+            return False
+        
+        plan2_id = plan2['id']
+        print(f"✅ Created plan with zero costs (ID: {plan2_id})")
+        
+        # Test statistics with edge cases
+        print(f"\n📈 Testing statistics with edge cases...")
+        
+        success, response = self.run_test(
+            "Get Patient Statistics with Edge Cases",
+            "GET",
+            "treatment-plans/statistics/patients",
+            200
+        )
+        
+        if not success or not response:
+            print("❌ Failed to get patient statistics")
+            return False
+        
+        # Find our test patient
+        patient_stats = response.get("patient_statistics", [])
+        test_patient_stats = None
+        
+        for patient_stat in patient_stats:
+            if patient_stat.get("patient_id") == patient_id:
+                test_patient_stats = patient_stat
+                break
+        
+        if not test_patient_stats:
+            print(f"❌ Patient {patient_id} not found in statistics")
+            return False
+        
+        # Verify edge case handling
+        outstanding_amount = test_patient_stats.get("outstanding_amount", 0)
+        
+        if outstanding_amount < 0:
+            print(f"❌ CRITICAL BUG: Outstanding amount is negative with edge cases: {outstanding_amount}")
+            return False
+        
+        print(f"✅ Outstanding amount with edge cases is non-negative: {outstanding_amount}")
+        
+        # Cleanup
+        print(f"\n🧹 Cleaning up edge case test data...")
+        for plan_id in [plan1_id, plan2_id]:
+            self.test_delete_treatment_plan(plan_id)
+        
+        print("✅ Edge case tests completed successfully")
+        return True
+
     # Treatment Plan Statistics Testing Methods (for -1000 bug fix)
     def test_treatment_plan_statistics_general(self):
         """Test general treatment plan statistics calculation"""
