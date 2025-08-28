@@ -1850,6 +1850,12 @@ function ClinicApp() {
           />
         )}
         
+        {activeTab === 'specialties' && (
+          <Specialties
+            user={user}
+          />
+        )}
+        
         {activeTab === 'treatment-statistics' && (
           <TreatmentPlanStatistics />
         )}
