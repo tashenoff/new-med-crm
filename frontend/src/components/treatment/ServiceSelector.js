@@ -26,7 +26,7 @@ const ServiceSelector = ({ onServiceAdd, selectedPatient }) => {
   const fetchCategories = async () => {
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch(`${API}/api/service-categories`, {
+      const response = await fetch(`${API}/api/service-prices/categories`, {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
@@ -35,7 +35,7 @@ const ServiceSelector = ({ onServiceAdd, selectedPatient }) => {
 
       if (response.ok) {
         const data = await response.json();
-        setCategories(data.categories);
+        setCategories(data.categories || []);
       }
     } catch (error) {
       console.error('Error fetching categories:', error);
@@ -45,7 +45,7 @@ const ServiceSelector = ({ onServiceAdd, selectedPatient }) => {
   const fetchServices = async (category) => {
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch(`${API}/api/services?category=${encodeURIComponent(category)}`, {
+      const response = await fetch(`${API}/api/service-prices?category=${encodeURIComponent(category)}`, {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
@@ -54,7 +54,17 @@ const ServiceSelector = ({ onServiceAdd, selectedPatient }) => {
 
       if (response.ok) {
         const data = await response.json();
-        setServices(data);
+        // Преобразуем данные из справочника цен в формат услуг
+        const transformedServices = data.map(servicePrice => ({
+          id: servicePrice.id,
+          name: servicePrice.service_name,
+          code: servicePrice.service_code || '',
+          category: servicePrice.category,
+          price: servicePrice.price,
+          unit: servicePrice.unit || 'процедура',
+          description: servicePrice.description || ''
+        }));
+        setServices(transformedServices);
       }
     } catch (error) {
       console.error('Error fetching services:', error);
