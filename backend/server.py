@@ -2598,7 +2598,7 @@ async def get_treatment_plan_statistics(
             "partially_paid_plans": partially_paid_plans,
             "overdue_plans": overdue_plans,
             "total_revenue": total_paid,
-            "outstanding_revenue": total_cost - total_paid
+            "outstanding_revenue": max(0, total_cost - total_paid)
         },
         "monthly_statistics": [
             {
