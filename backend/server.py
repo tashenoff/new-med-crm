@@ -2586,7 +2586,7 @@ async def get_treatment_plan_statistics(
             "no_show_rate": round((no_show_plans / total_plans * 100) if total_plans > 0 else 0, 1),
             "total_cost": total_cost,
             "total_paid": total_paid,
-            "outstanding_amount": total_cost - total_paid,
+            "outstanding_amount": max(0, total_cost - total_paid),
             "collection_rate": round((total_paid / total_cost * 100) if total_cost > 0 else 0, 1)
         },
         "status_distribution": status_counts,
