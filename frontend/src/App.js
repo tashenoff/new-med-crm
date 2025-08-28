@@ -1843,6 +1843,12 @@ function ClinicApp() {
           />
         )}
         
+        {activeTab === 'service-prices' && (
+          <ServicePrices
+            user={user}
+          />
+        )}
+        
         {activeTab === 'treatment-statistics' && (
           <TreatmentPlanStatistics />
         )}
