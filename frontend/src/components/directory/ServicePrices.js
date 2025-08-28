@@ -316,6 +316,94 @@ const ServicePrices = ({ user }) => {
     });
   };
 
+  // Specialty management functions
+  const handleSpecialtySubmit = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+    
+    try {
+      const token = localStorage.getItem('token');
+      const url = editingSpecialty 
+        ? `${API}/api/specialties/${editingSpecialty.id}`
+        : `${API}/api/specialties`;
+      
+      const method = editingSpecialty ? 'PUT' : 'POST';
+      
+      const response = await fetch(url, {
+        method,
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(specialtyForm)
+      });
+
+      if (response.ok) {
+        setSuccess(editingSpecialty ? 'Специальность обновлена успешно' : 'Специальность создана успешно');
+        fetchSpecialties();
+        handleCloseSpecialtyModal();
+        setTimeout(() => setSuccess(''), 3000);
+      } else {
+        const errorData = await response.json();
+        setError(errorData.detail || 'Ошибка при сохранении специальности');
+        setTimeout(() => setError(''), 5000);
+      }
+    } catch (error) {
+      setError('Ошибка соединения');
+      console.error('Error saving specialty:', error);
+      setTimeout(() => setError(''), 5000);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleEditSpecialty = (specialty) => {
+    setEditingSpecialty(specialty);
+    setSpecialtyForm({
+      name: specialty.name,
+      description: specialty.description || ''
+    });
+    setShowSpecialtyModal(true);
+  };
+
+  const handleDeleteSpecialty = async (specialtyId) => {
+    if (!window.confirm('Удалить эту специальность?')) return;
+
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch(`${API}/api/specialties/${specialtyId}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (response.ok) {
+        setSuccess('Специальность удалена успешно');
+        fetchSpecialties();
+        setTimeout(() => setSuccess(''), 3000);
+      } else {
+        const errorData = await response.json();
+        setError(errorData.detail || 'Ошибка при удалении специальности');
+        setTimeout(() => setError(''), 5000);
+      }
+    } catch (error) {
+      setError('Ошибка соединения');
+      console.error('Error deleting specialty:', error);
+      setTimeout(() => setError(''), 5000);
+    }
+  };
+
+  const handleCloseSpecialtyModal = () => {
+    setShowSpecialtyModal(false);
+    setEditingSpecialty(null);
+    setSpecialtyForm({
+      name: '',
+      description: ''
+    });
+  };
+
   const filteredPrices = servicePrices.filter(price => {
     const matchesSearch = price.service_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          (price.service_code && price.service_code.toLowerCase().includes(searchTerm.toLowerCase()));
