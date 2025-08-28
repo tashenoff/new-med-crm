@@ -850,13 +850,16 @@ class ClinicAPITester:
         return success
 
     # Treatment Plan Testing Methods
-    def test_create_treatment_plan(self, patient_id, title, description=None, services=None, total_cost=0.0, status="draft", notes=None):
-        """Create a treatment plan for a patient"""
+    def test_create_treatment_plan(self, patient_id, title, description=None, services=None, total_cost=0.0, status="draft", notes=None, payment_status="unpaid", paid_amount=0.0, execution_status="pending"):
+        """Create a treatment plan for a patient with enhanced payment tracking"""
         data = {
             "patient_id": patient_id,
             "title": title,
             "total_cost": total_cost,
-            "status": status
+            "status": status,
+            "payment_status": payment_status,
+            "paid_amount": paid_amount,
+            "execution_status": execution_status
         }
         if description:
             data["description"] = description
@@ -877,6 +880,9 @@ class ClinicAPITester:
             print(f"Title: {response['title']}")
             print(f"Status: {response['status']}")
             print(f"Total Cost: {response['total_cost']}")
+            print(f"Payment Status: {response.get('payment_status', 'N/A')}")
+            print(f"Paid Amount: {response.get('paid_amount', 0)}")
+            print(f"Execution Status: {response.get('execution_status', 'N/A')}")
             return success, response
         return success, None
 
