@@ -988,7 +988,9 @@ async def get_individual_doctor_statistics(
                     "$cond": [
                         {"$and": [
                             {"$ne": ["$end_time", None]},
-                            {"$ne": ["$appointment_time", None]}
+                            {"$ne": ["$appointment_time", None]},
+                            {"$ne": ["$end_time", ""]},
+                            {"$ne": ["$appointment_time", ""]}
                         ]},
                         {
                             "$divide": [
@@ -997,14 +999,24 @@ async def get_individual_doctor_statistics(
                                         {
                                             "$dateFromString": {
                                                 "dateString": {
-                                                    "$concat": ["1970-01-01T", "$end_time", ":00Z"]
+                                                    "$concat": ["1970-01-01T", {"$ifNull": ["$end_time", "00:00"]}, ":00Z"]
+                                                },
+                                                "onError": {
+                                                    "$dateFromString": {
+                                                        "dateString": "1970-01-01T00:30:00Z"
+                                                    }
                                                 }
                                             }
                                         },
                                         {
                                             "$dateFromString": {
                                                 "dateString": {
-                                                    "$concat": ["1970-01-01T", "$appointment_time", ":00Z"]
+                                                    "$concat": ["1970-01-01T", {"$ifNull": ["$appointment_time", "00:00"]}, ":00Z"]
+                                                },
+                                                "onError": {
+                                                    "$dateFromString": {
+                                                        "dateString": "1970-01-01T00:00:00Z"
+                                                    }
                                                 }
                                             }
                                         }
