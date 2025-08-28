@@ -565,7 +565,9 @@ const PatientModal = ({
               <h4 className="font-medium mb-3">
                 {editingPlan ? 'Редактировать план лечения' : 'Добавить план лечения'}
               </h4>
-              <form onSubmit={handleSaveTreatmentPlan} className="space-y-3">
+              
+              {/* Basic Plan Information */}
+              <div className="space-y-3 mb-4">
                 <input
                   type="text"
                   placeholder="Название плана лечения *"
@@ -579,18 +581,11 @@ const PatientModal = ({
                   value={planForm.description}
                   onChange={(e) => setPlanForm({...planForm, description: e.target.value})}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg"
-                  rows="3"
+                  rows="2"
                 />
+                
+                {/* Plan Status and Payment Info */}
                 <div className="grid grid-cols-2 gap-3">
-                  <input
-                    type="number"
-                    step="0.01"
-                    min="0"
-                    placeholder="Стоимость (₸)"
-                    value={planForm.total_cost}
-                    onChange={(e) => setPlanForm({...planForm, total_cost: parseFloat(e.target.value) || 0})}
-                    className="px-3 py-2 border border-gray-300 rounded-lg"
-                  />
                   <select
                     value={planForm.status}
                     onChange={(e) => setPlanForm({...planForm, status: e.target.value})}
@@ -601,46 +596,173 @@ const PatientModal = ({
                     <option value="completed">Завершен</option>
                     <option value="cancelled">Отменен</option>
                   </select>
-                </div>
-                <textarea
-                  placeholder="Дополнительные заметки"
-                  value={planForm.notes}
-                  onChange={(e) => setPlanForm({...planForm, notes: e.target.value})}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg"
-                  rows="2"
-                />
-                <div className="flex gap-2">
-                  <button
-                    type="submit"
-                    className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700"
+                  
+                  <select
+                    value={planForm.execution_status}
+                    onChange={(e) => setPlanForm({...planForm, execution_status: e.target.value})}
+                    className="px-3 py-2 border border-gray-300 rounded-lg"
                   >
-                    {editingPlan ? 'Обновить план' : 'Создать план'}
-                  </button>
-                  {editingPlan && (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setEditingPlan(null);
-                        setPlanForm({
-                          title: '',
-                          description: '',
-                          services: [],
-                          total_cost: 0,
-                          status: 'draft',
-                          notes: '',
-                          payment_status: 'unpaid',
-                          paid_amount: 0,
-                          execution_status: 'pending',
-                          appointment_ids: []
-                        });
-                      }}
-                      className="px-4 py-2 bg-gray-300 text-gray-700 rounded-lg hover:bg-gray-400"
-                    >
-                      Отмена
-                    </button>
-                  )}
+                    <option value="pending">Ожидает</option>
+                    <option value="in_progress">В процессе</option>
+                    <option value="completed">Завершено</option>
+                    <option value="no_show">Не пришел</option>
+                  </select>
                 </div>
-              </form>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <select
+                    value={planForm.payment_status}
+                    onChange={(e) => setPlanForm({...planForm, payment_status: e.target.value})}
+                    className="px-3 py-2 border border-gray-300 rounded-lg"
+                  >
+                    <option value="unpaid">Не оплачено</option>
+                    <option value="partially_paid">Частично оплачено</option>
+                    <option value="paid">Оплачено</option>
+                  </select>
+                  
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    placeholder="Оплачено (₸)"
+                    value={planForm.paid_amount}
+                    onChange={(e) => setPlanForm({...planForm, paid_amount: parseFloat(e.target.value) || 0})}
+                    className="px-3 py-2 border border-gray-300 rounded-lg"
+                  />
+                </div>
+              </div>
+
+              {/* Service Selector */}
+              <div className="mb-4">
+                <h5 className="font-medium mb-2">Услуги в плане лечения:</h5>
+                <ServiceSelector 
+                  onServiceAdd={(serviceItem) => {
+                    const updatedServices = [...planForm.services, serviceItem];
+                    const totalCost = updatedServices.reduce((sum, service) => sum + (service.total_price || 0), 0);
+                    setPlanForm(prev => ({
+                      ...prev,
+                      services: updatedServices,
+                      total_cost: totalCost
+                    }));
+                  }}
+                  selectedPatient={editingItem}
+                />
+
+                {/* Services Table */}
+                {planForm.services.length > 0 && (
+                  <div className="mt-4">
+                    <h5 className="font-medium mb-2">Выбранные услуги:</h5>
+                    <div className="border rounded-lg overflow-hidden">
+                      <table className="min-w-full">
+                        <thead className="bg-gray-100">
+                          <tr className="text-xs text-gray-600">
+                            <th className="py-2 px-3 text-left">Услуга</th>
+                            <th className="py-2 px-2 text-center">Кол-во</th>
+                            <th className="py-2 px-2 text-center">Цена за ед.</th>
+                            <th className="py-2 px-2 text-right">Итого</th>
+                            <th className="py-2 px-2 text-center">Действия</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {planForm.services.map((service, index) => (
+                            <tr key={index} className="text-xs border-t">
+                              <td className="py-2 px-3">
+                                <div className="font-medium">{service.service_name}</div>
+                                {service.category && (
+                                  <div className="text-gray-500">{service.category}</div>
+                                )}
+                                {service.teeth_numbers && service.teeth_numbers.length > 0 && (
+                                  <div className="text-blue-600">
+                                    🦷 Зубы: {service.teeth_numbers.join(', ')}
+                                  </div>
+                                )}
+                              </td>
+                              <td className="py-2 px-2 text-center">
+                                {service.quantity} {service.unit}
+                              </td>
+                              <td className="py-2 px-2 text-center">
+                                {(service.unit_price || 0).toFixed(0)} ₸
+                              </td>
+                              <td className="py-2 px-2 text-right font-medium">
+                                {(service.total_price || 0).toFixed(0)} ₸
+                              </td>
+                              <td className="py-2 px-2 text-center">
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    const updatedServices = planForm.services.filter((_, i) => i !== index);
+                                    const totalCost = updatedServices.reduce((sum, svc) => sum + (svc.total_price || 0), 0);
+                                    setPlanForm(prev => ({
+                                      ...prev,
+                                      services: updatedServices,
+                                      total_cost: totalCost
+                                    }));
+                                  }}
+                                  className="text-red-500 hover:text-red-700"
+                                >
+                                  ✕
+                                </button>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                        <tfoot className="bg-gray-50">
+                          <tr className="text-sm font-medium">
+                            <td colSpan="3" className="py-2 px-3 text-right">Общая стоимость:</td>
+                            <td className="py-2 px-2 text-right">
+                              {(planForm.total_cost || 0).toFixed(0)} ₸
+                            </td>
+                            <td></td>
+                          </tr>
+                        </tfoot>
+                      </table>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Notes */}
+              <textarea
+                placeholder="Дополнительные заметки"
+                value={planForm.notes}
+                onChange={(e) => setPlanForm({...planForm, notes: e.target.value})}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg mb-3"
+                rows="2"
+              />
+              
+              {/* Form Actions */}
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={handleSaveTreatmentPlan}
+                  className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700"
+                >
+                  {editingPlan ? 'Обновить план' : 'Создать план'}
+                </button>
+                {editingPlan && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setEditingPlan(null);
+                      setPlanForm({
+                        title: '',
+                        description: '',
+                        services: [],
+                        total_cost: 0,
+                        status: 'draft',
+                        notes: '',
+                        payment_status: 'unpaid',
+                        paid_amount: 0,
+                        execution_status: 'pending',
+                        appointment_ids: []
+                      });
+                    }}
+                    className="px-4 py-2 bg-gray-300 text-gray-700 rounded-lg hover:bg-gray-400"
+                  >
+                    Отмена
+                  </button>
+                )}
+              </div>
             </div>
 
             {/* Treatment Plans List */}
