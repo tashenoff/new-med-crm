@@ -128,6 +128,9 @@ const ToothChart = ({ selectedTeeth = [], onTeethSelect, multiSelect = false, di
       )}
     </div>
   );
+};
+
+export default ToothChart;
 
       {/* Lower jaw */}
       <div>
