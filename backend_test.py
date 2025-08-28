@@ -2387,6 +2387,17 @@ class ClinicAPITester:
         print("✅ All ServiceSelector test data verified successfully!")
         return True
 
+    def print_summary(self):
+        """Print test summary"""
+        print(f"\n{'='*50}")
+        print(f"TEST SUMMARY")
+        print(f"{'='*50}")
+        print(f"Total tests run: {self.tests_run}")
+        print(f"Tests passed: {self.tests_passed}")
+        print(f"Tests failed: {self.tests_run - self.tests_passed}")
+        print(f"Success rate: {(self.tests_passed / self.tests_run * 100):.1f}%")
+        print(f"{'='*50}")
+
 def test_date_range_appointments(self):
     """Test appointments with date range (±7 days)"""
     # Get dates for ±7 days range
