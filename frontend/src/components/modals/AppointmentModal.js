@@ -549,7 +549,7 @@ const AppointmentModal = ({
                   )}
                   
                   {/* Показать сообщение если ничего не найдено */}
-                  {patientSearch && filteredPatients.length === 0 && patientSearch.length >= 2 && (
+                  {patientSearch && filteredPatients.length === 0 && patientSearch.length >= 2 && !appointmentForm.patient_id && (
                     <div className="absolute z-50 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg p-4 text-center text-gray-500">
                       <div className="text-sm">Пациенты не найдены</div>
                       <div className="text-xs mt-1">Попробуйте изменить поисковый запрос</div>
