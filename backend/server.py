@@ -347,6 +347,40 @@ class DoctorUpdate(BaseModel):
     calendar_color: Optional[str] = None
     is_active: Optional[bool] = None
 
+class DoctorSchedule(BaseModel):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    doctor_id: str
+    day_of_week: int  # 0 = Понедельник, 1 = Вторник, ..., 6 = Воскресенье
+    start_time: str   # Format: "HH:MM"
+    end_time: str     # Format: "HH:MM"
+    is_active: bool = True
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_at: datetime = Field(default_factory=datetime.utcnow)
+
+class DoctorScheduleCreate(BaseModel):
+    doctor_id: str
+    day_of_week: int
+    start_time: str
+    end_time: str
+
+class DoctorScheduleUpdate(BaseModel):
+    day_of_week: Optional[int] = None
+    start_time: Optional[str] = None
+    end_time: Optional[str] = None
+    is_active: Optional[bool] = None
+
+class DoctorWithSchedule(BaseModel):
+    id: str
+    full_name: str
+    specialty: str
+    phone: Optional[str]
+    calendar_color: str
+    is_active: bool
+    user_id: Optional[str]
+    created_at: datetime
+    updated_at: datetime
+    schedule: List[DoctorSchedule] = []
+
 class Appointment(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     patient_id: str
