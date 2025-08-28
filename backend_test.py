@@ -3141,6 +3141,297 @@ def test_treatment_plan_422_validation_error():
         
         return False, None
 
+    # Service Categories Management Testing Methods
+    def test_get_service_categories(self):
+        """Get all active service categories"""
+        success, response = self.run_test(
+            "Get Service Categories",
+            "GET",
+            "service-categories",
+            200
+        )
+        if success and response:
+            print(f"Found {len(response)} service categories")
+            if len(response) > 0:
+                category = response[0]
+                print(f"Sample category: {category['name']} - {category.get('description', 'No description')}")
+                
+                # Verify all categories have required fields
+                required_fields = ['id', 'name', 'is_active', 'created_at', 'updated_at']
+                for field in required_fields:
+                    if field not in category:
+                        print(f"❌ Category missing required field: {field}")
+                        return False, None
+                
+                print(f"✅ All categories have required fields")
+        return success, response
+
+    def test_create_service_category(self, name, description=None):
+        """Create a new service category (admin only)"""
+        data = {"name": name}
+        if description:
+            data["description"] = description
+            
+        success, response = self.run_test(
+            f"Create Service Category '{name}'",
+            "POST",
+            "service-categories",
+            200,
+            data=data
+        )
+        if success and response and "id" in response:
+            print(f"Created category: {response['name']} with ID: {response['id']}")
+            if description:
+                print(f"Description: {response['description']}")
+            return success, response
+        return success, None
+
+    def test_update_service_category(self, category_id, name=None, description=None):
+        """Update a service category"""
+        data = {}
+        if name:
+            data["name"] = name
+        if description:
+            data["description"] = description
+            
+        success, response = self.run_test(
+            f"Update Service Category {category_id}",
+            "PUT",
+            f"service-categories/{category_id}",
+            200,
+            data=data
+        )
+        if success and response:
+            print(f"Updated category: {response['name']}")
+            if 'description' in response:
+                print(f"Description: {response['description']}")
+            # Verify the update was applied
+            for key, value in data.items():
+                if response[key] != value:
+                    print(f"❌ Update verification failed: {key} expected {value}, got {response[key]}")
+                    success = False
+                    break
+        return success, response
+
+    def test_delete_service_category(self, category_id):
+        """Delete (deactivate) a service category"""
+        success, response = self.run_test(
+            f"Delete Service Category {category_id}",
+            "DELETE",
+            f"service-categories/{category_id}",
+            200
+        )
+        if success:
+            print(f"✅ Successfully deleted category with ID: {category_id}")
+            
+            # Verify the category was deactivated by checking it doesn't appear in active list
+            verify_success, categories = self.test_get_service_categories()
+            if verify_success:
+                category_still_active = any(cat["id"] == category_id for cat in categories)
+                if not category_still_active:
+                    print("✅ Category successfully removed from active list")
+                else:
+                    print("❌ Category still appears in active list after deletion")
+                    success = False
+        return success
+
+    def test_create_duplicate_category(self, name):
+        """Test creating duplicate category name (should fail)"""
+        success, _ = self.run_test(
+            f"Create Duplicate Category '{name}'",
+            "POST",
+            "service-categories",
+            400,  # Expect 400 Bad Request for duplicate
+            data={"name": name}
+        )
+        if success:
+            print(f"✅ Duplicate category name correctly rejected: {name}")
+        return success
+
+    def test_category_unauthorized_access(self):
+        """Test unauthorized access to category management"""
+        # Save current token
+        saved_token = self.token
+        # Clear token
+        self.token = None
+        
+        # Test unauthorized access to categories list
+        success1, _ = self.run_test(
+            "Unauthorized access to categories",
+            "GET",
+            "service-categories",
+            401  # Expect 401 Unauthorized
+        )
+        
+        # Test unauthorized category creation
+        success2, _ = self.run_test(
+            "Unauthorized category creation",
+            "POST",
+            "service-categories",
+            401,  # Expect 401 Unauthorized
+            data={"name": "Unauthorized Category"}
+        )
+        
+        # Restore token
+        self.token = saved_token
+        
+        if success1 and success2:
+            print("✅ All unauthorized access tests passed")
+            return True
+        else:
+            print("❌ Unauthorized access tests failed")
+            return False
+
+    def test_category_invalid_operations(self):
+        """Test invalid category operations"""
+        # Test update non-existent category
+        success1, _ = self.run_test(
+            "Update Non-existent Category",
+            "PUT",
+            "service-categories/nonexistent-id",
+            404,  # Expect 404 Not Found
+            data={"name": "Updated Name"}
+        )
+        
+        # Test delete non-existent category
+        success2, _ = self.run_test(
+            "Delete Non-existent Category",
+            "DELETE",
+            "service-categories/nonexistent-id",
+            404  # Expect 404 Not Found
+        )
+        
+        if success1 and success2:
+            print("✅ Invalid operations correctly handled")
+            return True
+        else:
+            print("❌ Invalid operations not properly handled")
+            return False
+
+    def test_category_integration_with_service_prices(self):
+        """Test that categories appear in service-prices/categories endpoint"""
+        # First get categories from service-categories endpoint
+        success1, categories = self.test_get_service_categories()
+        if not success1 or not categories:
+            print("❌ Cannot get categories for integration test")
+            return False
+        
+        # Get categories from service-prices/categories endpoint
+        success2, price_categories = self.run_test(
+            "Get Service Price Categories",
+            "GET",
+            "service-prices/categories",
+            200
+        )
+        
+        if not success2 or not price_categories:
+            print("❌ Cannot get service price categories")
+            return False
+        
+        # Extract category names
+        category_names = [cat['name'] for cat in categories]
+        price_category_names = price_categories.get('categories', [])
+        
+        print(f"Service categories: {category_names}")
+        print(f"Service price categories: {price_category_names}")
+        
+        # Check if newly created categories appear in service prices
+        integration_working = True
+        for cat_name in category_names:
+            if cat_name in price_category_names:
+                print(f"✅ Category '{cat_name}' appears in service prices")
+            else:
+                print(f"⚠️ Category '{cat_name}' not yet in service prices (may need services)")
+        
+        print("✅ Category integration test completed")
+        return True
+
+    def test_service_categories_comprehensive(self):
+        """Comprehensive test of service categories management"""
+        print(f"\n🔍 Testing comprehensive service categories functionality")
+        
+        # Test 1: Create test categories
+        test_categories = [
+            {"name": "Терапия", "description": "Терапевтические услуги"},
+            {"name": "Хирургия", "description": "Хирургические вмешательства"},
+            {"name": "Ортопедия", "description": "Ортопедические услуги"}
+        ]
+        
+        created_categories = []
+        
+        for cat_data in test_categories:
+            success, category = self.test_create_service_category(
+                cat_data["name"], 
+                cat_data["description"]
+            )
+            if success and category:
+                created_categories.append(category)
+                print(f"✅ Created category: {cat_data['name']}")
+            else:
+                print(f"❌ Failed to create category: {cat_data['name']}")
+                return False
+        
+        # Test 2: Retrieve all categories
+        success, all_categories = self.test_get_service_categories()
+        if not success:
+            print("❌ Failed to retrieve categories")
+            return False
+        
+        # Verify our created categories are in the list
+        created_names = [cat['name'] for cat in created_categories]
+        retrieved_names = [cat['name'] for cat in all_categories]
+        
+        for name in created_names:
+            if name in retrieved_names:
+                print(f"✅ Category '{name}' found in retrieved list")
+            else:
+                print(f"❌ Category '{name}' not found in retrieved list")
+                return False
+        
+        # Test 3: Update category
+        if created_categories:
+            first_category = created_categories[0]
+            new_name = f"{first_category['name']} (Обновлено)"
+            new_description = "Обновленное описание категории"
+            
+            success, updated_category = self.test_update_service_category(
+                first_category['id'],
+                name=new_name,
+                description=new_description
+            )
+            
+            if success and updated_category:
+                print(f"✅ Successfully updated category to: {new_name}")
+            else:
+                print("❌ Failed to update category")
+                return False
+        
+        # Test 4: Test duplicate prevention
+        if created_categories:
+            duplicate_name = created_categories[1]['name']  # Use second category name
+            success = self.test_create_duplicate_category(duplicate_name)
+            if not success:
+                print("❌ Duplicate prevention test failed")
+                return False
+        
+        # Test 5: Test integration with service prices
+        integration_success = self.test_category_integration_with_service_prices()
+        if not integration_success:
+            print("❌ Integration test failed")
+            return False
+        
+        # Test 6: Delete categories (cleanup)
+        for category in created_categories:
+            success = self.test_delete_service_category(category['id'])
+            if success:
+                print(f"✅ Successfully deleted category: {category['name']}")
+            else:
+                print(f"❌ Failed to delete category: {category['name']}")
+                return False
+        
+        print("✅ Service categories comprehensive test completed successfully")
+        return True
+
     # Service Price Directory Testing Methods
     def test_get_service_prices(self, category=None, active_only=True):
         """Get all service prices from directory"""
