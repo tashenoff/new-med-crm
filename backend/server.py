@@ -2576,8 +2576,18 @@ async def get_treatment_plan_statistics(
                     'paid_amount': 0
                 }
             monthly_stats[month_key]['created'] += 1
-            monthly_stats[month_key]['total_cost'] += plan.get('total_cost', 0)
-            monthly_stats[month_key]['paid_amount'] += plan.get('paid_amount', 0)
+            
+            # Safe calculations for monthly stats
+            month_total_cost = plan.get('total_cost', 0) or 0
+            month_paid_amount = plan.get('paid_amount', 0) or 0
+            
+            if month_total_cost < 0:
+                month_total_cost = 0
+            if month_paid_amount < 0:
+                month_paid_amount = 0
+                
+            monthly_stats[month_key]['total_cost'] += month_total_cost
+            monthly_stats[month_key]['paid_amount'] += month_paid_amount
             
             if plan.get('execution_status') == 'completed':
                 monthly_stats[month_key]['completed'] += 1
