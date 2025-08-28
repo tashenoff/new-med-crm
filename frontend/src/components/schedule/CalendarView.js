@@ -232,16 +232,27 @@ const CalendarView = ({
                       {time}
                     </div>
                     
-                    {doctors.map(doctor => {
+                    {availableDoctors.map(doctor => {
                       const appointment = getAppointmentForSlot(doctor.id, date, time);
+                      
+                      // Проверяем, находится ли время в рабочих часах врача
+                      const isInWorkingHours = doctor.schedule && doctor.schedule.some(schedule => {
+                        const timeObj = new Date(`1970-01-01T${time}:00`);
+                        const startObj = new Date(`1970-01-01T${schedule.start_time}:00`);
+                        const endObj = new Date(`1970-01-01T${schedule.end_time}:00`);
+                        return timeObj >= startObj && timeObj <= endObj;
+                      });
                       
                       return (
                         <div
                           key={`${doctor.id}-${date}-${time}`}
-                          className="border border-gray-200 min-h-[50px] p-1 relative hover:bg-gray-50 cursor-pointer"
-                          onClick={() => !appointment && canEdit && onSlotClick(doctor.id, date, time)}
-                          onDrop={(e) => canEdit && handleDrop(e, doctor.id, date, time)}
-                          onDragOver={handleDragOver}
+                          className={`border border-gray-200 min-h-[50px] p-1 relative cursor-pointer ${
+                            isInWorkingHours ? 'hover:bg-blue-50' : 'bg-gray-100'
+                          } ${!isInWorkingHours ? 'opacity-50' : ''}`}
+                          onClick={() => !appointment && canEdit && isInWorkingHours && onSlotClick(doctor.id, date, time)}
+                          onDrop={(e) => canEdit && isInWorkingHours && handleDrop(e, doctor.id, date, time)}
+                          onDragOver={isInWorkingHours ? handleDragOver : undefined}
+                          title={!isInWorkingHours ? 'Врач не работает в это время' : ''}
                         >
                           {appointment ? (
                             <div
