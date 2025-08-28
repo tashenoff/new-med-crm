@@ -477,18 +477,72 @@ const AppointmentModal = ({
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Пациент *</label>
               <div className="flex gap-2">
-                <select
-                  value={appointmentForm.patient_id}
-                  onChange={(e) => setAppointmentForm({...appointmentForm, patient_id: e.target.value})}
-                  className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                  required
-                  disabled={showNewPatientForm}
-                >
-                  <option value="">Выберите пациента</option>
-                  {patients.map(patient => (
-                    <option key={patient.id} value={patient.id}>{patient.full_name}</option>
-                  ))}
-                </select>
+                <div className="flex-1 relative">
+                  {/* Поисковое поле */}
+                  <div className="relative">
+                    <input
+                      type="text"
+                      value={patientSearch}
+                      onChange={(e) => handlePatientSearch(e.target.value)}
+                      onFocus={() => {
+                        if (filteredPatients.length > 0) {
+                          setShowPatientDropdown(true);
+                        }
+                      }}
+                      placeholder="Начните вводить имя, телефон или ИИН пациента..."
+                      className="w-full px-3 py-2 pr-8 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      required={!appointmentForm.patient_id}
+                      disabled={showNewPatientForm}
+                    />
+                    
+                    {/* Иконка поиска или очистки */}
+                    {patientSearch ? (
+                      <button
+                        type="button"
+                        onClick={handleClearPatient}
+                        className="absolute right-2 top-2 text-gray-400 hover:text-gray-600"
+                      >
+                        ✕
+                      </button>
+                    ) : (
+                      <div className="absolute right-2 top-2 text-gray-400">
+                        🔍
+                      </div>
+                    )}
+                  </div>
+                  
+                  {/* Выпадающий список результатов */}
+                  {showPatientDropdown && filteredPatients.length > 0 && (
+                    <div className="absolute z-50 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-60 overflow-y-auto">
+                      {filteredPatients.map(patient => (
+                        <div
+                          key={patient.id}
+                          onClick={() => handlePatientSelect(patient)}
+                          className="px-4 py-3 hover:bg-blue-50 cursor-pointer border-b border-gray-100 last:border-b-0"
+                        >
+                          <div className="font-medium text-gray-900">{patient.full_name}</div>
+                          <div className="text-sm text-gray-600">
+                            {patient.phone && `📞 ${patient.phone}`}
+                            {patient.phone && patient.birth_date && ' • '}
+                            {patient.birth_date && `🎂 ${patient.birth_date}`}
+                          </div>
+                          {patient.iin && (
+                            <div className="text-xs text-gray-500">ИИН: {patient.iin}</div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  
+                  {/* Показать сообщение если ничего не найдено */}
+                  {patientSearch && filteredPatients.length === 0 && patientSearch.length >= 2 && (
+                    <div className="absolute z-50 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg p-4 text-center text-gray-500">
+                      <div className="text-sm">Пациенты не найдены</div>
+                      <div className="text-xs mt-1">Попробуйте изменить поисковый запрос</div>
+                    </div>
+                  )}
+                </div>
+                
                 <button
                   type="button"
                   onClick={() => setShowNewPatientForm(!showNewPatientForm)}
@@ -497,6 +551,29 @@ const AppointmentModal = ({
                   {showNewPatientForm ? 'Отмена' : '+ Новый'}
                 </button>
               </div>
+              
+              {/* Выбранный пациент */}
+              {appointmentForm.patient_id && selectedPatient && (
+                <div className="mt-2 p-3 bg-green-50 border border-green-200 rounded-lg">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <div className="font-medium text-green-800">✓ Выбран: {selectedPatient.full_name}</div>
+                      <div className="text-sm text-green-600">
+                        {selectedPatient.phone && `📞 ${selectedPatient.phone}`}
+                        {selectedPatient.phone && selectedPatient.birth_date && ' • '}
+                        {selectedPatient.birth_date && `🎂 ${selectedPatient.birth_date}`}
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={handleClearPatient}
+                      className="text-green-600 hover:text-green-800 text-sm"
+                    >
+                      Изменить
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
 
             {showNewPatientForm && (
