@@ -2028,7 +2028,7 @@ class ClinicAPITester:
             "Unauthorized access to categories",
             "GET",
             "service-categories",
-            401  # Expect 401 Unauthorized
+            403  # Expect 403 Forbidden (FastAPI returns 403 for missing auth)
         )
         
         # Test unauthorized category creation
@@ -2036,7 +2036,7 @@ class ClinicAPITester:
             "Unauthorized category creation",
             "POST",
             "service-categories",
-            401,  # Expect 401 Unauthorized
+            403,  # Expect 403 Forbidden (FastAPI returns 403 for missing auth)
             data={"name": "Unauthorized Category"}
         )
         
