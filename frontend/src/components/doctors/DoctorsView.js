@@ -9,11 +9,18 @@ const DoctorsView = ({
   onDeleteDoctor,
   canManage 
 }) => {
-  const filteredDoctors = doctors.filter(doctor =>
-    doctor.full_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    doctor.specialty.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    doctor.phone.includes(searchTerm)
-  );
+  const filteredDoctors = doctors.filter(doctor => {
+    const searchTermLower = searchTerm.toLowerCase();
+    const fullName = doctor.full_name || '';
+    const specialty = doctor.specialty || '';
+    const phone = doctor.phone || '';
+    
+    return (
+      fullName.toLowerCase().includes(searchTermLower) ||
+      specialty.toLowerCase().includes(searchTermLower) ||
+      phone.includes(searchTerm)
+    );
+  });
 
   return (
     <div>
