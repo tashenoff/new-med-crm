@@ -172,6 +172,38 @@ const AppointmentModal = ({
     }
   }, [show, appointmentForm.patient_id, patients]);
 
+  // Сброс всех состояний при закрытии модала
+  useEffect(() => {
+    if (!show) {
+      // Сбрасываем все внутренние состояния модала
+      setActiveTab('appointment');
+      setShowNewPatientForm(false);
+      setDocuments([]);
+      setTreatmentPlans([]);
+      setUploading(false);
+      setSelectedFile(null);
+      setDocumentDescription('');
+      setAvailableDoctors([]);
+      setLoadingDoctors(false);
+      setScheduleMessage('');
+      setPatientSearch('');
+      setShowPatientDropdown(false);
+      setFilteredPatients([]);
+      setPlanForm({
+        title: '',
+        description: '',
+        services: [],
+        total_cost: 0,
+        status: 'draft',
+        notes: '',
+        payment_status: 'unpaid',
+        paid_amount: 0,
+        execution_status: 'pending',
+        appointment_ids: []
+      });
+    }
+  }, [show]);
+
   // Закрытие выпадающего списка при клике вне его
   useEffect(() => {
     const handleClickOutside = (event) => {
