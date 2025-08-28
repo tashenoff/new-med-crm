@@ -1389,6 +1389,88 @@ async def get_available_doctors(
     
     return available_doctors
 
+# Service Price Directory endpoints
+@api_router.get("/service-prices", response_model=List[ServicePrice])
+async def get_service_prices(
+    category: Optional[str] = None,
+    active_only: bool = True,
+    current_user: UserInDB = Depends(get_current_active_user)
+):
+    """Get all service prices from directory"""
+    filters = {}
+    if active_only:
+        filters["is_active"] = True
+    if category:
+        filters["category"] = category
+    
+    prices = await db.service_prices.find(filters).sort("category", 1).sort("service_name", 1).to_list(None)
+    return [ServicePrice(**price) for price in prices]
+
+@api_router.post("/service-prices", response_model=ServicePrice)
+async def create_service_price(
+    service_price: ServicePriceCreate,
+    current_user: UserInDB = Depends(require_role([UserRole.ADMIN]))
+):
+    """Create new service price"""
+    # Check if service with same name already exists
+    existing = await db.service_prices.find_one({
+        "service_name": service_price.service_name,
+        "is_active": True
+    })
+    
+    if existing:
+        raise HTTPException(status_code=400, detail="Service with this name already exists")
+    
+    price_dict = service_price.dict()
+    price_obj = ServicePrice(**price_dict)
+    await db.service_prices.insert_one(price_obj.dict())
+    return price_obj
+
+@api_router.put("/service-prices/{price_id}", response_model=ServicePrice)
+async def update_service_price(
+    price_id: str,
+    service_price_update: ServicePriceUpdate,
+    current_user: UserInDB = Depends(require_role([UserRole.ADMIN]))
+):
+    """Update service price"""
+    update_dict = {k: v for k, v in service_price_update.dict().items() if v is not None}
+    update_dict["updated_at"] = datetime.utcnow()
+    
+    result = await db.service_prices.update_one(
+        {"id": price_id}, 
+        {"$set": update_dict}
+    )
+    
+    if result.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Service price not found")
+    
+    updated_price = await db.service_prices.find_one({"id": price_id})
+    return ServicePrice(**updated_price)
+
+@api_router.delete("/service-prices/{price_id}")
+async def delete_service_price(
+    price_id: str,
+    current_user: UserInDB = Depends(require_role([UserRole.ADMIN]))
+):
+    """Delete (deactivate) service price"""
+    result = await db.service_prices.update_one(
+        {"id": price_id}, 
+        {"$set": {"is_active": False, "updated_at": datetime.utcnow()}}
+    )
+    
+    if result.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Service price not found")
+    
+    return {"message": "Service price deleted successfully"}
+
+@api_router.get("/service-prices/categories")
+async def get_service_categories(
+    current_user: UserInDB = Depends(get_current_active_user)
+):
+    """Get all service categories"""
+    categories = await db.service_prices.distinct("category", {"is_active": True, "category": {"$ne": None}})
+    return {"categories": categories}
+
 # Protected Appointment endpoints
 @api_router.post("/appointments", response_model=Appointment)
 async def create_appointment(
