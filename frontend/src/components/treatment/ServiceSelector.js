@@ -6,7 +6,7 @@ const ServiceSelector = ({ onServiceAdd, selectedPatient }) => {
   const [services, setServices] = useState([]);
   const [selectedCategory, setSelectedCategory] = useState('');
   const [selectedService, setSelectedService] = useState('');
-  const [selectedTooth, setSelectedTooth] = useState('');
+  const [selectedTeeth, setSelectedTeeth] = useState([]);
   const [quantity, setQuantity] = useState(1);
   const [discount, setDiscount] = useState(0);
   const [loading, setLoading] = useState(false);
