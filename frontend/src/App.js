@@ -18,6 +18,7 @@ import PatientsView from './components/patients/PatientsView';
 import DoctorsView from './components/doctors/DoctorsView';
 import DoctorSchedule from './components/doctors/DoctorSchedule';
 import ServicePrices from './components/directory/ServicePrices';
+import Specialties from './components/specialties/Specialties';
 import TreatmentPlanStatistics from './components/statistics/TreatmentPlanStatistics';
 import DoctorStatistics from './components/statistics/DoctorStatistics';
 import { useApi } from './hooks/useApi';
