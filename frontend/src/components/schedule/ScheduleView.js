@@ -320,6 +320,41 @@ const ScheduleView = ({
           {/* Действия */}
           {canEdit && (
             <div className="flex flex-col space-y-1 ml-2">
+              {/* Переключение статуса */}
+              <div className="relative group">
+                <button
+                  className="text-purple-600 hover:text-purple-800 p-2 rounded-full hover:bg-purple-50 transition-colors"
+                  title="Изменить статус"
+                >
+                  🔄
+                </button>
+                
+                {/* Dropdown статусов */}
+                <div className="absolute right-0 top-10 hidden group-hover:block z-50 bg-white border border-gray-200 rounded-lg shadow-lg py-1 w-48">
+                  {[
+                    { id: 'unconfirmed', text: 'Не подтвержден', icon: '⏳' },
+                    { id: 'confirmed', text: 'Подтвержден', icon: '✅' },
+                    { id: 'arrived', text: 'Пациент пришел', icon: '🚪' },
+                    { id: 'in_progress', text: 'В процессе', icon: '⚕️' },
+                    { id: 'completed', text: 'Завершен', icon: '✅' },
+                    { id: 'cancelled', text: 'Отменен', icon: '❌' },
+                    { id: 'no_show', text: 'Не явился', icon: '👻' }
+                  ].filter(status => status.id !== appointment.status).map(status => (
+                    <button
+                      key={status.id}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onStatusChange(appointment.id, status.id);
+                      }}
+                      className="w-full text-left px-4 py-2 text-sm hover:bg-gray-50 flex items-center"
+                    >
+                      <span className="mr-2">{status.icon}</span>
+                      {status.text}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              
               <button
                 onClick={(e) => {
                   e.stopPropagation();
