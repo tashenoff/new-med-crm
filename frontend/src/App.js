@@ -1857,6 +1857,12 @@ function ClinicApp() {
           />
         )}
         
+        {activeTab === 'payment-types' && (
+          <PaymentTypes
+            user={user}
+          />
+        )}
+        
         {activeTab === 'treatment-statistics' && (
           <TreatmentPlanStatistics />
         )}
