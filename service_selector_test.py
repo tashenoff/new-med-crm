@@ -457,7 +457,7 @@ class ServiceSelectorTester:
             "Unauthorized access to service-prices/categories",
             "GET",
             "service-prices/categories", 
-            401  # Expect 401 Unauthorized
+            403  # Expect 403 Forbidden (FastAPI returns 403 for missing auth)
         )
         
         if not success:
@@ -470,7 +470,7 @@ class ServiceSelectorTester:
             "Unauthorized access to service-prices",
             "GET",
             "service-prices",
-            401  # Expect 401 Unauthorized  
+            403  # Expect 403 Forbidden (FastAPI returns 403 for missing auth)
         )
         
         if not success:
