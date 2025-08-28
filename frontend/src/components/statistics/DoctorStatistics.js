@@ -320,7 +320,6 @@ const DoctorStatistics = () => {
               />
             </div>
           )}
-            />
             <StatCard
               title="Средний доход за прием"
               value={`${doctorStats.overview.avg_revenue_per_appointment.toLocaleString()} ₸`}
