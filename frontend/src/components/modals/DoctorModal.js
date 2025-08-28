@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 
 const DoctorModal = ({ 
   show, 
@@ -10,6 +10,9 @@ const DoctorModal = ({
   loading, 
   errorMessage 
 }) => {
+  const [specialties, setSpecialties] = useState([]);
+  
+  const API = process.env.REACT_APP_BACKEND_URL;
   if (!show) return null;
 
   return (
