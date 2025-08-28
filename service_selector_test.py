@@ -496,7 +496,10 @@ class ServiceSelectorTester:
             print("❌ Cannot get categories for ServiceSelector")
             return False
         
-        categories = response.get('categories', [])
+        if isinstance(response, dict):
+            categories = response.get('categories', [])
+        else:
+            categories = response if isinstance(response, list) else []
         found_categories = []
         
         for expected in expected_categories:
