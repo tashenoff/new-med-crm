@@ -1013,6 +1013,8 @@ async def get_individual_doctor_statistics(
                 "completed_appointments": 1,
                 "cancelled_appointments": 1,
                 "no_show_appointments": 1,
+                "total_worked_hours": 1,
+                "total_scheduled_hours": 1,
                 "total_revenue": 1,
                 "potential_revenue": 1,
                 "completion_rate": {
@@ -1045,6 +1047,16 @@ async def get_individual_doctor_statistics(
                         0
                     ]
                 },
+                "utilization_rate": {
+                    "$cond": [
+                        {"$gt": ["$total_scheduled_hours", 0]},
+                        {"$multiply": [
+                            {"$divide": ["$total_worked_hours", "$total_scheduled_hours"]},
+                            100
+                        ]},
+                        0
+                    ]
+                },
                 "revenue_efficiency": {
                     "$cond": [
                         {"$gt": ["$potential_revenue", 0]},
@@ -1059,6 +1071,13 @@ async def get_individual_doctor_statistics(
                     "$cond": [
                         {"$gt": ["$completed_appointments", 0]},
                         {"$divide": ["$total_revenue", "$completed_appointments"]},
+                        0
+                    ]
+                },
+                "avg_revenue_per_hour": {
+                    "$cond": [
+                        {"$gt": ["$total_worked_hours", 0]},
+                        {"$divide": ["$total_revenue", "$total_worked_hours"]},
                         0
                     ]
                 }
@@ -1087,13 +1106,17 @@ async def get_individual_doctor_statistics(
             "completed_appointments": 0,
             "cancelled_appointments": 0,
             "no_show_appointments": 0,
+            "total_worked_hours": 0,
+            "total_scheduled_hours": 0,
             "total_revenue": 0,
             "potential_revenue": 0,
             "completion_rate": 0,
             "cancellation_rate": 0,
             "no_show_rate": 0,
+            "utilization_rate": 0,
             "revenue_efficiency": 0,
-            "avg_revenue_per_appointment": 0
+            "avg_revenue_per_appointment": 0,
+            "avg_revenue_per_hour": 0
         })
     
     return {
@@ -1103,7 +1126,10 @@ async def get_individual_doctor_statistics(
             "active_doctors": len([d for d in doctor_stats if d["total_appointments"] > 0]),
             "top_performers": len([d for d in doctor_stats if d["completion_rate"] > 80 and d["total_appointments"] > 5]),
             "high_revenue_doctors": len([d for d in doctor_stats if d["total_revenue"] > 100000]),
-            "doctors_with_no_shows": len([d for d in doctor_stats if d["no_show_rate"] > 10 and d["total_appointments"] > 5])
+            "doctors_with_no_shows": len([d for d in doctor_stats if d["no_show_rate"] > 10 and d["total_appointments"] > 5]),
+            "high_utilization_doctors": len([d for d in doctor_stats if d["utilization_rate"] > 80 and d["total_worked_hours"] > 0]),
+            "avg_worked_hours": round(sum(d["total_worked_hours"] for d in doctor_stats) / len([d for d in doctor_stats if d["total_worked_hours"] > 0]) if len([d for d in doctor_stats if d["total_worked_hours"] > 0]) > 0 else 0, 2),
+            "avg_utilization_rate": round(sum(d["utilization_rate"] for d in doctor_stats) / len([d for d in doctor_stats if d["total_scheduled_hours"] > 0]) if len([d for d in doctor_stats if d["total_scheduled_hours"] > 0]) > 0 else 0, 1)
         }
     }
 
