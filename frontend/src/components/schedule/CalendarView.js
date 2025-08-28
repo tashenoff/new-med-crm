@@ -71,7 +71,8 @@ const CalendarView = ({
   };
 
   const goToToday = () => {
-    setCurrentDate(new Date());
+    const today = new Date();
+    setCurrentDate(today);
   };
 
   const isToday = (dateString) => {
