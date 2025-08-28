@@ -84,7 +84,9 @@ const ServiceSelector = ({ onServiceAdd, selectedPatient }) => {
     selectedService,
     selectedServiceData,
     unit: selectedServiceData?.unit,
-    isMatch: selectedServiceData?.unit === 'зуб'
+    unitType: typeof selectedServiceData?.unit,
+    isMatch: selectedServiceData?.unit === 'зуб',
+    allServices: services.map(s => ({ id: s.id, name: s.name, unit: s.unit }))
   });
   
   const isToothService = selectedServiceData?.unit === 'зуб';
