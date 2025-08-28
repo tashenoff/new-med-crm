@@ -149,8 +149,8 @@ const ServiceSelector = ({ onServiceAdd, selectedPatient }) => {
       {/* Tooth chart for dental services */}
       {selectedCategory === 'Стоматолог' && (
         <ToothChart 
-          selectedTooth={selectedTooth}
-          onToothSelect={setSelectedTooth}
+          selectedTooth={selectedTeeth}
+          onToothSelect={setSelectedTeeth}
         />
       )}
 
