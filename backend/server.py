@@ -2653,8 +2653,8 @@ async def get_patient_statistics(
                 "no_show_plans": {
                     "$sum": {"$cond": [{"$eq": ["$execution_status", "no_show"]}, 1, 0]}
                 },
-                "total_cost": {"$sum": "$total_cost"},
-                "total_paid": {"$sum": "$paid_amount"},
+                "total_cost": {"$sum": {"$ifNull": ["$total_cost", 0]}},
+                "total_paid": {"$sum": {"$ifNull": ["$paid_amount", 0]}},
                 "unpaid_plans": {
                     "$sum": {"$cond": [{"$eq": ["$payment_status", "unpaid"]}, 1, 0]}
                 }
