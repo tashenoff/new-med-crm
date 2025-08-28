@@ -984,50 +984,7 @@ async def get_individual_doctor_statistics(
         {"$match": date_filter},
         {
             "$addFields": {
-                "appointment_duration": {
-                    "$cond": [
-                        {"$and": [
-                            {"$ne": ["$end_time", None]},
-                            {"$ne": ["$appointment_time", None]},
-                            {"$ne": ["$end_time", ""]},
-                            {"$ne": ["$appointment_time", ""]}
-                        ]},
-                        {
-                            "$divide": [
-                                {
-                                    "$subtract": [
-                                        {
-                                            "$dateFromString": {
-                                                "dateString": {
-                                                    "$concat": ["1970-01-01T", {"$ifNull": ["$end_time", "00:00"]}, ":00Z"]
-                                                },
-                                                "onError": {
-                                                    "$dateFromString": {
-                                                        "dateString": "1970-01-01T00:30:00Z"
-                                                    }
-                                                }
-                                            }
-                                        },
-                                        {
-                                            "$dateFromString": {
-                                                "dateString": {
-                                                    "$concat": ["1970-01-01T", {"$ifNull": ["$appointment_time", "00:00"]}, ":00Z"]
-                                                },
-                                                "onError": {
-                                                    "$dateFromString": {
-                                                        "dateString": "1970-01-01T00:00:00Z"
-                                                    }
-                                                }
-                                            }
-                                        }
-                                    ]
-                                },
-                                3600000  # Convert milliseconds to hours
-                            ]
-                        },
-                        0.5  # Default 30 minutes if no end time
-                    ]
-                }
+                "appointment_duration": 0.5  # Fixed 30 minutes duration for now
             }
         },
         {
