@@ -35,7 +35,6 @@ const ServicePrices = ({ user }) => {
     fetchServicePrices();
     fetchCategories();
     fetchServiceCategories();
-    fetchSpecialties();
   }, []);
 
   const fetchServicePrices = async () => {
