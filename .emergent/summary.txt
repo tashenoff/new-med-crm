@@ -1,23 +1,24 @@
 <analysis>
-The previous AI engineer successfully evolved a medical record application from an MVP. Initial efforts focused on automatic medical record creation, patient/appointment data expansion, and document management. A significant phase involved building a comprehensive treatment planning system, integrating backend models and frontend components like  and .
-
-The trajectory then details a series of iterative enhancements and bug fixes. Key issues resolved include authentication (401 errors requiring login) and treatment plan saving (422 validation error due to redundant ). Feature additions include detailed treatment plan statistics, general and doctor-specific statistics with search capabilities, and a major UI overhaul to implement a collapsible sidebar navigation with an accordion menu for statistics. The process involved constant backend and frontend updates, often debugging in response to user feedback. The work concluded with the user reporting that the source/channel field for clients had been inadvertently removed.
+The AI engineer successfully enhanced a medical record application by addressing multiple user requests and bug reports. Initial work involved fixing a 500 error in the patient statistics endpoint by adding division-by-zero checks in . Following this, a Kanban-style schedule view was implemented in , with visual drag-and-drop improvements. A significant feature added was doctor scheduling, requiring new models and API endpoints in  and integration into  and  for availability checks and filtering. Doctor statistics were expanded in  and  to include hours worked and utilization, with detailed tooltips for clarity. The patient selection in  was transformed into a search field, and subsequent bugs related to residual not found messages and modal state on re-opening were fixed. Most recently, a Directory with a Price Policy section was added for managing service prices, integrated into , , and . The final ongoing task involves integrating this new price directory with the  and  components, specifically to handle services priced per tooth and to ensure correct unit selection in the UI.
 </analysis>
 
 <product_requirements>
-The initial core problem was the absence of medical record creation. The system needed to automatically generate empty medical records upon patient registration, allowing doctors to subsequently edit them with details like blood group, height, weight, emergency contacts, and insurance. Functionality for adding diagnoses, medications, and medical entries (visit notes) was also required, with automatic entry creation post-appointment. UI consistency was a priority for appointment displays across views, alongside general bug fixes.
+The application's core goal is efficient medical record management. Initially, it required automatic medical record creation, patient/appointment data expansion, and document management. Key features included a comprehensive treatment planning system with  and , and robust statistics for treatment plans and doctors.
 
-Subsequent enhancements included expanding medical entry fields for patients (birthday, gender, referrer, financial data) and appointments (end time, chair number, patient notes, price, source). A key feature was comprehensive document management, enabling upload, viewing, and download for patients via dedicated Документы tabs in both patient and appointment modals. A detailed План лечения (Treatment Plan) system was introduced, featuring service categories, pricing, and a dental chart for tooth selection, accessible through a dedicated tab. Later, a request for an Statistics page for treatment plans (tracking execution, missed payments, unpaid plans) was added. This evolved to include detailed doctor statistics and a collapsible sidebar navigation with an accordion menu for different statistical views, along with search functionality for patients and doctors. The most recent implicit request is to restore the source/channel field for client appointments.
+Recent development focused on:
+1.  **Bug Fixes**: Resolve 500 errors in patient statistics, Patients not found message persistence after selection, and empty modal windows on reopen.
+2.  **Scheduling Enhancements**: Transform the appointment schedule into a Kanban board with drag-and-drop. Implement a doctor scheduling system allowing doctors to set their working days/hours, preventing appointment bookings outside these times, and filtering doctors in the calendar view based on availability.
+3.  **Statistics Expansion**: Add hours worked and % utilization columns to doctor statistics, along with explanatory tooltips.
+4.  **UI/UX Improvements**: Replace the patient selection dropdown in the appointment modal with a search field.
+5.  **Service Price Management**: Create a Directory in the sidebar with a Price Policy section to manage treatment plan service prices. Integrate these dynamic prices into the appointment modal's treatment plan selection, specifically handling services priced per tooth by allowing tooth selection via the  component.
 </product_requirements>
 
 <key_technical_concepts>
 - **Full-stack Development**: React (frontend), FastAPI (backend), MongoDB (database).
-- **RESTful APIs**: Consistent  prefix for backend routes.
-- **Component-Based UI**: Modular React components, custom hooks.
-- **Data Validation**: Pydantic models in FastAPI.
-- **File Management**: FastAPI  & , Frontend .
-- **UI Patterns**: Tabbed modals, collapsible sidebar, accordion menu.
-- **Environment Variables**: Strict usage of , .
+- **RESTful APIs**: Consistent  prefix for backend routes, Pydantic models for data.
+- **Component-Based UI**: Modular React components, custom hooks, state management.
+- **UI Patterns**: Tabbed modals, collapsible sidebar, accordion menu, Kanban boards, search with auto-completion.
+- **Data Persistence**: MongoDB for data storage, including new models for schedules and service prices.
 </key_technical_concepts>
 
 <code_architecture>
@@ -26,57 +27,61 @@ The application uses a full-stack architecture: React for the frontend, FastAPI 
 
 
 -   :
-    -   **Importance**: Handles all API endpoints, database interactions, and data models.
-    -   **Changes**: Expanded  and  models. Added , , ,  models for new features. Implemented CRUD operations for these models and their respective API endpoints (, , ). Introduced  for file storage and a  endpoint for file downloads. Fixed a 422 validation error by making  optional in . Added  and  fields to  and implemented new API endpoints for treatment plan statistics () and doctor statistics ().
+    -   **Importance**: Centralizes all backend logic.
+    -   **Changes**: Fixed 500 error in patient statistics (division by zero). Added , ,  models. Implemented API endpoints for doctor schedules () and service prices (, ). Updated  to validate doctor availability. Enhanced doctor statistics pipeline () with , , etc.
 
 -   :
-    -   **Importance**: The central component for routing, global state management, and overall application layout.
-    -   **Changes**: Refactored to integrate new patient and appointment fields into forms. Critical bug fix involved removing duplicate modal definitions. Added state management for new UI tabs and introduced  state and  function for the new collapsible sidebar. Integrated the new  component (later replaced by  and ) into the main view, controlling visibility based on active tabs. Managed user authentication state and logout logic, which was crucial for resolving initial 401 errors. Updated layout structure to accommodate the sidebar.
+    -   **Importance**: Manages global state, routing, and overall layout.
+    -   **Changes**: Integrated  and  components with their respective routes and sidebar visibility. Passed  prop to . Fixed modal state not clearing on close.
 
 -   :
-    -   **Importance**: Enables creation and editing of appointments, now including detailed patient and treatment plan management.
-    -   **Changes**: Extended with input fields for new appointment attributes (end time, chair, patient notes, price). Integrated document upload/management under a Документы пациента tab. Significantly updated to include a План лечения tab, which now incorporates the  and  components for comprehensive treatment plan creation. Form state () was updated to include  and  fields, with corresponding UI elements added for these new statuses.
+    -   **Importance**: Handles patient appointments and treatment plans.
+    -   **Changes**: Modified doctor selection to use  based on selected date. Replaced patient selection dropdown with a search input with autocomplete, including a fix for Patients not found message persistence. Added  to reset internal states (, search results) on modal close.
 
 -   :
-    -   **Importance**: Displays the application's header and provides navigation controls.
-    -   **Changes**: Modified to include a hamburger menu button () for controlling the new collapsible sidebar. The application title Мед Ассистент was removed from this component to avoid duplication after it was moved into the sidebar. Adjusted z-index for the hamburger button to ensure clickability.
+    -   **Importance**: Provides application navigation.
+    -   **Changes**: Added Расписание врачей (Doctor Schedule) and Справочник (Directory) with Ценовая политика (Price Policy) as an accordion item. Updated accordion logic to support the new Directory section.
 
 -   :
-    -   **Importance**: Provides the main navigation links for the application.
-    -   **Changes**: Transformed into a collapsible left sidebar component. Implemented logic to show/hide based on  state, supporting both desktop and mobile responsiveness. Critical changes involved integrating an accordion menu structure for the Статистика section, allowing sub-categories like Планы лечения and Врачи to expand/collapse. The  structure was updated to define these nested navigation links.
+    -   **Importance**: Displays and manages appointment schedules.
+    -   **Changes**: Transformed into a Kanban board, implementing drag-and-drop for appointments across status columns.
+
+-   :
+    -   **Importance**: Provides a calendar interface for appointments.
+    -   **Changes**: Updated to filter and display only doctors available on the selected date, fetching  dynamically.
 
 -    (NEW):
-    -   **Importance**: A newly created component for graphically selecting teeth in a dental treatment plan.
-    -   **Changes**: This component was added early in the trajectory but its full integration into the treatment plan form within  was an ongoing task.
-
--    (NEW):
-    -   **Importance**: A newly created component for selecting services to be included in a treatment plan.
-    -   **Changes**: This component was added early in the trajectory, with its integration into 's План лечения tab being an ongoing task.
-
--    (NEW):
-    -   **Importance**: A dedicated component for displaying statistics related to treatment plans.
-    -   **Changes**: Created by splitting functionality from the original . Includes overview, monthly, and patient-specific statistics for treatment plans. Enhanced with a search input, filtering logic for patients, a display for the number of found records, a clear search button, and a message for no search results.
-
--    (NEW):
-    -   **Importance**: A dedicated component for displaying statistics related to doctors.
-    -   **Changes**: Created by splitting functionality from the original . Includes overview, monthly, and doctor-specific statistics. Enhanced with a search input, filtering logic for doctors, a display for the number of found records, a clear search button, and a message for no search results.
+    -   **Importance**: Allows administrators to manage doctor working hours.
+    -   **Changes**: New component created to display and edit doctor schedules.
 
 -   :
-    -   **Importance**: Manages global and component-specific styling using Tailwind CSS.
-    -   **Changes**: Added styles for the new collapsible sidebar, the accordion menu functionality within the navigation, and specific styles for the search input fields within the statistics components.
+    -   **Importance**: Displays doctor-related statistics.
+    -   **Changes**: Added new table columns and overview cards for hours worked, utilization rate, average revenue per hour, and high utilization doctors. Implemented tooltips for all statistical metrics for clarity.
 
+-    (NEW):
+    -   **Importance**: Manages the price catalog for treatment services.
+    -   **Changes**: New component created to list, add, edit, and delete service prices.
+
+-   :
+    -   **Importance**: Used within  to select services for treatment plans.
+    -   **Changes**: Updated to fetch service categories and services from the new  endpoints. Integrated with  to handle services with зуб (tooth) as a unit, calculating total cost based on selected teeth. Added tooltips for tooth-related services.
+
+-   :
+    -   **Importance**: Graphical interface for selecting teeth in dental treatment plans.
+    -   **Changes**: Modified to support multiple tooth selection ( state) and accept  prop for integration with .
 </code_architecture>
 
 <pending_tasks>
-- **Restore Source/Channel Field**: Re-introduce the source field for client appointments in the backend  model and update all relevant frontend forms (e.g., ) to capture and display this information.
+- **Restore Source/Channel Field**: Re-introduce the source field for client appointments in the backend  model and update all relevant frontend forms (e.g., ) to capture and display this information. (This was an initial pending task from the system prompt which was not addressed in the trajectory.)
+- **Fix Tooth Selection in Service Price Integration**: Address the issue where the зуб (tooth) unit is selected by text instead of value in the service addition form, preventing correct integration of  and price calculation based on selected teeth.
 </pending_tasks>
 
 <current_work>
-Immediately before this summary request, the AI engineer was engaged in addressing a bug reported by the user: the accidental removal of the source (источник/канал) field, which tracks how a client was acquired. The user provided an image highlighting its absence.
+Immediately before this summary, the AI engineer was working on integrating the  component with the  to handle services priced per tooth within the treatment plan section of the appointment modal. This involved updating  to allow multiple tooth selections and modifying  to dynamically show the  when a service with зуб as a unit is selected, calculating the price based on the number of selected teeth, and adding explanatory tooltips.
 
-The AI engineer's last action was initiating an investigation into the  file to verify the presence of the  field within the  model. This indicates the start of the process to restore this crucial piece of data. The current state is that the field is confirmed missing, and the next step is to re-integrate it into the backend data models and then propagate the changes to the frontend forms and display logic. This bug is a regression, as the field was likely present before and now needs to be re-added.
+The last specific action taken was an attempt to fix an issue reported by the user regarding the selection of the зуб (tooth) unit in the service addition form. The AI engineer observed that the selection was not working correctly, specifically that the unit зуб was being selected by its text rather than its underlying value, leading to incorrect functionality. The engineer's last thought explicitly stated the need to fix this.
 </current_work>
 
 <optional_next_step>
-Re-add the 'source' field to the  model in .
+Fix the issue in  where the зуб unit is selected by text instead of its value.
 </optional_next_step>

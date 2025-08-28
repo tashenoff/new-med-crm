@@ -6,7 +6,7 @@ import random
 
 def test_doctor_statistics_with_status_updates():
     """Test doctor statistics with proper appointment status updates"""
-    backend_url = "https://medrecord-field.preview.emergentagent.com"
+    backend_url = "https://dentalmanager-2.preview.emergentagent.com"
     
     print("=" * 80)
     print("DOCTOR STATISTICS API TESTING WITH STATUS UPDATES")

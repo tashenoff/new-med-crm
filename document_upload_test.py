@@ -370,7 +370,7 @@ class DocumentUploadTester:
         return True
 
 def main():
-    backend_url = "https://medrecord-field.preview.emergentagent.com"
+    backend_url = "https://dentalmanager-2.preview.emergentagent.com"
     tester = DocumentUploadTester(backend_url)
     
     success = tester.run_all_tests()

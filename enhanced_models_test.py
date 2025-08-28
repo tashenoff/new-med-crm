@@ -564,7 +564,7 @@ class EnhancedModelsAPITester:
 
 def main():
     # Get the backend URL from the environment
-    backend_url = "https://medrecord-field.preview.emergentagent.com"
+    backend_url = "https://dentalmanager-2.preview.emergentagent.com"
     
     # Setup
     tester = EnhancedModelsAPITester(backend_url)

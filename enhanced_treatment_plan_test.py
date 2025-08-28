@@ -616,7 +616,7 @@ class EnhancedTreatmentPlanTester:
 def main():
     """Main test execution"""
     # Get backend URL from environment or use default
-    backend_url = os.environ.get('REACT_APP_BACKEND_URL', 'https://medrecord-field.preview.emergentagent.com')
+    backend_url = os.environ.get('REACT_APP_BACKEND_URL', 'https://dentalmanager-2.preview.emergentagent.com')
     
     print(f"Testing Enhanced Treatment Plan functionality at: {backend_url}")
     

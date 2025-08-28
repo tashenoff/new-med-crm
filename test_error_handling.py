@@ -5,7 +5,7 @@ import sys
 
 def run_test(name, method, endpoint, expected_status, data=None, params=None, token=None):
     """Run a single API test"""
-    url = f"https://medrecord-field.preview.emergentagent.com/api/{endpoint}"
+    url = f"https://dentalmanager-2.preview.emergentagent.com/api/{endpoint}"
     headers = {'Content-Type': 'application/json'}
     
     # Add authorization token if available

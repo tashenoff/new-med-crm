@@ -541,7 +541,7 @@ class ServiceSelectorTester:
 
 def main():
     # Use the backend URL from environment variable
-    backend_url = os.environ.get('REACT_APP_BACKEND_URL', 'https://medrecord-field.preview.emergentagent.com')
+    backend_url = os.environ.get('REACT_APP_BACKEND_URL', 'https://dentalmanager-2.preview.emergentagent.com')
     
     print(f"🚀 Starting ServiceSelector Integration Tests")
     print(f"Backend URL: {backend_url}")
