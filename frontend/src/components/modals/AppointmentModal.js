@@ -1051,7 +1051,7 @@ const AppointmentModal = ({
                               <td className="py-2 text-right">{service.unit_price} ₸</td>
                               <td className="py-2 text-right">{service.quantity}</td>
                               <td className="py-2 text-right">{service.discount_percent}%</td>
-                              <td className="py-2 text-right font-medium">{service.total_price.toFixed(0)} ₸</td>
+                              <td className="py-2 text-right font-medium">{(service.total_price || 0).toFixed(0)} ₸</td>
                               <td className="py-2 text-right">
                                 <button
                                   type="button"
