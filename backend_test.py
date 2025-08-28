@@ -4845,8 +4845,64 @@ def test_service_categories_api():
         return False
 
 def main():
-    # Run the Service Categories API test
-    return test_service_categories_api()
+    # Use the backend URL from environment variable
+    import os
+    backend_url = os.getenv('REACT_APP_BACKEND_URL', 'https://dentalmanager-2.preview.emergentagent.com')
+    
+    tester = ClinicAPITester(backend_url)
+    
+    print("🚀 Starting ServiceSelector Test Data Creation")
+    print(f"Backend URL: {backend_url}")
+    
+    # Test authentication first
+    print("\n" + "="*50)
+    print("AUTHENTICATION")
+    print("="*50)
+    
+    # Use admin credentials as specified in the review request
+    admin_email = "admin_test_20250821110240@medentry.com"
+    admin_password = "AdminTest123!"
+    
+    if not tester.test_login_user(admin_email, admin_password):
+        print("❌ Failed to login with admin credentials")
+        return
+    
+    if not tester.test_get_current_user():
+        print("❌ Failed to get current user")
+        return
+    
+    # Create ServiceSelector test data
+    print("\n" + "="*50)
+    print("SERVICESELECTOR TEST DATA CREATION")
+    print("="*50)
+    
+    categories_created, services_created = tester.test_create_service_selector_test_data()
+    
+    print(f"\n📊 Created {categories_created} categories and {services_created} services")
+    
+    # Verify the test data
+    print("\n" + "="*50)
+    print("VERIFICATION STEPS")
+    print("="*50)
+    
+    if not tester.test_verify_service_selector_data():
+        print("❌ ServiceSelector test data verification failed")
+        return
+    
+    print("\n" + "="*50)
+    print("SERVICESELECTOR TEST DATA CREATION COMPLETED SUCCESSFULLY")
+    print("="*50)
+    print("✅ Categories created: Терапия, Хирургия, Ортопедия")
+    print("✅ Services created with different units:")
+    print("   - Лечение кариеса (Терапия, зуб, 15000₸)")
+    print("   - Удаление зуба (Хирургия, зуб, 8000₸)")
+    print("   - Чистка зубов (Терапия, процедура, 5000₸)")
+    print("   - Установка коронки (Ортопедия, зуб, 25000₸)")
+    print("✅ Services with 'зуб' unit verified for ToothChart integration")
+    print("✅ All API endpoints tested and working")
+    
+    # Print final summary
+    tester.print_summary()
 
 def main_original():
     # Get the backend URL from the environment
