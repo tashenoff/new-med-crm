@@ -3797,9 +3797,353 @@ def test_enhanced_doctor_statistics():
         print("❌ Some tests failed!")
         return False
 
+def test_service_price_directory_api():
+    """
+    COMPREHENSIVE TEST FOR SERVICE PRICE DIRECTORY API ENDPOINTS
+    Testing the new Service Price Directory API endpoints as requested in the review
+    """
+    import os
+    backend_url = os.environ.get('REACT_APP_BACKEND_URL', 'https://medrecord-field.preview.emergentagent.com')
+    
+    tester = ClinicAPITester(backend_url)
+    
+    print(f"🚀 Starting Service Price Directory API Tests")
+    print(f"Backend URL: {backend_url}")
+    print(f"{'='*80}")
+    
+    # Test authentication with provided admin credentials
+    print("\n📋 AUTHENTICATION TESTS")
+    print("-" * 50)
+    
+    # Use the admin credentials from the review request
+    admin_email = "admin_test_20250821110240@medentry.com"
+    admin_password = "AdminTest123!"
+    
+    # Try to login (user should already exist from previous tests)
+    if not tester.test_login_user(admin_email, admin_password):
+        print("❌ Failed to login with admin credentials")
+        return False
+    
+    # Test getting current user info
+    if not tester.test_get_current_user():
+        print("❌ Failed to get current user info")
+        return False
+    
+    print("✅ Authentication successful with admin credentials")
+    
+    # Test Service Price Directory API endpoints
+    print("\n📋 SERVICE PRICE DIRECTORY API TESTS")
+    print("-" * 50)
+    
+    # Test 1: GET /api/service-prices to retrieve all service prices
+    print("\n1. Testing GET /api/service-prices (retrieve all service prices)")
+    success, all_prices = tester.test_get_service_prices()
+    if not success:
+        print("❌ Failed to retrieve service prices")
+        return False
+    
+    print(f"✅ Retrieved {len(all_prices)} service prices successfully")
+    
+    # Test 2: POST /api/service-prices to create new service prices
+    print("\n2. Testing POST /api/service-prices (create new service prices)")
+    
+    # Create sample service prices for different categories as requested
+    test_services = [
+        {
+            "service_name": "Лечение кариеса",
+            "category": "Терапия",
+            "price": 15000.0,
+            "service_code": "T001",
+            "unit": "зуб",
+            "description": "Лечение кариеса с установкой композитной пломбы"
+        },
+        {
+            "service_name": "Удаление зуба",
+            "category": "Хирургия",
+            "price": 8000.0,
+            "service_code": "S001",
+            "unit": "зуб",
+            "description": "Простое удаление зуба под местной анестезией"
+        },
+        {
+            "service_name": "Протезирование",
+            "category": "Ортопедия",
+            "price": 45000.0,
+            "service_code": "P001",
+            "unit": "коронка",
+            "description": "Установка металлокерамической коронки"
+        },
+        {
+            "service_name": "Чистка зубов",
+            "category": "Терапия",
+            "price": 6000.0,
+            "service_code": "T002",
+            "unit": "процедура",
+            "description": "Профессиональная гигиена полости рта"
+        },
+        {
+            "service_name": "Имплантация",
+            "category": "Хирургия",
+            "price": 80000.0,
+            "service_code": "S002",
+            "unit": "имплант",
+            "description": "Установка дентального импланта"
+        }
+    ]
+    
+    created_services = []
+    
+    for service_data in test_services:
+        success, service = tester.test_create_service_price(**service_data)
+        if success and service:
+            created_services.append(service)
+            print(f"✅ Created service: {service['service_name']} ({service['category']}) - {service['price']} тенге")
+        else:
+            print(f"❌ Failed to create service: {service_data['service_name']}")
+            return False
+    
+    if len(created_services) != len(test_services):
+        print("❌ Failed to create all test services")
+        return False
+    
+    print(f"✅ Successfully created {len(created_services)} service prices")
+    
+    # Test 3: GET /api/service-prices with category filtering
+    print("\n3. Testing GET /api/service-prices with category filtering")
+    
+    # Test filtering by different categories
+    categories_to_test = ["Терапия", "Хирургия", "Ортопедия"]
+    
+    for category in categories_to_test:
+        success, category_services = tester.test_get_service_prices(category=category)
+        if not success:
+            print(f"❌ Failed to filter services by category: {category}")
+            return False
+        
+        # Verify all returned services match the category
+        category_matches = all(svc.get('category') == category for svc in category_services)
+        if not category_matches:
+            print(f"❌ Category filter failed for {category}")
+            return False
+        
+        print(f"✅ Category filter working for {category}: {len(category_services)} services")
+        
+        # Show sample services for this category
+        if len(category_services) > 0:
+            for svc in category_services[:2]:  # Show first 2 services
+                print(f"   - {svc['service_name']}: {svc['price']} тенге")
+    
+    # Test 4: GET /api/service-prices/categories to get available categories
+    print("\n4. Testing GET /api/service-prices/categories (get available categories)")
+    
+    success, categories_response = tester.test_get_service_categories()
+    if not success:
+        print("❌ Failed to get service categories")
+        return False
+    
+    categories = categories_response.get('categories', [])
+    expected_categories = ["Терапия", "Хирургия", "Ортопедия"]
+    
+    for expected_cat in expected_categories:
+        if expected_cat not in categories:
+            print(f"❌ Expected category not found: {expected_cat}")
+            return False
+    
+    print(f"✅ All expected categories found: {', '.join(expected_categories)}")
+    print(f"✅ Total categories available: {len(categories)}")
+    
+    # Test 5: PUT /api/service-prices/{id} to update existing prices
+    print("\n5. Testing PUT /api/service-prices/{id} (update existing prices)")
+    
+    # Update the first created service
+    service_to_update = created_services[0]
+    update_data = {
+        "price": 18000.0,
+        "description": "Обновленное описание: Лечение кариеса с использованием современных материалов",
+        "unit": "процедура"
+    }
+    
+    success, updated_service = tester.test_update_service_price(service_to_update['id'], update_data)
+    if not success:
+        print("❌ Failed to update service price")
+        return False
+    
+    print(f"✅ Successfully updated service: {updated_service['service_name']}")
+    print(f"   New price: {updated_service['price']} тенге")
+    print(f"   New description: {updated_service['description']}")
+    
+    # Test 6: DELETE /api/service-prices/{id} to deactivate prices
+    print("\n6. Testing DELETE /api/service-prices/{id} (deactivate prices)")
+    
+    # Deactivate the second created service
+    service_to_delete = created_services[1]
+    success = tester.test_delete_service_price(service_to_delete['id'])
+    if not success:
+        print("❌ Failed to deactivate service price")
+        return False
+    
+    print(f"✅ Successfully deactivated service: {service_to_delete['service_name']}")
+    
+    # Verify the service is no longer in active list
+    success, active_services = tester.test_get_service_prices(active_only=True)
+    if success:
+        deactivated_found = any(svc['id'] == service_to_delete['id'] for svc in active_services)
+        if not deactivated_found:
+            print("✅ Deactivated service correctly excluded from active services list")
+        else:
+            print("❌ Deactivated service still appears in active services list")
+            return False
+    
+    # Test 7: Search functionality (verify services can be found)
+    print("\n7. Testing search functionality")
+    
+    search_terms = ["Лечение", "зуб", "Протезирование"]
+    
+    for search_term in search_terms:
+        success = tester.test_service_price_search_functionality(search_term)
+        if not success:
+            print(f"❌ Search functionality test failed for term: {search_term}")
+            return False
+        
+        print(f"✅ Search functionality working for term: {search_term}")
+    
+    # Test 8: Price calculations and formatting
+    print("\n8. Testing price calculations and formatting")
+    
+    # Test with decimal prices
+    success, decimal_service_id = tester.test_service_price_validation()
+    if not success:
+        print("❌ Price validation test failed")
+        return False
+    
+    print("✅ Price calculations and formatting working correctly")
+    
+    # Test 9: CRUD operations comprehensive test
+    print("\n9. Testing comprehensive CRUD operations")
+    
+    success, crud_services = tester.test_service_price_crud_operations()
+    if not success:
+        print("❌ CRUD operations test failed")
+        return False
+    
+    print("✅ All CRUD operations working correctly")
+    
+    # Test 10: Access control
+    print("\n10. Testing access control")
+    
+    success = tester.test_service_price_access_control()
+    if not success:
+        print("❌ Access control test failed")
+        return False
+    
+    print("✅ Access control working correctly")
+    
+    # Test 11: Integration with treatment plans
+    print("\n11. Testing integration with treatment plans")
+    
+    # Create a test patient first
+    if not tester.test_create_patient("Service Price Test Patient", "+77771234567", "website"):
+        print("❌ Failed to create test patient")
+        return False
+    
+    patient_id = tester.created_patient_id
+    
+    # Create a treatment plan using services from the price directory
+    treatment_services = []
+    total_cost = 0.0
+    
+    # Use some of our created services
+    for service in created_services[:3]:  # Use first 3 services
+        if service.get('is_active', True):  # Only use active services
+            treatment_services.append({
+                "service_id": service['id'],
+                "service_name": service['service_name'],
+                "category": service.get('category', ''),
+                "price": service['price'],
+                "quantity": 1,
+                "notes": f"Услуга из каталога: {service['service_name']}"
+            })
+            total_cost += service['price']
+    
+    if len(treatment_services) > 0:
+        success, treatment_plan = tester.test_create_treatment_plan(
+            patient_id,
+            "План лечения с услугами из каталога цен",
+            description="План лечения, созданный с использованием услуг из каталога цен",
+            services=treatment_services,
+            total_cost=total_cost,
+            status="draft"
+        )
+        
+        if success and treatment_plan:
+            print(f"✅ Successfully created treatment plan with {len(treatment_services)} services from price directory")
+            print(f"   Total cost: {total_cost} тенге")
+        else:
+            print("❌ Failed to create treatment plan with price directory services")
+            return False
+    else:
+        print("❌ No active services available for treatment plan integration")
+        return False
+    
+    # Final verification - get all service prices and verify our changes
+    print("\n12. Final verification")
+    
+    success, final_services = tester.test_get_service_prices(active_only=False)  # Include inactive
+    if not success:
+        print("❌ Failed to get final service list")
+        return False
+    
+    # Count our created services
+    our_service_ids = [svc['id'] for svc in created_services]
+    found_services = [svc for svc in final_services if svc['id'] in our_service_ids]
+    
+    print(f"✅ Final verification: Found {len(found_services)} of our created services")
+    
+    # Verify the updated service has new price
+    updated_service_final = next((svc for svc in found_services if svc['id'] == service_to_update['id']), None)
+    if updated_service_final and updated_service_final['price'] == 18000.0:
+        print("✅ Updated service price verified in final list")
+    else:
+        print("❌ Updated service price not found or incorrect")
+        return False
+    
+    # Verify the deactivated service is marked as inactive
+    deactivated_service_final = next((svc for svc in found_services if svc['id'] == service_to_delete['id']), None)
+    if deactivated_service_final and not deactivated_service_final.get('is_active', True):
+        print("✅ Deactivated service correctly marked as inactive")
+    else:
+        print("❌ Deactivated service not found or still active")
+        return False
+    
+    print("\n📋 SPECIFIC TEST SCENARIOS FROM REVIEW REQUEST COMPLETED:")
+    print("✅ Created service prices for different categories (Терапия, Хирургия, Ортопедия)")
+    print("✅ Tested filtering by category")
+    print("✅ Tested search functionality")
+    print("✅ Verified price calculations and formatting")
+    print("✅ Tested CRUD operations work correctly")
+    print("✅ Created services: 'Лечение кариеса', 'Удаление зуба', 'Протезирование'")
+    print("✅ Verified integration with treatment plans")
+    
+    # Print final summary
+    print(f"\n{'='*80}")
+    print(f"SERVICE PRICE DIRECTORY API TEST SUMMARY")
+    print(f"{'='*80}")
+    print(f"Total tests run: {tester.tests_run}")
+    print(f"Tests passed: {tester.tests_passed}")
+    print(f"Tests failed: {tester.tests_run - tester.tests_passed}")
+    print(f"Success rate: {(tester.tests_passed / tester.tests_run * 100):.1f}%" if tester.tests_run > 0 else "No tests run")
+    
+    if tester.tests_passed == tester.tests_run:
+        print("🎉 ALL SERVICE PRICE DIRECTORY API TESTS PASSED!")
+        print("✅ The Service Price Directory API is fully functional and ready for integration with treatment plans")
+        return True
+    else:
+        print("❌ SOME TESTS FAILED!")
+        return False
+
 def main():
-    # Run the enhanced doctor statistics test
-    return test_enhanced_doctor_statistics()
+    # Run the Service Price Directory API test
+    return test_service_price_directory_api()
 
 def main_original():
     # Get the backend URL from the environment
