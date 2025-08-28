@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 
 const CalendarView = ({ 
   appointments, 
@@ -14,6 +14,10 @@ const CalendarView = ({
   canEdit 
 }) => {
   const [currentDate, setCurrentDate] = useState(new Date());
+  const [availableDoctors, setAvailableDoctors] = useState([]);
+  const [loadingDoctors, setLoadingDoctors] = useState(false);
+
+  const API = process.env.REACT_APP_BACKEND_URL;
 
   const generateCalendarDates = () => {
     // Показываем только выбранный день
