@@ -163,13 +163,16 @@ const ServiceSelector = ({ onServiceAdd, selectedPatient }) => {
           <h5 className="font-medium text-blue-800 mb-2">{selectedServiceData.name}</h5>
           <div className="grid grid-cols-3 gap-4">
             <div>
-              <label className="block text-sm text-gray-600 mb-1">Количество</label>
+              <label className="block text-sm text-gray-600 mb-1">
+                {isToothService ? 'Количество (зубы)' : 'Количество'}
+              </label>
               <input
                 type="number"
                 min="1"
-                value={quantity}
+                value={isToothService ? finalQuantity : quantity}
                 onChange={(e) => setQuantity(parseInt(e.target.value) || 1)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                disabled={isToothService}
+                className={`w-full px-3 py-2 border border-gray-300 rounded-lg text-sm ${isToothService ? 'bg-gray-100' : ''}`}
               />
             </div>
             <div>
