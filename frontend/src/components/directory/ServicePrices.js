@@ -81,6 +81,25 @@ const ServicePrices = ({ user }) => {
     }
   };
 
+  const fetchServiceCategories = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch(`${API}/api/service-categories`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setServiceCategories(data || []);
+      }
+    } catch (error) {
+      console.error('Error fetching service categories:', error);
+    }
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
