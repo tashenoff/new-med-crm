@@ -105,6 +105,18 @@
 user_problem_statement: "Проанализируй проект, почему нельзя создать мед карту пациента и на каком этапе она должна создаваться"
 
 backend:
+  - task: "Specialties management API endpoints"
+    implemented: true
+    working: true
+    file: "server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - working: true
+        agent: "testing"
+        comment: "COMPREHENSIVE SPECIALTIES MANAGEMENT API TESTING COMPLETED: ✅ ALL CRUD OPERATIONS FULLY FUNCTIONAL: Successfully tested all specialties management endpoints as requested in review. ✅ GET /api/specialties: Returns all active specialties with proper data structure (id, name, description, is_active, created_at, updated_at). ✅ POST /api/specialties: Creates new specialties with admin authentication required. Successfully created test specialties 'Терапевт', 'Хирург', 'Ортопед', 'Стоматолог-ортодонт' with descriptions. ✅ PUT /api/specialties/{specialty_id}: Updates specialty name and description correctly. Verified update from 'Терапевт' to 'Терапевт (Обновлено)' with new description. ✅ DELETE /api/specialties/{specialty_id}: Properly deactivates specialties (soft delete) and removes from active list. ✅ VALIDATION WORKING: Duplicate specialty name prevention correctly rejects attempts to create specialties with existing names (400 Bad Request). ✅ AUTHENTICATION ENFORCED: Admin role requirements properly enforced - unauthorized access returns 403 Forbidden for all write operations. ✅ ERROR HANDLING VERIFIED: Invalid specialty IDs return 404 Not Found, missing data handled correctly with proper validation errors. ✅ INTEGRATION CONFIRMED: Specialties successfully used in doctor creation/editing - created test doctor with specialty, verified correct assignment, proper cleanup. ✅ AUTHENTICATION CREDENTIALS: Used admin_test_20250821110240@medentry.com / AdminTest123! as specified in review request. ✅ SUCCESS RATE: 26/26 tests passed (100% success rate). All specialties management API endpoints are fully operational and production-ready."
+
   - task: "Automatic medical record creation when creating patient"
     implemented: true
     working: true
