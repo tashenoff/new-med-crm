@@ -627,7 +627,11 @@ const PatientModal = ({
                           services: [],
                           total_cost: 0,
                           status: 'draft',
-                          notes: ''
+                          notes: '',
+                          payment_status: 'unpaid',
+                          paid_amount: 0,
+                          execution_status: 'pending',
+                          appointment_ids: []
                         });
                       }}
                       className="px-4 py-2 bg-gray-300 text-gray-700 rounded-lg hover:bg-gray-400"
