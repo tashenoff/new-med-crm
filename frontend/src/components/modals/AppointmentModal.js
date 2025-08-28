@@ -172,6 +172,20 @@ const AppointmentModal = ({
     }
   }, [show, appointmentForm.patient_id, patients]);
 
+  // Закрытие выпадающего списка при клике вне его
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (!event.target.closest('.patient-search-container')) {
+        setShowPatientDropdown(false);
+      }
+    };
+
+    if (showPatientDropdown) {
+      document.addEventListener('mousedown', handleClickOutside);
+      return () => document.removeEventListener('mousedown', handleClickOutside);
+    }
+  }, [showPatientDropdown]);
+
   useEffect(() => {
     if (selectedPatient && activeTab === 'documents') {
       fetchDocuments();
