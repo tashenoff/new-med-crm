@@ -1725,6 +1725,7 @@ function ClinicApp() {
         availableTabs={getAvailableTabs()}
         sidebarOpen={sidebarOpen}
         setSidebarOpen={setSidebarOpen}
+        user={user}
       />
 
       {/* Main Content Area */}
