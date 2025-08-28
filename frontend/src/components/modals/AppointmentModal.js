@@ -1057,7 +1057,7 @@ const AppointmentModal = ({
                                   type="button"
                                   onClick={() => {
                                     const updatedServices = planForm.services.filter((_, i) => i !== index);
-                                    const totalCost = updatedServices.reduce((sum, svc) => sum + svc.total_price, 0);
+                                    const totalCost = updatedServices.reduce((sum, svc) => sum + (svc.total_price || 0), 0);
                                     setPlanForm(prev => ({ ...prev, services: updatedServices, total_cost: totalCost }));
                                   }}
                                   className="text-red-600 hover:text-red-800 text-xs"
