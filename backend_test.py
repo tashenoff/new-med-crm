@@ -1677,6 +1677,238 @@ class ClinicAPITester:
         self.token = saved_token
         return True
 
+    # Doctor Schedule Testing Methods
+    def test_create_doctor_schedule(self, doctor_id, day_of_week, start_time, end_time):
+        """Create a doctor's working schedule"""
+        success, response = self.run_test(
+            f"Create Doctor Schedule (Day {day_of_week}: {start_time}-{end_time})",
+            "POST",
+            f"doctors/{doctor_id}/schedule",
+            200,
+            data={
+                "doctor_id": doctor_id,
+                "day_of_week": day_of_week,
+                "start_time": start_time,
+                "end_time": end_time
+            }
+        )
+        if success and response and "id" in response:
+            print(f"Created schedule with ID: {response['id']}")
+            print(f"Day {day_of_week} ({self.get_day_name(day_of_week)}): {start_time}-{end_time}")
+        return success, response
+
+    def test_get_doctor_schedule(self, doctor_id):
+        """Get doctor's working schedule"""
+        success, response = self.run_test(
+            f"Get Doctor Schedule for {doctor_id}",
+            "GET",
+            f"doctors/{doctor_id}/schedule",
+            200
+        )
+        if success and response:
+            print(f"Found {len(response)} schedule entries for doctor {doctor_id}")
+            for schedule in response:
+                day_name = self.get_day_name(schedule['day_of_week'])
+                print(f"  {day_name}: {schedule['start_time']}-{schedule['end_time']}")
+        return success, response
+
+    def test_get_available_doctors(self, appointment_date, appointment_time=None):
+        """Get available doctors for a specific date and optionally time"""
+        params = {}
+        if appointment_time:
+            params["appointment_time"] = appointment_time
+            
+        success, response = self.run_test(
+            f"Get Available Doctors for {appointment_date}" + (f" at {appointment_time}" if appointment_time else ""),
+            "GET",
+            f"doctors/available/{appointment_date}",
+            200,
+            params=params
+        )
+        if success and response:
+            print(f"Found {len(response)} available doctors for {appointment_date}")
+            for doctor in response:
+                print(f"  Dr. {doctor['full_name']} ({doctor['specialty']})")
+                if doctor.get('schedule'):
+                    for sched in doctor['schedule']:
+                        day_name = self.get_day_name(sched['day_of_week'])
+                        print(f"    {day_name}: {sched['start_time']}-{sched['end_time']}")
+        return success, response
+
+    def test_appointment_with_schedule_validation(self, patient_id, doctor_id, appointment_date, appointment_time, expect_success=True):
+        """Test appointment creation with schedule validation"""
+        expected_status = 200 if expect_success else 400
+        test_name = f"Create Appointment with Schedule Validation ({'should succeed' if expect_success else 'should fail'})"
+        
+        success, response = self.run_test(
+            test_name,
+            "POST",
+            "appointments",
+            expected_status,
+            data={
+                "patient_id": patient_id,
+                "doctor_id": doctor_id,
+                "appointment_date": appointment_date,
+                "appointment_time": appointment_time,
+                "reason": "Schedule validation test"
+            }
+        )
+        
+        if expect_success and success and response and "id" in response:
+            print(f"✅ Appointment created successfully: {response['id']}")
+            return success, response
+        elif not expect_success and success:
+            print(f"✅ Appointment correctly rejected due to schedule constraints")
+            return success, None
+        elif expect_success and not success:
+            print(f"❌ Appointment creation failed when it should have succeeded")
+            return False, None
+        else:
+            print(f"❌ Appointment was allowed when it should have been rejected")
+            return False, None
+
+    def get_day_name(self, day_of_week):
+        """Convert day_of_week number to name"""
+        days = ["Понедельник", "Вторник", "Среда", "Четверг", "Пятница", "Суббота", "Воскресенье"]
+        return days[day_of_week] if 0 <= day_of_week <= 6 else f"Day {day_of_week}"
+
+    def test_doctor_schedule_comprehensive(self, doctor_id):
+        """Comprehensive test of doctor schedule functionality"""
+        print(f"\n🔍 Testing comprehensive doctor schedule functionality for doctor {doctor_id}")
+        
+        # Test 1: Create Monday schedule (09:00-17:00)
+        success1, monday_schedule = self.test_create_doctor_schedule(doctor_id, 0, "09:00", "17:00")
+        if not success1:
+            print("❌ Failed to create Monday schedule")
+            return False
+        
+        # Test 2: Create Tuesday schedule (09:00-17:00)
+        success2, tuesday_schedule = self.test_create_doctor_schedule(doctor_id, 1, "09:00", "17:00")
+        if not success2:
+            print("❌ Failed to create Tuesday schedule")
+            return False
+        
+        # Test 3: Create Wednesday schedule (10:00-16:00)
+        success3, wednesday_schedule = self.test_create_doctor_schedule(doctor_id, 2, "10:00", "16:00")
+        if not success3:
+            print("❌ Failed to create Wednesday schedule")
+            return False
+        
+        # Test 4: Get doctor's complete schedule
+        success4, full_schedule = self.test_get_doctor_schedule(doctor_id)
+        if not success4 or len(full_schedule) != 3:
+            print(f"❌ Failed to retrieve complete schedule. Expected 3 entries, got {len(full_schedule) if full_schedule else 0}")
+            return False
+        
+        print("✅ Doctor schedule creation and retrieval successful")
+        return True, full_schedule
+
+    def test_available_doctors_comprehensive(self):
+        """Test available doctors endpoint with different scenarios"""
+        from datetime import datetime, timedelta
+        
+        print(f"\n🔍 Testing available doctors endpoint comprehensively")
+        
+        # Get dates for testing
+        today = datetime.now()
+        monday = today + timedelta(days=(0 - today.weekday()) % 7)  # Next Monday
+        tuesday = monday + timedelta(days=1)  # Next Tuesday  
+        wednesday = monday + timedelta(days=2)  # Next Wednesday
+        sunday = monday + timedelta(days=6)  # Next Sunday
+        
+        monday_str = monday.strftime("%Y-%m-%d")
+        tuesday_str = tuesday.strftime("%Y-%m-%d")
+        wednesday_str = wednesday.strftime("%Y-%m-%d")
+        sunday_str = sunday.strftime("%Y-%m-%d")
+        
+        # Test 1: Available doctors on Monday (should have doctors)
+        success1, monday_doctors = self.test_get_available_doctors(monday_str)
+        if not success1:
+            print("❌ Failed to get available doctors for Monday")
+            return False
+        
+        # Test 2: Available doctors on Tuesday (should have doctors)
+        success2, tuesday_doctors = self.test_get_available_doctors(tuesday_str)
+        if not success2:
+            print("❌ Failed to get available doctors for Tuesday")
+            return False
+        
+        # Test 3: Available doctors on Wednesday (should have doctors)
+        success3, wednesday_doctors = self.test_get_available_doctors(wednesday_str)
+        if not success3:
+            print("❌ Failed to get available doctors for Wednesday")
+            return False
+        
+        # Test 4: Available doctors on Sunday (should have no doctors)
+        success4, sunday_doctors = self.test_get_available_doctors(sunday_str)
+        if not success4:
+            print("❌ Failed to get available doctors for Sunday")
+            return False
+        
+        # Verify Sunday has no available doctors (no schedule)
+        if len(sunday_doctors) > 0:
+            print(f"⚠️ Warning: Found {len(sunday_doctors)} doctors available on Sunday (expected 0)")
+        else:
+            print("✅ Correctly found no doctors available on Sunday")
+        
+        # Test 5: Available doctors with specific time on Monday
+        success5, monday_10am_doctors = self.test_get_available_doctors(monday_str, "10:00")
+        if not success5:
+            print("❌ Failed to get available doctors for Monday at 10:00")
+            return False
+        
+        print("✅ Available doctors endpoint testing successful")
+        return True
+
+    def test_schedule_validation_comprehensive(self, patient_id, doctor_id):
+        """Test appointment creation with comprehensive schedule validation"""
+        from datetime import datetime, timedelta
+        
+        print(f"\n🔍 Testing comprehensive schedule validation")
+        
+        # Get dates for testing
+        today = datetime.now()
+        monday = today + timedelta(days=(0 - today.weekday()) % 7)  # Next Monday
+        sunday = monday + timedelta(days=6)  # Next Sunday
+        
+        monday_str = monday.strftime("%Y-%m-%d")
+        sunday_str = sunday.strftime("%Y-%m-%d")
+        
+        # Test 1: Create appointment on Monday at 10:00 (should work - within 09:00-17:00)
+        success1, appointment1 = self.test_appointment_with_schedule_validation(
+            patient_id, doctor_id, monday_str, "10:00", expect_success=True
+        )
+        if not success1:
+            print("❌ Failed to create valid appointment on Monday at 10:00")
+            return False
+        
+        # Test 2: Try to create appointment on Sunday (should fail - no schedule)
+        success2, _ = self.test_appointment_with_schedule_validation(
+            patient_id, doctor_id, sunday_str, "10:00", expect_success=False
+        )
+        if not success2:
+            print("❌ Sunday appointment validation test failed")
+            return False
+        
+        # Test 3: Try to create appointment on Monday at 08:00 (should fail - before working hours)
+        success3, _ = self.test_appointment_with_schedule_validation(
+            patient_id, doctor_id, monday_str, "08:00", expect_success=False
+        )
+        if not success3:
+            print("❌ Early morning appointment validation test failed")
+            return False
+        
+        # Test 4: Try to create appointment on Monday at 18:00 (should fail - after working hours)
+        success4, _ = self.test_appointment_with_schedule_validation(
+            patient_id, doctor_id, monday_str, "18:00", expect_success=False
+        )
+        if not success4:
+            print("❌ Late evening appointment validation test failed")
+            return False
+        
+        print("✅ Schedule validation testing successful")
+        return True
+
 def test_date_range_appointments(self):
     """Test appointments with date range (±7 days)"""
     # Get dates for ±7 days range
