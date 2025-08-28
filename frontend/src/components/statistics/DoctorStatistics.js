@@ -509,6 +509,35 @@ const DoctorStatistics = () => {
                         </span>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm">
+                        <div className="flex items-center">
+                          <span className="text-blue-600 font-medium">
+                            {doctor.total_worked_hours.toFixed(1)}ч
+                          </span>
+                          <div className="text-xs text-gray-500 ml-2">
+                            из {doctor.total_scheduled_hours.toFixed(1)}ч
+                          </div>
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm">
+                        <div className="flex items-center">
+                          <span className={`font-medium ${
+                            doctor.utilization_rate >= 80 ? 'text-green-600' : 
+                            doctor.utilization_rate >= 60 ? 'text-yellow-600' : 'text-red-600'
+                          }`}>
+                            {doctor.utilization_rate.toFixed(1)}%
+                          </span>
+                          <div className="ml-2 flex-1 bg-gray-200 rounded-full h-2">
+                            <div 
+                              className={`h-2 rounded-full ${
+                                doctor.utilization_rate >= 80 ? 'bg-green-500' : 
+                                doctor.utilization_rate >= 60 ? 'bg-yellow-500' : 'bg-red-500'
+                              }`}
+                              style={{ width: `${Math.min(doctor.utilization_rate, 100)}%` }}
+                            ></div>
+                          </div>
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm">
                         <span className="text-red-600 font-medium">
                           {doctor.no_show_appointments}
                         </span>
@@ -520,7 +549,12 @@ const DoctorStatistics = () => {
                         {doctor.total_revenue.toLocaleString()} ₸
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        {doctor.avg_revenue_per_appointment.toFixed(0)} ₸
+                        <div>
+                          <div>{doctor.avg_revenue_per_appointment.toFixed(0)} ₸ / прием</div>
+                          <div className="text-xs text-gray-500">
+                            {doctor.avg_revenue_per_hour > 0 ? `${doctor.avg_revenue_per_hour.toFixed(0)} ₸ / час` : '—'}
+                          </div>
+                        </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm">
                         <span className={`font-medium ${
