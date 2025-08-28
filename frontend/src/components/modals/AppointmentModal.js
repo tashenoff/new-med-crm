@@ -521,25 +521,13 @@ const AppointmentModal = ({
               </div>
             )}
             
-            <select
-              value={appointmentForm.doctor_id}
-              onChange={(e) => setAppointmentForm({...appointmentForm, doctor_id: e.target.value})}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-              required
-            >
-              <option value="">Выберите врача</option>
-              {doctors.map(doctor => (
-                <option key={doctor.id} value={doctor.id}>{doctor.full_name} - {doctor.specialty}</option>
-              ))}
-            </select>
-
             <div className="grid grid-cols-3 gap-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Дата приема *</label>
                 <input
                   type="date"
                   value={appointmentForm.appointment_date}
-                  onChange={(e) => setAppointmentForm({...appointmentForm, appointment_date: e.target.value})}
+                  onChange={(e) => handleDateChange(e.target.value)}
                   min={new Date().toISOString().split('T')[0]}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                   required
@@ -551,6 +539,80 @@ const AppointmentModal = ({
                 <input
                   type="time"
                   value={appointmentForm.appointment_time}
+                  onChange={(e) => handleTimeChange(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                  required
+                />
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Время окончания</label>
+                <input
+                  type="time"
+                  value={appointmentForm.end_time || ''}
+                  onChange={(e) => setAppointmentForm({...appointmentForm, end_time: e.target.value})}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+            </div>
+
+            {/* Выбор врача с учетом расписания */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Врач *
+                {loadingDoctors && <span className="text-blue-500 ml-2">Загружаем доступных врачей...</span>}
+              </label>
+              
+              {scheduleMessage && (
+                <div className={`mb-2 p-2 rounded text-sm ${
+                  availableDoctors.length === 0 ? 'bg-red-50 text-red-700' : 'bg-green-50 text-green-700'
+                }`}>
+                  {scheduleMessage}
+                </div>
+              )}
+              
+              <select
+                value={appointmentForm.doctor_id}
+                onChange={(e) => setAppointmentForm({...appointmentForm, doctor_id: e.target.value})}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                required
+                disabled={!appointmentForm.appointment_date || loadingDoctors}
+              >
+                <option value="">
+                  {!appointmentForm.appointment_date 
+                    ? 'Сначала выберите дату' 
+                    : loadingDoctors 
+                      ? 'Загружаем врачей...'
+                      : availableDoctors.length === 0
+                        ? 'Нет доступных врачей'
+                        : 'Выберите врача'
+                  }
+                </option>
+                {availableDoctors.map(doctor => (
+                  <option key={doctor.id} value={doctor.id}>
+                    {doctor.full_name} - {doctor.specialty}
+                    {doctor.schedule && doctor.schedule.length > 0 && 
+                      ` (${doctor.schedule[0].start_time}-${doctor.schedule[0].end_time})`
+                    }
+                  </option>
+                ))}
+              </select>
+              
+              {/* Показываем расписание выбранного врача */}
+              {appointmentForm.doctor_id && availableDoctors.length > 0 && (
+                <div className="mt-2 p-3 bg-blue-50 rounded-lg">
+                  <div className="text-sm text-blue-700">
+                    <strong>Расписание врача:</strong>
+                    {availableDoctors.find(d => d.id === appointmentForm.doctor_id)?.schedule?.map(schedule => (
+                      <div key={schedule.id} className="ml-2">
+                        📅 {['Понедельник', 'Вторник', 'Среда', 'Четверг', 'Пятница', 'Суббота', 'Воскресенье'][schedule.day_of_week]}: 
+                        🕒 {schedule.start_time} - {schedule.end_time}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
                   onChange={(e) => setAppointmentForm({...appointmentForm, appointment_time: e.target.value})}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                   required
