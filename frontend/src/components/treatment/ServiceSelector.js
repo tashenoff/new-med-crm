@@ -87,7 +87,7 @@ const ServiceSelector = ({ onServiceAdd, selectedPatient }) => {
       service_id: service.id,
       service_name: service.name,
       category: service.category,
-      tooth_number: selectedCategory === 'Стоматолог' ? selectedTooth : null,
+      tooth_number: selectedCategory === 'Стоматолог' ? selectedTeeth : null,
       unit_price: service.price,
       quantity: quantity,
       discount_percent: discount,
