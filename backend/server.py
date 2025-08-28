@@ -1588,6 +1588,89 @@ async def delete_category(
     
     return {"message": "Category deleted successfully"}
 
+# Specialties Management
+@api_router.get("/specialties", response_model=List[Specialty])
+async def get_specialties(
+    current_user: UserInDB = Depends(get_current_active_user)
+):
+    """Get all active specialties"""
+    specialties = await db.specialties.find({"is_active": True}).to_list(None)
+    return specialties
+
+@api_router.post("/specialties", response_model=Specialty)
+async def create_specialty(
+    specialty: SpecialtyCreate,
+    current_user: UserInDB = Depends(require_role([UserRole.ADMIN]))
+):
+    """Create new specialty"""
+    # Check if specialty name already exists
+    existing = await db.specialties.find_one({"name": specialty.name, "is_active": True})
+    if existing:
+        raise HTTPException(status_code=400, detail="Specialty with this name already exists")
+    
+    specialty_data = Specialty(**specialty.dict())
+    await db.specialties.insert_one(specialty_data.dict())
+    return specialty_data
+
+@api_router.put("/specialties/{specialty_id}", response_model=Specialty)
+async def update_specialty(
+    specialty_id: str,
+    specialty_update: SpecialtyUpdate,
+    current_user: UserInDB = Depends(require_role([UserRole.ADMIN]))
+):
+    """Update specialty"""
+    existing = await db.specialties.find_one({"id": specialty_id})
+    if not existing:
+        raise HTTPException(status_code=404, detail="Specialty not found")
+    
+    # Check if new name already exists (if name is being updated)
+    if specialty_update.name and specialty_update.name != existing["name"]:
+        name_exists = await db.specialties.find_one({"name": specialty_update.name, "is_active": True, "id": {"$ne": specialty_id}})
+        if name_exists:
+            raise HTTPException(status_code=400, detail="Specialty with this name already exists")
+    
+    update_data = {k: v for k, v in specialty_update.dict().items() if v is not None}
+    update_data["updated_at"] = datetime.utcnow()
+    
+    result = await db.specialties.update_one(
+        {"id": specialty_id},
+        {"$set": update_data}
+    )
+    
+    if result.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Specialty not found")
+    
+    updated_specialty = await db.specialties.find_one({"id": specialty_id})
+    return Specialty(**updated_specialty)
+
+@api_router.delete("/specialties/{specialty_id}")
+async def delete_specialty(
+    specialty_id: str,
+    current_user: UserInDB = Depends(require_role([UserRole.ADMIN]))
+):
+    """Delete (deactivate) specialty"""
+    # Check if specialty is used by any doctors
+    doctors_count = await db.doctors.count_documents({"specialty": {"$exists": True}, "is_active": True})
+    specialty = await db.specialties.find_one({"id": specialty_id})
+    if specialty and doctors_count > 0:
+        # Check if this specific specialty is used
+        used_count = await db.doctors.count_documents({"specialty": specialty["name"], "is_active": True})
+        if used_count > 0:
+            raise HTTPException(
+                status_code=400, 
+                detail=f"Cannot delete specialty '{specialty['name']}' because it is used by {used_count} doctors"
+            )
+    
+    result = await db.specialties.update_one(
+        {"id": specialty_id}, 
+        {"$set": {"is_active": False, "updated_at": datetime.utcnow()}}
+    )
+    
+    if result.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Specialty not found")
+    
+    return {"message": "Specialty deleted successfully"}
+
 # Protected Appointment endpoints
 @api_router.post("/appointments", response_model=Appointment)
 async def create_appointment(
