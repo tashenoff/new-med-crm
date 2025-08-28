@@ -64,14 +64,25 @@ const DoctorModal = ({
             required
           />
           
-          <input
-            type="text"
-            placeholder="Специальность *"
-            value={doctorForm.specialty}
-            onChange={(e) => setDoctorForm({...doctorForm, specialty: e.target.value})}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500"
-            required
-          />
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Специальность *</label>
+            <select
+              value={doctorForm.specialty}
+              onChange={(e) => setDoctorForm({...doctorForm, specialty: e.target.value})}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500"
+              required
+            >
+              <option value="">Выберите специальность</option>
+              {specialties.map(specialty => (
+                <option key={specialty.id} value={specialty.name}>{specialty.name}</option>
+              ))}
+            </select>
+            {specialties.length === 0 && (
+              <p className="text-sm text-gray-500 mt-1">
+                Сначала создайте специальности в разделе "Справочник → Специальности"
+              </p>
+            )}
+          </div>
           
           <input
             type="tel"
