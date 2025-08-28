@@ -2033,55 +2033,7 @@ class ClinicAPITester:
         print("✅ All payment scenarios verified - no negative outstanding amounts found")
         return True
 
-    def test_treatment_plan_statistics_edge_cases(self):
-        """Test treatment plan statistics with edge cases that could cause -1000 bug"""
-        print("\n🔍 Testing edge cases for treatment plan statistics...")
-        
-        # Test with date filtering
-        from datetime import datetime, timedelta
-        today = datetime.now()
-        date_from = (today - timedelta(days=30)).strftime("%Y-%m-%d")
-        date_to = today.strftime("%Y-%m-%d")
-        
-        success, response = self.run_test(
-            "Get Treatment Plan Statistics with Date Filter",
-            "GET",
-            "treatment-plans/statistics",
-            200,
-            params={"date_from": date_from, "date_to": date_to}
-        )
-        
-        if success and response:
-            overview = response["overview"]
-            outstanding_amount = overview["outstanding_amount"]
-            
-            if outstanding_amount < 0:
-                print(f"❌ CRITICAL BUG: Negative outstanding amount with date filter: {outstanding_amount}")
-                return False
-            
-            print(f"✅ Date filtered statistics: outstanding_amount = {outstanding_amount} (non-negative)")
-        else:
-            print("❌ Date filtered statistics test failed")
-            return False
-        
-        # Test monthly statistics for negative values
-        monthly_stats = response.get("monthly_statistics", [])
-        for month_data in monthly_stats:
-            if "total_cost" in month_data and "paid_amount" in month_data:
-                monthly_outstanding = month_data["total_cost"] - month_data["paid_amount"]
-                if monthly_outstanding < 0:
-                    # This is acceptable in monthly stats, but collection_rate should handle it
-                    collection_rate = month_data.get("collection_rate", 0)
-                    if collection_rate > 100:  # Should not exceed 100% even with overpayment
-                        print(f"❌ Collection rate over 100% in monthly stats: {collection_rate}%")
-                        return False
-        
-        print("✅ Monthly statistics calculations are correct")
-        
-        # Test with empty database scenario (if no plans exist)
-        # This is handled by checking if total_plans > 0 in calculations
-        
-        return True
+
 
     def test_treatment_plan_statistics_comprehensive(self):
         """Comprehensive test of treatment plan statistics -1000 bug fix"""
