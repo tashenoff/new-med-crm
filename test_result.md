@@ -737,7 +737,7 @@ agent_communication:
   - agent: "main" 
     message: "CRITICAL BUGFIX COMPLETED: Fixed treatment plan statistics summation bug where patient with multiple plans showed only one plan's cost instead of total sum. Applied MongoDB $ifNull aggregation, max(0, cost-paid) protection, proper null handling. Testing confirmed: 3 plans (50,000₸ total) now correctly aggregated per patient."
   - agent: "main"
-    message: "SPECIALTIES FEATURE COMPLETED: Added 'Специальности' tab to Directory with full CRUD functionality. BACKEND: Specialty model + API endpoints (/api/specialties). FRONTEND: ServicePrices.js updated with 3rd tab, DoctorModal.js updated with specialty dropdown replacing text field. Backend testing: 26/26 tests passed. UI verified with screenshots - all working perfectly."
+    message: "SPECIALTIES SYSTEM SUCCESSFULLY IMPLEMENTED: ✅ Created separate Specialties.js component. ✅ Added 'Специальности' as standalone sidebar item (not in Price Policy). ✅ Updated DoctorModal.js with specialty dropdown. ✅ Backend API working (26/26 tests passed). ✅ Navigation fixed ('Статистика врачей' vs 'Врачи'). ✅ Doctor modal opens with specialty dropdown. System fully functional - doctors can now be assigned specialties from dropdown instead of text field!"
   - agent: "main"
     message: "SOLUTION IMPLEMENTED: Fixed the original issue by adding automatic empty medical record creation when creating patients. Also added editing interface so doctors can fill medical data. Now workflow is: 1) Create patient -> auto-creates empty medical record, 2) Doctor can edit medical record anytime via Edit button, 3) No more blocking of appointments due to missing medical records."
   - agent: "testing"
