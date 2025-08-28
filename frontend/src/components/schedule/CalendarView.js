@@ -19,6 +19,46 @@ const CalendarView = ({
 
   const API = process.env.REACT_APP_BACKEND_URL;
 
+  // Функция для загрузки врачей, работающих в выбранную дату
+  const fetchAvailableDoctors = async (date) => {
+    setLoadingDoctors(true);
+    
+    try {
+      const token = localStorage.getItem('token');
+      const dateString = date.toISOString().split('T')[0];
+      
+      const response = await fetch(`${API}/api/doctors/available/${dateString}`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (response.ok) {
+        const availableDocs = await response.json();
+        setAvailableDoctors(availableDocs);
+      } else {
+        console.error('Error fetching available doctors');
+        setAvailableDoctors([]);
+      }
+    } catch (error) {
+      console.error('Error fetching available doctors:', error);
+      setAvailableDoctors([]);
+    } finally {
+      setLoadingDoctors(false);
+    }
+  };
+
+  // Загрузка доступных врачей при изменении даты
+  useEffect(() => {
+    fetchAvailableDoctors(currentDate);
+  }, [currentDate]);
+
+  // Загрузка при первом рендере
+  useEffect(() => {
+    fetchAvailableDoctors(currentDate);
+  }, []);
+
   const generateCalendarDates = () => {
     // Показываем только выбранный день
     return [currentDate.toISOString().split('T')[0]];
