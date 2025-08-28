@@ -1488,6 +1488,89 @@ async def get_service_categories(
     categories = await db.service_prices.distinct("category", {"is_active": True, "category": {"$ne": None}})
     return {"categories": categories}
 
+# Service Categories Management
+@api_router.get("/service-categories", response_model=List[ServiceCategory])
+async def get_categories(
+    current_user: UserInDB = Depends(get_current_active_user)
+):
+    """Get all service categories"""
+    categories = await db.service_categories.find({"is_active": True}).to_list(None)
+    return categories
+
+@api_router.post("/service-categories", response_model=ServiceCategory)
+async def create_category(
+    category: ServiceCategoryCreate,
+    current_user: UserInDB = Depends(require_role([UserRole.ADMIN]))
+):
+    """Create new service category"""
+    # Check if category name already exists
+    existing = await db.service_categories.find_one({"name": category.name, "is_active": True})
+    if existing:
+        raise HTTPException(status_code=400, detail="Category with this name already exists")
+    
+    category_data = ServiceCategory(**category.dict())
+    await db.service_categories.insert_one(category_data.dict())
+    return category_data
+
+@api_router.put("/service-categories/{category_id}", response_model=ServiceCategory)
+async def update_category(
+    category_id: str,
+    category_update: ServiceCategoryUpdate,
+    current_user: UserInDB = Depends(require_role([UserRole.ADMIN]))
+):
+    """Update service category"""
+    existing = await db.service_categories.find_one({"id": category_id})
+    if not existing:
+        raise HTTPException(status_code=404, detail="Category not found")
+    
+    # Check if new name already exists (if name is being updated)
+    if category_update.name and category_update.name != existing["name"]:
+        name_exists = await db.service_categories.find_one({"name": category_update.name, "is_active": True, "id": {"$ne": category_id}})
+        if name_exists:
+            raise HTTPException(status_code=400, detail="Category with this name already exists")
+    
+    update_data = {k: v for k, v in category_update.dict().items() if v is not None}
+    update_data["updated_at"] = datetime.utcnow()
+    
+    result = await db.service_categories.update_one(
+        {"id": category_id},
+        {"$set": update_data}
+    )
+    
+    if result.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Category not found")
+    
+    updated_category = await db.service_categories.find_one({"id": category_id})
+    return ServiceCategory(**updated_category)
+
+@api_router.delete("/service-categories/{category_id}")
+async def delete_category(
+    category_id: str,
+    current_user: UserInDB = Depends(require_role([UserRole.ADMIN]))
+):
+    """Delete (deactivate) service category"""
+    # Check if category is used by any services
+    services_count = await db.service_prices.count_documents({"category": {"$exists": True}, "is_active": True})
+    category = await db.service_categories.find_one({"id": category_id})
+    if category and services_count > 0:
+        # Check if this specific category is used
+        used_count = await db.service_prices.count_documents({"category": category["name"], "is_active": True})
+        if used_count > 0:
+            raise HTTPException(
+                status_code=400, 
+                detail=f"Cannot delete category '{category['name']}' because it is used by {used_count} services"
+            )
+    
+    result = await db.service_categories.update_one(
+        {"id": category_id}, 
+        {"$set": {"is_active": False, "updated_at": datetime.utcnow()}}
+    )
+    
+    if result.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Category not found")
+    
+    return {"message": "Category deleted successfully"}
+
 # Protected Appointment endpoints
 @api_router.post("/appointments", response_model=Appointment)
 async def create_appointment(
