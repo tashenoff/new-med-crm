@@ -23,6 +23,8 @@ const DoctorModal = ({
   const fetchSpecialties = async () => {
     try {
       const token = localStorage.getItem('token');
+      console.log('DoctorModal: Fetching specialties...');
+      
       const response = await fetch(`${API}/api/specialties`, {
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -30,12 +32,17 @@ const DoctorModal = ({
         }
       });
 
+      console.log('DoctorModal: API response status:', response.status);
+
       if (response.ok) {
         const data = await response.json();
+        console.log('DoctorModal: Fetched specialties:', data);
         setSpecialties(data || []);
+      } else {
+        console.error('DoctorModal: Failed to fetch specialties:', response.status);
       }
     } catch (error) {
-      console.error('Error fetching specialties:', error);
+      console.error('DoctorModal: Error fetching specialties:', error);
     }
   };
 
