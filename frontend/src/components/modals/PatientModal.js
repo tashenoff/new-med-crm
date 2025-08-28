@@ -798,12 +798,70 @@ const PatientModal = ({
                                plan.status === 'completed' ? 'Завершен' :
                                'Отменен'}
                             </span>
+                            
+                            {/* Payment Status */}
+                            <span className={`px-2 py-1 text-xs rounded font-medium ${
+                              plan.payment_status === 'unpaid' ? 'bg-red-100 text-red-800' :
+                              plan.payment_status === 'partially_paid' ? 'bg-yellow-100 text-yellow-800' :
+                              'bg-green-100 text-green-800'
+                            }`}>
+                              {plan.payment_status === 'unpaid' ? 'Не оплачено' :
+                               plan.payment_status === 'partially_paid' ? 'Частично оплачено' :
+                               'Оплачено'}
+                            </span>
+                            
+                            {/* Execution Status */}
+                            <span className={`px-2 py-1 text-xs rounded font-medium ${
+                              plan.execution_status === 'pending' ? 'bg-gray-100 text-gray-800' :
+                              plan.execution_status === 'in_progress' ? 'bg-blue-100 text-blue-800' :
+                              plan.execution_status === 'completed' ? 'bg-green-100 text-green-800' :
+                              'bg-red-100 text-red-800'
+                            }`}>
+                              {plan.execution_status === 'pending' ? 'Ожидает' :
+                               plan.execution_status === 'in_progress' ? 'В процессе' :
+                               plan.execution_status === 'completed' ? 'Завершено' :
+                               'Не пришел'}
+                            </span>
+
                             {plan.total_cost > 0 && (
                               <span className="text-green-600 font-medium">
-                                💰 {plan.total_cost} ₸
+                                💰 {plan.total_cost.toLocaleString()} ₸
+                              </span>
+                            )}
+                            
+                            {plan.paid_amount > 0 && (
+                              <span className="text-blue-600 font-medium">
+                                💳 Оплачено: {plan.paid_amount.toLocaleString()} ₸
                               </span>
                             )}
                           </div>
+                          
+                          {/* Services List */}
+                          {plan.services && plan.services.length > 0 && (
+                            <div className="mt-3 p-2 bg-gray-100 rounded">
+                              <div className="text-xs font-medium text-gray-700 mb-1">Услуги в плане:</div>
+                              <div className="space-y-1">
+                                {plan.services.map((service, index) => (
+                                  <div key={index} className="text-xs text-gray-600 flex justify-between">
+                                    <span>
+                                      {service.service_name}
+                                      {service.teeth_numbers && service.teeth_numbers.length > 0 && (
+                                        <span className="text-blue-600 ml-1">
+                                          🦷 ({service.teeth_numbers.join(', ')})
+                                        </span>
+                                      )}
+                                      <span className="text-gray-500 ml-1">
+                                        - {service.quantity} {service.unit}
+                                      </span>
+                                    </span>
+                                    <span className="font-medium">
+                                      {(service.total_price || 0).toLocaleString()} ₸
+                                    </span>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          )}
                           {plan.notes && (
                             <div className="text-sm text-gray-600 mt-2">
                               Заметки: {plan.notes}
