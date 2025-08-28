@@ -99,11 +99,22 @@ const DoctorStatistics = () => {
     fetchIndividualDoctorStatistics();
   };
 
-  const StatCard = ({ title, value, subtitle, color = "blue", icon }) => (
-    <div className={`bg-white p-6 rounded-lg shadow border-l-4 border-${color}-500`}>
+  const StatCard = ({ title, value, subtitle, color = "blue", icon, tooltip }) => (
+    <div className={`bg-white p-6 rounded-lg shadow border-l-4 border-${color}-500 relative group`}>
       <div className="flex items-center justify-between">
         <div>
-          <p className="text-gray-600 text-sm font-medium">{title}</p>
+          <div className="flex items-center">
+            <p className="text-gray-600 text-sm font-medium">{title}</p>
+            {tooltip && (
+              <div className="ml-2 relative">
+                <div className="w-4 h-4 text-gray-400 cursor-help">ℹ️</div>
+                <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-3 py-2 bg-gray-800 text-white text-xs rounded-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 whitespace-nowrap z-10 max-w-xs">
+                  {tooltip}
+                  <div className="absolute top-full left-1/2 transform -translate-x-1/2 border-4 border-transparent border-t-gray-800"></div>
+                </div>
+              </div>
+            )}
+          </div>
           <p className={`text-2xl font-bold text-${color}-600`}>{value}</p>
           {subtitle && <p className="text-gray-500 text-xs mt-1">{subtitle}</p>}
         </div>
