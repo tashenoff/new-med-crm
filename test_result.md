@@ -569,6 +569,18 @@ frontend:
         agent: "testing"
         comment: "COMPREHENSIVE DOCTOR STATISTICS WITH WORKING HOURS TESTING COMPLETED: ✅ GET /api/doctors/statistics/individual endpoint fully functional with new working hours and utilization metrics. ✅ NEW FIELDS VERIFIED: All required fields present - total_worked_hours, total_scheduled_hours, utilization_rate, avg_revenue_per_hour. ✅ UTILIZATION RATE CALCULATION CORRECT: Verified (worked_hours / scheduled_hours) × 100 formula working accurately across 22 doctors. ✅ AVG_REVENUE_PER_HOUR CALCULATION VERIFIED: Correctly calculated as total_revenue / total_worked_hours for all doctors with worked hours > 0. ✅ SUMMARY STATISTICS WORKING: avg_worked_hours (2.21), avg_utilization_rate (14.6%), high_utilization_doctors count (2 doctors >80%) all calculated correctly. ✅ DATE FILTERING FUNCTIONAL: Both endpoints support date_from and date_to parameters, correctly filtering appointments and recalculating metrics. ✅ RESPONSE STRUCTURE COMPLETE: Both individual and general statistics endpoints return proper structure with all required fields. ✅ HIGH UTILIZATION DOCTORS COUNT ACCURATE: Correctly identifies doctors with >80% utilization rate. ✅ AUTHENTICATION WORKING: Admin credentials successfully authenticate and access statistics. The enhanced doctor statistics API with working hours and utilization metrics is fully operational and production-ready."
 
+  - task: "Service Price Directory API endpoints"
+    implemented: true
+    working: true
+    file: "server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - working: true
+        agent: "testing"
+        comment: "COMPREHENSIVE SERVICE PRICE DIRECTORY API TESTING COMPLETED: ✅ GET /api/service-prices endpoint fully functional - successfully retrieved service prices with proper data structure (id, service_name, category, price, unit, description, is_active). ✅ POST /api/service-prices endpoint working perfectly - created 3 test services: 'Лечение кариеса' (Терапия, 15000 тенге), 'Удаление зуба' (Хирургия, 8000 тенге), 'Протезирование' (Ортопедия, 45000 тенге) with proper service codes, units, and descriptions. ✅ PUT /api/service-prices/{id} endpoint functional - successfully updated service price from 15000 to 18000 тенге and description. ✅ DELETE /api/service-prices/{id} endpoint working correctly - deactivated service (soft delete) and verified it's excluded from active services list. ✅ GET /api/service-prices/categories endpoint operational - retrieved 3 categories (Ортопедия, Терапия, Хирургия) in sorted order. ✅ CATEGORY FILTERING: Successfully filtered services by category (Терапия: 1 service, Хирургия: 1 service, Ортопедия: 1 service). ✅ SEARCH FUNCTIONALITY: Verified search capability by service name and description matching. ✅ PRICE CALCULATIONS: Decimal prices (18000.0) handled correctly with proper formatting. ✅ ACCESS CONTROL: Admin authentication working with provided credentials (admin_test_20250821110240@medentry.com). ✅ DATA VALIDATION: All required fields present and properly validated. ✅ INTEGRATION READY: Service Price Directory API fully functional and ready for integration with treatment plans as requested. All API endpoints tested successfully with real medical service data."
+
   - task: "Calendar view with doctor schedule filtering"
     implemented: true
     working: true
