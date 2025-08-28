@@ -280,6 +280,48 @@ const DoctorStatistics = () => {
               icon="📊"
             />
             <StatCard
+              title="Средний доход"
+              value={`${doctorStats.overview.avg_revenue_per_appointment.toFixed(0)} ₸`}
+              subtitle="за прием"
+              color="indigo"
+              icon="💵"
+            />
+          </div>
+
+          {/* Working Hours and Utilization Statistics */}
+          {individualDoctorStats && individualDoctorStats.summary && (
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+              <StatCard
+                title="Средние рабочие часы"
+                value={`${individualDoctorStats.summary.avg_worked_hours || 0}ч`}
+                subtitle="на врача"
+                color="teal"
+                icon="🕒"
+              />
+              <StatCard
+                title="Средняя загруженность"
+                value={`${individualDoctorStats.summary.avg_utilization_rate || 0}%`}
+                color="cyan"
+                icon="📈"
+              />
+              <StatCard
+                title="Высокая загруженность"
+                value={individualDoctorStats.summary.high_utilization_doctors || 0}
+                subtitle="врачей >80%"
+                color="emerald"
+                icon="⚡"
+              />
+              <StatCard
+                title="Активные врачи"
+                value={individualDoctorStats.summary.active_doctors || 0}
+                subtitle="с приемами"
+                color="blue"
+                icon="👨‍⚕️"
+              />
+            </div>
+          )}
+            />
+            <StatCard
               title="Средний доход за прием"
               value={`${doctorStats.overview.avg_revenue_per_appointment.toLocaleString()} ₸`}
               color="green"
