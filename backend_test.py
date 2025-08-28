@@ -3244,7 +3244,8 @@ class ClinicAPITester:
         # Test 5: VALIDATION - Duplicate specialty name prevention
         print(f"\n🔒 Test 5: Testing duplicate specialty name prevention...")
         if created_specialties:
-            duplicate_name = created_specialties[0]['name']  # Use first specialty name
+            # Use the updated name from Test 3 for duplicate test
+            duplicate_name = f"{created_specialties[0]['name']} (Обновлено)"  # Use updated specialty name
             success = self.test_create_duplicate_specialty(duplicate_name)
             if not success:
                 print("❌ Duplicate prevention test failed")
