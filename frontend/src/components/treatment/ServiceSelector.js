@@ -96,10 +96,10 @@ const ServiceSelector = ({ onServiceAdd, selectedPatient }) => {
       category: service.category,
       unit: service.unit,
       teeth_numbers: isToothService ? selectedTeeth : null,
-      unit_price: service.price,
-      quantity: finalQuantity,
-      discount_percent: discount,
-      final_price: totalPrice,
+      unit_price: service.price || 0,
+      quantity: finalQuantity || 1,
+      discount_percent: discount || 0,
+      total_price: totalPrice || 0, // Изменено с final_price на total_price
       description: service.description || ''
     };
 
