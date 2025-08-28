@@ -161,8 +161,22 @@ const ServiceSelector = ({ onServiceAdd, selectedPatient }) => {
 
       {/* Service details and quantity */}
       {selectedServiceData && (
-        <div className="bg-blue-50 p-4 rounded-lg">
-          <h5 className="font-medium text-blue-800 mb-2">{selectedServiceData.name}</h5>
+        <div className="bg-blue-50 p-4 rounded-lg border border-blue-200">
+          <h5 className="font-medium text-blue-800 mb-2 flex items-center">
+            {selectedServiceData.name}
+            {isToothService && (
+              <span className="ml-2 px-2 py-1 bg-blue-200 text-blue-700 text-xs rounded-full">
+                🦷 по зубам
+              </span>
+            )}
+          </h5>
+          
+          {isToothService && (
+            <div className="mb-3 p-2 bg-blue-100 rounded text-sm text-blue-700">
+              💡 Для этой услуги выберите зубы на карте ниже. Цена будет рассчитана за каждый зуб: {selectedServiceData.price}₸ × количество зубов
+            </div>
+          )}
+          
           <div className="grid grid-cols-3 gap-4">
             <div>
               <label className="block text-sm text-gray-600 mb-1">
