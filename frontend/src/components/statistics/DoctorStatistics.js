@@ -499,31 +499,103 @@ const DoctorStatistics = () => {
                 <thead className="bg-gray-50">
                   <tr>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Врач
+                      <div className="flex items-center">
+                        Врач
+                        <div className="ml-1 relative group">
+                          <span className="cursor-help text-gray-400">ℹ️</span>
+                          <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-3 py-2 bg-gray-800 text-white text-xs rounded-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 whitespace-nowrap z-10">
+                            ФИО врача, специальность и телефон
+                          </div>
+                        </div>
+                      </div>
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Приемов
+                      <div className="flex items-center">
+                        Приемов
+                        <div className="ml-1 relative group">
+                          <span className="cursor-help text-gray-400">ℹ️</span>
+                          <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-3 py-2 bg-gray-800 text-white text-xs rounded-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 whitespace-nowrap z-10">
+                            Общее количество записей на прием за период
+                          </div>
+                        </div>
+                      </div>
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Завершено
+                      <div className="flex items-center">
+                        Завершено
+                        <div className="ml-1 relative group">
+                          <span className="cursor-help text-gray-400">ℹ️</span>
+                          <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-3 py-2 bg-gray-800 text-white text-xs rounded-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 whitespace-nowrap z-10">
+                            Количество успешно проведенных приемов и % от общего
+                          </div>
+                        </div>
+                      </div>
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Рабочих часов
+                      <div className="flex items-center">
+                        Рабочих часов
+                        <div className="ml-1 relative group">
+                          <span className="cursor-help text-gray-400">ℹ️</span>
+                          <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-3 py-2 bg-gray-800 text-white text-xs rounded-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 whitespace-nowrap z-10">
+                            Отработанные часы из запланированных. Считается время завершенных приемов
+                          </div>
+                        </div>
+                      </div>
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      % загруженности
+                      <div className="flex items-center">
+                        % загруженности
+                        <div className="ml-1 relative group">
+                          <span className="cursor-help text-gray-400">ℹ️</span>
+                          <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-3 py-2 bg-gray-800 text-white text-xs rounded-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 whitespace-nowrap z-10">
+                            (Отработанные часы / Запланированные часы) × 100. Показывает эффективность использования времени
+                          </div>
+                        </div>
+                      </div>
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Не пришли
+                      <div className="flex items-center">
+                        Не пришли
+                        <div className="ml-1 relative group">
+                          <span className="cursor-help text-gray-400">ℹ️</span>
+                          <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-3 py-2 bg-gray-800 text-white text-xs rounded-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 whitespace-nowrap z-10">
+                            Количество неявок пациентов и % от общего числа записей
+                          </div>
+                        </div>
+                      </div>
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Выручка
+                      <div className="flex items-center">
+                        Выручка
+                        <div className="ml-1 relative group">
+                          <span className="cursor-help text-gray-400">ℹ️</span>
+                          <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-3 py-2 bg-gray-800 text-white text-xs rounded-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 whitespace-nowrap z-10">
+                            Общий доход от завершенных приемов за период
+                          </div>
+                        </div>
+                      </div>
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Средний доход
+                      <div className="flex items-center">
+                        Средний доход
+                        <div className="ml-1 relative group">
+                          <span className="cursor-help text-gray-400">ℹ️</span>
+                          <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-3 py-2 bg-gray-800 text-white text-xs rounded-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 whitespace-nowrap z-10">
+                            Средний доход за прием и за час работы
+                          </div>
+                        </div>
+                      </div>
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      % завершений
+                      <div className="flex items-center">
+                        % завершений
+                        <div className="ml-1 relative group">
+                          <span className="cursor-help text-gray-400">ℹ️</span>
+                          <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-3 py-2 bg-gray-800 text-white text-xs rounded-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 whitespace-nowrap z-10">
+                            (Завершенные приемы / Все приемы) × 100. Показатель качества работы
+                          </div>
+                        </div>
+                      </div>
                     </th>
                   </tr>
                 </thead>
