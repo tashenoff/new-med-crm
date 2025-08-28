@@ -803,6 +803,130 @@ const ServicePrices = ({ user }) => {
         </>
       )}
 
+      {/* Содержимое вкладки Специальности */}
+      {activeTab === 'specialties' && (
+        <>
+          {/* Статистика специальностей */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div className="bg-white p-6 rounded-lg shadow border-l-4 border-purple-500">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-gray-600 text-sm font-medium">Всего специальностей</p>
+                  <p className="text-2xl font-bold text-purple-600">{specialties.length}</p>
+                </div>
+                <div className="text-purple-500 text-2xl">👨‍⚕️</div>
+              </div>
+            </div>
+            
+            <div className="bg-white p-6 rounded-lg shadow border-l-4 border-blue-500">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-gray-600 text-sm font-medium">Врачей со специальностями</p>
+                  <p className="text-2xl font-bold text-blue-600">-</p>
+                </div>
+                <div className="text-blue-500 text-2xl">🏥</div>
+              </div>
+            </div>
+            
+            <div className="bg-white p-6 rounded-lg shadow border-l-4 border-green-500">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-gray-600 text-sm font-medium">Активных специальностей</p>
+                  <p className="text-2xl font-bold text-green-600">{specialties.filter(s => s.is_active).length}</p>
+                </div>
+                <div className="text-green-500 text-2xl">✅</div>
+              </div>
+            </div>
+          </div>
+
+          {/* Таблица специальностей */}
+          <div className="bg-white rounded-lg shadow overflow-hidden">
+            {loading ? (
+              <div className="flex items-center justify-center h-64">
+                <div className="text-gray-500">Загружаем специальности...</div>
+              </div>
+            ) : specialties.length === 0 ? (
+              <div className="flex items-center justify-center h-64">
+                <div className="text-center text-gray-500">
+                  <div className="text-4xl mb-2">👨‍⚕️</div>
+                  <p>Специальности не найдены</p>
+                  <p className="text-sm mt-1">Добавьте первую специальность для врачей</p>
+                </div>
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="min-w-full divide-y divide-gray-200">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Название специальности
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Описание
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Врачей с специальностью
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Дата создания
+                      </th>
+                      {user?.role === 'admin' && (
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Действия
+                        </th>
+                      )}
+                    </tr>
+                  </thead>
+                  <tbody className="bg-white divide-y divide-gray-200">
+                    {specialties.map(specialty => (
+                      <tr key={specialty.id} className="hover:bg-gray-50">
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="flex items-center">
+                            <div className="text-2xl mr-3">👨‍⚕️</div>
+                            <div className="font-medium text-gray-900">{specialty.name}</div>
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 text-sm text-gray-500 max-w-xs">
+                          <div className="truncate" title={specialty.description}>
+                            {specialty.description || '—'}
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                          <span className="px-2 py-1 text-xs rounded-full bg-blue-100 text-blue-800">
+                            - врачей
+                          </span>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                          {new Date(specialty.created_at).toLocaleDateString('ru-RU')}
+                        </td>
+                        {user?.role === 'admin' && (
+                          <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                            <div className="flex gap-2">
+                              <button
+                                onClick={() => handleEditSpecialty(specialty)}
+                                className="text-blue-600 hover:text-blue-900"
+                              >
+                                Изменить
+                              </button>
+                              <button
+                                onClick={() => handleDeleteSpecialty(specialty.id)}
+                                className="text-red-600 hover:text-red-900"
+                              >
+                                Удалить
+                              </button>
+                            </div>
+                          </td>
+                        )}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        </>
+      )}
+
       {/* Модальное окно для создания/редактирования услуги */}
       {showModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
