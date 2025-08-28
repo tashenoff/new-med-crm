@@ -2661,7 +2661,9 @@ async def get_patient_statistics(
                 "no_show_plans": 1,
                 "total_cost": 1,
                 "total_paid": 1,
-                "outstanding_amount": {"$subtract": ["$total_cost", "$total_paid"]},
+                "outstanding_amount": {
+                    "$max": [0, {"$subtract": ["$total_cost", "$total_paid"]}]
+                },
                 "unpaid_plans": 1,
                 "completion_rate": {
                     "$multiply": [
