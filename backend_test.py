@@ -3128,24 +3128,37 @@ class ClinicAPITester:
         test_specialty = specialties[0]['name']
         
         # Create a doctor with the specialty
-        success, doctor = self.test_create_doctor(
+        success = self.test_create_doctor(
             "Доктор Тестов",
             test_specialty,
             "#FF5733"
         )
         
-        if success and doctor:
+        if success:
             print(f"✅ Successfully created doctor with specialty: {test_specialty}")
             
-            # Verify the doctor has the correct specialty
-            if doctor['specialty'] == test_specialty:
-                print(f"✅ Doctor specialty correctly set: {test_specialty}")
-                
-                # Clean up - delete the test doctor
-                self.test_delete_doctor(doctor['id'])
-                return True
+            # Get the created doctor to verify specialty
+            doctor_id = self.created_doctor_id
+            success, doctor_response = self.run_test(
+                "Get Created Doctor",
+                "GET",
+                f"doctors/{doctor_id}",
+                200
+            )
+            
+            if success and doctor_response:
+                # Verify the doctor has the correct specialty
+                if doctor_response['specialty'] == test_specialty:
+                    print(f"✅ Doctor specialty correctly set: {test_specialty}")
+                    
+                    # Clean up - delete the test doctor
+                    self.test_delete_doctor(doctor_id)
+                    return True
+                else:
+                    print(f"❌ Doctor specialty mismatch: expected {test_specialty}, got {doctor_response['specialty']}")
+                    return False
             else:
-                print(f"❌ Doctor specialty mismatch: expected {test_specialty}, got {doctor['specialty']}")
+                print("❌ Failed to retrieve created doctor")
                 return False
         else:
             print("❌ Failed to create doctor with specialty")
