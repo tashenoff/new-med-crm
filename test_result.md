@@ -698,6 +698,10 @@ frontend:
 agent_communication:
   - agent: "main"
     message: "PHASE 1 IMPLEMENTED: Added category management system to Service Price Directory. BACKEND: Added ServiceCategory model with CRUD API endpoints (/api/service-categories). FRONTEND: Updated ServicePrices.js with tabbed interface (Services/Categories), category dropdown in service form (required field), full CRUD interface for categories. Ready for backend testing."
+  - agent: "testing" 
+    message: "PHASE 1 BACKEND TESTING COMPLETED: ✅ All Service Categories API endpoints fully functional. Created test categories (Терапия, Хирургия, Ортопедия) and services with 'зуб' unit. ServiceSelector test data ready. Categories management system working correctly with proper CRUD operations, authentication, validation."
+  - agent: "main"
+    message: "PHASE 2 READY: Fixed debug logging in ServiceSelector.js. Test data confirmed - 3 services with unit='зуб' available for ToothChart integration testing. Ready for frontend testing of ServiceSelector and ToothChart functionality."
   - agent: "main"
     message: "SOLUTION IMPLEMENTED: Fixed the original issue by adding automatic empty medical record creation when creating patients. Also added editing interface so doctors can fill medical data. Now workflow is: 1) Create patient -> auto-creates empty medical record, 2) Doctor can edit medical record anytime via Edit button, 3) No more blocking of appointments due to missing medical records."
   - agent: "testing"
