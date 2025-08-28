@@ -2200,6 +2200,189 @@ class ClinicAPITester:
         print("✅ Service categories comprehensive test completed successfully")
         return True
 
+    def test_create_service_selector_test_data(self):
+        """Create test data for ServiceSelector testing with categories and services with 'зуб' unit"""
+        print("\n🔍 Creating ServiceSelector test data with categories and services...")
+        
+        # Step 1: Create service categories
+        categories_to_create = [
+            {"name": "Терапия", "description": "Терапевтические услуги"},
+            {"name": "Хирургия", "description": "Хирургические услуги"},
+            {"name": "Ортопедия", "description": "Ортопедические услуги"}
+        ]
+        
+        created_categories = []
+        for category_data in categories_to_create:
+            success, response = self.run_test(
+                f"Create Category: {category_data['name']}",
+                "POST",
+                "service-categories",
+                200,
+                data=category_data
+            )
+            if success and response:
+                created_categories.append(response)
+                print(f"✅ Created category: {response['name']}")
+            else:
+                print(f"❌ Failed to create category: {category_data['name']}")
+        
+        # Step 2: Create services with different units including "зуб"
+        services_to_create = [
+            {
+                "service_name": "Лечение кариеса",
+                "category": "Терапия",
+                "unit": "зуб",
+                "price": 15000.0,
+                "description": "Лечение кариеса с установкой пломбы"
+            },
+            {
+                "service_name": "Удаление зуба",
+                "category": "Хирургия", 
+                "unit": "зуб",
+                "price": 8000.0,
+                "description": "Удаление зуба простое"
+            },
+            {
+                "service_name": "Чистка зубов",
+                "category": "Терапия",
+                "unit": "процедура",
+                "price": 5000.0,
+                "description": "Профессиональная гигиена полости рта"
+            },
+            {
+                "service_name": "Установка коронки",
+                "category": "Ортопедия",
+                "unit": "зуб", 
+                "price": 25000.0,
+                "description": "Установка металлокерамической коронки"
+            }
+        ]
+        
+        created_services = []
+        for service_data in services_to_create:
+            success, response = self.run_test(
+                f"Create Service: {service_data['service_name']}",
+                "POST",
+                "service-prices",
+                200,
+                data=service_data
+            )
+            if success and response:
+                created_services.append(response)
+                print(f"✅ Created service: {response['service_name']} ({response['unit']}, {response['price']}₸)")
+            else:
+                print(f"❌ Failed to create service: {service_data['service_name']}")
+        
+        return len(created_categories), len(created_services)
+    
+    def test_verify_service_selector_data(self):
+        """Verify that ServiceSelector test data was created correctly"""
+        print("\n🔍 Verifying ServiceSelector test data...")
+        
+        # Step 1: Verify categories are available
+        success, response = self.run_test(
+            "Get Service Categories",
+            "GET",
+            "service-prices/categories",
+            200
+        )
+        
+        if success and response:
+            categories = response.get('categories', [])
+            expected_categories = ["Терапия", "Хирургия", "Ортопедия"]
+            
+            for expected_cat in expected_categories:
+                if expected_cat in categories:
+                    print(f"✅ Category found: {expected_cat}")
+                else:
+                    print(f"❌ Category missing: {expected_cat}")
+                    return False
+        else:
+            print("❌ Failed to get service categories")
+            return False
+        
+        # Step 2: Verify services are available
+        success, response = self.run_test(
+            "Get All Service Prices",
+            "GET", 
+            "service-prices",
+            200
+        )
+        
+        if success and response:
+            services = response
+            expected_services = [
+                {"name": "Лечение кариеса", "unit": "зуб", "price": 15000.0},
+                {"name": "Удаление зуба", "unit": "зуб", "price": 8000.0},
+                {"name": "Чистка зубов", "unit": "процедура", "price": 5000.0},
+                {"name": "Установка коронки", "unit": "зуб", "price": 25000.0}
+            ]
+            
+            for expected_svc in expected_services:
+                found = False
+                for service in services:
+                    if (service['service_name'] == expected_svc['name'] and 
+                        service['unit'] == expected_svc['unit'] and
+                        service['price'] == expected_svc['price']):
+                        found = True
+                        print(f"✅ Service verified: {service['service_name']} ({service['unit']}, {service['price']}₸)")
+                        break
+                
+                if not found:
+                    print(f"❌ Service not found or incorrect: {expected_svc['name']}")
+                    return False
+        else:
+            print("❌ Failed to get service prices")
+            return False
+        
+        # Step 3: Test filtering by category
+        for category in ["Терапия", "Хирургия", "Ортопедия"]:
+            success, response = self.run_test(
+                f"Filter Services by Category: {category}",
+                "GET",
+                "service-prices",
+                200,
+                params={"category": category}
+            )
+            
+            if success and response:
+                category_services = response
+                print(f"✅ Category '{category}' has {len(category_services)} services")
+                
+                # Verify all services belong to the category
+                for service in category_services:
+                    if service['category'] != category:
+                        print(f"❌ Service category mismatch: expected {category}, got {service['category']}")
+                        return False
+            else:
+                print(f"❌ Failed to filter services by category: {category}")
+                return False
+        
+        # Step 4: Specifically verify services with "зуб" unit
+        services_with_zub_unit = []
+        for service in services:
+            if service['unit'] == 'зуб':
+                services_with_zub_unit.append(service)
+        
+        expected_zub_services = ["Лечение кариеса", "Удаление зуба", "Установка коронки"]
+        
+        if len(services_with_zub_unit) >= 3:
+            print(f"✅ Found {len(services_with_zub_unit)} services with 'зуб' unit")
+            
+            for expected_name in expected_zub_services:
+                found = any(svc['service_name'] == expected_name for svc in services_with_zub_unit)
+                if found:
+                    print(f"✅ Service with 'зуб' unit verified: {expected_name}")
+                else:
+                    print(f"❌ Service with 'зуб' unit missing: {expected_name}")
+                    return False
+        else:
+            print(f"❌ Insufficient services with 'зуб' unit: found {len(services_with_zub_unit)}, expected at least 3")
+            return False
+        
+        print("✅ All ServiceSelector test data verified successfully!")
+        return True
+
 def test_date_range_appointments(self):
     """Test appointments with date range (±7 days)"""
     # Get dates for ±7 days range
