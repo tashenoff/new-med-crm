@@ -51,6 +51,76 @@ const AppointmentModal = ({
   const API = process.env.REACT_APP_BACKEND_URL;
   const selectedPatient = patients.find(p => p.id === appointmentForm.patient_id);
 
+  // Функция для получения доступных врачей на выбранную дату
+  const fetchAvailableDoctors = async (date, time = null) => {
+    if (!date) {
+      setAvailableDoctors([]);
+      setScheduleMessage('');
+      return;
+    }
+
+    setLoadingDoctors(true);
+    setScheduleMessage('');
+    
+    try {
+      const token = localStorage.getItem('token');
+      let url = `${API}/api/doctors/available/${date}`;
+      
+      if (time) {
+        url += `?appointment_time=${time}`;
+      }
+      
+      const response = await fetch(url, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (response.ok) {
+        const availableDocs = await response.json();
+        setAvailableDoctors(availableDocs);
+        
+        if (availableDocs.length === 0) {
+          setScheduleMessage('На выбранную дату нет доступных врачей');
+        } else {
+          setScheduleMessage(`Найдено ${availableDocs.length} доступных врачей`);
+        }
+      } else {
+        console.error('Error fetching available doctors');
+        setAvailableDoctors([]);
+        setScheduleMessage('Ошибка при получении списка врачей');
+      }
+    } catch (error) {
+      console.error('Error fetching available doctors:', error);
+      setAvailableDoctors([]);
+      setScheduleMessage('Ошибка соединения');
+    } finally {
+      setLoadingDoctors(false);
+    }
+  };
+
+  // Обработчик изменения даты
+  const handleDateChange = (date) => {
+    setAppointmentForm({...appointmentForm, appointment_date: date, doctor_id: ''});
+    fetchAvailableDoctors(date, appointmentForm.appointment_time);
+  };
+
+  // Обработчик изменения времени
+  const handleTimeChange = (time) => {
+    setAppointmentForm({...appointmentForm, appointment_time: time, doctor_id: ''});
+    if (appointmentForm.appointment_date) {
+      fetchAvailableDoctors(appointmentForm.appointment_date, time);
+    }
+  };
+
+  // Загрузка доступных врачей при загрузке компонента если дата уже выбрана
+  useEffect(() => {
+    if (appointmentForm.appointment_date) {
+      fetchAvailableDoctors(appointmentForm.appointment_date, appointmentForm.appointment_time);
+    }
+  }, [show]); // Перезагружаем при открытии модала
+
   useEffect(() => {
     if (selectedPatient && activeTab === 'documents') {
       fetchDocuments();
