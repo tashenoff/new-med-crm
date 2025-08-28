@@ -1,13 +1,17 @@
 import React, { useState, useEffect } from 'react';
 
 const ServicePrices = ({ user }) => {
+  const [activeTab, setActiveTab] = useState('services');
   const [servicePrices, setServicePrices] = useState([]);
   const [categories, setCategories] = useState([]);
+  const [serviceCategories, setServiceCategories] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [showModal, setShowModal] = useState(false);
+  const [showCategoryModal, setShowCategoryModal] = useState(false);
   const [editingPrice, setEditingPrice] = useState(null);
+  const [editingCategory, setEditingCategory] = useState(null);
   const [selectedCategory, setSelectedCategory] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
   
@@ -17,6 +21,11 @@ const ServicePrices = ({ user }) => {
     category: '',
     price: '',
     unit: 'процедура',
+    description: ''
+  });
+
+  const [categoryForm, setCategoryForm] = useState({
+    name: '',
     description: ''
   });
 
