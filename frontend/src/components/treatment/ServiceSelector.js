@@ -54,7 +54,6 @@ const ServiceSelector = ({ onServiceAdd, selectedPatient }) => {
 
       if (response.ok) {
         const data = await response.json();
-        console.log('Raw service data from API:', data);
         
         // Преобразуем данные из справочника цен в формат услуг
         const transformedServices = data.map(servicePrice => ({
@@ -66,9 +65,6 @@ const ServiceSelector = ({ onServiceAdd, selectedPatient }) => {
           unit: servicePrice.unit || 'процедура',
           description: servicePrice.description || ''
         }));
-        
-        console.log('Transformed services:', transformedServices);
-        console.log('Services with unit "зуб":', transformedServices.filter(s => s.unit === 'зуб'));
         
         setServices(transformedServices);
       }
