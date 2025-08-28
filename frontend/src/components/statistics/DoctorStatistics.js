@@ -320,13 +320,6 @@ const DoctorStatistics = () => {
               />
             </div>
           )}
-            <StatCard
-              title="Средний доход за прием"
-              value={`${doctorStats.overview.avg_revenue_per_appointment.toLocaleString()} ₸`}
-              color="green"
-              icon="💳"
-            />
-          </div>
 
           {/* Performance Metrics */}
           <div className="bg-white p-6 rounded-lg shadow">
