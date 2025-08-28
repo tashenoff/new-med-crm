@@ -2965,9 +2965,432 @@ def test_treatment_plan_422_validation_error():
     
     return tester.tests_passed == tester.tests_run
 
+    def test_doctor_statistics_individual(self, date_from=None, date_to=None):
+        """Test individual doctor statistics with working hours and utilization"""
+        params = {}
+        if date_from:
+            params["date_from"] = date_from
+        if date_to:
+            params["date_to"] = date_to
+        
+        filter_desc = ""
+        if date_from and date_to:
+            filter_desc = f" from {date_from} to {date_to}"
+        elif date_from:
+            filter_desc = f" from {date_from}"
+        elif date_to:
+            filter_desc = f" until {date_to}"
+            
+        success, response = self.run_test(
+            f"Get Individual Doctor Statistics{filter_desc}",
+            "GET",
+            "doctors/statistics/individual",
+            200,
+            params=params
+        )
+        
+        if success and response:
+            print(f"✅ Individual doctor statistics retrieved successfully{filter_desc}")
+            
+            # Verify response structure
+            if "doctor_statistics" not in response or "summary" not in response:
+                print("❌ Response missing required structure (doctor_statistics, summary)")
+                return False, None
+            
+            doctor_stats = response["doctor_statistics"]
+            summary = response["summary"]
+            
+            print(f"Found statistics for {len(doctor_stats)} doctors")
+            
+            # Verify new working hours and utilization fields
+            required_fields = [
+                "doctor_id", "doctor_name", "doctor_specialty", "total_appointments",
+                "completed_appointments", "total_worked_hours", "total_scheduled_hours",
+                "utilization_rate", "avg_revenue_per_hour", "total_revenue"
+            ]
+            
+            if len(doctor_stats) > 0:
+                doctor = doctor_stats[0]
+                for field in required_fields:
+                    if field not in doctor:
+                        print(f"❌ Missing required field in doctor statistics: {field}")
+                        return False, None
+                
+                # Verify utilization rate calculation
+                if doctor["total_scheduled_hours"] > 0:
+                    expected_utilization = (doctor["total_worked_hours"] / doctor["total_scheduled_hours"]) * 100
+                    actual_utilization = doctor["utilization_rate"]
+                    if abs(expected_utilization - actual_utilization) > 0.1:  # Allow small floating point differences
+                        print(f"❌ Utilization rate calculation incorrect: expected {expected_utilization:.1f}%, got {actual_utilization:.1f}%")
+                        return False, None
+                    else:
+                        print(f"✅ Utilization rate correctly calculated: {actual_utilization:.1f}%")
+                
+                # Verify avg_revenue_per_hour calculation
+                if doctor["total_worked_hours"] > 0:
+                    expected_avg_revenue = doctor["total_revenue"] / doctor["total_worked_hours"]
+                    actual_avg_revenue = doctor["avg_revenue_per_hour"]
+                    if abs(expected_avg_revenue - actual_avg_revenue) > 0.01:
+                        print(f"❌ Average revenue per hour calculation incorrect: expected {expected_avg_revenue:.2f}, got {actual_avg_revenue:.2f}")
+                        return False, None
+                    else:
+                        print(f"✅ Average revenue per hour correctly calculated: {actual_avg_revenue:.2f}")
+                
+                print(f"Sample doctor: {doctor['doctor_name']} ({doctor['doctor_specialty']})")
+                print(f"  Total appointments: {doctor['total_appointments']}")
+                print(f"  Completed appointments: {doctor['completed_appointments']}")
+                print(f"  Total worked hours: {doctor['total_worked_hours']:.2f}")
+                print(f"  Total scheduled hours: {doctor['total_scheduled_hours']:.2f}")
+                print(f"  Utilization rate: {doctor['utilization_rate']:.1f}%")
+                print(f"  Total revenue: {doctor['total_revenue']:.2f}")
+                print(f"  Avg revenue per hour: {doctor['avg_revenue_per_hour']:.2f}")
+            
+            # Verify summary statistics
+            required_summary_fields = [
+                "total_doctors", "active_doctors", "high_utilization_doctors",
+                "avg_worked_hours", "avg_utilization_rate"
+            ]
+            
+            for field in required_summary_fields:
+                if field not in summary:
+                    print(f"❌ Missing required field in summary: {field}")
+                    return False, None
+            
+            print(f"Summary statistics:")
+            print(f"  Total doctors: {summary['total_doctors']}")
+            print(f"  Active doctors: {summary['active_doctors']}")
+            print(f"  High utilization doctors (>80%): {summary['high_utilization_doctors']}")
+            print(f"  Average worked hours: {summary['avg_worked_hours']:.2f}")
+            print(f"  Average utilization rate: {summary['avg_utilization_rate']:.1f}%")
+            
+            return True, response
+        
+        return False, None
+
+    def test_doctor_statistics_general(self, date_from=None, date_to=None):
+        """Test general doctor statistics endpoint"""
+        params = {}
+        if date_from:
+            params["date_from"] = date_from
+        if date_to:
+            params["date_to"] = date_to
+        
+        filter_desc = ""
+        if date_from and date_to:
+            filter_desc = f" from {date_from} to {date_to}"
+        elif date_from:
+            filter_desc = f" from {date_from}"
+        elif date_to:
+            filter_desc = f" until {date_to}"
+            
+        success, response = self.run_test(
+            f"Get General Doctor Statistics{filter_desc}",
+            "GET",
+            "doctors/statistics",
+            200,
+            params=params
+        )
+        
+        if success and response:
+            print(f"✅ General doctor statistics retrieved successfully{filter_desc}")
+            
+            # Verify response structure
+            if "overview" not in response or "monthly_statistics" not in response:
+                print("❌ Response missing required structure (overview, monthly_statistics)")
+                return False, None
+            
+            overview = response["overview"]
+            monthly_stats = response["monthly_statistics"]
+            
+            # Verify overview fields
+            required_overview_fields = [
+                "total_doctors", "total_appointments", "completed_appointments",
+                "total_revenue", "completion_rate", "avg_revenue_per_appointment"
+            ]
+            
+            for field in required_overview_fields:
+                if field not in overview:
+                    print(f"❌ Missing required field in overview: {field}")
+                    return False, None
+            
+            print(f"Overview statistics:")
+            print(f"  Total doctors: {overview['total_doctors']}")
+            print(f"  Total appointments: {overview['total_appointments']}")
+            print(f"  Completed appointments: {overview['completed_appointments']}")
+            print(f"  Completion rate: {overview['completion_rate']:.1f}%")
+            print(f"  Total revenue: {overview['total_revenue']:.2f}")
+            print(f"  Avg revenue per appointment: {overview['avg_revenue_per_appointment']:.2f}")
+            
+            # Verify monthly statistics structure
+            if len(monthly_stats) > 0:
+                month_stat = monthly_stats[0]
+                required_monthly_fields = [
+                    "month", "total_appointments", "completed_appointments",
+                    "completion_rate", "total_revenue", "avg_revenue_per_appointment"
+                ]
+                
+                for field in required_monthly_fields:
+                    if field not in month_stat:
+                        print(f"❌ Missing required field in monthly statistics: {field}")
+                        return False, None
+                
+                print(f"Monthly statistics: {len(monthly_stats)} months")
+                print(f"Sample month ({month_stat['month']}): {month_stat['total_appointments']} appointments, {month_stat['total_revenue']:.2f} revenue")
+            
+            return True, response
+        
+        return False, None
+
+    def test_doctor_statistics_comprehensive(self):
+        """Comprehensive test of doctor statistics with working hours and utilization"""
+        print("\n🔍 Testing Doctor Statistics with Working Hours and Utilization...")
+        
+        # First, create some test data with appointments that have end times
+        print("Creating test appointments with working hours data...")
+        
+        # Create additional appointments with end times for better testing
+        today = datetime.now()
+        test_dates = [
+            (today - timedelta(days=5)).strftime("%Y-%m-%d"),
+            (today - timedelta(days=10)).strftime("%Y-%m-%d"),
+            (today - timedelta(days=15)).strftime("%Y-%m-%d")
+        ]
+        
+        appointment_data = [
+            {"time": "09:00", "end_time": "10:00", "price": 5000.0, "status": "completed"},
+            {"time": "10:30", "end_time": "11:30", "price": 7500.0, "status": "completed"},
+            {"time": "14:00", "end_time": "15:30", "price": 12000.0, "status": "completed"},
+            {"time": "16:00", "end_time": "16:30", "price": 3000.0, "status": "cancelled"},
+            {"time": "11:00", "end_time": "12:00", "price": 6000.0, "status": "no_show"}
+        ]
+        
+        created_appointments = []
+        
+        # Create appointments for testing
+        for i, date in enumerate(test_dates):
+            for j, apt_data in enumerate(appointment_data):
+                # Create appointment with end time and price
+                success, response = self.run_test(
+                    f"Create Test Appointment {i}-{j}",
+                    "POST",
+                    "appointments",
+                    200,
+                    data={
+                        "patient_id": self.created_patient_id,
+                        "doctor_id": self.created_doctor_id,
+                        "appointment_date": date,
+                        "appointment_time": apt_data["time"],
+                        "end_time": apt_data["end_time"],
+                        "price": apt_data["price"],
+                        "reason": f"Test appointment {i}-{j}"
+                    }
+                )
+                
+                if success and response:
+                    created_appointments.append(response["id"])
+                    
+                    # Update status if not default
+                    if apt_data["status"] != "unconfirmed":
+                        self.run_test(
+                            f"Update Appointment {i}-{j} Status",
+                            "PUT",
+                            f"appointments/{response['id']}",
+                            200,
+                            data={"status": apt_data["status"]}
+                        )
+        
+        print(f"✅ Created {len(created_appointments)} test appointments")
+        
+        # Test 1: Individual doctor statistics without date filter
+        print("\n1. Testing individual doctor statistics without date filter...")
+        success, response = self.test_doctor_statistics_individual()
+        if not success:
+            print("❌ Individual doctor statistics test failed")
+            return False
+        
+        # Test 2: Individual doctor statistics with date range filter (last 30 days)
+        print("\n2. Testing individual doctor statistics with date range filter...")
+        date_from = (today - timedelta(days=30)).strftime("%Y-%m-%d")
+        date_to = today.strftime("%Y-%m-%d")
+        success, response = self.test_doctor_statistics_individual(date_from, date_to)
+        if not success:
+            print("❌ Individual doctor statistics with date filter test failed")
+            return False
+        
+        # Test 3: Verify response structure includes new working hours fields
+        print("\n3. Verifying response structure includes new fields...")
+        if response and "doctor_statistics" in response:
+            doctor_stats = response["doctor_statistics"]
+            if len(doctor_stats) > 0:
+                doctor = doctor_stats[0]
+                new_fields = ["total_worked_hours", "total_scheduled_hours", "utilization_rate", "avg_revenue_per_hour"]
+                
+                for field in new_fields:
+                    if field not in doctor:
+                        print(f"❌ New field missing: {field}")
+                        return False
+                    else:
+                        print(f"✅ New field present: {field} = {doctor[field]}")
+        
+        # Test 4: Verify utilization rate calculation
+        print("\n4. Verifying utilization rate calculation...")
+        if response and "doctor_statistics" in response:
+            doctor_stats = response["doctor_statistics"]
+            for doctor in doctor_stats:
+                if doctor["total_scheduled_hours"] > 0:
+                    expected_utilization = (doctor["total_worked_hours"] / doctor["total_scheduled_hours"]) * 100
+                    actual_utilization = doctor["utilization_rate"]
+                    
+                    if abs(expected_utilization - actual_utilization) > 0.1:
+                        print(f"❌ Utilization calculation error for {doctor['doctor_name']}: expected {expected_utilization:.1f}%, got {actual_utilization:.1f}%")
+                        return False
+                    else:
+                        print(f"✅ Utilization correctly calculated for {doctor['doctor_name']}: {actual_utilization:.1f}%")
+        
+        # Test 5: Verify avg_revenue_per_hour calculation
+        print("\n5. Verifying avg_revenue_per_hour calculation...")
+        if response and "doctor_statistics" in response:
+            doctor_stats = response["doctor_statistics"]
+            for doctor in doctor_stats:
+                if doctor["total_worked_hours"] > 0:
+                    expected_avg_revenue = doctor["total_revenue"] / doctor["total_worked_hours"]
+                    actual_avg_revenue = doctor["avg_revenue_per_hour"]
+                    
+                    if abs(expected_avg_revenue - actual_avg_revenue) > 0.01:
+                        print(f"❌ Avg revenue per hour calculation error for {doctor['doctor_name']}: expected {expected_avg_revenue:.2f}, got {actual_avg_revenue:.2f}")
+                        return False
+                    else:
+                        print(f"✅ Avg revenue per hour correctly calculated for {doctor['doctor_name']}: {actual_avg_revenue:.2f}")
+        
+        # Test 6: Check high_utilization_doctors count (doctors with >80% utilization)
+        print("\n6. Verifying high_utilization_doctors count...")
+        if response and "summary" in response:
+            summary = response["summary"]
+            high_util_count = summary.get("high_utilization_doctors", 0)
+            
+            # Count doctors with >80% utilization manually
+            actual_high_util = 0
+            if "doctor_statistics" in response:
+                for doctor in response["doctor_statistics"]:
+                    if doctor["utilization_rate"] > 80 and doctor["total_worked_hours"] > 0:
+                        actual_high_util += 1
+            
+            if high_util_count == actual_high_util:
+                print(f"✅ High utilization doctors count correct: {high_util_count}")
+            else:
+                print(f"❌ High utilization doctors count mismatch: expected {actual_high_util}, got {high_util_count}")
+                return False
+        
+        # Test 7: General doctor statistics
+        print("\n7. Testing general doctor statistics...")
+        success, general_response = self.test_doctor_statistics_general()
+        if not success:
+            print("❌ General doctor statistics test failed")
+            return False
+        
+        # Test 8: General doctor statistics with date filter
+        print("\n8. Testing general doctor statistics with date filter...")
+        success, filtered_response = self.test_doctor_statistics_general(date_from, date_to)
+        if not success:
+            print("❌ General doctor statistics with date filter test failed")
+            return False
+        
+        # Cleanup test appointments
+        print("\n9. Cleaning up test appointments...")
+        for apt_id in created_appointments:
+            self.run_test(
+                f"Delete Test Appointment {apt_id}",
+                "DELETE",
+                f"appointments/{apt_id}",
+                200
+            )
+        
+        print("✅ Doctor statistics comprehensive testing completed successfully")
+        return True
+
+def test_enhanced_doctor_statistics():
+    """
+    ENHANCED DOCTOR STATISTICS API TESTING
+    Testing the new doctor statistics features with working hours and utilization metrics
+    """
+    import os
+    backend_url = os.environ.get('REACT_APP_BACKEND_URL', 'https://medrecord-field.preview.emergentagent.com')
+    
+    tester = ClinicAPITester(backend_url)
+    
+    print(f"🚀 Starting Enhanced Doctor Statistics API Tests")
+    print(f"Backend URL: {backend_url}")
+    print(f"{'='*50}")
+    
+    # Test authentication with provided admin credentials
+    print("\n📋 AUTHENTICATION TESTS")
+    print("-" * 30)
+    
+    # Login with provided admin credentials
+    admin_email = "admin_test_20250821110240@medentry.com"
+    admin_password = "AdminTest123!"
+    if not tester.test_login_user(admin_email, admin_password):
+        print("❌ Failed to login with admin credentials")
+        tester.print_summary()
+        return False
+    
+    # Test current user endpoint
+    if not tester.test_get_current_user():
+        print("❌ Failed to get current user")
+        tester.print_summary()
+        return False
+    
+    print("\n📋 SETUP FOR DOCTOR STATISTICS TESTS")
+    print("-" * 30)
+    
+    # Create a patient for testing
+    if not tester.test_create_patient("Test Patient for Stats", "+77771234567", "phone"):
+        print("❌ Failed to create patient")
+        tester.print_summary()
+        return False
+    
+    patient_id = tester.created_patient_id
+    
+    # Create a doctor for testing
+    if not tester.test_create_doctor("Dr. Statistics Test", "Стоматолог", "#FF5733"):
+        print("❌ Failed to create doctor")
+        tester.print_summary()
+        return False
+    
+    doctor_id = tester.created_doctor_id
+    
+    print("\n📋 ENHANCED DOCTOR STATISTICS TESTS")
+    print("-" * 30)
+    
+    # Run comprehensive doctor statistics tests
+    if not tester.test_doctor_statistics_comprehensive():
+        print("❌ Doctor statistics comprehensive tests failed")
+        tester.print_summary()
+        return False
+    
+    print("\n📋 CLEANUP")
+    print("-" * 30)
+    
+    # Clean up test data
+    tester.test_delete_patient(patient_id)
+    tester.test_delete_doctor(doctor_id)
+    
+    # Logout
+    tester.test_logout()
+    
+    # Print final summary
+    tester.print_summary()
+    
+    if tester.tests_passed == tester.tests_run:
+        print("🎉 All enhanced doctor statistics tests passed!")
+        return True
+    else:
+        print("❌ Some tests failed!")
+        return False
+
 def main():
-    # Run the doctor schedule management system test
-    return test_doctor_schedule_management_system()
+    # Run the enhanced doctor statistics test
+    return test_enhanced_doctor_statistics()
 
 def main_original():
     # Get the backend URL from the environment
