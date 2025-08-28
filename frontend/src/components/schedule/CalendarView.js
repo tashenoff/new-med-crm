@@ -101,41 +101,47 @@ const CalendarView = ({
 
   const getStatusColor = (status) => {
     switch (status) {
-      case 'confirmed': return 'bg-blue-500 text-white';
-      case 'completed': return 'bg-green-500 text-white';
-      case 'cancelled': return 'bg-red-500 text-white';
-      case 'in_progress': return 'bg-orange-500 text-white';
-      default: return 'bg-gray-500 text-white';
+      case 'unconfirmed': return 'bg-yellow-100 text-yellow-800 border-yellow-300';
+      case 'confirmed': return 'bg-blue-100 text-blue-800 border-blue-300';
+      case 'arrived': return 'bg-purple-100 text-purple-800 border-purple-300';
+      case 'in_progress': return 'bg-orange-100 text-orange-800 border-orange-300';
+      case 'completed': return 'bg-green-100 text-green-800 border-green-300';
+      case 'cancelled': return 'bg-red-100 text-red-800 border-red-300';
+      case 'no_show': return 'bg-gray-100 text-gray-800 border-gray-300';
+      default: return 'bg-gray-100 text-gray-800 border-gray-300';
     }
   };
 
-  const handleDrop = (e, doctorId, date, time) => {
-    e.preventDefault();
-    const appointmentId = e.dataTransfer.getData('appointmentId');
-    onMoveAppointment(appointmentId, doctorId, date, time);
+  // Drag & Drop handlers
+  const handleDragStart = (e, appointmentId) => {
+    e.dataTransfer.setData('appointmentId', appointmentId);
   };
 
   const handleDragOver = (e) => {
     e.preventDefault();
   };
 
-  const handleDragStart = (e, appointmentId) => {
-    e.dataTransfer.setData('appointmentId', appointmentId);
+  const handleDrop = (e, doctorId, date, time) => {
+    e.preventDefault();
+    const appointmentId = e.dataTransfer.getData('appointmentId');
+    if (appointmentId && onMoveAppointment) {
+      onMoveAppointment(appointmentId, doctorId, date, time);
+    }
   };
 
   const dates = generateCalendarDates();
   const timeSlots = generateTimeSlots();
 
   return (
-    <div>
+    <div className="h-full">
+      {/* Navigation Header */}
       <div className="flex justify-between items-center mb-6">
-        <h2 className="text-2xl font-bold">Календарь приемов</h2>
         <div className="flex items-center space-x-4">
-          {/* Навигация по неделям */}
+          <h2 className="text-2xl font-bold">Календарь врачей</h2>
           <div className="flex items-center space-x-2">
             <button
               onClick={() => navigateDay(-1)}
-              className="p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded"
+              className="p-2 rounded-lg border border-gray-300 hover:bg-gray-50"
               title="Предыдущий день"
             >
               ←
@@ -143,30 +149,46 @@ const CalendarView = ({
             
             <button
               onClick={goToToday}
-              className="px-3 py-1 text-sm bg-gray-100 text-gray-700 rounded hover:bg-gray-200"
-              title="Сегодня"
+              className="px-4 py-2 rounded-lg border border-gray-300 hover:bg-gray-50"
             >
               Сегодня
             </button>
             
             <button
               onClick={() => navigateDay(1)}
-              className="p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded"
+              className="p-2 rounded-lg border border-gray-300 hover:bg-gray-50"
               title="Следующий день"
             >
               →
             </button>
           </div>
-          
-          {canEdit && (
-            <button
-              onClick={onNewAppointment}
-              className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
-            >
-              + Новая запись
-            </button>
-          )}
         </div>
+
+        {canEdit && (
+          <button
+            onClick={onNewAppointment}
+            className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
+          >
+            + Новая запись
+          </button>
+        )}
+      </div>
+
+      {/* Current Date Display */}
+      <div className="mb-4 text-center">
+        <h3 className="text-xl font-semibold text-gray-800">
+          {currentDate.toLocaleDateString('ru-RU', { 
+            weekday: 'long', 
+            year: 'numeric',
+            month: 'long', 
+            day: 'numeric' 
+          })}
+        </h3>
+        {availableDoctors.length > 0 && (
+          <p className="text-sm text-gray-600 mt-1">
+            Работает {availableDoctors.length} {availableDoctors.length === 1 ? 'врач' : 'врачей'}
+          </p>
+        )}
       </div>
 
       <div className="bg-white rounded-lg shadow overflow-hidden">
@@ -203,122 +225,110 @@ const CalendarView = ({
                 </div>
               ))}
 
-            {/* Calendar Grid */}
-            {dates.map(date => (
-              <React.Fragment key={date}>
-                {/* Date Header with Today Highlight */}
-                <div className={`col-span-full p-3 font-medium text-center border-t border-b ${
-                  isToday(date) 
-                    ? 'bg-blue-100 text-blue-800 border-blue-300' 
-                    : 'bg-gray-50'
-                }`}>
-                  <div className="flex items-center justify-center space-x-2">
-                    {isToday(date) && <span className="text-blue-600">●</span>}
-                    <span>
-                      {new Date(date + 'T00:00:00').toLocaleDateString('ru-RU', { 
-                        weekday: 'long', 
-                        month: 'long', 
-                        day: 'numeric' 
-                      })}
-                    </span>
-                    {isToday(date) && <span className="text-sm text-blue-600">(Сегодня)</span>}
-                  </div>
-                </div>
-
-                {/* Time Slots for this date */}
-                {timeSlots.map(time => (
-                  <React.Fragment key={`${date}-${time}`}>
-                    <div className="p-2 text-sm text-gray-600 bg-gray-50">
-                      {time}
+              {/* Calendar Grid */}
+              {dates.map(date => (
+                <React.Fragment key={date}>
+                  {/* Date Header with Today Highlight */}
+                  <div className={`col-span-full p-3 font-medium text-center border-t border-b ${
+                    isToday(date) 
+                      ? 'bg-blue-100 text-blue-800 border-blue-300' 
+                      : 'bg-gray-50'
+                  }`}>
+                    <div className="flex items-center justify-center space-x-2">
+                      {isToday(date) && <span className="text-blue-600">●</span>}
+                      <span>
+                        {new Date(date + 'T00:00:00').toLocaleDateString('ru-RU', { 
+                          weekday: 'long', 
+                          month: 'long', 
+                          day: 'numeric' 
+                        })}
+                      </span>
+                      {isToday(date) && <span className="text-sm text-blue-600">(Сегодня)</span>}
                     </div>
-                    
-                    {availableDoctors.map(doctor => {
-                      const appointment = getAppointmentForSlot(doctor.id, date, time);
+                  </div>
+
+                  {/* Time Slots for this date */}
+                  {timeSlots.map(time => (
+                    <React.Fragment key={`${date}-${time}`}>
+                      <div className="p-2 text-sm text-gray-600 bg-gray-50">
+                        {time}
+                      </div>
                       
-                      // Проверяем, находится ли время в рабочих часах врача
-                      const isInWorkingHours = doctor.schedule && doctor.schedule.some(schedule => {
-                        const timeObj = new Date(`1970-01-01T${time}:00`);
-                        const startObj = new Date(`1970-01-01T${schedule.start_time}:00`);
-                        const endObj = new Date(`1970-01-01T${schedule.end_time}:00`);
-                        return timeObj >= startObj && timeObj <= endObj;
-                      });
-                      
-                      return (
-                        <div
-                          key={`${doctor.id}-${date}-${time}`}
-                          className={`border border-gray-200 min-h-[50px] p-1 relative cursor-pointer ${
-                            isInWorkingHours ? 'hover:bg-blue-50' : 'bg-gray-100'
-                          } ${!isInWorkingHours ? 'opacity-50' : ''}`}
-                          onClick={() => !appointment && canEdit && isInWorkingHours && onSlotClick(doctor.id, date, time)}
-                          onDrop={(e) => canEdit && isInWorkingHours && handleDrop(e, doctor.id, date, time)}
-                          onDragOver={isInWorkingHours ? handleDragOver : undefined}
-                          title={!isInWorkingHours ? 'Врач не работает в это время' : ''}
-                        >
-                          {appointment ? (
-                            <div
-                              className={`p-2 rounded text-xs ${getStatusColor(appointment.status)} cursor-move`}
-                              draggable={canEdit}
-                              onDragStart={(e) => handleDragStart(e, appointment.id)}
-                            >
-                              <div className="font-medium">{appointment.patient_name}</div>
-                              <div className="truncate">{appointment.reason}</div>
-                              
-                              {canEdit && (
-                                <div className="flex space-x-1 mt-1">
-                                  <button
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      onEditAppointment(appointment);
-                                    }}
-                                    className="text-white hover:text-gray-200"
-                                    title="Редактировать"
-                                  >
-                                    ✏️
-                                  </button>
-                                  <button
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      onDeleteAppointment(appointment.id);
-                                    }}
-                                    className="text-white hover:text-gray-200"
-                                    title="Удалить"
-                                  >
-                                    🗑️
-                                  </button>
-                                  <select
-                                    value={appointment.status}
-                                    onChange={(e) => {
-                                      e.stopPropagation();
-                                      onStatusChange(appointment.id, e.target.value);
-                                    }}
-                                    className="text-xs bg-transparent border-0 text-white"
-                                    title="Изменить статус"
-                                  >
-                                    <option value="pending">⏳</option>
-                                    <option value="confirmed">✅</option>
-                                    <option value="in_progress">🔄</option>
-                                    <option value="completed">✔️</option>
-                                    <option value="cancelled">❌</option>
-                                  </select>
+                      {availableDoctors.map(doctor => {
+                        const appointment = getAppointmentForSlot(doctor.id, date, time);
+                        
+                        // Проверяем, находится ли время в рабочих часах врача
+                        const isInWorkingHours = doctor.schedule && doctor.schedule.some(schedule => {
+                          const timeObj = new Date(`1970-01-01T${time}:00`);
+                          const startObj = new Date(`1970-01-01T${schedule.start_time}:00`);
+                          const endObj = new Date(`1970-01-01T${schedule.end_time}:00`);
+                          return timeObj >= startObj && timeObj <= endObj;
+                        });
+                        
+                        return (
+                          <div
+                            key={`${doctor.id}-${date}-${time}`}
+                            className={`border border-gray-200 min-h-[50px] p-1 relative cursor-pointer ${
+                              isInWorkingHours ? 'hover:bg-blue-50' : 'bg-gray-100'
+                            } ${!isInWorkingHours ? 'opacity-50' : ''}`}
+                            onClick={() => !appointment && canEdit && isInWorkingHours && onSlotClick(doctor.id, date, time)}
+                            onDrop={(e) => canEdit && isInWorkingHours && handleDrop(e, doctor.id, date, time)}
+                            onDragOver={isInWorkingHours ? handleDragOver : undefined}
+                            title={!isInWorkingHours ? 'Врач не работает в это время' : ''}
+                          >
+                            {appointment ? (
+                              <div
+                                className={`p-2 rounded text-xs ${getStatusColor(appointment.status)} cursor-move`}
+                                draggable={canEdit}
+                                onDragStart={(e) => handleDragStart(e, appointment.id)}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  onEditAppointment(appointment);
+                                }}
+                              >
+                                <div className="font-semibold truncate">
+                                  {appointment.patient_name}
                                 </div>
-                              )}
-                            </div>
-                          ) : (
-                            canEdit && (
+                                <div className="truncate">
+                                  {appointment.reason}
+                                </div>
+                                <div className="flex justify-between items-center mt-1">
+                                  <span className="text-xs opacity-75">
+                                    {appointment.appointment_time}
+                                  </span>
+                                  {canEdit && (
+                                    <button
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        onDeleteAppointment(appointment.id);
+                                      }}
+                                      className="text-red-600 hover:text-red-800 opacity-60 hover:opacity-100"
+                                      title="Удалить"
+                                    >
+                                      ×
+                                    </button>
+                                  )}
+                                </div>
+                              </div>
+                            ) : isInWorkingHours ? (
                               <div className="h-full flex items-center justify-center text-gray-400 text-xs">
                                 +
                               </div>
-                            )
-                          )}
-                        </div>
-                      );
-                    })}
-                  </React.Fragment>
-                ))}
-              </React.Fragment>
-            ))}
+                            ) : (
+                              <div className="h-full flex items-center justify-center text-gray-300 text-xs">
+                                —
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </React.Fragment>
+                  ))}
+                </React.Fragment>
+              ))}
+            </div>
           </div>
-        </div>
+        )}
       </div>
     </div>
   );
