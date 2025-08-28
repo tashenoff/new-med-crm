@@ -24,6 +24,9 @@ const AppointmentModal = ({
   const [availableDoctors, setAvailableDoctors] = useState([]);
   const [loadingDoctors, setLoadingDoctors] = useState(false);
   const [scheduleMessage, setScheduleMessage] = useState('');
+  const [patientSearch, setPatientSearch] = useState('');
+  const [showPatientDropdown, setShowPatientDropdown] = useState(false);
+  const [filteredPatients, setFilteredPatients] = useState([]);
   const [planForm, setPlanForm] = useState({
     title: '',
     description: '',
