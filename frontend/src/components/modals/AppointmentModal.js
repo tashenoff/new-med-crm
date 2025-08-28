@@ -1132,7 +1132,7 @@ const AppointmentModal = ({
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">Сумма к оплате</label>
                     <div className="px-3 py-2 bg-gray-100 border border-gray-300 rounded-lg font-medium">
-                      {planForm.total_cost.toFixed(0)} ₸
+                      {(planForm.total_cost || 0).toFixed(0)} ₸
                     </div>
                   </div>
                   
