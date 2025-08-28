@@ -2734,8 +2734,8 @@ def test_treatment_plan_422_validation_error():
     return tester.tests_passed == tester.tests_run
 
 def main():
-    # Run the specific 422 validation error test
-    return test_treatment_plan_422_validation_error()
+    # Run the doctor schedule management system test
+    return test_doctor_schedule_management_system()
 
 def main_original():
     # Get the backend URL from the environment
