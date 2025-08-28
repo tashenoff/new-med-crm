@@ -124,6 +124,54 @@ const AppointmentModal = ({
     }
   }, [show]); // Перезагружаем при открытии модала
 
+  // Поиск пациентов
+  const handlePatientSearch = (searchTerm) => {
+    setPatientSearch(searchTerm);
+    
+    if (searchTerm.length === 0) {
+      setFilteredPatients([]);
+      setShowPatientDropdown(false);
+      return;
+    }
+    
+    const filtered = patients.filter(patient => 
+      patient.full_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (patient.phone && patient.phone.includes(searchTerm)) ||
+      (patient.iin && patient.iin.includes(searchTerm))
+    );
+    
+    setFilteredPatients(filtered);
+    setShowPatientDropdown(filtered.length > 0);
+  };
+
+  // Выбор пациента из результатов поиска
+  const handlePatientSelect = (patient) => {
+    setAppointmentForm({...appointmentForm, patient_id: patient.id});
+    setPatientSearch(patient.full_name);
+    setShowPatientDropdown(false);
+    setFilteredPatients([]);
+  };
+
+  // Очистка выбора пациента
+  const handleClearPatient = () => {
+    setAppointmentForm({...appointmentForm, patient_id: ''});
+    setPatientSearch('');
+    setShowPatientDropdown(false);
+    setFilteredPatients([]);
+  };
+
+  // Инициализация поискового поля при открытии модала
+  useEffect(() => {
+    if (show && appointmentForm.patient_id) {
+      const patient = patients.find(p => p.id === appointmentForm.patient_id);
+      if (patient) {
+        setPatientSearch(patient.full_name);
+      }
+    } else if (show) {
+      setPatientSearch('');
+    }
+  }, [show, appointmentForm.patient_id, patients]);
+
   useEffect(() => {
     if (selectedPatient && activeTab === 'documents') {
       fetchDocuments();
