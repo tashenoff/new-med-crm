@@ -35,6 +35,18 @@ const Navigation = ({ activeTab, setActiveTab, availableTabs, sidebarOpen, setSi
       baseItems.push({ key: 'doctor-schedule', label: 'Расписание врачей', type: 'tab' });
     }
 
+    // Справочник с подразделами (только для админов)
+    if (user?.role === 'admin') {
+      baseItems.push({
+        key: 'directory',
+        label: 'Справочник',
+        type: 'accordion',
+        subItems: [
+          { key: 'service-prices', label: 'Ценовая политика', type: 'tab' }
+        ]
+      });
+    }
+
     return baseItems;
   };
 
