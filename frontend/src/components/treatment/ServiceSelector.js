@@ -76,7 +76,12 @@ const ServiceSelector = ({ onServiceAdd, selectedPatient }) => {
   const selectedServiceData = services.find(s => s.id === selectedService);
   const isToothService = selectedServiceData?.unit === 'зуб';
   const finalQuantity = isToothService ? selectedTeeth.length : quantity;
-  const totalPrice = selectedServiceData ? (selectedServiceData.price * finalQuantity * (1 - discount / 100)) : 0;
+  
+  // Безопасный расчет цены с проверками на undefined
+  const basePrice = selectedServiceData?.price || 0;
+  const safeQuantity = finalQuantity || 1;
+  const safeDiscount = discount || 0;
+  const totalPrice = basePrice * safeQuantity * (1 - safeDiscount / 100);
 
   const handleAddService = () => {
     if (!selectedService) return;
