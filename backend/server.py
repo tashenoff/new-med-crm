@@ -381,6 +381,36 @@ class DoctorWithSchedule(BaseModel):
     updated_at: datetime
     schedule: List[DoctorSchedule] = []
 
+# Service Price Directory Models
+class ServicePrice(BaseModel):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    service_name: str
+    service_code: Optional[str] = None
+    category: Optional[str] = None
+    price: float
+    unit: Optional[str] = "процедура"  # единица измерения (процедура, час, зуб и т.д.)
+    description: Optional[str] = None
+    is_active: bool = True
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_at: datetime = Field(default_factory=datetime.utcnow)
+
+class ServicePriceCreate(BaseModel):
+    service_name: str
+    service_code: Optional[str] = None
+    category: Optional[str] = None
+    price: float
+    unit: Optional[str] = "процедура"
+    description: Optional[str] = None
+
+class ServicePriceUpdate(BaseModel):
+    service_name: Optional[str] = None
+    service_code: Optional[str] = None
+    category: Optional[str] = None
+    price: Optional[float] = None
+    unit: Optional[str] = None
+    description: Optional[str] = None
+    is_active: Optional[bool] = None
+
 class Appointment(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     patient_id: str
