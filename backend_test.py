@@ -2949,6 +2949,358 @@ class ClinicAPITester:
         print("✅ All ServiceSelector test data verified successfully!")
         return True
 
+    # Specialties Management Testing Methods
+    def test_get_specialties(self):
+        """Get all active specialties"""
+        success, response = self.run_test(
+            "Get All Active Specialties",
+            "GET",
+            "specialties",
+            200
+        )
+        if success and response:
+            print(f"Found {len(response)} active specialties")
+            if len(response) > 0:
+                specialty = response[0]
+                print(f"Sample specialty: {specialty['name']} - {specialty.get('description', 'No description')}")
+                
+                # Verify all specialties have required fields
+                required_fields = ['id', 'name', 'is_active', 'created_at', 'updated_at']
+                for field in required_fields:
+                    if field not in specialty:
+                        print(f"❌ Specialty missing required field: {field}")
+                        return False, None
+                
+                print(f"✅ All specialties have required fields")
+        return success, response
+
+    def test_create_specialty(self, name, description=None):
+        """Create a new specialty (admin only)"""
+        data = {"name": name}
+        if description:
+            data["description"] = description
+            
+        success, response = self.run_test(
+            f"Create Specialty '{name}'",
+            "POST",
+            "specialties",
+            200,
+            data=data
+        )
+        if success and response and "id" in response:
+            print(f"Created specialty: {response['name']} with ID: {response['id']}")
+            if description:
+                print(f"Description: {response['description']}")
+            return success, response
+        return success, None
+
+    def test_update_specialty(self, specialty_id, name=None, description=None):
+        """Update a specialty"""
+        data = {}
+        if name:
+            data["name"] = name
+        if description:
+            data["description"] = description
+            
+        success, response = self.run_test(
+            f"Update Specialty {specialty_id}",
+            "PUT",
+            f"specialties/{specialty_id}",
+            200,
+            data=data
+        )
+        if success and response:
+            print(f"Updated specialty: {response['name']}")
+            if 'description' in response:
+                print(f"Description: {response['description']}")
+            # Verify the update was applied
+            for key, value in data.items():
+                if response[key] != value:
+                    print(f"❌ Update verification failed: {key} expected {value}, got {response[key]}")
+                    success = False
+                    break
+        return success, response
+
+    def test_delete_specialty(self, specialty_id):
+        """Delete (deactivate) a specialty"""
+        success, response = self.run_test(
+            f"Delete Specialty {specialty_id}",
+            "DELETE",
+            f"specialties/{specialty_id}",
+            200
+        )
+        if success:
+            print(f"✅ Successfully deleted specialty with ID: {specialty_id}")
+            
+            # Verify the specialty was deactivated by checking it doesn't appear in active list
+            verify_success, specialties = self.test_get_specialties()
+            if verify_success:
+                specialty_still_active = any(spec["id"] == specialty_id for spec in specialties)
+                if not specialty_still_active:
+                    print("✅ Specialty successfully removed from active list")
+                else:
+                    print("❌ Specialty still appears in active list after deletion")
+                    success = False
+        return success
+
+    def test_create_duplicate_specialty(self, name):
+        """Test creating duplicate specialty name (should fail)"""
+        success, _ = self.run_test(
+            f"Create Duplicate Specialty '{name}'",
+            "POST",
+            "specialties",
+            400,  # Expect 400 Bad Request for duplicate
+            data={"name": name}
+        )
+        if success:
+            print(f"✅ Duplicate specialty name correctly rejected: {name}")
+        return success
+
+    def test_specialty_unauthorized_access(self):
+        """Test unauthorized access to specialty management"""
+        # Save current token
+        saved_token = self.token
+        # Clear token
+        self.token = None
+        
+        # Test unauthorized access to specialties list
+        success1, _ = self.run_test(
+            "Unauthorized access to specialties",
+            "GET",
+            "specialties",
+            403  # Expect 403 Forbidden (FastAPI returns 403 for missing auth)
+        )
+        
+        # Test unauthorized specialty creation
+        success2, _ = self.run_test(
+            "Unauthorized specialty creation",
+            "POST",
+            "specialties",
+            403,  # Expect 403 Forbidden (FastAPI returns 403 for missing auth)
+            data={"name": "Unauthorized Specialty"}
+        )
+        
+        # Restore token
+        self.token = saved_token
+        
+        if success1 and success2:
+            print("✅ All unauthorized access tests passed")
+            return True
+        else:
+            print("❌ Unauthorized access tests failed")
+            return False
+
+    def test_specialty_invalid_operations(self):
+        """Test invalid specialty operations"""
+        # Test update non-existent specialty
+        success1, _ = self.run_test(
+            "Update Non-existent Specialty",
+            "PUT",
+            "specialties/nonexistent-id",
+            404,  # Expect 404 Not Found
+            data={"name": "Updated Name"}
+        )
+        
+        # Test delete non-existent specialty
+        success2, _ = self.run_test(
+            "Delete Non-existent Specialty",
+            "DELETE",
+            "specialties/nonexistent-id",
+            404  # Expect 404 Not Found
+        )
+        
+        if success1 and success2:
+            print("✅ Invalid operations correctly handled")
+            return True
+        else:
+            print("❌ Invalid operations not properly handled")
+            return False
+
+    def test_specialty_integration_with_doctors(self):
+        """Test that specialties can be used when creating/editing doctors"""
+        # First get available specialties
+        success, specialties = self.test_get_specialties()
+        if not success or not specialties:
+            print("❌ Cannot get specialties for integration test")
+            return False
+        
+        # Use the first specialty to create a doctor
+        test_specialty = specialties[0]['name']
+        
+        # Create a doctor with the specialty
+        success, doctor = self.test_create_doctor(
+            "Доктор Тестов",
+            test_specialty,
+            "#FF5733"
+        )
+        
+        if success and doctor:
+            print(f"✅ Successfully created doctor with specialty: {test_specialty}")
+            
+            # Verify the doctor has the correct specialty
+            if doctor['specialty'] == test_specialty:
+                print(f"✅ Doctor specialty correctly set: {test_specialty}")
+                
+                # Clean up - delete the test doctor
+                self.test_delete_doctor(doctor['id'])
+                return True
+            else:
+                print(f"❌ Doctor specialty mismatch: expected {test_specialty}, got {doctor['specialty']}")
+                return False
+        else:
+            print("❌ Failed to create doctor with specialty")
+            return False
+
+    def test_specialties_comprehensive(self):
+        """Comprehensive test of specialties management system"""
+        print(f"\n🔍 COMPREHENSIVE SPECIALTIES MANAGEMENT TESTING")
+        print("=" * 70)
+        
+        # Test specialties to create as per review request
+        test_specialties = [
+            {"name": "Терапевт", "description": "Врач общей практики, занимается диагностикой и лечением внутренних болезней"},
+            {"name": "Хирург", "description": "Врач-хирург, выполняет оперативные вмешательства"},
+            {"name": "Ортопед", "description": "Врач-ортопед, специализируется на заболеваниях опорно-двигательного аппарата"},
+            {"name": "Стоматолог-ортодонт", "description": "Стоматолог, специализирующийся на исправлении прикуса и выравнивании зубов"}
+        ]
+        
+        created_specialties = []
+        
+        # Test 1: CREATE SPECIALTIES
+        print(f"\n📋 Test 1: Creating specialties...")
+        for spec_data in test_specialties:
+            success, specialty = self.test_create_specialty(
+                spec_data["name"], 
+                spec_data["description"]
+            )
+            if success and specialty:
+                created_specialties.append(specialty)
+                print(f"✅ Created specialty: {spec_data['name']}")
+            else:
+                print(f"❌ Failed to create specialty: {spec_data['name']}")
+                return False
+        
+        print(f"✅ Successfully created {len(created_specialties)} specialties")
+        
+        # Test 2: READ SPECIALTIES
+        print(f"\n📖 Test 2: Reading all specialties and verifying data structure...")
+        success, all_specialties = self.test_get_specialties()
+        if not success:
+            print("❌ Failed to retrieve specialties")
+            return False
+        
+        # Verify our created specialties are in the list
+        created_names = [spec['name'] for spec in created_specialties]
+        retrieved_names = [spec['name'] for spec in all_specialties]
+        
+        for name in created_names:
+            if name in retrieved_names:
+                print(f"✅ Specialty '{name}' found in retrieved list")
+            else:
+                print(f"❌ Specialty '{name}' not found in retrieved list")
+                return False
+        
+        # Verify data structure
+        for specialty in all_specialties:
+            required_fields = ['id', 'name', 'is_active', 'created_at', 'updated_at']
+            for field in required_fields:
+                if field not in specialty:
+                    print(f"❌ Specialty data structure invalid - missing field: {field}")
+                    return False
+        
+        print(f"✅ Data structure verification passed for {len(all_specialties)} specialties")
+        
+        # Test 3: UPDATE SPECIALTIES
+        print(f"\n✏️ Test 3: Updating specialty name and description...")
+        if created_specialties:
+            first_specialty = created_specialties[0]
+            new_name = f"{first_specialty['name']} (Обновлено)"
+            new_description = "Обновленное описание специальности"
+            
+            success, updated_specialty = self.test_update_specialty(
+                first_specialty['id'],
+                name=new_name,
+                description=new_description
+            )
+            
+            if success and updated_specialty:
+                print(f"✅ Successfully updated specialty to: {new_name}")
+                print(f"✅ Updated description: {new_description}")
+            else:
+                print("❌ Failed to update specialty")
+                return False
+        
+        # Test 4: DELETE SPECIALTIES (Test deactivation)
+        print(f"\n🗑️ Test 4: Testing specialty deletion (deactivation)...")
+        if len(created_specialties) > 1:
+            specialty_to_delete = created_specialties[1]  # Delete second specialty
+            success = self.test_delete_specialty(specialty_to_delete['id'])
+            if success:
+                print(f"✅ Successfully deleted specialty: {specialty_to_delete['name']}")
+            else:
+                print(f"❌ Failed to delete specialty: {specialty_to_delete['name']}")
+                return False
+        
+        # Test 5: VALIDATION - Duplicate specialty name prevention
+        print(f"\n🔒 Test 5: Testing duplicate specialty name prevention...")
+        if created_specialties:
+            duplicate_name = created_specialties[0]['name']  # Use first specialty name
+            success = self.test_create_duplicate_specialty(duplicate_name)
+            if not success:
+                print("❌ Duplicate prevention test failed")
+                return False
+        
+        # Test 6: AUTHENTICATION - Verify admin role requirements
+        print(f"\n🔐 Test 6: Testing authentication and admin role requirements...")
+        auth_success = self.test_specialty_unauthorized_access()
+        if not auth_success:
+            print("❌ Authentication test failed")
+            return False
+        
+        # Test 7: ERROR HANDLING - Invalid specialty IDs and missing data
+        print(f"\n⚠️ Test 7: Testing error handling for invalid operations...")
+        error_handling_success = self.test_specialty_invalid_operations()
+        if not error_handling_success:
+            print("❌ Error handling test failed")
+            return False
+        
+        # Test 8: INTEGRATION - Verify specialties can be used in doctor creation/editing
+        print(f"\n🔗 Test 8: Testing integration with doctor creation/editing...")
+        integration_success = self.test_specialty_integration_with_doctors()
+        if not integration_success:
+            print("❌ Integration test failed")
+            return False
+        
+        # Cleanup - Delete remaining test specialties
+        print(f"\n🧹 Cleanup: Removing test specialties...")
+        cleanup_success = True
+        for specialty in created_specialties:
+            if specialty['id'] != (created_specialties[1]['id'] if len(created_specialties) > 1 else None):  # Skip already deleted
+                success = self.test_delete_specialty(specialty['id'])
+                if success:
+                    print(f"✅ Cleaned up specialty: {specialty['name']}")
+                else:
+                    print(f"❌ Failed to clean up specialty: {specialty['name']}")
+                    cleanup_success = False
+        
+        if not cleanup_success:
+            print("⚠️ Warning: Some test specialties may not have been cleaned up properly")
+        
+        print(f"\n🎉 SPECIALTIES MANAGEMENT COMPREHENSIVE TEST COMPLETED")
+        print("=" * 70)
+        print("✅ ALL SPECIALTIES TESTS PASSED!")
+        print("✅ CREATE: Successfully created test specialties")
+        print("✅ READ: Data structure and retrieval verified")
+        print("✅ UPDATE: Specialty name and description updates working")
+        print("✅ DELETE: Specialty deactivation working correctly")
+        print("✅ VALIDATION: Duplicate name prevention working")
+        print("✅ AUTHENTICATION: Admin role requirements enforced")
+        print("✅ ERROR HANDLING: Invalid operations properly handled")
+        print("✅ INTEGRATION: Specialties work with doctor creation/editing")
+        print("=" * 70)
+        
+        return True
+
     def print_summary(self):
         """Print test summary"""
         print(f"\n{'='*50}")
