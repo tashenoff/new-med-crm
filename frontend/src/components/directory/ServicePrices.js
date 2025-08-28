@@ -109,6 +109,25 @@ const ServicePrices = ({ user }) => {
     }
   };
 
+  const fetchSpecialties = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch(`${API}/api/specialties`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setSpecialties(data || []);
+      }
+    } catch (error) {
+      console.error('Error fetching specialties:', error);
+    }
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
