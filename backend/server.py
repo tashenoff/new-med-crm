@@ -350,6 +350,10 @@ class PatientUpdate(BaseModel):
     appointments_count: Optional[int] = None
     records_count: Optional[int] = None
 
+class PaymentType(str, Enum):
+    PERCENTAGE = "percentage"
+    FIXED = "fixed"
+
 class Doctor(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     full_name: str
@@ -358,6 +362,10 @@ class Doctor(BaseModel):
     calendar_color: str = "#3B82F6"  # Default blue color
     is_active: bool = True
     user_id: Optional[str] = None  # Link to User if doctor has account
+    # Поля для оплаты врача (опциональные для обратной совместимости)
+    payment_type: Optional[PaymentType] = PaymentType.PERCENTAGE  # Тип оплаты: процент или фиксированная сумма
+    payment_value: Optional[float] = 0.0  # Значение оплаты (процент 0-100 или фиксированная сумма)
+    currency: Optional[str] = "KZT"  # Валюта для фиксированной оплаты
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)
 
@@ -367,6 +375,10 @@ class DoctorCreate(BaseModel):
     phone: Optional[str] = None
     calendar_color: str = "#3B82F6"
     user_id: Optional[str] = None
+    # Поля для оплаты врача (опциональные с дефолтными значениями)
+    payment_type: Optional[PaymentType] = PaymentType.PERCENTAGE
+    payment_value: Optional[float] = 0.0
+    currency: Optional[str] = "KZT"
 
 class DoctorUpdate(BaseModel):
     full_name: Optional[str] = None
@@ -374,6 +386,10 @@ class DoctorUpdate(BaseModel):
     phone: Optional[str] = None
     calendar_color: Optional[str] = None
     is_active: Optional[bool] = None
+    # Поля для оплаты врача
+    payment_type: Optional[PaymentType] = None
+    payment_value: Optional[float] = None
+    currency: Optional[str] = None
 
 class DoctorSchedule(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
@@ -405,6 +421,10 @@ class DoctorWithSchedule(BaseModel):
     calendar_color: str
     is_active: bool
     user_id: Optional[str]
+    # Поля для оплаты врача (опциональные для обратной совместимости)
+    payment_type: Optional[PaymentType] = PaymentType.PERCENTAGE
+    payment_value: Optional[float] = 0.0
+    currency: Optional[str] = "KZT"
     created_at: datetime
     updated_at: datetime
     schedule: List[DoctorSchedule] = []

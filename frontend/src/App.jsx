@@ -26,6 +26,13 @@ import ClientsView from './components/crm/clients/ClientsView';
 import DealsView from './components/crm/deals/DealsView';
 import ManagersView from './components/crm/managers/ManagersView';
 import ContactsView from './components/crm/contacts/ContactsView';
+
+// Finance components
+import FinanceDashboard from './components/finance/dashboard/FinanceDashboard';
+import IncomeView from './components/finance/income/IncomeView';
+import ExpensesView from './components/finance/expenses/ExpensesView';
+import ReportsView from './components/finance/reports/ReportsView';
+
 import MedicalView from './components/medical/MedicalView';
 import { useApi } from './hooks/useApi';
 import { useMedical } from './hooks/useMedical';
@@ -409,7 +416,13 @@ function ClinicApp() {
     records_count: 0
   });
   const [doctorForm, setDoctorForm] = useState({
-    full_name: '', specialty: '', phone: '', calendar_color: '#3B82F6'
+    full_name: '', 
+    specialty: '', 
+    phone: '', 
+    calendar_color: '#3B82F6',
+    payment_type: 'percentage',
+    payment_value: 0,
+    currency: 'KZT'
   });
   const [appointmentForm, setAppointmentForm] = useState({
     patient_id: '', 
@@ -462,6 +475,9 @@ function ClinicApp() {
     // При переключении в CRM, устанавливаем первый CRM таб
     if (section === 'crm') {
       setActiveTab('crm-dashboard');
+    } else if (section === 'finance') {
+      // При переключении в Финансы, устанавливаем финансовый дашборд
+      setActiveTab('finance-dashboard');
     } else {
       // При переключении в HMS, устанавливаем календарь
       setActiveTab('calendar');
@@ -769,7 +785,15 @@ function ClinicApp() {
       }
       setShowDoctorModal(false);
       setEditingItem(null);
-      setDoctorForm({ full_name: '', specialty: '', phone: '', calendar_color: '#3B82F6' });
+      setDoctorForm({ 
+        full_name: '', 
+        specialty: '', 
+        phone: '', 
+        calendar_color: '#3B82F6',
+        payment_type: 'percentage',
+        payment_value: 0,
+        currency: 'KZT'
+      });
       fetchDoctors();
     } catch (error) {
       console.error('Error saving doctor:', error);
@@ -784,7 +808,10 @@ function ClinicApp() {
       full_name: doctor.full_name,
       specialty: doctor.specialty,
       phone: doctor.phone || '',
-      calendar_color: doctor.calendar_color
+      calendar_color: doctor.calendar_color,
+      payment_type: doctor.payment_type || 'percentage',
+      payment_value: doctor.payment_value || 0,
+      currency: doctor.currency || 'KZT'
     });
     setShowDoctorModal(true);
   };
@@ -1746,6 +1773,23 @@ function ClinicApp() {
         {activeTab === 'crm-contacts' && (
           <ContactsView user={user} />
         )}
+
+        {/* Finance Components */}
+        {activeTab === 'finance-dashboard' && (
+          <FinanceDashboard user={user} />
+        )}
+        
+        {activeTab === 'finance-income' && (
+          <IncomeView user={user} />
+        )}
+        
+        {activeTab === 'finance-expenses' && (
+          <ExpensesView user={user} />
+        )}
+        
+        {activeTab === 'finance-reports' && (
+          <ReportsView user={user} />
+        )}
         
         {activeTab === 'medical' && (
           <MedicalView
@@ -2008,7 +2052,15 @@ function ClinicApp() {
         onClose={() => {
           setShowDoctorModal(false);
           setEditingItem(null);
-          setDoctorForm({ full_name: '', specialty: '', phone: '', calendar_color: '#3B82F6' });
+          setDoctorForm({ 
+            full_name: '', 
+            specialty: '', 
+            phone: '', 
+            calendar_color: '#3B82F6',
+            payment_type: 'percentage',
+            payment_value: 0,
+            currency: 'KZT'
+          });
         }}
         onSave={handleSaveDoctor}
         doctorForm={doctorForm}

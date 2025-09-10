@@ -61,7 +61,7 @@ export const useApi = () => {
 
   const updateAppointment = async (appointmentId, appointmentData) => {
     try {
-про      // Очищаем данные от пустых строк и приводим к правильным типам
+      // Очищаем данные от пустых строк и приводим к правильным типам
       const cleanData = {};
       
       Object.entries(appointmentData).forEach(([key, value]) => {

@@ -120,6 +120,63 @@ const DoctorModal = ({
               className="w-full h-10 border border-gray-300 rounded-lg"
             />
           </div>
+
+          {/* Настройки оплаты */}
+          <div className="border-t pt-4 mt-4">
+            <h4 className="text-md font-semibold text-gray-800 mb-3">💰 Настройки оплаты</h4>
+            
+            <div className="space-y-3">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Тип оплаты</label>
+                <select
+                  value={doctorForm.payment_type || 'percentage'}
+                  onChange={(e) => setDoctorForm({...doctorForm, payment_type: e.target.value})}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500"
+                >
+                  <option value="percentage">Процент от выручки</option>
+                  <option value="fixed">Фиксированная оплата</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  {doctorForm.payment_type === 'percentage' ? 'Процент (%)' : 'Сумма'}
+                </label>
+                <div className="flex">
+                  <input
+                    type="number"
+                    min="0"
+                    max={doctorForm.payment_type === 'percentage' ? '100' : undefined}
+                    step={doctorForm.payment_type === 'percentage' ? '0.1' : '1'}
+                    value={doctorForm.payment_value || ''}
+                    onChange={(e) => setDoctorForm({...doctorForm, payment_value: parseFloat(e.target.value) || 0})}
+                    className="flex-1 px-3 py-2 border border-gray-300 rounded-l-lg focus:ring-2 focus:ring-purple-500"
+                    placeholder={doctorForm.payment_type === 'percentage' ? '0.0' : '0'}
+                  />
+                  {doctorForm.payment_type === 'percentage' ? (
+                    <span className="px-3 py-2 bg-gray-100 border border-l-0 border-gray-300 rounded-r-lg text-gray-600">%</span>
+                  ) : (
+                    <select
+                      value={doctorForm.currency || 'KZT'}
+                      onChange={(e) => setDoctorForm({...doctorForm, currency: e.target.value})}
+                      className="px-3 py-2 border border-l-0 border-gray-300 rounded-r-lg focus:ring-2 focus:ring-purple-500"
+                    >
+                      <option value="KZT">₸</option>
+                      <option value="USD">$</option>
+                      <option value="EUR">€</option>
+                      <option value="RUB">₽</option>
+                    </select>
+                  )}
+                </div>
+                {doctorForm.payment_type === 'percentage' && (
+                  <p className="text-xs text-gray-500 mt-1">Укажите процент от общей выручки врача</p>
+                )}
+                {doctorForm.payment_type === 'fixed' && (
+                  <p className="text-xs text-gray-500 mt-1">Фиксированная оплата за период работы</p>
+                )}
+              </div>
+            </div>
+          </div>
           
           <div className="flex space-x-3">
             <button

@@ -71,6 +71,9 @@ const DoctorsView = ({
                     Email
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Оплата
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Дата добавления
                   </th>
                   {canManage && (
@@ -105,6 +108,22 @@ const DoctorsView = ({
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                       {doctor.email || '-'}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="text-sm text-gray-900">
+                        {doctor.payment_type === 'percentage' ? (
+                          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                            📊 {doctor.payment_value || 0}%
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                            💰 {doctor.payment_value || 0} {doctor.currency === 'KZT' ? '₸' : doctor.currency === 'USD' ? '$' : doctor.currency === 'EUR' ? '€' : doctor.currency === 'RUB' ? '₽' : doctor.currency}
+                          </span>
+                        )}
+                      </div>
+                      <div className="text-xs text-gray-500">
+                        {doctor.payment_type === 'percentage' ? 'от выручки' : 'фиксированная'}
+                      </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                       {new Date(doctor.created_at).toLocaleDateString('ru-RU')}

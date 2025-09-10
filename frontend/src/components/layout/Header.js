@@ -54,7 +54,7 @@ const Header = ({ user, onLogout, onToggleSidebar, sidebarOpen, activeSection, s
             <div className={`flex items-center space-x-2 transition-opacity duration-300 ${sidebarOpen ? 'lg:opacity-0 lg:pointer-events-none' : 'lg:opacity-100'}`}>
               <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
                 <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197m13.5-9a2.5 2.5 0 11-5 0 2.5 2.5 0 015 0z" />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
                 </svg>
               </div>
               <h1 className="text-xl font-bold text-gray-900 hidden sm:block">Мед Ассистент</h1>
@@ -84,6 +84,16 @@ const Header = ({ user, onLogout, onToggleSidebar, sidebarOpen, activeSection, s
                   }`}
                 >
                   CRM
+                </button>
+                <button 
+                  onClick={() => setActiveSection('finance')}
+                  className={`px-3 py-2 text-sm font-medium transition-colors ${
+                    activeSection === 'finance' 
+                      ? 'text-blue-600 border-b-2 border-blue-600' 
+                      : 'text-gray-700 hover:text-blue-600'
+                  }`}
+                >
+                  Финансы
                 </button>
               </nav>
             )}
