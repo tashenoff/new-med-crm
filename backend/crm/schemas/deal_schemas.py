@@ -71,3 +71,5 @@ class DealResponse(BaseModel):
         from_attributes = True
 
 
+
+

@@ -73,3 +73,5 @@ class Source(BaseModel):
         months_active = max(1, (datetime.utcnow() - self.created_at).days / 30)
         return self.leads_count / months_active if self.leads_count > 0 else 0.0
 
+
+

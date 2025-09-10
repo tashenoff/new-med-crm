@@ -147,3 +147,5 @@ class Manager(BaseModel):
         self.updated_at = datetime.utcnow()
 
 
+
+

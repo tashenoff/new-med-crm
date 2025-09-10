@@ -25,6 +25,7 @@ const ContactsView = ({ user }) => {
     createSource,
     updateSource,
     deleteSource,
+    updateSourcesStatistics,
     clearError
   } = useCrm();
   
@@ -79,6 +80,34 @@ const ContactsView = ({ user }) => {
     } catch (error) {
       console.error('Error creating source:', error);
       alert('Ошибка при создании источника: ' + (error.message || error));
+    }
+  };
+
+  const handleDeleteSource = async (source) => {
+    // Подтверждение удаления
+    const confirmMessage = source.leads_count > 0 
+      ? `Источник "${source.name}" имеет ${source.leads_count} заявок и не может быть удален.`
+      : `Вы уверены, что хотите удалить источник "${source.name}"? Это действие необратимо.`;
+    
+    if (source.leads_count > 0) {
+      alert(confirmMessage);
+      return;
+    }
+
+    if (!window.confirm(confirmMessage)) {
+      return;
+    }
+
+    try {
+      await deleteSource(source.id);
+      alert('Источник успешно удален!');
+      
+      // Обновляем данные
+      await fetchSources();
+      await updateSourcesStatistics();
+    } catch (error) {
+      console.error('Error deleting source:', error);
+      alert('Ошибка при удалении источника: ' + (error.message || error));
     }
   };
 
@@ -204,6 +233,9 @@ const ContactsView = ({ user }) => {
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     ROI
                   </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Действия
+                  </th>
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
@@ -291,6 +323,22 @@ const ContactsView = ({ user }) => {
                         </div>
                         <div className="text-xs text-gray-500">
                           Затраты: {source.total_cost.toFixed(0)}₸
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="flex space-x-2">
+                          <button
+                            onClick={() => handleDeleteSource(source)}
+                            disabled={source.leads_count > 0}
+                            className={`text-xs px-2 py-1 rounded ${
+                              source.leads_count > 0
+                                ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                                : 'bg-red-100 text-red-700 hover:bg-red-200'
+                            }`}
+                            title={source.leads_count > 0 ? `Нельзя удалить: есть ${source.leads_count} заявок` : 'Удалить источник'}
+                          >
+                            🗑️ Удалить
+                          </button>
                         </div>
                       </td>
                     </tr>

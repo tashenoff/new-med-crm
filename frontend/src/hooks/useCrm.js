@@ -347,6 +347,17 @@ export const useCrm = () => {
     }
   }, [crmApi.sources]);
 
+  const updateSourcesStatistics = useCallback(async () => {
+    try {
+      await crmApi.sources.updateStatistics();
+      // После обновления статистики, получаем свежие данные
+      await fetchSourcesStatistics();
+    } catch (error) {
+      console.error('Error updating sources statistics:', error);
+      throw error;
+    }
+  }, [crmApi.sources, fetchSourcesStatistics]);
+
   // ==================== DASHBOARD DATA ====================
   
   const fetchDashboardData = useCallback(async () => {
@@ -485,6 +496,7 @@ export const useCrm = () => {
     updateSource,
     deleteSource,
     fetchSourcesStatistics,
+    updateSourcesStatistics,
     
     // Дашборд
     fetchDashboardData,

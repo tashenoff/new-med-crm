@@ -229,14 +229,14 @@ const Navigation = ({ activeTab, setActiveTab, availableTabs, sidebarOpen, setSi
 
       {/* HMS Sidebar */}
       <nav className={`
-        fixed left-0 top-0 h-full bg-white shadow-lg z-50 transform transition-transform duration-300 ease-in-out
-        w-64 border-r border-gray-200
+        fixed left-0 top-0 h-full bg-white dark:bg-gray-900 shadow-lg z-50 transform transition-transform duration-300 ease-in-out
+        w-64 border-r border-gray-200 dark:border-gray-700
         ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}
         lg:fixed lg:z-50
       `}>
         <div className="flex flex-col h-full">
           {/* Sidebar Header */}
-          <div className="px-6 py-6 border-b border-gray-200 bg-gradient-to-r from-blue-600 to-purple-600">
+          <div className="px-6 py-6 border-b border-gray-200 dark:border-gray-700 bg-gradient-to-r from-blue-600 to-purple-600">
             <div className="flex items-center space-x-3">
               <div className="w-10 h-10 bg-white bg-opacity-20 rounded-lg flex items-center justify-center">
                 <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -261,21 +261,21 @@ const Navigation = ({ activeTab, setActiveTab, availableTabs, sidebarOpen, setSi
                       className={`
                         w-full flex items-center px-3 py-3 text-left rounded-lg font-medium transition-all duration-200
                         ${activeTab === item.key
-                          ? 'bg-blue-50 text-blue-700 border-r-2 border-blue-600 shadow-sm'
-                          : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
+                          ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 border-r-2 border-blue-600 dark:border-blue-400 shadow-sm'
+                          : 'text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white hover:bg-gray-50 dark:hover:bg-gray-800'
                         }
                       `}
                     >
                       <span className={`
                         mr-3 flex-shrink-0
-                        ${activeTab === item.key ? 'text-blue-600' : 'text-gray-400'}
+                        ${activeTab === item.key ? 'text-blue-600 dark:text-blue-400' : 'text-gray-400 dark:text-gray-500'}
                       `}>
                         {getTabIcon(item.key)}
                       </span>
                       <span className="text-sm">{item.label}</span>
                       {activeTab === item.key && (
                         <span className="ml-auto">
-                          <div className="w-2 h-2 bg-blue-600 rounded-full"></div>
+                          <div className="w-2 h-2 bg-blue-600 dark:bg-blue-400 rounded-full"></div>
                         </span>
                       )}
                     </button>
@@ -419,8 +419,8 @@ const Navigation = ({ activeTab, setActiveTab, availableTabs, sidebarOpen, setSi
           </div>
 
           {/* Footer */}
-          <div className="px-6 py-4 border-t border-gray-200 bg-gray-50">
-            <div className="text-xs text-gray-500 text-center">
+          <div className="px-6 py-4 border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800">
+            <div className="text-xs text-gray-500 dark:text-gray-400 text-center">
               <p>© 2025 Мед Ассистент</p>
               <p>Версия 1.0.0</p>
             </div>

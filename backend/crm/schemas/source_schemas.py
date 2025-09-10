@@ -73,3 +73,5 @@ class SourceStatistics(BaseModel):
     by_type: dict[str, int] = {}
     top_sources: list[dict] = []  # Топ источников по конверсии
 
+
+

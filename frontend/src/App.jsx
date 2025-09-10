@@ -37,6 +37,7 @@ import MedicalView from './components/medical/MedicalView';
 import { useApi } from './hooks/useApi';
 import { useMedical } from './hooks/useMedical';
 import { GlobalRefreshProvider, useGlobalRefresh } from './hooks/useGlobalRefresh';
+import { ThemeProvider } from './hooks/useTheme';
 import './App.css';
 
 const BACKEND_URL = import.meta.env.VITE_BACKEND_URL;
@@ -1704,7 +1705,7 @@ function ClinicApp() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
       {/* Sidebar Navigation */}
       <Navigation
         activeTab={activeTab}
@@ -2395,6 +2396,9 @@ function ClinicApp() {
           </div>
         </div>
       )}
+      
+      {/* Убрали BackgroundSelector, оставляем только кнопку в Header */}
+      
       </div>
     </div>
   );
@@ -2405,16 +2409,17 @@ function App() {
   const [isLogin, setIsLogin] = useState(true);
   
   return (
-    <AuthProvider>
-      <GlobalRefreshProvider>
-        <AuthContext.Consumer>
+    <ThemeProvider>
+      <AuthProvider>
+        <GlobalRefreshProvider>
+          <AuthContext.Consumer>
           {({ user, loading }) => {
             if (loading) {
               return (
-                <div className="min-h-screen flex items-center justify-center bg-gray-50">
+                <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900">
                   <div className="text-center">
-                    <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-gray-900 mx-auto"></div>
-                    <p className="mt-4 text-gray-600">Загрузка...</p>
+                    <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-gray-900 dark:border-gray-100 mx-auto"></div>
+                    <p className="mt-4 text-gray-600 dark:text-gray-300">Загрузка...</p>
                   </div>
                 </div>
               );
@@ -2430,9 +2435,10 @@ function App() {
             
             return <ClinicApp />;
           }}
-        </AuthContext.Consumer>
-      </GlobalRefreshProvider>
-    </AuthProvider>
+          </AuthContext.Consumer>
+        </GlobalRefreshProvider>
+      </AuthProvider>
+    </ThemeProvider>
   );
 }
 

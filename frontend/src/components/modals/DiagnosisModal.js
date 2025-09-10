@@ -75,3 +75,5 @@ const DiagnosisModal = ({
 export default DiagnosisModal;
 
 
+
+

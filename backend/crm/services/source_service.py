@@ -67,7 +67,13 @@ class SourceService:
         return None
     
     async def delete_source(self, source_id: str) -> bool:
-        """Удалить источник"""
+        """Удалить источник (только если нет связанных заявок)"""
+        # Проверяем, есть ли заявки с этим источником
+        leads_count = await self.leads_collection.count_documents({"source_id": source_id})
+        
+        if leads_count > 0:
+            raise ValueError(f"Невозможно удалить источник: найдено {leads_count} заявок с этим источником")
+        
         result = await self.collection.delete_one({"id": source_id})
         return result.deleted_count > 0
     
