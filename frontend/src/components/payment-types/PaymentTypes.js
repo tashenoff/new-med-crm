@@ -1,4 +1,6 @@
 import React, { useState, useEffect } from 'react';
+import Modal from '../modals/Modal';
+import { inputClasses, textareaClasses, labelClasses, buttonPrimaryClasses, buttonSecondaryClasses } from '../modals/modalUtils';
 
 const PaymentTypes = ({ user }) => {
   const [paymentTypes, setPaymentTypes] = useState([]);
@@ -178,13 +180,13 @@ const PaymentTypes = ({ user }) => {
       <div className="bg-white p-4 rounded-lg shadow border">
         <div className="flex gap-4">
           <div className="flex-1">
-            <label className="block text-sm font-medium text-gray-700 mb-1">Поиск типов оплат</label>
+            <label className={labelClasses}>Поиск типов оплат</label>
             <input
               type="text"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               placeholder="Введите название типа оплаты..."
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
+              className={inputClasses}
             />
           </div>
         </div>
@@ -325,28 +327,37 @@ const PaymentTypes = ({ user }) => {
       </div>
 
       {/* Модальное окно для создания/редактирования типа оплаты */}
-      {showModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 w-full max-w-md">
-            <h3 className="text-lg font-semibold mb-4">
-              {editingPaymentType ? 'Редактировать тип оплаты' : 'Добавить новый тип оплаты'}
-            </h3>
+      <Modal 
+        show={showModal} 
+        onClose={() => {
+          setShowModal(false);
+          setEditingPaymentType(null);
+          setPaymentTypeForm({
+            name: '',
+            description: '',
+            is_active: true
+          });
+        }}
+        title={editingPaymentType ? 'Редактировать тип оплаты' : 'Добавить новый тип оплаты'}
+        errorMessage={error}
+        size="max-w-md"
+      >
             
             <form onSubmit={handleSubmit} className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Название типа оплаты *</label>
+                <label className={labelClasses}>Название типа оплаты *</label>
                 <input
                   type="text"
                   value={paymentTypeForm.name}
                   onChange={(e) => setPaymentTypeForm({...paymentTypeForm, name: e.target.value})}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
+                  className={inputClasses}
                   required
                   placeholder="Например: Наличные, Карта, Каспи QR, Банковский перевод"
                 />
               </div>
               
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Комиссия платежной системы (%)</label>
+                <label className={labelClasses}>Комиссия платежной системы (%)</label>
                 <input
                   type="number"
                   step="0.01"
@@ -354,17 +365,17 @@ const PaymentTypes = ({ user }) => {
                   max="100"
                   value={paymentTypeForm.commission_rate}
                   onChange={(e) => setPaymentTypeForm({...paymentTypeForm, commission_rate: e.target.value})}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
+                  className={inputClasses}
                   placeholder="Например: 2.5 для 2.5%"
                 />
               </div>
               
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Описание</label>
+                <label className={labelClasses}>Описание</label>
                 <textarea
                   value={paymentTypeForm.description}
                   onChange={(e) => setPaymentTypeForm({...paymentTypeForm, description: e.target.value})}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
+                  className={inputClasses}
                   rows="3"
                   placeholder="Дополнительная информация о типе оплаты..."
                 />
@@ -374,22 +385,21 @@ const PaymentTypes = ({ user }) => {
                 <button
                   type="submit"
                   disabled={loading}
-                  className="flex-1 bg-indigo-600 text-white py-2 px-4 rounded-lg hover:bg-indigo-700 disabled:opacity-50"
+                  className={`flex-1 ${buttonPrimaryClasses}`}
+                  disabled={loading}
                 >
                   {loading ? 'Сохранение...' : (editingPaymentType ? 'Обновить' : 'Создать')}
                 </button>
                 <button
                   type="button"
                   onClick={handleCloseModal}
-                  className="flex-1 bg-gray-300 text-gray-700 py-2 px-4 rounded-lg hover:bg-gray-400"
+                  className={`flex-1 ${buttonSecondaryClasses}`}
                 >
                   Отмена
                 </button>
               </div>
             </form>
-          </div>
-        </div>
-      )}
+      </Modal>
     </div>
   );
 };

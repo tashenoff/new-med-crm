@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useCrm } from '../../../hooks/useCrm';
+import Modal from '../../modals/Modal';
+import { inputClasses, selectClasses, labelClasses, buttonPrimaryClasses, buttonSecondaryClasses } from '../../modals/modalUtils';
 
 const LeadsView = ({ user }) => {
   const [filteredLeads, setFilteredLeads] = useState([]);
@@ -169,7 +171,7 @@ const LeadsView = ({ user }) => {
       <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
         <div className="flex flex-wrap gap-4 items-center">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Статус</label>
+            <label className={labelClasses}>Статус</label>
             <select
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value)}
@@ -183,13 +185,13 @@ const LeadsView = ({ user }) => {
           </div>
           
           <div className="flex-1">
-            <label className="block text-sm font-medium text-gray-700 mb-1">Поиск</label>
+            <label className={labelClasses}>Поиск</label>
             <input
               type="text"
               placeholder="Поиск по имени, телефону или email..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm"
+              className={inputClasses}
             />
           </div>
         </div>
@@ -288,59 +290,62 @@ const LeadsView = ({ user }) => {
       </div>
 
       {/* Create Lead Modal */}
-      {showCreateModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg shadow-xl p-6 w-full max-w-md">
-            <h2 className="text-xl font-bold text-gray-900 mb-4">Новая заявка</h2>
+      <Modal 
+        show={showCreateModal} 
+        onClose={() => setShowCreateModal(false)}
+        title="Новая заявка"
+        errorMessage={error}
+        size="max-w-md"
+      >
             
             <div className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Имя *</label>
+                  <label className={labelClasses}>Имя *</label>
                   <input
                     type="text"
                     value={newLead.first_name}
                     onChange={(e) => setNewLead({...newLead, first_name: e.target.value})}
-                    className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm"
+                    className={inputClasses}
                     placeholder="Введите имя"
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Фамилия *</label>
+                  <label className={labelClasses}>Фамилия *</label>
                   <input
                     type="text"
                     value={newLead.last_name}
                     onChange={(e) => setNewLead({...newLead, last_name: e.target.value})}
-                    className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm"
+                    className={inputClasses}
                     placeholder="Введите фамилию"
                   />
                 </div>
               </div>
               
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Телефон *</label>
+                <label className={labelClasses}>Телефон *</label>
                 <input
                   type="tel"
                   value={newLead.phone}
                   onChange={(e) => setNewLead({...newLead, phone: e.target.value})}
-                  className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm"
+                  className={inputClasses}
                   placeholder="+7 (___) ___-__-__"
                 />
               </div>
               
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
+                <label className={labelClasses}>Email</label>
                 <input
                   type="email"
                   value={newLead.email}
                   onChange={(e) => setNewLead({...newLead, email: e.target.value})}
-                  className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm"
+                  className={inputClasses}
                   placeholder="example@email.com"
                 />
               </div>
               
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Источник</label>
+                <label className={labelClasses}>Источник</label>
                 <select
                   value={newLead.source_id || newLead.source}
                   onChange={(e) => {
@@ -362,7 +367,7 @@ const LeadsView = ({ user }) => {
                       });
                     }
                   }}
-                  className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm"
+                  className={inputClasses}
                 >
                   <option value="">Выберите источник</option>
                   {sources.map((source) => (
@@ -378,11 +383,11 @@ const LeadsView = ({ user }) => {
               </div>
               
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Описание</label>
+                <label className={labelClasses}>Описание</label>
                 <textarea
                   value={newLead.description}
                   onChange={(e) => setNewLead({...newLead, description: e.target.value})}
-                  className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm"
+                  className={inputClasses}
                   rows="3"
                   placeholder="Описание заявки..."
                 />
@@ -404,9 +409,7 @@ const LeadsView = ({ user }) => {
                 Создать
               </button>
             </div>
-          </div>
-        </div>
-      )}
+      </Modal>
     </div>
   );
 };

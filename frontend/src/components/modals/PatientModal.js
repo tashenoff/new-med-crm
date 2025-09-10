@@ -1,4 +1,6 @@
 import React, { useState, useEffect } from 'react';
+import Modal from './Modal';
+import { inputClasses, selectClasses, textareaClasses, labelClasses, buttonPrimaryClasses, buttonSecondaryClasses, buttonSuccessClasses, buttonDangerClasses, cardHeaderClasses, tabClasses, tableClasses, tableHeaderClasses, tableRowClasses } from './modalUtils';
 import ServiceSelector from '../treatment/ServiceSelector';
 
 const PatientModal = ({ 
@@ -233,32 +235,19 @@ const PatientModal = ({
   if (!show) return null;
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-white rounded-lg p-6 w-full max-w-4xl mx-4 max-h-[90vh] overflow-y-auto">
-        <h3 className="text-lg font-semibold mb-4">
-          {editingItem ? 'Редактировать пациента' : 'Новый пациент'}
-        </h3>
-        
-        {errorMessage && (
-          <div className={`border px-4 py-3 rounded mb-4 ${
-            typeof errorMessage === 'string' && errorMessage.startsWith('✅') 
-              ? 'bg-green-100 border-green-400 text-green-700'
-              : 'bg-red-100 border-red-400 text-red-700'
-          }`}>
-            <span className="block">{errorMessage}</span>
-          </div>
-        )}
+    <Modal 
+      show={show} 
+      onClose={onClose}
+      title={editingItem ? 'Редактировать пациента' : 'Новый пациент'}
+      errorMessage={errorMessage}
+    >
 
         {/* Tabs */}
-        <div className="border-b border-gray-200 mb-4">
+        <div className="border-b border-gray-200 dark:border-gray-700 mb-4">
           <nav className="-mb-px flex space-x-8">
             <button
               onClick={() => setActiveTab('info')}
-              className={`py-2 px-1 border-b-2 font-medium text-sm ${
-                activeTab === 'info'
-                  ? 'border-blue-500 text-blue-600'
-                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-              }`}
+              className={tabClasses(activeTab === 'info')}
             >
               Информация о пациенте
             </button>
@@ -266,21 +255,13 @@ const PatientModal = ({
               <>
                 <button
                   onClick={() => setActiveTab('documents')}
-                  className={`py-2 px-1 border-b-2 font-medium text-sm ${
-                    activeTab === 'documents'
-                      ? 'border-blue-500 text-blue-600'
-                      : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                  }`}
+                  className={tabClasses(activeTab === 'documents')}
                 >
                   Документы
                 </button>
                 <button
                   onClick={() => setActiveTab('plans')}
-                  className={`py-2 px-1 border-b-2 font-medium text-sm ${
-                    activeTab === 'plans'
-                      ? 'border-blue-500 text-blue-600'
-                      : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                  }`}
+                  className={tabClasses(activeTab === 'plans')}
                 >
                   План лечения
                 </button>
@@ -298,7 +279,7 @@ const PatientModal = ({
                 placeholder="Полное имя *"
                 value={patientForm.full_name}
                 onChange={(e) => setPatientForm({...patientForm, full_name: e.target.value})}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500"
+                className={inputClasses}
                 required
               />
               
@@ -307,7 +288,7 @@ const PatientModal = ({
                 placeholder="Телефон *"
                 value={patientForm.phone}
                 onChange={(e) => setPatientForm({...patientForm, phone: e.target.value})}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500"
+                className={inputClasses}
                 required
               />
             </div>
@@ -318,7 +299,7 @@ const PatientModal = ({
                 placeholder="ИИН"
                 value={patientForm.iin || ''}
                 onChange={(e) => setPatientForm({...patientForm, iin: e.target.value})}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500"
+                className={inputClasses}
               />
               
               <input
@@ -326,7 +307,7 @@ const PatientModal = ({
                 placeholder="Дата рождения"
                 value={patientForm.birth_date || ''}
                 onChange={(e) => setPatientForm({...patientForm, birth_date: e.target.value})}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500"
+                className={inputClasses}
               />
             </div>
 
@@ -334,7 +315,7 @@ const PatientModal = ({
               <select
                 value={patientForm.gender || ''}
                 onChange={(e) => setPatientForm({...patientForm, gender: e.target.value})}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500"
+                className={inputClasses}
               >
                 <option value="">Выберите пол</option>
                 <option value="male">Мужской</option>
@@ -347,14 +328,14 @@ const PatientModal = ({
                 placeholder="Кто направил пациента"
                 value={patientForm.referrer || ''}
                 onChange={(e) => setPatientForm({...patientForm, referrer: e.target.value})}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500"
+                className={inputClasses}
               />
             </div>
             
             <select
               value={patientForm.source}
               onChange={(e) => setPatientForm({...patientForm, source: e.target.value})}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500"
+              className={inputClasses}
             >
               <option value="phone">Телефонный звонок</option>
               <option value="walk_in">Обращение в клинику</option>
@@ -376,7 +357,7 @@ const PatientModal = ({
                       min="0"
                       value={patientForm.revenue || 0}
                       onChange={(e) => setPatientForm({...patientForm, revenue: parseFloat(e.target.value) || 0})}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500"
+                      className={inputClasses}
                     />
                   </div>
                   
@@ -388,7 +369,7 @@ const PatientModal = ({
                       min="0"
                       value={patientForm.debt || 0}
                       onChange={(e) => setPatientForm({...patientForm, debt: parseFloat(e.target.value) || 0})}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500"
+                      className={inputClasses}
                     />
                   </div>
                   
@@ -400,7 +381,7 @@ const PatientModal = ({
                       min="0"
                       value={patientForm.overpayment || 0}
                       onChange={(e) => setPatientForm({...patientForm, overpayment: parseFloat(e.target.value) || 0})}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500"
+                      className={inputClasses}
                     />
                   </div>
                 </div>
@@ -413,7 +394,7 @@ const PatientModal = ({
                       min="0"
                       value={patientForm.appointments_count || 0}
                       onChange={(e) => setPatientForm({...patientForm, appointments_count: parseInt(e.target.value) || 0})}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500"
+                      className={inputClasses}
                     />
                   </div>
                   
@@ -424,7 +405,7 @@ const PatientModal = ({
                       min="0"
                       value={patientForm.records_count || 0}
                       onChange={(e) => setPatientForm({...patientForm, records_count: parseInt(e.target.value) || 0})}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500"
+                      className={inputClasses}
                     />
                   </div>
                 </div>
@@ -435,7 +416,7 @@ const PatientModal = ({
               placeholder="Заметки"
               value={patientForm.notes}
               onChange={(e) => setPatientForm({...patientForm, notes: e.target.value})}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500"
+              className={inputClasses}
               rows="3"
             />
             
@@ -443,14 +424,14 @@ const PatientModal = ({
               <button
                 type="submit"
                 disabled={loading}
-                className="flex-1 bg-green-600 text-white py-2 rounded-lg hover:bg-green-700 disabled:opacity-50"
+                className={`flex-1 ${buttonSuccessClasses}`}
               >
                 {loading ? 'Сохранение...' : (editingItem ? 'Обновить' : 'Создать')}
               </button>
               <button
                 type="button"
                 onClick={onClose}
-                className="flex-1 bg-gray-300 text-gray-700 py-2 rounded-lg hover:bg-gray-400"
+                className={`flex-1 ${buttonSecondaryClasses}`}
               >
                 Отмена
               </button>
@@ -462,7 +443,7 @@ const PatientModal = ({
         {activeTab === 'documents' && editingItem && (
           <div className="space-y-4">
             {/* Upload Section */}
-            <div className="bg-gray-50 p-4 rounded-lg border">
+            <div className={cardHeaderClasses}>
               <h4 className="font-medium mb-3">Загрузить новый документ</h4>
               <div className="space-y-3">
                 <div>
@@ -470,7 +451,7 @@ const PatientModal = ({
                     id="file-input"
                     type="file"
                     onChange={(e) => setSelectedFile(e.target.files[0])}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                    className={inputClasses}
                     accept=".pdf,.doc,.docx,.txt,.jpg,.jpeg,.png"
                   />
                   <p className="text-sm text-gray-500 mt-1">
@@ -482,7 +463,7 @@ const PatientModal = ({
                   placeholder="Описание документа (опционально)"
                   value={documentDescription}
                   onChange={(e) => setDocumentDescription(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                  className={inputClasses}
                 />
                 <button
                   onClick={handleFileUpload}
@@ -561,7 +542,7 @@ const PatientModal = ({
             </div>
 
             {/* Add/Edit Plan Form */}
-            <div className="bg-gray-50 p-4 rounded-lg border">
+            <div className={cardHeaderClasses}>
               <h4 className="font-medium mb-3">
                 {editingPlan ? 'Редактировать план лечения' : 'Добавить план лечения'}
               </h4>
@@ -573,14 +554,14 @@ const PatientModal = ({
                   placeholder="Название плана лечения *"
                   value={planForm.title}
                   onChange={(e) => setPlanForm({...planForm, title: e.target.value})}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                  className={inputClasses}
                   required
                 />
                 <textarea
                   placeholder="Описание плана"
                   value={planForm.description}
                   onChange={(e) => setPlanForm({...planForm, description: e.target.value})}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                  className={inputClasses}
                   rows="2"
                 />
                 
@@ -589,7 +570,7 @@ const PatientModal = ({
                   <select
                     value={planForm.status}
                     onChange={(e) => setPlanForm({...planForm, status: e.target.value})}
-                    className="px-3 py-2 border border-gray-300 rounded-lg"
+                    className={selectClasses}
                   >
                     <option value="draft">Черновик</option>
                     <option value="approved">Утвержден</option>
@@ -600,7 +581,7 @@ const PatientModal = ({
                   <select
                     value={planForm.execution_status}
                     onChange={(e) => setPlanForm({...planForm, execution_status: e.target.value})}
-                    className="px-3 py-2 border border-gray-300 rounded-lg"
+                    className={selectClasses}
                   >
                     <option value="pending">Ожидает</option>
                     <option value="in_progress">В процессе</option>
@@ -613,7 +594,7 @@ const PatientModal = ({
                   <select
                     value={planForm.payment_status}
                     onChange={(e) => setPlanForm({...planForm, payment_status: e.target.value})}
-                    className="px-3 py-2 border border-gray-300 rounded-lg"
+                    className={selectClasses}
                   >
                     <option value="unpaid">Не оплачено</option>
                     <option value="partially_paid">Частично оплачено</option>
@@ -627,7 +608,7 @@ const PatientModal = ({
                     placeholder="Оплачено (₸)"
                     value={planForm.paid_amount}
                     onChange={(e) => setPlanForm({...planForm, paid_amount: parseFloat(e.target.value) || 0})}
-                    className="px-3 py-2 border border-gray-300 rounded-lg"
+                    className={selectClasses}
                   />
                 </div>
               </div>
@@ -900,8 +881,7 @@ const PatientModal = ({
             </div>
           </div>
         )}
-      </div>
-    </div>
+    </Modal>
   );
 };
 

@@ -1,4 +1,6 @@
 import React from 'react';
+import Modal from './Modal';
+import { inputClasses, selectClasses, textareaClasses, buttonPrimaryClasses, buttonSecondaryClasses } from './modalUtils';
 
 const MedicalEntryModal = ({ 
   show, 
@@ -12,23 +14,19 @@ const MedicalEntryModal = ({
   if (!show) return null;
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-white rounded-lg p-6 w-full max-w-md mx-4">
-        <h3 className="text-lg font-semibold mb-4 text-indigo-700">
-          📝 Добавить запись о приеме
-        </h3>
-        
-        {errorMessage && (
-          <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
-            <span className="block">{errorMessage}</span>
-          </div>
-        )}
+    <Modal 
+      show={show} 
+      onClose={onClose}
+      title="📝 Добавить запись о приеме"
+      errorMessage={errorMessage}
+      size="max-w-md"
+    >
         
         <form onSubmit={onSave} className="space-y-4">
           <select
             value={medicalEntryForm.entry_type || 'visit'}
             onChange={(e) => setMedicalEntryForm({...medicalEntryForm, entry_type: e.target.value})}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
+            className={selectClasses}
           >
             <option value="visit">Визит/Осмотр</option>
             <option value="treatment">Лечение</option>
@@ -40,7 +38,7 @@ const MedicalEntryModal = ({
             placeholder="Заголовок записи *"
             value={medicalEntryForm.title || ''}
             onChange={(e) => setMedicalEntryForm({...medicalEntryForm, title: e.target.value})}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
+            className={selectClasses}
             required
           />
           
@@ -48,7 +46,7 @@ const MedicalEntryModal = ({
             placeholder="Описание приема, симптомы, проведенные процедуры..."
             value={medicalEntryForm.description || ''}
             onChange={(e) => setMedicalEntryForm({...medicalEntryForm, description: e.target.value})}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
+            className={selectClasses}
             rows="4"
             required
           />
@@ -56,7 +54,7 @@ const MedicalEntryModal = ({
           <select
             value={medicalEntryForm.severity || ''}
             onChange={(e) => setMedicalEntryForm({...medicalEntryForm, severity: e.target.value})}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
+            className={selectClasses}
           >
             <option value="">Без указания важности</option>
             <option value="low">Низкая важность</option>
@@ -69,21 +67,20 @@ const MedicalEntryModal = ({
             <button
               type="submit"
               disabled={loading}
-              className="flex-1 bg-indigo-600 text-white py-2 rounded-lg hover:bg-indigo-700 disabled:opacity-50"
+              className={`flex-1 ${buttonPrimaryClasses}`}
             >
               {loading ? 'Добавление...' : 'Добавить запись'}
             </button>
             <button
               type="button"
               onClick={onClose}
-              className="flex-1 bg-gray-300 text-gray-700 py-2 rounded-lg hover:bg-gray-400"
+              className={`flex-1 ${buttonSecondaryClasses}`}
             >
               Отмена
             </button>
           </div>
         </form>
-      </div>
-    </div>
+    </Modal>
   );
 };
 

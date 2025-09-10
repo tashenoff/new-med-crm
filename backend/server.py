@@ -537,6 +537,7 @@ class AppointmentCreate(BaseModel):
     end_time: Optional[str] = None
     chair_number: Optional[str] = None
     price: Optional[float] = None
+    status: Optional[AppointmentStatus] = AppointmentStatus.UNCONFIRMED
     reason: Optional[str] = None
     notes: Optional[str] = None
     patient_notes: Optional[str] = None
@@ -1246,6 +1247,130 @@ async def get_individual_doctor_statistics(
             "high_utilization_doctors": len([d for d in doctor_stats if d["utilization_rate"] > 80 and d["total_worked_hours"] > 0]),
             "avg_worked_hours": round(sum(d["total_worked_hours"] for d in doctor_stats) / len([d for d in doctor_stats if d["total_worked_hours"] > 0]) if len([d for d in doctor_stats if d["total_worked_hours"] > 0]) > 0 else 0, 2),
             "avg_utilization_rate": round(sum(d["utilization_rate"] for d in doctor_stats) / len([d for d in doctor_stats if d["total_scheduled_hours"] > 0]) if len([d for d in doctor_stats if d["total_scheduled_hours"] > 0]) > 0 else 0, 1)
+        }
+    }
+
+@api_router.get("/doctors/salary-report")
+async def get_doctor_salary_report(
+    date_from: Optional[str] = None,
+    date_to: Optional[str] = None,
+    current_user: UserInDB = Depends(require_role([UserRole.ADMIN]))
+):
+    """Получить отчет по зарплатам врачей"""
+    from datetime import datetime
+    
+    # Устанавливаем даты по умолчанию (текущий месяц)
+    if not date_from:
+        date_from = datetime.now().replace(day=1).strftime('%Y-%m-%d')
+    if not date_to:
+        date_to = datetime.now().strftime('%Y-%m-%d')
+    
+    # Фильтр по датам
+    date_filter = {
+        "appointment_date": {
+            "$gte": date_from,
+            "$lte": date_to
+        }
+    }
+    
+    # Агрегируем статистику по врачам из записей
+    pipeline = [
+        {"$match": date_filter},
+        {
+            "$group": {
+                "_id": "$doctor_id",
+                "total_appointments": {"$sum": 1},
+                "completed_appointments": {
+                    "$sum": {"$cond": [{"$eq": ["$status", "completed"]}, 1, 0]}
+                },
+                "total_revenue": {
+                    "$sum": {
+                        "$cond": [
+                            {"$eq": ["$status", "completed"]},
+                            {"$toDouble": {"$ifNull": ["$price", 0]}},
+                            0
+                        ]
+                    }
+                }
+            }
+        },
+        {
+            "$lookup": {
+                "from": "doctors",
+                "localField": "_id",
+                "foreignField": "id",
+                "as": "doctor"
+            }
+        },
+        {"$unwind": "$doctor"},
+        {
+            "$project": {
+                "_id": 0,
+                "doctor_id": "$_id",
+                "doctor_name": "$doctor.full_name",
+                "doctor_specialty": "$doctor.specialty",
+                "payment_type": "$doctor.payment_type",
+                "payment_value": "$doctor.payment_value",
+                "currency": "$doctor.currency",
+                "total_appointments": 1,
+                "completed_appointments": 1,
+                "total_revenue": 1,
+                "calculated_salary": {
+                    "$cond": [
+                        {"$eq": ["$doctor.payment_type", "fixed"]},
+                        "$doctor.payment_value",
+                        {
+                            "$multiply": [
+                                "$total_revenue",
+                                {"$divide": ["$doctor.payment_value", 100]}
+                            ]
+                        }
+                    ]
+                }
+            }
+        },
+        {"$sort": {"total_revenue": -1}}
+    ]
+    
+    salary_data = await db.appointments.aggregate(pipeline).to_list(None)
+    
+    # Получаем врачей без записей в периоде
+    doctor_ids_with_appointments = [item["doctor_id"] for item in salary_data]
+    doctors_without_appointments = await db.doctors.find({
+        "id": {"$nin": doctor_ids_with_appointments},
+        "is_active": True
+    }).to_list(None)
+    
+    # Добавляем врачей без записей
+    for doctor in doctors_without_appointments:
+        salary_item = {
+            "doctor_id": doctor["id"],
+            "doctor_name": doctor["full_name"],
+            "doctor_specialty": doctor["specialty"],
+            "payment_type": doctor.get("payment_type", "percentage"),
+            "payment_value": doctor.get("payment_value", 0.0),
+            "currency": doctor.get("currency", "KZT"),
+            "total_appointments": 0,
+            "completed_appointments": 0,
+            "total_revenue": 0.0,
+            "calculated_salary": doctor.get("payment_value", 0.0) if doctor.get("payment_type") == "fixed" else 0.0
+        }
+        salary_data.append(salary_item)
+    
+    # Общая статистика
+    total_revenue = sum(item["total_revenue"] for item in salary_data)
+    total_salary = sum(item["calculated_salary"] for item in salary_data)
+    total_doctors = len(salary_data)
+    
+    return {
+        "salary_data": salary_data,
+        "summary": {
+            "total_revenue": total_revenue,
+            "total_salary": total_salary,
+            "total_doctors": total_doctors,
+            "date_from": date_from,
+            "date_to": date_to,
+            "salary_percentage": round((total_salary / total_revenue * 100) if total_revenue > 0 else 0, 2)
         }
     }
 

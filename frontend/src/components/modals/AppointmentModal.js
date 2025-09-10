@@ -1,4 +1,6 @@
 import React, { useState, useEffect } from 'react';
+import Modal from './Modal';
+import { inputClasses, selectClasses, textareaClasses, buttonPrimaryClasses, buttonSecondaryClasses, buttonSuccessClasses, cardHeaderClasses, tabClasses } from './modalUtils';
 import ServiceSelector from '../treatment/ServiceSelector';
 
 const AppointmentModal = ({ 
@@ -472,21 +474,12 @@ const AppointmentModal = ({
   if (!show) return null;
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-white rounded-lg p-6 w-full max-w-4xl mx-4 max-h-[90vh] overflow-y-auto">
-        <h3 className="text-lg font-semibold mb-4">
-          {editingItem ? 'Редактировать запись' : 'Новая запись на прием'}
-        </h3>
-        
-        {errorMessage && (
-          <div className={`border px-4 py-3 rounded mb-4 ${
-            typeof errorMessage === 'string' && errorMessage.startsWith('✅') 
-              ? 'bg-green-100 border-green-400 text-green-700'
-              : 'bg-red-100 border-red-400 text-red-700'
-          }`}>
-            <span className="block">{errorMessage}</span>
-          </div>
-        )}
+    <Modal 
+      show={show} 
+      onClose={onClose}
+      title={editingItem ? 'Редактировать запись' : 'Новая запись на прием'}
+      errorMessage={errorMessage}
+    >
 
         {/* Tabs */}
         <div className="border-b border-gray-200 mb-4">
@@ -634,7 +627,7 @@ const AppointmentModal = ({
             </div>
 
             {showNewPatientForm && (
-              <div className="bg-gray-50 p-4 rounded-lg border">
+              <div className={cardHeaderClasses}>
                 <h4 className="font-medium mb-3">Создать нового пациента</h4>
                 <div className="grid grid-cols-2 gap-3">
                   <input
@@ -714,7 +707,7 @@ const AppointmentModal = ({
                   value={appointmentForm.appointment_date}
                   onChange={(e) => handleDateChange(e.target.value)}
                   min={new Date().toISOString().split('T')[0]}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                  className={inputClasses}
                   required
                 />
               </div>
@@ -725,7 +718,7 @@ const AppointmentModal = ({
                   type="time"
                   value={appointmentForm.appointment_time}
                   onChange={(e) => handleTimeChange(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                  className={inputClasses}
                   required
                 />
               </div>
@@ -736,7 +729,7 @@ const AppointmentModal = ({
                   type="time"
                   value={appointmentForm.end_time || ''}
                   onChange={(e) => setAppointmentForm({...appointmentForm, end_time: e.target.value})}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                  className={inputClasses}
                 />
               </div>
             </div>
@@ -759,7 +752,7 @@ const AppointmentModal = ({
               <select
                 value={appointmentForm.doctor_id}
                 onChange={(e) => setAppointmentForm({...appointmentForm, doctor_id: e.target.value})}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                className={inputClasses}
                 required
                 disabled={!appointmentForm.appointment_date || loadingDoctors}
               >
@@ -799,7 +792,7 @@ const AppointmentModal = ({
               )}
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-3 gap-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Кресло</label>
                 <input
@@ -807,7 +800,7 @@ const AppointmentModal = ({
                   placeholder="Номер кресла"
                   value={appointmentForm.chair_number || ''}
                   onChange={(e) => setAppointmentForm({...appointmentForm, chair_number: e.target.value})}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                  className={inputClasses}
                 />
               </div>
               
@@ -820,8 +813,25 @@ const AppointmentModal = ({
                   placeholder="0"
                   value={appointmentForm.price || ''}
                   onChange={(e) => setAppointmentForm({...appointmentForm, price: e.target.value})}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                  className={inputClasses}
                 />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Статус записи</label>
+                <select
+                  value={appointmentForm.status || 'unconfirmed'}
+                  onChange={(e) => setAppointmentForm({...appointmentForm, status: e.target.value})}
+                  className={selectClasses}
+                >
+                  <option value="unconfirmed">🟡 Не подтверждено</option>
+                  <option value="confirmed">🟢 Подтверждено</option>
+                  <option value="arrived">🔵 Пациент пришел</option>
+                  <option value="in_progress">🟠 На приеме</option>
+                  <option value="completed">🟢 Завершен</option>
+                  <option value="cancelled">🔴 Отменено</option>
+                  <option value="no_show">⚪ Не явился</option>
+                </select>
               </div>
             </div>
             
@@ -832,7 +842,7 @@ const AppointmentModal = ({
                 placeholder="Причина визита"
                 value={appointmentForm.reason}
                 onChange={(e) => setAppointmentForm({...appointmentForm, reason: e.target.value})}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                className={inputClasses}
               />
             </div>
             
@@ -843,7 +853,7 @@ const AppointmentModal = ({
                   placeholder="Заметки о записи"
                   value={appointmentForm.notes}
                   onChange={(e) => setAppointmentForm({...appointmentForm, notes: e.target.value})}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                  className={inputClasses}
                   rows="3"
                 />
               </div>
@@ -854,7 +864,7 @@ const AppointmentModal = ({
                   placeholder="Заметки о пациенте"
                   value={appointmentForm.patient_notes || ''}
                   onChange={(e) => setAppointmentForm({...appointmentForm, patient_notes: e.target.value})}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                  className={inputClasses}
                   rows="3"
                 />
               </div>
@@ -889,7 +899,7 @@ const AppointmentModal = ({
             </div>
 
             {/* Upload Section */}
-            <div className="bg-gray-50 p-4 rounded-lg border">
+            <div className={cardHeaderClasses}>
               <h4 className="font-medium mb-3">Загрузить новый документ</h4>
               <div className="space-y-3">
                 <div>
@@ -897,7 +907,7 @@ const AppointmentModal = ({
                     id="appointment-file-input"
                     type="file"
                     onChange={(e) => setSelectedFile(e.target.files[0])}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                    className={inputClasses}
                     accept=".pdf,.doc,.docx,.txt,.jpg,.jpeg,.png"
                   />
                   <p className="text-sm text-gray-500 mt-1">
@@ -909,7 +919,7 @@ const AppointmentModal = ({
                   placeholder="Описание документа (опционально)"
                   value={documentDescription}
                   onChange={(e) => setDocumentDescription(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                  className={inputClasses}
                 />
                 <button
                   type="button"
@@ -989,7 +999,7 @@ const AppointmentModal = ({
             </div>
 
             {/* Add/Edit Plan Form */}
-            <div className="bg-gray-50 p-4 rounded-lg border">
+            <div className={cardHeaderClasses}>
               <h4 className="font-medium mb-3">
                 {editingPlan ? 'Редактировать план лечения' : 'Добавить план лечения'}
               </h4>
@@ -1000,7 +1010,7 @@ const AppointmentModal = ({
                   placeholder="Название плана лечения *"
                   value={planForm.title}
                   onChange={(e) => setPlanForm({...planForm, title: e.target.value})}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                  className={inputClasses}
                   required
                 />
                 
@@ -1008,7 +1018,7 @@ const AppointmentModal = ({
                   placeholder="Описание плана"
                   value={planForm.description}
                   onChange={(e) => setPlanForm({...planForm, description: e.target.value})}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                  className={inputClasses}
                   rows="2"
                 />
 
@@ -1088,7 +1098,7 @@ const AppointmentModal = ({
                     <select
                       value={planForm.status}
                       onChange={(e) => setPlanForm({...planForm, status: e.target.value})}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                      className={inputClasses}
                     >
                       <option value="draft">Черновик</option>
                       <option value="approved">Утвержден</option>
@@ -1103,7 +1113,7 @@ const AppointmentModal = ({
                     <select
                       value={planForm.execution_status}
                       onChange={(e) => setPlanForm({...planForm, execution_status: e.target.value})}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                      className={inputClasses}
                     >
                       <option value="pending">Ожидание</option>
                       <option value="in_progress">В процессе</option>
@@ -1118,7 +1128,7 @@ const AppointmentModal = ({
                     <select
                       value={planForm.payment_status}
                       onChange={(e) => setPlanForm({...planForm, payment_status: e.target.value})}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                      className={inputClasses}
                     >
                       <option value="unpaid">Не оплачено</option>
                       <option value="partially_paid">Частично</option>
@@ -1145,7 +1155,7 @@ const AppointmentModal = ({
                       max={planForm.total_cost}
                       value={planForm.paid_amount}
                       onChange={(e) => setPlanForm({...planForm, paid_amount: parseFloat(e.target.value) || 0})}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                      className={inputClasses}
                       placeholder="0"
                     />
                   </div>
@@ -1155,7 +1165,7 @@ const AppointmentModal = ({
                   placeholder="Дополнительные заметки"
                   value={planForm.notes}
                   onChange={(e) => setPlanForm({...planForm, notes: e.target.value})}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                  className={inputClasses}
                   rows="2"
                 />
                 
@@ -1269,10 +1279,9 @@ const AppointmentModal = ({
                 Закрыть
               </button>
             </div>
-          </div>
-        )}
-      </div>
-    </div>
+        </div>
+      )}
+    </Modal>
   );
 };
 

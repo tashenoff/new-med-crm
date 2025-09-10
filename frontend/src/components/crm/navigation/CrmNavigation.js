@@ -16,9 +16,9 @@ const CrmNavigation = ({ activeTab, setActiveTab, user }) => {
     },
     {
       key: 'crm-clients',
-      label: '👥 Клиенты',
+      label: '👥 Контакты',
       icon: '👥',
-      description: 'База клиентов'
+      description: 'База контактов'
     },
     {
       key: 'crm-deals',

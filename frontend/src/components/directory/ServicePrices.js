@@ -1,4 +1,6 @@
 import React, { useState, useEffect } from 'react';
+import Modal from '../modals/Modal';
+import { inputClasses, selectClasses, textareaClasses, labelClasses, buttonPrimaryClasses, buttonSecondaryClasses } from '../modals/modalUtils';
 
 const ServicePrices = ({ user }) => {
   const [activeTab, setActiveTab] = useState('services');
@@ -371,21 +373,21 @@ const ServicePrices = ({ user }) => {
           <div className="bg-white p-4 rounded-lg shadow border">
             <div className="flex gap-4">
               <div className="flex-1">
-                <label className="block text-sm font-medium text-gray-700 mb-1">Поиск по названию или коду</label>
+                <label className={labelClasses}>Поиск по названию или коду</label>
                 <input
                   type="text"
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                   placeholder="Введите название услуги или код..."
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                  className={inputClasses}
                 />
               </div>
               <div className="w-64">
-                <label className="block text-sm font-medium text-gray-700 mb-1">Категория</label>
+                <label className={labelClasses}>Категория</label>
                 <select
                   value={selectedCategory}
                   onChange={(e) => setSelectedCategory(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                  className={inputClasses}
                 >
                   <option value="">Все категории</option>
                   {categories.map(category => (
@@ -670,42 +672,54 @@ const ServicePrices = ({ user }) => {
       )}
 
       {/* Модальное окно для создания/редактирования услуги */}
-      {showModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 w-full max-w-md">
-            <h3 className="text-lg font-semibold mb-4">
-              {editingPrice ? 'Редактировать услугу' : 'Добавить новую услугу'}
-            </h3>
+      <Modal 
+        show={showModal} 
+        onClose={() => {
+          setShowModal(false);
+          setEditingPrice(null);
+          setPriceForm({
+            service_name: '',
+            service_code: '',
+            category: '',
+            price: '',
+            unit: 'процедура',
+            description: ''
+          });
+        }}
+        title={editingPrice ? 'Редактировать услугу' : 'Добавить новую услугу'}
+        errorMessage={error}
+        size="max-w-md"
+      >
             
             <form onSubmit={handleSubmit} className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Название услуги *</label>
+                <label className={labelClasses}>Название услуги *</label>
                 <input
                   type="text"
                   value={priceForm.service_name}
                   onChange={(e) => setPriceForm({...priceForm, service_name: e.target.value})}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                  className={inputClasses}
                   required
                 />
               </div>
               
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Код услуги</label>
+                <label className={labelClasses}>Код услуги</label>
                 <input
                   type="text"
                   value={priceForm.service_code}
                   onChange={(e) => setPriceForm({...priceForm, service_code: e.target.value})}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                  className={inputClasses}
                   placeholder="Например: THER-001"
                 />
               </div>
               
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Категория *</label>
+                <label className={labelClasses}>Категория *</label>
                 <select
                   value={priceForm.category}
                   onChange={(e) => setPriceForm({...priceForm, category: e.target.value})}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                  className={inputClasses}
                   required
                 >
                   <option value="">Выберите категорию</option>
@@ -722,12 +736,12 @@ const ServicePrices = ({ user }) => {
               
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Цена (₸) *</label>
+                  <label className={labelClasses}>Цена (₸) *</label>
                   <input
                     type="number"
                     value={priceForm.price}
                     onChange={(e) => setPriceForm({...priceForm, price: e.target.value})}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                    className={inputClasses}
                     min="0"
                     step="0.01"
                     required
@@ -735,11 +749,11 @@ const ServicePrices = ({ user }) => {
                 </div>
                 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Единица</label>
+                  <label className={labelClasses}>Единица</label>
                   <select
                     value={priceForm.unit}
                     onChange={(e) => setPriceForm({...priceForm, unit: e.target.value})}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                    className={inputClasses}
                   >
                     <option value="процедура">процедура</option>
                     <option value="зуб">зуб</option>
@@ -751,11 +765,11 @@ const ServicePrices = ({ user }) => {
               </div>
               
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Описание</label>
+                <label className={labelClasses}>Описание</label>
                 <textarea
                   value={priceForm.description}
                   onChange={(e) => setPriceForm({...priceForm, description: e.target.value})}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                  className={inputClasses}
                   rows="3"
                   placeholder="Дополнительная информация об услуге..."
                 />
@@ -765,50 +779,57 @@ const ServicePrices = ({ user }) => {
                 <button
                   type="submit"
                   disabled={loading}
-                  className="flex-1 bg-blue-600 text-white py-2 px-4 rounded-lg hover:bg-blue-700 disabled:opacity-50"
+                  className={`flex-1 ${buttonPrimaryClasses}`}
+                  disabled={loading}
                 >
                   {loading ? 'Сохранение...' : (editingPrice ? 'Обновить' : 'Создать')}
                 </button>
                 <button
                   type="button"
                   onClick={handleCloseModal}
-                  className="flex-1 bg-gray-300 text-gray-700 py-2 px-4 rounded-lg hover:bg-gray-400"
+                  className={`flex-1 ${buttonSecondaryClasses}`}
                 >
                   Отмена
                 </button>
               </div>
             </form>
-          </div>
-        </div>
-      )}
+      </Modal>
 
       {/* Модальное окно для создания/редактирования категории */}
-      {showCategoryModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 w-full max-w-md">
-            <h3 className="text-lg font-semibold mb-4">
-              {editingCategory ? 'Редактировать категорию' : 'Добавить новую категорию'}
-            </h3>
+      <Modal 
+        show={showCategoryModal} 
+        onClose={() => {
+          setShowCategoryModal(false);
+          setEditingCategory(null);
+          setCategoryForm({
+            name: '',
+            description: ''
+          });
+        }}
+        title={editingCategory ? 'Редактировать категорию' : 'Добавить новую категорию'}
+        errorMessage={error}
+        size="max-w-md"
+      >
             
             <form onSubmit={handleCategorySubmit} className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Название категории *</label>
+                <label className={labelClasses}>Название категории *</label>
                 <input
                   type="text"
                   value={categoryForm.name}
                   onChange={(e) => setCategoryForm({...categoryForm, name: e.target.value})}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500"
+                  className={inputClasses}
                   required
                   placeholder="Например: Терапия, Хирургия, Ортопедия"
                 />
               </div>
               
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Описание</label>
+                <label className={labelClasses}>Описание</label>
                 <textarea
                   value={categoryForm.description}
                   onChange={(e) => setCategoryForm({...categoryForm, description: e.target.value})}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500"
+                  className={inputClasses}
                   rows="3"
                   placeholder="Описание категории услуг..."
                 />
@@ -818,22 +839,20 @@ const ServicePrices = ({ user }) => {
                 <button
                   type="submit"
                   disabled={loading}
-                  className="flex-1 bg-green-600 text-white py-2 px-4 rounded-lg hover:bg-green-700 disabled:opacity-50"
+                  className={`flex-1 ${buttonPrimaryClasses}`}
                 >
                   {loading ? 'Сохранение...' : (editingCategory ? 'Обновить' : 'Создать')}
                 </button>
                 <button
                   type="button"
                   onClick={handleCloseCategoryModal}
-                  className="flex-1 bg-gray-300 text-gray-700 py-2 px-4 rounded-lg hover:bg-gray-400"
+                  className={`flex-1 ${buttonSecondaryClasses}`}
                 >
                   Отмена
                 </button>
               </div>
             </form>
-          </div>
-        </div>
-      )}
+      </Modal>
     </div>
   );
 };

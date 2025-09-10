@@ -5,11 +5,17 @@ import { useGlobalRefresh } from '../../../hooks/useGlobalRefresh';
 import { useTreatmentPlanSync } from '../../../hooks/useTreatmentPlanSync';
 import { useLastAppointments } from '../../../hooks/useLastAppointments';
 import TreatmentPlanInfo from './TreatmentPlanInfo';
+import Modal from '../../modals/Modal';
+import { tableClasses, tableHeaderClasses, tableRowClasses, buttonPrimaryClasses, buttonSecondaryClasses } from '../../modals/modalUtils';
 
 const ClientsView = ({ user }) => {
   const [filteredClients, setFilteredClients] = useState([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const [showHmsDataModal, setShowHmsDataModal] = useState(false);
+  const [selectedClientForHms, setSelectedClientForHms] = useState(null);
+  const [hmsData, setHmsData] = useState({ appointments: [], treatmentPlans: [] });
+  const [loadingHmsData, setLoadingHmsData] = useState(false);
   const [newClient, setNewClient] = useState({
     first_name: '',
     last_name: '',
@@ -106,10 +112,55 @@ const ClientsView = ({ user }) => {
         budget: '',
         description: ''
       });
-      alert('Клиент успешно создан!');
+      alert('Контакт успешно создан!');
     } catch (error) {
       console.error('Error creating client:', error);
-      alert('Ошибка при создании клиента');
+      alert('Ошибка при создании контакта');
+    }
+  };
+
+  const handleShowHmsData = async (client) => {
+    if (!client.is_hms_patient) {
+      alert('Контакт не является пациентом HMS');
+      return;
+    }
+
+    setSelectedClientForHms(client);
+    setShowHmsDataModal(true);
+    setLoadingHmsData(true);
+
+    try {
+      const API = import.meta.env.VITE_BACKEND_URL;
+      const token = localStorage.getItem('token');
+
+      // Получаем данные пациента по CRM client_id
+      const [appointmentsResponse, treatmentPlansResponse] = await Promise.all([
+        fetch(`${API}/api/crm/integration/client-hms-data/${client.id}/appointments`, {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          }
+        }),
+        fetch(`${API}/api/crm/integration/client-hms-data/${client.id}/treatment-plans`, {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          }
+        })
+      ]);
+
+      const appointments = appointmentsResponse.ok ? await appointmentsResponse.json() : [];
+      const treatmentPlans = treatmentPlansResponse.ok ? await treatmentPlansResponse.json() : [];
+
+      setHmsData({
+        appointments: appointments || [],
+        treatmentPlans: treatmentPlans || []
+      });
+    } catch (error) {
+      console.error('Error loading HMS data:', error);
+      setHmsData({ appointments: [], treatmentPlans: [] });
+    } finally {
+      setLoadingHmsData(false);
     }
   };
 
@@ -130,7 +181,7 @@ const ClientsView = ({ user }) => {
       });
 
       if (response.ok) {
-        alert('Клиент успешно конвертирован в пациента HMS!');
+        alert('Контакт успешно конвертирован в пациента HMS!');
         // Перезагружаем данные клиентов
         fetchClients();
         // ✨ ГЛАВНОЕ ИЗМЕНЕНИЕ: Запускаем глобальное обновление списка пациентов HMS
@@ -142,7 +193,7 @@ const ClientsView = ({ user }) => {
       }
     } catch (error) {
       console.error('Error converting client to HMS:', error);
-      alert('Ошибка при конвертации клиента');
+      alert('Ошибка при конвертации контакта');
     }
   };
 
@@ -178,8 +229,8 @@ const ClientsView = ({ user }) => {
       {/* Header */}
       <div className="flex justify-between items-center">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">👥 Клиенты</h1>
-          <p className="text-gray-600 mt-1">База клиентов CRM</p>
+          <h1 className="text-3xl font-bold text-gray-900">👥 Контакты</h1>
+          <p className="text-gray-600 mt-1">База контактов CRM</p>
         </div>
         <div className="flex gap-3">
           {/* Статистика автосинхронизации */}
@@ -207,7 +258,7 @@ const ClientsView = ({ user }) => {
             onClick={() => setShowCreateModal(true)}
             className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors"
           >
-            + Новый клиент
+            + Новый контакт
           </button>
         </div>
       </div>
@@ -224,7 +275,7 @@ const ClientsView = ({ user }) => {
                 </div>
               </div>
               <div className="ml-4">
-                <p className="text-sm font-medium text-gray-500">Всего клиентов</p>
+                <p className="text-sm font-medium text-gray-500">Всего контактов</p>
                 <p className="text-2xl font-bold text-gray-900">{clientsDetailedStats.total_clients}</p>
               </div>
             </div>
@@ -274,7 +325,7 @@ const ClientsView = ({ user }) => {
       <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
         <input
           type="text"
-          placeholder="Поиск клиентов..."
+          placeholder="Поиск контактов..."
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
           className="w-full border border-gray-300 rounded-md px-3 py-2"
@@ -285,7 +336,7 @@ const ClientsView = ({ user }) => {
       <div className="bg-white rounded-lg shadow-sm border border-gray-200">
         {filteredClients.length === 0 ? (
           <div className="text-center py-8 text-gray-500">
-            <p>Клиенты не найдены</p>
+            <p>Контакты не найдены</p>
           </div>
         ) : (
           <div className="overflow-x-auto">
@@ -293,7 +344,7 @@ const ClientsView = ({ user }) => {
               <thead className="bg-gray-50">
                 <tr>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Клиент
+                    Контакт
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Контакты
@@ -315,7 +366,7 @@ const ClientsView = ({ user }) => {
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="font-medium text-gray-900">{client.full_name || `${client.first_name} ${client.last_name}`}</div>
                       <div className="text-sm text-gray-500">
-                        Клиент с {new Date(client.created_at).toLocaleDateString('ru-RU')}
+                        Контакт с {new Date(client.created_at).toLocaleDateString('ru-RU')}
                       </div>
                       {client.is_hms_patient && (
                         <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800 mt-1">
@@ -389,8 +440,15 @@ const ClientsView = ({ user }) => {
                       {client.is_hms_patient ? (
                         <>
                           <button
+                            onClick={() => handleShowHmsData(client)}
+                            className="text-purple-600 hover:text-purple-900 mr-2"
+                            title="Просмотр данных HMS"
+                          >
+                            📊
+                          </button>
+                          <button
                             onClick={() => handleCreateAppointment(client)}
-                            className="text-blue-600 hover:text-blue-900"
+                            className="text-blue-600 hover:text-blue-900 mr-2"
                             title="Записать на прием"
                           >
                             📅
@@ -445,7 +503,7 @@ const ClientsView = ({ user }) => {
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex justify-between items-center mb-4">
-              <h2 className="text-xl font-bold text-gray-900">Новый клиент</h2>
+              <h2 className="text-xl font-bold text-gray-900">Новый контакт</h2>
               <button
                 onClick={() => setShowCreateModal(false)}
                 className="text-gray-400 hover:text-gray-600 text-xl font-bold"
@@ -519,7 +577,7 @@ const ClientsView = ({ user }) => {
                   onChange={(e) => setNewClient({...newClient, description: e.target.value})}
                   className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm"
                   rows="3"
-                  placeholder="Дополнительная информация о клиенте..."
+                  placeholder="Дополнительная информация о контакте..."
                 />
               </div>
             </div>
@@ -542,6 +600,172 @@ const ClientsView = ({ user }) => {
           </div>
         </div>
       )}
+
+      {/* HMS Data Modal */}
+      <Modal
+        show={showHmsDataModal}
+        onClose={() => {
+          setShowHmsDataModal(false);
+          setSelectedClientForHms(null);
+          setHmsData({ appointments: [], treatmentPlans: [] });
+        }}
+        title={selectedClientForHms ? `Данные HMS - ${selectedClientForHms.first_name} ${selectedClientForHms.last_name}` : 'Данные HMS'}
+        size="max-w-4xl"
+      >
+        {loadingHmsData ? (
+          <div className="flex justify-center items-center py-8">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+            <span className="ml-2 text-gray-600 dark:text-gray-400">Загрузка данных HMS...</span>
+          </div>
+        ) : (
+          <div className="space-y-6">
+            {/* Treatment Plans Section */}
+            <div>
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">📋 Планы лечения</h3>
+              {hmsData.treatmentPlans.length > 0 ? (
+                <div className="overflow-x-auto">
+                  <table className={tableClasses}>
+                    <thead className={tableHeaderClasses}>
+                      <tr>
+                        <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider">План</th>
+                        <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider">Статус плана</th>
+                        <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider">Статус оплаты</th>
+                        <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider">Стоимость</th>
+                        <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider">Оплачено</th>
+                        <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider">Дата создания</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
+                      {hmsData.treatmentPlans.map((plan, index) => (
+                        <tr key={plan.id || index} className={tableRowClasses}>
+                          <td className="px-4 py-3 text-sm text-gray-900 dark:text-white">
+                            <div className="font-medium">{plan.plan_name || `План ${index + 1}`}</div>
+                            {plan.description && (
+                              <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                                {plan.description}
+                              </div>
+                            )}
+                          </td>
+                          <td className="px-4 py-3 text-sm">
+                            <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
+                              plan.status === 'approved' 
+                                ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300'
+                                : plan.status === 'active'
+                                ? 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300'
+                                : plan.status === 'completed'
+                                ? 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-300'
+                                : 'bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-300'
+                            }`}>
+                              {plan.status === 'approved' ? 'Утвержден' : 
+                               plan.status === 'active' ? 'Активен' :
+                               plan.status === 'completed' ? 'Завершен' :
+                               plan.status === 'draft' ? 'Черновик' : plan.status}
+                            </span>
+                          </td>
+                          <td className="px-4 py-3 text-sm">
+                            <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
+                              plan.payment_status === 'paid' 
+                                ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300'
+                                : plan.payment_status === 'pending'
+                                ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300'
+                                : plan.payment_status === 'partially_paid'
+                                ? 'bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-300'
+                                : 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300'
+                            }`}>
+                              {plan.payment_status === 'paid' ? 'Оплачен' : 
+                               plan.payment_status === 'pending' ? 'Ожидает оплаты' : 
+                               plan.payment_status === 'partially_paid' ? 'Частично оплачен' : 'Не оплачен'}
+                            </span>
+                          </td>
+                          <td className="px-4 py-3 text-sm text-gray-900 dark:text-white">
+                            {plan.total_cost ? `${plan.total_cost.toLocaleString()} ₸` : 'Не указана'}
+                          </td>
+                          <td className="px-4 py-3 text-sm text-gray-900 dark:text-white">
+                            {plan.paid_amount ? `${plan.paid_amount.toLocaleString()} ₸` : '0 ₸'}
+                          </td>
+                          <td className="px-4 py-3 text-sm text-gray-500 dark:text-gray-400">
+                            {plan.created_at ? new Date(plan.created_at).toLocaleDateString('ru-RU') : 'Не указана'}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              ) : (
+                <div className="text-gray-500 dark:text-gray-400 text-center py-4">
+                  Планы лечения не найдены
+                </div>
+              )}
+            </div>
+
+            {/* Appointments Section */}
+            <div>
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">📅 Приемы</h3>
+              {hmsData.appointments.length > 0 ? (
+                <div className="overflow-x-auto">
+                  <table className={tableClasses}>
+                    <thead className={tableHeaderClasses}>
+                      <tr>
+                        <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider">Дата и время</th>
+                        <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider">Врач</th>
+                        <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider">Статус</th>
+                        <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider">Заметки</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
+                      {hmsData.appointments.map((appointment, index) => (
+                        <tr key={appointment.id || index} className={tableRowClasses}>
+                          <td className="px-4 py-3 text-sm text-gray-900 dark:text-white">
+                            {appointment.appointment_date ? 
+                              new Date(appointment.appointment_date).toLocaleString('ru-RU') : 
+                              'Не указана'
+                            }
+                          </td>
+                          <td className="px-4 py-3 text-sm text-gray-900 dark:text-white">
+                            {appointment.doctor_name || 'Не указан'}
+                          </td>
+                          <td className="px-4 py-3 text-sm">
+                            <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
+                              appointment.status === 'completed' 
+                                ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300'
+                                : appointment.status === 'confirmed'
+                                ? 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300'
+                                : appointment.status === 'cancelled'
+                                ? 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300'
+                                : 'bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-300'
+                            }`}>
+                              {appointment.status === 'completed' ? 'Завершен' : 
+                               appointment.status === 'confirmed' ? 'Подтвержден' :
+                               appointment.status === 'cancelled' ? 'Отменен' : 'Запланирован'}
+                            </span>
+                          </td>
+                          <td className="px-4 py-3 text-sm text-gray-500 dark:text-gray-400">
+                            {appointment.notes || 'Нет заметок'}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              ) : (
+                <div className="text-gray-500 dark:text-gray-400 text-center py-4">
+                  Приемы не найдены
+                </div>
+              )}
+            </div>
+
+            {/* Close Button */}
+            <div className="flex justify-end pt-4">
+              <button
+                onClick={() => setShowHmsDataModal(false)}
+                className={buttonSecondaryClasses}
+              >
+                Закрыть
+              </button>
+            </div>
+          </div>
+        )}
+      </Modal>
     </div>
   );
 };

@@ -328,3 +328,104 @@ async def get_client_last_appointment(
             
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
+
+
+@integration_router.get("/client-hms-data/{client_id}/appointments")
+async def get_client_hms_appointments(
+    client_id: str,
+    db: AsyncIOMotorDatabase = Depends(get_database)
+):
+    """Получить все приемы клиента из HMS"""
+    try:
+        # Получаем клиента
+        clients_collection = db.crm_clients
+        client = await clients_collection.find_one({"id": client_id})
+        
+        if not client:
+            raise HTTPException(status_code=404, detail="Client not found")
+        
+        # Если клиент не является пациентом HMS, возвращаем пустой список
+        if not client.get("is_hms_patient") or not client.get("hms_patient_id"):
+            return []
+        
+        # Получаем все приемы пациента в HMS
+        hms_patient_id = client.get("hms_patient_id")
+        appointments_collection = db.appointments
+        
+        appointments = await appointments_collection.find({
+            "patient_id": hms_patient_id
+        }).sort([("appointment_date", -1), ("appointment_time", -1)]).to_list(None)
+        
+        # Обогащаем данными о врачах
+        doctors_collection = db.doctors
+        result_appointments = []
+        
+        for appointment in appointments:
+            doctor = await doctors_collection.find_one({"id": appointment.get("doctor_id")})
+            
+            appointment_info = {
+                "id": appointment.get("id"),
+                "appointment_date": appointment.get("appointment_date"),
+                "appointment_time": appointment.get("appointment_time"),
+                "doctor_name": doctor.get("full_name", "Неизвестный врач") if doctor else "Неизвестный врач",
+                "doctor_specialty": doctor.get("specialty", "") if doctor else "",
+                "reason": appointment.get("reason", ""),
+                "status": appointment.get("status", ""),
+                "notes": appointment.get("notes", ""),
+                "created_at": appointment.get("created_at")
+            }
+            result_appointments.append(appointment_info)
+        
+        return result_appointments
+            
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@integration_router.get("/client-hms-data/{client_id}/treatment-plans")
+async def get_client_hms_treatment_plans(
+    client_id: str,
+    db: AsyncIOMotorDatabase = Depends(get_database)
+):
+    """Получить все планы лечения клиента из HMS"""
+    try:
+        # Получаем клиента
+        clients_collection = db.crm_clients
+        client = await clients_collection.find_one({"id": client_id})
+        
+        if not client:
+            raise HTTPException(status_code=404, detail="Client not found")
+        
+        # Если клиент не является пациентом HMS, возвращаем пустой список
+        if not client.get("is_hms_patient") or not client.get("hms_patient_id"):
+            return []
+        
+        # Получаем все планы лечения пациента в HMS
+        hms_patient_id = client.get("hms_patient_id")
+        treatment_plans_collection = db.treatment_plans
+        
+        treatment_plans = await treatment_plans_collection.find({
+            "patient_id": hms_patient_id
+        }).sort([("created_at", -1)]).to_list(None)
+        
+        result_plans = []
+        for plan in treatment_plans:
+            plan_info = {
+                "id": plan.get("id"),
+                "plan_name": plan.get("title", "План лечения"),
+                "description": plan.get("description", ""),
+                "status": plan.get("status", "draft"),
+                "payment_status": plan.get("payment_status", "unpaid"),
+                "total_cost": plan.get("total_cost", 0),
+                "paid_amount": plan.get("paid_amount", 0),
+                "payment_date": plan.get("payment_date"),
+                "created_at": plan.get("created_at"),
+                "updated_at": plan.get("updated_at"),
+                "services": plan.get("services", [])
+            }
+            result_plans.append(plan_info)
+        
+        return result_plans
+            
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))

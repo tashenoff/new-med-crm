@@ -21,6 +21,12 @@ const FinanceNavigation = ({ activeTab, setActiveTab, user }) => {
       description: 'Управление расходами'
     },
     {
+      key: 'finance-salaries',
+      label: '👨‍⚕️ Зарплата врачей',
+      icon: '👨‍⚕️',
+      description: 'Расчет зарплат врачей'
+    },
+    {
       key: 'finance-reports',
       label: '📊 Отчеты',
       icon: '📊',
@@ -79,6 +85,12 @@ const FinanceNavigation = ({ activeTab, setActiveTab, user }) => {
               className="w-full text-left text-sm text-green-700 hover:text-green-900"
             >
               + Добавить расход
+            </button>
+            <button 
+              onClick={() => setActiveTab('finance-salaries')}
+              className="w-full text-left text-sm text-green-700 hover:text-green-900"
+            >
+              👨‍⚕️ Зарплата врачей
             </button>
             <button 
               onClick={() => setActiveTab('finance-reports')}

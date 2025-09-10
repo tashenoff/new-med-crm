@@ -118,7 +118,7 @@ const DealsView = ({ user }) => {
                     Сделка
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Клиент
+                    Контакт
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Сумма
@@ -138,7 +138,7 @@ const DealsView = ({ user }) => {
                 {deals.map((deal) => {
                   // Найдем клиента по ID
                   const client = clients.find(c => c.id === deal.client_id);
-                  const clientName = client ? `${client.first_name} ${client.last_name}` : 'Клиент не найден';
+                  const clientName = client ? `${client.first_name} ${client.last_name}` : 'Контакт не найден';
                   
                   return (
                     <tr key={deal.id} className="hover:bg-gray-50">
@@ -213,7 +213,7 @@ const DealsView = ({ user }) => {
               </div>
               
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Клиент *</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Контакт *</label>
                 <select
                   value={newDeal.client_id}
                   onChange={(e) => setNewDeal({...newDeal, client_id: e.target.value})}

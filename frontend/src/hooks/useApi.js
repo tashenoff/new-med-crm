@@ -49,12 +49,36 @@ export const useApi = () => {
   // Appointments API
   const createAppointment = async (appointmentData) => {
     try {
-      const response = await axios.post(`${BACKEND_URL}/api/appointments`, appointmentData, {
+      // Очищаем данные от пустых строк и приводим к правильным типам
+      const cleanData = { ...appointmentData };
+      
+      // Преобразуем price в число или null
+      if (cleanData.price === '' || cleanData.price === null || cleanData.price === undefined) {
+        cleanData.price = null;
+      } else if (typeof cleanData.price === 'string') {
+        cleanData.price = parseFloat(cleanData.price) || null;
+      }
+      
+      // Удаляем пустые строки для опциональных полей
+      Object.keys(cleanData).forEach(key => {
+        if (cleanData[key] === '') {
+          if (key === 'price') {
+            cleanData[key] = null;
+          } else {
+            delete cleanData[key];
+          }
+        }
+      });
+      
+      console.log('Creating appointment with cleaned data:', cleanData);
+      const response = await axios.post(`${BACKEND_URL}/api/appointments`, cleanData, {
         headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
       });
       return response.data;
     } catch (error) {
       console.error('Error creating appointment:', error);
+      console.error('Request data:', appointmentData);
+      console.error('Response data:', error.response?.data);
       throw error;
     }
   };

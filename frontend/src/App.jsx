@@ -31,6 +31,7 @@ import ContactsView from './components/crm/contacts/ContactsView';
 import FinanceDashboard from './components/finance/dashboard/FinanceDashboard';
 import IncomeView from './components/finance/income/IncomeView';
 import ExpensesView from './components/finance/expenses/ExpensesView';
+import SalariesView from './components/finance/salaries/SalariesView';
 import ReportsView from './components/finance/reports/ReportsView';
 
 import MedicalView from './components/medical/MedicalView';
@@ -433,6 +434,7 @@ function ClinicApp() {
     end_time: '',
     chair_number: '',
     price: '',
+    status: 'unconfirmed',
     reason: '', 
     notes: '',
     patient_notes: ''
@@ -931,12 +933,31 @@ function ClinicApp() {
         end_time: '',
         chair_number: '',
         price: '',
+        status: 'unconfirmed',
         reason: '', 
         notes: '',
         patient_notes: ''
       });
     } catch (error) {
-      setErrorMessage(error.response?.data?.detail || 'Ошибка при сохранении записи');
+      console.error('Error saving appointment:', error);
+      let errorMessage = 'Ошибка при сохранении записи';
+      
+      if (error.response?.data?.detail) {
+        // Если detail - это массив ошибок валидации
+        if (Array.isArray(error.response.data.detail)) {
+          errorMessage = error.response.data.detail.map(err => 
+            `${err.loc ? err.loc.join('.') + ': ' : ''}${err.msg}`
+          ).join(', ');
+        } else if (typeof error.response.data.detail === 'string') {
+          errorMessage = error.response.data.detail;
+        } else {
+          errorMessage = JSON.stringify(error.response.data.detail);
+        }
+      } else if (error.message) {
+        errorMessage = error.message;
+      }
+      
+      setErrorMessage(errorMessage);
     } finally {
       setLoading(false);
     }
@@ -952,6 +973,7 @@ function ClinicApp() {
       end_time: appointment.end_time || '',
       chair_number: appointment.chair_number || '',
       price: appointment.price || '',
+      status: appointment.status || 'unconfirmed',
       reason: appointment.reason || '',
       notes: appointment.notes || '',
       patient_notes: appointment.patient_notes || ''
@@ -1120,8 +1142,13 @@ function ClinicApp() {
       doctor_id: doctorId,
       appointment_date: date,
       appointment_time: time,
+      end_time: '',
+      chair_number: '',
+      price: '',
+      status: 'unconfirmed',
       reason: '',
-      notes: ''
+      notes: '',
+      patient_notes: ''
     });
     setErrorMessage(null);
     setShowAppointmentModal(true);
@@ -1134,8 +1161,13 @@ function ClinicApp() {
       doctor_id: '',
       appointment_date: today,
       appointment_time: '',
+      end_time: '',
+      chair_number: '',
+      price: '',
+      status: 'unconfirmed',
       reason: '',
-      notes: ''
+      notes: '',
+      patient_notes: ''
     });
     setErrorMessage(null);
     setShowAppointmentModal(true);
@@ -1162,7 +1194,7 @@ function ClinicApp() {
       return [
         { key: 'crm-dashboard', label: 'Дашборд' },
         { key: 'crm-leads', label: 'Заявки' },
-        { key: 'crm-clients', label: 'Клиенты' },
+        { key: 'crm-clients', label: 'Контакты' },
         { key: 'crm-deals', label: 'Сделки' },
         { key: 'crm-managers', label: 'Менеджеры' },
         { key: 'crm-contacts', label: 'Источники' }
@@ -1788,6 +1820,10 @@ function ClinicApp() {
           <ExpensesView user={user} />
         )}
         
+        {activeTab === 'finance-salaries' && (
+          <SalariesView user={user} />
+        )}
+        
         {activeTab === 'finance-reports' && (
           <ReportsView user={user} />
         )}
@@ -1928,6 +1964,7 @@ function ClinicApp() {
             end_time: '',
             chair_number: '',
             price: '',
+            status: 'unconfirmed',
             reason: '', 
             notes: '',
             patient_notes: ''

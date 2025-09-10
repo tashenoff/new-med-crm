@@ -1,4 +1,6 @@
 import React, { useState, useEffect } from 'react';
+import Modal from '../modals/Modal';
+import { inputClasses, textareaClasses, labelClasses, buttonPrimaryClasses, buttonSecondaryClasses } from '../modals/modalUtils';
 
 const Specialties = ({ user }) => {
   const [specialties, setSpecialties] = useState([]);
@@ -172,13 +174,13 @@ const Specialties = ({ user }) => {
       <div className="bg-white p-4 rounded-lg shadow border">
         <div className="flex gap-4">
           <div className="flex-1">
-            <label className="block text-sm font-medium text-gray-700 mb-1">Поиск специальностей</label>
+            <label className={labelClasses}>Поиск специальностей</label>
             <input
               type="text"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               placeholder="Введите название специальности..."
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500"
+              className={inputClasses}
             />
           </div>
         </div>
@@ -296,32 +298,40 @@ const Specialties = ({ user }) => {
       </div>
 
       {/* Модальное окно для создания/редактирования специальности */}
-      {showModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 w-full max-w-md">
-            <h3 className="text-lg font-semibold mb-4">
-              {editingSpecialty ? 'Редактировать специальность' : 'Добавить новую специальность'}
-            </h3>
+      <Modal 
+        show={showModal} 
+        onClose={() => {
+          setShowModal(false);
+          setEditingSpecialty(null);
+          setSpecialtyForm({
+            name: '',
+            description: ''
+          });
+        }}
+        title={editingSpecialty ? 'Редактировать специальность' : 'Добавить новую специальность'}
+        errorMessage={error}
+        size="max-w-md"
+      >
             
             <form onSubmit={handleSubmit} className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Название специальности *</label>
+                <label className={labelClasses}>Название специальности *</label>
                 <input
                   type="text"
                   value={specialtyForm.name}
                   onChange={(e) => setSpecialtyForm({...specialtyForm, name: e.target.value})}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500"
+                  className={inputClasses}
                   required
                   placeholder="Например: Терапевт, Хирург, Ортопед"
                 />
               </div>
               
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Описание</label>
+                <label className={labelClasses}>Описание</label>
                 <textarea
                   value={specialtyForm.description}
                   onChange={(e) => setSpecialtyForm({...specialtyForm, description: e.target.value})}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500"
+                  className={inputClasses}
                   rows="3"
                   placeholder="Описание медицинской специальности..."
                 />
@@ -331,22 +341,21 @@ const Specialties = ({ user }) => {
                 <button
                   type="submit"
                   disabled={loading}
-                  className="flex-1 bg-purple-600 text-white py-2 px-4 rounded-lg hover:bg-purple-700 disabled:opacity-50"
+                  className={`flex-1 ${buttonPrimaryClasses}`}
+                  disabled={loading}
                 >
                   {loading ? 'Сохранение...' : (editingSpecialty ? 'Обновить' : 'Создать')}
                 </button>
                 <button
                   type="button"
                   onClick={handleCloseModal}
-                  className="flex-1 bg-gray-300 text-gray-700 py-2 px-4 rounded-lg hover:bg-gray-400"
+                  className={`flex-1 ${buttonSecondaryClasses}`}
                 >
                   Отмена
                 </button>
               </div>
             </form>
-          </div>
-        </div>
-      )}
+      </Modal>
     </div>
   );
 };

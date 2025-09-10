@@ -11,7 +11,7 @@ const Navigation = ({ activeTab, setActiveTab, availableTabs, sidebarOpen, setSi
       const crmItems = [
         { key: 'crm-dashboard', label: 'Дашборд', type: 'tab' },
         { key: 'crm-leads', label: 'Заявки', type: 'tab' },
-        { key: 'crm-clients', label: 'Клиенты', type: 'tab' },
+        { key: 'crm-clients', label: 'Контакты', type: 'tab' },
         { key: 'crm-deals', label: 'Сделки', type: 'tab' },
         { key: 'crm-contacts', label: 'Источники', type: 'tab' }
       ];
@@ -30,6 +30,7 @@ const Navigation = ({ activeTab, setActiveTab, availableTabs, sidebarOpen, setSi
         { key: 'finance-dashboard', label: 'Дашборд', type: 'tab' },
         { key: 'finance-income', label: 'Доходы', type: 'tab' },
         { key: 'finance-expenses', label: 'Расходы', type: 'tab' },
+        { key: 'finance-salaries', label: 'Зарплата врачей', type: 'tab' },
         { key: 'finance-reports', label: 'Отчеты', type: 'tab' }
       ];
 
