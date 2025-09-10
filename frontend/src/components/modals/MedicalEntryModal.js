@@ -26,7 +26,7 @@ const MedicalEntryModal = ({
         
         <form onSubmit={onSave} className="space-y-4">
           <select
-            value={medicalEntryForm.entry_type}
+            value={medicalEntryForm.entry_type || 'visit'}
             onChange={(e) => setMedicalEntryForm({...medicalEntryForm, entry_type: e.target.value})}
             className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
           >
@@ -38,7 +38,7 @@ const MedicalEntryModal = ({
           <input
             type="text"
             placeholder="Заголовок записи *"
-            value={medicalEntryForm.title}
+            value={medicalEntryForm.title || ''}
             onChange={(e) => setMedicalEntryForm({...medicalEntryForm, title: e.target.value})}
             className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
             required
@@ -46,7 +46,7 @@ const MedicalEntryModal = ({
           
           <textarea
             placeholder="Описание приема, симптомы, проведенные процедуры..."
-            value={medicalEntryForm.description}
+            value={medicalEntryForm.description || ''}
             onChange={(e) => setMedicalEntryForm({...medicalEntryForm, description: e.target.value})}
             className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
             rows="4"
@@ -55,7 +55,7 @@ const MedicalEntryModal = ({
           
           <select
             value={medicalEntryForm.severity || ''}
-            onChange={(e) => setMedicalEntryForm({...medicalEntryForm, severity: e.target.value || null})}
+            onChange={(e) => setMedicalEntryForm({...medicalEntryForm, severity: e.target.value})}
             className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
           >
             <option value="">Без указания важности</option>
@@ -88,3 +88,5 @@ const MedicalEntryModal = ({
 };
 
 export default MedicalEntryModal;
+
+

@@ -1,4 +1,5 @@
 from fastapi import FastAPI, APIRouter, HTTPException, Depends, status, File, UploadFile, Form
+from contextlib import asynccontextmanager
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from fastapi.staticfiles import StaticFiles
 from dotenv import load_dotenv
@@ -33,8 +34,25 @@ ACCESS_TOKEN_EXPIRE_MINUTES = int(os.environ.get("ACCESS_TOKEN_EXPIRE_MINUTES", 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 security = HTTPBearer()
 
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Startup
+    yield
+    # Shutdown
+    client.close()
+
 # Create the main app without a prefix
-app = FastAPI()
+app = FastAPI(lifespan=lifespan, redirect_slashes=False)
+
+# Add CORS middleware first (before any routes)
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:3000", "http://127.0.0.1:3000", "http://localhost:3001"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+    expose_headers=["*"],
+)
 
 # Create a router with the /api prefix
 api_router = APIRouter(prefix="/api")
@@ -67,6 +85,7 @@ class PatientSource(str, Enum):
     REFERRAL = "referral"
     WALK_IN = "walk_in"
     SOCIAL_MEDIA = "social_media"
+    CRM_CONVERSION = "crm_conversion"
     OTHER = "other"
 
 class EntryType(str, Enum):
@@ -278,6 +297,15 @@ class Patient(BaseModel):
     source: PatientSource = PatientSource.OTHER
     referrer: Optional[str] = None  # Who referred this patient
     notes: Optional[str] = None
+    # Additional name fields (for CRM integration)
+    first_name: Optional[str] = None
+    last_name: Optional[str] = None
+    middle_name: Optional[str] = None
+    email: Optional[str] = None
+    address: Optional[str] = None
+    city: Optional[str] = None
+    # CRM integration
+    crm_client_id: Optional[str] = None  # Link to CRM client
     # Financial information
     revenue: Optional[float] = 0.0  # Total revenue from this patient
     debt: Optional[float] = 0.0  # Patient's debt
@@ -818,7 +846,22 @@ async def get_patients(
         }
     
     patients = await db.patients.find(query).sort("created_at", -1).to_list(1000)
-    return [Patient(**patient) for patient in patients]
+    
+    # Convert patients with error handling
+    result = []
+    for patient_data in patients:
+        try:
+            # Remove MongoDB _id field
+            if '_id' in patient_data:
+                del patient_data['_id']
+            result.append(Patient(**patient_data))
+        except Exception as e:
+            logger.error(f"Error converting patient {patient_data.get('id', 'unknown')}: {str(e)}")
+            logger.error(f"Patient data keys: {list(patient_data.keys())}")
+            logger.error(f"Patient data: {patient_data}")
+            continue
+    
+    return result
 
 @api_router.get("/patients/{patient_id}", response_model=Patient)
 async def get_patient(
@@ -2931,6 +2974,28 @@ async def update_treatment_plan(
     
     # Return updated treatment plan
     updated_plan = await db.treatment_plans.find_one({"id": plan_id})
+    
+    # Автоматическая синхронизация с CRM при изменении статуса оплаты
+    if "payment_status" in update_dict or "paid_amount" in update_dict:
+        try:
+            from backend.crm.services.integration_service import IntegrationService
+            integration_service = IntegrationService(db)
+            
+            await integration_service.sync_treatment_plan_payment(
+                treatment_plan_id=updated_plan["id"],
+                patient_id=updated_plan["patient_id"],
+                payment_status=updated_plan["payment_status"],
+                paid_amount=updated_plan.get("paid_amount", 0.0),
+                total_cost=updated_plan.get("total_cost", 0.0),
+                plan_title=updated_plan["title"]
+            )
+            
+            logger.info(f"Автоматическая синхронизация с CRM для плана {plan_id} выполнена")
+            
+        except Exception as e:
+            logger.error(f"Ошибка синхронизации с CRM для плана {plan_id}: {str(e)}")
+            # Не прерываем выполнение, только логируем ошибку
+    
     return TreatmentPlan(**updated_plan)
 
 @api_router.delete("/treatment-plans/{plan_id}")
@@ -3025,16 +3090,19 @@ async def initialize_default_services(
     logger.info(f"Initialized {len(services)} default services")
     return {"message": f"Successfully initialized {len(services)} default services"}
 
-# Include the router in the main app
+# Root endpoint
+@app.get("/")
+async def root():
+    return {"message": "Medical CRM API is running"}
+
+# Remove the global OPTIONS handler - CORS middleware should handle this
+
+# Include the HMS router in the main app
 app.include_router(api_router)
 
-app.add_middleware(
-    CORSMiddleware,
-    allow_credentials=True,
-    allow_origins=["*"],
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+# Include the CRM router
+from crm import crm_router
+app.include_router(crm_router, prefix="/api/crm")
 
 # Configure logging
 logging.basicConfig(
@@ -3043,6 +3111,14 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-@app.on_event("shutdown")
-async def shutdown_db_client():
-    client.close()
+# Database shutdown is now handled in lifespan context manager
+
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run(
+        "server:app",
+        host="127.0.0.1",
+        port=8001,
+        reload=True,
+        log_level="info"
+    )

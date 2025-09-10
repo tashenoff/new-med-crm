@@ -8,7 +8,7 @@ const DoctorSchedule = ({ doctors, user, canEdit }) => {
   const [success, setSuccess] = useState('');
   const [editingSchedule, setEditingSchedule] = useState(null);
 
-  const API = process.env.REACT_APP_BACKEND_URL;
+  const API = import.meta.env.VITE_BACKEND_URL;
   
   const daysOfWeek = [
     { id: 0, name: 'Понедельник' },

@@ -1,11 +1,30 @@
 import React from 'react';
 
-const Navigation = ({ activeTab, setActiveTab, availableTabs, sidebarOpen, setSidebarOpen, user }) => {
+const Navigation = ({ activeTab, setActiveTab, availableTabs, sidebarOpen, setSidebarOpen, user, activeSection }) => {
   const [expandedSections, setExpandedSections] = React.useState({
     statistics: true // Автоматически раскрываем статистику
   });
   // Структура меню с поддержкой подразделов
   const getMenuStructure = () => {
+    // Если активна CRM секция, показываем CRM пункты меню
+    if (activeSection === 'crm') {
+      const crmItems = [
+        { key: 'crm-dashboard', label: 'Дашборд', type: 'tab' },
+        { key: 'crm-leads', label: 'Заявки', type: 'tab' },
+        { key: 'crm-clients', label: 'Клиенты', type: 'tab' },
+        { key: 'crm-deals', label: 'Сделки', type: 'tab' },
+        { key: 'crm-contacts', label: 'Источники', type: 'tab' }
+      ];
+
+      // Менеджеров могут видеть только админы
+      if (user?.role === 'admin') {
+        crmItems.push({ key: 'crm-managers', label: 'Менеджеры', type: 'tab' });
+      }
+
+      return crmItems;
+    }
+
+    // HMS меню
     const baseItems = [
       { key: 'schedule', label: 'Расписание', type: 'tab' },
       { key: 'calendar', label: 'Календарь', type: 'tab' },
@@ -98,6 +117,37 @@ const Navigation = ({ activeTab, setActiveTab, availableTabs, sidebarOpen, setSi
         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1" />
         </svg>
+      ),
+      // CRM иконки
+      'crm-dashboard': (
+        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+        </svg>
+      ),
+      'crm-leads': (
+        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+        </svg>
+      ),
+      'crm-clients': (
+        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+        </svg>
+      ),
+      'crm-deals': (
+        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" />
+        </svg>
+      ),
+      'crm-contacts': (
+        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
+        </svg>
+      ),
+      'crm-managers': (
+        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+        </svg>
       )
     };
     return icons[tabKey] || (
@@ -139,6 +189,7 @@ const Navigation = ({ activeTab, setActiveTab, availableTabs, sidebarOpen, setSi
     }
   };
 
+
   return (
     <>
       {/* Mobile Overlay */}
@@ -149,7 +200,7 @@ const Navigation = ({ activeTab, setActiveTab, availableTabs, sidebarOpen, setSi
         />
       )}
 
-      {/* Sidebar */}
+      {/* HMS Sidebar */}
       <nav className={`
         fixed left-0 top-0 h-full bg-white shadow-lg z-50 transform transition-transform duration-300 ease-in-out
         w-64 border-r border-gray-200

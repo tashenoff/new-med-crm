@@ -35,14 +35,14 @@ const MedicalRecordModal = ({
             <input
               type="text"
               placeholder="Группа крови (например: A+)"
-              value={medicalRecordForm.blood_type}
+              value={medicalRecordForm.blood_type || ''}
               onChange={(e) => setMedicalRecordForm({...medicalRecordForm, blood_type: e.target.value})}
               className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
             />
             <input
               type="number"
               placeholder="Рост (см)"
-              value={medicalRecordForm.height}
+              value={medicalRecordForm.height || ''}
               onChange={(e) => setMedicalRecordForm({...medicalRecordForm, height: e.target.value})}
               className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
             />
@@ -52,14 +52,14 @@ const MedicalRecordModal = ({
             <input
               type="number"
               placeholder="Вес (кг)"
-              value={medicalRecordForm.weight}
+              value={medicalRecordForm.weight || ''}
               onChange={(e) => setMedicalRecordForm({...medicalRecordForm, weight: e.target.value})}
               className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
             />
             <input
               type="text"
               placeholder="Номер страховки"
-              value={medicalRecordForm.insurance_number}
+              value={medicalRecordForm.insurance_number || ''}
               onChange={(e) => setMedicalRecordForm({...medicalRecordForm, insurance_number: e.target.value})}
               className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
             />
@@ -68,7 +68,7 @@ const MedicalRecordModal = ({
           <input
             type="text"
             placeholder="Экстренный контакт (ФИО)"
-            value={medicalRecordForm.emergency_contact}
+            value={medicalRecordForm.emergency_contact || ''}
             onChange={(e) => setMedicalRecordForm({...medicalRecordForm, emergency_contact: e.target.value})}
             className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
           />
@@ -76,7 +76,7 @@ const MedicalRecordModal = ({
           <input
             type="tel"
             placeholder="Телефон экстренного контакта"
-            value={medicalRecordForm.emergency_phone}
+            value={medicalRecordForm.emergency_phone || ''}
             onChange={(e) => setMedicalRecordForm({...medicalRecordForm, emergency_phone: e.target.value})}
             className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
           />
@@ -104,3 +104,5 @@ const MedicalRecordModal = ({
 };
 
 export default MedicalRecordModal;
+
+

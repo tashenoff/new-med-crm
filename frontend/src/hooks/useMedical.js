@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import axios from 'axios';
 
-const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
+const BACKEND_URL = import.meta.env.VITE_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
 
 export const useMedical = () => {
@@ -40,10 +40,12 @@ export const useMedical = () => {
     setMedicalSummary(null);
     setPatientAppointments([]);
     
-    try {
-      await fetchMedicalSummary(patient.id);
-    } catch (error) {
-      console.error('Error selecting patient:', error);
+    if (patient) {
+      try {
+        await fetchMedicalSummary(patient.id);
+      } catch (error) {
+        console.error('Error selecting patient:', error);
+      }
     }
   };
 
@@ -59,6 +61,8 @@ export const useMedical = () => {
     patientAppointments,
     selectPatient,
     clearSelection,
-    fetchMedicalSummary
+    fetchMedicalSummary,
+    setMedicalSummary
   };
 };
+

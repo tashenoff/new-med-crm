@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import axios from 'axios';
 
-const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
+const BACKEND_URL = import.meta.env.VITE_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
 
 export const useApi = () => {
@@ -61,12 +61,34 @@ export const useApi = () => {
 
   const updateAppointment = async (appointmentId, appointmentData) => {
     try {
-      const response = await axios.put(`${BACKEND_URL}/api/appointments/${appointmentId}`, appointmentData, {
+про      // Очищаем данные от пустых строк и приводим к правильным типам
+      const cleanData = {};
+      
+      Object.entries(appointmentData).forEach(([key, value]) => {
+        if (value !== null && value !== undefined && value !== '') {
+          // Для цены и chair_number преобразуем в правильные типы
+          if (key === 'price') {
+            const numValue = parseFloat(value);
+            if (!isNaN(numValue)) {
+              cleanData[key] = numValue;
+            }
+          } else if (key === 'chair_number') {
+            cleanData[key] = String(value);
+          } else {
+            cleanData[key] = value;
+          }
+        }
+      });
+
+      console.log('Отправляем данные для обновления записи:', cleanData);
+      
+      const response = await axios.put(`${BACKEND_URL}/api/appointments/${appointmentId}`, cleanData, {
         headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
       });
       return response.data;
     } catch (error) {
       console.error('Error updating appointment:', error);
+      console.error('Response data:', error.response?.data);
       throw error;
     }
   };

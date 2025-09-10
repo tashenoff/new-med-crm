@@ -28,7 +28,7 @@ const MedicationModal = ({
           <input
             type="text"
             placeholder="Название лекарства *"
-            value={medicationForm.medication_name}
+            value={medicationForm.medication_name || ''}
             onChange={(e) => setMedicationForm({...medicationForm, medication_name: e.target.value})}
             className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500"
             required
@@ -38,14 +38,14 @@ const MedicationModal = ({
             <input
               type="text"
               placeholder="Дозировка (например: 10 мг)"
-              value={medicationForm.dosage}
+              value={medicationForm.dosage || ''}
               onChange={(e) => setMedicationForm({...medicationForm, dosage: e.target.value})}
               className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500"
             />
             <input
               type="text"
               placeholder="Частота (например: 2 раза в день)"
-              value={medicationForm.frequency}
+              value={medicationForm.frequency || ''}
               onChange={(e) => setMedicationForm({...medicationForm, frequency: e.target.value})}
               className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500"
             />
@@ -54,14 +54,14 @@ const MedicationModal = ({
           <input
             type="date"
             placeholder="Окончание приема"
-            value={medicationForm.end_date}
+            value={medicationForm.end_date || ''}
             onChange={(e) => setMedicationForm({...medicationForm, end_date: e.target.value})}
             className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500"
           />
           
           <textarea
             placeholder="Инструкции по применению"
-            value={medicationForm.instructions}
+            value={medicationForm.instructions || ''}
             onChange={(e) => setMedicationForm({...medicationForm, instructions: e.target.value})}
             className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500"
             rows="3"
@@ -90,3 +90,5 @@ const MedicationModal = ({
 };
 
 export default MedicationModal;
+
+

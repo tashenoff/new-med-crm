@@ -1,54 +1,58 @@
+#!/usr/bin/env python3
+
 import asyncio
-from motor.motor_asyncio import AsyncIOMotorClient
 import os
+from motor.motor_asyncio import AsyncIOMotorClient
 from dotenv import load_dotenv
+from pathlib import Path
+
+# Load environment variables
+ROOT_DIR = Path(__file__).parent
+load_dotenv(ROOT_DIR / 'backend/.env')
 
 async def check_database():
-    # Load environment variables
-    load_dotenv('/app/backend/.env')
-    
+    # Connect to MongoDB
     mongo_url = os.environ['MONGO_URL']
     db_name = os.environ['DB_NAME']
+    
+    print(f"Connecting to: {mongo_url}")
+    print(f"Database: {db_name}")
     
     client = AsyncIOMotorClient(mongo_url)
     db = client[db_name]
     
-    print("Checking database collections...")
-    
-    # Check appointments
-    appointments_count = await db.appointments.count_documents({})
-    print(f"Appointments count: {appointments_count}")
-    
-    if appointments_count > 0:
-        # Get a sample appointment
-        sample_appointment = await db.appointments.find_one({})
-        print(f"Sample appointment: {sample_appointment}")
+    try:
+        # Test connection
+        await client.admin.command('ping')
+        print("✅ Connected to MongoDB successfully!")
         
-        # Check if patient and doctor exist for this appointment
-        if sample_appointment:
-            patient_id = sample_appointment.get('patient_id')
-            doctor_id = sample_appointment.get('doctor_id')
+        # List all collections
+        collections = await db.list_collection_names()
+        print(f"\n📁 Collections in database '{db_name}':")
+        
+        if not collections:
+            print("❌ No collections found - database is empty")
+        else:
+            for collection in collections:
+                count = await db[collection].count_documents({})
+                print(f"  - {collection}: {count} documents")
+        
+        # Check users collection specifically
+        print(f"\n👥 Users collection:")
+        users_count = await db.users.count_documents({})
+        print(f"  Total users: {users_count}")
+        
+        if users_count > 0:
+            users = await db.users.find({}).to_list(None)
+            for user in users:
+                print(f"  - {user.get('full_name')} ({user.get('email')}) - {user.get('role')}")
+        else:
+            print("  No users found")
             
-            patient = await db.patients.find_one({"id": patient_id})
-            doctor = await db.doctors.find_one({"id": doctor_id})
-            
-            print(f"Patient exists: {patient is not None}")
-            print(f"Doctor exists: {doctor is not None}")
-            
-            if not patient:
-                print(f"Missing patient with ID: {patient_id}")
-            if not doctor:
-                print(f"Missing doctor with ID: {doctor_id}")
-    
-    # Check patients
-    patients_count = await db.patients.count_documents({})
-    print(f"Patients count: {patients_count}")
-    
-    # Check doctors
-    doctors_count = await db.doctors.count_documents({})
-    print(f"Doctors count: {doctors_count}")
-    
-    client.close()
+    except Exception as e:
+        print(f"❌ Error connecting to database: {e}")
+    finally:
+        client.close()
 
 if __name__ == "__main__":
     asyncio.run(check_database())

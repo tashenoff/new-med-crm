@@ -12,7 +12,7 @@ const TreatmentStatistics = () => {
   const [activeTab, setActiveTab] = useState('overview');
   const [activeCategory, setActiveCategory] = useState('treatment'); // 'treatment' or 'doctors'
 
-  const API = process.env.REACT_APP_BACKEND_URL;
+  const API = import.meta.env.VITE_BACKEND_URL;
 
   useEffect(() => {
     if (activeCategory === 'treatment') {

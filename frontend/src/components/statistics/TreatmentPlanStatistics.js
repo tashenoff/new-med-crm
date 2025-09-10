@@ -10,7 +10,7 @@ const TreatmentPlanStatistics = () => {
   const [activeTab, setActiveTab] = useState('overview');
   const [searchTerm, setSearchTerm] = useState('');
 
-  const API = process.env.REACT_APP_BACKEND_URL;
+  const API = import.meta.env.VITE_BACKEND_URL;
 
   useEffect(() => {
     fetchStatistics();

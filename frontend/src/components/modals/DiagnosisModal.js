@@ -28,7 +28,7 @@ const DiagnosisModal = ({
           <input
             type="text"
             placeholder="Название диагноза *"
-            value={diagnosisForm.diagnosis_name}
+            value={diagnosisForm.diagnosis_name || ''}
             onChange={(e) => setDiagnosisForm({...diagnosisForm, diagnosis_name: e.target.value})}
             className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500"
             required
@@ -37,14 +37,14 @@ const DiagnosisModal = ({
           <input
             type="text"
             placeholder="Код МКБ-10 (например: I10)"
-            value={diagnosisForm.diagnosis_code}
+            value={diagnosisForm.diagnosis_code || ''}
             onChange={(e) => setDiagnosisForm({...diagnosisForm, diagnosis_code: e.target.value})}
             className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500"
           />
           
           <textarea
             placeholder="Описание диагноза"
-            value={diagnosisForm.description}
+            value={diagnosisForm.description || ''}
             onChange={(e) => setDiagnosisForm({...diagnosisForm, description: e.target.value})}
             className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500"
             rows="3"
@@ -73,3 +73,5 @@ const DiagnosisModal = ({
 };
 
 export default DiagnosisModal;
+
+

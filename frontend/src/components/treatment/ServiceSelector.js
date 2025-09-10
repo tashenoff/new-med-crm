@@ -11,7 +11,7 @@ const ServiceSelector = ({ onServiceAdd, selectedPatient }) => {
   const [discount, setDiscount] = useState(0);
   const [loading, setLoading] = useState(false);
 
-  const API = process.env.REACT_APP_BACKEND_URL;
+  const API = import.meta.env.VITE_BACKEND_URL;
 
   useEffect(() => {
     fetchCategories();

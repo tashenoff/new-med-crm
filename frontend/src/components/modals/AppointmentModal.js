@@ -51,7 +51,7 @@ const AppointmentModal = ({
     notes: ''
   });
 
-  const API = process.env.REACT_APP_BACKEND_URL;
+  const API = import.meta.env.VITE_BACKEND_URL;
   const selectedPatient = patients.find(p => p.id === appointmentForm.patient_id);
 
   // Функция для получения доступных врачей на выбранную дату

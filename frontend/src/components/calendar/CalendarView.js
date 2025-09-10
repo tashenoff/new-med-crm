@@ -17,7 +17,7 @@ const CalendarView = ({
   const [availableDoctors, setAvailableDoctors] = useState([]);
   const [loadingDoctors, setLoadingDoctors] = useState(false);
 
-  const API = process.env.REACT_APP_BACKEND_URL;
+  const API = import.meta.env.VITE_BACKEND_URL;
 
   // Функция для загрузки врачей, работающих в выбранную дату
   const fetchAvailableDoctors = async (date) => {

@@ -1,6 +1,6 @@
 import React from 'react';
 
-const Header = ({ user, onLogout, onToggleSidebar, sidebarOpen }) => {
+const Header = ({ user, onLogout, onToggleSidebar, sidebarOpen, activeSection, setActiveSection }) => {
   return (
     <header className="bg-white shadow-sm border-b border-gray-200 relative z-40">
       <div className="px-4 sm:px-6 lg:px-8">
@@ -59,6 +59,34 @@ const Header = ({ user, onLogout, onToggleSidebar, sidebarOpen }) => {
               </div>
               <h1 className="text-xl font-bold text-gray-900 hidden sm:block">Мед Ассистент</h1>
             </div>
+          </div>
+          
+          {/* Top Navigation Tabs */}
+          <div className="flex items-center space-x-6">
+            {user && (
+              <nav className="hidden md:flex space-x-6">
+                <button 
+                  onClick={() => setActiveSection('hms')}
+                  className={`px-3 py-2 text-sm font-medium transition-colors ${
+                    activeSection === 'hms' 
+                      ? 'text-blue-600 border-b-2 border-blue-600' 
+                      : 'text-gray-700 hover:text-blue-600'
+                  }`}
+                >
+                  HMS
+                </button>
+                <button 
+                  onClick={() => setActiveSection('crm')}
+                  className={`px-3 py-2 text-sm font-medium transition-colors ${
+                    activeSection === 'crm' 
+                      ? 'text-blue-600 border-b-2 border-blue-600' 
+                      : 'text-gray-700 hover:text-blue-600'
+                  }`}
+                >
+                  CRM
+                </button>
+              </nav>
+            )}
           </div>
           
           <div className="flex items-center space-x-4">
