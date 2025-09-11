@@ -102,9 +102,10 @@ const ServiceSelector = ({ onServiceAdd, selectedPatient }) => {
       unit: service.unit,
       teeth_numbers: isToothService ? selectedTeeth : null,
       unit_price: service.price || 0,
+      price: service.price || 0, // Добавляем поле price для совместимости с расчетом зарплат
       quantity: finalQuantity || 1,
-      discount_percent: discount || 0,
-      total_price: totalPrice || 0, // Изменено с final_price на total_price
+      discount: discount || 0, // Исправляем название поля
+      total_price: totalPrice || 0,
       description: service.description || ''
     };
 

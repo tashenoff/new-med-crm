@@ -6,21 +6,30 @@ const DoctorModal = ({
   show, 
   onClose, 
   onSave, 
-  doctorForm, 
+  doctorForm,
   setDoctorForm, 
   editingItem, 
   loading, 
   errorMessage 
 }) => {
   const [specialties, setSpecialties] = useState([]);
+  const [services, setServices] = useState([]);
+  const [selectedServices, setSelectedServices] = useState([]);
   
   const API = import.meta.env.VITE_BACKEND_URL;
 
   useEffect(() => {
     if (show) {
       fetchSpecialties();
+      fetchServices();
+      // Загружаем существующие услуги врача при редактировании
+      if (editingItem && editingItem.services) {
+        setSelectedServices([...editingItem.services]);
+      } else {
+        setSelectedServices([]);
+      }
     }
-  }, [show]);
+  }, [show, editingItem]);
 
   const fetchSpecialties = async () => {
     try {
@@ -47,6 +56,49 @@ const DoctorModal = ({
       console.error('DoctorModal: Error fetching specialties:', error);
     }
   };
+
+  const fetchServices = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      console.log('DoctorModal: Fetching service prices...');
+      
+      const response = await fetch(`${API}/api/service-prices`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        console.log('DoctorModal: Fetched service prices:', data);
+        setServices(data || []);
+      } else {
+        console.error('DoctorModal: Failed to fetch service prices:', response.status);
+      }
+    } catch (error) {
+      console.error('DoctorModal: Error fetching service prices:', error);
+    }
+  };
+
+  // Обработчик для изменения услуг
+  const handleServiceToggle = (serviceId) => {
+    setSelectedServices(prev => {
+      const newSelected = prev.includes(serviceId) 
+        ? prev.filter(id => id !== serviceId)
+        : [...prev, serviceId];
+      
+      return newSelected;
+    });
+  };
+
+  // Синхронизируем выбранные услуги с формой врача
+  React.useEffect(() => {
+    setDoctorForm(prevForm => ({
+      ...prevForm,
+      services: selectedServices
+    }));
+  }, [selectedServices, setDoctorForm]);
 
   if (!show) return null;
 
@@ -174,6 +226,63 @@ const DoctorModal = ({
                 )}
               </div>
             </div>
+          </div>
+          
+          {/* Блок выбора услуг */}
+          <div className="space-y-3">
+            <label className={labelClasses}>
+              Услуги врача 
+              <span className="text-xs text-gray-500 dark:text-gray-400 ml-2">
+                (для расчета зарплаты с планов лечения)
+              </span>
+            </label>
+            
+            {services.length > 0 ? (
+              <div className="max-h-48 overflow-y-auto border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700">
+                {(() => {
+                  const servicesByCategory = services.reduce((acc, service) => {
+                    const category = service.category || 'Без категории';
+                    if (!acc[category]) acc[category] = [];
+                    acc[category].push(service);
+                    return acc;
+                  }, {});
+                  
+                  return Object.keys(servicesByCategory).map(category => (
+                    <div key={category} className="border-b border-gray-200 dark:border-gray-600 last:border-b-0">
+                      <div className="px-3 py-2 bg-gray-50 dark:bg-gray-800 font-medium text-sm text-gray-700 dark:text-gray-300">
+                        {category}
+                      </div>
+                      <div className="px-3 py-2 space-y-1">
+                        {servicesByCategory[category].map(service => (
+                          <label key={service.id} className="flex items-center space-x-2 text-sm">
+                            <input
+                              type="checkbox"
+                              checked={selectedServices.includes(service.id)}
+                              onChange={() => handleServiceToggle(service.id)}
+                              className="text-blue-600 dark:text-blue-400 rounded"
+                            />
+                            <span className="text-gray-900 dark:text-white">{service.service_name}</span>
+                            <span className="text-xs text-gray-500 dark:text-gray-400">
+                              ({service.price.toLocaleString()} ₸)
+                            </span>
+                          </label>
+                        ))}
+                      </div>
+                    </div>
+                  ));
+                })()}
+              </div>
+            ) : (
+              <div className="text-sm text-gray-500 dark:text-gray-400 p-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-gray-50 dark:bg-gray-800">
+                📋 Услуги не найдены. Создайте услуги в разделе "Справочники" → "Ценовая политика"
+              </div>
+            )}
+            
+            {selectedServices.length > 0 && (
+              <div className="text-xs text-green-600 dark:text-green-400">
+                ✅ Выбрано услуг: {selectedServices.length}
+              </div>
+            )}
           </div>
           
           <div className="flex space-x-3">

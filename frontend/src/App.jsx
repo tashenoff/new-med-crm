@@ -424,7 +424,8 @@ function ClinicApp() {
     calendar_color: '#3B82F6',
     payment_type: 'percentage',
     payment_value: 0,
-    currency: 'KZT'
+    currency: 'KZT',
+    services: []
   });
   const [appointmentForm, setAppointmentForm] = useState({
     patient_id: '', 
@@ -1906,7 +1907,17 @@ function ClinicApp() {
             setSearchTerm={setSearchTerm}
             onAddDoctor={() => {
               setEditingItem(null);
-              setDoctorForm({ full_name: '', specialty: '', phone: '', email: '' });
+              setDoctorForm({ 
+                full_name: '', 
+                specialty: '', 
+                phone: '', 
+                email: '',
+                calendar_color: '#3B82F6',
+                payment_type: 'percentage',
+                payment_value: 0,
+                currency: 'KZT',
+                services: []
+              });
               setShowDoctorModal(true);
             }}
             onEditDoctor={handleEditDoctor}
@@ -2015,7 +2026,17 @@ function ClinicApp() {
         onClose={() => {
           setShowDoctorModal(false);
           setEditingItem(null);
-          setDoctorForm({ full_name: '', specialty: '', phone: '', email: '' });
+          setDoctorForm({ 
+            full_name: '', 
+            specialty: '', 
+            phone: '', 
+            email: '',
+            calendar_color: '#3B82F6',
+            payment_type: 'percentage',
+            payment_value: 0,
+            currency: 'KZT',
+            services: []
+          });
         }}
         onSave={handleSaveDoctor}
         doctorForm={doctorForm}
