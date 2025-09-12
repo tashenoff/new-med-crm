@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useContext, createContext } from 'react';
+import React, { useState, useEffect, useContext, createContext, useRef } from 'react';
 import axios from 'axios';
 import Header from './components/layout/Header';
 import Navigation from './components/layout/Navigation';
@@ -16,6 +16,7 @@ import PatientsView from './components/patients/PatientsView';
 import DoctorsView from './components/doctors/DoctorsView';
 import DoctorSchedule from './components/doctors/DoctorSchedule';
 import ServicePrices from './components/directory/ServicePrices';
+import Rooms from './components/directory/Rooms';
 import Specialties from './components/specialties/Specialties';
 import PaymentTypes from './components/payment-types/PaymentTypes';
 import TreatmentPlanStatistics from './components/statistics/TreatmentPlanStatistics';
@@ -400,6 +401,24 @@ function ClinicApp() {
   const [showAddMedicalEntryModal, setShowAddMedicalEntryModal] = useState(false);
   const [editingItem, setEditingItem] = useState(null);
   const [pendingAppointment, setPendingAppointment] = useState(null);
+  
+  // Функция проверки конфликтов времени (получается из CalendarView)
+  const checkTimeConflictsRef = useRef(null);
+
+  // Простая функция проверки пересечения времени
+  const doTimesOverlapSimple = (start1, end1, start2, end2) => {
+    const timeToMinutes = (timeStr) => {
+      const [hours, minutes] = timeStr.split(':').map(n => parseInt(n));
+      return hours * 60 + minutes;
+    };
+    
+    const start1Minutes = timeToMinutes(start1);
+    const end1Minutes = end1 ? timeToMinutes(end1) : start1Minutes + 30;
+    const start2Minutes = timeToMinutes(start2);
+    const end2Minutes = end2 ? timeToMinutes(end2) : start2Minutes + 30;
+    
+    return start1Minutes < end2Minutes && start2Minutes < end1Minutes;
+  };
 
   // Формы
   const [patientForm, setPatientForm] = useState({
@@ -433,7 +452,6 @@ function ClinicApp() {
     appointment_date: '', 
     appointment_time: '', 
     end_time: '',
-    chair_number: '',
     price: '',
     status: 'unconfirmed',
     reason: '', 
@@ -917,6 +935,36 @@ function ClinicApp() {
     setErrorMessage(null);
     
     try {
+      // Проверяем конфликты времени перед сохранением
+      if (!editingItem) {
+        // Простая проверка пересечений по времени
+        const conflictingAppointments = appointments.filter(apt => {
+          if (apt.appointment_date === appointmentForm.appointment_date) {
+            // Проверяем записи в том же кабинете
+            if (apt.room_id === appointmentForm.room_id) {
+              return doTimesOverlapSimple(
+                appointmentForm.appointment_time,
+                appointmentForm.end_time,
+                apt.appointment_time,
+                apt.end_time
+              );
+            }
+          }
+          return false;
+        });
+        
+        if (conflictingAppointments.length > 0) {
+          const conflictNames = conflictingAppointments.map(apt => {
+            const patient = patients.find(p => p.id === apt.patient_id);
+            return patient ? patient.full_name : 'Неизвестный пациент';
+          }).join(', ');
+          
+          alert(`ОШИБКА: Время пересекается с записями: ${conflictNames}\n\nИзмените время записи.`);
+          setLoading(false);
+          return;
+        }
+      }
+      
       if (editingItem) {
         await updateAppointment(editingItem.id, appointmentForm);
       } else {
@@ -932,7 +980,6 @@ function ClinicApp() {
         appointment_date: '', 
         appointment_time: '', 
         end_time: '',
-        chair_number: '',
         price: '',
         status: 'unconfirmed',
         reason: '', 
@@ -941,6 +988,7 @@ function ClinicApp() {
       });
     } catch (error) {
       console.error('Error saving appointment:', error);
+      
       let errorMessage = 'Ошибка при сохранении записи';
       
       if (error.response?.data?.detail) {
@@ -969,10 +1017,10 @@ function ClinicApp() {
     setAppointmentForm({
       patient_id: appointment.patient_id,
       doctor_id: appointment.doctor_id,
+      room_id: appointment.room_id || '',
       appointment_date: appointment.appointment_date,
       appointment_time: appointment.appointment_time,
       end_time: appointment.end_time || '',
-      chair_number: appointment.chair_number || '',
       price: appointment.price || '',
       status: appointment.status || 'unconfirmed',
       reason: appointment.reason || '',
@@ -982,14 +1030,20 @@ function ClinicApp() {
     setShowAppointmentModal(true);
   };
 
-  const handleMoveAppointment = async (appointmentId, newDoctorId, newDate, newTime) => {
+  const handleMoveAppointment = async (appointmentId, newDoctorId, newDate, newTime, newRoomId = null) => {
     try {
       setLoading(true);
-      await updateAppointment(appointmentId, {
+      const updateData = {
         doctor_id: newDoctorId,
         appointment_date: newDate,
         appointment_time: newTime
-      });
+      };
+      
+      if (newRoomId) {
+        updateData.room_id = newRoomId;
+      }
+      
+      await updateAppointment(appointmentId, updateData);
       fetchAppointments();
     } catch (error) {
       console.error('Error moving appointment:', error);
@@ -1136,15 +1190,15 @@ function ClinicApp() {
     }
   };
 
-  const handleSlotClick = (doctorId, date, time) => {
-    console.log('Slot clicked:', { doctorId, date, time });
+  const handleSlotClick = (date, time, doctorId, roomId = null) => {
+    console.log('Slot clicked:', { date, time, doctorId, roomId });
     setAppointmentForm({
       patient_id: '',
       doctor_id: doctorId,
+      room_id: roomId || '',
       appointment_date: date,
       appointment_time: time,
       end_time: '',
-      chair_number: '',
       price: '',
       status: 'unconfirmed',
       reason: '',
@@ -1160,10 +1214,10 @@ function ClinicApp() {
     setAppointmentForm({
       patient_id: '',
       doctor_id: '',
+      room_id: '',
       appointment_date: today,
       appointment_time: '',
       end_time: '',
-      chair_number: '',
       price: '',
       status: 'unconfirmed',
       reason: '',
@@ -1780,6 +1834,7 @@ function ClinicApp() {
             onDeleteAppointment={handleDeleteAppointment}
             onStatusChange={handleStatusChange}
             onMoveAppointment={handleMoveAppointment}
+            onCheckTimeConflicts={(fn) => { checkTimeConflictsRef.current = fn; }}
             canEdit={user?.role === 'admin' || user?.role === 'doctor'}
           />
         )}
@@ -1939,6 +1994,12 @@ function ClinicApp() {
             user={user}
           />
         )}
+
+        {activeTab === 'rooms' && (
+          <Rooms
+            user={user}
+          />
+        )}
         
         {activeTab === 'specialties' && (
           <Specialties
@@ -1973,7 +2034,6 @@ function ClinicApp() {
             appointment_date: '', 
             appointment_time: '', 
             end_time: '',
-            chair_number: '',
             price: '',
             status: 'unconfirmed',
             reason: '', 
@@ -1990,6 +2050,7 @@ function ClinicApp() {
         loading={loading}
         errorMessage={errorMessage}
         onCreatePatient={handleCreatePatientFromAppointment}
+        appointments={appointments}
       />
 
       <PatientModal

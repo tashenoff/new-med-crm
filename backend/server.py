@@ -437,6 +437,67 @@ class DoctorWithSchedule(BaseModel):
     updated_at: datetime
     schedule: List[DoctorSchedule] = []
 
+# Room and Room Schedule Models
+class Room(BaseModel):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    name: str  # "Кабинет 1", "Стоматологический кабинет", "Терапевтический кабинет"
+    number: Optional[str] = None  # "101", "202А"
+    description: Optional[str] = None
+    equipment: Optional[List[str]] = []  # оборудование в кабинете
+    is_active: bool = True
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_at: datetime = Field(default_factory=datetime.utcnow)
+
+class RoomCreate(BaseModel):
+    name: str
+    number: Optional[str] = None
+    description: Optional[str] = None
+    equipment: Optional[List[str]] = []
+
+class RoomUpdate(BaseModel):
+    name: Optional[str] = None
+    number: Optional[str] = None
+    description: Optional[str] = None
+    equipment: Optional[List[str]] = None
+    is_active: Optional[bool] = None
+
+class RoomSchedule(BaseModel):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    room_id: str
+    doctor_id: str
+    day_of_week: int  # 0 = Понедельник, 1 = Вторник, ..., 6 = Воскресенье
+    start_time: str   # Format: "HH:MM"
+    end_time: str     # Format: "HH:MM"
+    is_active: bool = True
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_at: datetime = Field(default_factory=datetime.utcnow)
+
+class RoomScheduleCreate(BaseModel):
+    room_id: Optional[str] = None  # Будет подставлено из URL
+    doctor_id: str
+    day_of_week: int
+    start_time: str
+    end_time: str
+
+class RoomScheduleUpdate(BaseModel):
+    room_id: Optional[str] = None
+    doctor_id: Optional[str] = None
+    day_of_week: Optional[int] = None
+    start_time: Optional[str] = None
+    end_time: Optional[str] = None
+    is_active: Optional[bool] = None
+
+class RoomWithSchedule(BaseModel):
+    id: str
+    name: str
+    number: Optional[str]
+    description: Optional[str]
+    equipment: Optional[List[str]]
+    is_active: bool
+    created_at: datetime
+    updated_at: datetime
+    schedule: List[RoomSchedule] = []
+
 # Service Price Directory Models
 class ServicePrice(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
@@ -525,10 +586,10 @@ class Appointment(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     patient_id: str
     doctor_id: str
+    room_id: Optional[str] = None  # ID кабинета
     appointment_date: str  # Store as string in ISO format (YYYY-MM-DD)
     appointment_time: str  # Format: "HH:MM"
     end_time: Optional[str] = None  # Format: "HH:MM"
-    chair_number: Optional[str] = None  # Chair/Station number
     price: Optional[float] = None  # Price of the appointment
     status: AppointmentStatus = AppointmentStatus.UNCONFIRMED
     reason: Optional[str] = None
@@ -540,10 +601,10 @@ class Appointment(BaseModel):
 class AppointmentCreate(BaseModel):
     patient_id: str
     doctor_id: str
+    room_id: Optional[str] = None
     appointment_date: str  # Accept as string in ISO format (YYYY-MM-DD)
     appointment_time: str
     end_time: Optional[str] = None
-    chair_number: Optional[str] = None
     price: Optional[float] = None
     status: Optional[AppointmentStatus] = AppointmentStatus.UNCONFIRMED
     reason: Optional[str] = None
@@ -553,10 +614,10 @@ class AppointmentCreate(BaseModel):
 class AppointmentUpdate(BaseModel):
     patient_id: Optional[str] = None
     doctor_id: Optional[str] = None
+    room_id: Optional[str] = None
     appointment_date: Optional[str] = None  # Accept as string in ISO format (YYYY-MM-DD)
     appointment_time: Optional[str] = None
     end_time: Optional[str] = None
-    chair_number: Optional[str] = None
     price: Optional[float] = None
     status: Optional[AppointmentStatus] = None
     reason: Optional[str] = None
@@ -567,10 +628,10 @@ class AppointmentWithDetails(BaseModel):
     id: str
     patient_id: str
     doctor_id: str
+    room_id: Optional[str] = None
     appointment_date: str  # Return as string in ISO format (YYYY-MM-DD)
     appointment_time: str
     end_time: Optional[str]
-    chair_number: Optional[str]
     price: Optional[float]
     status: AppointmentStatus
     reason: Optional[str]
@@ -2029,10 +2090,10 @@ async def get_appointments(
                 "id": 1,
                 "patient_id": 1,
                 "doctor_id": 1,
+                "room_id": {"$ifNull": ["$room_id", None]},
                 "appointment_date": 1,
                 "appointment_time": 1,
                 "end_time": {"$ifNull": ["$end_time", None]},
-                "chair_number": {"$ifNull": ["$chair_number", None]},
                 "price": {"$ifNull": ["$price", None]},
                 "status": 1,
                 "reason": 1,
@@ -2083,10 +2144,10 @@ async def get_appointment(
                 "id": 1,
                 "patient_id": 1,
                 "doctor_id": 1,
+                "room_id": {"$ifNull": ["$room_id", None]},
                 "appointment_date": 1,
                 "appointment_time": 1,
                 "end_time": {"$ifNull": ["$end_time", None]},
-                "chair_number": {"$ifNull": ["$chair_number", None]},
                 "price": {"$ifNull": ["$price", None]},
                 "status": 1,
                 "reason": 1,
@@ -3252,6 +3313,240 @@ async def root():
     return {"message": "Medical CRM API is running"}
 
 # Remove the global OPTIONS handler - CORS middleware should handle this
+
+# Room Directory endpoints
+@api_router.get("/rooms", response_model=List[Room])
+async def get_rooms(
+    current_user: UserInDB = Depends(get_current_active_user)
+):
+    """Get all active rooms"""
+    rooms = await db.rooms.find({"is_active": True}).sort("name", 1).to_list(1000)
+    return [Room(**room) for room in rooms]
+
+@api_router.post("/rooms", response_model=Room)
+async def create_room(
+    room_data: RoomCreate,
+    current_user: UserInDB = Depends(require_role([UserRole.ADMIN]))
+):
+    """Create new room"""
+    # Check if room with same name already exists
+    existing = await db.rooms.find_one({
+        "name": room_data.name,
+        "is_active": True
+    })
+    
+    if existing:
+        raise HTTPException(status_code=400, detail="Room with this name already exists")
+    
+    room_obj = Room(**room_data.dict())
+    await db.rooms.insert_one(room_obj.dict())
+    logger.info(f"Room created: {room_obj.name}")
+    return room_obj
+
+@api_router.put("/rooms/{room_id}", response_model=Room)
+async def update_room(
+    room_id: str,
+    room_update: RoomUpdate,
+    current_user: UserInDB = Depends(require_role([UserRole.ADMIN]))
+):
+    """Update room"""
+    existing_room = await db.rooms.find_one({"id": room_id})
+    if not existing_room:
+        raise HTTPException(status_code=404, detail="Room not found")
+    
+    update_data = {k: v for k, v in room_update.dict().items() if v is not None}
+    update_data["updated_at"] = datetime.utcnow()
+    
+    await db.rooms.update_one(
+        {"id": room_id},
+        {"$set": update_data}
+    )
+    
+    updated_room = await db.rooms.find_one({"id": room_id})
+    logger.info(f"Room updated: {updated_room['name']}")
+    return Room(**updated_room)
+
+@api_router.delete("/rooms/{room_id}")
+async def delete_room(
+    room_id: str,
+    current_user: UserInDB = Depends(require_role([UserRole.ADMIN]))
+):
+    """Delete room (soft delete)"""
+    # Check if room has any schedules
+    schedules_count = await db.room_schedules.count_documents({"room_id": room_id, "is_active": True})
+    if schedules_count > 0:
+        raise HTTPException(status_code=400, detail="Cannot delete room: it has active schedules")
+    
+    # Check if room has any appointments
+    appointments_count = await db.appointments.count_documents({"room_id": room_id})
+    if appointments_count > 0:
+        raise HTTPException(status_code=400, detail="Cannot delete room: it has appointments")
+    
+    await db.rooms.update_one(
+        {"id": room_id},
+        {"$set": {"is_active": False, "updated_at": datetime.utcnow()}}
+    )
+    
+    logger.info(f"Room deleted: {room_id}")
+    return {"message": "Room deleted successfully"}
+
+# Room Schedule endpoints
+@api_router.get("/rooms/{room_id}/schedule", response_model=List[RoomSchedule])
+async def get_room_schedule(
+    room_id: str,
+    current_user: UserInDB = Depends(get_current_active_user)
+):
+    """Get schedule for a specific room"""
+    schedules = await db.room_schedules.find(
+        {"room_id": room_id, "is_active": True}
+    ).sort("day_of_week", 1).to_list(1000)
+    return [RoomSchedule(**schedule) for schedule in schedules]
+
+@api_router.post("/rooms/{room_id}/schedule", response_model=RoomSchedule)
+async def create_room_schedule(
+    room_id: str,
+    schedule_data: RoomScheduleCreate,
+    current_user: UserInDB = Depends(require_role([UserRole.ADMIN]))
+):
+    """Create room schedule entry"""
+    # Verify room exists
+    room = await db.rooms.find_one({"id": room_id, "is_active": True})
+    if not room:
+        raise HTTPException(status_code=404, detail="Room not found")
+    
+    # Verify doctor exists
+    doctor = await db.doctors.find_one({"id": schedule_data.doctor_id, "is_active": True})
+    if not doctor:
+        raise HTTPException(status_code=404, detail="Doctor not found")
+    
+    # Check for time conflicts in the same room
+    conflicting_schedules = await db.room_schedules.find({
+        "room_id": room_id,
+        "day_of_week": schedule_data.day_of_week,
+        "is_active": True,
+        "$or": [
+            # New schedule starts during existing schedule
+            {
+                "start_time": {"$lte": schedule_data.start_time},
+                "end_time": {"$gt": schedule_data.start_time}
+            },
+            # New schedule ends during existing schedule
+            {
+                "start_time": {"$lt": schedule_data.end_time},
+                "end_time": {"$gte": schedule_data.end_time}
+            },
+            # New schedule encompasses existing schedule
+            {
+                "start_time": {"$gte": schedule_data.start_time},
+                "end_time": {"$lte": schedule_data.end_time}
+            }
+        ]
+    }).to_list(None)
+    
+    if conflicting_schedules:
+        raise HTTPException(status_code=400, detail="Time conflict: room is already scheduled during this time")
+    
+    # Override room_id from URL
+    schedule_data.room_id = room_id
+    schedule_obj = RoomSchedule(**schedule_data.dict())
+    await db.room_schedules.insert_one(schedule_obj.dict())
+    
+    logger.info(f"Room schedule created: Room {room_id}, Doctor {schedule_data.doctor_id}")
+    return schedule_obj
+
+@api_router.put("/room-schedules/{schedule_id}", response_model=RoomSchedule)
+async def update_room_schedule(
+    schedule_id: str,
+    schedule_update: RoomScheduleUpdate,
+    current_user: UserInDB = Depends(require_role([UserRole.ADMIN]))
+):
+    """Update room schedule entry"""
+    existing_schedule = await db.room_schedules.find_one({"id": schedule_id})
+    if not existing_schedule:
+        raise HTTPException(status_code=404, detail="Schedule not found")
+    
+    update_data = {k: v for k, v in schedule_update.dict().items() if v is not None}
+    update_data["updated_at"] = datetime.utcnow()
+    
+    await db.room_schedules.update_one(
+        {"id": schedule_id},
+        {"$set": update_data}
+    )
+    
+    updated_schedule = await db.room_schedules.find_one({"id": schedule_id})
+    logger.info(f"Room schedule updated: {schedule_id}")
+    return RoomSchedule(**updated_schedule)
+
+@api_router.delete("/room-schedules/{schedule_id}")
+async def delete_room_schedule(
+    schedule_id: str,
+    current_user: UserInDB = Depends(require_role([UserRole.ADMIN]))
+):
+    """Delete room schedule entry"""
+    await db.room_schedules.update_one(
+        {"id": schedule_id},
+        {"$set": {"is_active": False, "updated_at": datetime.utcnow()}}
+    )
+    
+    logger.info(f"Room schedule deleted: {schedule_id}")
+    return {"message": "Room schedule deleted successfully"}
+
+@api_router.get("/rooms-with-schedule", response_model=List[RoomWithSchedule])
+async def get_rooms_with_schedule(
+    current_user: UserInDB = Depends(get_current_active_user)
+):
+    """Get all rooms with their schedules"""
+    rooms = await db.rooms.find({"is_active": True}).sort("name", 1).to_list(1000)
+    rooms_with_schedule = []
+    
+    for room in rooms:
+        # Get schedules for this room
+        schedules = await db.room_schedules.find(
+            {"room_id": room["id"], "is_active": True}
+        ).sort("day_of_week", 1).to_list(1000)
+        
+        room_with_schedule = RoomWithSchedule(
+            **room,
+            schedule=[RoomSchedule(**schedule) for schedule in schedules]
+        )
+        rooms_with_schedule.append(room_with_schedule)
+    
+    return rooms_with_schedule
+
+# Helper endpoint to find available doctor for a room at specific time
+@api_router.get("/rooms/{room_id}/available-doctor")
+async def get_available_doctor_for_room(
+    room_id: str,
+    day_of_week: int,
+    time: str,  # HH:MM format
+    current_user: UserInDB = Depends(get_current_active_user)
+):
+    """Find which doctor is available in the room at specific day and time"""
+    # Find schedule entry that matches the criteria
+    schedule = await db.room_schedules.find_one({
+        "room_id": room_id,
+        "day_of_week": day_of_week,
+        "start_time": {"$lte": time},
+        "end_time": {"$gt": time},
+        "is_active": True
+    })
+    
+    if not schedule:
+        raise HTTPException(status_code=404, detail="No doctor available at this time")
+    
+    # Get doctor details
+    doctor = await db.doctors.find_one({"id": schedule["doctor_id"], "is_active": True})
+    if not doctor:
+        raise HTTPException(status_code=404, detail="Doctor not found")
+    
+    return {
+        "doctor_id": doctor["id"],
+        "doctor_name": doctor["full_name"],
+        "doctor_specialty": doctor["specialty"],
+        "schedule_id": schedule["id"],
+        "start_time": schedule["start_time"],
+        "end_time": schedule["end_time"]
+    }
 
 # Include the HMS router in the main app
 app.include_router(api_router)

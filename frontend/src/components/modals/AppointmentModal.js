@@ -14,7 +14,8 @@ const AppointmentModal = ({
   editingItem, 
   loading, 
   errorMessage,
-  onCreatePatient
+  onCreatePatient,
+  appointments = [] // Добавляем пропс для существующих записей
 }) => {
   const [showNewPatientForm, setShowNewPatientForm] = useState(false);
   const [activeTab, setActiveTab] = useState('appointment');
@@ -26,9 +27,12 @@ const AppointmentModal = ({
   const [availableDoctors, setAvailableDoctors] = useState([]);
   const [loadingDoctors, setLoadingDoctors] = useState(false);
   const [scheduleMessage, setScheduleMessage] = useState('');
+  const [rooms, setRooms] = useState([]);
+  const [loadingRooms, setLoadingRooms] = useState(false);
   const [patientSearch, setPatientSearch] = useState('');
   const [showPatientDropdown, setShowPatientDropdown] = useState(false);
   const [filteredPatients, setFilteredPatients] = useState([]);
+  const [timeConflictMessage, setTimeConflictMessage] = useState('');
   const [planForm, setPlanForm] = useState({
     title: '',
     description: '',
@@ -56,26 +60,66 @@ const AppointmentModal = ({
   const API = import.meta.env.VITE_BACKEND_URL;
   const selectedPatient = patients.find(p => p.id === appointmentForm.patient_id);
 
-  // Функция для получения доступных врачей на выбранную дату
-  const fetchAvailableDoctors = async (date, time = null) => {
+  // Простая функция проверки пересечения времени
+  const doTimesOverlap = (start1, end1, start2, end2) => {
+    const timeToMinutes = (timeStr) => {
+      const [hours, minutes] = timeStr.split(':').map(n => parseInt(n));
+      return hours * 60 + minutes;
+    };
+    
+    const start1Minutes = timeToMinutes(start1);
+    const end1Minutes = end1 ? timeToMinutes(end1) : start1Minutes + 30;
+    const start2Minutes = timeToMinutes(start2);
+    const end2Minutes = end2 ? timeToMinutes(end2) : start2Minutes + 30;
+    
+    return start1Minutes < end2Minutes && start2Minutes < end1Minutes;
+  };
+
+  // Проверяет конфликт времени и устанавливает сообщение
+  const checkTimeConflict = (roomId, date, time) => {
+    setTimeConflictMessage('');
+    
+    if (!editingItem) { // Только для новых записей
+      const conflictingAppointments = appointments.filter(apt => {
+        return apt.appointment_date === date && 
+               apt.room_id === roomId &&
+               doTimesOverlap(time, appointmentForm.end_time, apt.appointment_time, apt.end_time);
+      });
+      
+      if (conflictingAppointments.length > 0) {
+        const conflictNames = conflictingAppointments.map(apt => {
+          const patient = patients.find(p => p.id === apt.patient_id);
+          return patient ? patient.full_name : 'Неизвестный пациент';
+        }).join(', ');
+        
+        setTimeConflictMessage(`⚠️ КОНФЛИКТ: На это время уже записан ${conflictNames}`);
+      }
+    }
+  };
+
+  // Функция для получения врачей, работающих в выбранном кабинете
+  const fetchAvailableDoctors = async (date, time = null, roomId = null) => {
+    setAvailableDoctors([]);
+    setScheduleMessage('');
+    
     if (!date) {
-      setAvailableDoctors([]);
-      setScheduleMessage('');
+      return;
+    }
+
+    // Если кабинет не выбран, показываем всех врачей
+    if (!roomId) {
+      setAvailableDoctors(doctors);
+      setScheduleMessage('Выберите кабинет для фильтрации врачей');
       return;
     }
 
     setLoadingDoctors(true);
-    setScheduleMessage('');
     
     try {
       const token = localStorage.getItem('token');
-      let url = `${API}/api/doctors/available/${date}`;
       
-      if (time) {
-        url += `?appointment_time=${time}`;
-      }
-      
-      const response = await fetch(url, {
+      // Получаем расписание для выбранного кабинета
+      const response = await fetch(`${API}/api/rooms/${roomId}/schedule`, {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
@@ -83,23 +127,71 @@ const AppointmentModal = ({
       });
 
       if (response.ok) {
-        const availableDocs = await response.json();
-        setAvailableDoctors(availableDocs);
+        const schedules = await response.json();
         
-        if (availableDocs.length === 0) {
-          setScheduleMessage('На выбранную дату нет доступных врачей');
+        // Определяем день недели (0 = Понедельник)
+        const dayOfWeek = new Date(date).getDay();
+        const adjustedDayOfWeek = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
+        
+        // Фильтруем расписания по дню недели
+        const daySchedules = schedules.filter(s => s.day_of_week === adjustedDayOfWeek && s.is_active);
+        
+        if (time) {
+          // Если время указано, находим врача для этого времени
+          const timeSchedule = daySchedules.find(s => 
+            s.start_time <= time && s.end_time > time
+          );
+          
+          if (timeSchedule) {
+            const doctor = doctors.find(d => d.id === timeSchedule.doctor_id);
+            if (doctor) {
+              setAvailableDoctors([{
+                ...doctor,
+                schedule: [timeSchedule]
+              }]);
+              setScheduleMessage(`Врач на ${time}: ${doctor.full_name}`);
+            } else {
+              setScheduleMessage('Врач не найден');
+            }
+          } else {
+            setScheduleMessage('В это время кабинет свободен');
+          }
         } else {
-          setScheduleMessage(`Найдено ${availableDocs.length} доступных врачей`);
+          // Если время не указано, показываем всех врачей, работающих в этом кабинете в этот день
+          const doctorsInRoom = daySchedules.map(schedule => {
+            const doctor = doctors.find(d => d.id === schedule.doctor_id);
+            return doctor ? {
+              ...doctor,
+              schedule: [schedule]
+            } : null;
+          }).filter(Boolean);
+          
+          // Убираем дубликаты врачей
+          const uniqueDoctors = doctorsInRoom.reduce((acc, doctor) => {
+            const existing = acc.find(d => d.id === doctor.id);
+            if (existing) {
+              existing.schedule.push(...doctor.schedule);
+            } else {
+              acc.push(doctor);
+            }
+            return acc;
+          }, []);
+          
+          setAvailableDoctors(uniqueDoctors);
+          
+          if (uniqueDoctors.length === 0) {
+            setScheduleMessage('В этот день в кабинете никто не работает');
+          } else {
+            setScheduleMessage(`Врачи в кабинете: ${uniqueDoctors.length}`);
+          }
         }
       } else {
-        console.error('Error fetching available doctors');
-        setAvailableDoctors([]);
-        setScheduleMessage('Ошибка при получении списка врачей');
+        console.error('Error fetching room schedule');
+        setScheduleMessage('Ошибка при получении расписания кабинета');
       }
     } catch (error) {
-      console.error('Error fetching available doctors:', error);
-      setAvailableDoctors([]);
-      setScheduleMessage('Ошибка соединения');
+      console.error('Error fetching room schedule:', error);
+      setScheduleMessage('Ошибка подключения к серверу');
     } finally {
       setLoadingDoctors(false);
     }
@@ -108,21 +200,62 @@ const AppointmentModal = ({
   // Обработчик изменения даты
   const handleDateChange = (date) => {
     setAppointmentForm({...appointmentForm, appointment_date: date, doctor_id: ''});
-    fetchAvailableDoctors(date, appointmentForm.appointment_time);
+    fetchAvailableDoctors(date, appointmentForm.appointment_time, appointmentForm.room_id);
   };
 
   // Обработчик изменения времени
   const handleTimeChange = (time) => {
     setAppointmentForm({...appointmentForm, appointment_time: time, doctor_id: ''});
+    
+    // Проверяем конфликты времени
+    if (appointmentForm.appointment_date && appointmentForm.room_id && time) {
+      checkTimeConflict(appointmentForm.room_id, appointmentForm.appointment_date, time);
+    }
+    
     if (appointmentForm.appointment_date) {
-      fetchAvailableDoctors(appointmentForm.appointment_date, time);
+      fetchAvailableDoctors(appointmentForm.appointment_date, time, appointmentForm.room_id);
+    }
+  };
+
+  // Обработчик изменения кабинета
+  const handleRoomChange = (roomId) => {
+    setAppointmentForm({...appointmentForm, room_id: roomId, doctor_id: ''});
+    if (appointmentForm.appointment_date) {
+      fetchAvailableDoctors(appointmentForm.appointment_date, appointmentForm.appointment_time, roomId);
     }
   };
 
   // Загрузка доступных врачей при загрузке компонента если дата уже выбрана
+  // Функция для загрузки кабинетов
+  const fetchRooms = async () => {
+    try {
+      setLoadingRooms(true);
+      const token = localStorage.getItem('token');
+      
+      const response = await fetch(`${API}/api/rooms`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (response.ok) {
+        const roomsData = await response.json();
+        setRooms(roomsData);
+      }
+    } catch (error) {
+      console.error('Error fetching rooms:', error);
+    } finally {
+      setLoadingRooms(false);
+    }
+  };
+
   useEffect(() => {
-    if (appointmentForm.appointment_date) {
-      fetchAvailableDoctors(appointmentForm.appointment_date, appointmentForm.appointment_time);
+    if (show) {
+      fetchRooms();
+      if (appointmentForm.appointment_date) {
+        fetchAvailableDoctors(appointmentForm.appointment_date, appointmentForm.appointment_time, appointmentForm.room_id);
+      }
     }
   }, [show]); // Перезагружаем при открытии модала
 
@@ -728,10 +861,42 @@ const AppointmentModal = ({
                 <input
                   type="time"
                   value={appointmentForm.end_time || ''}
-                  onChange={(e) => setAppointmentForm({...appointmentForm, end_time: e.target.value})}
+                  onChange={(e) => {
+                    setAppointmentForm({...appointmentForm, end_time: e.target.value});
+                    // Перепроверяем конфликт при изменении конечного времени
+                    if (appointmentForm.appointment_date && appointmentForm.room_id && appointmentForm.appointment_time) {
+                      checkTimeConflict(appointmentForm.room_id, appointmentForm.appointment_date, appointmentForm.appointment_time);
+                    }
+                  }}
                   className={inputClasses}
                 />
               </div>
+            </div>
+
+            {/* Предупреждение о конфликте времени */}
+            {timeConflictMessage && (
+              <div className="bg-red-50 border border-red-200 rounded-md p-3 text-red-800 text-sm">
+                {timeConflictMessage}
+              </div>
+            )}
+
+            {/* Выбор кабинета */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Кабинет
+              </label>
+              <select
+                value={appointmentForm.room_id || ''}
+                onChange={(e) => handleRoomChange(e.target.value)}
+                className={inputClasses}
+              >
+                <option value="">Выберите кабинет</option>
+                {rooms.map(room => (
+                  <option key={room.id} value={room.id}>
+                    {room.name} {room.number ? `(№${room.number})` : ''}
+                  </option>
+                ))}
+              </select>
             </div>
 
             {/* Выбор врача с учетом расписания */}
@@ -792,18 +957,7 @@ const AppointmentModal = ({
               )}
             </div>
 
-            <div className="grid grid-cols-3 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Кресло</label>
-                <input
-                  type="text"
-                  placeholder="Номер кресла"
-                  value={appointmentForm.chair_number || ''}
-                  onChange={(e) => setAppointmentForm({...appointmentForm, chair_number: e.target.value})}
-                  className={inputClasses}
-                />
-              </div>
-              
+            <div className="grid grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Цена (₸)</label>
                 <input

@@ -90,14 +90,12 @@ export const useApi = () => {
       
       Object.entries(appointmentData).forEach(([key, value]) => {
         if (value !== null && value !== undefined && value !== '') {
-          // Для цены и chair_number преобразуем в правильные типы
+          // Для цены преобразуем в правильный тип
           if (key === 'price') {
             const numValue = parseFloat(value);
             if (!isNaN(numValue)) {
               cleanData[key] = numValue;
             }
-          } else if (key === 'chair_number') {
-            cleanData[key] = String(value);
           } else {
             cleanData[key] = value;
           }
@@ -161,6 +159,38 @@ export const useApi = () => {
     }
   };
 
+  // Room functions
+  const fetchRoomsWithSchedule = async () => {
+    try {
+      const response = await axios.get(`${BACKEND_URL}/api/rooms-with-schedule`, {
+        headers: { 
+          'Authorization': `Bearer ${localStorage.getItem('token')}`,
+          'Content-Type': 'application/json'
+        }
+      });
+      return response.data;
+    } catch (error) {
+      console.error('Error fetching rooms:', error);
+      throw error;
+    }
+  };
+
+  const getAvailableDoctorForRoom = async (roomId, dayOfWeek, time) => {
+    try {
+      const response = await axios.get(`${BACKEND_URL}/api/rooms/${roomId}/available-doctor`, {
+        params: { day_of_week: dayOfWeek, time },
+        headers: { 
+          'Authorization': `Bearer ${localStorage.getItem('token')}`,
+          'Content-Type': 'application/json'
+        }
+      });
+      return response.data;
+    } catch (error) {
+      console.error('Error fetching available doctor:', error);
+      throw error;
+    }
+  };
+
   return {
     loading,
     setLoading,
@@ -172,6 +202,10 @@ export const useApi = () => {
     createDiagnosis,
     createMedication,
     createMedicalEntry,
+    fetchRoomsWithSchedule,
+    getAvailableDoctorForRoom,
     API
   };
 };
+
+export default useApi;
