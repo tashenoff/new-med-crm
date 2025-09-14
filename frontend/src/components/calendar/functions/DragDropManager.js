@@ -27,6 +27,16 @@ export class DragDropManager {
    */
   handleDragStart = (e, appointmentId) => {
     e.dataTransfer.setData('appointmentId', appointmentId);
+    // Сохраняем ID для отслеживания
+    this.draggedAppointmentId = appointmentId;
+  };
+
+  /**
+   * Обработчик окончания перетаскивания
+   */
+  handleDragEnd = (e) => {
+    // Сбрасываем ID
+    this.draggedAppointmentId = null;
   };
 
   /**
