@@ -24,6 +24,7 @@ import { themeClasses } from '../../../hooks/useTheme';
  * @param {Function} props.onDrop - Обработчик drop
  * @param {Function} props.onDragStart - Обработчик начала перетаскивания
  * @param {Function} props.onDragEnd - Обработчик окончания перетаскивания
+ * @param {string} props.dragOverSlot - ID слота который подсвечиваем при drag over
  */
 const TimeGrid = ({
   room,
@@ -43,7 +44,8 @@ const TimeGrid = ({
   onDragOver,
   onDrop,
   onDragStart,
-  onDragEnd
+  onDragEnd,
+  dragOverSlot
 }) => {
   const dateString = currentDate.toISOString().split('T')[0];
 
