@@ -29,6 +29,12 @@ const AppointmentCard = ({
     }
   };
 
+  const handleDragEnd = (e) => {
+    if (onDragEnd) {
+      onDragEnd(e);
+    }
+  };
+
   const handleClick = (e) => {
     e.stopPropagation();
     if (onEdit) {
