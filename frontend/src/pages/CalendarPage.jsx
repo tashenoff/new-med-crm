@@ -347,6 +347,28 @@ const CalendarPage = ({ user }) => {
         throw new Error('Запись не найдена');
       }
       
+      // Пересчитываем end_time при перемещении
+      let newEndTime = originalAppointment.end_time;
+      if (originalAppointment.end_time && originalAppointment.appointment_time) {
+        const originalStart = originalAppointment.appointment_time;
+        const originalEnd = originalAppointment.end_time;
+        
+        // Вычисляем продолжительность в минутах
+        const [startHour, startMin] = originalStart.split(':').map(Number);
+        const [endHour, endMin] = originalEnd.split(':').map(Number);
+        const durationMinutes = (endHour * 60 + endMin) - (startHour * 60 + startMin);
+        
+        // Вычисляем новый end_time
+        const [newHour, newMin] = newTime.split(':').map(Number);
+        const newEndTotalMinutes = (newHour * 60 + newMin) + durationMinutes;
+        const newEndHour = Math.floor(newEndTotalMinutes / 60);
+        const newEndMin = newEndTotalMinutes % 60;
+        
+        newEndTime = `${newEndHour.toString().padStart(2, '0')}:${newEndMin.toString().padStart(2, '0')}`;
+        
+        console.log(`⏰ Пересчитан end_time: ${originalStart}-${originalEnd} -> ${newTime}-${newEndTime} (${durationMinutes} мин)`);
+      }
+
       // Сохраняем все данные оригинальной записи и обновляем только нужные поля
       const updateData = {
         ...originalAppointment,
@@ -354,8 +376,7 @@ const CalendarPage = ({ user }) => {
         appointment_date: newDate,
         appointment_time: newTime,
         room_id: newRoomId,
-        // ПРИНУДИТЕЛЬНО сохраняем оригинальное время окончания
-        end_time: originalAppointment.end_time
+        end_time: newEndTime
       };
       
       // Удаляем поля которые не нужны для API
