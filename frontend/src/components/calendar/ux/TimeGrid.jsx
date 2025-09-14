@@ -88,6 +88,7 @@ const TimeGrid = ({
                 canEdit={canEdit}
                 onEdit={onEditAppointment}
                 onDragStart={onDragStart}
+                onDragEnd={onDragEnd}
               />
             )}
           </div>
