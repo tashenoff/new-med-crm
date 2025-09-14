@@ -36,7 +36,9 @@ const TimeSlot = ({
   };
 
   const handleDragOver = (e) => {
-    if (availableDoctor && onDragOver) {
+    // ВСЕГДА разрешаем dragOver, чтобы можно было перетаскивать
+    // Валидация будет в DragDropManager при drop
+    if (onDragOver) {
       onDragOver(e);
     }
   };
