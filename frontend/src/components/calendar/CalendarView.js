@@ -86,9 +86,10 @@ const CalendarView = ({
       getAvailableDoctorForSlot,
       onRefreshCalendar,
       blockAppointmentUpdates,
-      unblockAppointmentUpdates
+      unblockAppointmentUpdates,
+      setDragOverSlot
     }), 
-    [appointments, rooms, patients, doctors, onMoveAppointment, onRefreshCalendar]
+    [appointments, rooms, patients, doctors, onMoveAppointment, onRefreshCalendar, setDragOverSlot]
   );
 
   // Обертки для утилит с предзаполненными параметрами
