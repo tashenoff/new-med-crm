@@ -23,15 +23,8 @@ export const useAppointments = () => {
   const [appointments, setAppointments] = useState([]);
   const [loading, setLoading] = useState(false);
 
-  // Флаг для блокировки обновлений во время drag&drop
-  const blockUpdates = useRef(false);
-
-  // Обертка для setAppointments с проверкой блокировки
+  // Простая обертка для setAppointments
   const setAppointmentsWithLog = (newAppointments) => {
-    if (blockUpdates.current) {
-      console.log(`🚫 БЛОКИРОВКА: Обновление appointments заблокировано во время drag&drop`);
-      return;
-    }
     console.log(`📊 APPOINTMENTS UPDATE: ${appointments.length} -> ${newAppointments.length} записей`);
     setAppointments(newAppointments);
   };
