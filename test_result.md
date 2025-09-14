@@ -297,8 +297,9 @@ metadata:
 
 test_plan:
   current_focus:
-    - "Service Price Directory API testing completed"
-    - "All backend API endpoints verified and functional"
+    - "Calendar appointment editing with immediate update"
+    - "Calendar drag & drop validation and error handling"
+    - "Calendar view basic functionality verification"
   stuck_tasks: []
   test_all: false
   test_priority: "high_first"
