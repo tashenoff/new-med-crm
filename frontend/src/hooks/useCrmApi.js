@@ -5,7 +5,7 @@
 import { useState, useCallback, useMemo } from 'react';
 import axios from 'axios';
 
-const API_BASE = import.meta.env.VITE_BACKEND_URL || 'http://localhost:8001';
+const API_BASE = import.meta.env.VITE_BACKEND_URL || 'https://env-setup-12.preview.emergentagent.com';
 const CRM_API = `${API_BASE}/api/crm`;
 
 export const useCrmApi = () => {
