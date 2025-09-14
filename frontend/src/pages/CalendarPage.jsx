@@ -446,25 +446,20 @@ const CalendarPage = ({ user }) => {
         </div>
       )}
 
-      {/* Calendar View */}
-      <CalendarView
+      {/* Новый календарь */}
+      <NewCalendar
         appointments={appointmentsHook.appointments}
-        doctors={doctorsHook.doctors}
-        patients={patientsHook.patients}
         rooms={roomsHook.rooms}
+        patients={patientsHook.patients}
+        doctors={doctorsHook.doctors}
         currentDate={currentDate}
         onDateChange={setCurrentDate}
         user={user}
-        onNewAppointment={handleNewAppointment}
         onSlotClick={handleSlotClick}
         onEditAppointment={handleEditAppointment}
-        onDeleteAppointment={handleDeleteAppointment}
-        onStatusChange={handleStatusChange}
         onMoveAppointment={handleMoveAppointment}
-        onRefreshCalendar={appointmentsHook.fetchAppointments}
-        blockAppointmentUpdates={appointmentsHook.blockAppointmentUpdates}
-        unblockAppointmentUpdates={appointmentsHook.unblockAppointmentUpdates}
         canEdit={user?.role === 'admin' || user?.role === 'doctor'}
+        onNewAppointment={handleNewAppointment}
       />
 
       {/* Модальные окна теперь управляются через ModalManager */}
