@@ -185,6 +185,11 @@ export class DragDropManager {
           `Доступное время врача: ${time} - ${targetSlotEnd || 'конец рабочего дня'}\n\n` +
           `КАРТОЧКА ОСТАЕТСЯ НА ПРЕЖНЕМ МЕСТЕ.`
         );
+        
+        // Принудительно обновляем календарь для возврата карточки
+        if (this.onRefreshCalendar) {
+          setTimeout(() => this.onRefreshCalendar(), 50);
+        }
         return; // ЖЕСТКО блокируем смену врача
       }
       
