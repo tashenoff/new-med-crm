@@ -11,6 +11,7 @@ const TimeSlot = ({
   availableDoctor,
   patients,
   doctors,
+  currentDate,
   canEdit,
   isHovered,
   isDraggedOver,
