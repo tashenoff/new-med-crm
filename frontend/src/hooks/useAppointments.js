@@ -162,17 +162,6 @@ export const useAppointments = () => {
     }
   }, []);
 
-  // Функции для управления блокировкой обновлений
-  const blockAppointmentUpdates = useCallback(() => {
-    console.log('🚫 БЛОКИРУЕМ обновления appointments');
-    blockUpdates.current = true;
-  }, []);
-
-  const unblockAppointmentUpdates = useCallback(() => {
-    console.log('✅ РАЗБЛОКИРУЕМ обновления appointments'); 
-    blockUpdates.current = false;
-  }, []);
-
   return {
     appointments,
     loading,
@@ -181,8 +170,6 @@ export const useAppointments = () => {
     updateAppointment,
     deleteAppointment,
     updateAppointmentStatus,
-    moveAppointment,
-    blockAppointmentUpdates,
-    unblockAppointmentUpdates
+    moveAppointment
   };
 };
