@@ -197,6 +197,10 @@ export class DragDropManager {
       );
       
       if (!confirmDoctorChange) {
+        // Принудительно обновляем календарь для возврата карточки
+        if (this.onRefreshCalendar) {
+          setTimeout(() => this.onRefreshCalendar(), 50);
+        }
         return;
       }
       
