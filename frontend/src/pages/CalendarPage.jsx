@@ -282,6 +282,9 @@ const CalendarPage = ({ user }) => {
         }
       }
 
+      // Принудительно обновляем календарь для отображения изменений
+      await appointmentsHook.fetchAppointments();
+      
       closeModal('appointment');
     } catch (error) {
       console.error('Error saving appointment:', error);
