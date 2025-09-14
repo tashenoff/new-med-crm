@@ -29,7 +29,8 @@ const CalendarView = ({
   onSlotClick,
   onEditAppointment,
   onMoveAppointment,
-  onNewAppointment
+  onNewAppointment,
+  onRefreshCalendar
 }) => {
   const canEdit = user?.role === 'admin' || user?.role === 'doctor';
   
