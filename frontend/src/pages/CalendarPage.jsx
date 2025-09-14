@@ -276,14 +276,20 @@ const CalendarPage = ({ user }) => {
         if (!result.success) {
           throw new Error(result.error);
         }
+        
+        // ОБНОВЛЯЕМ календарь после редактирования записи через модальное окно
+        console.log('🔄 Обновляем календарь после редактирования записи');
+        await appointmentsHook.fetchAppointments();
       } else {
         const result = await appointmentsHook.createAppointment(appointmentForm);
         if (!result.success) {
           throw new Error(result.error);
         }
+        
+        // ОБНОВЛЯЕМ календарь после создания новой записи
+        console.log('🔄 Обновляем календарь после создания записи');
+        await appointmentsHook.fetchAppointments();
       }
-
-      // НЕ ОБНОВЛЯЕМ календарь автоматически после сохранения - карточка остается на месте
       
       closeModal('appointment');
     } catch (error) {
