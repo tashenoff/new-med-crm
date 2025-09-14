@@ -185,6 +185,9 @@ export class DragDropManager {
       return;
     }
     
+    // Отмечаем что drop успешен (валидация прошла)
+    this.dropSuccessful = true;
+    
     // Вызываем перемещение
     this.onMoveAppointment(appointmentId, targetDoctorId, date, time, roomId);
   };
