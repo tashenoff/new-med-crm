@@ -43,6 +43,11 @@ const TimeSlot = ({
     // Показываем что drop разрешен
     e.dataTransfer.dropEffect = "move";
     
+    // Логируем только каждый 10-й dragOver чтобы не спамить
+    if (Math.random() < 0.1) {
+      console.log(`🎯 DRAG OVER: roomId=${roomId}, time=${time}, hasDoctor=${!!availableDoctor}`);
+    }
+    
     if (onDragOver) {
       onDragOver(e);
     }
