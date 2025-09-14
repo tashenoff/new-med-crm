@@ -54,6 +54,8 @@ const TimeSlot = ({
   };
 
   const handleDrop = (e) => {
+    console.log(`📥 DROP: roomId=${roomId}, time=${time}, hasDoctor=${!!availableDoctor}`);
+    
     // КРИТИЧНО: Предотвращаем стандартное поведение браузера
     e.preventDefault();
     e.stopPropagation();
