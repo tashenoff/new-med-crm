@@ -27,7 +27,8 @@ const TimeSlot = ({
   // Обработчик клика по пустому слоту
   const handleSlotClick = () => {
     if (!appointment && availableDoctor && onSlotClick) {
-      onSlotClick(roomId, time);
+      // Используем правильный формат как в старом календаре: (date, time, roomId)
+      onSlotClick(new Date().toISOString().split('T')[0], time, roomId);
     }
   };
 
