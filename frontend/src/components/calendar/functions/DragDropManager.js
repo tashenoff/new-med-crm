@@ -87,6 +87,8 @@ export class DragDropManager {
     e.preventDefault();
     const appointmentId = e.dataTransfer.getData('appointmentId');
     
+    console.log(`🎯 DROP EVENT: appointmentId=${appointmentId}, roomId=${roomId}, date=${date}, time=${time}`);
+    
     // ВАЖНО: Планируем принудительное обновление календаря через небольшую задержку
     // Это гарантирует, что карточка вернется на место при любых ошибках
     setTimeout(() => {
@@ -97,6 +99,7 @@ export class DragDropManager {
     }, 100);
     
     if (!appointmentId || !this.onMoveAppointment) {
+      console.log('❌ DROP FAILED: appointmentId или onMoveAppointment отсутствует');
       return;
     }
 
