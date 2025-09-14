@@ -134,6 +134,7 @@ export const useAppointments = () => {
 
   // Переместить запись (drag & drop)
   const moveAppointment = useCallback(async (id, newDate, newTime, newRoomId) => {
+    console.log(`🚀 MOVE APPOINTMENT: id=${id}, date=${newDate}, time=${newTime}, roomId=${newRoomId}`);
     try {
       const updateData = {
         appointment_date: newDate,
@@ -141,7 +142,9 @@ export const useAppointments = () => {
         room_id: newRoomId
       };
       
+      console.log(`📤 Отправляем PUT запрос:`, updateData);
       const response = await axios.put(`${API}/appointments/${id}`, updateData);
+      console.log(`✅ PUT ответ получен:`, response.data);
       
       // Обновляем локальный список
       setAppointments(prev => 
