@@ -47,7 +47,15 @@ app = FastAPI(lifespan=lifespan, redirect_slashes=False)
 # Add CORS middleware first (before any routes)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000", "http://127.0.0.1:3000", "http://localhost:3001"],
+    allow_origins=[
+        "http://localhost:3000", 
+        "http://127.0.0.1:3000", 
+        "http://localhost:3001",
+        "https://app.emergent.sh",
+        "https://env-setup-12.preview.emergentagent.com",
+        "https://*.preview.emergentagent.com",
+        "https://*.emergentagent.com"
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
