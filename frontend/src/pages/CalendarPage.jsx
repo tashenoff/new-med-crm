@@ -282,8 +282,7 @@ const CalendarPage = ({ user }) => {
         }
       }
 
-      // Принудительно обновляем календарь для отображения изменений
-      await appointmentsHook.fetchAppointments();
+      // НЕ ОБНОВЛЯЕМ календарь автоматически после сохранения - карточка остается на месте
       
       closeModal('appointment');
     } catch (error) {
