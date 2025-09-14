@@ -13,7 +13,8 @@ export class DragDropManager {
     getAvailableDoctorForSlot,
     onRefreshCalendar,
     blockAppointmentUpdates,
-    unblockAppointmentUpdates
+    unblockAppointmentUpdates,
+    setDragOverSlot
   }) {
     this.appointments = appointments;
     this.rooms = rooms;
@@ -26,6 +27,7 @@ export class DragDropManager {
     this.onRefreshCalendar = onRefreshCalendar;
     this.blockAppointmentUpdates = blockAppointmentUpdates;
     this.unblockAppointmentUpdates = unblockAppointmentUpdates;
+    this.setDragOverSlot = setDragOverSlot;
     this.draggedAppointmentId = null;
     this.dropSuccessful = false;
     this.refreshTimeout = null; // Для предотвращения множественных обновлений
