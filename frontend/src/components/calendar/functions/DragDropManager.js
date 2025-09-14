@@ -33,14 +33,25 @@ export class DragDropManager {
     e.dataTransfer.setData('appointmentId', appointmentId);
     // Сохраняем ID для отслеживания
     this.draggedAppointmentId = appointmentId;
+    this.dropSuccessful = false;
   };
 
   /**
    * Обработчик окончания перетаскивания
    */
   handleDragEnd = (e) => {
-    // Сбрасываем ID
+    // Если перетаскивание не было успешным и был начат drag
+    if (this.draggedAppointmentId && !this.dropSuccessful) {
+      console.log('🔄 Drag&Drop не был успешным, обновляем календарь');
+      // Принудительно обновляем календарь чтобы вернуть карточку
+      if (this.onRefreshCalendar) {
+        this.onRefreshCalendar();
+      }
+    }
+    
+    // Сбрасываем состояние
     this.draggedAppointmentId = null;
+    this.dropSuccessful = false;
   };
 
   /**
