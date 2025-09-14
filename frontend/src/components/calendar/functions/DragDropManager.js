@@ -46,14 +46,13 @@ export class DragDropManager {
    * Обработчик окончания перетаскивания
    */
   handleDragEnd = (e) => {
-    // Если перетаскивание не было успешным и был начат drag
-    if (this.draggedAppointmentId && !this.dropSuccessful) {
-      console.log('🔄 Drag&Drop не был успешным, обновляем календарь');
-      // Принудительно обновляем календарь чтобы вернуть карточку
-      if (this.onRefreshCalendar) {
-        this.onRefreshCalendar();
+    // РАЗБЛОКИРУЕМ обновления appointments через 2 секунды
+    // Это даст время для завершения drag&drop операции
+    setTimeout(() => {
+      if (this.unblockAppointmentUpdates) {
+        this.unblockAppointmentUpdates();
       }
-    }
+    }, 2000);
     
     // Сбрасываем состояние
     this.draggedAppointmentId = null;
