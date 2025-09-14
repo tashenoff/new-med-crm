@@ -129,13 +129,7 @@ export class DragDropManager {
         `КАРТОЧКА ОСТАЕТСЯ НА ПРЕЖНЕМ МЕСТЕ.`
       );
       
-      // Принудительно обновляем календарь для возврата карточки
-      if (this.onRefreshCalendar) {
-        // Мгновенное обновление
-        setTimeout(() => this.onRefreshCalendar(), 1);
-        // Дублирующее обновление
-        setTimeout(() => this.onRefreshCalendar(), 50);
-      }
+      // НЕ ОБНОВЛЯЕМ календарь - карточка остается на месте
       return; // ЖЕСТКО блокируем перемещение
     }
 
@@ -216,13 +210,7 @@ export class DragDropManager {
     } else {
       console.log(`❌ НЕТ ВРАЧА: roomId=${roomId}, date=${date}, time=${time}`);
       alert('В это время в данном кабинете нет доступного врача');
-      // Принудительно обновляем календарь для возврата карточки
-      if (this.onRefreshCalendar) {
-        // Мгновенное обновление
-        setTimeout(() => this.onRefreshCalendar(), 1);
-        // Дублирующее обновление
-        setTimeout(() => this.onRefreshCalendar(), 50);
-      }
+      // НЕ ОБНОВЛЯЕМ календарь - карточка остается на месте
       return;
     }
     
