@@ -34,6 +34,8 @@ const CalendarView = ({
   blockAppointmentUpdates,
   unblockAppointmentUpdates
 }) => {
+  // Состояние для подсветки слота при drag over
+  const [dragOverSlot, setDragOverSlot] = useState(null);
   const canEdit = user?.role === 'admin' || user?.role === 'doctor';
   
   // Устанавливаем текущую дату по умолчанию если не передана
