@@ -446,8 +446,8 @@ const CalendarPage = ({ user }) => {
         </div>
       )}
 
-      {/* Новый календарь */}
-      <NewCalendar
+      {/* Старый календарь (временно) */}
+      <CalendarView
         appointments={appointmentsHook.appointments}
         rooms={roomsHook.rooms}
         patients={patientsHook.patients}
