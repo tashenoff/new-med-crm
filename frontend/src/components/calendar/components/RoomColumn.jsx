@@ -12,6 +12,7 @@ const RoomColumn = ({
   doctors,
   currentDate,
   canEdit,
+  getAvailableDoctorForSlot,
   // Drag & Drop
   draggedAppointment,
   hoveredSlot,
@@ -28,9 +29,8 @@ const RoomColumn = ({
   return (
     <div className="room-column flex-1 border-r border-gray-200 last:border-r-0">
       {/* Заголовок кабинета */}
-      <div className="room-header bg-blue-50 px-4 py-3 border-b border-gray-200">
-        <h3 className="font-semibold text-blue-900">{room.name}</h3>
-        <p className="text-sm text-blue-600">{room.description || 'Кабинет'}</p>
+      <div className="room-header bg-blue-50 px-3 py-2 border-b border-gray-200 h-12">
+        <h3 className="font-semibold text-blue-900 text-sm">{room.name}</h3>
       </div>
       
       {/* Временные слоты */}
@@ -41,6 +41,9 @@ const RoomColumn = ({
             apt.appointment_date === currentDate
           );
 
+          // Получаем врача по расписанию для этого слота
+          const availableDoctor = getAvailableDoctorForSlot(room, currentDate, time);
+          
           const isHovered = hoveredSlot?.roomId === room.id && hoveredSlot?.time === time;
 
           return (
@@ -49,6 +52,7 @@ const RoomColumn = ({
               roomId={room.id}
               time={time}
               appointment={appointment}
+              availableDoctor={availableDoctor}
               patients={patients}
               doctors={doctors}
               canEdit={canEdit}
