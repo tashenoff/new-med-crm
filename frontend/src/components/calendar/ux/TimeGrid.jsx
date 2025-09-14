@@ -23,6 +23,7 @@ import { themeClasses } from '../../../hooks/useTheme';
  * @param {Function} props.onDragOver - Обработчик drag over
  * @param {Function} props.onDrop - Обработчик drop
  * @param {Function} props.onDragStart - Обработчик начала перетаскивания
+ * @param {Function} props.onDragEnd - Обработчик окончания перетаскивания
  */
 const TimeGrid = ({
   room,
@@ -41,7 +42,8 @@ const TimeGrid = ({
   onEditAppointment,
   onDragOver,
   onDrop,
-  onDragStart
+  onDragStart,
+  onDragEnd
 }) => {
   const dateString = currentDate.toISOString().split('T')[0];
 
