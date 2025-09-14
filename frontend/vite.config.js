@@ -21,7 +21,14 @@ export default defineConfig({
   server: {
     port: 3000,
     open: true,
-    host: true
+    host: true,
+    allowedHosts: [
+      'localhost',
+      '127.0.0.1',
+      'env-setup-12.preview.emergentagent.com',
+      '.emergentagent.com',
+      '.preview.emergentagent.com'
+    ]
   },
   build: {
     outDir: 'dist',
