@@ -79,9 +79,10 @@ const CalendarView = ({
       checkTimeConflicts: (roomId, date, time, endTime, excludeId) => 
         checkTimeConflicts(appointments, rooms, getAvailableDoctorForSlot, roomId, date, time, endTime, excludeId),
       canAppointmentFitInSchedule,
-      getAvailableDoctorForSlot
+      getAvailableDoctorForSlot,
+      onRefreshCalendar
     }), 
-    [appointments, rooms, patients, doctors, onMoveAppointment]
+    [appointments, rooms, patients, doctors, onMoveAppointment, onRefreshCalendar]
   );
 
   // Обертки для утилит с предзаполненными параметрами
