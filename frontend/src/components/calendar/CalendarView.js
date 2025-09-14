@@ -152,6 +152,7 @@ const CalendarView = ({
                 onDrop={dragDropManager.handleDrop}
                 onDragStart={dragDropManager.handleDragStart}
                 onDragEnd={dragDropManager.handleDragEnd}
+                dragOverSlot={dragOverSlot}
               />
             ))
           )}
