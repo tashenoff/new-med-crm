@@ -36,16 +36,26 @@ const TimeSlot = ({
   };
 
   const handleDragOver = (e) => {
-    // ВСЕГДА разрешаем dragOver, чтобы можно было перетаскивать
-    // Валидация будет в DragDropManager при drop
+    // КРИТИЧНО: Предотвращаем стандартное поведение браузера
+    e.preventDefault();
+    e.stopPropagation();
+    
+    // Показываем что drop разрешен
+    e.dataTransfer.dropEffect = "move";
+    
     if (onDragOver) {
       onDragOver(e);
     }
   };
 
   const handleDrop = (e) => {
-    // ВСЕГДА обрабатываем drop, даже если нет врача
-    // Валидация врача должна происходить в DragDropManager
+    // КРИТИЧНО: Предотвращаем стандартное поведение браузера
+    e.preventDefault();
+    e.stopPropagation();
+    
+    // Говорим браузеру что drop успешен
+    e.dataTransfer.dropEffect = "move";
+    
     if (onDrop) {
       onDrop(e, roomId, date, time);
     }
