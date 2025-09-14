@@ -23,6 +23,12 @@ export const useAppointments = () => {
   const [appointments, setAppointments] = useState([]);
   const [loading, setLoading] = useState(false);
 
+  // Обертка для setAppointments с логированием
+  const setAppointmentsWithLog = (newAppointments) => {
+    console.log(`📊 APPOINTMENTS UPDATE: ${appointments.length} -> ${newAppointments.length} записей`);
+    setAppointments(newAppointments);
+  };
+
   // Получить все записи
   const fetchAppointments = useCallback(async () => {
     setLoading(true);
