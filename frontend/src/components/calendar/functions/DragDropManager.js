@@ -11,7 +11,9 @@ export class DragDropManager {
     checkTimeConflicts,
     canAppointmentFitInSchedule,
     getAvailableDoctorForSlot,
-    onRefreshCalendar
+    onRefreshCalendar,
+    blockAppointmentUpdates,
+    unblockAppointmentUpdates
   }) {
     this.appointments = appointments;
     this.rooms = rooms;
@@ -22,6 +24,8 @@ export class DragDropManager {
     this.canAppointmentFitInSchedule = canAppointmentFitInSchedule;
     this.getAvailableDoctorForSlot = getAvailableDoctorForSlot;
     this.onRefreshCalendar = onRefreshCalendar;
+    this.blockAppointmentUpdates = blockAppointmentUpdates;
+    this.unblockAppointmentUpdates = unblockAppointmentUpdates;
     this.draggedAppointmentId = null;
     this.dropSuccessful = false;
     this.refreshTimeout = null; // Для предотвращения множественных обновлений
