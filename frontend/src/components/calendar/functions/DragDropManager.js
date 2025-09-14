@@ -10,7 +10,8 @@ export class DragDropManager {
     onMoveAppointment,
     checkTimeConflicts,
     canAppointmentFitInSchedule,
-    getAvailableDoctorForSlot 
+    getAvailableDoctorForSlot,
+    onRefreshCalendar
   }) {
     this.appointments = appointments;
     this.rooms = rooms;
@@ -20,6 +21,9 @@ export class DragDropManager {
     this.checkTimeConflicts = checkTimeConflicts;
     this.canAppointmentFitInSchedule = canAppointmentFitInSchedule;
     this.getAvailableDoctorForSlot = getAvailableDoctorForSlot;
+    this.onRefreshCalendar = onRefreshCalendar;
+    this.draggedAppointmentId = null;
+    this.dropSuccessful = false;
   }
 
   /**
