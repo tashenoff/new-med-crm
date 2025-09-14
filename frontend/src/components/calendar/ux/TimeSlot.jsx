@@ -27,7 +27,9 @@ const TimeSlot = ({
   onSlotClick,
   onDragOver,
   onDrop,
-  onEditAppointment
+  onEditAppointment,
+  dragOverSlot,
+  isDragOver
 }) => {
   const handleSlotClick = () => {
     if (!appointment && availableDoctor) {
