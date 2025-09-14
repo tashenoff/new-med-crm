@@ -94,7 +94,12 @@ const CalendarView = ({
 
 
   return (
-    <div className={`calendar-container rounded-lg ${themeClasses.bg.card} ${themeClasses.shadow.default}`}>
+    <div 
+      className={`calendar-container rounded-lg ${themeClasses.bg.card} ${themeClasses.shadow.default}`}
+      onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); }}
+      onDragEnter={(e) => { e.preventDefault(); e.stopPropagation(); }}
+      onDrop={(e) => { e.preventDefault(); e.stopPropagation(); }}
+    >
       {/* Навигация по датам */}
       <DateNavigation 
         currentDate={safeCurrentDate} 
