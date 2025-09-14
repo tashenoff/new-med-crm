@@ -6,11 +6,11 @@ const DoctorModal = ({
   show, 
   onClose, 
   onSave, 
-  doctorForm,
-  setDoctorForm, 
-  editingItem, 
-  loading, 
-  errorMessage 
+  doctorForm = {},
+  setDoctorForm = () => {}, 
+  editingItem = null, 
+  loading = false, 
+  errorMessage = null 
 }) => {
   const [specialties, setSpecialties] = useState([]);
   const [services, setServices] = useState([]);
@@ -115,7 +115,7 @@ const DoctorModal = ({
           <input
             type="text"
             placeholder="Полное имя *"
-            value={doctorForm.full_name}
+            value={doctorForm.full_name || ''}
             onChange={(e) => setDoctorForm({...doctorForm, full_name: e.target.value})}
             className={inputClasses}
             required
@@ -124,7 +124,7 @@ const DoctorModal = ({
           <div>
             <label className={labelClasses}>Специальность *</label>
             <select
-              value={doctorForm.specialty}
+              value={doctorForm.specialty || ''}
               onChange={(e) => setDoctorForm({...doctorForm, specialty: e.target.value})}
               className={inputClasses}
               required
@@ -147,19 +147,12 @@ const DoctorModal = ({
           <input
             type="tel"
             placeholder="Телефон *"
-            value={doctorForm.phone}
+            value={doctorForm.phone || ''}
             onChange={(e) => setDoctorForm({...doctorForm, phone: e.target.value})}
             className={inputClasses}
             required
           />
           
-          <input
-            type="email"
-            placeholder="Email"
-            value={doctorForm.email}
-            onChange={(e) => setDoctorForm({...doctorForm, email: e.target.value})}
-            className={inputClasses}
-          />
           
           <div>
             <label className={labelClasses}>Цвет календаря</label>
@@ -198,7 +191,7 @@ const DoctorModal = ({
                     min="0"
                     max={doctorForm.payment_type === 'percentage' ? '100' : undefined}
                     step={doctorForm.payment_type === 'percentage' ? '0.1' : '1'}
-                    value={doctorForm.payment_value || ''}
+                    value={doctorForm.payment_value ?? 0}
                     onChange={(e) => setDoctorForm({...doctorForm, payment_value: parseFloat(e.target.value) || 0})}
                     className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-l-lg focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                     placeholder={doctorForm.payment_type === 'percentage' ? '0.0' : '0'}

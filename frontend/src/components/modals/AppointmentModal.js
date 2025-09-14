@@ -7,14 +7,14 @@ const AppointmentModal = ({
   show, 
   onClose, 
   onSave, 
-  appointmentForm, 
-  setAppointmentForm, 
-  patients, 
-  doctors, 
-  editingItem, 
-  loading, 
-  errorMessage,
-  onCreatePatient,
+  appointmentForm = {}, 
+  setAppointmentForm = () => {}, 
+  patients = [], 
+  doctors = [], 
+  editingItem = null, 
+  loading = false, 
+  errorMessage = null,
+  onCreatePatient = () => {},
   appointments = [] // Добавляем пропс для существующих записей
 }) => {
   const [showNewPatientForm, setShowNewPatientForm] = useState(false);
@@ -58,7 +58,7 @@ const AppointmentModal = ({
   });
 
   const API = import.meta.env.VITE_BACKEND_URL;
-  const selectedPatient = patients.find(p => p.id === appointmentForm.patient_id);
+  const selectedPatient = patients?.find(p => p.id === appointmentForm.patient_id);
 
   // Простая функция проверки пересечения времени
   const doTimesOverlap = (start1, end1, start2, end2) => {
@@ -80,7 +80,7 @@ const AppointmentModal = ({
     setTimeConflictMessage('');
     
     if (!editingItem) { // Только для новых записей
-      const conflictingAppointments = appointments.filter(apt => {
+      const conflictingAppointments = appointments?.filter(apt => {
         return apt.appointment_date === date && 
                apt.room_id === roomId &&
                doTimesOverlap(time, appointmentForm.end_time, apt.appointment_time, apt.end_time);
@@ -205,7 +205,10 @@ const AppointmentModal = ({
 
   // Обработчик изменения времени
   const handleTimeChange = (time) => {
-    setAppointmentForm({...appointmentForm, appointment_time: time, doctor_id: ''});
+    console.log('🔥 handleTimeChange:', time);
+    const newForm = {...appointmentForm, appointment_time: time, doctor_id: ''};
+    console.log('🔥 Новая форма после изменения времени:', newForm);
+    setAppointmentForm(newForm);
     
     // Проверяем конфликты времени
     if (appointmentForm.appointment_date && appointmentForm.room_id && time) {
@@ -219,7 +222,10 @@ const AppointmentModal = ({
 
   // Обработчик изменения кабинета
   const handleRoomChange = (roomId) => {
-    setAppointmentForm({...appointmentForm, room_id: roomId, doctor_id: ''});
+    console.log('🔥 handleRoomChange:', roomId);
+    const newForm = {...appointmentForm, room_id: roomId, doctor_id: ''};
+    console.log('🔥 Новая форма после изменения кабинета:', newForm);
+    setAppointmentForm(newForm);
     if (appointmentForm.appointment_date) {
       fetchAvailableDoctors(appointmentForm.appointment_date, appointmentForm.appointment_time, roomId);
     }
@@ -305,7 +311,7 @@ const AppointmentModal = ({
     } else if (show) {
       setPatientSearch('');
     }
-  }, [show, appointmentForm.patient_id, patients]);
+  }, [show, appointmentForm?.patient_id, patients]);
 
   // Сброс всех состояний при закрытии модала
   useEffect(() => {

@@ -7,44 +7,6 @@ const API = `${BACKEND_URL}/api`;
 export const useApi = () => {
   const [loading, setLoading] = useState(false);
 
-  // Medical Records API
-  const checkMedicalRecord = async (patientId) => {
-    try {
-      const response = await axios.get(`${BACKEND_URL}/api/medical-records/${patientId}`, {
-        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
-      });
-      return response.data;
-    } catch (error) {
-      if (error.response?.status === 404) {
-        return null;
-      }
-      throw error;
-    }
-  };
-
-  const createMedicalRecord = async (recordData) => {
-    try {
-      const response = await axios.post(`${BACKEND_URL}/api/medical-records`, recordData, {
-        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
-      });
-      return response.data;
-    } catch (error) {
-      console.error('Error creating medical record:', error);
-      throw error;
-    }
-  };
-
-  const updateMedicalRecord = async (patientId, recordData) => {
-    try {
-      const response = await axios.put(`${BACKEND_URL}/api/medical-records/${patientId}`, recordData, {
-        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
-      });
-      return response.data;
-    } catch (error) {
-      console.error('Error updating medical record:', error);
-      throw error;
-    }
-  };
 
   // Appointments API
   const createAppointment = async (appointmentData) => {
@@ -115,49 +77,6 @@ export const useApi = () => {
     }
   };
 
-  // Diagnosis API
-  const createDiagnosis = async (diagnosisData) => {
-    try {
-      const response = await axios.post(`${BACKEND_URL}/api/diagnoses`, diagnosisData, {
-        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
-      });
-      return response.data;
-    } catch (error) {
-      console.error('Error creating diagnosis:', error);
-      throw error;
-    }
-  };
-
-  // Medication API
-  const createMedication = async (medicationData) => {
-    try {
-      const response = await axios.post(`${BACKEND_URL}/api/medications`, medicationData, {
-        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
-      });
-      return response.data;
-    } catch (error) {
-      console.error('Error creating medication:', error);
-      throw error;
-    }
-  };
-
-  // Medical Entry API
-  const createMedicalEntry = async (entryData) => {
-    try {
-      console.log('Creating medical entry with data:', entryData);
-      const response = await axios.post(`${BACKEND_URL}/api/medical-entries`, entryData, {
-        headers: { 
-          'Authorization': `Bearer ${localStorage.getItem('token')}`,
-          'Content-Type': 'application/json'
-        }
-      });
-      return response.data;
-    } catch (error) {
-      console.error('Error creating medical entry:', error);
-      console.error('Error response:', error.response?.data);
-      throw error;
-    }
-  };
 
   // Room functions
   const fetchRoomsWithSchedule = async () => {
@@ -194,14 +113,8 @@ export const useApi = () => {
   return {
     loading,
     setLoading,
-    checkMedicalRecord,
-    createMedicalRecord,
-    updateMedicalRecord,
     createAppointment,
     updateAppointment,
-    createDiagnosis,
-    createMedication,
-    createMedicalEntry,
     fetchRoomsWithSchedule,
     getAvailableDoctorForRoom,
     API

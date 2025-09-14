@@ -7,11 +7,11 @@ const PatientModal = ({
   show, 
   onClose, 
   onSave, 
-  patientForm, 
-  setPatientForm, 
-  editingItem, 
-  loading, 
-  errorMessage 
+  patientForm = {}, 
+  setPatientForm = () => {}, 
+  editingItem = null, 
+  loading = false, 
+  errorMessage = null 
 }) => {
   const [activeTab, setActiveTab] = useState('info');
   const [documents, setDocuments] = useState([]);

@@ -36,6 +36,8 @@ const TreatmentPlanStatistics = () => {
         url += `?${params.toString()}`;
       }
 
+      console.log('🔥 TreatmentPlanStatistics: Загружаем статистику с URL:', url);
+
       const response = await fetch(url, {
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -43,15 +45,20 @@ const TreatmentPlanStatistics = () => {
         }
       });
 
+      console.log('🔥 TreatmentPlanStatistics: Response status:', response.status);
+
       if (response.ok) {
         const data = await response.json();
+        console.log('🔥 TreatmentPlanStatistics: Получены данные:', data);
         setStatistics(data);
       } else {
-        setError('Ошибка загрузки статистики');
+        const errorText = await response.text();
+        console.error('🔥 TreatmentPlanStatistics: Ошибка ответа:', response.status, errorText);
+        setError(`Ошибка загрузки статистики: ${response.status}`);
       }
     } catch (err) {
+      console.error('🔥 TreatmentPlanStatistics: Ошибка сети:', err);
       setError('Ошибка сети');
-      console.error('Error fetching statistics:', err);
     } finally {
       setLoading(false);
     }
@@ -60,19 +67,29 @@ const TreatmentPlanStatistics = () => {
   const fetchPatientStatistics = async () => {
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch(`${API}/api/treatment-plans/statistics/patients`, {
+      const url = `${API}/api/treatment-plans/statistics/patients`;
+      
+      console.log('🔥 TreatmentPlanStatistics: Загружаем статистику пациентов с URL:', url);
+      
+      const response = await fetch(url, {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
         }
       });
 
+      console.log('🔥 TreatmentPlanStatistics: Patient stats response status:', response.status);
+
       if (response.ok) {
         const data = await response.json();
+        console.log('🔥 TreatmentPlanStatistics: Получены данные пациентов:', data);
         setPatientStats(data);
+      } else {
+        const errorText = await response.text();
+        console.error('🔥 TreatmentPlanStatistics: Ошибка загрузки пациентов:', response.status, errorText);
       }
     } catch (err) {
-      console.error('Error fetching patient statistics:', err);
+      console.error('🔥 TreatmentPlanStatistics: Ошибка сети при загрузке пациентов:', err);
     }
   };
 
@@ -87,15 +104,15 @@ const TreatmentPlanStatistics = () => {
   };
 
   const StatCard = ({ title, value, subtitle, color = "blue", icon }) => (
-    <div className={`bg-white p-6 rounded-lg shadow border-l-4 border-${color}-500`}>
+    <div className={`bg-white dark:bg-gray-800 p-6 rounded-lg shadow border-l-4 border-${color}-500`}>
       <div className="flex items-center justify-between">
         <div>
-          <p className="text-gray-600 text-sm font-medium">{title}</p>
-          <p className={`text-2xl font-bold text-${color}-600`}>{value}</p>
-          {subtitle && <p className="text-gray-500 text-xs mt-1">{subtitle}</p>}
+          <p className="text-gray-600 dark:text-gray-300 text-sm font-medium">{title}</p>
+          <p className={`text-2xl font-bold text-${color}-600 dark:text-${color}-400`}>{value}</p>
+          {subtitle && <p className="text-gray-500 dark:text-gray-400 text-xs mt-1">{subtitle}</p>}
         </div>
         {icon && (
-          <div className={`text-${color}-500 text-2xl`}>
+          <div className={`text-${color}-500 dark:text-${color}-400 text-2xl`}>
             {icon}
           </div>
         )}
@@ -145,7 +162,7 @@ const TreatmentPlanStatistics = () => {
     <div className="space-y-6">
       {/* Header */}
       <div className="flex justify-between items-center">
-        <h1 className="text-3xl font-bold text-gray-900">Статистика планов лечения</h1>
+        <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Статистика планов лечения</h1>
         
         {/* Date Filter */}
         <div className="flex items-center space-x-4">
@@ -221,6 +238,7 @@ const TreatmentPlanStatistics = () => {
       {/* Overview Tab */}
       {activeTab === 'overview' && statistics && (
         <div className="space-y-6">
+          
           {/* Main Statistics Cards */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
             <StatCard

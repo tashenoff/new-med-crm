@@ -1,8 +1,6 @@
 import React, { useEffect, useMemo } from 'react';
 import TimeGrid from './ux/TimeGrid';
-import DateNavigation from './ux/DateNavigation';
 import { DragDropManager } from './functions/DragDropManager';
-import { themeClasses } from '../../hooks/useTheme';
 import { 
   generateTimeSlots, 
   getAppointmentHeight, 
@@ -24,17 +22,12 @@ const CalendarView = ({
   patients = [],
   doctors = [],
   currentDate,
-  onDateChange,
   user,
   onSlotClick,
   onEditAppointment,
-  onMoveAppointment,
-  onNewAppointment
+  onMoveAppointment
 }) => {
   const canEdit = user?.role === 'admin' || user?.role === 'doctor';
-  
-  // Устанавливаем текущую дату по умолчанию если не передана
-  const safeCurrentDate = currentDate || new Date();
 
   // Генерируем временные слоты
   const timeSlots = useMemo(() => 
@@ -90,25 +83,26 @@ const CalendarView = ({
   const getAppointmentForSlotWrapper = (roomId, date, time) => 
     getAppointmentForSlot(appointments, rooms, getAvailableDoctorForSlot, roomId, date, time);
 
+  // Логирование для отладки
+  useEffect(() => {
+    console.log('Appointments в календаре:', appointments);
+    console.log('Rooms в календаре:', rooms);
+    console.log('Текущая дата календаря:', currentDate.toISOString().split('T')[0]);
+    console.log('canEdit в календаре:', canEdit);
+    console.log('user в календаре:', user);
+  }, [appointments, rooms, currentDate, canEdit, user]);
 
   return (
-    <div className={`calendar-container rounded-lg ${themeClasses.bg.card} ${themeClasses.shadow.default}`}>
-      {/* Навигация по датам */}
-      <DateNavigation 
-        currentDate={safeCurrentDate} 
-        onDateChange={onDateChange}
-        onNewAppointment={onNewAppointment}
-      />
-      
+    <div className="calendar-container bg-white rounded-lg shadow">
       {/* Заголовок с временными метками */}
-      <div className={`flex ${themeClasses.border.default} border-b`}>
+      <div className="flex border-b border-gray-300">
         {/* Колонка времени */}
-        <div className={`w-20 flex-shrink-0 border-r ${themeClasses.border.light}`}>
-          <div className={`h-12 border-b border-l ${themeClasses.border.default} ${themeClasses.bg.secondary} flex items-center justify-center font-semibold ${themeClasses.text.primary}`}>
+        <div className="w-20 flex-shrink-0">
+          <div className="h-12 border-b border-gray-300 bg-gray-100 flex items-center justify-center font-semibold">
             Время
           </div>
           {timeSlots.map((time) => (
-            <div key={time} className={`h-16 border-b border-l ${themeClasses.border.light} flex items-center justify-center text-sm font-medium ${themeClasses.text.secondary}`}>
+            <div key={time} className="h-16 border-b border-gray-200 flex items-center justify-center text-sm font-medium text-gray-600">
               {time}
             </div>
           ))}
@@ -117,7 +111,7 @@ const CalendarView = ({
         {/* Кабинеты */}
         <div className="flex flex-1 min-w-0">
           {rooms.length === 0 ? (
-            <div className={`flex-1 flex items-center justify-center p-8 ${themeClasses.text.muted}`}>
+            <div className="flex-1 flex items-center justify-center p-8 text-gray-500">
               Нет доступных кабинетов
             </div>
           ) : (
@@ -126,7 +120,7 @@ const CalendarView = ({
                 key={room.id}
                 room={room}
                 timeSlots={timeSlots}
-                currentDate={safeCurrentDate}
+                currentDate={currentDate}
                 appointments={appointments}
                 patients={patients}
                 doctors={doctors}

@@ -1,0 +1,47 @@
+{
+  "medical_records": [
+    {
+      "_id": "68bfd86443ca1f1ba5c59ae9",
+      "id": "7ccd4e29-f714-4513-9be5-df82ec9bb40b",
+      "patient_id": "2f9e126c-99d0-4fff-a8f5-45f23d8414c7",
+      "blood_type": null,
+      "height": null,
+      "weight": null,
+      "emergency_contact": null,
+      "emergency_phone": null,
+      "insurance_number": null,
+      "created_at": "2025-09-09 07:33:56.230000",
+      "updated_at": "2025-09-09 07:33:56.230000"
+    },
+    {
+      "_id": "68c152317f0e1937573c1457",
+      "id": "97daf237-9e79-4151-ba68-e65855b07b91",
+      "patient_id": "5ed853df-b619-42c0-8020-55ffca104a28",
+      "blood_type": null,
+      "height": null,
+      "weight": null,
+      "emergency_contact": null,
+      "emergency_phone": null,
+      "insurance_number": null,
+      "created_at": "2025-09-10 10:25:53.257000",
+      "updated_at": "2025-09-10 10:25:53.257000"
+    },
+    {
+      "_id": "68c3e8a8d89eac685a96aa9c",
+      "id": "c1abc44b-30ac-4010-91e0-d45640ed52a0",
+      "patient_id": "72a60021-3d33-4d61-b8df-b8e229e5b747",
+      "blood_type": null,
+      "height": null,
+      "weight": null,
+      "emergency_contact": null,
+      "emergency_phone": null,
+      "insurance_number": null,
+      "created_at": "2025-09-12 09:32:24.104000",
+      "updated_at": "2025-09-12 09:32:24.104000"
+    }
+  ],
+  "medical_entries": [],
+  "diagnoses": [],
+  "medications": [],
+  "allergies": []
+}

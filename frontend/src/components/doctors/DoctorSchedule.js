@@ -195,11 +195,24 @@ const DoctorSchedule = ({ doctors, user, canEdit }) => {
     );
   };
 
+  // Отладочная информация
+  console.log('DoctorSchedule - doctors prop:', doctors);
+  console.log('DoctorSchedule - doctors length:', doctors.length);
+  console.log('DoctorSchedule - active doctors:', doctors.filter(doctor => doctor.is_active));
+  console.log('DoctorSchedule - все врачи с is_active статусом:', doctors.map(d => ({ 
+    id: d.id, 
+    name: d.full_name, 
+    is_active: d.is_active 
+  })));
+
   return (
     <div className="space-y-6">
       {/* Заголовок */}
       <div className="flex justify-between items-center">
         <h2 className="text-2xl font-bold">Расписание врачей</h2>
+        <div className="text-sm text-gray-500">
+          Врачей: {doctors.length} (активных: {doctors.filter(doctor => doctor.is_active).length})
+        </div>
       </div>
 
       {/* Сообщения */}
