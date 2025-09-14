@@ -128,6 +128,11 @@ export class DragDropManager {
         `Доступное время в новом слоте: ${time} - ${targetSlotEnd || 'конец рабочего дня'}\n\n` +
         `КАРТОЧКА ОСТАЕТСЯ НА ПРЕЖНЕМ МЕСТЕ.`
       );
+      
+      // Принудительно обновляем календарь для возврата карточки
+      if (this.onRefreshCalendar) {
+        setTimeout(() => this.onRefreshCalendar(), 50);
+      }
       return; // ЖЕСТКО блокируем перемещение
     }
 
