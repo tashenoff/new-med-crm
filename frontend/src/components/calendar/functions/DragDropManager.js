@@ -66,11 +66,16 @@ export class DragDropManager {
   /**
    * Обработчик drag over
    */
-  handleDragOver = (e) => {
+  handleDragOver = (e, roomId, time) => {
     e.preventDefault();
     e.stopPropagation();
     // Всегда разрешаем drop
     e.dataTransfer.dropEffect = "move";
+    
+    // Подсвечиваем текущий слот
+    if (this.setDragOverSlot) {
+      this.setDragOverSlot(`${roomId}-${time}`);
+    }
   };
 
   /**
