@@ -93,19 +93,7 @@ export class DragDropManager {
     
     console.log(`🎯 DROP EVENT: appointmentId=${appointmentId}, roomId=${roomId}, date=${date}, time=${time}`);
     
-    // ВАЖНО: Планируем единственное обновление календаря при ошибке
-    // Это предотвращает множественные запросы и 502 ошибки
-    if (this.refreshTimeout) {
-      clearTimeout(this.refreshTimeout);
-    }
-    
-    this.refreshTimeout = setTimeout(() => {
-      if (this.onRefreshCalendar && !this.dropSuccessful) {
-        console.log('🔄 Принудительное обновление календаря после неудачного drop');
-        this.onRefreshCalendar();
-      }
-      this.refreshTimeout = null;
-    }, 150);
+    // НЕ ПЛАНИРУЕМ обновление календаря - пусть карточка остается на месте
     
     if (!appointmentId || !this.onMoveAppointment) {
       console.log('❌ DROP FAILED: appointmentId или onMoveAppointment отсутствует');
