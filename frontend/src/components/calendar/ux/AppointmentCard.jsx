@@ -24,6 +24,8 @@ const AppointmentCard = ({
   onDragEnd
 }) => {
   const handleDragStart = (e) => {
+    console.log(`🚀 DRAG START: appointmentId=${appointment._id || appointment.id}, patient=${patient?.name}`);
+    
     // Настраиваем drag операцию
     e.dataTransfer.effectAllowed = "move";
     e.dataTransfer.setData('text/plain', ''); // Для совместимости
