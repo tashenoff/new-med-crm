@@ -30,7 +30,9 @@ const CalendarView = ({
   onEditAppointment,
   onMoveAppointment,
   onNewAppointment,
-  onRefreshCalendar
+  onRefreshCalendar,
+  blockAppointmentUpdates,
+  unblockAppointmentUpdates
 }) => {
   const canEdit = user?.role === 'admin' || user?.role === 'doctor';
   
