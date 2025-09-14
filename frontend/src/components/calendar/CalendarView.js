@@ -80,7 +80,9 @@ const CalendarView = ({
         checkTimeConflicts(appointments, rooms, getAvailableDoctorForSlot, roomId, date, time, endTime, excludeId),
       canAppointmentFitInSchedule,
       getAvailableDoctorForSlot,
-      onRefreshCalendar
+      onRefreshCalendar,
+      blockAppointmentUpdates: appointments.blockAppointmentUpdates,
+      unblockAppointmentUpdates: appointments.unblockAppointmentUpdates
     }), 
     [appointments, rooms, patients, doctors, onMoveAppointment, onRefreshCalendar]
   );
