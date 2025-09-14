@@ -72,7 +72,7 @@ const CalendarContainer = ({
             key={room.id}
             room={room}
             timeSlots={timeSlots}
-            appointments={appointments.filter(apt => apt.room_id === room.id)}
+            appointments={appointments}
             patients={patients}
             doctors={doctors}
             currentDate={currentDate}
