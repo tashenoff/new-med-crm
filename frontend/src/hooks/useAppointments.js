@@ -136,11 +136,37 @@ export const useAppointments = () => {
   const moveAppointment = useCallback(async (id, newDate, newTime, newRoomId) => {
     console.log(`🚀 MOVE APPOINTMENT: id=${id}, date=${newDate}, time=${newTime}, roomId=${newRoomId}`);
     try {
+      // Находим оригинальную запись чтобы вычислить новый end_time
+      const originalAppointment = appointments.find(apt => 
+        String(apt._id || apt.id) === String(id)
+      );
+      
       const updateData = {
         appointment_date: newDate,
         appointment_time: newTime,
         room_id: newRoomId
       };
+      
+      // ВАЖНО: Пересчитываем end_time если была оригинальная продолжительность
+      if (originalAppointment && originalAppointment.end_time) {
+        const originalStart = originalAppointment.appointment_time;
+        const originalEnd = originalAppointment.end_time;
+        
+        // Вычисляем продолжительность в минутах
+        const [startHour, startMin] = originalStart.split(':').map(Number);
+        const [endHour, endMin] = originalEnd.split(':').map(Number);
+        const durationMinutes = (endHour * 60 + endMin) - (startHour * 60 + startMin);
+        
+        // Вычисляем новый end_time
+        const [newHour, newMin] = newTime.split(':').map(Number);
+        const newEndTotalMinutes = (newHour * 60 + newMin) + durationMinutes;
+        const newEndHour = Math.floor(newEndTotalMinutes / 60);
+        const newEndMin = newEndTotalMinutes % 60;
+        
+        updateData.end_time = `${newEndHour.toString().padStart(2, '0')}:${newEndMin.toString().padStart(2, '0')}`;
+        
+        console.log(`⏰ Пересчитан end_time: ${originalStart}-${originalEnd} -> ${newTime}-${updateData.end_time} (${durationMinutes} мин)`);
+      }
       
       console.log(`📤 Отправляем PUT запрос:`, updateData);
       const response = await axios.put(`${API}/appointments/${id}`, updateData);
