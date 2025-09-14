@@ -87,6 +87,14 @@ export class DragDropManager {
     e.preventDefault();
     const appointmentId = e.dataTransfer.getData('appointmentId');
     
+    // ВАЖНО: Планируем принудительное обновление календаря через небольшую задержку
+    // Это гарантирует, что карточка вернется на место при любых ошибках
+    setTimeout(() => {
+      if (this.onRefreshCalendar && !this.dropSuccessful) {
+        console.log('🔄 Принудительное обновление календаря после неудачного drop');
+        this.onRefreshCalendar();
+      }
+    }, 100);
     
     if (!appointmentId || !this.onMoveAppointment) {
       return;
@@ -99,6 +107,10 @@ export class DragDropManager {
     
     if (!movingAppointment) {
       alert('Запись не найдена');
+      // Принудительно обновляем календарь
+      if (this.onRefreshCalendar) {
+        setTimeout(() => this.onRefreshCalendar(), 50);
+      }
       return;
     }
 
