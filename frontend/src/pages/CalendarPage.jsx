@@ -6,6 +6,7 @@ import { useRooms } from '../hooks/useRooms';
 import { useGlobalRefresh } from '../hooks/useGlobalRefresh';
 import { useModal } from '../context/ModalContext';
 import CalendarView from '../components/calendar/CalendarView';
+import NewCalendar from '../components/calendar/NewCalendar';
 
 const CalendarPage = ({ user }) => {
   // Data hooks
