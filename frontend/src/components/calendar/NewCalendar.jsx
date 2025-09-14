@@ -22,10 +22,10 @@ const NewCalendar = ({
   const [draggedAppointment, setDraggedAppointment] = useState(null);
   const [hoveredSlot, setHoveredSlot] = useState(null);
 
-  // Генерация временных слотов (с 9:00 до 18:00 с шагом 30 минут)
+  // Генерация временных слотов (с 8:00 до 20:00 с шагом 30 минут как в старом календаре)
   const timeSlots = React.useMemo(() => {
     const slots = [];
-    for (let hour = 9; hour < 18; hour++) {
+    for (let hour = 8; hour < 20; hour++) {
       slots.push(`${hour.toString().padStart(2, '0')}:00`);
       slots.push(`${hour.toString().padStart(2, '0')}:30`);
     }
