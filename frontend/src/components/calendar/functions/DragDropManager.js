@@ -214,6 +214,7 @@ export class DragDropManager {
       
       targetDoctorId = availableDoctor.id;
     } else {
+      console.log(`❌ НЕТ ВРАЧА: roomId=${roomId}, date=${date}, time=${time}`);
       alert('В это время в данном кабинете нет доступного врача');
       // Принудительно обновляем календарь для возврата карточки
       if (this.onRefreshCalendar) {
