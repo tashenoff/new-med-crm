@@ -3919,7 +3919,7 @@ def main():
     """Main function to run specialties creation tests as per review request"""
     # Get backend URL from environment
     import os
-    backend_url = os.environ.get('REACT_APP_BACKEND_URL', 'https://medrecord-enhance.preview.emergentagent.com')
+    backend_url = os.environ.get('REACT_APP_BACKEND_URL', 'https://env-setup-12.preview.emergentagent.com')
     
     print("🔍 MEDICAL SPECIALTIES CREATION FOR DOCTOR MODAL")
     print("=" * 60)
@@ -4391,7 +4391,7 @@ def test_doctor_schedule_management_system():
     Testing the new doctor schedule functionality as requested in the review
     """
     import os
-    backend_url = os.environ.get('REACT_APP_BACKEND_URL', 'https://medrecord-enhance.preview.emergentagent.com')
+    backend_url = os.environ.get('REACT_APP_BACKEND_URL', 'https://env-setup-12.preview.emergentagent.com')
     
     tester = ClinicAPITester(backend_url)
     
@@ -4516,7 +4516,7 @@ def test_doctor_schedule_management_system():
     COMPREHENSIVE TEST FOR PATIENT STATISTICS ENDPOINT
     Testing the /api/treatment-plans/statistics/patients endpoint that was causing 500 errors
     """
-    backend_url = "https://medrecord-enhance.preview.emergentagent.com"
+    backend_url = "https://env-setup-12.preview.emergentagent.com"
     tester = ClinicAPITester(backend_url)
     
     print("=" * 80)
@@ -4724,7 +4724,7 @@ def test_treatment_plan_422_validation_error():
     SPECIFIC TEST FOR 422 VALIDATION ERROR INVESTIGATION
     Testing treatment plan creation with patient ID: 1db07558-3805-4588-95d1-f79fe4bcd7ce
     """
-    backend_url = "https://medrecord-enhance.preview.emergentagent.com"
+    backend_url = "https://env-setup-12.preview.emergentagent.com"
     tester = ClinicAPITester(backend_url)
     
     print("=" * 80)
@@ -5739,7 +5739,7 @@ def test_enhanced_doctor_statistics():
     Testing the new doctor statistics features with working hours and utilization metrics
     """
     import os
-    backend_url = os.environ.get('REACT_APP_BACKEND_URL', 'https://medrecord-enhance.preview.emergentagent.com')
+    backend_url = os.environ.get('REACT_APP_BACKEND_URL', 'https://env-setup-12.preview.emergentagent.com')
     
     tester = ClinicAPITester(backend_url)
     
@@ -5819,7 +5819,7 @@ def test_service_price_directory_api():
     Testing the new Service Price Directory API endpoints as requested in the review
     """
     import os
-    backend_url = os.environ.get('REACT_APP_BACKEND_URL', 'https://medrecord-enhance.preview.emergentagent.com')
+    backend_url = os.environ.get('REACT_APP_BACKEND_URL', 'https://env-setup-12.preview.emergentagent.com')
     
     tester = ClinicAPITester(backend_url)
     
@@ -6163,7 +6163,7 @@ def test_service_categories_api():
     Testing the new Service Categories management system as requested in the review
     """
     import os
-    backend_url = os.environ.get('REACT_APP_BACKEND_URL', 'https://medrecord-enhance.preview.emergentagent.com')
+    backend_url = os.environ.get('REACT_APP_BACKEND_URL', 'https://env-setup-12.preview.emergentagent.com')
     
     tester = ClinicAPITester(backend_url)
     
@@ -6388,7 +6388,7 @@ def test_service_categories_api():
 
 def main():
     # Get backend URL from environment variable
-    backend_url = "https://medrecord-enhance.preview.emergentagent.com"
+    backend_url = "https://env-setup-12.preview.emergentagent.com"
     
     print(f"🚀 Starting Treatment Plan Statistics Summation Bug Fix Tests")
     print(f"Backend URL: {backend_url}")
@@ -6481,7 +6481,7 @@ def main():
 
 def main_original():
     # Get the backend URL from the environment
-    backend_url = "https://medrecord-enhance.preview.emergentagent.com"
+    backend_url = "https://env-setup-12.preview.emergentagent.com"
     
     # Setup
     tester = ClinicAPITester(backend_url)

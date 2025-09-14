@@ -105,7 +105,7 @@ class FocusedAppointmentTester:
         return self.token and self.test_patient_id and self.test_doctor_id
 
 def main():
-    backend_url = "https://medrecord-enhance.preview.emergentagent.com"
+    backend_url = "https://env-setup-12.preview.emergentagent.com"
     tester = FocusedAppointmentTester(backend_url)
     
     print("=" * 80)

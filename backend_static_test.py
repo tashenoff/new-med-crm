@@ -88,7 +88,7 @@ def test_external_routing_issue():
     print("EXTERNAL ROUTING ISSUE ANALYSIS")
     print("=" * 60)
     
-    external_url = "https://medrecord-enhance.preview.emergentagent.com"
+    external_url = "https://env-setup-12.preview.emergentagent.com"
     
     # Test API access (should work)
     api_response = requests.get(f"{external_url}/api/")

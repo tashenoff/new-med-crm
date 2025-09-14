@@ -6,7 +6,7 @@ def test_validation_fix():
     """
     Test that the 422 validation error fix works correctly
     """
-    backend_url = "https://medrecord-enhance.preview.emergentagent.com"
+    backend_url = "https://env-setup-12.preview.emergentagent.com"
     
     # Authenticate as admin
     print("🔐 Authenticating as admin...")

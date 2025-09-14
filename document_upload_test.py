@@ -370,7 +370,7 @@ class DocumentUploadTester:
         return True
 
 def main():
-    backend_url = "https://medrecord-enhance.preview.emergentagent.com"
+    backend_url = "https://env-setup-12.preview.emergentagent.com"
     tester = DocumentUploadTester(backend_url)
     
     success = tester.run_all_tests()
