@@ -24,6 +24,7 @@ export class DragDropManager {
     this.onRefreshCalendar = onRefreshCalendar;
     this.draggedAppointmentId = null;
     this.dropSuccessful = false;
+    this.refreshTimeout = null; // Для предотвращения множественных обновлений
   }
 
   /**
