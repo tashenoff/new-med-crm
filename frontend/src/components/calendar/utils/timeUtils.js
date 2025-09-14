@@ -20,7 +20,7 @@ export const isTimeInAppointmentRange = (appointmentStartTime, appointmentEndTim
   const endMinutes = end[0] * 60 + end[1];
   const currentMinutes = current[0] * 60 + current[1];
   
-  return currentMinutes >= startMinutes && currentMinutes <= endMinutes;
+  return currentMinutes >= startMinutes && currentMinutes < endMinutes;
 };
 
 /**
