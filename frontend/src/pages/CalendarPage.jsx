@@ -272,6 +272,14 @@ const CalendarPage = ({ user }) => {
       
       if (editingItem) {
         const appointmentId = editingItem._id || editingItem.id;
+        
+        // Отладка: логируем что передаем в updateAppointment
+        console.log('📝 Обновляем запись через модальное окно:', {
+          appointmentId,
+          appointmentForm,
+          end_time: appointmentForm.end_time
+        });
+        
         const result = await appointmentsHook.updateAppointment(appointmentId, appointmentForm);
         if (!result.success) {
           throw new Error(result.error);
