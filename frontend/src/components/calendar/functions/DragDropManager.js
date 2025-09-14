@@ -35,6 +35,11 @@ export class DragDropManager {
     // Сохраняем ID для отслеживания
     this.draggedAppointmentId = appointmentId;
     this.dropSuccessful = false;
+    
+    // БЛОКИРУЕМ обновления appointments чтобы карточка не исчезла
+    if (this.blockAppointmentUpdates) {
+      this.blockAppointmentUpdates();
+    }
   };
 
   /**
