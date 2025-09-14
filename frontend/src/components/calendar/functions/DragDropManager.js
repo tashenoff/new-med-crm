@@ -47,9 +47,27 @@ export class DragDropManager {
   };
 
   /**
+   * Обработчик drag leave - убираем подсветку
+   */
+  handleDragLeave = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    
+    // Очищаем подсветку слота
+    if (this.setDragOverSlot) {
+      this.setDragOverSlot(null);
+    }
+  };
+
+  /**
    * Обработчик окончания перетаскивания
    */
   handleDragEnd = (e) => {
+    // Очищаем подсветку слота
+    if (this.setDragOverSlot) {
+      this.setDragOverSlot(null);
+    }
+    
     // РАЗБЛОКИРУЕМ обновления appointments через 2 секунды
     // Это даст время для завершения drag&drop операции
     setTimeout(() => {
