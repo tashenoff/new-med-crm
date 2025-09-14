@@ -74,9 +74,6 @@ const RoomColumn = ({
               }))
             });
           }
-
-          // Получаем врача по расписанию для этого слота
-          const availableDoctor = getAvailableDoctorForSlot(room, currentDate, time);
           
           const isHovered = hoveredSlot?.roomId === room.id && hoveredSlot?.time === time;
 
