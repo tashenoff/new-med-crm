@@ -77,6 +77,8 @@ const TimeGrid = ({
               onDragOver={onDragOver}
               onDrop={onDrop}
               onEditAppointment={onEditAppointment}
+              dragOverSlot={dragOverSlot}
+              isDragOver={dragOverSlot === `${room.id}-${time}`}
             />
             
             {/* Карточка записи */}
