@@ -36,6 +36,17 @@ const RoomColumn = ({
       {/* Временные слоты */}
       <div className="time-slots">
         {timeSlots.map((time) => {
+          // Отладка: логируем данные
+          if (time === "10:30") {
+            console.log(`🔍 DEBUG ${room.name} ${time}:`, {
+              roomId: room.id,
+              appointmentsCount: appointments.length,
+              currentDate,
+              time,
+              sampleAppointment: appointments[0]
+            });
+          }
+          
           // Ищем запись используя старую логику (как в оригинальном календаре)
           let appointment = appointments.find(apt => 
             apt.room_id === room.id &&
@@ -54,6 +65,10 @@ const RoomColumn = ({
                 (!apt.room_id || apt.room_id === "")
               );
             }
+          }
+          
+          if (appointment && time === "10:30") {
+            console.log(`✅ НАЙДЕНА ЗАПИСЬ ${room.name} ${time}:`, appointment);
           }
 
           // Получаем врача по расписанию для этого слота
