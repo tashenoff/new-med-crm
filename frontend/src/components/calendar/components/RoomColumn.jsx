@@ -36,10 +36,25 @@ const RoomColumn = ({
       {/* Временные слоты */}
       <div className="time-slots">
         {timeSlots.map((time) => {
-          const appointment = appointments.find(apt => 
+          // Ищем запись используя старую логику (как в оригинальном календаре)
+          let appointment = appointments.find(apt => 
+            apt.room_id === room.id &&
             apt.appointment_time === time && 
             apt.appointment_date === currentDate
           );
+
+          // Если не нашли с room_id, ищем по врачу в расписании (старые записи)
+          if (!appointment) {
+            const availableDoctor = getAvailableDoctorForSlot(room, currentDate, time);
+            if (availableDoctor) {
+              appointment = appointments.find(apt => 
+                apt.doctor_id === availableDoctor.id &&
+                apt.appointment_time === time && 
+                apt.appointment_date === currentDate &&
+                (!apt.room_id || apt.room_id === "")
+              );
+            }
+          }
 
           // Получаем врача по расписанию для этого слота
           const availableDoctor = getAvailableDoctorForSlot(room, currentDate, time);
