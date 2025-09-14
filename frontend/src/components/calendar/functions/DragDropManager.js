@@ -154,6 +154,10 @@ export class DragDropManager {
       );
       
       if (!confirm) {
+        // Принудительно обновляем календарь для возврата карточки
+        if (this.onRefreshCalendar) {
+          setTimeout(() => this.onRefreshCalendar(), 50);
+        }
         return;
       }
     }
