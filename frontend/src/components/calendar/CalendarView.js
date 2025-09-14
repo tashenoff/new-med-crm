@@ -83,8 +83,8 @@ const CalendarView = ({
       canAppointmentFitInSchedule,
       getAvailableDoctorForSlot,
       onRefreshCalendar,
-      blockAppointmentUpdates: appointments.blockAppointmentUpdates,
-      unblockAppointmentUpdates: appointments.unblockAppointmentUpdates
+      blockAppointmentUpdates,
+      unblockAppointmentUpdates
     }), 
     [appointments, rooms, patients, doctors, onMoveAppointment, onRefreshCalendar]
   );
