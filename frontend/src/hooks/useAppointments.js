@@ -37,7 +37,7 @@ export const useAppointments = () => {
       const response = await axios.get(`${API}/appointments`);
       console.log('🔄 useAppointments: fetchAppointments - получили', response.data.length, 'записей');
       console.log('🔄 useAppointments: проверяем нашу запись в новых данных:', response.data.find(apt => (apt._id || apt.id) === '6cbc8990-5333-4a09-8de7-da6ea02e3710')?.room_id);
-      setAppointments(response.data);
+      setAppointmentsWithLog(response.data);
     } catch (error) {
       console.error('Ошибка при загрузке записей:', error);
       throw error;
