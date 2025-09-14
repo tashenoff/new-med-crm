@@ -59,6 +59,9 @@ export class DragDropManager {
    */
   handleDragOver = (e) => {
     e.preventDefault();
+    e.stopPropagation();
+    // Всегда разрешаем drop
+    e.dataTransfer.dropEffect = "move";
   };
 
   /**
