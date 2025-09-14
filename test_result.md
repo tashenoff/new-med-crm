@@ -671,6 +671,30 @@ frontend:
         agent: "main"
         comment: "IMPLEMENTED: Converted schedule view to kanban-style layout with drag & drop functionality. Added 7 status columns (unconfirmed, confirmed, arrived, in_progress, completed, cancelled, no_show), drag & drop for status changes, compact appointment cards with all existing information. UI now shows appointments grouped by status in horizontal scrollable columns."
 
+  - task: "Calendar appointment editing with immediate update"
+    implemented: true
+    working: "NA"
+    file: "CalendarPage.jsx, AppointmentModal.js"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: "NA"
+        agent: "testing"
+        comment: "CRITICAL BUG FIX TESTING REQUIRED: Need to test that after editing appointment time, the card updates immediately in calendar without page reload. This addresses user-reported issue where edited appointments don't reflect changes until manual refresh."
+
+  - task: "Calendar drag & drop validation and error handling"
+    implemented: true
+    working: "NA"
+    file: "DragDropManager.js, CalendarView.js"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: "NA"
+        agent: "testing"
+        comment: "CRITICAL BUG FIX TESTING REQUIRED: Need to test drag & drop validation - when dragging appointment to unsuitable time slot, should show error message and card should remain in original position. This addresses user-reported issue where cards disappear during failed drag operations."
+
   - task: "Patient statistics endpoint division by zero error"
     implemented: true
     working: true
