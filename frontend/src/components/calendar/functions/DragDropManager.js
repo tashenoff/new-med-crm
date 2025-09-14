@@ -207,6 +207,10 @@ export class DragDropManager {
       targetDoctorId = availableDoctor.id;
     } else {
       alert('В это время в данном кабинете нет доступного врача');
+      // Принудительно обновляем календарь для возврата карточки
+      if (this.onRefreshCalendar) {
+        setTimeout(() => this.onRefreshCalendar(), 50);
+      }
       return;
     }
     
