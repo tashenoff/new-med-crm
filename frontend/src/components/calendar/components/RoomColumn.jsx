@@ -36,39 +36,43 @@ const RoomColumn = ({
       {/* Временные слоты */}
       <div className="time-slots">
         {timeSlots.map((time) => {
-          // Отладка: логируем данные
-          if (time === "10:30") {
-            console.log(`🔍 DEBUG ${room.name} ${time}:`, {
-              roomId: room.id,
-              appointmentsCount: appointments.length,
-              currentDate,
-              time,
-              sampleAppointment: appointments[0]
-            });
-          }
+          // Сначала получаем врача по расписанию
+          const availableDoctor = getAvailableDoctorForSlot(room, currentDate, time);
           
-          // Ищем запись используя старую логику (как в оригинальном календаре)
-          let appointment = appointments.find(apt => 
+          // Ищем запись для этого слота
+          let appointment = null;
+          
+          // 1. Сначала ищем записи с room_id (новые записи)
+          appointment = appointments.find(apt => 
             apt.room_id === room.id &&
             apt.appointment_time === time && 
             apt.appointment_date === currentDate
           );
 
-          // Если не нашли с room_id, ищем по врачу в расписании (старые записи)
-          if (!appointment) {
-            const availableDoctor = getAvailableDoctorForSlot(room, currentDate, time);
-            if (availableDoctor) {
-              appointment = appointments.find(apt => 
-                apt.doctor_id === availableDoctor.id &&
-                apt.appointment_time === time && 
-                apt.appointment_date === currentDate &&
-                (!apt.room_id || apt.room_id === "")
-              );
-            }
+          // 2. Если не нашли, ищем по врачу (старые записи без room_id)
+          if (!appointment && availableDoctor) {
+            appointment = appointments.find(apt => 
+              apt.doctor_id === availableDoctor.id &&
+              apt.appointment_time === time && 
+              apt.appointment_date === currentDate &&
+              (!apt.room_id || apt.room_id === "")
+            );
           }
           
-          if (appointment && time === "10:30") {
-            console.log(`✅ НАЙДЕНА ЗАПИСЬ ${room.name} ${time}:`, appointment);
+          // Отладка для времени 10:30
+          if (time === "10:30") {
+            console.log(`🔍 DEBUG ${room.name} ${time}:`, {
+              roomId: room.id,
+              availableDoctor: availableDoctor?.name,
+              appointmentFound: !!appointment,
+              appointmentId: appointment?.id,
+              allAppointments: appointments.map(a => ({
+                id: a.id, 
+                time: a.appointment_time, 
+                doctor_id: a.doctor_id,
+                room_id: a.room_id
+              }))
+            });
           }
 
           // Получаем врача по расписанию для этого слота
