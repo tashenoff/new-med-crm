@@ -141,6 +141,7 @@ const CalendarView = ({
                 onSlotClick={onSlotClick}
                 onEditAppointment={onEditAppointment}
                 onDragOver={dragDropManager.handleDragOver}
+                onDragEnter={(e) => { e.preventDefault(); e.stopPropagation(); }}
                 onDrop={dragDropManager.handleDrop}
                 onDragStart={dragDropManager.handleDragStart}
                 onDragEnd={dragDropManager.handleDragEnd}
