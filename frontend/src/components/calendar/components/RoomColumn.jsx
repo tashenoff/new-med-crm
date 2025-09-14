@@ -85,6 +85,7 @@ const RoomColumn = ({
               availableDoctor={availableDoctor}
               patients={patients}
               doctors={doctors}
+              currentDate={currentDate}
               canEdit={canEdit}
               isHovered={isHovered}
               isDraggedOver={draggedAppointment && isHovered}
