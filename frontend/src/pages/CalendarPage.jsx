@@ -458,6 +458,7 @@ const CalendarPage = ({ user }) => {
         onDeleteAppointment={handleDeleteAppointment}
         onStatusChange={handleStatusChange}
         onMoveAppointment={handleMoveAppointment}
+        onRefreshCalendar={appointmentsHook.fetchAppointments}
         canEdit={user?.role === 'admin' || user?.role === 'doctor'}
       />
 
