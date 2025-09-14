@@ -90,16 +90,10 @@ const NewCalendar = ({
     }
   }, [draggedAppointment, onMoveAppointment, rooms, currentDate]);
 
-  // Отладка данных
-  console.log('🎯 NewCalendar данные:', {
-    appointmentsCount: appointments.length,
-    roomsCount: rooms.length,
-    patientsCount: patients.length,
-    doctorsCount: doctors.length,
-    currentDate,
-    sampleAppointment: appointments[0],
-    sampleRoom: rooms[0]
-  });
+  // Базовая проверка данных
+  if (!appointments || !rooms || appointments.length === 0) {
+    console.log('⚠️ Нет данных для календаря');
+  }
 
   return (
     <div className="calendar-container bg-white rounded-lg shadow-lg">
