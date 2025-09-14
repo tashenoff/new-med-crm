@@ -24,6 +24,10 @@ const AppointmentCard = ({
   onDragEnd
 }) => {
   const handleDragStart = (e) => {
+    // Настраиваем drag операцию
+    e.dataTransfer.effectAllowed = "move";
+    e.dataTransfer.setData('text/plain', ''); // Для совместимости
+    
     if (onDragStart) {
       onDragStart(e, appointment._id || appointment.id);
     }
