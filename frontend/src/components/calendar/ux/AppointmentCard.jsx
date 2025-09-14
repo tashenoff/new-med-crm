@@ -20,7 +20,8 @@ const AppointmentCard = ({
   statusColor,
   canEdit,
   onEdit,
-  onDragStart
+  onDragStart,
+  onDragEnd
 }) => {
   const handleDragStart = (e) => {
     if (onDragStart) {
