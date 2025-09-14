@@ -46,6 +46,7 @@ const AppointmentCard = ({
     <div
       draggable={canEdit}
       onDragStart={handleDragStart}
+      onDragEnd={handleDragEnd}
       className={`
         absolute top-1 left-1 right-1 p-2 rounded text-xs border 
         cursor-move z-50 transition-none ${statusColor}
