@@ -1,6 +1,5 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useCallback } from 'react';
 import CalendarContainer from './components/CalendarContainer';
-import { useDragContext } from './context/DragContext';
 
 /**
  * Главный компонент нового календаря
