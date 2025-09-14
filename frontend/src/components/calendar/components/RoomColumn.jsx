@@ -59,20 +59,9 @@ const RoomColumn = ({
             );
           }
           
-          // Отладка для времени 10:30
-          if (time === "10:30") {
-            console.log(`🔍 DEBUG ${room.name} ${time}:`, {
-              roomId: room.id,
-              availableDoctor: availableDoctor?.name,
-              appointmentFound: !!appointment,
-              appointmentId: appointment?.id,
-              allAppointments: appointments.map(a => ({
-                id: a.id, 
-                time: a.appointment_time, 
-                doctor_id: a.doctor_id,
-                room_id: a.room_id
-              }))
-            });
+          // Простая отладка
+          if (appointment) {
+            console.log(`✅ Найдена запись: ${room.name} ${time} - ${appointment.patient_name}`);
           }
           
           const isHovered = hoveredSlot?.roomId === room.id && hoveredSlot?.time === time;
