@@ -332,6 +332,7 @@ const CalendarPage = ({ user }) => {
   };
 
   const handleMoveAppointment = async (appointmentId, newDoctorId, newDate, newTime, newRoomId = null) => {
+    console.log(`🎯 HANDLE MOVE: appointmentId=${appointmentId}, doctorId=${newDoctorId}, date=${newDate}, time=${newTime}, roomId=${newRoomId}`);
     try {
       setLoading(true);
       
@@ -339,6 +340,8 @@ const CalendarPage = ({ user }) => {
       const originalAppointment = appointmentsHook.appointments.find(apt => 
         (apt._id || apt.id) === appointmentId
       );
+      
+      console.log(`🔍 Найдена оригинальная запись:`, originalAppointment);
       
       if (!originalAppointment) {
         throw new Error('Запись не найдена');
