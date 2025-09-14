@@ -36,33 +36,16 @@ const RoomColumn = ({
       {/* Временные слоты */}
       <div className="time-slots">
         {timeSlots.map((time) => {
-          // Сначала получаем врача по расписанию
+          // Получаем врача по расписанию
           const availableDoctor = getAvailableDoctorForSlot(room, currentDate, time);
           
-          // Ищем запись для этого слота
-          let appointment = null;
-          
-          // 1. Сначала ищем записи с room_id (новые записи)
-          appointment = appointments.find(apt => 
-            apt.room_id === room.id &&
+          // УПРОЩЕННЫЙ поиск записи - только по времени и дате (как в старом календаре)
+          const appointment = appointments.find(apt => 
             apt.appointment_time === time && 
-            apt.appointment_date === currentDate
+            apt.appointment_date === currentDate &&
+            (apt.room_id === room.id || 
+             (availableDoctor && apt.doctor_id === availableDoctor.id && (!apt.room_id || apt.room_id === "")))
           );
-
-          // 2. Если не нашли, ищем по врачу (старые записи без room_id)
-          if (!appointment && availableDoctor) {
-            appointment = appointments.find(apt => 
-              apt.doctor_id === availableDoctor.id &&
-              apt.appointment_time === time && 
-              apt.appointment_date === currentDate &&
-              (!apt.room_id || apt.room_id === "")
-            );
-          }
-          
-          // Простая отладка
-          if (appointment) {
-            console.log(`✅ Найдена запись: ${room.name} ${time} - ${appointment.patient_name}`);
-          }
           
           const isHovered = hoveredSlot?.roomId === room.id && hoveredSlot?.time === time;
 
