@@ -90,6 +90,17 @@ const NewCalendar = ({
     }
   }, [draggedAppointment, onMoveAppointment, rooms, currentDate]);
 
+  // Отладка данных
+  console.log('🎯 NewCalendar данные:', {
+    appointmentsCount: appointments.length,
+    roomsCount: rooms.length,
+    patientsCount: patients.length,
+    doctorsCount: doctors.length,
+    currentDate,
+    sampleAppointment: appointments[0],
+    sampleRoom: rooms[0]
+  });
+
   return (
     <div className="calendar-container bg-white rounded-lg shadow-lg">
       <CalendarContainer
