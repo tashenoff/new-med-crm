@@ -74,8 +74,18 @@ export const getAppointmentForSlot = (appointments, rooms, getAvailableDoctorFor
   }
   
   // Показываем карточку только если это первый слот записи
-  if (appointment && appointment.appointment_time === time) {
-    return appointment;
+  if (appointment) {
+    console.log('🔍 СРАВНЕНИЕ ВРЕМЕНИ:', {
+      appointmentTime: appointment.appointment_time,
+      slotTime: time,
+      isEqual: appointment.appointment_time === time,
+      typeof_appointmentTime: typeof appointment.appointment_time,
+      typeof_slotTime: typeof time
+    });
+    
+    if (appointment.appointment_time === time) {
+      return appointment;
+    }
   }
   
   return null;
