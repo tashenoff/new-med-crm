@@ -42,7 +42,9 @@ const TimeSlot = ({
   };
 
   const handleDrop = (e) => {
-    if (availableDoctor && onDrop) {
+    // ВСЕГДА обрабатываем drop, даже если нет врача
+    // Валидация врача должна происходить в DragDropManager
+    if (onDrop) {
       onDrop(e, roomId, date, time);
     }
   };
