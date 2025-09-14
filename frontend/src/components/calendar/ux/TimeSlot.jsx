@@ -51,7 +51,17 @@ const TimeSlot = ({
     }
     
     if (onDragOver) {
-      onDragOver(e);
+      onDragOver(e, roomId, time);
+    }
+  };
+
+  const handleDragLeave = (e) => {
+    // КРИТИЧНО: Предотвращаем стандартное поведение браузера
+    e.preventDefault();
+    e.stopPropagation();
+    
+    if (onDragOver) {
+      onDragOver(e, null, null);
     }
   };
 
