@@ -36,6 +36,8 @@ const AppointmentCard = ({
   };
 
   const handleDragEnd = (e) => {
+    console.log(`🏁 DRAG END: appointmentId=${appointment._id || appointment.id}, patient=${patient?.name}, dropEffect=${e.dataTransfer.dropEffect}`);
+    
     if (onDragEnd) {
       onDragEnd(e);
     }
