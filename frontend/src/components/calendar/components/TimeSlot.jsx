@@ -8,6 +8,7 @@ const TimeSlot = ({
   roomId,
   time,
   appointment,
+  availableDoctor,
   patients,
   doctors,
   canEdit,
@@ -25,7 +26,7 @@ const TimeSlot = ({
 }) => {
   // Обработчик клика по пустому слоту
   const handleSlotClick = () => {
-    if (!appointment && onSlotClick) {
+    if (!appointment && availableDoctor && onSlotClick) {
       onSlotClick(roomId, time);
     }
   };
@@ -50,19 +51,22 @@ const TimeSlot = ({
 
   const handleDrop = (e) => {
     e.preventDefault();
-    console.log('📥 SLOT DROP:', { roomId, time });
+    console.log('📥 SLOT DROP:', { roomId, time, hasDoctor: !!availableDoctor });
     
-    if (onSlotDrop) {
+    if (onSlotDrop && availableDoctor) {
       onSlotDrop(roomId, time);
+    } else if (!availableDoctor) {
+      alert('В это время в данном кабинете нет доступного врача');
     }
   };
 
   return (
     <div
       className={`
-        time-slot relative h-16 border-b border-gray-200 cursor-pointer transition-all duration-200
-        ${appointment ? 'bg-white' : 'bg-gray-50 hover:bg-gray-100'}
-        ${isDraggedOver ? 'bg-green-200 border-green-400 border-2 shadow-lg' : ''}
+        time-slot relative h-16 border-b border-gray-200 transition-all duration-200
+        ${appointment ? 'bg-white' : availableDoctor ? 'bg-white hover:bg-blue-50 cursor-pointer' : 'bg-gray-100'}
+        ${isDraggedOver && availableDoctor ? 'bg-green-200 border-green-400 border-2 shadow-lg' : ''}
+        ${isDraggedOver && !availableDoctor ? 'bg-red-200 border-red-400 border-2' : ''}
       `}
       onClick={handleSlotClick}
       onDragOver={handleDragOver}
@@ -82,10 +86,22 @@ const TimeSlot = ({
         />
       )}
       
-      {/* Индикатор времени для пустых слотов */}
-      {!appointment && (
-        <div className="absolute top-1 left-2 text-xs text-gray-400">
-          {time}
+      {/* Информация о враче в расписании */}
+      {!appointment && availableDoctor && (
+        <div className="p-2 text-xs">
+          <div className="text-green-700 font-medium">
+            {availableDoctor.name}
+          </div>
+          <div className="text-gray-500">
+            Доступен
+          </div>
+        </div>
+      )}
+      
+      {/* Сообщение об отсутствии врача */}
+      {!appointment && !availableDoctor && (
+        <div className="p-2 text-xs text-gray-400">
+          Врач недоступен
         </div>
       )}
     </div>
