@@ -85,15 +85,6 @@ class AppointmentStatus(str, Enum):
     CANCELLED = "cancelled"          # Отменено - красный
     NO_SHOW = "no_show"             # Не явился - серый
 
-class PatientSource(str, Enum):
-    WEBSITE = "website"
-    PHONE = "phone"
-    REFERRAL = "referral"
-    WALK_IN = "walk_in"
-    SOCIAL_MEDIA = "social_media"
-    CRM_CONVERSION = "crm_conversion"
-    OTHER = "other"
-
 
 # Auth Models
 class User(BaseModel):
