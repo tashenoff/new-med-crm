@@ -37,7 +37,7 @@ async def lifespan(app: FastAPI):
     # Startup
     yield
     # Shutdown
-    client.close()
+    await close_database()
 
 # Create the main app without a prefix
 app = FastAPI(lifespan=lifespan, redirect_slashes=False)
