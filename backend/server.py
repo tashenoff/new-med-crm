@@ -167,7 +167,7 @@ class PatientCreate(BaseModel):
     iin: Optional[str] = None
     birth_date: Optional[str] = None
     gender: Optional[str] = None
-    source: PatientSource = PatientSource.OTHER
+    source: str = "other"
     referrer: Optional[str] = None
     notes: Optional[str] = None
     user_id: Optional[str] = None
