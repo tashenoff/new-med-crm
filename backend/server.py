@@ -50,8 +50,8 @@ app.add_middleware(
         "http://127.0.0.1:3000", 
         "http://localhost:3001",
         "https://app.emergent.sh",
-        "https://env-setup-12.preview.emergentagent.com",
-        "https://*.preview.emergentagent.com",
+        "https://medicodebase.preview.emergentagent.com",
+        "https://medicodebase.preview.emergentagent.com",
         "https://*.emergentagent.com"
     ],
     allow_credentials=True,

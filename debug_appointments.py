@@ -3,7 +3,7 @@ import json
 from datetime import datetime
 
 def test_appointments_endpoint():
-    base_url = "https://env-setup-12.preview.emergentagent.com"
+    base_url = "https://medicodebase.preview.emergentagent.com"
     
     # First register an admin user
     admin_email = f"debug_admin_{datetime.now().strftime('%Y%m%d%H%M%S')}@test.com"

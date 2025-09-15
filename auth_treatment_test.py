@@ -305,7 +305,7 @@ class AuthTreatmentTester:
 def main():
     """Main function to run authentication and treatment plan tests"""
     # Get the backend URL from the environment
-    backend_url = "https://env-setup-12.preview.emergentagent.com"
+    backend_url = "https://medicodebase.preview.emergentagent.com"
     
     # Setup
     tester = AuthTreatmentTester(backend_url)

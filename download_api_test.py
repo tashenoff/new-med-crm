@@ -395,7 +395,7 @@ class DownloadAPITester:
 
 def main():
     # Get the backend URL
-    backend_url = "https://env-setup-12.preview.emergentagent.com"
+    backend_url = "https://medicodebase.preview.emergentagent.com"
     
     # Setup tester
     tester = DownloadAPITester(backend_url)

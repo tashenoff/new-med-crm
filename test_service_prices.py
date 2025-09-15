@@ -10,7 +10,7 @@ def test_service_price_directory():
     """Test the Service Price Directory API endpoints"""
     
     # Get backend URL from environment
-    backend_url = os.environ.get('REACT_APP_BACKEND_URL', 'https://env-setup-12.preview.emergentagent.com')
+    backend_url = os.environ.get('REACT_APP_BACKEND_URL', 'https://medicodebase.preview.emergentagent.com')
     base_url = f"{backend_url}/api"
     
     print(f"🚀 Testing Service Price Directory API")
