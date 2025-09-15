@@ -121,62 +121,7 @@ class TokenData(BaseModel):
     email: Optional[str] = None
 
 
-# Existing Models (updated to link with users)
-class Patient(BaseModel):
-    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
-    full_name: str
-    phone: str
-    iin: Optional[str] = None  # ИИН (Individual Identification Number)
-    birth_date: Optional[str] = None  # Date of birth (YYYY-MM-DD format)
-    gender: Optional[str] = None  # "male", "female", "other"
-    source: str = "other"
-    referrer: Optional[str] = None  # Who referred this patient
-    notes: Optional[str] = None
-    # Additional name fields (for CRM integration)
-    first_name: Optional[str] = None
-    last_name: Optional[str] = None
-    middle_name: Optional[str] = None
-    email: Optional[str] = None
-    address: Optional[str] = None
-    city: Optional[str] = None
-    # CRM integration
-    crm_client_id: Optional[str] = None  # Link to CRM client
-    # Financial information
-    revenue: Optional[float] = 0.0  # Total revenue from this patient
-    debt: Optional[float] = 0.0  # Patient's debt
-    overpayment: Optional[float] = 0.0  # Patient's overpayment
-    appointments_count: Optional[int] = 0  # Total completed appointments
-    records_count: Optional[int] = 0  # Total records count
-    user_id: Optional[str] = None  # Link to User if patient has account
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-    updated_at: datetime = Field(default_factory=datetime.utcnow)
 
-
-class PatientCreate(BaseModel):
-    full_name: str
-    phone: str
-    iin: Optional[str] = None
-    birth_date: Optional[str] = None
-    gender: Optional[str] = None
-    source: str = "other"
-    referrer: Optional[str] = None
-    notes: Optional[str] = None
-    user_id: Optional[str] = None
-
-class PatientUpdate(BaseModel):
-    full_name: Optional[str] = None
-    phone: Optional[str] = None
-    iin: Optional[str] = None
-    birth_date: Optional[str] = None
-    gender: Optional[str] = None
-    source: Optional[str] = None
-    referrer: Optional[str] = None
-    notes: Optional[str] = None
-    revenue: Optional[float] = None
-    debt: Optional[float] = None
-    overpayment: Optional[float] = None
-    appointments_count: Optional[int] = None
-    records_count: Optional[int] = None
 
 class PaymentType(str, Enum):
     PERCENTAGE = "percentage"
