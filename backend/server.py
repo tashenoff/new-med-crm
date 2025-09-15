@@ -2794,7 +2794,7 @@ async def get_available_doctor_for_room(
 
 # Include modular routers
 from routers.auth import auth_router
-from routers.patients import patients_router 
+from routers.patients import patients_router, Patient, PatientCreate, PatientUpdate 
 from routers.doctors import doctors_router
 from routers.rooms import rooms_router
 from routers.appointments import appointments_router
