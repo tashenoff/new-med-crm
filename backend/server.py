@@ -627,14 +627,15 @@ async def create_patient(
     # Insert patient first
     await db.patients.insert_one(patient_obj.dict())
     
-    # Automatically create an empty medical record for the new patient
-    try:
-        medical_record = MedicalRecord(patient_id=patient_obj.id)
-        await db.medical_records.insert_one(medical_record.dict())
-        print(f"✅ Auto-created medical record for patient {patient_obj.id}")
-    except Exception as e:
-        print(f"⚠️ Failed to auto-create medical record for patient {patient_obj.id}: {e}")
-        # Don't fail patient creation if medical record creation fails
+    # TODO: Automatically create an empty medical record for the new patient
+    # This will be implemented when MedicalRecord model is defined
+    # try:
+    #     medical_record = MedicalRecord(patient_id=patient_obj.id)
+    #     await db.medical_records.insert_one(medical_record.dict())
+    #     print(f"✅ Auto-created medical record for patient {patient_obj.id}")
+    # except Exception as e:
+    #     print(f"⚠️ Failed to auto-create medical record for patient {patient_obj.id}: {e}")
+    #     # Don't fail patient creation if medical record creation fails
     
     return patient_obj
 
