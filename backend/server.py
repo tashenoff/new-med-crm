@@ -2921,7 +2921,21 @@ async def get_available_doctor_for_room(
         "end_time": schedule["end_time"]
     }
 
-# Include the HMS router in the main app
+# Include modular routers
+from routers.auth import auth_router
+from routers.patients import patients_router 
+from routers.doctors import doctors_router
+from routers.rooms import rooms_router
+from routers.appointments import appointments_router
+
+# Include all API routers with /api prefix
+app.include_router(auth_router, prefix="/api")
+app.include_router(patients_router, prefix="/api")
+app.include_router(doctors_router, prefix="/api") 
+app.include_router(rooms_router, prefix="/api")
+app.include_router(appointments_router, prefix="/api")
+
+# Keep legacy api_router for any remaining endpoints
 app.include_router(api_router)
 
 # Include the CRM router
