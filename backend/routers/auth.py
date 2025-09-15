@@ -60,7 +60,7 @@ auth_router = APIRouter(prefix="/auth", tags=["Authentication"])
 
 # Dependency to get database
 def get_database():
-    from ..server import db
+    from database import db
     return db
 
 # Helper functions
