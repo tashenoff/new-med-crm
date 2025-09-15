@@ -138,7 +138,7 @@ class Patient(BaseModel):
     iin: Optional[str] = None  # ИИН (Individual Identification Number)
     birth_date: Optional[str] = None  # Date of birth (YYYY-MM-DD format)
     gender: Optional[str] = None  # "male", "female", "other"
-    source: PatientSource = PatientSource.OTHER
+    source: str = "other"
     referrer: Optional[str] = None  # Who referred this patient
     notes: Optional[str] = None
     # Additional name fields (for CRM integration)
