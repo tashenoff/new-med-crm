@@ -21,10 +21,8 @@ import shutil
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
 
-# MongoDB connection
-mongo_url = os.environ['MONGO_URL']
-client = AsyncIOMotorClient(mongo_url)
-db = client[os.environ['DB_NAME']]
+# Import database from new module
+from database import db, client, close_database
 
 # Security
 SECRET_KEY = os.environ.get("SECRET_KEY", "fallback-secret-key")
