@@ -8,7 +8,7 @@ import os
 # Database connection
 MONGO_URL = os.environ.get("MONGO_URL", "mongodb://localhost:27017/clinic")
 client = AsyncIOMotorClient(MONGO_URL)
-db = client.clinic
+db = client[os.environ.get('DB_NAME', 'clinic')]
 
 async def close_database():
     """Close database connection"""
