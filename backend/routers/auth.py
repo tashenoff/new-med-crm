@@ -107,7 +107,7 @@ async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(s
 class UserInDB(User):
     hashed_password: str
 
-async def get_user_by_email(email: str, db: AsyncIOMotorDatabase = Depends(get_database)):
+async def get_user_by_email(email: str, db: AsyncIOMotorDatabase):
     user = await db.users.find_one({"email": email})
     if user:
         user["id"] = str(user["_id"])
@@ -115,7 +115,7 @@ async def get_user_by_email(email: str, db: AsyncIOMotorDatabase = Depends(get_d
         return UserInDB(**user)
     return None
 
-async def authenticate_user(email: str, password: str, db: AsyncIOMotorDatabase = Depends(get_database)):
+async def authenticate_user(email: str, password: str, db: AsyncIOMotorDatabase):
     user = await get_user_by_email(email, db)
     if not user:
         return False
