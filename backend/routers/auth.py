@@ -6,6 +6,7 @@ from jose import JWTError, jwt
 from datetime import datetime, timedelta
 from motor.motor_asyncio import AsyncIOMotorDatabase
 import os
+import uuid
 
 # Security setup
 SECRET_KEY = os.environ.get("SECRET_KEY", "fallback-secret-key")
