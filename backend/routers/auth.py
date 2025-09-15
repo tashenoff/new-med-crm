@@ -16,31 +16,33 @@ ACCESS_TOKEN_EXPIRE_MINUTES = int(os.environ.get("ACCESS_TOKEN_EXPIRE_MINUTES", 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 security = HTTPBearer()
 
+# Enums
+class UserRole(str, Enum):
+    ADMIN = "admin"
+    DOCTOR = "doctor"
+    PATIENT = "patient"
+
 # Pydantic models
 class User(BaseModel):
-    id: str
-    email: str
-    name: str
-    role: str
-    phone: str = ""
-    address: str = ""
-    birth_date: str = ""
-    gender: str = ""
-    emergency_contact: str = ""
-    created_at: datetime
-    updated_at: datetime
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    email: EmailStr
+    full_name: str
+    role: UserRole
     is_active: bool = True
-    doctor_id: str = None
-    patient_id: str = None
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_at: datetime = Field(default_factory=datetime.utcnow)
+    # Optional reference fields
+    doctor_id: Optional[str] = None  # If role is doctor
+    patient_id: Optional[str] = None  # If role is patient
 
 class UserCreate(BaseModel):
     email: EmailStr
     password: str
-    name: str
-    role: str
+    full_name: str
+    role: UserRole = UserRole.PATIENT
 
 class UserLogin(BaseModel):
-    email: str
+    email: EmailStr
     password: str
 
 class Token(BaseModel):
@@ -49,7 +51,7 @@ class Token(BaseModel):
     user: User
 
 class TokenData(BaseModel):
-    email: str = None
+    email: Optional[str] = None
 
 # Router
 auth_router = APIRouter(prefix="/auth", tags=["Authentication"])
