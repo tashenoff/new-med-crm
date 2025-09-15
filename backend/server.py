@@ -178,7 +178,7 @@ class PatientUpdate(BaseModel):
     iin: Optional[str] = None
     birth_date: Optional[str] = None
     gender: Optional[str] = None
-    source: Optional[PatientSource] = None
+    source: Optional[str] = None
     referrer: Optional[str] = None
     notes: Optional[str] = None
     revenue: Optional[float] = None
