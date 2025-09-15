@@ -98,5 +98,88 @@ async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(s
     del user["_id"]
     return User(**user)
 
-# Auth routes will be extracted here from server.py
-# This is just the structure - the actual routes will be moved in the next step
+# Additional models
+class UserInDB(User):
+    hashed_password: str
+
+async def get_user_by_email(email: str, db: AsyncIOMotorDatabase = Depends(get_database)):
+    user = await db.users.find_one({"email": email})
+    if user:
+        user["id"] = str(user["_id"])
+        del user["_id"]
+        return UserInDB(**user)
+    return None
+
+async def authenticate_user(email: str, password: str, db: AsyncIOMotorDatabase = Depends(get_database)):
+    user = await get_user_by_email(email, db)
+    if not user:
+        return False
+    if not verify_password(password, user.hashed_password):
+        return False
+    return user
+
+async def get_current_active_user(current_user: UserInDB = Depends(get_current_user)):
+    if not current_user.is_active:
+        raise HTTPException(status_code=400, detail="Inactive user")
+    return current_user
+
+# Auth routes
+@auth_router.post("/register", response_model=Token)
+async def register(user: UserCreate, db: AsyncIOMotorDatabase = Depends(get_database)):
+    # Check if user already exists
+    existing_user = await get_user_by_email(user.email, db)
+    if existing_user:
+        raise HTTPException(
+            status_code=400,
+            detail="Email already registered"
+        )
+    
+    # Hash password
+    hashed_password = get_password_hash(user.password)
+    
+    # Create user
+    user_dict = user.dict()
+    user_dict.pop("password")
+    user_dict["hashed_password"] = hashed_password
+    user_dict["id"] = str(uuid.uuid4())
+    user_dict["created_at"] = datetime.utcnow()
+    user_dict["updated_at"] = datetime.utcnow()
+    user_dict["is_active"] = True
+    user_obj = UserInDB(**user_dict)
+    
+    await db.users.insert_one(user_obj.dict())
+    
+    # Create access token
+    access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+    access_token = create_access_token(
+        data={"sub": user_obj.email}, expires_delta=access_token_expires
+    )
+    
+    # Convert to public user model
+    public_user = User(**{k: v for k, v in user_obj.dict().items() if k != "hashed_password"})
+    
+    return {"access_token": access_token, "token_type": "bearer", "user": public_user}
+
+@auth_router.post("/login", response_model=Token)
+async def login(form_data: UserLogin, db: AsyncIOMotorDatabase = Depends(get_database)):
+    user = await authenticate_user(form_data.email, form_data.password, db)
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Incorrect email or password",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+    access_token = create_access_token(
+        data={"sub": user.email}, expires_delta=access_token_expires
+    )
+    
+    # Convert to public user model
+    public_user = User(**{k: v for k, v in user.dict().items() if k != "hashed_password"})
+    
+    return {"access_token": access_token, "token_type": "bearer", "user": public_user}
+
+@auth_router.get("/me", response_model=User)
+async def read_users_me(current_user: UserInDB = Depends(get_current_active_user)):
+    # Convert to public user model
+    return User(**{k: v for k, v in current_user.dict().items() if k != "hashed_password"})
