@@ -91,7 +91,6 @@ const TimeSlot = ({
       className={`
         h-16 border-b border-l ${themeClasses.border.light} relative cursor-pointer transition-all duration-200
         ${availableDoctor ? 'bg-white hover:bg-gray-50 dark:bg-gray-800 dark:hover:bg-gray-700' : 'bg-gray-100 dark:bg-gray-900'}
-        ${isOccupied ? 'bg-red-50 dark:bg-red-900/20' : ''}
         ${isDragOver ? 'bg-green-200 border-green-400 border-2 shadow-lg dark:bg-green-800/30 dark:border-green-500' : ''}
       `}
       onClick={handleSlotClick}

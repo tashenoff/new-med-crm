@@ -277,7 +277,7 @@ const PatientModal = ({
               <input
                 type="text"
                 placeholder="Полное имя *"
-                value={patientForm.full_name}
+                value={patientForm.full_name || ''}
                 onChange={(e) => setPatientForm({...patientForm, full_name: e.target.value})}
                 className={inputClasses}
                 required

@@ -520,13 +520,19 @@ const AppointmentModal = ({
         ? `${API}/api/treatment-plans/${editingPlan.id}`
         : `${API}/api/patients/${selectedPatient.id}/treatment-plans`;
       
+      // ВАЖНО: Добавляем assigned_doctor_id из выбранного врача в записи
+      const planData = {
+        ...planForm,
+        assigned_doctor_id: appointmentForm.doctor_id // Привязываем к врачу из записи
+      };
+      
       const response = await fetch(url, {
         method: editingPlan ? 'PUT' : 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify(planForm)
+        body: JSON.stringify(planData)
       });
 
       if (response.ok) {

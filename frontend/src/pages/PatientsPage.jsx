@@ -89,15 +89,21 @@ const PatientsPage = ({ user }) => {
     });
   };
 
-  const handleSavePatient = async (e) => {
+  const handleSavePatient = async (e, formData = null) => {
     e.preventDefault();
     setLoading(true);
     
-    // Получаем данные из модального контекста
+    // Получаем данные из модального контекста или используем переданные данные
     const modalProps = getModalProps('patient');
-    const { patientForm, editingItem } = modalProps;
+    const { editingItem } = modalProps;
+    const patientForm = formData || modalProps.patientForm;
     
     try {
+      console.log('🔍 Отправляемые данные пациента в PatientsPage:', patientForm);
+      console.log('🔍 Тип patientForm:', typeof patientForm);
+      console.log('🔍 Ключи patientForm:', Object.keys(patientForm || {}));
+      console.log('🔍 editingItem:', editingItem);
+      
       let result;
       if (editingItem) {
         const patientId = editingItem._id || editingItem.id;

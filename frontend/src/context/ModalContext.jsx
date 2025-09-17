@@ -34,16 +34,21 @@ export function ModalProvider({ children }) {
   };
 
   const updateModalProps = (modalId, newProps) => {
-    setModals(prev => ({
-      ...prev,
-      [modalId]: {
-        ...prev[modalId],
-        props: {
-          ...prev[modalId]?.props,
-          ...newProps
+    console.log('🔍 updateModalProps вызван:', modalId, newProps);
+    setModals(prev => {
+      const updated = {
+        ...prev,
+        [modalId]: {
+          ...prev[modalId],
+          props: {
+            ...prev[modalId]?.props,
+            ...newProps
+          }
         }
-      }
-    }));
+      };
+      console.log('🔍 Обновленные модалы:', updated);
+      return updated;
+    });
   };
 
   const isModalOpen = (modalId) => {
@@ -53,6 +58,7 @@ export function ModalProvider({ children }) {
   const getModalProps = (modalId) => {
     const modalData = modals[modalId];
     const props = modalData?.props || {};
+    console.log('🔍 getModalProps для', modalId, ':', modalData, 'props:', props);
     
     // Добавляем значения по умолчанию для различных модальных окон
     if (modalId === 'appointment') {

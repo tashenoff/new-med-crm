@@ -171,18 +171,18 @@ export const checkTimeConflicts = (
 export const getStatusColor = (status) => {
   switch (status) {
     case 'scheduled':
-      return 'bg-blue-100 border-blue-300 text-blue-800';
+      return 'bg-blue-100 text-blue-800';
     case 'confirmed':
-      return 'bg-green-100 border-green-300 text-green-800';
+      return 'bg-green-100 text-green-800';
     case 'in_progress':
-      return 'bg-yellow-100 border-yellow-300 text-yellow-800';
+      return 'bg-yellow-100 text-yellow-800';
     case 'completed':
-      return 'bg-gray-100 border-gray-300 text-gray-800';
+      return 'bg-gray-100 text-gray-800';
     case 'cancelled':
-      return 'bg-red-100 border-red-300 text-red-800';
+      return 'bg-red-100 text-red-800';
     case 'no_show':
-      return 'bg-orange-100 border-orange-300 text-orange-800';
+      return 'bg-orange-100 text-orange-800';
     default:
-      return 'bg-blue-100 border-blue-300 text-blue-800';
+      return 'bg-blue-100 text-blue-800';
   }
 };

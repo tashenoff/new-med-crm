@@ -56,7 +56,7 @@ const AppointmentCard = ({
       onDragStart={handleDragStart}
       onDragEnd={handleDragEnd}
       className={`
-        absolute top-1 left-1 right-1 p-2 rounded text-xs border 
+        absolute top-1 left-1 right-1 p-2 rounded text-xs 
         cursor-move z-50 transition-none ${statusColor}
       `}
       style={{ height: `${height - 8}px` }}

@@ -1,5 +1,6 @@
 import React from 'react';
 import AppointmentCard from './AppointmentCard';
+import { getAppointmentHeight } from '../utils/timeUtils';
 
 /**
  * Временной слот в кабинете
@@ -66,7 +67,7 @@ const TimeSlot = ({
     <div
       className={`
         time-slot relative h-16 border-b border-gray-200 transition-all duration-200
-        ${appointment ? 'bg-white' : availableDoctor ? 'bg-white hover:bg-blue-50 cursor-pointer' : 'bg-gray-100'}
+        ${availableDoctor ? 'bg-white hover:bg-blue-50 cursor-pointer' : 'bg-gray-100'}
         ${isDraggedOver && availableDoctor ? 'bg-green-200 border-green-400 border-2 shadow-lg' : ''}
         ${isDraggedOver && !availableDoctor ? 'bg-red-200 border-red-400 border-2' : ''}
       `}
@@ -81,6 +82,7 @@ const TimeSlot = ({
           appointment={appointment}
           patient={patients.find(p => p.id === appointment.patient_id)}
           doctor={doctors.find(d => d.id === appointment.doctor_id)}
+          height={getAppointmentHeight(appointment)}
           canEdit={canEdit}
           onEdit={onEditAppointment}
           onDragStart={onDragStart}

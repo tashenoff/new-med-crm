@@ -139,8 +139,13 @@ class Doctor(BaseModel):
     payment_type: Optional[PaymentType] = PaymentType.PERCENTAGE  # Тип оплаты: процент или фиксированная сумма
     payment_value: Optional[float] = 0.0  # Значение оплаты (процент 0-100 или фиксированная сумма)
     currency: Optional[str] = "KZT"  # Валюта для фиксированной оплаты
+    # Отдельные настройки комиссий за консультации (для обратной совместимости)
+    consultation_payment_type: Optional[PaymentType] = PaymentType.PERCENTAGE  # Тип оплаты за консультации
+    consultation_payment_value: Optional[float] = 0.0  # Значение оплаты за консультации
+    consultation_currency: Optional[str] = "KZT"  # Валюта для фиксированной оплаты за консультации
     # Услуги, которые может оказывать врач (для расчета зарплаты с планов лечения)
-    services: Optional[List[str]] = []  # Список ID услуг
+    services: Optional[List] = []  # Список ID услуг или объектов с настройками комиссий
+    payment_mode: Optional[str] = "general"  # Режим оплаты: "general" или "individual"
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)
 
@@ -154,8 +159,13 @@ class DoctorCreate(BaseModel):
     payment_type: Optional[PaymentType] = PaymentType.PERCENTAGE
     payment_value: Optional[float] = 0.0
     currency: Optional[str] = "KZT"
+    # Отдельные настройки комиссий за консультации
+    consultation_payment_type: Optional[PaymentType] = PaymentType.PERCENTAGE
+    consultation_payment_value: Optional[float] = 0.0
+    consultation_currency: Optional[str] = "KZT"
     # Услуги врача
-    services: Optional[List[str]] = []
+    services: Optional[List] = []
+    payment_mode: Optional[str] = "general"
 
 class DoctorUpdate(BaseModel):
     full_name: Optional[str] = None
@@ -167,8 +177,13 @@ class DoctorUpdate(BaseModel):
     payment_type: Optional[PaymentType] = None
     payment_value: Optional[float] = None
     currency: Optional[str] = None
+    # Отдельные настройки комиссий за консультации
+    consultation_payment_type: Optional[PaymentType] = None
+    consultation_payment_value: Optional[float] = None
+    consultation_currency: Optional[str] = None
     # Услуги врача
-    services: Optional[List[str]] = None
+    services: Optional[List] = None
+    payment_mode: Optional[str] = None
 
 class DoctorSchedule(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
@@ -205,7 +220,7 @@ class DoctorWithSchedule(BaseModel):
     payment_value: Optional[float] = 0.0
     currency: Optional[str] = "KZT"
     # Услуги врача
-    services: Optional[List[str]] = []
+    services: Optional[List] = []
     created_at: datetime
     updated_at: datetime
     schedule: List[DoctorSchedule] = []
@@ -263,9 +278,8 @@ class RoomScheduleUpdate(BaseModel):
 class RoomWithSchedule(BaseModel):
     id: str
     name: str
-    number: Optional[str]
+    number: Optional[int]
     description: Optional[str]
-    equipment: Optional[List[str]]
     is_active: bool
     created_at: datetime
     updated_at: datetime
@@ -463,6 +477,7 @@ class TreatmentPlan(BaseModel):
     status: str = "draft"  # draft, approved, completed, cancelled, in_progress
     created_by: str  # User ID who created the plan
     created_by_name: str  # Name of the user who created
+    assigned_doctor_id: Optional[str] = None  # ID врача, которому назначен план
     notes: Optional[str] = None
     # Payment tracking
     payment_status: str = "unpaid"  # unpaid, partially_paid, paid, overdue
@@ -483,6 +498,7 @@ class TreatmentPlanCreate(BaseModel):
     services: List[dict] = []
     total_cost: Optional[float] = 0.0
     status: str = "draft"
+    assigned_doctor_id: Optional[str] = None  # ID врача, которому назначен план
     notes: Optional[str] = None
     # Payment tracking
     payment_status: str = "unpaid"
@@ -496,6 +512,7 @@ class TreatmentPlanCreate(BaseModel):
 
 class TreatmentPlanUpdate(BaseModel):
     title: Optional[str] = None
+    assigned_doctor_id: Optional[str] = None  # ID врача, которому назначен план
     description: Optional[str] = None
     services: Optional[List[dict]] = None
     total_cost: Optional[float] = None
@@ -560,6 +577,21 @@ async def create_doctor(
     current_user: UserInDB = Depends(require_role([UserRole.ADMIN]))
 ):
     doctor_dict = doctor.dict()
+    
+    # Автоматическое определение payment_mode при создании
+    services = doctor_dict.get("services", [])
+    
+    # Проверяем, есть ли индивидуальные комиссии
+    has_individual_commissions = False
+    if isinstance(services, list) and services:
+        for service in services:
+            if isinstance(service, dict) and ("commission_type" in service or "commission_value" in service):
+                has_individual_commissions = True
+                break
+    
+    # Устанавливаем payment_mode на основе структуры данных (игнорируем что пришло с фронтенда)
+    doctor_dict["payment_mode"] = "individual" if has_individual_commissions else "general"
+    
     doctor_obj = Doctor(**doctor_dict)
     await db.doctors.insert_one(doctor_obj.dict())
     return doctor_obj
@@ -890,6 +922,10 @@ async def get_doctor_salary_report(
     if not date_to:
         date_to = datetime.now().strftime('%Y-%m-%d')
     
+    # Конвертируем строки в datetime объекты для MongoDB запросов
+    date_from_dt = datetime.strptime(date_from, '%Y-%m-%d')
+    date_to_dt = datetime.strptime(date_to, '%Y-%m-%d').replace(hour=23, minute=59, second=59)
+    
     # Получаем всех активных врачей
     doctors = await db.doctors.find({"is_active": True}).to_list(None)
     
@@ -904,7 +940,7 @@ async def get_doctor_salary_report(
             {
                 "$match": {
                     "doctor_id": doctor_id,
-                    "appointment_date": {"$gte": date_from, "$lte": date_to},
+                    "appointment_date": {"$gte": date_from_dt, "$lte": date_to_dt},
                     "status": "completed"
                 }
             },
@@ -925,57 +961,187 @@ async def get_doctor_salary_report(
         
         # 2. Выручка с планов лечения (если у врача настроены услуги)
         treatment_plans_revenue = 0.0
+        treatment_plans_salary = 0.0
         doctor_services = doctor.get("services", [])
         
         if doctor_services:
-            # Получаем все оплаченные планы лечения в периоде
-            treatment_plans = await db.treatment_plans.find({
-                "payment_status": "paid"
-                # Временно убираем фильтр по дате для отладки
-                # "payment_date": {"$gte": date_from, "$lte": date_to}
-            }).to_list(None)
+            # Обрабатываем режим оплаты врача
+            payment_mode = doctor.get("payment_mode", "general")
+            service_commissions = {}
+            service_ids = []
             
-            for plan in treatment_plans:
-                plan_services = plan.get("services", [])
-                # Рассчитываем долю врача в плане лечения
-                for service in plan_services:
-                    # service_id может быть в разных полях в зависимости от версии
-                    service_id = service.get("service_id") or service.get("id") or service.get("serviceId")
+            if doctor_services and len(doctor_services) > 0:
+                if payment_mode == "individual" and isinstance(doctor_services[0], dict):
+                    # Индивидуальный режим: массив объектов с настройками комиссий
+                    for service_config in doctor_services:
+                        service_id = service_config.get("service_id")
+                        if service_id:
+                            service_ids.append(service_id)
+                            service_commissions[service_id] = {
+                                "type": service_config.get("commission_type", "percentage"),
+                                "value": service_config.get("commission_value", 0),
+                                "currency": service_config.get("commission_currency", "KZT")
+                            }
+                else:
+                    # Общий режим: массив строк (ID услуг) или старый формат
+                    if isinstance(doctor_services[0], dict):
+                        # Если данные в формате объектов, но режим общий - извлекаем только ID
+                        service_ids = [s.get("service_id") for s in doctor_services if s.get("service_id")]
+                    else:
+                        # Старый формат: массив строк (ID услуг)
+                        service_ids = doctor_services
                     
-                    # Проверяем есть ли эта услуга в списке услуг врача
-                    if service_id and service_id in doctor_services:
-                        service_price = service.get("price", 0) * service.get("quantity", 1)
-                        # Применяем скидку если есть
-                        discount = service.get("discount", 0)
-                        service_price = service_price * (1 - discount / 100)
-                        treatment_plans_revenue += service_price
+                    # Используем общие настройки врача для всех услуг
+                    for service_id in service_ids:
+                        service_commissions[service_id] = {
+                            "type": doctor.get("payment_type", "percentage"),
+                            "value": doctor.get("payment_value", 0),
+                            "currency": doctor.get("currency", "KZT")
+                        }
+            
+            if service_ids:
+                # Получаем оплаченные планы лечения в периоде
+                # Если payment_date пустая, используем created_at для фильтрации
+                treatment_plans = await db.treatment_plans.find({
+                    "payment_status": "paid",
+                    "$or": [
+                        {"payment_date": {"$gte": date_from_dt, "$lte": date_to_dt}},
+                        {
+                            "payment_date": {"$in": [None, ""]},
+                            "created_at": {"$gte": date_from_dt, "$lte": date_to_dt}
+                        }
+                    ]
+                }).to_list(None)
+                
+                for plan in treatment_plans:
+                    # ВАЖНО: Проверяем, назначен ли план этому врачу
+                    plan_doctor_id = plan.get("assigned_doctor_id") or plan.get("doctor_id")
+                    
+                    # Если план не назначен конкретному врачу, пропускаем его
+                    # Это исправляет проблему с начислением комиссии всем врачам с одинаковыми услугами
+                    if plan_doctor_id and plan_doctor_id != doctor_id:
+                        continue
+                    
+                    # Если план не имеет назначенного врача, тоже пропускаем
+                    # (чтобы избежать начисления всем врачам с этими услугами)
+                    if not plan_doctor_id:
+                        continue
+                    
+                    plan_services = plan.get("services", [])
+                    # Рассчитываем долю врача в плане лечения
+                    for service in plan_services:
+                        # service_id может быть в разных полях в зависимости от версии
+                        service_id = service.get("service_id") or service.get("id") or service.get("serviceId")
+                        
+                        # Проверяем есть ли эта услуга в списке услуг врача
+                        if service_id and service_id in service_ids:
+                            service_price = service.get("price", 0) * service.get("quantity", 1)
+                            # Применяем скидку если есть
+                            discount = service.get("discount", 0)
+                            service_price = service_price * (1 - discount / 100)
+                            treatment_plans_revenue += service_price
+                            
+                            # Рассчитываем комиссию для этой конкретной услуги
+                            commission_config = service_commissions.get(service_id, {})
+                            if commission_config.get("type") == "fixed":
+                                # Фиксированная сумма за услугу
+                                service_quantity = service.get("quantity", 1)
+                                treatment_plans_salary += commission_config.get("value", 0) * service_quantity
+                            else:
+                                # Процент от стоимости услуги
+                                commission_percent = commission_config.get("value", 0)
+                                treatment_plans_salary += service_price * (commission_percent / 100)
         
         # 3. Общая выручка врача
         total_revenue = appointments_revenue + treatment_plans_revenue
         
-        # 4. Расчет зарплаты
+        # 4. Расчет зарплаты за консультации
+        consultations_salary = 0.0
+        
+        # Инициализируем переменные для избежания ошибок
         payment_type = doctor.get("payment_type", "percentage")
         payment_value = doctor.get("payment_value", 0.0)
+        consultation_payment_type = doctor.get("consultation_payment_type", "percentage")
+        consultation_payment_value = doctor.get("consultation_payment_value", 0.0)
         
-        if payment_type == "fixed":
-            calculated_salary = payment_value
+        # Проверяем, есть ли у врача настройки комиссий за консультации
+        has_consultation_settings = (
+            doctor.get("consultation_payment_type") is not None or 
+            doctor.get("consultation_payment_value", 0) > 0
+        )
+        
+        if has_consultation_settings:
+            # Используем настройки комиссий за консультации (переменные уже инициализированы выше)
+            
+            if consultation_payment_type == "fixed":
+                # Фиксированная сумма за каждую консультацию
+                consultations_salary = consultation_payment_value * total_appointments
+            else:
+                # Процент от выручки консультаций
+                consultations_salary = appointments_revenue * (consultation_payment_value / 100)
         else:
-            calculated_salary = total_revenue * (payment_value / 100)
+            # Если нет настроек комиссий за консультации, используем общие настройки врача
+            # Это обеспечивает обратную совместимость для существующих врачей (переменные уже инициализированы выше)
+            
+            if payment_type == "fixed":
+                # Фиксированная сумма за каждую консультацию (используем общую настройку)
+                consultations_salary = payment_value * total_appointments if total_appointments > 0 else 0
+            else:
+                # Процент от выручки консультаций (используем общую настройку)
+                consultations_salary = appointments_revenue * (payment_value / 100)
+        
+        # Если зарплата за планы лечения не была рассчитана выше (нет услуг), используем общую логику
+        if not doctor_services and not has_consultation_settings:
+            # Если нет ни услуг, ни настроек консультаций, используем старую логику для всей выручки (переменные уже инициализированы выше)
+            
+            if payment_type == "fixed":
+                # В старой логике фиксированная сумма была за весь период
+                calculated_salary = payment_value
+                consultations_salary = 0  # Обнуляем, так как уже включено в общую сумму
+                treatment_plans_salary = payment_value
+            else:
+                # В старой логике процент был от общей выручки
+                total_salary_from_general = total_revenue * (payment_value / 100)
+                # Распределяем пропорционально между консультациями и планами
+                if total_revenue > 0:
+                    consultation_ratio = appointments_revenue / total_revenue
+                    treatment_ratio = treatment_plans_revenue / total_revenue
+                    consultations_salary = total_salary_from_general * consultation_ratio
+                    treatment_plans_salary = total_salary_from_general * treatment_ratio
+                else:
+                    consultations_salary = 0
+                    treatment_plans_salary = 0
+        
+        
+        # Общая зарплата (если не была рассчитана выше в старой логике)
+        if not (not doctor_services and not has_consultation_settings and doctor.get("payment_type") == "fixed"):
+            calculated_salary = treatment_plans_salary + consultations_salary
+        
         
         # 5. Формируем данные врача
         salary_item = {
             "doctor_id": doctor_id,
             "doctor_name": doctor["full_name"],
             "doctor_specialty": doctor["specialty"],
+            # Настройки оплаты за планы лечения
             "payment_type": payment_type,
             "payment_value": payment_value,
             "currency": doctor.get("currency", "KZT"),
+            # Настройки оплаты за консультации
+            "consultation_payment_type": consultation_payment_type,
+            "consultation_payment_value": consultation_payment_value,
+            "consultation_currency": doctor.get("consultation_currency", "KZT"),
+            # Статистика
             "total_appointments": total_appointments,
             "completed_appointments": total_appointments,
             "appointments_revenue": appointments_revenue,
             "treatment_plans_revenue": treatment_plans_revenue,
             "total_revenue": total_revenue,
+            # Детализация зарплаты
+            "consultations_salary": consultations_salary,
+            "treatment_plans_salary": treatment_plans_salary,
             "calculated_salary": calculated_salary,
+            "total_salary": calculated_salary,  # Добавляем для совместимости с фронтендом
             "has_services": len(doctor_services) > 0,
             "services_count": len(doctor_services)
         }
@@ -1020,6 +1186,21 @@ async def update_doctor(
 ):
     update_dict = {k: v for k, v in doctor_update.dict().items() if v is not None}
     update_dict["updated_at"] = datetime.utcnow()
+    
+    # Автоматическое определение payment_mode на основе структуры services
+    if "services" in update_dict and update_dict["services"] is not None:
+        services = update_dict["services"]
+        
+        # Проверяем, есть ли индивидуальные комиссии
+        has_individual_commissions = False
+        if isinstance(services, list) and services:
+            for service in services:
+                if isinstance(service, dict) and ("commission_type" in service or "commission_value" in service):
+                    has_individual_commissions = True
+                    break
+        
+        # Устанавливаем payment_mode на основе структуры данных (игнорируем что пришло с фронтенда)
+        update_dict["payment_mode"] = "individual" if has_individual_commissions else "general"
     
     result = await db.doctors.update_one(
         {"id": doctor_id}, 
@@ -1964,6 +2145,7 @@ async def create_treatment_plan(
         status=plan_data.status,
         created_by=current_user.id,
         created_by_name=current_user.full_name,
+        assigned_doctor_id=plan_data.assigned_doctor_id,  # Добавляем назначенного врача
         notes=plan_data.notes,
         # Enhanced tracking fields
         payment_status=plan_data.payment_status,
@@ -1999,7 +2181,7 @@ async def get_patient_treatment_plans(
     treatment_plans = await db.treatment_plans.find({"patient_id": patient_id}).sort("created_at", -1).to_list(100)
     return [TreatmentPlan(**plan) for plan in treatment_plans]
 
-# Treatment Plan Statistics endpoints (must be before parameterized routes)
+802# Treatment Plan Statistics endpoints (must be before parameterized routes)
 @api_router.get("/treatment-plans/statistics")
 async def get_treatment_plan_statistics(
     date_from: Optional[str] = None,
@@ -2410,8 +2592,21 @@ async def get_rooms(
     current_user: UserInDB = Depends(get_current_active_user)
 ):
     """Get all active rooms"""
-    rooms = await db.rooms.find({"is_active": True}).sort("name", 1).to_list(1000)
-    return [Room(**room) for room in rooms]
+    try:
+        rooms = await db.rooms.find({"is_active": True}).sort("name", 1).to_list(1000)
+        result = []
+        for room in rooms:
+            try:
+                # Исключаем поле _id от MongoDB
+                room_data = {k: v for k, v in room.items() if k != '_id'}
+                result.append(Room(**room_data))
+            except Exception as e:
+                logger.error(f"Error processing room {room.get('id', 'unknown')}: {e}")
+                continue
+        return result
+    except Exception as e:
+        logger.error(f"Error getting rooms: {e}")
+        raise HTTPException(status_code=500, detail=f"Error getting rooms: {str(e)}")
 
 @api_router.post("/rooms", response_model=Room)
 async def create_room(
@@ -2586,22 +2781,44 @@ async def get_rooms_with_schedule(
     current_user: UserInDB = Depends(get_current_active_user)
 ):
     """Get all rooms with their schedules"""
-    rooms = await db.rooms.find({"is_active": True}).sort("name", 1).to_list(1000)
-    rooms_with_schedule = []
-    
-    for room in rooms:
-        # Get schedules for this room
-        schedules = await db.room_schedules.find(
-            {"room_id": room["id"], "is_active": True}
-        ).sort("day_of_week", 1).to_list(1000)
+    try:
+        rooms = await db.rooms.find({"is_active": True}).sort("name", 1).to_list(1000)
+        rooms_with_schedule = []
         
-        room_with_schedule = RoomWithSchedule(
-            **room,
-            schedule=[RoomSchedule(**schedule) for schedule in schedules]
-        )
-        rooms_with_schedule.append(room_with_schedule)
-    
-    return rooms_with_schedule
+        for room in rooms:
+            try:
+                # Get schedules for this room
+                schedules = await db.room_schedules.find(
+                    {"room_id": room["id"], "is_active": True}
+                ).sort("day_of_week", 1).to_list(1000)
+                
+                # Исключаем поле _id от MongoDB
+                room_data = {k: v for k, v in room.items() if k != '_id'}
+                schedule_data = []
+                
+                for schedule in schedules:
+                    try:
+                        schedule_clean = {k: v for k, v in schedule.items() if k != '_id'}
+                        schedule_data.append(RoomSchedule(**schedule_clean))
+                    except Exception as e:
+                        logger.error(f"Error processing schedule {schedule.get('id', 'unknown')}: {e}")
+                        continue
+                
+                room_with_schedule = RoomWithSchedule(
+                    **room_data,
+                    schedule=schedule_data
+                )
+                rooms_with_schedule.append(room_with_schedule)
+                
+            except Exception as e:
+                logger.error(f"Error processing room {room.get('id', 'unknown')}: {e}")
+                continue
+        
+        return rooms_with_schedule
+        
+    except Exception as e:
+        logger.error(f"Error getting rooms with schedule: {e}")
+        raise HTTPException(status_code=500, detail=f"Error getting rooms with schedule: {str(e)}")
 
 # Helper endpoint to find available doctor for a room at specific time
 @api_router.get("/rooms/{room_id}/available-doctor")
@@ -2642,15 +2859,14 @@ async def get_available_doctor_for_room(
 from routers.auth import auth_router
 from routers.patients import patients_router, Patient, PatientCreate, PatientUpdate 
 from routers.doctors import doctors_router
-from routers.rooms import rooms_router
 from routers.appointments import appointments_router
 
 # Include all API routers with /api prefix
 app.include_router(auth_router, prefix="/api")
 app.include_router(patients_router, prefix="/api")
 app.include_router(doctors_router, prefix="/api") 
-app.include_router(rooms_router, prefix="/api")
 app.include_router(appointments_router, prefix="/api")
+# rooms_router removed - rooms endpoints are in api_router
 
 # Keep legacy api_router for any remaining endpoints
 app.include_router(api_router)

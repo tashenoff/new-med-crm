@@ -1,5 +1,6 @@
 import React from 'react';
 import TimeSlot from './TimeSlot';
+import { getAppointmentHeight } from '../utils/timeUtils';
 
 /**
  * Колонка кабинета с временными слотами

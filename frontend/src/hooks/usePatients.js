@@ -25,6 +25,10 @@ export const usePatients = () => {
   // Создать нового пациента
   const createPatient = useCallback(async (patientData) => {
     try {
+      console.log('🔍 Отправляемые данные пациента:', patientData);
+      console.log('🔍 Тип patientData:', typeof patientData);
+      console.log('🔍 Ключи patientData:', Object.keys(patientData || {}));
+      
       const response = await axios.post(`${API}/patients`, patientData);
       
       // Обновляем локальный список
@@ -33,6 +37,20 @@ export const usePatients = () => {
       return { success: true, data: response.data };
     } catch (error) {
       console.error('Ошибка при создании пациента:', error);
+      console.error('Детали ошибки:', error.response?.data);
+      console.error('Статус ошибки:', error.response?.status);
+
+      // Подробное логирование ошибок валидации
+      if (error.response?.data?.detail && Array.isArray(error.response.data.detail)) {
+        console.error('📋 Подробности ошибок валидации:');
+        error.response.data.detail.forEach((err, index) => {
+          console.error(`  ${index + 1}. Поле: ${err.loc?.join('.')} | Тип: ${err.type} | Сообщение: ${err.msg}`);
+          if (err.input) {
+            console.error(`     Полученные данные:`, err.input);
+          }
+        });
+      }
+
       const errorMessage = error.response?.data?.detail || 'Ошибка при создании пациента';
       return { success: false, error: errorMessage };
     }

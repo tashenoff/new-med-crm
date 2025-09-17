@@ -7,6 +7,7 @@ const AppointmentCard = ({
   appointment,
   patient,
   doctor,
+  height = 64, // Высота по умолчанию
   canEdit,
   onEdit,
   onDragStart,
@@ -46,11 +47,11 @@ const AppointmentCard = ({
   // Цвет карточки в зависимости от статуса
   const getStatusColor = (status) => {
     switch (status) {
-      case 'scheduled': return 'bg-blue-100 border-blue-300 text-blue-800';
-      case 'confirmed': return 'bg-green-100 border-green-300 text-green-800';
-      case 'completed': return 'bg-gray-100 border-gray-300 text-gray-800';
-      case 'cancelled': return 'bg-red-100 border-red-300 text-red-800';
-      default: return 'bg-blue-100 border-blue-300 text-blue-800';
+      case 'scheduled': return 'bg-blue-100 text-blue-800';
+      case 'confirmed': return 'bg-green-100 text-green-800';
+      case 'completed': return 'bg-gray-100 text-gray-800';
+      case 'cancelled': return 'bg-red-100 text-red-800';
+      default: return 'bg-blue-100 text-blue-800';
     }
   };
 
@@ -61,11 +62,12 @@ const AppointmentCard = ({
       onDragEnd={handleDragEnd}
       onClick={handleClick}
       className={`
-        appointment-card absolute inset-1 p-2 rounded border-2 cursor-pointer
+        appointment-card absolute top-1 left-1 right-1 p-2 rounded cursor-pointer
         transition-all duration-200 hover:shadow-md
         ${getStatusColor(appointment.status)}
         ${canEdit ? 'cursor-move' : 'cursor-pointer'}
       `}
+      style={{ height: `${height - 8}px` }}
     >
       {/* Время */}
       <div className="text-xs font-medium mb-1">

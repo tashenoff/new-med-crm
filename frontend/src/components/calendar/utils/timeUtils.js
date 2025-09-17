@@ -29,7 +29,7 @@ export const isTimeInAppointmentRange = (appointmentStartTime, appointmentEndTim
  * @returns {number} Высота в пикселях
  */
 export const getAppointmentHeight = (appointment) => {
-  if (!appointment.end_time) return 60; // Высота одного слота
+  if (!appointment.end_time) return 64; // Высота одного слота (h-16 = 64px)
   
   const start = appointment.appointment_time.split(':').map(n => parseInt(n));
   const end = appointment.end_time.split(':').map(n => parseInt(n));
@@ -38,8 +38,8 @@ export const getAppointmentHeight = (appointment) => {
   const endMinutes = end[0] * 60 + end[1];
   const durationMinutes = endMinutes - startMinutes;
   
-  // 60px на каждые 30 минут
-  return Math.max(60, (durationMinutes / 30) * 60);
+  // 64px на каждые 30 минут (высота одного слота h-16)
+  return Math.max(64, (durationMinutes / 30) * 64);
 };
 
 /**

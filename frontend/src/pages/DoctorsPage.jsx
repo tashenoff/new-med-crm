@@ -79,19 +79,22 @@ const DoctorsPage = ({ user }) => {
     });
   };
 
-  const handleSaveDoctor = async (e) => {
+  const handleSaveDoctor = async (e, formData = null) => {
     e.preventDefault();
     setLoading(true);
     
-    // Получаем данные из модального контекста
+    // Получаем данные из модального контекста или используем переданные данные
     const modalProps = getModalProps('doctor');
-    const { doctorForm, editingItem } = modalProps;
+    const { editingItem } = modalProps;
+    const doctorForm = formData || modalProps.doctorForm;
     
     try {
-      console.log('🔍 Отправляемые данные врача:', doctorForm);
-      console.log('🔍 Тип doctorForm:', typeof doctorForm);
-      console.log('🔍 Ключи doctorForm:', Object.keys(doctorForm || {}));
-      console.log('🔍 full_name:', doctorForm?.full_name, '| specialty:', doctorForm?.specialty);
+      console.log('🔍 ФИНАЛЬНЫЕ ДАННЫЕ ДЛЯ ОТПРАВКИ НА API:');
+      console.log('  - formData (переданные из модала):', formData);
+      console.log('  - modalProps.doctorForm:', modalProps.doctorForm);
+      console.log('  - Финальный doctorForm:', doctorForm);
+      console.log('  - services в финальном doctorForm:', doctorForm?.services);
+      console.log('  - payment_mode в финальном doctorForm:', doctorForm?.payment_mode);
       
       // Временно убираем жесткую проверку для диагностики
       // if (!doctorForm.full_name || !doctorForm.specialty) {
