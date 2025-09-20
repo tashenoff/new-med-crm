@@ -24,6 +24,56 @@ load_dotenv(ROOT_DIR / '.env')
 # Import database from new module
 from database import db, client, close_database
 
+# Import auth models from models module
+from models.auth import UserRole, User, UserInDB, UserCreate, UserLogin, Token, TokenData
+
+# Import doctor models from models module
+from models.doctor import (
+    PaymentType,
+    Doctor,
+    DoctorCreate,
+    DoctorUpdate,
+    DoctorSchedule,
+    DoctorScheduleCreate,
+    DoctorScheduleUpdate,
+    DoctorWithSchedule
+)
+
+# Import room models from models module
+from models.room import (
+    Room,
+    RoomCreate,
+    RoomUpdate,
+    RoomSchedule,
+    RoomScheduleCreate,
+    RoomScheduleUpdate,
+    RoomWithSchedule
+)
+
+# Import service models from models module
+from models.services import (
+    ServiceCategory,
+    ServiceCategoryCreate,
+    ServiceCategoryUpdate,
+    Specialty,
+    SpecialtyCreate,
+    SpecialtyUpdate,
+    ServicePrice,
+    ServicePriceCreate,
+    ServicePriceUpdate,
+    Service,
+    ServiceCreate
+)
+
+# Import appointment models from models module
+from models.appointment import (
+    AppointmentStatus,
+    Appointment,
+    AppointmentCreate,
+    AppointmentUpdate,
+    AppointmentWithDetails
+)
+
 # Security
 SECRET_KEY = os.environ.get("SECRET_KEY", "fallback-secret-key")
 ALGORITHM = os.environ.get("ALGORITHM", "HS256")
@@ -70,284 +120,11 @@ UPLOAD_DIR.mkdir(exist_ok=True)
 # Mount static files for serving uploaded documents
 app.mount("/uploads", StaticFiles(directory=str(UPLOAD_DIR)), name="uploads")
 
-# Enums
-class UserRole(str, Enum):
-    ADMIN = "admin"
-    DOCTOR = "doctor"
-    PATIENT = "patient"
-
-class AppointmentStatus(str, Enum):
-    UNCONFIRMED = "unconfirmed"       # Не подтверждено - желтый
-    CONFIRMED = "confirmed"           # Подтверждено - зеленый
-    ARRIVED = "arrived"              # Пациент пришел - синий
-    IN_PROGRESS = "in_progress"      # На приеме - оранжевый
-    COMPLETED = "completed"          # Завершен - темно-зеленый
-    CANCELLED = "cancelled"          # Отменено - красный
-    NO_SHOW = "no_show"             # Не явился - серый
-
-
-# Auth Models
-class User(BaseModel):
-    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
-    email: EmailStr
-    full_name: str
-    role: UserRole
-    is_active: bool = True
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-    updated_at: datetime = Field(default_factory=datetime.utcnow)
-    # Optional reference fields
-    doctor_id: Optional[str] = None  # If role is doctor
-    patient_id: Optional[str] = None  # If role is patient
-
-class UserInDB(User):
-    hashed_password: str
-
-class UserCreate(BaseModel):
-    email: EmailStr
-    password: str
-    full_name: str
-    role: UserRole = UserRole.PATIENT
-
-class UserLogin(BaseModel):
-    email: EmailStr
-    password: str
-
-class Token(BaseModel):
-    access_token: str
-    token_type: str
-    user: User
-
-class TokenData(BaseModel):
-    email: Optional[str] = None
-
-
-
-
-class PaymentType(str, Enum):
-    PERCENTAGE = "percentage"
-    FIXED = "fixed"
-
-class Doctor(BaseModel):
-    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
-    full_name: str
-    specialty: str
-    phone: Optional[str] = None
-    calendar_color: str = "#3B82F6"  # Default blue color
-    is_active: bool = True
-    user_id: Optional[str] = None  # Link to User if doctor has account
-    # Поля для оплаты врача (опциональные для обратной совместимости)
-    payment_type: Optional[PaymentType] = PaymentType.PERCENTAGE  # Тип оплаты: процент или фиксированная сумма
-    payment_value: Optional[float] = 0.0  # Значение оплаты (процент 0-100 или фиксированная сумма)
-    currency: Optional[str] = "KZT"  # Валюта для фиксированной оплаты
-    # Отдельные настройки комиссий за консультации (для обратной совместимости)
-    consultation_payment_type: Optional[PaymentType] = PaymentType.PERCENTAGE  # Тип оплаты за консультации
-    consultation_payment_value: Optional[float] = 0.0  # Значение оплаты за консультации
-    consultation_currency: Optional[str] = "KZT"  # Валюта для фиксированной оплаты за консультации
-    # Услуги, которые может оказывать врач (для расчета зарплаты с планов лечения)
-    services: Optional[List] = []  # Список ID услуг или объектов с настройками комиссий
-    payment_mode: Optional[str] = "general"  # Режим оплаты: "general" или "individual"
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-    updated_at: datetime = Field(default_factory=datetime.utcnow)
-
-class DoctorCreate(BaseModel):
-    full_name: str
-    specialty: str
-    phone: Optional[str] = None
-    calendar_color: str = "#3B82F6"
-    user_id: Optional[str] = None
-    # Поля для оплаты врача (опциональные с дефолтными значениями)
-    payment_type: Optional[PaymentType] = PaymentType.PERCENTAGE
-    payment_value: Optional[float] = 0.0
-    currency: Optional[str] = "KZT"
-    # Отдельные настройки комиссий за консультации
-    consultation_payment_type: Optional[PaymentType] = PaymentType.PERCENTAGE
-    consultation_payment_value: Optional[float] = 0.0
-    consultation_currency: Optional[str] = "KZT"
-    # Услуги врача
-    services: Optional[List] = []
-    payment_mode: Optional[str] = "general"
-
-class DoctorUpdate(BaseModel):
-    full_name: Optional[str] = None
-    specialty: Optional[str] = None
-    phone: Optional[str] = None
-    calendar_color: Optional[str] = None
-    is_active: Optional[bool] = None
-    # Поля для оплаты врача
-    payment_type: Optional[PaymentType] = None
-    payment_value: Optional[float] = None
-    currency: Optional[str] = None
-    # Отдельные настройки комиссий за консультации
-    consultation_payment_type: Optional[PaymentType] = None
-    consultation_payment_value: Optional[float] = None
-    consultation_currency: Optional[str] = None
-    # Услуги врача
-    services: Optional[List] = None
-    payment_mode: Optional[str] = None
-
-class DoctorSchedule(BaseModel):
-    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
-    doctor_id: str
-    day_of_week: int  # 0 = Понедельник, 1 = Вторник, ..., 6 = Воскресенье
-    start_time: str   # Format: "HH:MM"
-    end_time: str     # Format: "HH:MM"
-    is_active: bool = True
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-    updated_at: datetime = Field(default_factory=datetime.utcnow)
-
-class DoctorScheduleCreate(BaseModel):
-    doctor_id: str
-    day_of_week: int
-    start_time: str
-    end_time: str
-
-class DoctorScheduleUpdate(BaseModel):
-    day_of_week: Optional[int] = None
-    start_time: Optional[str] = None
-    end_time: Optional[str] = None
-    is_active: Optional[bool] = None
-
-class DoctorWithSchedule(BaseModel):
-    id: str
-    full_name: str
-    specialty: str
-    phone: Optional[str]
-    calendar_color: str
-    is_active: bool
-    user_id: Optional[str]
-    # Поля для оплаты врача (опциональные для обратной совместимости)
-    payment_type: Optional[PaymentType] = PaymentType.PERCENTAGE
-    payment_value: Optional[float] = 0.0
-    currency: Optional[str] = "KZT"
-    # Услуги врача
-    services: Optional[List] = []
-    created_at: datetime
-    updated_at: datetime
-    schedule: List[DoctorSchedule] = []
-
-# Room and Room Schedule Models
-class Room(BaseModel):
-    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
-    name: str  # "Кабинет 1", "Стоматологический кабинет", "Терапевтический кабинет"
-    number: Optional[str] = None  # "101", "202А"
-    description: Optional[str] = None
-    equipment: Optional[List[str]] = []  # оборудование в кабинете
-    is_active: bool = True
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-    updated_at: datetime = Field(default_factory=datetime.utcnow)
-
-class RoomCreate(BaseModel):
-    name: str
-    number: Optional[str] = None
-    description: Optional[str] = None
-    equipment: Optional[List[str]] = []
-
-class RoomUpdate(BaseModel):
-    name: Optional[str] = None
-    number: Optional[str] = None
-    description: Optional[str] = None
-    equipment: Optional[List[str]] = None
-    is_active: Optional[bool] = None
-
-class RoomSchedule(BaseModel):
-    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
-    room_id: str
-    doctor_id: str
-    day_of_week: int  # 0 = Понедельник, 1 = Вторник, ..., 6 = Воскресенье
-    start_time: str   # Format: "HH:MM"
-    end_time: str     # Format: "HH:MM"
-    is_active: bool = True
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-    updated_at: datetime = Field(default_factory=datetime.utcnow)
-
-class RoomScheduleCreate(BaseModel):
-    room_id: Optional[str] = None  # Будет подставлено из URL
-    doctor_id: str
-    day_of_week: int
-    start_time: str
-    end_time: str
-
-class RoomScheduleUpdate(BaseModel):
-    room_id: Optional[str] = None
-    doctor_id: Optional[str] = None
-    day_of_week: Optional[int] = None
-    start_time: Optional[str] = None
-    end_time: Optional[str] = None
-    is_active: Optional[bool] = None
-
-class RoomWithSchedule(BaseModel):
-    id: str
-    name: str
-    number: Optional[int]
-    description: Optional[str]
-    is_active: bool
-    created_at: datetime
-    updated_at: datetime
-    schedule: List[RoomSchedule] = []
-
-# Service Price Directory Models
-class ServicePrice(BaseModel):
-    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
-    service_name: str
-    service_code: Optional[str] = None
-    category: Optional[str] = None
-    price: float
-    unit: Optional[str] = "процедура"  # единица измерения (процедура, час, зуб и т.д.)
-    description: Optional[str] = None
-    is_active: bool = True
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-    updated_at: datetime = Field(default_factory=datetime.utcnow)
-
-class ServicePriceCreate(BaseModel):
-    service_name: str
-    service_code: Optional[str] = None
-    category: Optional[str] = None
-    price: float
-    unit: Optional[str] = "процедура"
-    description: Optional[str] = None
-
-class ServicePriceUpdate(BaseModel):
-    service_name: Optional[str] = None
-    service_code: Optional[str] = None
-    category: Optional[str] = None
-    price: Optional[float] = None
-    unit: Optional[str] = None
-    description: Optional[str] = None
-    is_active: Optional[bool] = None
-
-class ServiceCategory(BaseModel):
-    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
-    name: str
-    description: Optional[str] = None
-    is_active: bool = True
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-    updated_at: datetime = Field(default_factory=datetime.utcnow)
-
-class ServiceCategoryCreate(BaseModel):
-    name: str
-    description: Optional[str] = None
-
-class ServiceCategoryUpdate(BaseModel):
-    name: Optional[str] = None
-    description: Optional[str] = None
-    is_active: Optional[bool] = None
-
-class Specialty(BaseModel):
-    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
-    name: str
-    description: Optional[str] = None
-    is_active: bool = True
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-    updated_at: datetime = Field(default_factory=datetime.utcnow)
-
-class SpecialtyCreate(BaseModel):
-    name: str
-    description: Optional[str] = None
-
-class SpecialtyUpdate(BaseModel):
-    name: Optional[str] = None
-    description: Optional[str] = None
-    is_active: Optional[bool] = None
+# Auth Models are now imported from models.auth
+# Doctor Models are now imported from models.doctor
+# Room Models are now imported from models.room
+# Service Models are now imported from models.services
+# Appointment Models are now imported from models.appointment
 
 class PaymentType(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
@@ -369,67 +146,6 @@ class PaymentTypeUpdate(BaseModel):
     description: Optional[str] = None
     is_active: Optional[bool] = None
 
-class Appointment(BaseModel):
-    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
-    patient_id: str
-    doctor_id: str
-    room_id: Optional[str] = None  # ID кабинета
-    appointment_date: str  # Store as string in ISO format (YYYY-MM-DD)
-    appointment_time: str  # Format: "HH:MM"
-    end_time: Optional[str] = None  # Format: "HH:MM"
-    price: Optional[float] = None  # Price of the appointment
-    status: AppointmentStatus = AppointmentStatus.UNCONFIRMED
-    reason: Optional[str] = None
-    notes: Optional[str] = None
-    patient_notes: Optional[str] = None  # Notes about the patient (separate from appointment notes)
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-    updated_at: datetime = Field(default_factory=datetime.utcnow)
-
-class AppointmentCreate(BaseModel):
-    patient_id: str
-    doctor_id: str
-    room_id: Optional[str] = None
-    appointment_date: str  # Accept as string in ISO format (YYYY-MM-DD)
-    appointment_time: str
-    end_time: Optional[str] = None
-    price: Optional[float] = None
-    status: Optional[AppointmentStatus] = AppointmentStatus.UNCONFIRMED
-    reason: Optional[str] = None
-    notes: Optional[str] = None
-    patient_notes: Optional[str] = None
-
-class AppointmentUpdate(BaseModel):
-    patient_id: Optional[str] = None
-    doctor_id: Optional[str] = None
-    room_id: Optional[str] = None
-    appointment_date: Optional[str] = None  # Accept as string in ISO format (YYYY-MM-DD)
-    appointment_time: Optional[str] = None
-    end_time: Optional[str] = None
-    price: Optional[float] = None
-    status: Optional[AppointmentStatus] = None
-    reason: Optional[str] = None
-    notes: Optional[str] = None
-    patient_notes: Optional[str] = None
-
-class AppointmentWithDetails(BaseModel):
-    id: str
-    patient_id: str
-    doctor_id: str
-    room_id: Optional[str] = None
-    appointment_date: str  # Return as string in ISO format (YYYY-MM-DD)
-    appointment_time: str
-    end_time: Optional[str]
-    price: Optional[float]
-    status: AppointmentStatus
-    reason: Optional[str]
-    notes: Optional[str]
-    patient_notes: Optional[str]
-    patient_name: str
-    doctor_name: str
-    doctor_specialty: str
-    doctor_color: str
-    created_at: datetime
-    updated_at: datetime
 
 # Document models
 class Document(BaseModel):
@@ -453,19 +169,7 @@ class DocumentUpdate(BaseModel):
     description: Optional[str] = None
 
 # Treatment Plan models
-class Service(BaseModel):
-    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
-    name: str
-    category: str  # "Стоматолог", "Гинекология", "Ортодонт" etc.
-    price: float
-    description: Optional[str] = None
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-
-class ServiceCreate(BaseModel):
-    name: str
-    category: str
-    price: float
-    description: Optional[str] = None
+# Service models are now imported from models.services
 
 class TreatmentPlan(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
@@ -529,37 +233,8 @@ class TreatmentPlanUpdate(BaseModel):
     appointment_ids: Optional[List[str]] = None
 
 # Import authentication functions from auth router
-from routers.auth import get_current_active_user, require_role, get_current_user, UserInDB
+from routers.auth import get_current_active_user, require_role, get_current_user
 
-async def check_doctor_availability(doctor_id: str, appointment_date: str, appointment_time: str):
-    """Check if doctor is available on the given date and time"""
-    try:
-        # Parse the date to get day of week (0 = Monday, 6 = Sunday)
-        date_obj = datetime.strptime(appointment_date, "%Y-%m-%d")
-        day_of_week = date_obj.weekday()  # 0 = Monday, 6 = Sunday
-        
-        # Get doctor's schedule for this day of week
-        schedule = await db.doctor_schedules.find_one({
-            "doctor_id": doctor_id,
-            "day_of_week": day_of_week,
-            "is_active": True
-        })
-        
-        if not schedule:
-            return False, f"Врач не работает в этот день недели"
-        
-        # Check if appointment time is within working hours
-        appointment_time_obj = datetime.strptime(appointment_time, "%H:%M").time()
-        start_time_obj = datetime.strptime(schedule["start_time"], "%H:%M").time()
-        end_time_obj = datetime.strptime(schedule["end_time"], "%H:%M").time()
-        
-        if not (start_time_obj <= appointment_time_obj <= end_time_obj):
-            return False, f"Врач не работает в это время. Рабочие часы: {schedule['start_time']}-{schedule['end_time']}"
-        
-        return True, "Врач доступен"
-        
-    except Exception as e:
-        return False, f"Ошибка при проверке расписания: {str(e)}"
 
 # Auth endpoints moved to routers/auth.py
 
@@ -1728,257 +1403,7 @@ async def delete_payment_type(
     
     return {"message": "Payment type deleted successfully"}
 
-# Protected Appointment endpoints
-@api_router.post("/appointments", response_model=Appointment)
-async def create_appointment(
-    appointment: AppointmentCreate,
-    current_user: UserInDB = Depends(get_current_active_user)
-):
-    # Check if patient exists
-    patient = await db.patients.find_one({"id": appointment.patient_id})
-    if not patient:
-        raise HTTPException(status_code=404, detail="Patient not found")
-    
-    # Check if doctor exists
-    doctor = await db.doctors.find_one({"id": appointment.doctor_id})
-    if not doctor:
-        raise HTTPException(status_code=404, detail="Doctor not found")
-    
-    # Patients can only create appointments for themselves
-    if current_user.role == UserRole.PATIENT and current_user.patient_id != appointment.patient_id:
-        raise HTTPException(status_code=403, detail="You can only create appointments for yourself")
-    
-    # Check doctor's schedule availability
-    is_available, availability_message = await check_doctor_availability(
-        appointment.doctor_id, 
-        appointment.appointment_date, 
-        appointment.appointment_time
-    )
-    
-    if not is_available:
-        raise HTTPException(status_code=400, detail=availability_message)
-    
-    # Check for time conflicts
-    print(f"Checking conflicts for doctor {appointment.doctor_id} on {appointment.appointment_date} at {appointment.appointment_time}")
-    existing_appointment = await db.appointments.find_one({
-        "doctor_id": appointment.doctor_id,
-        "appointment_date": appointment.appointment_date,  # Now both are strings
-        "appointment_time": appointment.appointment_time,
-        "status": {"$nin": [AppointmentStatus.CANCELLED.value, AppointmentStatus.NO_SHOW.value]}
-    })
-    
-    print(f"Found existing appointment: {existing_appointment}")
-    if existing_appointment:
-        print(f"Conflict detected with appointment ID: {existing_appointment['id']}")
-        raise HTTPException(status_code=400, detail="Time slot already booked")
-    
-    appointment_dict = appointment.dict()
-    appointment_obj = Appointment(**appointment_dict)
-    await db.appointments.insert_one(appointment_obj.dict())
-    return appointment_obj
-
-@api_router.get("/appointments", response_model=List[AppointmentWithDetails])
-async def get_appointments(
-    date_from: Optional[str] = None, 
-    date_to: Optional[str] = None,
-    current_user: UserInDB = Depends(get_current_active_user)
-):
-    query = {}
-    
-    # Role-based filtering
-    if current_user.role == UserRole.PATIENT:
-        query["patient_id"] = current_user.patient_id
-    elif current_user.role == UserRole.DOCTOR:
-        query["doctor_id"] = current_user.doctor_id
-    # Admins can see all appointments
-    
-    if date_from or date_to:
-        date_query = {}
-        if date_from:
-            date_query["$gte"] = date_from
-        if date_to:
-            date_query["$lte"] = date_to
-        query["appointment_date"] = date_query
-    
-    # Aggregate appointments with patient and doctor details
-    pipeline = [
-        {"$match": query},
-        {
-            "$lookup": {
-                "from": "patients",
-                "localField": "patient_id",
-                "foreignField": "id",
-                "as": "patient"
-            }
-        },
-        {
-            "$lookup": {
-                "from": "doctors",
-                "localField": "doctor_id",
-                "foreignField": "id",
-                "as": "doctor"
-            }
-        },
-        {"$unwind": "$patient"},
-        {"$unwind": "$doctor"},
-        {
-            "$project": {
-                "_id": 0,
-                "id": 1,
-                "patient_id": 1,
-                "doctor_id": 1,
-                "room_id": {"$ifNull": ["$room_id", None]},
-                "appointment_date": 1,
-                "appointment_time": 1,
-                "end_time": {"$ifNull": ["$end_time", None]},
-                "price": {"$ifNull": ["$price", None]},
-                "status": 1,
-                "reason": 1,
-                "notes": 1,
-                "patient_notes": {"$ifNull": ["$patient_notes", None]},
-                "created_at": 1,
-                "updated_at": 1,
-                "patient_name": "$patient.full_name",
-                "doctor_name": "$doctor.full_name",
-                "doctor_specialty": "$doctor.specialty",
-                "doctor_color": "$doctor.calendar_color"
-            }
-        },
-        {"$sort": {"appointment_date": 1, "appointment_time": 1}}
-    ]
-    
-    appointments = await db.appointments.aggregate(pipeline).to_list(None)  # Убираем лимит
-    return [AppointmentWithDetails(**appointment) for appointment in appointments]
-
-@api_router.get("/appointments/{appointment_id}", response_model=AppointmentWithDetails)
-async def get_appointment(
-    appointment_id: str,
-    current_user: UserInDB = Depends(get_current_active_user)
-):
-    pipeline = [
-        {"$match": {"id": appointment_id}},
-        {
-            "$lookup": {
-                "from": "patients",
-                "localField": "patient_id",
-                "foreignField": "id",
-                "as": "patient"
-            }
-        },
-        {
-            "$lookup": {
-                "from": "doctors",
-                "localField": "doctor_id",
-                "foreignField": "id",
-                "as": "doctor"
-            }
-        },
-        {"$unwind": "$patient"},
-        {"$unwind": "$doctor"},
-        {
-            "$project": {
-                "_id": 0,
-                "id": 1,
-                "patient_id": 1,
-                "doctor_id": 1,
-                "room_id": {"$ifNull": ["$room_id", None]},
-                "appointment_date": 1,
-                "appointment_time": 1,
-                "end_time": {"$ifNull": ["$end_time", None]},
-                "price": {"$ifNull": ["$price", None]},
-                "status": 1,
-                "reason": 1,
-                "notes": 1,
-                "patient_notes": {"$ifNull": ["$patient_notes", None]},
-                "created_at": 1,
-                "updated_at": 1,
-                "patient_name": "$patient.full_name",
-                "doctor_name": "$doctor.full_name",
-                "doctor_specialty": "$doctor.specialty",
-                "doctor_color": "$doctor.calendar_color"
-            }
-        }
-    ]
-    
-    appointments = await db.appointments.aggregate(pipeline).to_list(1)
-    if not appointments:
-        raise HTTPException(status_code=404, detail="Appointment not found")
-    
-    appointment = appointments[0]
-    
-    # Check access rights
-    if current_user.role == UserRole.PATIENT and current_user.patient_id != appointment["patient_id"]:
-        raise HTTPException(status_code=403, detail="Access denied")
-    elif current_user.role == UserRole.DOCTOR and current_user.doctor_id != appointment["doctor_id"]:
-        raise HTTPException(status_code=403, detail="Access denied")
-    
-    return AppointmentWithDetails(**appointment)
-
-@api_router.put("/appointments/{appointment_id}", response_model=Appointment)
-async def update_appointment(
-    appointment_id: str,
-    appointment_update: AppointmentUpdate,
-    current_user: UserInDB = Depends(get_current_active_user)
-):
-    # Check if appointment exists
-    existing = await db.appointments.find_one({"id": appointment_id})
-    if not existing:
-        raise HTTPException(status_code=404, detail="Appointment not found")
-    
-    # Check access rights
-    if current_user.role == UserRole.PATIENT:
-        if current_user.patient_id != existing["patient_id"]:
-            raise HTTPException(status_code=403, detail="Access denied")
-        # Patients can only update limited fields
-        allowed_fields = {"reason", "notes"}
-        update_dict = {k: v for k, v in appointment_update.dict().items() 
-                      if v is not None and k in allowed_fields}
-    elif current_user.role == UserRole.DOCTOR:
-        if current_user.doctor_id != existing["doctor_id"]:
-            raise HTTPException(status_code=403, detail="Access denied")
-        # Doctors can update more fields but not reassign to other doctors
-        update_dict = {k: v for k, v in appointment_update.dict().items() if v is not None}
-        if "doctor_id" in update_dict and update_dict["doctor_id"] != current_user.doctor_id:
-            del update_dict["doctor_id"]  # Don't allow doctors to reassign appointments
-    else:  # Admin
-        update_dict = {k: v for k, v in appointment_update.dict().items() if v is not None}
-    
-    update_dict["updated_at"] = datetime.utcnow()
-    
-    # Check for time conflicts if updating time/date
-    if "appointment_date" in update_dict or "appointment_time" in update_dict or "doctor_id" in update_dict:
-        check_date = update_dict.get("appointment_date", existing["appointment_date"])
-        check_time = update_dict.get("appointment_time", existing["appointment_time"])
-        check_doctor = update_dict.get("doctor_id", existing["doctor_id"])
-        
-        conflict = await db.appointments.find_one({
-            "id": {"$ne": appointment_id},
-            "doctor_id": check_doctor,
-            "appointment_date": check_date,
-            "appointment_time": check_time,
-            "status": {"$nin": [AppointmentStatus.CANCELLED.value, AppointmentStatus.NO_SHOW.value]}
-        })
-        
-        if conflict:
-            raise HTTPException(status_code=400, detail="Time slot already booked")
-    
-    result = await db.appointments.update_one(
-        {"id": appointment_id}, 
-        {"$set": update_dict}
-    )
-    
-    updated_appointment = await db.appointments.find_one({"id": appointment_id})
-    return Appointment(**updated_appointment)
-
-@api_router.delete("/appointments/{appointment_id}")
-async def delete_appointment(
-    appointment_id: str,
-    current_user: UserInDB = Depends(require_role([UserRole.ADMIN]))
-):
-    result = await db.appointments.delete_one({"id": appointment_id})
-    if result.deleted_count == 0:
-        raise HTTPException(status_code=404, detail="Appointment not found")
-    return {"message": "Appointment deleted successfully"}
+# Appointment endpoints moved to routers/appointments.py
 
 # Document endpoints
 @api_router.post("/patients/{patient_id}/documents", response_model=Document)

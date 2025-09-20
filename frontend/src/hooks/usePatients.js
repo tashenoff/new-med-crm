@@ -64,7 +64,7 @@ export const usePatients = () => {
       // Обновляем локальный список
       setPatients(prev => 
         prev.map(patient => {
-          const patientId = patient._id || patient.id;
+          const patientId = patient.id || patient._id;
           return String(patientId) === String(id) ? response.data : patient;
         })
       );
@@ -84,7 +84,7 @@ export const usePatients = () => {
       
       // Обновляем локальный список
       setPatients(prev => prev.filter(patient => {
-        const patientId = patient._id || patient.id;
+        const patientId = patient.id || patient._id;
         return String(patientId) !== String(id);
       }));
       

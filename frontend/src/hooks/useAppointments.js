@@ -36,7 +36,7 @@ export const useAppointments = () => {
       console.log('🔄 useAppointments: fetchAppointments - загружаем с сервера');
       const response = await axios.get(`${API}/appointments`);
       console.log('🔄 useAppointments: fetchAppointments - получили', response.data.length, 'записей');
-      console.log('🔄 useAppointments: проверяем нашу запись в новых данных:', response.data.find(apt => (apt._id || apt.id) === '6cbc8990-5333-4a09-8de7-da6ea02e3710')?.room_id);
+      console.log('🔄 useAppointments: проверяем нашу запись в новых данных:', response.data.find(apt => (apt.id || apt._id) === '6cbc8990-5333-4a09-8de7-da6ea02e3710')?.room_id);
       setAppointmentsWithLog(response.data);
     } catch (error) {
       console.error('Ошибка при загрузке записей:', error);
@@ -138,7 +138,7 @@ export const useAppointments = () => {
     try {
       // Находим оригинальную запись чтобы вычислить новый end_time
       const originalAppointment = appointments.find(apt => 
-        String(apt._id || apt.id) === String(id)
+        String(apt.id || apt._id) === String(id)
       );
       
       const updateData = {
@@ -175,7 +175,7 @@ export const useAppointments = () => {
       // Обновляем локальный список
       setAppointments(prev => 
         prev.map(appointment => {
-          const appointmentId = appointment._id || appointment.id;
+          const appointmentId = appointment.id || appointment._id;
           return String(appointmentId) === String(id) ? response.data : appointment;
         })
       );

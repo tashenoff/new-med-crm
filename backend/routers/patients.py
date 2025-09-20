@@ -8,7 +8,8 @@ import uuid
 import logging
 
 # Import auth dependencies and database
-from .auth import get_current_active_user, require_role, UserInDB, UserRole
+from .auth import get_current_active_user, require_role
+from models.auth import UserInDB, UserRole
 from database import db
 
 # Router

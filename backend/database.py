@@ -4,6 +4,10 @@ Extracted from server.py for modular architecture
 """
 from motor.motor_asyncio import AsyncIOMotorClient, AsyncIOMotorDatabase
 import os
+from dotenv import load_dotenv
+
+# Load environment variables
+load_dotenv()
 
 # Database connection
 MONGO_URL = os.environ.get("MONGO_URL", "mongodb://localhost:27017/clinic")

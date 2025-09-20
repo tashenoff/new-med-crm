@@ -271,7 +271,7 @@ const CalendarPage = ({ user }) => {
       }
       
       if (editingItem) {
-        const appointmentId = editingItem._id || editingItem.id;
+        const appointmentId = editingItem.id || editingItem._id;
         
         // Отладка: логируем что передаем в updateAppointment
         console.log('📝 Обновляем запись через модальное окно:', {
@@ -352,7 +352,7 @@ const CalendarPage = ({ user }) => {
       
       // Находим оригинальную запись чтобы сохранить все её данные
       const originalAppointment = appointmentsHook.appointments.find(apt => 
-        (apt._id || apt.id) === appointmentId
+        (apt.id || apt._id) === appointmentId
       );
       
       console.log(`🔍 Найдена оригинальная запись:`, originalAppointment);

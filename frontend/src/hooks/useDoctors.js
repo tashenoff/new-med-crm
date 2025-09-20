@@ -60,7 +60,7 @@ export const useDoctors = () => {
       // Обновляем локальный список
       setDoctors(prev => 
         prev.map(doctor => {
-          const doctorId = doctor._id || doctor.id;
+          const doctorId = doctor.id || doctor._id;
           return String(doctorId) === String(id) ? response.data : doctor;
         })
       );
@@ -80,7 +80,7 @@ export const useDoctors = () => {
       
       // Обновляем локальный список
       setDoctors(prev => prev.filter(doctor => {
-        const doctorId = doctor._id || doctor.id;
+        const doctorId = doctor.id || doctor._id;
         return String(doctorId) !== String(id);
       }));
       

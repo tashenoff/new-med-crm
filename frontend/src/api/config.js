@@ -78,5 +78,5 @@ export const cleanAppointmentData = (appointmentData) => {
 };
 
 // Утилиты для работы с ID
-export const getEntityId = (entity) => entity._id || entity.id;
+export const getEntityId = (entity) => entity.id || entity._id;
 export const compareIds = (id1, id2) => String(id1) === String(id2);

@@ -117,8 +117,13 @@ const DoctorsPage = ({ user }) => {
       
       let result;
       if (editingItem) {
-        const doctorId = editingItem._id || editingItem.id;
+        const doctorId = editingItem.id || editingItem._id;
         console.log('📝 Обновляем врача ID:', doctorId);
+        
+        if (!doctorId) {
+          throw new Error('ID врача не найден. Невозможно обновить.');
+        }
+        
         result = await doctorsHook.updateDoctor(doctorId, cleanDoctorData);
       } else {
         console.log('➕ Создаем нового врача');

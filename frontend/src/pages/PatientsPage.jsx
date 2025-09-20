@@ -106,7 +106,7 @@ const PatientsPage = ({ user }) => {
       
       let result;
       if (editingItem) {
-        const patientId = editingItem._id || editingItem.id;
+        const patientId = editingItem.id || editingItem._id;
         result = await patientsHook.updatePatient(patientId, patientForm);
       } else {
         result = await patientsHook.createPatient(patientForm);

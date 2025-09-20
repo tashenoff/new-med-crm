@@ -4,14 +4,16 @@ Extracted from server.py for modular architecture
 """
 from fastapi import HTTPException, Depends, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
-from routers.auth import get_current_user as auth_get_current_user, UserInDB, UserRole, get_user_by_email
+from routers.auth import get_current_user as auth_get_current_user, get_user_by_email, get_database
+from models.auth import UserInDB, UserRole
 from typing import List
+from motor.motor_asyncio import AsyncIOMotorDatabase
 
 security = HTTPBearer()
 
-async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(security)):
+async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(security), db: AsyncIOMotorDatabase = Depends(get_database)):
     """Get current user from JWT token"""
-    return await auth_get_current_user(credentials)
+    return await auth_get_current_user(credentials, db)
 
 async def get_current_active_user(current_user: UserInDB = Depends(get_current_user)):  
     """Get current active user"""

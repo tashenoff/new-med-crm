@@ -1,14 +1,23 @@
 from fastapi import APIRouter, HTTPException, Depends, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
-from pydantic import BaseModel, EmailStr, Field
 from passlib.context import CryptContext
 from jose import JWTError, jwt
 from datetime import datetime, timedelta
 from motor.motor_asyncio import AsyncIOMotorDatabase  
 from typing import Optional
-from enum import Enum
 import os
 import uuid
+
+# Import auth models from models module
+from models.auth import (
+    UserRole,
+    User,
+    UserInDB,
+    UserCreate,
+    UserLogin,
+    Token,
+    TokenData
+)
 
 # Security setup
 SECRET_KEY = os.environ.get("SECRET_KEY", "fallback-secret-key")
@@ -17,43 +26,6 @@ ACCESS_TOKEN_EXPIRE_MINUTES = int(os.environ.get("ACCESS_TOKEN_EXPIRE_MINUTES", 
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 security = HTTPBearer()
-
-# Enums
-class UserRole(str, Enum):
-    ADMIN = "admin"
-    DOCTOR = "doctor"
-    PATIENT = "patient"
-
-# Pydantic models
-class User(BaseModel):
-    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
-    email: EmailStr
-    full_name: str
-    role: UserRole
-    is_active: bool = True
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-    updated_at: datetime = Field(default_factory=datetime.utcnow)
-    # Optional reference fields
-    doctor_id: Optional[str] = None  # If role is doctor
-    patient_id: Optional[str] = None  # If role is patient
-
-class UserCreate(BaseModel):
-    email: EmailStr
-    password: str
-    full_name: str
-    role: UserRole = UserRole.PATIENT
-
-class UserLogin(BaseModel):
-    email: EmailStr
-    password: str
-
-class Token(BaseModel):
-    access_token: str
-    token_type: str
-    user: User
-
-class TokenData(BaseModel):
-    email: Optional[str] = None
 
 # Router
 auth_router = APIRouter(prefix="/auth", tags=["Authentication"])
@@ -103,9 +75,7 @@ async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(s
     del user["_id"]
     return User(**user)
 
-# Additional models
-class UserInDB(User):
-    hashed_password: str
+# UserInDB model is now imported from models.auth
 
 async def get_user_by_email(email: str, db: AsyncIOMotorDatabase):
     user = await db.users.find_one({"email": email})
