@@ -16,6 +16,7 @@ class PaymentType(str, Enum):
     """Payment type enum for doctor compensation"""
     PERCENTAGE = "percentage"
     FIXED = "fixed"
+    HYBRID = "hybrid"
 
 
 class Doctor(BaseModel):
@@ -42,9 +43,12 @@ class Doctor(BaseModel):
                 raise ValueError('Phone number must contain at least 10 digits')
         return v
     # Поля для оплаты врача (опциональные для обратной совместимости)
-    payment_type: Optional[PaymentType] = PaymentType.PERCENTAGE  # Тип оплаты: процент или фиксированная сумма
+    payment_type: Optional[PaymentType] = PaymentType.PERCENTAGE  # Тип оплаты: процент, фиксированная сумма или гибридная
     payment_value: Optional[float] = 0.0  # Значение оплаты (процент 0-100 или фиксированная сумма)
     currency: Optional[str] = "KZT"  # Валюта для фиксированной оплаты
+    # Дополнительные поля для гибридного типа оплаты
+    hybrid_fixed_amount: Optional[float] = 0.0  # Фиксированная часть при гибридном типе
+    hybrid_percentage_value: Optional[float] = 0.0  # Процентная часть при гибридном типе
     # Отдельные настройки комиссий за консультации (для обратной совместимости)
     consultation_payment_type: Optional[PaymentType] = PaymentType.PERCENTAGE  # Тип оплаты за консультации
     consultation_payment_value: Optional[float] = 0.0  # Значение оплаты за консультации
@@ -81,10 +85,16 @@ class DoctorCreate(BaseModel):
     payment_type: Optional[PaymentType] = PaymentType.PERCENTAGE
     payment_value: Optional[float] = 0.0
     currency: Optional[str] = "KZT"
+    # Дополнительные поля для гибридного типа оплаты планов лечения
+    hybrid_fixed_amount: Optional[float] = 0.0
+    hybrid_percentage_value: Optional[float] = 0.0
     # Отдельные настройки комиссий за консультации
     consultation_payment_type: Optional[PaymentType] = PaymentType.PERCENTAGE
     consultation_payment_value: Optional[float] = 0.0
     consultation_currency: Optional[str] = "KZT"
+    # Дополнительные поля для гибридного типа оплаты за консультации
+    consultation_hybrid_fixed_amount: Optional[float] = 0.0
+    consultation_hybrid_percentage_value: Optional[float] = 0.0
     # Услуги врача
     services: Optional[List] = []
     payment_mode: Optional[str] = "general"
@@ -115,10 +125,16 @@ class DoctorUpdate(BaseModel):
     payment_type: Optional[PaymentType] = None
     payment_value: Optional[float] = None
     currency: Optional[str] = None
+    # Дополнительные поля для гибридного типа оплаты
+    hybrid_fixed_amount: Optional[float] = None
+    hybrid_percentage_value: Optional[float] = None
     # Отдельные настройки комиссий за консультации
     consultation_payment_type: Optional[PaymentType] = None
     consultation_payment_value: Optional[float] = None
     consultation_currency: Optional[str] = None
+    # Дополнительные поля для гибридного типа оплаты за консультации
+    consultation_hybrid_fixed_amount: Optional[float] = None
+    consultation_hybrid_percentage_value: Optional[float] = None
     # Услуги врача
     services: Optional[List] = None
     payment_mode: Optional[str] = None

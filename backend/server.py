@@ -253,6 +253,21 @@ async def create_doctor(
 ):
     doctor_dict = doctor.dict()
     
+    # Проверка на дублирование врача по имени и телефону
+    existing_doctor = await db.doctors.find_one({
+        "$or": [
+            {"full_name": doctor_dict["full_name"], "is_active": True},
+            {"phone": doctor_dict["phone"], "is_active": True}
+        ]
+    })
+    
+    if existing_doctor:
+        # Определяем по какому полю найдено совпадение
+        if existing_doctor["full_name"] == doctor_dict["full_name"]:
+            raise HTTPException(status_code=400, detail=f"Врач с именем '{doctor_dict['full_name']}' уже существует")
+        elif existing_doctor["phone"] == doctor_dict["phone"]:
+            raise HTTPException(status_code=400, detail=f"Врач с телефоном '{doctor_dict['phone']}' уже существует")
+    
     # Автоматическое определение payment_mode при создании
     services = doctor_dict.get("services", [])
     
@@ -747,8 +762,14 @@ async def get_doctor_salary_report(
         
         if has_consultation_settings:
             # Используем настройки комиссий за консультации (переменные уже инициализированы выше)
-            
-            if consultation_payment_type == "fixed":
+
+            if consultation_payment_type == "hybrid":
+                # Гибридный тип: фиксированная сумма + процент
+                consultations_salary = (
+                    (consultation_payment_value or 0) +  # fixed amount
+                    appointments_revenue * ((doctor.get("consultation_hybrid_percentage_value", 0) or 0) / 100)
+                )
+            elif consultation_payment_type == "fixed":
                 # Фиксированная сумма за каждую консультацию
                 consultations_salary = consultation_payment_value * total_appointments
             else:
@@ -768,8 +789,19 @@ async def get_doctor_salary_report(
         # Если зарплата за планы лечения не была рассчитана выше (нет услуг), используем общую логику
         if not doctor_services and not has_consultation_settings:
             # Если нет ни услуг, ни настроек консультаций, используем старую логику для всей выручки (переменные уже инициализированы выше)
-            
-            if payment_type == "fixed":
+
+            if payment_type == "hybrid":
+                # Гибридный тип: фиксированная сумма + процент от выручки
+                consultations_salary = (
+                    (payment_value or 0) +  # fixed amount
+                    appointments_revenue * ((doctor.get("hybrid_percentage_value", 0) or 0) / 100)
+                )
+                treatment_plans_salary = (
+                    (payment_value or 0) +  # fixed amount
+                    treatment_plans_revenue * ((doctor.get("hybrid_percentage_value", 0) or 0) / 100)
+                )
+                calculated_salary = consultations_salary + treatment_plans_salary
+            elif payment_type == "fixed":
                 # В старой логике фиксированная сумма была за весь период
                 calculated_salary = payment_value
                 consultations_salary = 0  # Обнуляем, так как уже включено в общую сумму
@@ -812,13 +844,18 @@ async def get_doctor_salary_report(
             "appointments_revenue": appointments_revenue,
             "treatment_plans_revenue": treatment_plans_revenue,
             "total_revenue": total_revenue,
-            # Детализация зарплаты
+            # Детализация зарплаты по источникам
             "consultations_salary": consultations_salary,
             "treatment_plans_salary": treatment_plans_salary,
             "calculated_salary": calculated_salary,
             "total_salary": calculated_salary,  # Добавляем для совместимости с фронтендом
             "has_services": len(doctor_services) > 0,
-            "services_count": len(doctor_services)
+            "services_count": len(doctor_services),
+            # Детализация гибридных начислений
+            "hybrid_fixed_amount": doctor.get("hybrid_fixed_amount", 0),
+            "hybrid_percentage_value": doctor.get("hybrid_percentage_value", 0),
+            "consultation_hybrid_fixed_amount": doctor.get("consultation_payment_value", 0),  # Фиксированная часть консультаций
+            "consultation_hybrid_percentage_value": doctor.get("consultation_hybrid_percentage_value", 0)
         }
         
         salary_data.append(salary_item)

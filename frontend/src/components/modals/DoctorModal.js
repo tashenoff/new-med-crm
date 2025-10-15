@@ -27,6 +27,31 @@ const DoctorModal = ({
       console.log('  - doctorForm:', doctorForm);
       console.log('  - Это редактирование?', !!editingItem);
       
+      // Сначала инициализируем форму данными врача (если редактирование)
+      if (editingItem) {
+        console.log('🔄 ИНИЦИАЛИЗАЦИЯ ФОРМЫ ДАННЫМИ ВРАЧА:');
+        console.log('  - specialty:', editingItem.specialty);
+        console.log('  - payment_type:', editingItem.payment_type);
+        console.log('  - payment_value:', editingItem.payment_value);
+        console.log('  - hybrid_percentage_value:', editingItem.hybrid_percentage_value);
+        
+        const initialForm = {
+          full_name: editingItem.full_name || '',
+          specialty: editingItem.specialty || '',
+          phone: editingItem.phone || '',
+          calendar_color: editingItem.calendar_color || '#3B82F6',
+          payment_type: editingItem.payment_type || 'percentage',
+          payment_value: editingItem.payment_value || 0,
+          hybrid_percentage_value: editingItem.hybrid_percentage_value || 0,
+          currency: editingItem.currency || 'KZT',
+          services: editingItem.services || [],
+          payment_mode: editingItem.payment_mode || 'general'
+        };
+        
+        console.log('  ✅ Инициализируем форму:', initialForm);
+        setDoctorForm(initialForm);
+      }
+      
       fetchSpecialties();
       fetchServices();
       // Загружаем существующие услуги врача при редактировании
@@ -60,8 +85,32 @@ const DoctorModal = ({
         setServiceCommissions({});
         setPaymentMode('general');
       }
+
     }
   }, [show, editingItem]);
+
+  // Дополнительный useEffect для переинициализации формы после загрузки специальностей
+  useEffect(() => {
+    if (editingItem && specialties.length > 0) {
+      console.log('🔄 ПЕРЕИНИЦИАЛИЗАЦИЯ ПОСЛЕ ЗАГРУЗКИ СПЕЦИАЛЬНОСТЕЙ:');
+      console.log('  - specialties загружены:', specialties.length);
+      console.log('  - editingItem.specialty:', editingItem.specialty);
+      console.log('  - doctorForm.specialty текущий:', doctorForm.specialty);
+      console.log('  - specialties список:', specialties.map(s => s.name));
+      
+      // Проверяем, есть ли специальность врача в списке загруженных специальностей
+      const specialtyExists = specialties.some(s => s.name === editingItem.specialty);
+      console.log('  - specialty exists in list:', specialtyExists);
+      
+      if (editingItem.specialty && (doctorForm.specialty !== editingItem.specialty)) {
+        console.log('  ✅ Принудительно устанавливаем specialty');
+        setDoctorForm(prev => ({
+          ...prev,
+          specialty: editingItem.specialty
+        }));
+      }
+    }
+  }, [specialties, editingItem, doctorForm.specialty]);
 
   const fetchSpecialties = async () => {
     try {
@@ -233,8 +282,28 @@ const DoctorModal = ({
           
           console.log('🚀 ФИНАЛЬНЫЕ ДАННЫЕ ДЛЯ ОТПРАВКИ НА СЕРВЕР:');
           console.log('  - payment_mode:', formDataWithServices.payment_mode);
+          console.log('  - payment_type:', formDataWithServices.payment_type);
+          console.log('  - payment_value:', formDataWithServices.payment_value);
+          console.log('  - hybrid_percentage_value:', formDataWithServices.hybrid_percentage_value);
           console.log('  - services:', formDataWithServices.services);
-          console.log('  - Полные данные:', formDataWithServices);
+          console.log('  - Полные данные:', JSON.stringify(formDataWithServices, null, 2));
+          
+          // КРИТИЧЕСКАЯ ПРОВЕРКА ГИБРИДНЫХ ПОЛЕЙ
+          if (formDataWithServices.payment_type === 'hybrid') {
+            console.log('🔍 ПРОВЕРКА ГИБРИДНЫХ ПОЛЕЙ ПЕРЕД ОТПРАВКОЙ:');
+            console.log('  ✅ payment_type = hybrid');
+            console.log('  💰 payment_value =', formDataWithServices.payment_value);
+            console.log('  📊 hybrid_percentage_value =', formDataWithServices.hybrid_percentage_value);
+            
+            if (!formDataWithServices.hybrid_percentage_value || formDataWithServices.hybrid_percentage_value === 0) {
+              console.log('  ❌ КРИТИЧЕСКАЯ ОШИБКА: hybrid_percentage_value равен 0 или отсутствует!');
+              console.log('  📋 doctorForm на момент отправки:', doctorForm);
+              alert('ОШИБКА: Процентная часть гибридной оплаты не указана! Проверьте поле "Процент от выручки".');
+              return; // Прерываем отправку
+            } else {
+              console.log('  ✅ Гибридные поля заполнены корректно');
+            }
+          }
           
           onSave(e, formDataWithServices);
         }} className="space-y-6">
@@ -261,7 +330,10 @@ const DoctorModal = ({
                 <label className={labelClasses}>Специальность *</label>
                 <select
                   value={doctorForm.specialty || ''}
-                  onChange={(e) => setDoctorForm({...doctorForm, specialty: e.target.value})}
+                  onChange={(e) => {
+                    console.log('🔄 Изменение специальности:', e.target.value);
+                    setDoctorForm({...doctorForm, specialty: e.target.value});
+                  }}
                   className={inputClasses}
                   required
                 >
@@ -276,7 +348,7 @@ const DoctorModal = ({
                   </p>
                 )}
                 <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
-                  Загружено специальностей: {specialties.length}
+                  Загружено специальностей: {specialties.length} | Текущее значение: "{doctorForm.specialty || 'пусто'}"
                 </p>
               </div>
               
@@ -476,63 +548,107 @@ const DoctorModal = ({
               <span className="mr-2">💰</span> Настройки оплаты
             </h3>
             
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label className={labelClasses}>Тип оплаты</label>
-                <select
-                  value={doctorForm.payment_type || 'percentage'}
+            <div className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className={labelClasses}>Тип оплаты</label>
+                  <select
+                    value={doctorForm.payment_type || 'percentage'}
                   onChange={(e) => {
                     const newPaymentType = e.target.value;
-                    setDoctorForm({
-                      ...doctorForm, 
+                    const updatedForm = {
+                      ...doctorForm,
                       payment_type: newPaymentType,
                       payment_value: 0 // Сброс значения при смене типа
-                    });
-                  }}
-                  className={inputClasses}
-                >
-                  <option value="percentage">Процент от выручки</option>
-                  <option value="fixed">Фиксированная оплата</option>
-                </select>
-              </div>
+                    };
 
-              <div>
-                <label className={labelClasses}>
-                  {doctorForm.payment_type === 'percentage' ? 'Процент (%)' : 'Сумма'}
-                </label>
-                <div className="flex">
-                  <input
-                    type="number"
-                    min="0"
-                    max={doctorForm.payment_type === 'percentage' ? '100' : undefined}
-                    step={doctorForm.payment_type === 'percentage' ? '0.1' : '1'}
-                    value={doctorForm.payment_value ?? 0}
-                    onChange={(e) => setDoctorForm({...doctorForm, payment_value: parseFloat(e.target.value) || 0})}
-                    className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-l-lg focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                    placeholder={doctorForm.payment_type === 'percentage' ? '0.0' : '0'}
-                  />
-                  {doctorForm.payment_type === 'percentage' ? (
-                    <span className="px-3 py-2 bg-gray-100 dark:bg-gray-600 border border-l-0 border-gray-300 dark:border-gray-600 rounded-r-lg text-gray-600 dark:text-gray-300">%</span>
-                  ) : (
-                    <select
-                      value={doctorForm.currency || 'KZT'}
-                      onChange={(e) => setDoctorForm({...doctorForm, currency: e.target.value})}
-                      className="px-3 py-2 border border-l-0 border-gray-300 dark:border-gray-600 rounded-r-lg focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                    >
-                      <option value="KZT">₸</option>
-                      <option value="USD">$</option>
-                      <option value="EUR">€</option>
-                      <option value="RUB">₽</option>
-                    </select>
+                    // Только для гибридного типа сбрасываем дополнительные поля
+                    if (newPaymentType === 'hybrid') {
+                      updatedForm.hybrid_percentage_value = 0;
+                    }
+
+                    setDoctorForm(updatedForm);
+                  }}
+                    className={inputClasses}
+                  >
+                    <option value="percentage">Процент от выручки</option>
+                    <option value="fixed">Фиксированная оплата</option>
+                    <option value="hybrid">Гибридная оплата</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className={labelClasses}>
+                    {doctorForm.payment_type === 'percentage' ? 'Процент (%)' :
+                     doctorForm.payment_type === 'hybrid' ? 'Фиксированная сумма' : 'Сумма'}
+                  </label>
+                  <div className="flex">
+                    <input
+                      type="number"
+                      min="0"
+                      max={doctorForm.payment_type === 'percentage' ? '100' : undefined}
+                      step={doctorForm.payment_type === 'percentage' ? '0.1' : '1'}
+                      value={doctorForm.payment_value ?? 0}
+                      onChange={(e) => setDoctorForm({...doctorForm, payment_value: parseFloat(e.target.value) || 0})}
+                      className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-l-lg focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                      placeholder={doctorForm.payment_type === 'percentage' ? '0.0' : '0'}
+                    />
+                    {doctorForm.payment_type === 'percentage' ? (
+                      <span className="px-3 py-2 bg-gray-100 dark:bg-gray-600 border border-l-0 border-gray-300 dark:border-gray-600 rounded-r-lg text-gray-600 dark:text-gray-300">%</span>
+                    ) : (
+                      <select
+                        value={doctorForm.currency || 'KZT'}
+                        onChange={(e) => setDoctorForm({...doctorForm, currency: e.target.value})}
+                        className="px-3 py-2 border border-l-0 border-gray-300 dark:border-gray-600 rounded-r-lg focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                      >
+                        <option value="KZT">₸</option>
+                        <option value="USD">$</option>
+                        <option value="EUR">€</option>
+                        <option value="RUB">₽</option>
+                      </select>
+                    )}
+                  </div>
+                  {doctorForm.payment_type === 'percentage' && (
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Укажите процент от общей выручки врача</p>
+                  )}
+                  {doctorForm.payment_type === 'fixed' && (
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Фиксированная оплата за период работы</p>
+                  )}
+                  {doctorForm.payment_type === 'hybrid' && (
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Фиксированная часть гибридной оплаты</p>
                   )}
                 </div>
-                {doctorForm.payment_type === 'percentage' && (
-                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Укажите процент от общей выручки врача</p>
-                )}
-                {doctorForm.payment_type === 'fixed' && (
-                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Фиксированная оплата за период работы</p>
-                )}
               </div>
+
+              {doctorForm.payment_type === 'hybrid' && (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className={labelClasses}>Процент от выручки</label>
+                    <div className="flex">
+                      <input
+                        type="number"
+                        min="0"
+                        max="100"
+                        step="0.1"
+                        value={doctorForm.hybrid_percentage_value ?? 0}
+                        onChange={(e) => setDoctorForm({...doctorForm, hybrid_percentage_value: parseFloat(e.target.value) || 0})}
+                        className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-l-lg focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                        placeholder="0.0"
+                      />
+                      <span className="px-3 py-2 bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200 border border-l-0 border-gray-300 dark:border-gray-600 rounded-r-lg">%</span>
+                    </div>
+                    <p className="text-xs text-green-600 dark:text-green-400 mt-1">Процентная часть от выручки</p>
+                  </div>
+
+                  <div className="text-sm text-gray-600 dark:text-gray-400">
+                    <div className="font-medium mb-2">Сводка гибридной оплаты:</div>
+                    <div className="space-y-1">
+                      <div>💰 Фиксированная: {(doctorForm.payment_value || 0).toLocaleString()} {(doctorForm.currency || 'KZT')}</div>
+                      <div>📊 Процентная: {(doctorForm.hybrid_percentage_value || 0)}% от выручки</div>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
           )}
