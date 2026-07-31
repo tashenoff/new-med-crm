@@ -101,7 +101,7 @@ class PatientUpdate(BaseModel):
 @patients_router.post("", response_model=Patient)
 async def create_patient(
     patient: PatientCreate,
-    current_user: UserInDB = Depends(require_role([UserRole.ADMIN, UserRole.DOCTOR]))
+    current_user: UserInDB = Depends(require_role([UserRole.ADMIN, UserRole.SUPER_ADMIN, UserRole.DOCTOR]))
 ):
     patient_dict = patient.dict()
     patient_obj = Patient(**patient_dict)
@@ -127,7 +127,7 @@ async def get_patients(
     is_returning: Optional[str] = None,  # "all", "returning", "new"
     date_from: Optional[str] = None,  # Дата начала периода (YYYY-MM-DD)
     date_to: Optional[str] = None,  # Дата окончания периода (YYYY-MM-DD)
-    current_user: UserInDB = Depends(require_role([UserRole.ADMIN, UserRole.DOCTOR]))
+    current_user: UserInDB = Depends(require_role([UserRole.ADMIN, UserRole.SUPER_ADMIN, UserRole.DOCTOR]))
 ):
     query = {}
     if search:
@@ -262,7 +262,7 @@ async def get_patient(
 async def update_patient(
     patient_id: str,
     patient_update: PatientUpdate,
-    current_user: UserInDB = Depends(require_role([UserRole.ADMIN, UserRole.DOCTOR]))
+    current_user: UserInDB = Depends(require_role([UserRole.ADMIN, UserRole.SUPER_ADMIN, UserRole.DOCTOR]))
 ):
     update_dict = {k: v for k, v in patient_update.dict().items() if v is not None}
     update_dict["updated_at"] = datetime.utcnow()
@@ -281,7 +281,7 @@ async def update_patient(
 @patients_router.delete("/{patient_id}")
 async def delete_patient(
     patient_id: str,
-    current_user: UserInDB = Depends(require_role([UserRole.ADMIN]))
+    current_user: UserInDB = Depends(require_role([UserRole.ADMIN, UserRole.SUPER_ADMIN]))
 ):
     result = await db.patients.delete_one({"id": patient_id})
     if result.deleted_count == 0:
@@ -298,7 +298,7 @@ class PatientStats(BaseModel):
 
 @patients_router.get("/stats", response_model=PatientStats)
 async def get_patient_stats(
-    current_user: UserInDB = Depends(require_role([UserRole.ADMIN, UserRole.DOCTOR]))
+    current_user: UserInDB = Depends(require_role([UserRole.ADMIN, UserRole.SUPER_ADMIN, UserRole.DOCTOR]))
 ):
     """Получить статистику по пациентам"""
     # Общее количество пациентов
