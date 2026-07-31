@@ -196,6 +196,41 @@ const StaffModal = ({
               Выберите разделы, к которым у сотрудника будет доступ
             </p>
             
+            {/* Чекбокс "Все" */}
+            <div className="mb-4 pb-3 border-b border-gray-200">
+              <div className="flex items-center">
+                <input
+                  type="checkbox"
+                  id="select_all_permissions"
+                  checked={
+                    staffForm.custom_permissions?.length === 9 &&
+                    ['patients_view', 'patients_edit', 'doctors_view', 'calendar_view', 
+                     'crm_view', 'warehouse_view', 'directory_view', 'finance_view', 'statistics_view']
+                    .every(p => staffForm.custom_permissions?.includes(p))
+                  }
+                  onChange={(e) => {
+                    if (e.target.checked) {
+                      // Выбрать все права
+                      setStaffForm({ 
+                        ...staffForm, 
+                        custom_permissions: [
+                          'patients_view', 'patients_edit', 'doctors_view', 'calendar_view',
+                          'crm_view', 'warehouse_view', 'directory_view', 'finance_view', 'statistics_view'
+                        ]
+                      });
+                    } else {
+                      // Снять все права
+                      setStaffForm({ ...staffForm, custom_permissions: [] });
+                    }
+                  }}
+                  className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                />
+                <label htmlFor="select_all_permissions" className="ml-2 text-sm font-medium text-gray-900">
+                  Все
+                </label>
+              </div>
+            </div>
+            
             <div className="space-y-3 max-h-60 overflow-y-auto">
               {/* Пациенты */}
               <div className="space-y-2">
