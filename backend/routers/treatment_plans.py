@@ -38,7 +38,7 @@ def get_statistics_service():
 async def get_treatment_plan_statistics(
     date_from: Optional[str] = None,
     date_to: Optional[str] = None,
-    current_user: UserInDB = Depends(require_role([UserRole.ADMIN, UserRole.DOCTOR])),
+    current_user: UserInDB = Depends(require_role([UserRole.ADMIN, UserRole.SUPER_ADMIN, UserRole.DOCTOR])),
     service: StatisticsService = Depends(get_statistics_service)
 ):
     """Get treatment plan statistics"""
@@ -47,7 +47,7 @@ async def get_treatment_plan_statistics(
 
 @treatment_plans_router.get("/treatment-plans/statistics/patients")
 async def get_patient_statistics(
-    current_user: UserInDB = Depends(require_role([UserRole.ADMIN, UserRole.DOCTOR]))
+    current_user: UserInDB = Depends(require_role([UserRole.ADMIN, UserRole.SUPER_ADMIN, UserRole.DOCTOR]))
 ):
     """Get patient-specific treatment plan statistics"""
     # Aggregate patient statistics
@@ -149,7 +149,7 @@ async def get_patient_statistics(
 async def create_treatment_plan(
     patient_id: str,
     plan_data: TreatmentPlanCreate,
-    current_user: UserInDB = Depends(require_role([UserRole.ADMIN, UserRole.DOCTOR])),
+    current_user: UserInDB = Depends(require_role([UserRole.ADMIN, UserRole.SUPER_ADMIN, UserRole.DOCTOR])),
     service: TreatmentPlanService = Depends(get_treatment_plan_service)
 ):
     """Create a treatment plan for a patient"""
@@ -164,7 +164,7 @@ async def create_treatment_plan(
 @treatment_plans_router.get("/patients/{patient_id}/treatment-plans", response_model=List[TreatmentPlan])
 async def get_patient_treatment_plans(
     patient_id: str,
-    current_user: UserInDB = Depends(require_role([UserRole.ADMIN, UserRole.DOCTOR, UserRole.PATIENT])),
+    current_user: UserInDB = Depends(require_role([UserRole.ADMIN, UserRole.SUPER_ADMIN, UserRole.DOCTOR, UserRole.PATIENT])),
     service: TreatmentPlanService = Depends(get_treatment_plan_service)
 ):
     """Get all treatment plans for a patient"""
@@ -178,7 +178,7 @@ async def get_patient_treatment_plans(
 @treatment_plans_router.get("/treatment-plans/{plan_id}", response_model=TreatmentPlan)
 async def get_treatment_plan(
     plan_id: str,
-    current_user: UserInDB = Depends(require_role([UserRole.ADMIN, UserRole.DOCTOR, UserRole.PATIENT])),
+    current_user: UserInDB = Depends(require_role([UserRole.ADMIN, UserRole.SUPER_ADMIN, UserRole.DOCTOR, UserRole.PATIENT])),
     service: TreatmentPlanService = Depends(get_treatment_plan_service)
 ):
     """Get a specific treatment plan"""
@@ -197,7 +197,7 @@ async def get_treatment_plan(
 async def update_treatment_plan(
     plan_id: str,
     update_data: TreatmentPlanUpdate,
-    current_user: UserInDB = Depends(require_role([UserRole.ADMIN, UserRole.DOCTOR])),
+    current_user: UserInDB = Depends(require_role([UserRole.ADMIN, UserRole.SUPER_ADMIN, UserRole.DOCTOR])),
     service: TreatmentPlanService = Depends(get_treatment_plan_service)
 ):
     """Update treatment plan"""
@@ -239,7 +239,7 @@ async def update_treatment_plan(
 @treatment_plans_router.delete("/treatment-plans/{plan_id}")
 async def delete_treatment_plan(
     plan_id: str,
-    current_user: UserInDB = Depends(require_role([UserRole.ADMIN, UserRole.DOCTOR])),
+    current_user: UserInDB = Depends(require_role([UserRole.ADMIN, UserRole.SUPER_ADMIN, UserRole.DOCTOR])),
     service: TreatmentPlanService = Depends(get_treatment_plan_service)
 ):
     """Delete a treatment plan"""
@@ -250,7 +250,7 @@ async def delete_treatment_plan(
 async def mark_service_procedure_completed(
     plan_id: str,
     service_id: str,
-    current_user: UserInDB = Depends(require_role([UserRole.ADMIN, UserRole.DOCTOR])),
+    current_user: UserInDB = Depends(require_role([UserRole.ADMIN, UserRole.SUPER_ADMIN, UserRole.DOCTOR])),
 ):
     """Отметить выполнение одной процедуры услуги"""
     # Получить план лечения
@@ -318,7 +318,7 @@ async def complete_course_session(
     plan_id: str,
     service_id: str,
     session_data: dict,
-    current_user: UserInDB = Depends(require_role([UserRole.ADMIN, UserRole.DOCTOR])),
+    current_user: UserInDB = Depends(require_role([UserRole.ADMIN, UserRole.SUPER_ADMIN, UserRole.DOCTOR])),
 ):
     """Отметить выполнение одной сессии курсовой услуги"""
     # Получить план лечения
@@ -369,7 +369,7 @@ async def complete_course_session(
 async def mark_service_paid(
     plan_id: str,
     service_id: str,
-    current_user: UserInDB = Depends(require_role([UserRole.ADMIN, UserRole.DOCTOR])),
+    current_user: UserInDB = Depends(require_role([UserRole.ADMIN, UserRole.SUPER_ADMIN, UserRole.DOCTOR])),
 ):
     """Отметить услугу как оплаченную"""
     # Получить план лечения
@@ -434,7 +434,7 @@ async def mark_session_paid(
     plan_id: str,
     service_id: str,
     session_index: int,
-    current_user: UserInDB = Depends(require_role([UserRole.ADMIN, UserRole.DOCTOR])),
+    current_user: UserInDB = Depends(require_role([UserRole.ADMIN, UserRole.SUPER_ADMIN, UserRole.DOCTOR])),
 ):
     """Отметить одну сессию курсовой услуги как оплаченную"""
     # Получить план лечения
