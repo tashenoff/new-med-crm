@@ -312,17 +312,17 @@ class LeadService:
                 "by_manager": by_manager
             }
         
-            return {
-                "total_leads": 0,
-                "new_leads": 0,
-                "in_progress_leads": 0,
-                "converted_leads": 0,
-                "rejected_leads": 0,
-                "conversion_rate": 0,
-                "avg_conversion_time": None,
-                "by_source": {},
-                "by_manager": {}
-            }
+        return {
+            "total_leads": 0,
+            "new_leads": 0,
+            "in_progress_leads": 0,
+            "converted_leads": 0,
+            "rejected_leads": 0,
+            "conversion_rate": 0,
+            "avg_conversion_time": None,
+            "by_source": {},
+            "by_manager": {}
+        }
     
     async def _create_initial_task(self, lead: Lead, created_by: Optional[str] = None):
         """Создать автоматическую задачу для нового лида"""
