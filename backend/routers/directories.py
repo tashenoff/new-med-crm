@@ -42,7 +42,7 @@ async def get_categories(
 @directories_router.post("/service-categories", response_model=ServiceCategory)
 async def create_category(
     category: ServiceCategoryCreate,
-    current_user: UserInDB = Depends(require_role([UserRole.ADMIN]))
+    current_user: UserInDB = Depends(require_role([UserRole.ADMIN, UserRole.SUPER_ADMIN]))
 ):
     """Create new service category"""
     # Check if category name already exists
@@ -59,7 +59,7 @@ async def create_category(
 async def update_category(
     category_id: str,
     category_update: ServiceCategoryUpdate,
-    current_user: UserInDB = Depends(require_role([UserRole.ADMIN]))
+    current_user: UserInDB = Depends(require_role([UserRole.ADMIN, UserRole.SUPER_ADMIN]))
 ):
     """Update service category"""
     existing = await db.service_categories.find_one({"id": category_id})
@@ -90,7 +90,7 @@ async def update_category(
 @directories_router.delete("/service-categories/{category_id}")
 async def delete_category(
     category_id: str,
-    current_user: UserInDB = Depends(require_role([UserRole.ADMIN]))
+    current_user: UserInDB = Depends(require_role([UserRole.ADMIN, UserRole.SUPER_ADMIN]))
 ):
     """Delete (deactivate) service category"""
     # Check if category is used by any services
@@ -130,7 +130,7 @@ async def get_specialties(
 @directories_router.post("/specialties", response_model=Specialty)
 async def create_specialty(
     specialty: SpecialtyCreate,
-    current_user: UserInDB = Depends(require_role([UserRole.ADMIN]))
+    current_user: UserInDB = Depends(require_role([UserRole.ADMIN, UserRole.SUPER_ADMIN]))
 ):
     """Create new specialty"""
     # Check if specialty name already exists
@@ -147,7 +147,7 @@ async def create_specialty(
 async def update_specialty(
     specialty_id: str,
     specialty_update: SpecialtyUpdate,
-    current_user: UserInDB = Depends(require_role([UserRole.ADMIN]))
+    current_user: UserInDB = Depends(require_role([UserRole.ADMIN, UserRole.SUPER_ADMIN]))
 ):
     """Update specialty"""
     existing = await db.specialties.find_one({"id": specialty_id})
@@ -178,7 +178,7 @@ async def update_specialty(
 @directories_router.delete("/specialties/{specialty_id}")
 async def delete_specialty(
     specialty_id: str,
-    current_user: UserInDB = Depends(require_role([UserRole.ADMIN]))
+    current_user: UserInDB = Depends(require_role([UserRole.ADMIN, UserRole.SUPER_ADMIN]))
 ):
     """Delete (deactivate) specialty"""
     # Check if specialty is used by any doctors
@@ -218,7 +218,7 @@ async def get_payment_types(
 @directories_router.post("/payment-types", response_model=PaymentType)
 async def create_payment_type(
     payment_type: PaymentTypeCreate,
-    current_user: UserInDB = Depends(require_role([UserRole.ADMIN]))
+    current_user: UserInDB = Depends(require_role([UserRole.ADMIN, UserRole.SUPER_ADMIN]))
 ):
     """Create new payment type"""
     # Check if payment type name already exists
@@ -235,7 +235,7 @@ async def create_payment_type(
 async def update_payment_type(
     payment_type_id: str,
     payment_type_update: PaymentTypeUpdate,
-    current_user: UserInDB = Depends(require_role([UserRole.ADMIN]))
+    current_user: UserInDB = Depends(require_role([UserRole.ADMIN, UserRole.SUPER_ADMIN]))
 ):
     """Update payment type"""
     existing = await db.payment_types.find_one({"id": payment_type_id})
@@ -266,7 +266,7 @@ async def update_payment_type(
 @directories_router.delete("/payment-types/{payment_type_id}")
 async def delete_payment_type(
     payment_type_id: str,
-    current_user: UserInDB = Depends(require_role([UserRole.ADMIN]))
+    current_user: UserInDB = Depends(require_role([UserRole.ADMIN, UserRole.SUPER_ADMIN]))
 ):
     """Delete (deactivate) payment type"""
     result = await db.payment_types.update_one(

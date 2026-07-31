@@ -67,7 +67,7 @@ async def update_inventory(
 @inventory_router.delete("/inventories/{inventory_id}")
 async def delete_inventory(
     inventory_id: str,
-    current_user: UserInDB = Depends(require_role([UserRole.ADMIN])),
+    current_user: UserInDB = Depends(require_role([UserRole.ADMIN, UserRole.SUPER_ADMIN])),
     service: InventoryService = Depends(get_inventory_service)
 ):
     """Удалить инвентаризацию"""

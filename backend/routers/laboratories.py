@@ -42,7 +42,7 @@ async def get_laboratory(
 @laboratories_router.post("", response_model=Laboratory)
 async def create_laboratory(
     laboratory: LaboratoryCreate,
-    current_user: UserInDB = Depends(require_role([UserRole.ADMIN])),
+    current_user: UserInDB = Depends(require_role([UserRole.ADMIN, UserRole.SUPER_ADMIN])),
     service: LaboratoryService = Depends(get_laboratory_service)
 ):
     """Create new laboratory (admin only)"""
@@ -53,7 +53,7 @@ async def create_laboratory(
 async def update_laboratory(
     laboratory_id: str,
     laboratory_update: LaboratoryUpdate,
-    current_user: UserInDB = Depends(require_role([UserRole.ADMIN])),
+    current_user: UserInDB = Depends(require_role([UserRole.ADMIN, UserRole.SUPER_ADMIN])),
     service: LaboratoryService = Depends(get_laboratory_service)
 ):
     """Update laboratory (admin only)"""
@@ -63,7 +63,7 @@ async def update_laboratory(
 @laboratories_router.delete("/{laboratory_id}")
 async def delete_laboratory(
     laboratory_id: str,
-    current_user: UserInDB = Depends(require_role([UserRole.ADMIN])),
+    current_user: UserInDB = Depends(require_role([UserRole.ADMIN, UserRole.SUPER_ADMIN])),
     service: LaboratoryService = Depends(get_laboratory_service)
 ):
     """Delete (deactivate) laboratory (admin only)"""

@@ -51,7 +51,7 @@ async def get_rooms(
 @rooms_router.post("", response_model=Room)
 async def create_room(
     room_data: RoomCreate,
-    current_user: UserInDB = Depends(require_role([UserRole.ADMIN])),
+    current_user: UserInDB = Depends(require_role([UserRole.ADMIN, UserRole.SUPER_ADMIN])),
     service: RoomService = Depends(get_room_service)
 ):
     """Create new room"""
@@ -62,7 +62,7 @@ async def create_room(
 async def update_room(
     room_id: str,
     room_update: RoomUpdate,
-    current_user: UserInDB = Depends(require_role([UserRole.ADMIN])),
+    current_user: UserInDB = Depends(require_role([UserRole.ADMIN, UserRole.SUPER_ADMIN])),
     service: RoomService = Depends(get_room_service)
 ):
     """Update room"""
@@ -72,7 +72,7 @@ async def update_room(
 @rooms_router.delete("/{room_id}")
 async def delete_room(
     room_id: str,
-    current_user: UserInDB = Depends(require_role([UserRole.ADMIN])),
+    current_user: UserInDB = Depends(require_role([UserRole.ADMIN, UserRole.SUPER_ADMIN])),
     service: RoomService = Depends(get_room_service)
 ):
     """Delete room (soft delete)"""
@@ -99,7 +99,7 @@ async def get_room_schedule(
 async def create_room_schedule(
     room_id: str,
     schedule_data: RoomScheduleCreate,
-    current_user: UserInDB = Depends(require_role([UserRole.ADMIN]))
+    current_user: UserInDB = Depends(require_role([UserRole.ADMIN, UserRole.SUPER_ADMIN]))
 ):
     """Create room schedule entry"""
     # Verify room exists - check multiple ID formats
@@ -177,7 +177,7 @@ async def create_room_schedule(
 async def update_room_schedule(
     schedule_id: str,
     schedule_update: RoomScheduleUpdate,
-    current_user: UserInDB = Depends(require_role([UserRole.ADMIN]))
+    current_user: UserInDB = Depends(require_role([UserRole.ADMIN, UserRole.SUPER_ADMIN]))
 ):
     """Update room schedule entry"""
     existing_schedule = await db.room_schedules.find_one({"id": schedule_id})
@@ -199,7 +199,7 @@ async def update_room_schedule(
 @rooms_router.delete("/schedules/{schedule_id}")
 async def delete_room_schedule(
     schedule_id: str,
-    current_user: UserInDB = Depends(require_role([UserRole.ADMIN]))
+    current_user: UserInDB = Depends(require_role([UserRole.ADMIN, UserRole.SUPER_ADMIN]))
 ):
     """Delete room schedule entry"""
     await db.room_schedules.update_one(

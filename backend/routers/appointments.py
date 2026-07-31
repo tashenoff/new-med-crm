@@ -470,7 +470,7 @@ async def update_appointment(
 @appointments_router.delete("/{appointment_id}")
 async def delete_appointment(
     appointment_id: str,
-    current_user: UserInDB = Depends(require_role([UserRole.ADMIN])),
+    current_user: UserInDB = Depends(require_role([UserRole.ADMIN, UserRole.SUPER_ADMIN])),
     db: AsyncIOMotorDatabase = Depends(get_database)
 ):
     result = await db.appointments.delete_one({"id": appointment_id})

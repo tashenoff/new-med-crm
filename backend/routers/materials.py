@@ -35,7 +35,7 @@ async def list_materials(
 @materials_router.post("/materials", response_model=Material)
 async def create_material(
     material_data: MaterialCreate,
-    current_user: UserInDB = Depends(require_role([UserRole.ADMIN])),
+    current_user: UserInDB = Depends(require_role([UserRole.ADMIN, UserRole.SUPER_ADMIN])),
     service: MaterialService = Depends(get_material_service)
 ):
     """Создать новый материал"""
@@ -46,7 +46,7 @@ async def create_material(
 async def update_material(
     material_id: str,
     material_update: MaterialUpdate,
-    current_user: UserInDB = Depends(require_role([UserRole.ADMIN])),
+    current_user: UserInDB = Depends(require_role([UserRole.ADMIN, UserRole.SUPER_ADMIN])),
     service: MaterialService = Depends(get_material_service)
 ):
     """Обновить материал"""
@@ -56,7 +56,7 @@ async def update_material(
 @materials_router.delete("/materials/{material_id}")
 async def delete_material(
     material_id: str,
-    current_user: UserInDB = Depends(require_role([UserRole.ADMIN])),
+    current_user: UserInDB = Depends(require_role([UserRole.ADMIN, UserRole.SUPER_ADMIN])),
     service: MaterialService = Depends(get_material_service)
 ):
     """Удалить материал (soft delete)"""
@@ -66,7 +66,7 @@ async def delete_material(
 @materials_router.post("/materials/{material_id}/restore", response_model=Material)
 async def restore_material(
     material_id: str,
-    current_user: UserInDB = Depends(require_role([UserRole.ADMIN])),
+    current_user: UserInDB = Depends(require_role([UserRole.ADMIN, UserRole.SUPER_ADMIN])),
     service: MaterialService = Depends(get_material_service)
 ):
     """Восстановить удалённый материал"""

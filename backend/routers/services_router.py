@@ -59,7 +59,7 @@ async def get_lab_price_statistics(
 @services_api_router.post("/service-prices", response_model=ServicePrice)
 async def create_service_price(
     service_price: ServicePriceCreate,
-    current_user: UserInDB = Depends(require_role([UserRole.ADMIN])),
+    current_user: UserInDB = Depends(require_role([UserRole.ADMIN, UserRole.SUPER_ADMIN])),
     price_service: ServicePriceService = Depends(get_service_price_service)
 ):
     """Create new service price"""
@@ -70,7 +70,7 @@ async def create_service_price(
 async def update_service_price(
     price_id: str,
     service_price_update: ServicePriceUpdate,
-    current_user: UserInDB = Depends(require_role([UserRole.ADMIN])),
+    current_user: UserInDB = Depends(require_role([UserRole.ADMIN, UserRole.SUPER_ADMIN])),
     service: ServicePriceService = Depends(get_service_price_service)
 ):
     """Update service price"""
@@ -80,7 +80,7 @@ async def update_service_price(
 @services_api_router.delete("/service-prices/{price_id}")
 async def delete_service_price(
     price_id: str,
-    current_user: UserInDB = Depends(require_role([UserRole.ADMIN])),
+    current_user: UserInDB = Depends(require_role([UserRole.ADMIN, UserRole.SUPER_ADMIN])),
     service: ServicePriceService = Depends(get_service_price_service)
 ):
     """Delete (deactivate) service price"""
@@ -116,7 +116,7 @@ async def get_services(
 @services_api_router.post("/services", response_model=Service)
 async def create_service(
     service_data: ServiceCreate,
-    current_user: UserInDB = Depends(require_role([UserRole.ADMIN]))
+    current_user: UserInDB = Depends(require_role([UserRole.ADMIN, UserRole.SUPER_ADMIN]))
 ):
     """Create a new service (admin only)"""
     service_obj = Service(**service_data.dict())
@@ -126,7 +126,7 @@ async def create_service(
 
 @services_api_router.post("/services/initialize")
 async def initialize_default_services(
-    current_user: UserInDB = Depends(require_role([UserRole.ADMIN]))
+    current_user: UserInDB = Depends(require_role([UserRole.ADMIN, UserRole.SUPER_ADMIN]))
 ):
     """Initialize default services (admin only)"""
     existing_count = await db.services.count_documents({})

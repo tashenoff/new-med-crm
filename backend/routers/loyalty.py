@@ -42,7 +42,7 @@ async def get_loyalty_settings(
 @loyalty_router.put("/settings", response_model=LoyaltySettings)
 async def update_loyalty_settings(
     settings_update: LoyaltySettingsUpdate,
-    current_user: UserInDB = Depends(require_role([UserRole.ADMIN]))
+    current_user: UserInDB = Depends(require_role([UserRole.ADMIN, UserRole.SUPER_ADMIN]))
 ):
     """Update loyalty program settings (Admin only)"""
     service = LoyaltyService(db)
@@ -165,7 +165,7 @@ async def get_lab_service_cashback(
 @loyalty_router.post("/cashback/service", response_model=LabServiceCashback)
 async def create_lab_service_cashback(
     cashback_create: LabServiceCashbackCreate,
-    current_user: UserInDB = Depends(require_role([UserRole.ADMIN]))
+    current_user: UserInDB = Depends(require_role([UserRole.ADMIN, UserRole.SUPER_ADMIN]))
 ):
     """Create or update cashback settings for a lab service (Admin only)"""
     service = LoyaltyService(db)
@@ -180,7 +180,7 @@ async def create_lab_service_cashback(
 async def update_lab_service_cashback(
     service_id: str,
     cashback_update: LabServiceCashbackUpdate,
-    current_user: UserInDB = Depends(require_role([UserRole.ADMIN]))
+    current_user: UserInDB = Depends(require_role([UserRole.ADMIN, UserRole.SUPER_ADMIN]))
 ):
     """Update cashback settings for a lab service (Admin only)"""
     service = LoyaltyService(db)
@@ -194,7 +194,7 @@ async def update_lab_service_cashback(
 @loyalty_router.delete("/cashback/service/{service_id}")
 async def delete_lab_service_cashback(
     service_id: str,
-    current_user: UserInDB = Depends(require_role([UserRole.ADMIN]))
+    current_user: UserInDB = Depends(require_role([UserRole.ADMIN, UserRole.SUPER_ADMIN]))
 ):
     """Deactivate cashback settings for a lab service (Admin only)"""
     service = LoyaltyService(db)
