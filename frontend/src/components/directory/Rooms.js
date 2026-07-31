@@ -333,7 +333,7 @@ const Rooms = ({ user }) => {
         <PanelHeader
           title="Кабинеты"
           subtitle="Управление медицинскими кабинетами и их расписанием"
-          onAction={user?.role === 'admin' ? handleCreateRoom : undefined}
+          onAction={user?.role === 'admin' || user?.role === 'super_admin' ? handleCreateRoom : undefined}
           actionLabel="+ Добавить кабинет"
         />
 
@@ -390,7 +390,7 @@ const Rooms = ({ user }) => {
                     >
                       📅
                     </button>
-                    {user?.role === 'admin' && (
+                    {user?.role === 'admin' || user?.role === 'super_admin' && (
                       <>
                         <button
                           onClick={() => handleEditRoom(room)}

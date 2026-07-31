@@ -152,7 +152,7 @@ const PaymentTypes = ({ user }) => {
         <PanelHeader
           title="Типы оплат"
           subtitle="Управление способами оплаты и комиссиями"
-          onAction={user?.role === 'admin' ? () => setShowModal(true) : undefined}
+          onAction={user?.role === 'admin' || user?.role === 'super_admin' ? () => setShowModal(true) : undefined}
           actionLabel="+ Добавить тип оплаты"
         />
 
@@ -266,7 +266,7 @@ const PaymentTypes = ({ user }) => {
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Дата создания
                   </th>
-                  {user?.role === 'admin' && (
+                  {user?.role === 'admin' || user?.role === 'super_admin' && (
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Действия
                     </th>
@@ -295,7 +295,7 @@ const PaymentTypes = ({ user }) => {
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                       {new Date(paymentType.created_at).toLocaleDateString('ru-RU')}
                     </td>
-                    {user?.role === 'admin' && (
+                    {user?.role === 'admin' || user?.role === 'super_admin' && (
                       <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                         <div className="flex gap-2">
                           <button

@@ -146,7 +146,7 @@ const Specialties = ({ user }) => {
         <PanelHeader
           title="Специальности врачей"
           subtitle="Управление медицинскими специальностями"
-          onAction={user?.role === 'admin' ? () => setShowModal(true) : undefined}
+          onAction={user?.role === 'admin' || user?.role === 'super_admin' ? () => setShowModal(true) : undefined}
           actionLabel="+ Добавить специальность"
         />
 
@@ -242,7 +242,7 @@ const Specialties = ({ user }) => {
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Дата создания
                   </th>
-                  {user?.role === 'admin' && (
+                  {user?.role === 'admin' || user?.role === 'super_admin' && (
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Действия
                     </th>
@@ -266,7 +266,7 @@ const Specialties = ({ user }) => {
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                       {new Date(specialty.created_at).toLocaleDateString('ru-RU')}
                     </td>
-                    {user?.role === 'admin' && (
+                    {user?.role === 'admin' || user?.role === 'super_admin' && (
                       <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                         <div className="flex gap-2">
                           <button
