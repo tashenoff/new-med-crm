@@ -69,11 +69,6 @@ const AIChatSidebar = ({ isOpen, onClose, badge, showMaterialForm = false, onMat
     barcode: '',
     material_type: 'Материал',
     is_product: false,
-    start_period: '',
-    incoming: '',
-    outgoing: '',
-    inventory: '',
-    balance: '',
     warehouses: [
       { warehouse_name: 'Склад по умолчанию', min_stock: 0 },
       { warehouse_name: 'Основной склад', min_stock: 0 }
@@ -223,6 +218,17 @@ const AIChatSidebar = ({ isOpen, onClose, badge, showMaterialForm = false, onMat
               />
             </div>
 
+            <div className="flex items-center gap-2">
+              <input
+                type="checkbox"
+                id="is_product_sidebar"
+                checked={materialForm.is_product}
+                onChange={(e) => handleMaterialFormChange('is_product', e.target.checked)}
+                className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+              />
+              <label htmlFor="is_product_sidebar" className="text-sm text-gray-600 dark:text-gray-300">Это товар</label>
+            </div>
+
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
@@ -233,125 +239,62 @@ const AIChatSidebar = ({ isOpen, onClose, badge, showMaterialForm = false, onMat
                   value={materialForm.unit}
                   onChange={(e) => handleMaterialFormChange('unit', e.target.value)}
                   className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
+                  placeholder="шт, кг, л и т.д."
                 />
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  Штрих-код
+                  Категория
                 </label>
-                <input
-                  type="text"
-                  value={materialForm.barcode}
-                  onChange={(e) => handleMaterialFormChange('barcode', e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
-                />
-              </div>
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  Тип
-                </label>
-                <input
-                  type="text"
+                <select
                   value={materialForm.material_type}
                   onChange={(e) => handleMaterialFormChange('material_type', e.target.value)}
                   className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
-                />
-              </div>
-              <div className="flex items-center gap-2 mt-6">
-                <input
-                  type="checkbox"
-                  checked={materialForm.is_product}
-                  onChange={(e) => handleMaterialFormChange('is_product', e.target.checked)}
-                  className="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 dark:focus:ring-blue-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600"
-                />
-                <span className="text-sm text-gray-600 dark:text-gray-300">Это товар</span>
+                >
+                  <option value="Без категории">Без категории</option>
+                  <option value="Материал">Материал</option>
+                  <option value="Расходник">Расходник</option>
+                  <option value="Инструмент">Инструмент</option>
+                  <option value="Медикамент">Медикамент</option>
+                </select>
               </div>
             </div>
 
-            <div className="grid grid-cols-4 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  На начало периода
-                </label>
-                <input
-                  type="number"
-                  min="0"
-                  value={materialForm.start_period}
-                  onChange={(e) => handleMaterialFormChange('start_period', e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  Приход за период
-                </label>
-                <input
-                  type="number"
-                  min="0"
-                  value={materialForm.incoming}
-                  onChange={(e) => handleMaterialFormChange('incoming', e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  Расход за период
-                </label>
-                <input
-                  type="number"
-                  min="0"
-                  value={materialForm.outgoing}
-                  onChange={(e) => handleMaterialFormChange('outgoing', e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  Инвентаризация
-                </label>
-                <input
-                  type="number"
-                  min="0"
-                  value={materialForm.inventory}
-                  onChange={(e) => handleMaterialFormChange('inventory', e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
-                />
-              </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                Штрих-код
+              </label>
+              <input
+                type="text"
+                value={materialForm.barcode}
+                onChange={(e) => handleMaterialFormChange('barcode', e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
+                placeholder="Если имеется"
+              />
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  Остаток
-                </label>
-                <input
-                  type="number"
-                  min="0"
-                  value={materialForm.balance}
-                  onChange={(e) => handleMaterialFormChange('balance', e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
-                />
+            <details className="border border-gray-200 dark:border-gray-700 rounded-lg">
+              <summary className="cursor-pointer px-4 py-3 font-medium text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-lg">
+                Минимальные остатки
+              </summary>
+              <div className="px-4 pb-4 pt-2 space-y-3">
+                {materialForm.warehouses.map((warehouse, index) => (
+                  <div key={warehouse.warehouse_name} className="grid grid-cols-2 gap-3 items-center">
+                    <label className="text-sm text-gray-600 dark:text-gray-400">
+                      {warehouse.warehouse_name}
+                    </label>
+                    <input
+                      type="number"
+                      min="0"
+                      value={warehouse.min_stock}
+                      onChange={(e) => handleWarehouseChange(index, e.target.value)}
+                      className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
+                      placeholder="0"
+                    />
+                  </div>
+                ))}
               </div>
-            </div>
-
-            <div className="space-y-3">
-              <h3 className="text-sm font-semibold text-gray-600 dark:text-gray-300">Склады</h3>
-              {materialForm.warehouses.map((warehouse, index) => (
-                <div key={warehouse.warehouse_name} className="flex items-center gap-3">
-                  <div className="w-48 text-sm text-gray-600 dark:text-gray-300">{warehouse.warehouse_name}</div>
-                  <input
-                    type="number"
-                    min="0"
-                    value={warehouse.min_stock}
-                    onChange={(e) => handleWarehouseChange(index, e.target.value)}
-                    className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
-                  />
-                </div>
-              ))}
-            </div>
+            </details>
           </form>
         </div>
       ) : (
