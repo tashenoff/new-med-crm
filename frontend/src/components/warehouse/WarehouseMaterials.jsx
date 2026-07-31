@@ -246,7 +246,7 @@ const WarehouseMaterials = ({ user, viewKey = 'warehouse-materials', onOpenAiCha
           <PanelHeader
             title="Материалы"
             subtitle="Список складских материалов, поступлений и остатков."
-            onAction={user?.role === 'admin' ? handleCreateMaterial : undefined}
+            onAction={user?.role === 'admin' || user?.role === 'super_admin' ? handleCreateMaterial : undefined}
             actionLabel="+ Добавить материал"
           />
 
@@ -347,7 +347,7 @@ const WarehouseMaterials = ({ user, viewKey = 'warehouse-materials', onOpenAiCha
                       <td className={tableCellClasses}>{material.material_type || '-'}</td>
                       <td className={tableCellClasses}>{material.barcode || '-'}</td>
                       <td className={`${tableCellClasses} space-x-2`}>
-                        {user?.role === 'admin' && (
+                        {user?.role === 'admin' || user?.role === 'super_admin' && (
                           isDeletedView ? (
                             <button
                               onClick={() => handleRestore(material.id)}

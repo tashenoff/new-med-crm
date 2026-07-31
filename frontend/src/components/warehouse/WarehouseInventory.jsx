@@ -222,7 +222,7 @@ const WarehouseInventory = ({ user }) => {
                       >
                         <Edit className="w-4 h-4" />
                       </button>
-                      {user?.role === 'admin' && (
+                      {user?.role === 'admin' || user?.role === 'super_admin' && (
                         <button
                           onClick={() => handleDeleteInventory(inventory.id)}
                           className="text-red-600 hover:text-red-900"
