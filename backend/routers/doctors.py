@@ -51,7 +51,7 @@ def get_statistics_service():
 async def get_doctor_statistics(
     date_from: Optional[str] = None,
     date_to: Optional[str] = None,
-    current_user: UserInDB = Depends(require_role([UserRole.ADMIN, UserRole.DOCTOR])),
+    current_user: UserInDB = Depends(require_role([UserRole.ADMIN, UserRole.SUPER_ADMIN, UserRole.DOCTOR])),
     service: StatisticsService = Depends(get_statistics_service)
 ):
     """Get overall doctor statistics"""
@@ -62,7 +62,7 @@ async def get_doctor_statistics(
 async def get_individual_doctor_statistics(
     date_from: Optional[str] = None,
     date_to: Optional[str] = None,
-    current_user: UserInDB = Depends(require_role([UserRole.ADMIN, UserRole.DOCTOR])),
+    current_user: UserInDB = Depends(require_role([UserRole.ADMIN, UserRole.SUPER_ADMIN, UserRole.DOCTOR])),
     service: StatisticsService = Depends(get_statistics_service)
 ):
     """Get individual doctor statistics with working hours and utilization"""
@@ -73,7 +73,7 @@ async def get_individual_doctor_statistics(
 async def get_doctor_salary_report(
     date_from: Optional[str] = None,
     date_to: Optional[str] = None,
-    current_user: UserInDB = Depends(require_role([UserRole.ADMIN])),
+    current_user: UserInDB = Depends(require_role([UserRole.ADMIN, UserRole.SUPER_ADMIN])),
     service: SalaryService = Depends(get_salary_service)
 ):
     """Get doctor salary report with detailed commission calculations"""
@@ -98,7 +98,7 @@ async def get_available_doctors(
 @doctors_router.post("", response_model=Doctor)
 async def create_doctor(
     doctor: DoctorCreate,
-    current_user: UserInDB = Depends(require_role([UserRole.ADMIN])),
+    current_user: UserInDB = Depends(require_role([UserRole.ADMIN, UserRole.SUPER_ADMIN])),
     service: DoctorService = Depends(get_doctor_service)
 ):
     """Create a new doctor"""
@@ -128,7 +128,7 @@ async def get_doctor(
 async def update_doctor(
     doctor_id: str,
     doctor_update: DoctorUpdate,
-    current_user: UserInDB = Depends(require_role([UserRole.ADMIN])),
+    current_user: UserInDB = Depends(require_role([UserRole.ADMIN, UserRole.SUPER_ADMIN])),
     service: DoctorService = Depends(get_doctor_service)
 ):
     """Update doctor"""
@@ -138,7 +138,7 @@ async def update_doctor(
 @doctors_router.delete("/{doctor_id}")
 async def delete_doctor(
     doctor_id: str,
-    current_user: UserInDB = Depends(require_role([UserRole.ADMIN])),
+    current_user: UserInDB = Depends(require_role([UserRole.ADMIN, UserRole.SUPER_ADMIN])),
     service: DoctorService = Depends(get_doctor_service)
 ):
     """Soft delete doctor (mark as inactive)"""
@@ -153,7 +153,7 @@ async def delete_doctor(
 async def create_doctor_schedule(
     doctor_id: str,
     schedule: DoctorScheduleCreate,
-    current_user: UserInDB = Depends(require_role([UserRole.ADMIN]))
+    current_user: UserInDB = Depends(require_role([UserRole.ADMIN, UserRole.SUPER_ADMIN]))
 ):
     """Create doctor's working schedule"""
     # Check if doctor exists - check both _id (for MongoDB ObjectId) and id field
@@ -229,7 +229,7 @@ async def update_doctor_schedule(
     doctor_id: str,
     schedule_id: str,
     schedule_update: DoctorScheduleUpdate,
-    current_user: UserInDB = Depends(require_role([UserRole.ADMIN]))
+    current_user: UserInDB = Depends(require_role([UserRole.ADMIN, UserRole.SUPER_ADMIN]))
 ):
     """Update doctor's working schedule"""
     update_dict = {k: v for k, v in schedule_update.dict().items() if v is not None}
@@ -264,7 +264,7 @@ async def update_doctor_schedule(
 async def delete_doctor_schedule(
     doctor_id: str,
     schedule_id: str,
-    current_user: UserInDB = Depends(require_role([UserRole.ADMIN]))
+    current_user: UserInDB = Depends(require_role([UserRole.ADMIN, UserRole.SUPER_ADMIN]))
 ):
     """Delete doctor's working schedule"""
     result = await db.doctor_schedules.update_one(
