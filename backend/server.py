@@ -54,6 +54,7 @@ app.add_middleware(
     "http://localhost:3001",
     "http://localhost:5173",
     "http://172.19.7.60:5173",
+    "http://89.218.15.72:5173",
         "https://app.emergent.sh",
         "https://medicodebase.preview.emergentagent.com",
         "https://*.emergentagent.com"
