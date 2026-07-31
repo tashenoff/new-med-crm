@@ -107,7 +107,7 @@ const Header = ({ user, onLogout, onToggleSidebar, sidebarOpen, activeSection, s
                 <div className="text-sm text-right hidden sm:block">
                   <div className="font-medium">{user.full_name}</div>
                   <div className="text-xs text-white/70">
-                    {user.role === 'admin' ? 'Администратор' : user.role === 'doctor' ? 'Врач' : 'Пациент'}
+                    {user.role === 'super_admin' ? 'Супер Администратор' : user.role === 'admin' ? 'Администратор' : user.role === 'doctor' ? 'Врач' : 'Пациент'}
                   </div>
                 </div>
 
