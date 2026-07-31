@@ -129,17 +129,21 @@ const WarehouseMaterials = ({ user, viewKey = 'warehouse-materials', onOpenAiCha
     e.preventDefault();
     setLoading(true);
 
+    // Рассчитываем общий остаток как сумму остатков со всех складов
+    const totalBalance = formValues.warehouses.reduce((sum, wh) => 
+      sum + getNumber(wh.min_stock), 0);
+
     const payload = {
       name: formValues.name,
       unit: formValues.unit,
       barcode: formValues.barcode,
       material_type: formValues.material_type,
       is_product: formValues.is_product,
-      start_period: 0,
+      start_period: totalBalance,
       incoming: 0,
       outgoing: 0,
-      inventory: 0,
-      balance: 0,
+      inventory: totalBalance,
+      balance: totalBalance,
       warehouses: formValues.warehouses.map((warehouse) => ({
         warehouse_name: warehouse.warehouse_name,
         min_stock: getNumber(warehouse.min_stock)

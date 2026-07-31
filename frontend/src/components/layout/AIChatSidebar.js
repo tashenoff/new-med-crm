@@ -177,7 +177,18 @@ const AIChatSidebar = ({ isOpen, onClose, badge, showMaterialForm = false, onMat
   const handleMaterialSubmit = async (e) => {
     e.preventDefault();
     if (onMaterialSubmit) {
-      await onMaterialSubmit(materialForm);
+      // Рассчитываем общий остаток как сумму остатков со всех складов
+      const totalBalance = materialForm.warehouses.reduce((sum, wh) => 
+        sum + (parseFloat(wh.min_stock) || 0), 0);
+      
+      const submittedData = {
+        ...materialForm,
+        balance: totalBalance,
+        start_period: totalBalance,
+        inventory: totalBalance
+      };
+      
+      await onMaterialSubmit(submittedData);
     }
   };
 
