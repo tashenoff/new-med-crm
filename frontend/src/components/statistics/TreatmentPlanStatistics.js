@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import PanelHeader from '../common/PanelHeader';
 
 const TreatmentPlanStatistics = () => {
   const [statistics, setStatistics] = useState(null);
@@ -160,44 +161,46 @@ const TreatmentPlanStatistics = () => {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="flex justify-between items-center">
-        <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Статистика планов лечения</h1>
-        
-        {/* Date Filter */}
-        <div className="flex items-center space-x-4">
-          <div className="flex items-center space-x-2">
-            <label className="text-sm font-medium text-gray-700">От:</label>
-            <input
-              type="date"
-              value={dateFrom}
-              onChange={(e) => setDateFrom(e.target.value)}
-              className="px-3 py-1 border border-gray-300 rounded text-sm"
-            />
+      <div className={`calendar-container calendar-view-panel rounded-2xl`}>
+        <PanelHeader
+          title="Планы лечения"
+          subtitle="Статистика и аналитика планов лечения пациентов"
+        />
+
+        <div className="bg-white dark:bg-gray-800 rounded-b-2xl border border-t-0 border-gray-200 dark:border-gray-700 p-4 space-y-4 shadow-sm">
+          {/* Date Filter */}
+          <div className="flex items-center justify-end space-x-4">
+            <div className="flex items-center space-x-2">
+              <label className="text-sm font-medium text-gray-700">От:</label>
+              <input
+                type="date"
+                value={dateFrom}
+                onChange={(e) => setDateFrom(e.target.value)}
+                className="px-3 py-1 border border-gray-300 rounded text-sm"
+              />
+            </div>
+            <div className="flex items-center space-x-2">
+              <label className="text-sm font-medium text-gray-700">До:</label>
+              <input
+                type="date"
+                value={dateTo}
+                onChange={(e) => setDateTo(e.target.value)}
+                className="px-3 py-1 border border-gray-300 rounded text-sm"
+              />
+            </div>
+            <button
+              onClick={handleDateFilter}
+              className="px-4 py-1 bg-blue-600 text-white rounded text-sm hover:bg-blue-700"
+            >
+              Применить
+            </button>
+            <button
+              onClick={resetDateFilter}
+              className="px-4 py-1 bg-gray-300 text-gray-700 rounded text-sm hover:bg-gray-400"
+            >
+              Сбросить
+            </button>
           </div>
-          <div className="flex items-center space-x-2">
-            <label className="text-sm font-medium text-gray-700">До:</label>
-            <input
-              type="date"
-              value={dateTo}
-              onChange={(e) => setDateTo(e.target.value)}
-              className="px-3 py-1 border border-gray-300 rounded text-sm"
-            />
-          </div>
-          <button
-            onClick={handleDateFilter}
-            className="px-4 py-1 bg-blue-600 text-white rounded text-sm hover:bg-blue-700"
-          >
-            Применить
-          </button>
-          <button
-            onClick={resetDateFilter}
-            className="px-4 py-1 bg-gray-300 text-gray-700 rounded text-sm hover:bg-gray-400"
-          >
-            Сбросить
-          </button>
-        </div>
-      </div>
 
       {/* Tabs */}
       <div className="border-b border-gray-200">
@@ -625,6 +628,8 @@ const TreatmentPlanStatistics = () => {
           </div>
         </div>
       )}
+        </div>
+      </div>
     </div>
   );
 };

@@ -17,11 +17,18 @@ export const useAuth = () => {
   return context;
 };
 
+// Helper function to check if error is password expired
+const isPasswordExpiredError = (error) => {
+  return error.response?.status === 401 &&
+         error.response?.data?.detail === 'Password expired';
+};
+
 // Auth Provider
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
   const [token, setToken] = useState(localStorage.getItem('token'));
   const [loading, setLoading] = useState(true);
+  const [showPasswordExpiredModal, setShowPasswordExpiredModal] = useState(false);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -37,14 +44,21 @@ export function AuthProvider({ children }) {
     try {
       const response = await axios.get(`${API}/auth/me`);
       setUser(response.data);
-      
+
       // Если пользователь на корневой странице, перенаправляем на календарь
       if (window.location.pathname === '/') {
         navigate('/calendar');
       }
     } catch (error) {
       console.error('Failed to fetch current user:', error);
-      logout();
+
+      // Check if password is expired
+      if (isPasswordExpiredError(error)) {
+        setShowPasswordExpiredModal(true);
+        setUser({ email: error.config?.headers?.Authorization ? 'user' : null }); // Keep minimal user info
+      } else {
+        logout();
+      }
     }
     setLoading(false);
   };
@@ -102,13 +116,21 @@ export function AuthProvider({ children }) {
     delete axios.defaults.headers.common['Authorization'];
   };
 
+  const handlePasswordChanged = () => {
+    setShowPasswordExpiredModal(false);
+    // Re-fetch user data to get updated info
+    fetchCurrentUser();
+  };
+
   const value = {
     user,
     token,
     login,
     register,
     logout,
-    loading
+    loading,
+    showPasswordExpiredModal,
+    handlePasswordChanged
   };
 
   return (

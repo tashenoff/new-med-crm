@@ -1,0 +1,1606 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<table>
+  <row>
+    <id>29031124</id>
+    <date>2026-01-28</date>
+    <type>1</type>
+    <doctor>
+      <id>33447</id>
+      <name>Возврат переплаты (аванса)</name>
+    </doctor>
+    <admin>
+      <id>2_2208</id>
+      <name>Администратор Nazerke</name>
+    </admin>
+    <patient>
+      <id>5317317</id>
+      <name>Мурзин Дмитрий Олегович</name>
+      <iin>920601050501</iin>
+      <birth>1992-06-01</birth>
+      <phone>+7 (912) 645-30-72</phone>
+    </patient>
+    <paid>0</paid>
+    <dolg>2000</dolg>
+    <overpay>0</overpay>
+    <pays/>
+    <uslugi>
+      <usluga>
+        <name>Возврат переплаты (аванса) пациенту</name>
+        <price>2000</price>
+        <count>1</count>
+        <discountSumm>0</discountSumm>
+        <itogo>2000</itogo>
+        <id>-1</id>
+      </usluga>
+    </uslugi>
+  </row>
+  <row>
+    <id>29031000</id>
+    <date>2026-01-28</date>
+    <type>1</type>
+    <doctor>
+      <id>8299</id>
+      <name>Внесение суммы</name>
+    </doctor>
+    <admin>
+      <id>2_2208</id>
+      <name>Администратор Nazerke</name>
+    </admin>
+    <patient>
+      <id>5317317</id>
+      <name>Мурзин Дмитрий Олегович</name>
+      <iin>920601050501</iin>
+      <birth>1992-06-01</birth>
+      <phone>+7 (912) 645-30-72</phone>
+    </patient>
+    <paid>2000</paid>
+    <dolg>0</dolg>
+    <overpay>2000</overpay>
+    <pays>
+      <pay>
+        <type>QR-код</type>
+        <paid>2000</paid>
+      </pay>
+    </pays>
+    <uslugi/>
+  </row>
+  <row>
+    <id>29031055</id>
+    <date>2026-01-28</date>
+    <type>1</type>
+    <doctor>
+      <id>8299</id>
+      <name>Внесение суммы</name>
+    </doctor>
+    <admin>
+      <id>2_2208</id>
+      <name>Администратор Nazerke</name>
+    </admin>
+    <patient>
+      <id>5317317</id>
+      <name>Мурзин Дмитрий Олегович</name>
+      <iin>920601050501</iin>
+      <birth>1992-06-01</birth>
+      <phone>+7 (912) 645-30-72</phone>
+    </patient>
+    <paid>2000</paid>
+    <dolg>0</dolg>
+    <overpay>2000</overpay>
+    <pays>
+      <pay>
+        <type>QR-код</type>
+        <paid>2000</paid>
+      </pay>
+    </pays>
+    <uslugi/>
+  </row>
+  <row>
+    <id>29031665</id>
+    <date>2026-01-28</date>
+    <type>1</type>
+    <doctor>
+      <id>8299</id>
+      <name>Внесение суммы</name>
+    </doctor>
+    <admin>
+      <id>2_2208</id>
+      <name>Администратор Nazerke</name>
+    </admin>
+    <patient>
+      <id>9113969</id>
+      <name>Сермаганбетова Макпал Еркиновна</name>
+      <phone>+7 (700) 712-21-19</phone>
+    </patient>
+    <paid>2000</paid>
+    <dolg>0</dolg>
+    <overpay>2000</overpay>
+    <pays>
+      <pay>
+        <type>QR-код</type>
+        <paid>2000</paid>
+      </pay>
+    </pays>
+    <uslugi/>
+  </row>
+  <row>
+    <id>29032675</id>
+    <date>2026-01-28</date>
+    <type>1</type>
+    <doctor>
+      <id>8299</id>
+      <name>Внесение суммы</name>
+    </doctor>
+    <admin>
+      <id>2_2208</id>
+      <name>Администратор Nazerke</name>
+    </admin>
+    <patient>
+      <id>9114208</id>
+      <name>Байгараева Асель Едильбайкызы</name>
+      <phone>+7 (700) 520-52-00</phone>
+    </patient>
+    <paid>2000</paid>
+    <dolg>0</dolg>
+    <overpay>2000</overpay>
+    <pays>
+      <pay>
+        <type>QR-код</type>
+        <paid>2000</paid>
+      </pay>
+    </pays>
+    <uslugi/>
+  </row>
+  <row>
+    <id>29038534</id>
+    <date>2026-01-28</date>
+    <type>1</type>
+    <doctor>
+      <id>8299</id>
+      <name>Внесение суммы</name>
+    </doctor>
+    <admin>
+      <id>2_2208</id>
+      <name>Администратор Nazerke</name>
+    </admin>
+    <patient>
+      <id>4558043</id>
+      <name>Ибрайханов Мурат Сериккалиевич</name>
+      <iin>970507350063</iin>
+      <birth>1997-05-07</birth>
+      <phone>+7 (775) 484-94-49</phone>
+    </patient>
+    <paid>2000</paid>
+    <dolg>0</dolg>
+    <overpay>2000</overpay>
+    <pays>
+      <pay>
+        <type>QR-код</type>
+        <paid>2000</paid>
+      </pay>
+    </pays>
+    <uslugi/>
+  </row>
+  <row>
+    <id>29042191</id>
+    <date>2026-01-28</date>
+    <type>1</type>
+    <doctor>
+      <id>8299</id>
+      <name>Внесение суммы</name>
+    </doctor>
+    <admin>
+      <id>2_2208</id>
+      <name>Администратор Nazerke</name>
+    </admin>
+    <patient>
+      <id>9116715</id>
+      <name>Байменова Назгуль Адилхановна</name>
+      <phone>+7 (777) 011-33-66</phone>
+    </patient>
+    <paid>2000</paid>
+    <dolg>0</dolg>
+    <overpay>2000</overpay>
+    <pays>
+      <pay>
+        <type>QR-код</type>
+        <paid>2000</paid>
+      </pay>
+    </pays>
+    <uslugi/>
+  </row>
+  <row>
+    <id>29042489</id>
+    <date>2026-01-28</date>
+    <type>1</type>
+    <doctor>
+      <id>8299</id>
+      <name>Внесение суммы</name>
+    </doctor>
+    <admin>
+      <id>2_2208</id>
+      <name>Администратор Nazerke</name>
+    </admin>
+    <patient>
+      <id>9029929</id>
+      <name>Кочуганова Яна Витальевна</name>
+      <phone>+7 (705) 634-91-57</phone>
+    </patient>
+    <paid>2000</paid>
+    <dolg>0</dolg>
+    <overpay>2000</overpay>
+    <pays>
+      <pay>
+        <type>QR-код</type>
+        <paid>2000</paid>
+      </pay>
+    </pays>
+    <uslugi/>
+  </row>
+  <row>
+    <id>29042618</id>
+    <date>2026-01-28</date>
+    <type>1</type>
+    <doctor>
+      <id>8299</id>
+      <name>Внесение суммы</name>
+    </doctor>
+    <admin>
+      <id>2_2208</id>
+      <name>Администратор Nazerke</name>
+    </admin>
+    <patient>
+      <id>9116808</id>
+      <name>Дудевич Олег Владимирович</name>
+      <phone>+7 (701) 769-51-98</phone>
+    </patient>
+    <paid>2000</paid>
+    <dolg>0</dolg>
+    <overpay>2000</overpay>
+    <pays>
+      <pay>
+        <type>QR-код</type>
+        <paid>2000</paid>
+      </pay>
+    </pays>
+    <uslugi/>
+  </row>
+  <row>
+    <id>29029663</id>
+    <date>2026-01-28</date>
+    <type>1</type>
+    <doctor>
+      <id>7587</id>
+      <name>Аллерго</name>
+    </doctor>
+    <admin>
+      <id>2_2208</id>
+      <name>Администратор Nazerke</name>
+    </admin>
+    <patient>
+      <id>9113416</id>
+      <name>Қылышбай Самира Қуанышқызы</name>
+      <iin>190119601834</iin>
+      <birth>2019-01-19</birth>
+      <phone>+7 (778) 713-00-02</phone>
+    </patient>
+    <paid>11000</paid>
+    <dolg>0</dolg>
+    <overpay>0</overpay>
+    <pays>
+      <pay>
+        <type>QR-код</type>
+        <paid>11000</paid>
+      </pay>
+    </pays>
+    <uslugi>
+      <usluga>
+        <name>аллергопроба (2раб дня)</name>
+        <price>5000</price>
+        <count>2</count>
+        <discountSumm>0</discountSumm>
+        <itogo>10000</itogo>
+        <id>519075</id>
+      </usluga>
+      <usluga>
+        <name>Забор биоматериала</name>
+        <price>1000</price>
+        <count>1</count>
+        <discountSumm>0</discountSumm>
+        <itogo>1000</itogo>
+        <id>519352</id>
+      </usluga>
+    </uslugi>
+  </row>
+  <row>
+    <id>29034510</id>
+    <date>2026-01-28</date>
+    <type>1</type>
+    <doctor>
+      <id>30596</id>
+      <name>Дневной стационар</name>
+    </doctor>
+    <admin>
+      <id>2_2208</id>
+      <name>Администратор Nazerke</name>
+    </admin>
+    <patient>
+      <id>8603016</id>
+      <name>Маркс Бекбол Алтаевич </name>
+      <phone>+7 (705) 612-88-40</phone>
+    </patient>
+    <paid>2000</paid>
+    <dolg>0</dolg>
+    <overpay>0</overpay>
+    <pays>
+      <pay>
+        <type>Наличные</type>
+        <paid>2000</paid>
+      </pay>
+    </pays>
+    <uslugi>
+      <usluga>
+        <name>система в/в</name>
+        <price>1500</price>
+        <count>1</count>
+        <discountSumm>0</discountSumm>
+        <itogo>1500</itogo>
+        <id>519989</id>
+      </usluga>
+      <usluga>
+        <name>замена флакона</name>
+        <price>500</price>
+        <count>1</count>
+        <discountSumm>0</discountSumm>
+        <itogo>500</itogo>
+        <id>519363</id>
+      </usluga>
+    </uslugi>
+  </row>
+  <row>
+    <id>29029759</id>
+    <date>2026-01-28</date>
+    <type>1</type>
+    <doctor>
+      <id>7587</id>
+      <name>Аллерго</name>
+    </doctor>
+    <admin>
+      <id>2_2208</id>
+      <name>Администратор Nazerke</name>
+    </admin>
+    <patient>
+      <id>9113439</id>
+      <name>Сагатдинов Алим Азаматович</name>
+      <iin>161012500092</iin>
+      <birth>2016-10-12</birth>
+      <phone>+7 (700) 080-58-78</phone>
+    </patient>
+    <paid>6000</paid>
+    <dolg>0</dolg>
+    <overpay>0</overpay>
+    <pays>
+      <pay>
+        <type>QR-код</type>
+        <paid>6000</paid>
+      </pay>
+    </pays>
+    <uslugi>
+      <usluga>
+        <name>аллергопроба (2раб дня)</name>
+        <price>5000</price>
+        <count>1</count>
+        <discountSumm>0</discountSumm>
+        <itogo>5000</itogo>
+        <id>519075</id>
+      </usluga>
+      <usluga>
+        <name>Забор биоматериала</name>
+        <price>1000</price>
+        <count>1</count>
+        <discountSumm>0</discountSumm>
+        <itogo>1000</itogo>
+        <id>519352</id>
+      </usluga>
+    </uslugi>
+  </row>
+  <row>
+    <id>29035167</id>
+    <date>2026-01-28</date>
+    <type>1</type>
+    <doctor>
+      <id>30596</id>
+      <name>Дневной стационар</name>
+    </doctor>
+    <admin>
+      <id>2_2208</id>
+      <name>Администратор Nazerke</name>
+    </admin>
+    <patient>
+      <id>8978302</id>
+      <name>Рысжан Кусаинова</name>
+      <phone>+7 (701) 551-58-40</phone>
+    </patient>
+    <paid>2500</paid>
+    <dolg>0</dolg>
+    <overpay>0</overpay>
+    <pays>
+      <pay>
+        <type>Терминал</type>
+        <paid>2500</paid>
+      </pay>
+    </pays>
+    <uslugi>
+      <usluga>
+        <name>система в/в</name>
+        <price>1500</price>
+        <count>1</count>
+        <discountSumm>0</discountSumm>
+        <itogo>1500</itogo>
+        <id>519989</id>
+      </usluga>
+      <usluga>
+        <name>замена флакона</name>
+        <price>500</price>
+        <count>2</count>
+        <discountSumm>0</discountSumm>
+        <itogo>1000</itogo>
+        <id>519363</id>
+      </usluga>
+    </uslugi>
+  </row>
+  <row>
+    <id>28802802</id>
+    <date>2026-01-28</date>
+    <type>1</type>
+    <doctor>
+      <id>21401</id>
+      <name>Сагинов Бахтияр Нуржанович, травматолог</name>
+    </doctor>
+    <admin>
+      <id>2_2208</id>
+      <name>Администратор Nazerke</name>
+    </admin>
+    <patient>
+      <id>2478872</id>
+      <name>Кланова Еркежан Талгатовна</name>
+      <birth>2002-06-28</birth>
+      <phone>+7 (701) 723-10-60</phone>
+    </patient>
+    <paid>33000</paid>
+    <dolg>2000</dolg>
+    <overpay>0</overpay>
+    <pays>
+      <pay>
+        <type>Терминал</type>
+        <paid>33000</paid>
+      </pay>
+    </pays>
+    <uslugi>
+      <usluga>
+        <name>Кортексил 1 пробирка</name>
+        <price>35000</price>
+        <count>1</count>
+        <discountSumm>0</discountSumm>
+        <itogo>35000</itogo>
+        <id>519494</id>
+      </usluga>
+    </uslugi>
+  </row>
+  <row>
+    <id>28974122</id>
+    <date>2026-01-28</date>
+    <type>1</type>
+    <doctor>
+      <id>30551</id>
+      <name>Сулейменова Корлан Бауыржановна, УЗИ</name>
+    </doctor>
+    <admin>
+      <id>2_2208</id>
+      <name>Администратор Nazerke</name>
+    </admin>
+    <patient>
+      <id>9099723</id>
+      <name>Айтпаева Асемгуль</name>
+      <phone>+7 (701) 940-29-79</phone>
+    </patient>
+    <paid>18400</paid>
+    <dolg>0</dolg>
+    <overpay>0</overpay>
+    <pays>
+      <pay>
+        <type>Терминал</type>
+        <paid>18400</paid>
+      </pay>
+    </pays>
+    <uslugi>
+      <usluga>
+        <name>УЗИ органов малого таза у женщин</name>
+        <price>8000</price>
+        <count>1</count>
+        <discountSumm>1600</discountSumm>
+        <itogo>6400</itogo>
+        <id>520096</id>
+      </usluga>
+      <usluga>
+        <name>УЗИ щитовидной железы</name>
+        <price>7000</price>
+        <count>1</count>
+        <discountSumm>1400</discountSumm>
+        <itogo>5600</itogo>
+        <id>520107</id>
+      </usluga>
+      <usluga>
+        <name>УЗИ молочных желез</name>
+        <price>8000</price>
+        <count>1</count>
+        <discountSumm>1600</discountSumm>
+        <itogo>6400</itogo>
+        <id>520091</id>
+      </usluga>
+    </uslugi>
+  </row>
+  <row>
+    <id>29029818</id>
+    <date>2026-01-28</date>
+    <type>1</type>
+    <doctor>
+      <id>7587</id>
+      <name>Аллерго</name>
+    </doctor>
+    <admin>
+      <id>2_2208</id>
+      <name>Администратор Nazerke</name>
+    </admin>
+    <patient>
+      <id>9113464</id>
+      <name>Азатұлы Набиль</name>
+      <iin>210424554279</iin>
+      <birth>2021-04-24</birth>
+    </patient>
+    <paid>11000</paid>
+    <dolg>0</dolg>
+    <overpay>0</overpay>
+    <pays>
+      <pay>
+        <type>Терминал</type>
+        <paid>11000</paid>
+      </pay>
+    </pays>
+    <uslugi>
+      <usluga>
+        <name>аллергопроба (2раб дня)</name>
+        <price>5000</price>
+        <count>2</count>
+        <discountSumm>0</discountSumm>
+        <itogo>10000</itogo>
+        <id>519075</id>
+      </usluga>
+      <usluga>
+        <name>Забор биоматериала</name>
+        <price>1000</price>
+        <count>1</count>
+        <discountSumm>0</discountSumm>
+        <itogo>1000</itogo>
+        <id>519352</id>
+      </usluga>
+    </uslugi>
+  </row>
+  <row>
+    <id>29043382</id>
+    <date>2026-01-28</date>
+    <type>1</type>
+    <doctor>
+      <id>30596</id>
+      <name>Дневной стационар</name>
+    </doctor>
+    <admin>
+      <id>2_2208</id>
+      <name>Администратор Nazerke</name>
+    </admin>
+    <patient>
+      <id>9100485</id>
+      <name>Мухаметжанов Алим Ануарович</name>
+      <iin>090301553323</iin>
+      <birth>2009-03-01</birth>
+      <phone>+7 (705) 198-23-49</phone>
+    </patient>
+    <paid>1500</paid>
+    <dolg>0</dolg>
+    <overpay>0</overpay>
+    <pays>
+      <pay>
+        <type>QR-код</type>
+        <paid>1500</paid>
+      </pay>
+    </pays>
+    <uslugi>
+      <usluga>
+        <name>система в/в</name>
+        <price>1500</price>
+        <count>1</count>
+        <discountSumm>0</discountSumm>
+        <itogo>1500</itogo>
+        <id>519989</id>
+      </usluga>
+    </uslugi>
+  </row>
+  <row>
+    <id>29005369</id>
+    <date>2026-01-28</date>
+    <type>1</type>
+    <doctor>
+      <id>18337</id>
+      <name>Брень Алла Константиновна, гинеколог</name>
+    </doctor>
+    <admin>
+      <id>2_2208</id>
+      <name>Администратор Nazerke</name>
+    </admin>
+    <patient>
+      <id>9022641</id>
+      <name>Не писать</name>
+    </patient>
+    <paid>0</paid>
+    <dolg>0</dolg>
+    <overpay>0</overpay>
+    <pays/>
+    <uslugi/>
+  </row>
+  <row>
+    <id>28975521</id>
+    <date>2026-01-28</date>
+    <type>1</type>
+    <doctor>
+      <id>21401</id>
+      <name>Сагинов Бахтияр Нуржанович, травматолог</name>
+    </doctor>
+    <admin>
+      <id>2_2208</id>
+      <name>Администратор Nazerke</name>
+    </admin>
+    <patient>
+      <id>8939383</id>
+      <name>Аскар Рамазан</name>
+      <phone>+7 (707) 507-00-29</phone>
+    </patient>
+    <paid>35000</paid>
+    <dolg>0</dolg>
+    <overpay>0</overpay>
+    <pays>
+      <pay>
+        <type>QR-код</type>
+        <paid>35000</paid>
+      </pay>
+    </pays>
+    <uslugi>
+      <usluga>
+        <name>Кортексил 1 пробирка</name>
+        <price>35000</price>
+        <count>1</count>
+        <discountSumm>0</discountSumm>
+        <itogo>35000</itogo>
+        <id>519494</id>
+      </usluga>
+    </uslugi>
+  </row>
+  <row>
+    <id>29044793</id>
+    <date>2026-01-28</date>
+    <type>1</type>
+    <doctor>
+      <id>30596</id>
+      <name>Дневной стационар</name>
+    </doctor>
+    <admin>
+      <id>2_2208</id>
+      <name>Администратор Nazerke</name>
+    </admin>
+    <patient>
+      <id>9117413</id>
+      <name>Мухамеджан  Асель</name>
+      <phone>+7 (708) 958-40-14</phone>
+    </patient>
+    <paid>1500</paid>
+    <dolg>0</dolg>
+    <overpay>0</overpay>
+    <pays>
+      <pay>
+        <type>Терминал</type>
+        <paid>1500</paid>
+      </pay>
+    </pays>
+    <uslugi>
+      <usluga>
+        <name>система в/в</name>
+        <price>1500</price>
+        <count>1</count>
+        <discountSumm>0</discountSumm>
+        <itogo>1500</itogo>
+        <id>519989</id>
+      </usluga>
+    </uslugi>
+  </row>
+  <row>
+    <id>28985341</id>
+    <date>2026-01-28</date>
+    <type>1</type>
+    <doctor>
+      <id>21401</id>
+      <name>Сагинов Бахтияр Нуржанович, травматолог</name>
+    </doctor>
+    <admin>
+      <id>2_2208</id>
+      <name>Администратор Nazerke</name>
+    </admin>
+    <patient>
+      <id>9102543</id>
+      <name>Алим Аманжолов</name>
+      <phone>+7 (705) 749-49-73</phone>
+    </patient>
+    <paid>13000</paid>
+    <dolg>2000</dolg>
+    <overpay>0</overpay>
+    <pays>
+      <pay>
+        <type>Терминал</type>
+        <paid>13000</paid>
+      </pay>
+    </pays>
+    <uslugi>
+      <usluga>
+        <name>Консультация doq.kz</name>
+        <price>15000</price>
+        <count>1</count>
+        <discountSumm>0</discountSumm>
+        <itogo>15000</itogo>
+        <id>519479</id>
+      </usluga>
+    </uslugi>
+  </row>
+  <row>
+    <id>29048091</id>
+    <date>2026-01-28</date>
+    <type>1</type>
+    <doctor>
+      <id>30596</id>
+      <name>Дневной стационар</name>
+    </doctor>
+    <admin>
+      <id>2_1563</id>
+      <name>Администратор Medsestra</name>
+    </admin>
+    <patient>
+      <id>9109412</id>
+      <name>Утегенова Уримхан</name>
+      <phone>+7 (775) 658-45-77</phone>
+    </patient>
+    <paid>4400</paid>
+    <dolg>0</dolg>
+    <overpay>0</overpay>
+    <pays>
+      <pay>
+        <type>Не указано</type>
+        <paid>4400</paid>
+      </pay>
+    </pays>
+    <uslugi>
+      <usluga>
+        <name>система в/в</name>
+        <price>1500</price>
+        <count>1</count>
+        <discountSumm>0</discountSumm>
+        <itogo>1500</itogo>
+        <id>519989</id>
+      </usluga>
+      <usluga>
+        <name>замена флакона</name>
+        <price>500</price>
+        <count>2</count>
+        <discountSumm>0</discountSumm>
+        <itogo>1000</itogo>
+        <id>519363</id>
+      </usluga>
+      <usluga>
+        <name>Аскорбиновая кислота 1 ампула</name>
+        <price>100</price>
+        <count>5</count>
+        <discountSumm>0</discountSumm>
+        <itogo>500</itogo>
+        <id>519138</id>
+      </usluga>
+      <usluga>
+        <name>мильгамма</name>
+        <price>700</price>
+        <count>1</count>
+        <discountSumm>0</discountSumm>
+        <itogo>700</itogo>
+        <id>211221</id>
+      </usluga>
+      <usluga>
+        <name>укол внутримышечный</name>
+        <price>700</price>
+        <count>1</count>
+        <discountSumm>0</discountSumm>
+        <itogo>700</itogo>
+        <id>520110</id>
+      </usluga>
+    </uslugi>
+  </row>
+  <row>
+    <id>28993103</id>
+    <date>2026-01-28</date>
+    <type>1</type>
+    <doctor>
+      <id>21401</id>
+      <name>Сагинов Бахтияр Нуржанович, травматолог</name>
+    </doctor>
+    <admin>
+      <id>2_2208</id>
+      <name>Администратор Nazerke</name>
+    </admin>
+    <patient>
+      <id>3005038</id>
+      <name>Джамбаева Баян Султанкуловна </name>
+      <iin>710903450159</iin>
+      <birth>1971-09-03</birth>
+      <phone>+7 (708) 170-05-08</phone>
+    </patient>
+    <paid>13000</paid>
+    <dolg>2000</dolg>
+    <overpay>0</overpay>
+    <pays>
+      <pay>
+        <type>QR-код</type>
+        <paid>13000</paid>
+      </pay>
+    </pays>
+    <uslugi>
+      <usluga>
+        <name>Консультация doq.kz</name>
+        <price>15000</price>
+        <count>1</count>
+        <discountSumm>0</discountSumm>
+        <itogo>15000</itogo>
+        <id>519479</id>
+      </usluga>
+    </uslugi>
+  </row>
+  <row>
+    <id>29030867</id>
+    <date>2026-01-28</date>
+    <type>1</type>
+    <doctor>
+      <id>30551</id>
+      <name>Сулейменова Корлан Бауыржановна, УЗИ</name>
+    </doctor>
+    <admin>
+      <id>2_2208</id>
+      <name>Администратор Nazerke</name>
+    </admin>
+    <patient>
+      <id>5317317</id>
+      <name>Мурзин Дмитрий Олегович</name>
+      <iin>920601050501</iin>
+      <birth>1992-06-01</birth>
+      <phone>+7 (912) 645-30-72</phone>
+    </patient>
+    <paid>14000</paid>
+    <dolg>2000</dolg>
+    <overpay>0</overpay>
+    <pays>
+      <pay>
+        <type>QR-код</type>
+        <paid>14000</paid>
+      </pay>
+    </pays>
+    <uslugi>
+      <usluga>
+        <name>УЗИ почек</name>
+        <price>6000</price>
+        <count>1</count>
+        <discountSumm>0</discountSumm>
+        <itogo>6000</itogo>
+        <id>520102</id>
+      </usluga>
+      <usluga>
+        <name>УЗИ органов брюшной полости</name>
+        <price>10000</price>
+        <count>1</count>
+        <discountSumm>0</discountSumm>
+        <itogo>10000</itogo>
+        <id>520095</id>
+      </usluga>
+    </uslugi>
+  </row>
+  <row>
+    <id>29050600</id>
+    <date>2026-01-28</date>
+    <type>1</type>
+    <doctor>
+      <id>30596</id>
+      <name>Дневной стационар</name>
+    </doctor>
+    <admin>
+      <id>2_1563</id>
+      <name>Администратор Medsestra</name>
+    </admin>
+    <patient>
+      <id>9105966</id>
+      <name>Вадудова Марина</name>
+      <phone>+7 (708) 156-87-03</phone>
+    </patient>
+    <paid>6700</paid>
+    <dolg>0</dolg>
+    <overpay>0</overpay>
+    <pays>
+      <pay>
+        <type>Не указано</type>
+        <paid>6700</paid>
+      </pay>
+    </pays>
+    <uslugi>
+      <usluga>
+        <name>система в/в</name>
+        <price>1500</price>
+        <count>1</count>
+        <discountSumm>0</discountSumm>
+        <itogo>1500</itogo>
+        <id>519989</id>
+      </usluga>
+      <usluga>
+        <name>система для капельницы</name>
+        <price>400</price>
+        <count>1</count>
+        <discountSumm>0</discountSumm>
+        <itogo>400</itogo>
+        <id>39725</id>
+      </usluga>
+      <usluga>
+        <name>замена флакона</name>
+        <price>500</price>
+        <count>1</count>
+        <discountSumm>0</discountSumm>
+        <itogo>500</itogo>
+        <id>519363</id>
+      </usluga>
+      <usluga>
+        <name>Физиологический раствор 1 бутыль</name>
+        <price>500</price>
+        <count>2</count>
+        <discountSumm>0</discountSumm>
+        <itogo>1000</itogo>
+        <id>39696</id>
+      </usluga>
+      <usluga>
+        <name>шприц 5мл</name>
+        <price>100</price>
+        <count>2</count>
+        <discountSumm>0</discountSumm>
+        <itogo>200</itogo>
+        <id>520195</id>
+      </usluga>
+      <usluga>
+        <name>Ксефокам 8мг 1 ампула</name>
+        <price>2000</price>
+        <count>1</count>
+        <discountSumm>0</discountSumm>
+        <itogo>2000</itogo>
+        <id>519514</id>
+      </usluga>
+      <usluga>
+        <name>Л-лизина эсценат (амп)</name>
+        <price>1100</price>
+        <count>1</count>
+        <discountSumm>0</discountSumm>
+        <itogo>1100</itogo>
+        <id>519520</id>
+      </usluga>
+    </uslugi>
+  </row>
+  <row>
+    <id>29014515</id>
+    <date>2026-01-28</date>
+    <type>1</type>
+    <doctor>
+      <id>21401</id>
+      <name>Сагинов Бахтияр Нуржанович, травматолог</name>
+    </doctor>
+    <admin>
+      <id>2_2208</id>
+      <name>Администратор Nazerke</name>
+    </admin>
+    <patient>
+      <id>6713512</id>
+      <name>Авсаткаринов Арсен Маратович</name>
+      <iin>020608550375</iin>
+      <birth>2002-06-08</birth>
+      <phone>+7 (708) 494-82-75</phone>
+    </patient>
+    <paid>8000</paid>
+    <dolg>2000</dolg>
+    <overpay>0</overpay>
+    <pays>
+      <pay>
+        <type>QR-код</type>
+        <paid>8000</paid>
+      </pay>
+    </pays>
+    <uslugi>
+      <usluga>
+        <name>консультация первичная</name>
+        <price>10000</price>
+        <count>1</count>
+        <discountSumm>0</discountSumm>
+        <itogo>10000</itogo>
+        <id>519481</id>
+      </usluga>
+    </uslugi>
+  </row>
+  <row>
+    <id>29002325</id>
+    <date>2026-01-28</date>
+    <type>1</type>
+    <doctor>
+      <id>21401</id>
+      <name>Сагинов Бахтияр Нуржанович, травматолог</name>
+    </doctor>
+    <admin>
+      <id>2_2208</id>
+      <name>Администратор Nazerke</name>
+    </admin>
+    <patient>
+      <id>9106781</id>
+      <name>Мукан Садуов</name>
+      <phone>+7 (777) 763-33-33</phone>
+    </patient>
+    <paid>30000</paid>
+    <dolg>0</dolg>
+    <overpay>0</overpay>
+    <pays>
+      <pay>
+        <type>Терминал</type>
+        <paid>30000</paid>
+      </pay>
+    </pays>
+    <uslugi>
+      <usluga>
+        <name>Блокада</name>
+        <price>15000</price>
+        <count>1</count>
+        <discountSumm>0</discountSumm>
+        <itogo>15000</itogo>
+        <id>519206</id>
+      </usluga>
+      <usluga>
+        <name>Консультация doq.kz</name>
+        <price>15000</price>
+        <count>1</count>
+        <discountSumm>0</discountSumm>
+        <itogo>15000</itogo>
+        <id>519479</id>
+      </usluga>
+    </uslugi>
+  </row>
+  <row>
+    <id>28985314</id>
+    <date>2026-01-28</date>
+    <type>1</type>
+    <doctor>
+      <id>30551</id>
+      <name>Сулейменова Корлан Бауыржановна, УЗИ</name>
+    </doctor>
+    <admin>
+      <id>2_2208</id>
+      <name>Администратор Nazerke</name>
+    </admin>
+    <patient>
+      <id>1090187</id>
+      <name>Панченко Инна</name>
+      <iin>970802450599</iin>
+      <phone>+7 (771) 834-62-34</phone>
+    </patient>
+    <paid>5000</paid>
+    <dolg>2000</dolg>
+    <overpay>0</overpay>
+    <pays>
+      <pay>
+        <type>Терминал</type>
+        <paid>5000</paid>
+      </pay>
+    </pays>
+    <uslugi>
+      <usluga>
+        <name>УЗИ щитовидной железы</name>
+        <price>7000</price>
+        <count>1</count>
+        <discountSumm>0</discountSumm>
+        <itogo>7000</itogo>
+        <id>520107</id>
+      </usluga>
+    </uslugi>
+  </row>
+  <row>
+    <id>28986569</id>
+    <date>2026-01-28</date>
+    <type>1</type>
+    <doctor>
+      <id>3178</id>
+      <name>Сабиева Анель Сайрановна, стоматолог</name>
+    </doctor>
+    <admin>
+      <id>3_3178</id>
+      <name>Врач Сабиева Анель Сайрановна, стоматолог</name>
+    </admin>
+    <patient>
+      <id>9085474</id>
+      <name>Абишева Гульмира</name>
+    </patient>
+    <paid>0</paid>
+    <dolg>0</dolg>
+    <overpay>0</overpay>
+    <pays/>
+    <uslugi/>
+  </row>
+  <row>
+    <id>29002994</id>
+    <date>2026-01-28</date>
+    <type>1</type>
+    <doctor>
+      <id>21401</id>
+      <name>Сагинов Бахтияр Нуржанович, травматолог</name>
+    </doctor>
+    <admin>
+      <id>2_2208</id>
+      <name>Администратор Nazerke</name>
+    </admin>
+    <patient>
+      <id>9023222</id>
+      <name>Габдуллина Раиса Михайловна</name>
+      <phone>+7 (777) 921-96-42</phone>
+    </patient>
+    <paid>358000</paid>
+    <dolg>2000</dolg>
+    <overpay>0</overpay>
+    <pays>
+      <pay>
+        <type>Наличные</type>
+        <paid>358000</paid>
+      </pay>
+    </pays>
+    <uslugi>
+      <usluga>
+        <name>SVF терапия (1 сустав)</name>
+        <price>360000</price>
+        <count>1</count>
+        <discountSumm>0</discountSumm>
+        <itogo>360000</itogo>
+        <id>519049</id>
+      </usluga>
+    </uslugi>
+  </row>
+  <row>
+    <id>28969619</id>
+    <date>2026-01-28</date>
+    <type>1</type>
+    <doctor>
+      <id>2253</id>
+      <name>Войчишин Владимир Владимирович, уролог</name>
+    </doctor>
+    <admin>
+      <id>2_2208</id>
+      <name>Администратор Nazerke</name>
+    </admin>
+    <patient>
+      <id>8151721</id>
+      <name>Ковалев Павел</name>
+      <phone>+7 (705) 585-87-11</phone>
+    </patient>
+    <paid>21000</paid>
+    <dolg>2000</dolg>
+    <overpay>0</overpay>
+    <pays>
+      <pay>
+        <type>Терминал</type>
+        <paid>21000</paid>
+      </pay>
+    </pays>
+    <uslugi>
+      <usluga>
+        <name>консультация первичная</name>
+        <price>15000</price>
+        <count>1</count>
+        <discountSumm>0</discountSumm>
+        <itogo>15000</itogo>
+        <id>214305</id>
+      </usluga>
+      <usluga>
+        <name>УЗИ предстательной железы, ТРУЗИ</name>
+        <price>8000</price>
+        <count>1</count>
+        <discountSumm>0</discountSumm>
+        <itogo>8000</itogo>
+        <id>520103</id>
+      </usluga>
+    </uslugi>
+  </row>
+  <row>
+    <id>29042898</id>
+    <date>2026-01-28</date>
+    <type>1</type>
+    <doctor>
+      <id>2253</id>
+      <name>Войчишин Владимир Владимирович, уролог</name>
+    </doctor>
+    <admin>
+      <id>2_2208</id>
+      <name>Администратор Nazerke</name>
+    </admin>
+    <patient>
+      <id>9049139</id>
+      <name>Санин Виталий Викторович</name>
+      <iin>901019350080</iin>
+      <birth>1990-10-19</birth>
+      <phone>+7 (776) 140-46-70</phone>
+    </patient>
+    <paid>7000</paid>
+    <dolg>0</dolg>
+    <overpay>0</overpay>
+    <pays>
+      <pay>
+        <type>Терминал</type>
+        <paid>7000</paid>
+      </pay>
+    </pays>
+    <uslugi>
+      <usluga>
+        <name>консультация повторная</name>
+        <price>7000</price>
+        <count>1</count>
+        <discountSumm>0</discountSumm>
+        <itogo>7000</itogo>
+        <id>519483</id>
+      </usluga>
+    </uslugi>
+  </row>
+  <row>
+    <id>29033202</id>
+    <date>2026-01-28</date>
+    <type>1</type>
+    <doctor>
+      <id>2253</id>
+      <name>Войчишин Владимир Владимирович, уролог</name>
+    </doctor>
+    <admin>
+      <id>2_2208</id>
+      <name>Администратор Nazerke</name>
+    </admin>
+    <patient>
+      <id>4558043</id>
+      <name>Ибрайханов Мурат Сериккалиевич</name>
+      <iin>970507350063</iin>
+      <birth>1997-05-07</birth>
+      <phone>+7 (775) 484-94-49</phone>
+    </patient>
+    <paid>8000</paid>
+    <dolg>2000</dolg>
+    <overpay>0</overpay>
+    <pays>
+      <pay>
+        <type>QR-код</type>
+        <paid>8000</paid>
+      </pay>
+    </pays>
+    <uslugi>
+      <usluga>
+        <name>консультация первичная</name>
+        <price>10000</price>
+        <count>1</count>
+        <discountSumm>0</discountSumm>
+        <itogo>10000</itogo>
+        <id>519481</id>
+      </usluga>
+    </uslugi>
+  </row>
+  <row>
+    <id>28999221</id>
+    <date>2026-01-28</date>
+    <type>1</type>
+    <doctor>
+      <id>2250</id>
+      <name>Балгазаров Аманжол Серикович, травматолог</name>
+    </doctor>
+    <admin>
+      <id>4_89</id>
+      <name>Директор Аманжол Серикович</name>
+    </admin>
+    <patient>
+      <id>9105966</id>
+      <name>Вадудова Марина</name>
+      <phone>+7 (708) 156-87-03</phone>
+    </patient>
+    <paid>10000</paid>
+    <dolg>0</dolg>
+    <overpay>0</overpay>
+    <pays>
+      <pay>
+        <type>Не указано</type>
+        <paid>10000</paid>
+      </pay>
+    </pays>
+    <uslugi>
+      <usluga>
+        <name>консультация первичная</name>
+        <price>10000</price>
+        <count>1</count>
+        <discountSumm>0</discountSumm>
+        <itogo>10000</itogo>
+        <id>519481</id>
+      </usluga>
+    </uslugi>
+  </row>
+  <row>
+    <id>29046035</id>
+    <date>2026-01-28</date>
+    <type>1</type>
+    <doctor>
+      <id>2253</id>
+      <name>Войчишин Владимир Владимирович, уролог</name>
+    </doctor>
+    <admin>
+      <id>2_2208</id>
+      <name>Администратор Nazerke</name>
+    </admin>
+    <patient>
+      <id>9053754</id>
+      <name>Ракимжанов Айдар</name>
+      <phone>+7 (707) 864-87-83</phone>
+    </patient>
+    <paid>7000</paid>
+    <dolg>0</dolg>
+    <overpay>0</overpay>
+    <pays>
+      <pay>
+        <type>Наличные</type>
+        <paid>7000</paid>
+      </pay>
+    </pays>
+    <uslugi>
+      <usluga>
+        <name>консультация повторная</name>
+        <price>7000</price>
+        <count>1</count>
+        <discountSumm>0</discountSumm>
+        <itogo>7000</itogo>
+        <id>519483</id>
+      </usluga>
+    </uslugi>
+  </row>
+  <row>
+    <id>28839130</id>
+    <date>2026-01-28</date>
+    <type>1</type>
+    <doctor>
+      <id>35143</id>
+      <name>Кусманов Ержан Куандыкович, стоматолог</name>
+    </doctor>
+    <admin>
+      <id>3_35143</id>
+      <name>Врач Кусманов Ержан Куандыкович, стоматолог</name>
+    </admin>
+    <patient>
+      <id>8954312</id>
+      <name>Муханбет Зере</name>
+    </patient>
+    <paid>0</paid>
+    <dolg>0</dolg>
+    <overpay>0</overpay>
+    <pays/>
+    <uslugi/>
+  </row>
+  <row>
+    <id>29042425</id>
+    <date>2026-01-28</date>
+    <type>1</type>
+    <doctor>
+      <id>2253</id>
+      <name>Войчишин Владимир Владимирович, уролог</name>
+    </doctor>
+    <admin>
+      <id>2_2208</id>
+      <name>Администратор Nazerke</name>
+    </admin>
+    <patient>
+      <id>9116808</id>
+      <name>Дудевич Олег Владимирович</name>
+      <phone>+7 (701) 769-51-98</phone>
+    </patient>
+    <paid>0</paid>
+    <dolg>0</dolg>
+    <overpay>0</overpay>
+    <pays/>
+    <uslugi/>
+  </row>
+  <row>
+    <id>29013498</id>
+    <date>2026-01-28</date>
+    <type>1</type>
+    <doctor>
+      <id>26737</id>
+      <name>Балхожаева Алия Аскаровна, онкогинеколог</name>
+    </doctor>
+    <admin>
+      <id>2_2208</id>
+      <name>Администратор Nazerke</name>
+    </admin>
+    <patient>
+      <id>9109568</id>
+      <name>Куттыкадам Нурия</name>
+      <phone>+7 (870) 289-39-75</phone>
+    </patient>
+    <paid>0</paid>
+    <dolg>0</dolg>
+    <overpay>0</overpay>
+    <pays/>
+    <uslugi/>
+  </row>
+  <row>
+    <id>28978299</id>
+    <date>2026-01-28</date>
+    <type>1</type>
+    <doctor>
+      <id>2253</id>
+      <name>Войчишин Владимир Владимирович, уролог</name>
+    </doctor>
+    <admin>
+      <id>2_2208</id>
+      <name>Администратор Nazerke</name>
+    </admin>
+    <patient>
+      <id>4270880</id>
+      <name>Сеитова Бакытгуль Кыдырбаевна</name>
+      <iin>891103451146</iin>
+      <birth>1989-11-03</birth>
+      <phone>+7 (702) 209-43-09</phone>
+    </patient>
+    <paid>0</paid>
+    <dolg>0</dolg>
+    <overpay>0</overpay>
+    <pays/>
+    <uslugi/>
+  </row>
+  <row>
+    <id>28827227</id>
+    <date>2026-01-28</date>
+    <type>1</type>
+    <doctor>
+      <id>26737</id>
+      <name>Балхожаева Алия Аскаровна, онкогинеколог</name>
+    </doctor>
+    <admin>
+      <id>2_6380</id>
+      <name>Администратор Adilia</name>
+    </admin>
+    <patient>
+      <id>9055592</id>
+      <name>Ақан Алтынай Алтайқызы</name>
+      <birth>1997-09-25</birth>
+      <phone>+7 (702) 837-27-03</phone>
+    </patient>
+    <paid>0</paid>
+    <dolg>0</dolg>
+    <overpay>0</overpay>
+    <pays/>
+    <uslugi/>
+  </row>
+  <row>
+    <id>28614639</id>
+    <date>2026-01-28</date>
+    <type>1</type>
+    <doctor>
+      <id>35143</id>
+      <name>Кусманов Ержан Куандыкович, стоматолог</name>
+    </doctor>
+    <admin>
+      <id>3_35143</id>
+      <name>Врач Кусманов Ержан Куандыкович, стоматолог</name>
+    </admin>
+    <patient>
+      <id>8820475</id>
+      <name>Ерболат Ансар</name>
+    </patient>
+    <paid>0</paid>
+    <dolg>0</dolg>
+    <overpay>0</overpay>
+    <pays/>
+    <uslugi/>
+  </row>
+  <row>
+    <id>29041791</id>
+    <date>2026-01-28</date>
+    <type>1</type>
+    <doctor>
+      <id>2253</id>
+      <name>Войчишин Владимир Владимирович, уролог</name>
+    </doctor>
+    <admin>
+      <id>2_2208</id>
+      <name>Администратор Nazerke</name>
+    </admin>
+    <patient>
+      <id>6479485</id>
+      <name>не записывать</name>
+    </patient>
+    <paid>0</paid>
+    <dolg>0</dolg>
+    <overpay>0</overpay>
+    <pays/>
+    <uslugi/>
+  </row>
+  <row>
+    <id>28832023</id>
+    <date>2026-01-28</date>
+    <type>1</type>
+    <doctor>
+      <id>39698</id>
+      <name>Жалел Жанболат Даулетұлы</name>
+    </doctor>
+    <admin>
+      <id>2_2208</id>
+      <name>Администратор Nazerke</name>
+    </admin>
+    <patient>
+      <id>8202964</id>
+      <name>Алтынай Ашимгазыновна</name>
+      <phone>+7 (705) 631-38-78</phone>
+    </patient>
+    <paid>0</paid>
+    <dolg>0</dolg>
+    <overpay>0</overpay>
+    <pays/>
+    <uslugi/>
+  </row>
+  <row>
+    <id>28844359</id>
+    <date>2026-01-28</date>
+    <type>1</type>
+    <doctor>
+      <id>35143</id>
+      <name>Кусманов Ержан Куандыкович, стоматолог</name>
+    </doctor>
+    <admin>
+      <id>3_35143</id>
+      <name>Врач Кусманов Ержан Куандыкович, стоматолог</name>
+    </admin>
+    <patient>
+      <id>8288820</id>
+      <name>Канапьянова Лаура</name>
+    </patient>
+    <paid>0</paid>
+    <dolg>0</dolg>
+    <overpay>0</overpay>
+    <pays/>
+    <uslugi/>
+  </row>
+  <row>
+    <id>28901970</id>
+    <date>2026-01-28</date>
+    <type>1</type>
+    <doctor>
+      <id>35143</id>
+      <name>Кусманов Ержан Куандыкович, стоматолог</name>
+    </doctor>
+    <admin>
+      <id>3_35143</id>
+      <name>Врач Кусманов Ержан Куандыкович, стоматолог</name>
+    </admin>
+    <patient>
+      <id>7242124</id>
+      <name>Сайлыбаева Гульназ</name>
+    </patient>
+    <paid>0</paid>
+    <dolg>0</dolg>
+    <overpay>0</overpay>
+    <pays/>
+    <uslugi/>
+  </row>
+</table>

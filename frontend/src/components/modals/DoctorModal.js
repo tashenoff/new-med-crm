@@ -277,7 +277,8 @@ const DoctorModal = ({
           const formDataWithServices = {
             ...doctorForm,
             services: servicesData,
-            payment_mode: paymentMode // Добавляем информацию о режиме оплаты
+            payment_mode: paymentMode, // Добавляем информацию о режиме оплаты
+            editingItem: editingItem
           };
           
           console.log('🚀 ФИНАЛЬНЫЕ ДАННЫЕ ДЛЯ ОТПРАВКИ НА СЕРВЕР:');

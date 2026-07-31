@@ -124,6 +124,16 @@ export const useCrmApi = () => {
     getByManager: useCallback(async (managerId) => {
       return await apiCall('GET', `/leads/manager/${managerId}`);
     }, [apiCall]),
+
+    // Получить задачи для лида
+    getTasks: useCallback(async (leadId) => {
+      return await apiCall('GET', `/leads/${leadId}/tasks`);
+    }, [apiCall]),
+
+    // Назначить прием из заявки
+    scheduleAppointment: useCallback(async (leadId, appointmentData) => {
+      return await apiCall('POST', `/leads/${leadId}/schedule-appointment`, appointmentData);
+    }, [apiCall]),
   };
 
   // ==================== CLIENTS API ====================
@@ -272,6 +282,60 @@ export const useCrmApi = () => {
     },
   }), [apiCall]);
 
+  // ==================== TASKS API ====================
+  
+  const tasks = {
+    // Получить список задач
+    getAll: useCallback(async (params = {}) => {
+      const queryParams = new URLSearchParams();
+      
+      Object.entries(params).forEach(([key, value]) => {
+        if (value !== null && value !== undefined) {
+          if (Array.isArray(value)) {
+            value.forEach(v => queryParams.append(key, v));
+          } else {
+            queryParams.append(key, value);
+          }
+        }
+      });
+      
+      const queryString = queryParams.toString();
+      const url = `/tasks/${queryString ? `?${queryString}` : ''}`;
+      
+      return await apiCall('GET', url);
+    }, [apiCall]),
+
+    // Получить задачу по ID
+    getById: useCallback(async (id) => {
+      return await apiCall('GET', `/tasks/${id}`);
+    }, [apiCall]),
+
+    // Создать задачу
+    create: useCallback(async (taskData) => {
+      return await apiCall('POST', '/tasks/', taskData);
+    }, [apiCall]),
+
+    // Обновить задачу
+    update: useCallback(async (id, updateData) => {
+      return await apiCall('PUT', `/tasks/${id}`, updateData);
+    }, [apiCall]),
+
+    // Удалить задачу
+    delete: useCallback(async (id) => {
+      return await apiCall('DELETE', `/tasks/${id}`);
+    }, [apiCall]),
+
+    // Отметить задачу как выполненную
+    complete: useCallback(async (id) => {
+      return await apiCall('PATCH', `/tasks/${id}/complete`);
+    }, [apiCall]),
+
+    // Отменить задачу
+    cancel: useCallback(async (id) => {
+      return await apiCall('PATCH', `/tasks/${id}/cancel`);
+    }, [apiCall]),
+  };
+
   // ==================== INTEGRATION API ====================
   
   const integration = {
@@ -321,6 +385,7 @@ export const useCrmApi = () => {
     deals,
     managers,
     sources,
+    tasks,
     integration,
   };
 };

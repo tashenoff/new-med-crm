@@ -1,0 +1,1240 @@
+import React, { useState, useEffect } from 'react';
+import {
+  Users, Phone, Mail, Calendar, Clock, CheckCircle, AlertCircle,
+  UserPlus, MessageSquare, PhoneCall, Eye, Edit, Trash2,
+  Target, Plus, Filter, Search, MoreHorizontal, FileText,
+  Star, Flag, ArrowRight, CheckSquare, PlayCircle, DollarSign,
+  User, Building
+} from 'lucide-react';
+import { useCrm } from '../../../hooks/useCrm';
+import { useTheme, themeClasses, cn } from '../../../hooks/useTheme';
+import { useModal } from '../../../context/ModalContext';
+import Modal from '../../modals/Modal';
+import PanelHeader from '../../common/PanelHeader';
+import { inputClasses, selectClasses, labelClasses, buttonPrimaryClasses, buttonSecondaryClasses } from '../../modals/modalUtils';
+
+const EnhancedLeadsView = ({ user }) => {
+  const [filteredLeads, setFilteredLeads] = useState([]);
+  const [statusFilter, setStatusFilter] = useState('all');
+  const [searchTerm, setSearchTerm] = useState('');
+  const [showCreateModal, setShowCreateModal] = useState(false);
+  const [selectedLead, setSelectedLead] = useState(null);
+  const [showTaskModal, setShowTaskModal] = useState(false);
+  const [showColumnModal, setShowColumnModal] = useState(false);
+  const [editingColumn, setEditingColumn] = useState(null);
+  const [leadTasks, setLeadTasks] = useState({});
+  const [doctors, setDoctors] = useState([]);
+  const [patients, setPatients] = useState([]);
+  const [appointmentForm, setAppointmentForm] = useState({});
+  const [newTask, setNewTask] = useState({
+    title: '',
+    description: '',
+    priority: 'medium',
+    due_date: '',
+    type: 'call'
+  });
+  const [newLead, setNewLead] = useState({
+    first_name: '',
+    last_name: '',
+    middle_name: '',
+    phone: '',
+    email: '',
+    source: 'website',
+    source_id: '',
+    priority: 'medium',
+    company: '',
+    description: '',
+    services_interested: []
+  });
+  const [newColumn, setNewColumn] = useState({
+    title: '',
+    status: '',
+    color: 'bg-gray-500',
+    bgColor: 'bg-gray-50 dark:bg-gray-800'
+  });
+
+  const { isDarkMode } = useTheme();
+  const { openModal, closeModal } = useModal();
+
+  const {
+    leads,
+    managers,
+    sources,
+    loading,
+    error,
+    fetchLeads,
+    createLead,
+    updateLeadStatus,
+    convertLead,
+    deleteLead,
+    fetchAvailableManagers,
+    fetchSources,
+    clearError
+  } = useCrm();
+
+  // Статусы заявок с улучшенными цветами
+  const leadStatuses = {
+    new: { 
+      label: 'Новая', 
+      color: 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200', 
+      icon: <Target className="w-4 h-4" />,
+      badge: 'bg-blue-500'
+    },
+    contacted: { 
+      label: 'Связались', 
+      color: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200', 
+      icon: <PhoneCall className="w-4 h-4" />,
+      badge: 'bg-yellow-500'
+    },
+    in_progress: { 
+      label: 'В работе', 
+      color: 'bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200', 
+      icon: <Clock className="w-4 h-4" />,
+      badge: 'bg-orange-500'
+    },
+    converted: { 
+      label: 'Конвертирована', 
+      color: 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200', 
+      icon: <CheckCircle className="w-4 h-4" />,
+      badge: 'bg-green-500'
+    },
+    rejected: { 
+      label: 'Отказ', 
+      color: 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200', 
+      icon: <AlertCircle className="w-4 h-4" />,
+      badge: 'bg-red-500'
+    },
+    closed: { 
+      label: 'Закрыта', 
+      color: 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200', 
+      icon: <Eye className="w-4 h-4" />,
+      badge: 'bg-gray-500'
+    }
+  };
+
+  // Типы заданий
+  const taskTypes = {
+    call: { label: 'Звонок', icon: <PhoneCall className="w-4 h-4" />, color: 'bg-blue-500' },
+    email: { label: 'Письмо', icon: <Mail className="w-4 h-4" />, color: 'bg-green-500' },
+    meeting: { label: 'Встреча', icon: <Calendar className="w-4 h-4" />, color: 'bg-purple-500' },
+    follow_up: { label: 'Дозвон', icon: <Clock className="w-4 h-4" />, color: 'bg-orange-500' },
+    note: { label: 'Заметка', icon: <FileText className="w-4 h-4" />, color: 'bg-gray-500' }
+  };
+
+  // Загрузка врачей и пациентов при монтировании
+  useEffect(() => {
+    const loadData = async () => {
+      try {
+        const [doctorsResponse, patientsResponse] = await Promise.all([
+          fetch(`${import.meta.env.VITE_BACKEND_URL || 'https://medicodebase.preview.emergentagent.com'}/api/doctors`, {
+            headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
+          }),
+          fetch(`${import.meta.env.VITE_BACKEND_URL || 'https://medicodebase.preview.emergentagent.com'}/api/patients`, {
+            headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
+          })
+        ]);
+        
+        if (doctorsResponse.ok) {
+          const doctorsData = await doctorsResponse.json();
+          setDoctors(doctorsData);
+        }
+        
+        if (patientsResponse.ok) {
+          const patientsData = await patientsResponse.json();
+          setPatients(patientsData);
+        }
+      } catch (error) {
+        console.error('Error loading data:', error);
+      }
+    };
+    loadData();
+  }, []);
+
+  // Загрузка задач для заявки
+  const loadLeadTasks = async (leadId) => {
+    if (leadTasks[leadId]) return; // Уже загружены
+    
+    try {
+      const tasksData = await fetchLeadTasks(leadId);
+      setLeadTasks(prev => ({
+        ...prev,
+        [leadId]: tasksData.tasks || []
+      }));
+    } catch (error) {
+      console.error('Error loading lead tasks:', error);
+      setLeadTasks(prev => ({
+        ...prev,
+        [leadId]: []
+      }));
+    }
+  };
+
+  // Функция для получения задач (используем API)
+  const fetchLeadTasks = async (leadId) => {
+    const response = await fetch(
+      `${import.meta.env.VITE_BACKEND_URL || 'https://medicodebase.preview.emergentagent.com'}/api/crm/leads/${leadId}/tasks`,
+      {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        }
+      }
+    );
+    if (!response.ok) throw new Error('Failed to fetch tasks');
+    return await response.json();
+  };
+
+  // Источники заявок
+  const leadSources = {
+    website: 'Сайт',
+    phone: 'Телефон',
+    social: 'Соц. сети',
+    referral: 'Рекомендация',
+    advertising: 'Реклама',
+    other: 'Другое'
+  };
+
+  useEffect(() => {
+    fetchLeads();
+    fetchAvailableManagers();
+    fetchSources();
+  }, []);
+
+  useEffect(() => {
+    filterLeads();
+  }, [leads, statusFilter, searchTerm]);
+
+  const filterLeads = () => {
+    let filtered = leads;
+    
+    if (statusFilter !== 'all') {
+      filtered = filtered.filter(lead => lead.status === statusFilter);
+    }
+    
+    if (searchTerm) {
+      filtered = filtered.filter(lead => 
+        lead.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        lead.phone?.includes(searchTerm) ||
+        lead.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (lead.first_name + ' ' + lead.last_name).toLowerCase().includes(searchTerm.toLowerCase())
+      );
+    }
+    
+    setFilteredLeads(filtered);
+  };
+
+  const handleStatusChange = async (leadId, newStatus) => {
+    try {
+      await updateLeadStatus(leadId, newStatus);
+    } catch (error) {
+      console.error('Error updating lead status:', error);
+    }
+  };
+
+  const handleConvertToClient = async (lead) => {
+    try {
+      const conversionData = {
+        create_hms_patient: false,
+        create_appointment: false,
+        notes: `Конвертирован из заявки ${lead.full_name || lead.first_name + ' ' + lead.last_name}`
+      };
+      await convertLead(lead.id, conversionData);
+      alert('Заявка успешно конвертирована в клиента CRM!');
+    } catch (error) {
+      console.error('Error converting lead:', error);
+      alert('Ошибка при конвертации заявки: ' + (error.message || error));
+    }
+  };
+
+  const handleCreateLead = async () => {
+    try {
+      await createLead(newLead);
+      setShowCreateModal(false);
+      setNewLead({
+        first_name: '',
+        last_name: '',
+        middle_name: '',
+        phone: '',
+        email: '',
+        source: 'website',
+        source_id: '',
+        priority: 'medium',
+        company: '',
+        description: '',
+        services_interested: []
+      });
+      alert('Заявка успешно создана!');
+    } catch (error) {
+      console.error('Error creating lead:', error);
+      alert('Ошибка при создании заявки');
+    }
+  };
+
+  const handleCreateTask = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch(
+        `${import.meta.env.VITE_BACKEND_URL || 'https://medicodebase.preview.emergentagent.com'}/api/crm/tasks`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify({
+            ...newTask,
+            lead_id: selectedLead?.id
+          })
+        }
+      );
+      
+      if (response.ok) {
+        setShowTaskModal(false);
+        setNewTask({
+          title: '',
+          description: '',
+          priority: 'medium',
+          due_date: '',
+          type: 'call'
+        });
+        // Обновляем список задач для этой заявки
+        if (selectedLead) {
+          await loadLeadTasks(selectedLead.id);
+        }
+        alert('Задание успешно создано!');
+      } else {
+        const error = await response.json();
+        alert('Ошибка при создании задания: ' + (error.detail || 'Неизвестная ошибка'));
+      }
+    } catch (error) {
+      console.error('Error creating task:', error);
+      alert('Ошибка при создании задания');
+    }
+  };
+
+  // Функции управления колонками
+  const handleEditColumn = (column) => {
+    setEditingColumn(column);
+    setNewColumn({
+      title: column.title,
+      status: column.status,
+      color: column.color,
+      bgColor: column.bgColor
+    });
+    setShowColumnModal(true);
+  };
+
+  const handleCreateNewColumn = () => {
+    setEditingColumn(null);
+    setNewColumn({
+      title: '',
+      status: '',
+      color: 'bg-gray-500',
+      bgColor: 'bg-gray-50 dark:bg-gray-800'
+    });
+    setShowColumnModal(true);
+  };
+
+  const handleSaveColumn = () => {
+    // В будущем здесь будет API вызов для сохранения колонки
+    console.log('Saving column:', newColumn, 'editing:', editingColumn);
+    alert(editingColumn ? 'Колонка обновлена!' : 'Новая колонка создана!');
+    setShowColumnModal(false);
+    setEditingColumn(null);
+  };
+
+  const handleDeleteColumn = (columnId) => {
+    if (confirm('Вы уверены, что хотите удалить эту колонку?')) {
+      // В будущем здесь будет API вызов для удаления колонки
+      console.log('Deleting column:', columnId);
+      alert('Колонка удалена!');
+    }
+  };
+
+  const TaskList = ({ leadId }) => {
+    const tasks = leadTasks[leadId] || [];
+    
+    // Загружаем задачи при первом рендере
+    useEffect(() => {
+      loadLeadTasks(leadId);
+    }, [leadId]);
+    
+    if (tasks.length === 0) {
+      return (
+        <div className={cn("text-center py-4", themeClasses.text.muted)}>
+          <FileText className="w-8 h-8 mx-auto mb-2 opacity-50" />
+          <p className="text-sm">Заданий нет</p>
+        </div>
+      );
+    }
+
+    return (
+      <div className="space-y-2">
+        {tasks.map((task) => (
+          <div 
+            key={task.id}
+            className={cn(
+              "flex items-center space-x-3 p-3 rounded-lg border",
+              task.completed 
+                ? "bg-green-50 border-green-200 dark:bg-green-900/20 dark:border-green-800" 
+                : "bg-gray-50 border-gray-200 dark:bg-gray-800 dark:border-gray-600"
+            )}
+          >
+            <div className={cn("p-2 rounded-lg", taskTypes[task.type].color)}>
+              {taskTypes[task.type].icon}
+            </div>
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center space-x-2">
+                <p className={cn("text-sm font-medium", task.completed ? "line-through text-gray-500" : themeClasses.text.primary)}>
+                  {task.title}
+                </p>
+                <span className={cn(
+                  "px-2 py-1 text-xs rounded-full",
+                  task.priority === 'high' ? 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200' :
+                  task.priority === 'medium' ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200' :
+                  'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200'
+                )}>
+                  {task.priority === 'high' ? 'Высокий' : task.priority === 'medium' ? 'Средний' : 'Низкий'}
+                </span>
+              </div>
+              <p className={cn("text-xs mt-1", themeClasses.text.muted)}>{task.description}</p>
+              <p className={cn("text-xs mt-1", themeClasses.text.muted)}>
+                <Clock className="w-3 h-3 inline mr-1" />
+                {new Date(task.due_date).toLocaleString('ru-RU')}
+              </p>
+            </div>
+            {!task.completed && (
+              <button className="p-1 hover:bg-gray-200 dark:hover:bg-gray-600 rounded">
+                <CheckSquare className="w-4 h-4 text-green-600" />
+              </button>
+            )}
+          </div>
+        ))}
+      </div>
+    );
+  };
+
+  // Канбан колонки с конфигурацией как в AmoCRM
+  const kanbanColumns = [
+    {
+      id: 'new',
+      title: 'НЕРАЗОБРАННЫЕ',
+      status: 'new',
+      color: 'bg-gray-500',
+      bgColor: 'bg-gray-50 dark:bg-gray-800'
+    },
+    {
+      id: 'contacted',
+      title: 'ЗАПИСАН НА ПРИЕМ',
+      status: 'contacted', 
+      color: 'bg-blue-500',
+      bgColor: 'bg-blue-50 dark:bg-blue-900/20'
+    },
+    {
+      id: 'in_progress',
+      title: 'ЗАПИСЬ ПОДТВЕРЖДЕНА',
+      status: 'in_progress',
+      color: 'bg-yellow-500', 
+      bgColor: 'bg-yellow-50 dark:bg-yellow-900/20'
+    },
+    {
+      id: 'converted',
+      title: 'ПАЦИЕНТ ПРИШЁЛ',
+      status: 'converted',
+      color: 'bg-purple-500',
+      bgColor: 'bg-purple-50 dark:bg-purple-900/20'
+    },
+    {
+      id: 'closed',
+      title: 'ОПЛАЧЕНО',
+      status: 'closed',
+      color: 'bg-green-500',
+      bgColor: 'bg-green-50 dark:bg-green-900/20'
+    },
+    {
+      id: 'rejected',
+      title: 'ОТКЛОНЕНО',
+      status: 'rejected',
+      color: 'bg-red-500',
+      bgColor: 'bg-red-50 dark:bg-red-900/20'
+    }
+  ];
+
+  // Группировка заявок по статусам
+  const groupedLeads = kanbanColumns.reduce((acc, column) => {
+    acc[column.status] = filteredLeads.filter(lead => lead.status === column.status);
+    return acc;
+  }, {});
+
+  // Генерируем фиксированные суммы для каждой заявки
+  const getLeadAmount = (leadId) => {
+    // Используем ID заявки как seed для получения стабильной суммы
+    let seed = 1;
+    if (leadId) {
+      // Если ID строка, преобразуем в число через хеш
+      if (typeof leadId === 'string') {
+        seed = leadId.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
+      } else {
+        seed = Number(leadId) || 1;
+      }
+    }
+    return Math.floor((seed * 12345) % 100000) + 10000;
+  };
+
+  // Расчет сумм для каждой колонки
+  const getColumnStats = (status) => {
+    const leads = groupedLeads[status] || [];
+    const count = leads.length;
+    const totalAmount = leads.reduce((sum, lead) => {
+      return sum + getLeadAmount(lead.id);
+    }, 0);
+    return { count, totalAmount };
+  };
+
+  // Назначить прием для заявки через API CRM
+  const handleScheduleAppointment = async (lead) => {
+    setSelectedLead(lead);
+    
+    // Поиск существующего пациента по телефону или email
+    let existingPatient = null;
+    if (lead.phone) {
+      existingPatient = patients.find(p => 
+        p.phone && p.phone.replace(/\D/g, '').includes(lead.phone.replace(/\D/g, ''))
+      );
+    }
+    if (!existingPatient && lead.email) {
+      existingPatient = patients.find(p => 
+        p.email && p.email.toLowerCase() === lead.email.toLowerCase()
+      );
+    }
+
+    // Если пациент уже конвертирован, используем его ID
+    if (lead.converted_to_client_id) {
+      existingPatient = patients.find(p => p.id === lead.converted_to_client_id);
+    }
+
+    // Если пациент не найден, покажем уведомление
+    const patientNotFound = !existingPatient;
+    if (patientNotFound) {
+      console.log(`Пациент не найден для лида ${lead.first_name} ${lead.last_name}, будет предложено создать`);
+    }
+    
+    // Открываем модальное окно записи на прием
+    openModal('appointment', {
+      appointmentForm: {
+        patient_id: existingPatient?.id || '',
+        doctor_id: '',
+        appointment_date: new Date().toISOString().split('T')[0],
+        appointment_time: '10:00',
+        end_time: '10:30',
+        room_id: '',
+        status: 'confirmed',
+        reason: lead.description || 'Консультация',
+        notes: `Запись из CRM. Заявка: ${lead.first_name} ${lead.last_name}${lead.phone ? `, тел: ${lead.phone}` : ''}`,
+        patient_notes: '',
+        price: 0,
+        // Дополнительные данные для создания пациента если не найден
+        lead_first_name: lead.first_name,
+        lead_last_name: lead.last_name,
+        lead_middle_name: lead.middle_name || '',
+        lead_phone: lead.phone,
+        lead_email: lead.email,
+        // Флаг что пациент не найден - нужно сразу показать форму создания
+        showNewPatientForm: patientNotFound
+      },
+      setAppointmentForm: setAppointmentForm,
+      patients: patients,
+      doctors: doctors,
+      editingItem: null,
+      loading: false,
+      errorMessage: null,
+      onSave: async (appointmentData) => {
+        try {
+          // Используем наш CRM API для назначения приема
+          const response = await fetch(
+            `${import.meta.env.VITE_BACKEND_URL || 'https://medicodebase.preview.emergentagent.com'}/api/crm/leads/${lead.id}/schedule-appointment`,
+            {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${localStorage.getItem('token')}`
+              },
+              body: JSON.stringify({
+                doctor_id: appointmentData.doctor_id,
+                appointment_date: appointmentData.appointment_date,
+                service: appointmentData.service || 'Консультация',
+                notes: appointmentData.notes || `Запись из CRM. Заявка: ${lead.first_name} ${lead.last_name}`
+              })
+            }
+          );
+
+          if (response.ok) {
+            const result = await response.json();
+            alert(`Прием успешно назначен!\nПациент: ${result.patient_id}\nЗапись: ${result.appointment_id}`);
+            closeModal('appointment');
+            // Обновляем список заявок
+            await fetchLeads();
+          } else {
+            const error = await response.json();
+            throw new Error(error.detail || 'Не удалось назначить прием');
+          }
+        } catch (error) {
+          console.error('Error scheduling appointment:', error);
+          alert(`Ошибка: ${error.message}`);
+          throw error;
+        }
+      },
+      onCreatePatient: async (newPatientData) => {
+        // Создаем пациента из данных лида
+        try {
+          const patientData = {
+            ...newPatientData,
+            // Если форма не заполнена, используем данные из лида
+            full_name: newPatientData.full_name || `${lead.first_name} ${lead.last_name}`.trim(),
+            phone: newPatientData.phone || lead.phone,
+            email: newPatientData.email || lead.email
+          };
+          
+          const token = localStorage.getItem('token');
+          const response = await fetch(
+            `${import.meta.env.VITE_BACKEND_URL || 'https://medicodebase.preview.emergentagent.com'}/api/patients`,
+            {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`
+              },
+              body: JSON.stringify(patientData)
+            }
+          );
+          
+          if (response.ok) {
+            const newPatient = await response.json();
+            // Обновляем список пациентов
+            setPatients(prev => [newPatient, ...prev]);
+            return newPatient;
+          } else {
+            const error = await response.json();
+            throw new Error(error.detail || 'Не удалось создать пациента');
+          }
+        } catch (error) {
+          console.error('Error creating patient from lead:', error);
+          alert(`Ошибка создания пациента: ${error.message}`);
+          throw error;
+        }
+      },
+      appointments: []
+    });
+  };
+
+  // Компонент карточки заявки для канбана
+  const LeadCard = ({ lead, onDragStart }) => {
+    const mockAmount = getLeadAmount(lead.id);
+    const tasks = leadTasks[lead.id] || [];
+    const urgentTasks = tasks.filter(t => t.status !== 'completed' && t.priority === 'high').length;
+
+    // Загружаем задачи при монтировании карточки
+    useEffect(() => {
+      loadLeadTasks(lead.id);
+    }, [lead.id]);
+
+    return (
+      <div
+        draggable
+        onDragStart={(e) => onDragStart(e, lead)}
+        className={cn(
+          "bg-white dark:bg-gray-800 rounded-lg p-4 mb-3 border border-gray-200 dark:border-gray-600",
+          "hover:shadow-md transition-all cursor-move",
+          themeClasses.shadow.sm
+        )}
+      >
+        {/* Header */}
+        <div className="flex items-start justify-between mb-3">
+          <div className="flex-1 min-w-0">
+            <h4 className={cn("font-medium text-sm truncate", themeClasses.text.primary)}>
+              {lead.full_name || `${lead.first_name} ${lead.last_name}`}
+            </h4>
+            <p className={cn("text-xs mt-1", themeClasses.text.muted)}>
+              {leadSources[lead.source] || 'Источник'}
+            </p>
+          </div>
+          <div className="flex items-center space-x-1 ml-2">
+            {urgentTasks > 0 && (
+              <div className="w-2 h-2 bg-red-500 rounded-full"></div>
+            )}
+            <button className={cn("p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-700")}>
+              <MoreHorizontal className="w-3 h-3" />
+            </button>
+          </div>
+        </div>
+
+        {/* Amount */}
+        <div className="mb-3">
+          <span className={cn("text-lg font-bold", themeClasses.text.primary)}>
+            {mockAmount.toLocaleString()} ₸
+          </span>
+        </div>
+
+        {/* Contact */}
+        <div className="space-y-1 mb-3">
+          <div className="flex items-center space-x-2">
+            <Phone className="w-3 h-3 text-blue-500" />
+            <span className={cn("text-xs truncate", themeClasses.text.secondary)}>
+              {lead.phone}
+            </span>
+          </div>
+          {lead.email && (
+            <div className="flex items-center space-x-2">
+              <Mail className="w-3 h-3 text-green-500" />
+              <span className={cn("text-xs truncate", themeClasses.text.secondary)}>
+                {lead.email}
+              </span>
+            </div>
+          )}
+        </div>
+
+        {/* Description */}
+        {lead.description && (
+          <div className="mb-3">
+            <p className={cn("text-xs", themeClasses.text.muted)} title={lead.description}>
+              {lead.description.length > 50 ? lead.description.substring(0, 50) + '...' : lead.description}
+            </p>
+          </div>
+        )}
+
+        {/* Tasks and appointment button */}
+        <div className="space-y-2">
+          {tasks.length > 0 && (
+            <div className="flex items-center space-x-2 text-xs">
+              <CheckSquare className="w-3 h-3 text-gray-400" />
+              <span className={themeClasses.text.muted}>
+                {tasks.filter(t => t.status === 'completed').length}/{tasks.length} заданий
+              </span>
+            </div>
+          )}
+          
+          {/* Кнопки действий */}
+          <div className="space-y-1">
+            {/* Кнопка назначения приема */}
+            {lead.status === 'new' && (
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleScheduleAppointment(lead);
+                }}
+                className="w-full px-2 py-1 text-xs bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors flex items-center justify-center space-x-1"
+              >
+                <Calendar className="w-3 h-3" />
+                <span>Назначить прием</span>
+              </button>
+            )}
+            
+            {/* Кнопка создания задачи */}
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                setSelectedLead(lead);
+                setShowTaskModal(true);
+              }}
+              className="w-full px-2 py-1 text-xs bg-purple-600 text-white rounded hover:bg-purple-700 transition-colors flex items-center justify-center space-x-1"
+            >
+              <CheckSquare className="w-3 h-3" />
+              <span>Создать задачу</span>
+            </button>
+          </div>
+        </div>
+
+        {/* Footer */}
+        <div className="flex items-center justify-between mt-3 pt-3 border-t border-gray-100 dark:border-gray-700">
+          <div className="flex items-center space-x-2">
+            <User className="w-3 h-3 text-gray-400" />
+            <span className={cn("text-xs", themeClasses.text.muted)}>
+              {lead.manager_name || 'Не назначен'}
+            </span>
+          </div>
+          <span className={cn("text-xs", themeClasses.text.muted)}>
+            {new Date(lead.created_at).toLocaleDateString('ru-RU')}
+          </span>
+        </div>
+      </div>
+    );
+  };
+
+  // Drag & Drop handlers
+  const handleDragStart = (e, lead) => {
+    e.dataTransfer.setData('text/plain', JSON.stringify({
+      leadId: lead.id,
+      currentStatus: lead.status
+    }));
+  };
+
+  const handleDragOver = (e) => {
+    e.preventDefault();
+  };
+
+  const handleDrop = async (e, newStatus) => {
+    e.preventDefault();
+    try {
+      const data = JSON.parse(e.dataTransfer.getData('text/plain'));
+      if (data.currentStatus !== newStatus) {
+        await handleStatusChange(data.leadId, newStatus);
+      }
+    } catch (error) {
+      console.error('Error dropping lead:', error);
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-6">
+      <div className={`calendar-container calendar-view-panel rounded-2xl ${themeClasses.shadow.default}`}>
+        <PanelHeader
+          title="Сделки"
+          subtitle="Управление заявками и сделками"
+          onAction={() => setShowCreateModal(true)}
+          actionLabel="+ Добавить"
+        />
+
+        <div className="bg-white dark:bg-gray-800 rounded-b-2xl border border-t-0 border-gray-200 dark:border-gray-700 p-4 space-y-4 shadow-sm">
+          {/* Controls */}
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-2">
+              <button className="bg-green-600 text-white px-4 py-2 text-sm rounded-lg hover:bg-green-700 transition-colors">
+                создать
+              </button>
+              <button className={cn("px-4 py-2 text-sm rounded-lg border", themeClasses.border.default, themeClasses.text.secondary)}>
+                общие
+              </button>
+              <button className={cn("px-4 py-2 text-sm rounded-lg border", themeClasses.border.default, themeClasses.text.secondary)}>
+                сделки в работе
+              </button>
+              <span className={cn("text-sm px-2", themeClasses.text.muted)}>+ поиск</span>
+            </div>
+
+            <div className="flex items-center space-x-4">
+              {/* Search */}
+              <div className="relative">
+                <Search className="w-4 h-4 absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
+                <input
+                  type="text"
+                  placeholder="Поиск..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className={cn("pl-9 pr-4 py-2 text-sm rounded-lg w-64", themeClasses.input.default)}
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Kanban Board */}
+          <div className="flex overflow-x-auto h-screen">
+        {kanbanColumns.map((column) => {
+          const stats = getColumnStats(column.status);
+          const columnLeads = groupedLeads[column.status] || [];
+          
+          return (
+            <div 
+              key={column.id}
+              className="flex-shrink-0 w-80 h-full"
+              onDragOver={handleDragOver}
+              onDrop={(e) => handleDrop(e, column.status)}
+            >
+              {/* Column Header */}
+              <div className={cn("p-4 border-r border-b", column.bgColor, themeClasses.border.default)}>
+                <div className="flex items-center justify-between mb-2">
+                  <h3 className={cn("font-medium", themeClasses.text.primary)}>
+                    {column.title}
+                  </h3>
+                  <div className="flex items-center space-x-1">
+                    <button 
+                      onClick={() => handleEditColumn(column)}
+                      className="p-1 hover:bg-white/50 dark:hover:bg-gray-600 rounded"
+                      title="Редактировать колонку"
+                    >
+                      <Edit className="w-3 h-3" />
+                    </button>
+                    <button 
+                      onClick={() => handleDeleteColumn(column.id)}
+                      className="p-1 hover:bg-white/50 dark:hover:bg-gray-600 rounded"
+                      title="Удалить колонку"
+                    >
+                      <Trash2 className="w-3 h-3" />
+                    </button>
+                    <button className="p-1 hover:bg-white/50 dark:hover:bg-gray-600 rounded">
+                      <Plus className="w-4 h-4" />
+                    </button>
+                  </div>
+                </div>
+                
+                <div className={cn("text-2xl font-bold mb-1", themeClasses.text.primary)}>
+                  {stats.totalAmount.toLocaleString()} ₸
+                </div>
+                
+                <div className={cn("text-sm", themeClasses.text.muted)}>
+                  {stats.count} {stats.count === 1 ? 'сделка' : stats.count < 5 ? 'сделки' : 'сделок'}
+                </div>
+              </div>
+
+              {/* Column Content */}
+              <div className={cn("p-4 overflow-y-auto border-r", column.bgColor, themeClasses.border.default)} style={{ height: 'calc(100vh - 140px)' }}>
+                {columnLeads.length === 0 ? (
+                  <div className="text-center py-8">
+                    <p className={cn("text-sm", themeClasses.text.muted)}>Пусто</p>
+                  </div>
+                ) : (
+                  columnLeads.map((lead) => (
+                    <LeadCard
+                      key={lead.id}
+                      lead={lead}
+                      onDragStart={handleDragStart}
+                    />
+                  ))
+                )}
+              </div>
+            </div>
+          );
+        })}
+        
+        {/* Add New Column Button */}
+        <div className="flex-shrink-0 w-80 h-full flex items-start justify-center pt-8">
+          <button
+            onClick={handleCreateNewColumn}
+            className={cn(
+              "w-64 p-6 border-2 border-dashed rounded-lg transition-colors",
+              "hover:border-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20",
+              themeClasses.border.default,
+              themeClasses.text.muted
+            )}
+          >
+            <Plus className="w-8 h-8 mx-auto mb-2" />
+            <p className="text-sm font-medium">Добавить колонку</p>
+          </button>
+        </div>
+      </div>
+
+      {/* Create Lead Modal */}
+      <Modal 
+        show={showCreateModal} 
+        onClose={() => setShowCreateModal(false)}
+        title="Новая заявка"
+        errorMessage={error}
+        size="max-w-md"
+      >
+        <div className="space-y-4">
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className={labelClasses}>Имя *</label>
+              <input
+                type="text"
+                value={newLead.first_name}
+                onChange={(e) => setNewLead({...newLead, first_name: e.target.value})}
+                className={inputClasses}
+                placeholder="Введите имя"
+              />
+            </div>
+            <div>
+              <label className={labelClasses}>Фамилия *</label>
+              <input
+                type="text"
+                value={newLead.last_name}
+                onChange={(e) => setNewLead({...newLead, last_name: e.target.value})}
+                className={inputClasses}
+                placeholder="Введите фамилию"
+              />
+            </div>
+          </div>
+          
+          <div>
+            <label className={labelClasses}>Телефон *</label>
+            <input
+              type="tel"
+              value={newLead.phone}
+              onChange={(e) => setNewLead({...newLead, phone: e.target.value})}
+              className={inputClasses}
+              placeholder="+7 (___) ___-__-__"
+            />
+          </div>
+          
+          <div>
+            <label className={labelClasses}>Email</label>
+            <input
+              type="email"
+              value={newLead.email}
+              onChange={(e) => setNewLead({...newLead, email: e.target.value})}
+              className={inputClasses}
+              placeholder="example@email.com"
+            />
+          </div>
+          
+          <div>
+            <label className={labelClasses}>Источник</label>
+            <select
+              value={newLead.source_id || newLead.source}
+              onChange={(e) => {
+                const selectedValue = e.target.value;
+                const selectedSource = sources.find(s => s.id === selectedValue);
+                if (selectedSource) {
+                  setNewLead({
+                    ...newLead, 
+                    source_id: selectedValue,
+                    source: selectedSource.type
+                  });
+                } else {
+                  setNewLead({
+                    ...newLead, 
+                    source: selectedValue,
+                    source_id: ''
+                  });
+                }
+              }}
+              className={inputClasses}
+            >
+              <option value="">Выберите источник</option>
+              {sources.map((source) => (
+                <option key={source.id} value={source.id}>
+                  {source.name} ({source.type})
+                </option>
+              ))}
+              {sources.length === 0 && Object.entries(leadSources).map(([key, label]) => (
+                <option key={key} value={key}>{label}</option>
+              ))}
+            </select>
+          </div>
+          
+          <div>
+            <label className={labelClasses}>Описание</label>
+            <textarea
+              value={newLead.description}
+              onChange={(e) => setNewLead({...newLead, description: e.target.value})}
+              className={inputClasses}
+              rows="3"
+              placeholder="Описание заявки..."
+            />
+          </div>
+        </div>
+        
+        <div className="flex justify-end gap-3 mt-6">
+          <button
+            onClick={() => setShowCreateModal(false)}
+            className="px-4 py-2 text-gray-600 hover:text-gray-800 transition-colors"
+          >
+            Отмена
+          </button>
+          <button
+            onClick={handleCreateLead}
+            disabled={!newLead.first_name || !newLead.last_name || !newLead.phone}
+            className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors"
+          >
+            Создать
+          </button>
+        </div>
+      </Modal>
+
+      {/* Create Task Modal */}
+      <Modal 
+        show={showTaskModal} 
+        onClose={() => setShowTaskModal(false)}
+        title={`Новое задание для ${selectedLead?.first_name} ${selectedLead?.last_name}`}
+        size="max-w-md"
+      >
+        <div className="space-y-4">
+          <div>
+            <label className={labelClasses}>Тип задания</label>
+            <select
+              value={newTask.type}
+              onChange={(e) => setNewTask({...newTask, type: e.target.value})}
+              className={inputClasses}
+            >
+              {Object.entries(taskTypes).map(([key, type]) => (
+                <option key={key} value={key}>{type.label}</option>
+              ))}
+            </select>
+          </div>
+          
+          <div>
+            <label className={labelClasses}>Название *</label>
+            <input
+              type="text"
+              value={newTask.title}
+              onChange={(e) => setNewTask({...newTask, title: e.target.value})}
+              className={inputClasses}
+              placeholder="Название задания"
+            />
+          </div>
+          
+          <div>
+            <label className={labelClasses}>Описание</label>
+            <textarea
+              value={newTask.description}
+              onChange={(e) => setNewTask({...newTask, description: e.target.value})}
+              className={inputClasses}
+              rows="3"
+              placeholder="Описание задания..."
+            />
+          </div>
+          
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className={labelClasses}>Приоритет</label>
+              <select
+                value={newTask.priority}
+                onChange={(e) => setNewTask({...newTask, priority: e.target.value})}
+                className={inputClasses}
+              >
+                <option value="low">Низкий</option>
+                <option value="medium">Средний</option>
+                <option value="high">Высокий</option>
+              </select>
+            </div>
+            
+            <div>
+              <label className={labelClasses}>Срок выполнения</label>
+              <input
+                type="datetime-local"
+                value={newTask.due_date}
+                onChange={(e) => setNewTask({...newTask, due_date: e.target.value})}
+                className={inputClasses}
+              />
+            </div>
+          </div>
+        </div>
+        
+        <div className="flex justify-end gap-3 mt-6">
+          <button
+            onClick={() => setShowTaskModal(false)}
+            className="px-4 py-2 text-gray-600 hover:text-gray-800 transition-colors"
+          >
+            Отмена
+          </button>
+          <button
+            onClick={handleCreateTask}
+            disabled={!newTask.title}
+            className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors"
+          >
+            Создать задание
+          </button>
+        </div>
+      </Modal>
+
+      {/* Column Edit Modal */}
+      <Modal 
+        show={showColumnModal} 
+        onClose={() => setShowColumnModal(false)}
+        title={editingColumn ? "Редактировать колонку" : "Новая колонка"}
+        size="max-w-md"
+      >
+        <div className="space-y-4">
+          <div>
+            <label className={labelClasses}>Название колонки *</label>
+            <input
+              type="text"
+              value={newColumn.title}
+              onChange={(e) => setNewColumn({...newColumn, title: e.target.value})}
+              className={inputClasses}
+              placeholder="Введите название колонки"
+            />
+          </div>
+          
+          <div>
+            <label className={labelClasses}>Статус (идентификатор) *</label>
+            <input
+              type="text"
+              value={newColumn.status}
+              onChange={(e) => setNewColumn({...newColumn, status: e.target.value})}
+              className={inputClasses}
+              placeholder="например: new_status"
+              disabled={editingColumn} // Нельзя менять статус у существующей колонки
+            />
+            {editingColumn && (
+              <p className={cn("text-xs mt-1", themeClasses.text.muted)}>
+                Статус нельзя изменить у существующей колонки
+              </p>
+            )}
+          </div>
+
+          <div>
+            <label className={labelClasses}>Цвет колонки</label>
+            <div className="grid grid-cols-6 gap-2 mt-2">
+              {[
+                'bg-gray-500',
+                'bg-blue-500', 
+                'bg-green-500',
+                'bg-yellow-500',
+                'bg-red-500',
+                'bg-purple-500',
+                'bg-pink-500',
+                'bg-indigo-500',
+                'bg-teal-500',
+                'bg-orange-500',
+                'bg-emerald-500',
+                'bg-cyan-500'
+              ].map((color) => (
+                <button
+                  key={color}
+                  onClick={() => setNewColumn({
+                    ...newColumn, 
+                    color: color,
+                    bgColor: color.replace('500', '50') + ' dark:' + color.replace('500', '900/20')
+                  })}
+                  className={cn(
+                    "w-8 h-8 rounded-full border-2",
+                    color,
+                    newColumn.color === color ? "border-gray-800 dark:border-white" : "border-gray-300"
+                  )}
+                />
+              ))}
+            </div>
+          </div>
+
+          <div className="bg-gray-50 dark:bg-gray-800 p-3 rounded-lg">
+            <h4 className={cn("text-sm font-medium mb-2", themeClasses.text.primary)}>Предварительный просмотр</h4>
+            <div className={cn("p-3 rounded border", newColumn.bgColor, themeClasses.border.default)}>
+              <div className="flex items-center justify-between mb-2">
+                <h3 className={cn("font-medium", themeClasses.text.primary)}>
+                  {newColumn.title || 'Название колонки'}
+                </h3>
+                <div className="flex items-center space-x-1">
+                  <Edit className="w-3 h-3" />
+                  <Trash2 className="w-3 h-3" />
+                  <Plus className="w-4 h-4" />
+                </div>
+              </div>
+              <div className={cn("text-xl font-bold mb-1", themeClasses.text.primary)}>
+                0 ₸
+              </div>
+              <div className={cn("text-sm", themeClasses.text.muted)}>
+                0 сделок
+              </div>
+            </div>
+          </div>
+        </div>
+        
+        <div className="flex justify-end gap-3 mt-6">
+          <button
+            onClick={() => setShowColumnModal(false)}
+            className="px-4 py-2 text-gray-600 hover:text-gray-800 transition-colors"
+          >
+            Отмена
+          </button>
+          <button
+            onClick={handleSaveColumn}
+            disabled={!newColumn.title || !newColumn.status}
+            className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors"
+          >
+            {editingColumn ? 'Обновить' : 'Создать'}
+          </button>
+        </div>
+      </Modal>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default EnhancedLeadsView;

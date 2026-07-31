@@ -3,6 +3,7 @@ import { useDoctors } from '../hooks/useDoctors';
 import { useGlobalRefresh } from '../hooks/useGlobalRefresh';
 import { useModal } from '../context/ModalContext';
 import DoctorsView from '../components/doctors/DoctorsView';
+import DoctorCashbackWidget from '../components/loyalty/DoctorCashbackWidget';
 
 const DoctorsPage = ({ user }) => {
   // Data hook
@@ -79,28 +80,13 @@ const DoctorsPage = ({ user }) => {
     });
   };
 
-  const handleSaveDoctor = async (e, formData = null) => {
+  const handleSaveDoctor = async (e, doctorFormWithEditingItem) => {
     e.preventDefault();
     setLoading(true);
-    
-    // Получаем данные из модального контекста или используем переданные данные
-    const modalProps = getModalProps('doctor');
-    const { editingItem } = modalProps;
-    const doctorForm = formData || modalProps.doctorForm;
-    
+
+    const { editingItem, ...doctorForm } = doctorFormWithEditingItem;
+
     try {
-      console.log('🔍 ФИНАЛЬНЫЕ ДАННЫЕ ДЛЯ ОТПРАВКИ НА API:');
-      console.log('  - formData (переданные из модала):', formData);
-      console.log('  - modalProps.doctorForm:', modalProps.doctorForm);
-      console.log('  - Финальный doctorForm:', doctorForm);
-      console.log('  - services в финальном doctorForm:', doctorForm?.services);
-      console.log('  - payment_mode в финальном doctorForm:', doctorForm?.payment_mode);
-      
-      // Временно убираем жесткую проверку для диагностики
-      // if (!doctorForm.full_name || !doctorForm.specialty) {
-      //   throw new Error('Заполните обязательные поля: ФИО и Специальность');
-      // }
-      
       // Очищаем данные от лишних полей, которых нет в API
       const cleanDoctorData = {
         full_name: doctorForm?.full_name?.trim() || '',
@@ -110,23 +96,19 @@ const DoctorsPage = ({ user }) => {
         payment_type: doctorForm.payment_type || 'percentage',
         payment_value: (doctorForm.payment_value && doctorForm.payment_value !== '') ? parseFloat(doctorForm.payment_value) : 0.0,
         currency: doctorForm.currency || 'KZT',
-        services: doctorForm.services || []
+        services: doctorForm.services || [],
+        payment_mode: doctorForm.payment_mode || 'general',
+        hybrid_percentage_value: doctorForm.payment_type === 'hybrid' ? doctorForm.hybrid_percentage_value : undefined,
       };
-      
-      console.log('🧹 Очищенные данные врача:', cleanDoctorData);
       
       let result;
       if (editingItem) {
         const doctorId = editingItem.id || editingItem._id;
-        console.log('📝 Обновляем врача ID:', doctorId);
-        
         if (!doctorId) {
           throw new Error('ID врача не найден. Невозможно обновить.');
         }
-        
         result = await doctorsHook.updateDoctor(doctorId, cleanDoctorData);
       } else {
-        console.log('➕ Создаем нового врача');
         result = await doctorsHook.createDoctor(cleanDoctorData);
       }
       
@@ -136,8 +118,9 @@ const DoctorsPage = ({ user }) => {
 
       closeModal('doctor');
     } catch (error) {
-      console.error('Error saving doctor:', error);
-      setErrorMessage('Ошибка при сохранении врача');
+      console.error('Ошибка при сохранении врача:', error);
+      const apiError = error.response?.data?.detail || error.message;
+      setErrorMessage(apiError || 'Произошла неизвестная ошибка');
     }
     setLoading(false);
   };
@@ -145,14 +128,12 @@ const DoctorsPage = ({ user }) => {
   const handleDeleteDoctor = async (id) => {
     if (window.confirm('Вы уверены, что хотите деактивировать этого врача?')) {
       try {
-        console.log('Deactivating doctor:', id);
         const result = await doctorsHook.deleteDoctor(id);
         
         if (!result.success) {
           throw new Error(result.error);
         }
         
-        console.log('Doctor deactivated successfully');
       } catch (error) {
         console.error('Error deleting doctor:', error);
         setErrorMessage('Ошибка при деактивации врача');
@@ -161,19 +142,7 @@ const DoctorsPage = ({ user }) => {
   };
 
   const handleCloseDoctorModal = () => {
-    setShowDoctorModal(false);
-    setEditingItem(null);
-    setDoctorForm({
-      full_name: '',
-      specialty: '',
-      phone: '',
-      email: '',
-      calendar_color: '#3B82F6',
-      payment_type: 'percentage',
-      payment_value: 0,
-      currency: 'KZT',
-      services: []
-    });
+    // This function seems to be unused now, but we'll keep it for now.
   };
 
   return (
@@ -189,6 +158,11 @@ const DoctorsPage = ({ user }) => {
             ×
           </button>
         </div>
+      )}
+
+      {/* Виджет кэшбэка для врачей */}
+      {user?.role === 'doctor' && user?.id && (
+        <DoctorCashbackWidget doctorId={user.id} />
       )}
 
       {/* Doctors View */}

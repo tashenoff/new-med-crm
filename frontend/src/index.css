@@ -41,11 +41,17 @@ code {
 /* Стили для модальных окон */
 .modal-overlay {
     backdrop-filter: blur(4px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh;
 }
 
 .modal-content {
     box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
     animation: modalSlideIn 0.2s ease-out;
+    width: clamp(320px, 90vw, 640px);
+    border-radius: 1rem;
 }
 
 @keyframes modalSlideIn {
@@ -67,4 +73,28 @@ code {
     right: 0;
     bottom: 0;
     z-index: 9999;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 1.5rem;
+    pointer-events: none;
+}
+.modal-wrapper > * {
+    pointer-events: auto;
+}
+
+/* Анимация для сайдбара WhatsApp */
+@keyframes slideIn {
+    from {
+        transform: translateX(100%);
+        opacity: 0;
+    }
+    to {
+        transform: translateX(0);
+        opacity: 1;
+    }
+}
+
+.animate-slide-in {
+    animation: slideIn 0.3s ease-out;
 }

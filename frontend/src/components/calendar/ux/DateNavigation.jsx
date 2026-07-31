@@ -62,13 +62,13 @@ const DateNavigation = ({ currentDate, onDateChange, onNewAppointment }) => {
   const isToday = currentDate.toDateString() === new Date().toDateString();
 
   return (
-    <div className={`flex items-center justify-between p-4 ${themeClasses.bg.card} ${themeClasses.border.default} border-b`}>
-      {/* Навигация */}
-      <div className="flex items-center space-x-2">
+    <div className="calendar-date-nav flex items-center justify-between p-4">
+      {/* Объединенный блок: Стрелка - Дата - Стрелка */}
+      <div className="flex items-center space-x-4 calendar-nav-date-block">
         {/* Кнопка "Предыдущий день" */}
         <button
           onClick={goToPreviousDay}
-          className={`p-2 rounded-lg ${themeClasses.button.ghost} hover:${themeClasses.bg.hover} transition-colors`}
+          className="calendar-nav-btn"
           title="Предыдущий день"
         >
           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -76,45 +76,45 @@ const DateNavigation = ({ currentDate, onDateChange, onNewAppointment }) => {
           </svg>
         </button>
 
-        {/* Кнопка "Сегодня" */}
-        {!isToday && (
-          <button
-            onClick={goToToday}
-            className={`px-3 py-2 rounded-lg text-sm font-medium ${themeClasses.button.secondary} transition-colors`}
-          >
-            Сегодня
-          </button>
-        )}
+        {/* Текущая дата */}
+        <div className="flex flex-col items-center calendar-date-heading">
+          <h2 className="text-xl font-semibold text-gray-900 dark:text-white calendar-date-title">
+            {formatDate(currentDate)}
+          </h2>
+          <p className="text-sm text-gray-600 dark:text-sky-100 calendar-date-subtitle">
+            {formatShortDate(currentDate)}
+          </p>
+        </div>
 
         {/* Кнопка "Следующий день" */}
         <button
           onClick={goToNextDay}
-          className={`p-2 rounded-lg ${themeClasses.button.ghost} hover:${themeClasses.bg.hover} transition-colors`}
+          className="calendar-nav-btn"
           title="Следующий день"
         >
           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
           </svg>
         </button>
-      </div>
 
-      {/* Текущая дата */}
-      <div className="flex flex-col items-center">
-        <h2 className={`text-xl font-semibold ${themeClasses.text.primary}`}>
-          {formatDate(currentDate)}
-        </h2>
-        <p className={`text-sm ${themeClasses.text.secondary}`}>
-          {formatShortDate(currentDate)}
-        </p>
+        {/* Кнопка "Сегодня" */}
+        {!isToday && (
+          <button
+            onClick={goToToday}
+            className="calendar-date-pill ml-4"
+          >
+            Сегодня
+          </button>
+        )}
       </div>
 
       {/* Быстрые переходы и действия */}
-      <div className="flex items-center space-x-2">
+      <div className="flex items-center space-x-2 calendar-date-actions">
         {/* Кнопка "Новая запись" */}
         {onNewAppointment && (
           <button
             onClick={onNewAppointment}
-            className={`px-4 py-2 rounded-lg text-sm font-medium ${themeClasses.button.primary} transition-colors flex items-center space-x-2`}
+            className={`px-4 py-2 rounded-lg text-sm font-medium ${themeClasses.button.primary} transition-colors flex items-center space-x-2 calendar-new-appointment-btn`}
           >
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
@@ -122,13 +122,13 @@ const DateNavigation = ({ currentDate, onDateChange, onNewAppointment }) => {
             <span>Новая запись</span>
           </button>
         )}
-        
+
         {/* Выбор даты */}
         <input
           type="date"
           value={currentDate.toISOString().split('T')[0]}
           onChange={(e) => onDateChange(new Date(e.target.value))}
-          className={`px-3 py-2 rounded-lg border ${themeClasses.input.default} ${themeClasses.input.focus} transition-colors`}
+          className={`px-3 py-2 rounded-lg border ${themeClasses.input.default} ${themeClasses.input.focus} transition-colors calendar-date-input`}
         />
       </div>
     </div>
@@ -136,4 +136,3 @@ const DateNavigation = ({ currentDate, onDateChange, onNewAppointment }) => {
 };
 
 export default DateNavigation;
-

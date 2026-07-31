@@ -3,6 +3,7 @@ import { usePatients } from '../hooks/usePatients';
 import { useGlobalRefresh } from '../hooks/useGlobalRefresh';
 import { useModal } from '../context/ModalContext';
 import PatientsView from '../components/patients/PatientsView';
+import PatientBonusWidget from '../components/loyalty/PatientBonusWidget';
 
 const PatientsPage = ({ user }) => {
   // Data hook
@@ -14,21 +15,73 @@ const PatientsPage = ({ user }) => {
 
   // UI состояния
   const [searchTerm, setSearchTerm] = useState('');
+  const [filterType, setFilterType] = useState('all'); // all, returning, new
+  const [dateFrom, setDateFrom] = useState('');
+  const [dateTo, setDateTo] = useState('');
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState(null);
+  const [patientsTreatmentPlans, setPatientsTreatmentPlans] = useState({});
 
   // Форма пациента теперь управляется через ModalContext
 
-  // Загрузка данных при монтировании
+  // Загрузка планов лечения для всех пациентов
+  const fetchAllTreatmentPlans = async () => {
+    if (!patientsHook.patients || patientsHook.patients.length === 0) return;
+    
+    const API = import.meta.env.VITE_BACKEND_URL;
+    const token = localStorage.getItem('token');
+    const plansMap = {};
+
+    for (const patient of patientsHook.patients) {
+      try {
+        const response = await fetch(`${API}/api/patients/${patient.id}/treatment-plans`, {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          }
+        });
+        
+        if (response.ok) {
+          const plans = await response.json();
+          plansMap[patient.id] = plans;
+        }
+      } catch (error) {
+        console.error(`Error fetching treatment plans for patient ${patient.id}:`, error);
+      }
+    }
+    
+    setPatientsTreatmentPlans(plansMap);
+  };
+
+  // Загрузка данных при монтировании и при изменении фильтров
   useEffect(() => {
-    patientsHook.fetchPatients();
-  }, [patientsHook.fetchPatients]);
+    const filters = {
+      search: searchTerm,
+      is_returning: filterType,
+      date_from: dateFrom,
+      date_to: dateTo
+    };
+    patientsHook.fetchPatients(filters);
+  }, [searchTerm, filterType, dateFrom, dateTo, patientsHook.fetchPatients]);
+
+  // Загрузка планов лечения после загрузки пациентов
+  useEffect(() => {
+    if (patientsHook.patients.length > 0) {
+      fetchAllTreatmentPlans();
+    }
+  }, [patientsHook.patients.length]);
 
   // Слушаем глобальные триггеры для обновления данных
   useEffect(() => {
     console.log('🔄 Получен триггер обновления пациентов, перезагружаем список');
-    patientsHook.fetchPatients();
-  }, [refreshTriggers.patients, patientsHook.fetchPatients]);
+    const filters = {
+      search: searchTerm,
+      is_returning: filterType,
+      date_from: dateFrom,
+      date_to: dateTo
+    };
+    patientsHook.fetchPatients(filters);
+  }, [refreshTriggers.patients, searchTerm, filterType, dateFrom, dateTo, patientsHook.fetchPatients]);
 
   // Автоматическое скрытие ошибок через 5 секунд
   useEffect(() => {
@@ -65,6 +118,10 @@ const PatientsPage = ({ user }) => {
   };
 
   const handleEditPatient = (patient) => {
+    console.log('🔍 handleEditPatient вызван с пациентом:', patient);
+    console.log('🔍 ID пациента:', patient.id || patient._id);
+    console.log('🔍 Все ключи пациента:', Object.keys(patient));
+
     openModal('patient', {
       patientForm: {
         full_name: patient.full_name || '',
@@ -107,10 +164,15 @@ const PatientsPage = ({ user }) => {
       let result;
       if (editingItem) {
         const patientId = editingItem.id || editingItem._id;
+        console.log('🔍 Обновление пациента:', patientId);
+        console.log('🔍 editingItem:', editingItem);
+        console.log('🔍 Все ключи editingItem:', Object.keys(editingItem));
         result = await patientsHook.updatePatient(patientId, patientForm);
       } else {
         result = await patientsHook.createPatient(patientForm);
         if (result.success) {
+          // Обновляем список пациентов после создания
+          await patientsHook.fetchPatients();
           // Показываем уведомление о создании медкарты
           setErrorMessage(`✅ Пациент создан успешно! Медицинская карта создана автоматически.`);
           setTimeout(() => setErrorMessage(null), 3000); // Убираем через 3 секунды
@@ -121,6 +183,8 @@ const PatientsPage = ({ user }) => {
         throw new Error(result.error);
       }
 
+      // Обновляем список пациентов после обновления
+      await patientsHook.fetchPatients();
       closeModal('patient');
     } catch (error) {
       console.error('Error saving patient:', error);
@@ -138,7 +202,9 @@ const PatientsPage = ({ user }) => {
         if (!result.success) {
           throw new Error(result.error);
         }
-        
+
+        // Обновляем список пациентов после удаления
+        await patientsHook.fetchPatients();
         setSearchTerm('');
         console.log('Patient deleted successfully');
       } catch (error) {
@@ -189,11 +255,23 @@ const PatientsPage = ({ user }) => {
         </div>
       )}
 
+      {/* Виджет бонусов для пациентов */}
+      {user?.role === 'patient' && user?.id && (
+        <PatientBonusWidget patientId={user.id} />
+      )}
+
       {/* Patients View */}
       <PatientsView
         patients={patientsHook.patients}
+        patientsTreatmentPlans={patientsTreatmentPlans}
         searchTerm={searchTerm}
         setSearchTerm={setSearchTerm}
+        filterType={filterType}
+        setFilterType={setFilterType}
+        dateFrom={dateFrom}
+        setDateFrom={setDateFrom}
+        dateTo={dateTo}
+        setDateTo={setDateTo}
         onAddPatient={handleAddPatient}
         onEditPatient={handleEditPatient}
         onDeletePatient={handleDeletePatient}

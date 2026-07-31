@@ -32,15 +32,15 @@ class Doctor(BaseModel):
     @validator('phone')
     def validate_phone(cls, v):
         """Validate phone number contains only digits, spaces, +, -, (, )"""
-        if v is not None:
+        if v is not None and v.strip():  # Only validate if phone is provided and not empty
             # Allow only digits and common phone formatting characters
             allowed_chars = set('0123456789 +()-')
             if not all(c in allowed_chars for c in v):
                 raise ValueError('Phone number contains invalid characters. Use only digits and +, -, (, ), space')
-            # Ensure there are at least 10 digits
+            # Ensure there are at least 7 digits (relaxed from 10 for compatibility)
             digits_only = ''.join(filter(str.isdigit, v))
-            if len(digits_only) < 10:
-                raise ValueError('Phone number must contain at least 10 digits')
+            if len(digits_only) < 7:
+                raise ValueError('Phone number must contain at least 7 digits')
         return v
     # Поля для оплаты врача (опциональные для обратной совместимости)
     payment_type: Optional[PaymentType] = PaymentType.PERCENTAGE  # Тип оплаты: процент, фиксированная сумма или гибридная
@@ -56,6 +56,9 @@ class Doctor(BaseModel):
     # Услуги, которые может оказывать врач (для расчета зарплаты с планов лечения)
     services: Optional[List] = []  # Список ID услуг или объектов с настройками комиссий
     payment_mode: Optional[str] = "general"  # Режим оплаты: "general" или "individual"
+    # Cashback system fields
+    cashback_balance: Optional[float] = 0.0  # Current cashback balance
+    total_cashback_earned: Optional[float] = 0.0  # Total cashback earned
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)
 
@@ -154,7 +157,7 @@ class DoctorSchedule(BaseModel):
 
 class DoctorScheduleCreate(BaseModel):
     """Model for creating doctor schedule"""
-    doctor_id: str
+    doctor_id: Optional[str] = None  # Optional - will be taken from URL parameter
     day_of_week: int
     start_time: str
     end_time: str

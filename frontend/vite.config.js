@@ -1,51 +1,35 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 
-// https://vitejs.dev/config/
+const loaderOverrides = {
+  '.js': 'jsx',
+  '.ts': 'tsx',
+  '.tsx': 'tsx',
+  '.jsx': 'jsx'
+}
+
 export default defineConfig({
-  plugins: [react({
-    include: "**/*.{jsx,tsx,js,ts}",
-  })],
+  plugins: [react()],
+  server: {
+    proxy: {
+      '/api': {
+        target: 'http://localhost:8001',
+        changeOrigin: true
+      }
+    },
+    watch: {
+      usePolling: true,
+      interval: 100
+    }
+  },
   esbuild: {
-    loader: "jsx",
-    include: /src\/.*\.[jt]s[x]?$/,
-    exclude: [],
+    loader: 'jsx',
+    include: /src\/.*\.[jt]sx?$/,
+    exclude: []
   },
   optimizeDeps: {
     esbuildOptions: {
-      loader: {
-        '.js': 'jsx',
-      },
-    },
-  },
-  server: {
-    port: 3000,
-    open: true,
-    host: true,
-    allowedHosts: [
-      'localhost',
-      '127.0.0.1',
-      'env-setup-12.preview.emergentagent.com',
-      '.emergentagent.com',
-      '.preview.emergentagent.com'
-    ]
-  },
-  build: {
-    outDir: 'dist',
-    assetsDir: 'assets',
-    sourcemap: false,
-    minify: 'terser',
-    rollupOptions: {
-      output: {
-        manualChunks: {
-          vendor: ['react', 'react-dom'],
-          router: ['react-router-dom'],
-          utils: ['axios']
-        }
-      }
+      loader: loaderOverrides
     }
-  },
-  define: {
-    'process.env': {}
   }
 })

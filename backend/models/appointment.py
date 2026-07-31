@@ -33,6 +33,9 @@ class Appointment(BaseModel):
     appointment_time: str  # Format: "HH:MM"
     end_time: Optional[str] = None  # Format: "HH:MM"
     price: Optional[float] = None  # Price of the appointment
+    deposit_type: Optional[str] = None  # 'percent' или 'fixed'
+    deposit: Optional[float] = None  # Deposit amount (предоплата/депозит) - процент или сумма
+    payment_type_id: Optional[str] = None  # ID типа оплаты
     status: AppointmentStatus = AppointmentStatus.UNCONFIRMED
     reason: Optional[str] = None
     notes: Optional[str] = None
@@ -51,12 +54,18 @@ class Appointment(BaseModel):
     
     @validator('appointment_time', 'end_time')
     def validate_time_format(cls, v):
-        """Validate time format is HH:MM"""
-        if v is not None:
-            try:
-                datetime.strptime(v, "%H:%M")
-            except ValueError:
-                raise ValueError('Time must be in HH:MM format')
+        """Validate and normalize time format to HH:MM"""
+        if v is not None and v != "":
+            # Try different time formats
+            for fmt in ["%H:%M", "%H:%M:%S", "%I:%M %p", "%I:%M:%S %p"]:
+                try:
+                    time_obj = datetime.strptime(v, fmt)
+                    # Always return in HH:MM format
+                    return time_obj.strftime("%H:%M")
+                except ValueError:
+                    continue
+            # If none of the formats matched, raise error
+            raise ValueError('Time must be in HH:MM, HH:MM:SS, or 12-hour format')
         return v
     
     @validator('price')
@@ -76,6 +85,9 @@ class AppointmentCreate(BaseModel):
     appointment_time: str
     end_time: Optional[str] = None
     price: Optional[float] = None
+    deposit_type: Optional[str] = None  # 'percent' или 'fixed'
+    deposit: Optional[float] = None  # Deposit amount (предоплата/депозит) - процент или сумма
+    payment_type_id: Optional[str] = None  # ID типа оплаты
     status: Optional[AppointmentStatus] = AppointmentStatus.UNCONFIRMED
     reason: Optional[str] = None
     notes: Optional[str] = None
@@ -100,7 +112,7 @@ class AppointmentCreate(BaseModel):
                 raise ValueError('Time must be in HH:MM format')
         return v
     
-    @validator('price')
+    @validator('price', 'deposit')
     def validate_price(cls, v):
         """Validate price is positive"""
         if v is not None and v < 0:
@@ -117,6 +129,9 @@ class AppointmentUpdate(BaseModel):
     appointment_time: Optional[str] = None
     end_time: Optional[str] = None
     price: Optional[float] = None
+    deposit_type: Optional[str] = None  # 'percent' или 'fixed'
+    deposit: Optional[float] = None  # Deposit amount (предоплата/депозит) - процент или сумма
+    payment_type_id: Optional[str] = None  # ID типа оплаты
     status: Optional[AppointmentStatus] = None
     reason: Optional[str] = None
     notes: Optional[str] = None
@@ -142,7 +157,7 @@ class AppointmentUpdate(BaseModel):
                 raise ValueError('Time must be in HH:MM format')
         return v
     
-    @validator('price')
+    @validator('price', 'deposit')
     def validate_price(cls, v):
         """Validate price is positive"""
         if v is not None and v < 0:
@@ -160,6 +175,10 @@ class AppointmentWithDetails(BaseModel):
     appointment_time: str
     end_time: Optional[str]
     price: Optional[float]
+    deposit_type: Optional[str] = None  # 'percent' или 'fixed'
+    deposit: Optional[float]  # Deposit amount (предоплата/депозит) - процент или сумма
+    payment_type_id: Optional[str] = None
+    payment_type_name: Optional[str] = None  # Название типа оплаты
     status: AppointmentStatus
     reason: Optional[str]
     notes: Optional[str]

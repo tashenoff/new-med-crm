@@ -1,7 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
+import SignatureCanvas from 'react-signature-canvas';
 import Modal from './Modal';
 import { inputClasses, selectClasses, textareaClasses, buttonPrimaryClasses, buttonSecondaryClasses, buttonSuccessClasses, cardHeaderClasses, tabClasses } from './modalUtils';
 import ServiceSelector from '../treatment/ServiceSelector';
+import { CONSENT_DOCUMENTS, getRequiredConsents } from '../../config/consentDocuments';
 
 const AppointmentModal = ({ 
   show, 
@@ -29,10 +31,20 @@ const AppointmentModal = ({
   const [scheduleMessage, setScheduleMessage] = useState('');
   const [rooms, setRooms] = useState([]);
   const [loadingRooms, setLoadingRooms] = useState(false);
+  const [paymentTypes, setPaymentTypes] = useState([]);
+  const [loadingPaymentTypes, setLoadingPaymentTypes] = useState(false);
   const [patientSearch, setPatientSearch] = useState('');
   const [showPatientDropdown, setShowPatientDropdown] = useState(false);
   const [filteredPatients, setFilteredPatients] = useState([]);
   const [timeConflictMessage, setTimeConflictMessage] = useState('');
+  const [consentFile, setConsentFile] = useState(null);
+  const [consentFileError, setConsentFileError] = useState('');
+  const [consentDragOver, setConsentDragOver] = useState(false);
+  const [uploadingConsent, setUploadingConsent] = useState(false);
+  const [hasSignature, setHasSignature] = useState(false);
+  const signaturePadRef = useRef(null);
+  const [acceptedConsents, setAcceptedConsents] = useState({});
+  const [requiredConsents, setRequiredConsents] = useState([CONSENT_DOCUMENTS.base]);
   const [planForm, setPlanForm] = useState({
     title: '',
     description: '',
@@ -99,21 +111,22 @@ const AppointmentModal = ({
 
   // Функция для получения врачей, работающих в выбранном кабинете
   const fetchAvailableDoctors = async (date, time = null, roomId = null) => {
-    setAvailableDoctors([]);
     setScheduleMessage('');
     
     if (!date) {
+      setAvailableDoctors([]);
       return;
     }
 
     // Если кабинет не выбран, показываем всех врачей
     if (!roomId) {
       setAvailableDoctors(doctors);
-      setScheduleMessage('Выберите кабинет для фильтрации врачей');
+      setScheduleMessage('Кабинет не выбран - доступны все врачи');
       return;
     }
 
     setLoadingDoctors(true);
+    setAvailableDoctors([]); // Очищаем только когда загружаем по кабинету
     
     try {
       const token = localStorage.getItem('token');
@@ -256,9 +269,34 @@ const AppointmentModal = ({
     }
   };
 
+  // Функция для загрузки типов оплаты
+  const fetchPaymentTypes = async () => {
+    try {
+      setLoadingPaymentTypes(true);
+      const token = localStorage.getItem('token');
+      
+      const response = await fetch(`${API}/api/payment-types`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (response.ok) {
+        const paymentTypesData = await response.json();
+        setPaymentTypes(paymentTypesData);
+      }
+    } catch (error) {
+      console.error('Error fetching payment types:', error);
+    } finally {
+      setLoadingPaymentTypes(false);
+    }
+  };
+
   useEffect(() => {
     if (show) {
       fetchRooms();
+      fetchPaymentTypes();
       if (appointmentForm.appointment_date) {
         fetchAvailableDoctors(appointmentForm.appointment_date, appointmentForm.appointment_time, appointmentForm.room_id);
       }
@@ -301,17 +339,43 @@ const AppointmentModal = ({
     setFilteredPatients([]);
   };
 
-  // Инициализация поискового поля при открытии модала
+  // Инициализация поискового поля и формы создания пациента при открытии модала
   useEffect(() => {
     if (show && appointmentForm.patient_id) {
       const patient = patients.find(p => p.id === appointmentForm.patient_id);
       if (patient) {
         setPatientSearch(patient.full_name);
+        setShowNewPatientForm(false);
       }
     } else if (show) {
-      setPatientSearch('');
+      // Если пациент не найден и есть флаг showNewPatientForm - открываем форму создания
+      if (appointmentForm.showNewPatientForm) {
+        setShowNewPatientForm(true);
+        // Предзаполняем форму данными из лида
+        setNewPatientForm({
+          full_name: `${appointmentForm.lead_first_name || ''} ${appointmentForm.lead_last_name || ''}`.trim(),
+          phone: appointmentForm.lead_phone || '',
+          email: appointmentForm.lead_email || '',
+          iin: '',
+          birth_date: '',
+          gender: '',
+          source: 'phone',
+          referrer: '',
+          notes: `Создан из CRM заявки`
+        });
+        setPatientSearch('');
+      } else if (appointmentForm.lead_first_name) {
+        // Если просто есть данные лида - показываем их в поле поиска
+        const leadName = `${appointmentForm.lead_first_name} ${appointmentForm.lead_last_name || ''}`.trim();
+        const leadInfo = appointmentForm.lead_phone ? ` (${appointmentForm.lead_phone})` : '';
+        setPatientSearch(leadName + leadInfo);
+        setShowNewPatientForm(false);
+      } else {
+        setPatientSearch('');
+        setShowNewPatientForm(false);
+      }
     }
-  }, [show, appointmentForm?.patient_id, patients]);
+  }, [show, appointmentForm?.patient_id, appointmentForm?.lead_first_name, appointmentForm?.showNewPatientForm, patients]);
 
   // Сброс всех состояний при закрытии модала
   useEffect(() => {
@@ -330,6 +394,15 @@ const AppointmentModal = ({
       setPatientSearch('');
       setShowPatientDropdown(false);
       setFilteredPatients([]);
+      setConsentFile(null);
+      setConsentFileError('');
+      setConsentDragOver(false);
+      setHasSignature(false);
+      if (signaturePadRef.current) {
+        signaturePadRef.current.clear();
+      }
+      setAcceptedConsents({});
+      setRequiredConsents([CONSENT_DOCUMENTS.base]);
       setEditingPlan(null);
       setNewPatientForm({
         full_name: '',
@@ -378,6 +451,28 @@ const AppointmentModal = ({
       fetchTreatmentPlans();
     }
   }, [selectedPatient, activeTab]);
+
+  // Автоматическое определение необходимых согласий на основе планов лечения пациента
+  useEffect(() => {
+    if (treatmentPlans && treatmentPlans.length > 0) {
+      // Собираем все услуги из всех планов лечения
+      const allServices = treatmentPlans.reduce((acc, plan) => {
+        if (plan.services && Array.isArray(plan.services)) {
+          return [...acc, ...plan.services];
+        }
+        return acc;
+      }, []);
+      
+      // Определяем необходимые согласия на основе услуг
+      const consents = getRequiredConsents(allServices);
+      setRequiredConsents(consents);
+      
+      console.log('📋 Определены необходимые согласия:', consents.map(c => c.title));
+    } else {
+      // Если нет планов лечения, показываем только базовое согласие
+      setRequiredConsents([CONSENT_DOCUMENTS.base]);
+    }
+  }, [treatmentPlans]);
 
   const fetchDocuments = async () => {
     if (!selectedPatient) return;
@@ -616,6 +711,77 @@ const AppointmentModal = ({
     }
   };
 
+  // Очистка подписи
+  const clearSignature = () => {
+    if (signaturePadRef.current) {
+      signaturePadRef.current.clear();
+      setHasSignature(false);
+      setConsentFileError('');
+    }
+  };
+
+  // Конвертировать подпись в файл
+  const signatureToFile = () => {
+    if (!signaturePadRef.current || signaturePadRef.current.isEmpty()) {
+      return null;
+    }
+    
+    const canvas = signaturePadRef.current.getCanvas();
+    return new Promise((resolve) => {
+      canvas.toBlob((blob) => {
+        const file = new File([blob], 'signature.png', { type: 'image/png' });
+        resolve(file);
+      }, 'image/png');
+    });
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+
+    // Для новых записей подпись обязательна
+    if (!editingItem && !hasSignature) {
+      setConsentFileError('Необходимо поставить подпись пациента');
+      return;
+    }
+
+    // Проверяем, что все необходимые согласия приняты
+    const missingConsents = requiredConsents.filter(consent => !acceptedConsents[consent.id]);
+    if (!editingItem && missingConsents.length > 0) {
+      setConsentFileError(`Необходимо принять все согласия: ${missingConsents.map(c => c.title).join(', ')}`);
+      return;
+    }
+
+    // Если есть подпись — конвертируем и загружаем к документам пациента
+    if (hasSignature && appointmentForm.patient_id) {
+      try {
+        const signatureFile = await signatureToFile();
+        if (signatureFile) {
+          const token = localStorage.getItem('token');
+          const formData = new FormData();
+          formData.append('file', signatureFile);
+          formData.append('description', 'Подпись согласия на обработку персональных данных');
+
+          const response = await fetch(`${API}/api/patients/${appointmentForm.patient_id}/documents`, {
+            method: 'POST',
+            headers: { 'Authorization': `Bearer ${token}` },
+            body: formData
+          });
+
+          if (response.ok) {
+            console.log('✅ Подпись успешно сохранена в документы пациента');
+          } else {
+            console.warn('⚠️ Не удалось сохранить подпись, но запись будет создана');
+          }
+        }
+      } catch (err) {
+        console.warn('⚠️ Ошибка при загрузке подписи, но запись будет создана:', err);
+      }
+    }
+
+    // Передаём управление родительскому обработчику
+    onSave(e);
+  };
+
   if (!show) return null;
 
   return (
@@ -628,7 +794,7 @@ const AppointmentModal = ({
 
         {/* Tabs */}
         <div className="border-b border-gray-200 mb-4">
-          <nav className="-mb-px flex space-x-8">
+          <nav className="-mb-px flex flex-wrap gap-x-8 gap-y-2">
             <button
               onClick={() => setActiveTab('appointment')}
               className={`py-2 px-1 border-b-2 font-medium text-sm ${
@@ -668,7 +834,7 @@ const AppointmentModal = ({
 
         {/* Appointment Tab Content */}
         {activeTab === 'appointment' && (
-          <form onSubmit={onSave} className="space-y-4">
+          <form onSubmit={handleSubmit} className="space-y-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Пациент *</label>
               <div className="flex gap-2">
@@ -686,7 +852,7 @@ const AppointmentModal = ({
                       }}
                       placeholder="Начните вводить имя, телефон или ИИН пациента..."
                       className="w-full px-3 py-2 pr-8 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                      required={!appointmentForm.patient_id}
+                      required={!appointmentForm.patient_id && !showNewPatientForm}
                       disabled={showNewPatientForm}
                     />
                     
@@ -778,14 +944,14 @@ const AppointmentModal = ({
                   <input
                     type="text"
                     placeholder="ФИО *"
-                    value={newPatientForm.full_name}
+                    value={newPatientForm.full_name || (appointmentForm.lead_first_name ? `${appointmentForm.lead_first_name} ${appointmentForm.lead_last_name || ''}`.trim() : '')}
                     onChange={(e) => setNewPatientForm({...newPatientForm, full_name: e.target.value})}
                     className="px-3 py-2 border border-gray-300 rounded-lg text-sm"
                   />
                   <input
                     type="tel"
                     placeholder="Телефон *"
-                    value={newPatientForm.phone}
+                    value={newPatientForm.phone || appointmentForm.lead_phone || ''}
                     onChange={(e) => setNewPatientForm({...newPatientForm, phone: e.target.value})}
                     className="px-3 py-2 border border-gray-300 rounded-lg text-sm"
                   />
@@ -831,6 +997,15 @@ const AppointmentModal = ({
                     placeholder="Кто направил"
                     value={newPatientForm.referrer}
                     onChange={(e) => setNewPatientForm({...newPatientForm, referrer: e.target.value})}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                  />
+                </div>
+                <div className="mt-3">
+                  <input
+                    type="email"
+                    placeholder="Email"
+                    value={newPatientForm.email || appointmentForm.lead_email || ''}
+                    onChange={(e) => setNewPatientForm({...newPatientForm, email: e.target.value})}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
                   />
                 </div>
@@ -895,20 +1070,23 @@ const AppointmentModal = ({
             {/* Выбор кабинета */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
-                Кабинет
+                Кабинет <span className="text-gray-500 text-xs">(опционально)</span>
               </label>
               <select
                 value={appointmentForm.room_id || ''}
                 onChange={(e) => handleRoomChange(e.target.value)}
                 className={inputClasses}
               >
-                <option value="">Выберите кабинет</option>
+                <option value="">Без привязки к кабинету (все врачи)</option>
                 {rooms.map(room => (
                   <option key={room.id} value={room.id}>
                     {room.name} {room.number ? `(№${room.number})` : ''}
                   </option>
                 ))}
               </select>
+              <p className="text-xs text-gray-500 mt-1">
+                Выберите кабинет для фильтрации врачей по расписанию или оставьте пустым
+              </p>
             </div>
 
             {/* Выбор врача с учетом расписания */}
@@ -969,18 +1147,126 @@ const AppointmentModal = ({
               )}
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Цена (₸)</label>
-                <input
-                  type="number"
-                  step="0.01"
-                  min="0"
-                  placeholder="0"
-                  value={appointmentForm.price || ''}
-                  onChange={(e) => setAppointmentForm({...appointmentForm, price: e.target.value})}
-                  className={inputClasses}
-                />
+            <div className="space-y-4">
+              <div className="grid grid-cols-3 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Цена (₸)</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    placeholder="0"
+                    value={appointmentForm.price || ''}
+                    onChange={(e) => setAppointmentForm({...appointmentForm, price: e.target.value})}
+                    className={inputClasses}
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Тип оплаты</label>
+                  <select
+                    value={appointmentForm.payment_type_id || ''}
+                    onChange={(e) => setAppointmentForm({...appointmentForm, payment_type_id: e.target.value})}
+                    className={selectClasses}
+                    disabled={loadingPaymentTypes}
+                  >
+                    <option value="">Не выбрано</option>
+                    {paymentTypes.map(paymentType => (
+                      <option key={paymentType.id} value={paymentType.id}>
+                        {paymentType.name} {paymentType.commission_rate > 0 ? `(${paymentType.commission_rate}%)` : ''}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Статус записи</label>
+                  <select
+                    value={appointmentForm.status || 'unconfirmed'}
+                    onChange={(e) => setAppointmentForm({...appointmentForm, status: e.target.value})}
+                    className={selectClasses}
+                  >
+                    <option value="unconfirmed">🟡 Не подтверждено</option>
+                    <option value="confirmed">🟢 Подтверждено</option>
+                    <option value="arrived">🔵 Пациент пришел</option>
+                    <option value="in_progress">🟠 На приеме</option>
+                    <option value="completed">🟢 Завершен</option>
+                    <option value="cancelled">🔴 Отменено</option>
+                    <option value="no_show">⚪ Не явился</option>
+                  </select>
+                </div>
+              </div>
+
+              {/* Секция депозита */}
+              <div className="border-2 border-blue-200 rounded-lg p-4 bg-blue-50">
+                <h4 className="font-medium text-blue-900 mb-3">💰 Депозит (предоплата)</h4>
+                <div className="grid grid-cols-3 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Тип депозита</label>
+                    <select
+                      value={appointmentForm.deposit_type || ''}
+                      onChange={(e) => setAppointmentForm({...appointmentForm, deposit_type: e.target.value, deposit: ''})}
+                      className={selectClasses}
+                    >
+                      <option value="">Без депозита</option>
+                      <option value="fixed">Фиксированная сумма</option>
+                    </select>
+                  </div>
+
+                  {appointmentForm.deposit_type && (
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        {appointmentForm.deposit_type === 'percent' ? 'Процент (%)' : 'Сумма (₸)'}
+                      </label>
+                      <input
+                        type="number"
+                        step={appointmentForm.deposit_type === 'percent' ? '1' : '0.01'}
+                        min="0"
+                        max={appointmentForm.deposit_type === 'percent' ? '100' : undefined}
+                        placeholder={appointmentForm.deposit_type === 'percent' ? '0-100' : '0'}
+                        value={appointmentForm.deposit || ''}
+                        onChange={(e) => setAppointmentForm({...appointmentForm, deposit: e.target.value})}
+                        className={inputClasses}
+                      />
+                    </div>
+                  )}
+
+                  {appointmentForm.deposit_type && appointmentForm.deposit && (
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Сумма депозита</label>
+                      <div className="px-3 py-2 bg-green-100 border border-green-300 rounded-lg font-bold text-green-800">
+                        {appointmentForm.deposit_type === 'percent' && appointmentForm.price
+                          ? `${((parseFloat(appointmentForm.price) * parseFloat(appointmentForm.deposit)) / 100).toFixed(2)} ₸`
+                          : appointmentForm.deposit_type === 'fixed'
+                          ? `${parseFloat(appointmentForm.deposit || 0).toFixed(2)} ₸`
+                          : '0 ₸'}
+                      </div>
+                    </div>
+                  )}
+                </div>
+                
+                {appointmentForm.deposit_type === 'percent' && !appointmentForm.price && (
+                  <p className="text-sm text-orange-600 mt-2">⚠️ Укажите цену записи для расчета депозита</p>
+                )}
+              </div>
+            </div>
+            
+            <div className="hidden">
+              <div>  
+                <label className="block text-sm font-medium text-gray-700 mb-1">Тип оплаты</label>
+                <select
+                  value={appointmentForm.payment_type_id || ''}
+                  onChange={(e) => setAppointmentForm({...appointmentForm, payment_type_id: e.target.value})}
+                  className={selectClasses}
+                  disabled={loadingPaymentTypes}
+                >
+                  <option value="">Не выбрано</option>
+                  {paymentTypes.map(paymentType => (
+                    <option key={paymentType.id} value={paymentType.id}>
+                      {paymentType.name} {paymentType.commission_rate > 0 ? `(${paymentType.commission_rate}%)` : ''}
+                    </option>
+                  ))}
+                </select>
               </div>
 
               <div>
@@ -1036,13 +1322,126 @@ const AppointmentModal = ({
               </div>
             </div>
             
+            {/* Подпись пациента на обработку персональных данных */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Подпись согласия пациента на обработку персональных данных
+                {!editingItem && <span className="text-red-500 ml-1">*</span>}
+              </label>
+              <div className="border-2 border-gray-300 rounded-lg p-4 bg-white">
+                <div className="mb-2 text-sm text-gray-600">
+                  Пожалуйста, поставьте подпись в области ниже:
+                </div>
+                <div className={`border-2 rounded-lg overflow-hidden ${
+                  consentFileError ? 'border-red-400' : 'border-gray-400'
+                }`}>
+                  <SignatureCanvas
+                    ref={signaturePadRef}
+                    canvasProps={{
+                      className: 'signature-canvas',
+                      style: {
+                        width: '100%',
+                        height: '200px',
+                        background: '#f9fafb',
+                        cursor: 'crosshair'
+                      }
+                    }}
+                    onEnd={() => {
+                      if (signaturePadRef.current && !signaturePadRef.current.isEmpty()) {
+                        setHasSignature(true);
+                        setConsentFileError('');
+                      }
+                    }}
+                  />
+                </div>
+                <div className="mt-3 flex gap-2">
+                  <button
+                    type="button"
+                    onClick={clearSignature}
+                    className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 text-sm border border-gray-300"
+                  >
+                    🔄 Очистить подпись
+                  </button>
+                  {hasSignature && (
+                    <div className="flex-1 flex items-center justify-end text-green-600 text-sm font-medium">
+                      ✓ Подпись поставлена
+                    </div>
+                  )}
+                </div>
+              </div>
+              {consentFileError && (
+                <p className="mt-1 text-sm text-red-600">{consentFileError}</p>
+              )}
+              {editingItem && (
+                <p className="mt-1 text-xs text-gray-500">При редактировании подпись не обязательна</p>
+              )}
+            </div>
+
+            {/* Документы согласий */}
+            <div className="border-2 border-indigo-200 rounded-lg p-4 bg-indigo-50">
+              <h4 className="font-medium text-indigo-900 mb-3">📄 Информированные согласия</h4>
+              <div className="space-y-3">
+                {requiredConsents.map(consent => (
+                  <div key={consent.id} className="bg-white p-3 rounded-lg border border-indigo-200">
+                    <label className="flex items-start space-x-3 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={acceptedConsents[consent.id] || false}
+                        onChange={(e) => {
+                          setAcceptedConsents(prev => ({
+                            ...prev,
+                            [consent.id]: e.target.checked
+                          }));
+                          if (e.target.checked) {
+                            setConsentFileError('');
+                          }
+                        }}
+                        disabled={editingItem}
+                        className="mt-1 w-5 h-5 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500"
+                      />
+                      <div className="flex-1">
+                        <div className="font-medium text-gray-900">{consent.title}</div>
+                        <div className="text-sm text-gray-600 mt-1">{consent.description}</div>
+                        {consent.url && consent.url !== 'undefined' && (
+                          <a
+                            href={consent.url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-sm text-indigo-600 hover:text-indigo-800 mt-1 inline-flex items-center"
+                          >
+                            📎 Открыть документ
+                            <svg className="w-3 h-3 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                            </svg>
+                          </a>
+                        )}
+                      </div>
+                      {acceptedConsents[consent.id] && (
+                        <div className="text-green-600 font-medium text-sm">✓ Согласен</div>
+                      )}
+                    </label>
+                  </div>
+                ))}
+              </div>
+              {!editingItem && Object.keys(acceptedConsents).length < requiredConsents.length && (
+                <div className="mt-3 text-sm text-orange-600 bg-orange-50 p-2 rounded border border-orange-200">
+                  ⚠️ Необходимо принять все согласия перед созданием записи
+                </div>
+              )}
+              {editingItem && (
+                <div className="mt-3 text-xs text-gray-500">
+                  При редактировании согласия уже приняты и изменению не подлежат
+                </div>
+              )}
+            </div>
+
             <div className="flex space-x-3">
               <button
                 type="submit"
-                disabled={loading}
+                disabled={loading || uploadingConsent}
                 className="flex-1 bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700 disabled:opacity-50"
               >
-                {loading ? 'Сохранение...' : (editingItem ? 'Обновить' : 'Создать')}
+                {uploadingConsent ? 'Сохранение подписи...' : loading ? 'Сохранение...' : (editingItem ? 'Обновить' : 'Создать')}
               </button>
               <button
                 type="button"

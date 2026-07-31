@@ -1,6 +1,8 @@
 import React from 'react';
+import { useNotifications } from '../../context/NotificationContext';
 
 const Header = ({ user, onLogout, onToggleSidebar, sidebarOpen, activeSection, setActiveSection }) => {
+  const { unreadCount, togglePanel } = useNotifications();
   // Проверяем текущую тему
   const [isDarkMode, setIsDarkMode] = React.useState(() => {
     // Проверяем сохраненное значение при монтировании
@@ -13,11 +15,11 @@ const Header = ({ user, onLogout, onToggleSidebar, sidebarOpen, activeSection, s
     }
     return savedMode;
   });
-  
+
   const toggleDarkMode = () => {
     const newDarkMode = !isDarkMode;
     setIsDarkMode(newDarkMode);
-    
+
     if (newDarkMode) {
       document.documentElement.classList.add('dark');
       document.body.style.backgroundColor = "#1f2937";
@@ -27,118 +29,111 @@ const Header = ({ user, onLogout, onToggleSidebar, sidebarOpen, activeSection, s
     }
     localStorage.setItem('darkMode', newDarkMode.toString());
   };
-  return (
-    <header className="bg-white dark:bg-gray-800 shadow-sm border-b border-gray-200 dark:border-gray-700 relative z-40">
-      <div className="px-4 sm:px-6 lg:px-8">
-        <div className="flex justify-between items-center py-4">
-          <div className="flex items-center space-x-4">
-            {/* Hamburger Menu Button */}
-            <button
-              onClick={onToggleSidebar}
-              className="p-2 rounded-lg text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors lg:hidden z-50 relative"
-              aria-label="Toggle sidebar"
-              data-testid="mobile-hamburger"
-            >
-              <svg
-                className="w-6 h-6"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d={sidebarOpen ? "M6 18L18 6M6 6l12 12" : "M4 6h16M4 12h16M4 18h16"}
-                />
-              </svg>
-            </button>
 
-            {/* Desktop Hamburger Menu Button */}
-            <button
-              onClick={onToggleSidebar}
-              className="hidden lg:block p-2 rounded-lg text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors z-50 relative"
-              aria-label="Toggle sidebar"
-              data-testid="desktop-hamburger"
-            >
-              <svg
-                className="w-6 h-6"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M4 6h16M4 12h16M4 18h16"
-                />
-              </svg>
-            </button>
-            
-            {/* Logo only shows when sidebar is closed */}
-            <div className={`flex items-center space-x-2 transition-opacity duration-300 ${sidebarOpen ? 'lg:opacity-0 lg:pointer-events-none' : 'lg:opacity-100'}`}>
-              <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
-                <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-                </svg>
-              </div>
-              <h1 className="text-xl font-bold text-gray-900 dark:text-white hidden sm:block">Мед Ассистент</h1>
+  return (
+    <header
+      className="backdrop-blur-xl shadow-sm border-b border-white/40 relative z-40"
+      style={{ backgroundColor: 'rgba(255,255,255,0.14)' }}
+    >
+      <div className="px-4 sm:px-6 lg:px-8">
+          <div className="flex justify-between items-center py-4">
+          <div className="flex items-center space-x-6 w-full">
+            {!sidebarOpen && (
+              <div className="flex items-center gap-3">
+                <button
+                    onClick={onToggleSidebar}
+                    className="p-2 rounded-lg text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                    aria-label="Open sidebar"
+                    data-testid="mobile-hamburger"
+                  >
+                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+                    </svg>
+                  </button>
+                  <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
+                    <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                    </svg>
+                  </div>
+                </div>
+              )}
+              {user && (
+                <div className="hidden md:flex items-center space-x-4 w-full">
+                  <nav className="flex-1 flex items-center space-x-6">
+                    <button 
+                      onClick={() => setActiveSection('hms')}
+                      className={`px-3 py-2 text-sm font-medium transition-colors ${
+                        activeSection === 'hms' 
+                          ? 'text-white border-b-2 border-white/70' 
+                          : 'text-white/80 hover:text-white'
+                      }`}
+                    >
+                      HMS
+                    </button>
+                    {/* CRM доступ для админов или пользователей с правом crm_view */}
+                    {(user.role === 'admin' || user.role === 'super_admin' || (user.permissions && user.permissions.includes('crm_view'))) && (
+                      <button 
+                        onClick={() => setActiveSection('crm')}
+                        className={`px-3 py-2 text-sm font-medium transition-colors ${
+                          activeSection === 'crm' 
+                            ? 'text-white border-b-2 border-white/70' 
+                            : 'text-white/80 hover:text-white'
+                        }`}
+                      >
+                        CRM
+                      </button>
+                    )}
+                    {/* Склад доступ для админов или пользователей с правом warehouse_view */}
+                    {(user.role === 'admin' || user.role === 'super_admin' || (user.permissions && user.permissions.includes('warehouse_view'))) && (
+                      <button 
+                        onClick={() => setActiveSection('warehouse')}
+                        className={`px-3 py-2 text-sm font-medium transition-colors ${
+                          activeSection === 'warehouse' 
+                            ? 'text-white border-b-2 border-white/70' 
+                            : 'text-white/80 hover:text-white'
+                        }`}
+                      >
+                        Склад
+                      </button>
+                    )}
+                  </nav>
+                </div>
+              )}
             </div>
-          </div>
           
-          {/* Top Navigation Tabs */}
-          <div className="flex items-center space-x-6">
-            {user && (
-              <nav className="hidden md:flex space-x-6">
-                <button 
-                  onClick={() => setActiveSection('hms')}
-                  className={`px-3 py-2 text-sm font-medium transition-colors ${
-                    activeSection === 'hms' 
-                      ? 'text-blue-600 dark:text-blue-400 border-b-2 border-blue-600 dark:border-blue-400' 
-                      : 'text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400'
-                  }`}
-                >
-                  HMS
-                </button>
-                <button 
-                  onClick={() => setActiveSection('crm')}
-                  className={`px-3 py-2 text-sm font-medium transition-colors ${
-                    activeSection === 'crm' 
-                      ? 'text-blue-600 dark:text-blue-400 border-b-2 border-blue-600 dark:border-blue-400' 
-                      : 'text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400'
-                  }`}
-                >
-                  CRM
-                </button>
-                <button 
-                  onClick={() => setActiveSection('finance')}
-                  className={`px-3 py-2 text-sm font-medium transition-colors ${
-                    activeSection === 'finance' 
-                      ? 'text-blue-600 dark:text-blue-400 border-b-2 border-blue-600 dark:border-blue-400' 
-                      : 'text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400'
-                  }`}
-                >
-                  Финансы
-                </button>
-              </nav>
-            )}
-          </div>
-          
-          <div className="flex items-center space-x-4">
+            <div className="flex items-center space-x-4 text-white">
             {user && (
               <>
                 <div className="text-sm text-right hidden sm:block">
-                  <div className="text-gray-900 dark:text-white font-medium">{user.full_name}</div>
-                  <div className="text-gray-500 dark:text-gray-400 text-xs">
+                  <div className="font-medium">{user.full_name}</div>
+                  <div className="text-xs text-white/70">
                     {user.role === 'admin' ? 'Администратор' : user.role === 'doctor' ? 'Врач' : 'Пациент'}
                   </div>
                 </div>
+
+
                 
+                {/* Notifications Button */}
+                <button
+                  onClick={togglePanel}
+                  className="relative p-2 rounded-full bg-white/10 text-white hover:bg-white/20 transition"
+                  aria-label="Уведомления"
+                  title="Уведомления"
+                >
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+                  </svg>
+                  {unreadCount > 0 && (
+                    <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center">
+                      {unreadCount > 9 ? '9+' : unreadCount}
+                    </span>
+                  )}
+                </button>
+
                 {/* Theme Toggle Button */}
                 <button
                   onClick={toggleDarkMode}
-                  className="p-2 rounded-lg text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                  className="p-2 rounded-full bg-white/10 text-white hover:bg-white/20 transition"
                   aria-label="Toggle dark mode"
                   title={isDarkMode ? 'Переключить на светлую тему' : 'Переключить на темную тему'}
                 >
@@ -157,14 +152,14 @@ const Header = ({ user, onLogout, onToggleSidebar, sidebarOpen, activeSection, s
 
                 {/* User Avatar Dropdown */}
                 <div className="relative">
-                  <div className="w-8 h-8 bg-gradient-to-r from-blue-600 to-purple-600 rounded-full flex items-center justify-center text-white font-medium text-sm">
+                  <div className="w-8 h-8 bg-transparent border border-white/40 rounded-full flex items-center justify-center text-white font-medium text-sm">
                     {user.full_name?.charAt(0)?.toUpperCase()}
                   </div>
                 </div>
                 
                 <button
                   onClick={onLogout}
-                  className="bg-red-500 text-white px-4 py-2 rounded-lg hover:bg-red-600 transition-colors text-sm font-medium shadow-sm"
+                  className="text-white px-4 py-2 rounded-lg hover:bg-white/20 transition-colors text-sm font-medium"
                 >
                   Выйти
                 </button>

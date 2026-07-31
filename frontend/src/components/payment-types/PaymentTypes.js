@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import Modal from '../modals/Modal';
+import PanelHeader from '../common/PanelHeader';
 import { inputClasses, textareaClasses, labelClasses, buttonPrimaryClasses, buttonSecondaryClasses } from '../modals/modalUtils';
 
 const PaymentTypes = ({ user }) => {
@@ -147,21 +148,15 @@ const PaymentTypes = ({ user }) => {
 
   return (
     <div className="space-y-6">
-      {/* Заголовок */}
-      <div className="flex justify-between items-center">
-        <div>
-          <h2 className="text-2xl font-bold">Типы оплат</h2>
-          <p className="text-gray-600">Управление способами оплаты и комиссиями</p>
-        </div>
-        {user?.role === 'admin' && (
-          <button
-            onClick={() => setShowModal(true)}
-            className="bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700 transition-colors"
-          >
-            + Добавить тип оплаты
-          </button>
-        )}
-      </div>
+      <div className={`calendar-container calendar-view-panel rounded-2xl`}>
+        <PanelHeader
+          title="Типы оплат"
+          subtitle="Управление способами оплаты и комиссиями"
+          onAction={user?.role === 'admin' ? () => setShowModal(true) : undefined}
+          actionLabel="+ Добавить тип оплаты"
+        />
+
+        <div className="bg-white dark:bg-gray-800 rounded-b-2xl border border-t-0 border-gray-200 dark:border-gray-700 p-4 space-y-4 shadow-sm">
 
       {/* Сообщения */}
       {error && (
@@ -386,7 +381,6 @@ const PaymentTypes = ({ user }) => {
                   type="submit"
                   disabled={loading}
                   className={`flex-1 ${buttonPrimaryClasses}`}
-                  disabled={loading}
                 >
                   {loading ? 'Сохранение...' : (editingPaymentType ? 'Обновить' : 'Создать')}
                 </button>
@@ -400,6 +394,8 @@ const PaymentTypes = ({ user }) => {
               </div>
             </form>
       </Modal>
+        </div>
+      </div>
     </div>
   );
 };

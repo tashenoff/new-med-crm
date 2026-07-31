@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import PanelHeader from '../../common/PanelHeader';
 
 const FinanceDashboard = ({ user }) => {
   const [stats, setStats] = useState({
@@ -45,18 +46,21 @@ const FinanceDashboard = ({ user }) => {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="flex justify-between items-center">
-        <h1 className="text-2xl font-bold text-gray-900">💰 Финансовый дашборд</h1>
-        <div className="flex space-x-3">
-          <button className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors">
-            📊 Создать отчет
-          </button>
-          <button className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors">
-            ➕ Добавить транзакцию
-          </button>
-        </div>
-      </div>
+      <div className={`calendar-container calendar-view-panel rounded-2xl`}>
+        <PanelHeader
+          title="💰 Финансовый дашборд"
+          subtitle="Анализ финансовой деятельности клиники"
+          onAction={() => {}}
+          actionLabel="➕ Добавить транзакцию"
+        />
+
+        <div className="bg-white dark:bg-gray-800 rounded-b-2xl border border-t-0 border-gray-200 dark:border-gray-700 p-4 space-y-4 shadow-sm">
+          {/* Дополнительные кнопки */}
+          <div className="flex justify-end">
+            <button className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors">
+              📊 Создать отчет
+            </button>
+          </div>
 
       {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
@@ -144,6 +148,8 @@ const FinanceDashboard = ({ user }) => {
               Показать все транзакции →
             </button>
           </div>
+        </div>
+      </div>
         </div>
       </div>
     </div>

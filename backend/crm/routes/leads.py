@@ -237,3 +237,93 @@ async def get_leads_statistics(
         return LeadStatistics(**stats)
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
+
+
+@leads_router.post("/{lead_id}/schedule-appointment")
+async def schedule_appointment_from_lead(
+    lead_id: str,
+    appointment_data: dict,
+    db: AsyncIOMotorDatabase = Depends(get_database)
+):
+    """Назначить прием прямо из заявки"""
+    try:
+        lead_service = LeadService(db)
+        lead = await lead_service.get_lead_by_id(lead_id)
+        
+        if not lead:
+            raise HTTPException(status_code=404, detail="Лид не найден")
+        
+        # Импортируем сервисы для работы с пациентами и записями
+        from ...services.patient_service import PatientService
+        from ...services.appointment_service import AppointmentService
+        
+        patient_service = PatientService(db)
+        appointment_service = AppointmentService(db)
+        
+        # Создаем или находим пациента
+        patient = None
+        if lead.converted_to_client_id:
+            # Если лид уже конвертирован, ищем пациента
+            patient = await patient_service.get_patient_by_id(lead.converted_to_client_id)
+        
+        if not patient:
+            # Создаем нового пациента из данных лида
+            from ...models.patient import PatientCreate
+            patient_data = PatientCreate(
+                first_name=lead.first_name,
+                last_name=lead.last_name,
+                middle_name=lead.middle_name,
+                phone=lead.phone,
+                email=lead.email,
+                notes=f"Создан из заявки CRM. {lead.description or ''}"
+            )
+            patient = await patient_service.create_patient(patient_data)
+            
+            # Обновляем лид как конвертированный
+            await lead_service.convert_to_client(lead_id, patient.id)
+        
+        # Создаем запись на прием
+        from ...models.appointment import AppointmentCreate
+        from datetime import datetime
+        
+        appointment_create = AppointmentCreate(
+            patient_id=patient.id,
+            doctor_id=appointment_data.get('doctor_id'),
+            appointment_date=datetime.fromisoformat(appointment_data.get('appointment_date')),
+            service=appointment_data.get('service', 'Консультация'),
+            notes=appointment_data.get('notes', f"Запись из CRM. Заявка: {lead.full_name}")
+        )
+        
+        appointment = await appointment_service.create_appointment(appointment_create)
+        
+        # Обновляем статус лида
+        await lead_service.update_lead_status(lead_id, LeadStatus.CONTACTED, "Запись на прием создана")
+        
+        return {
+            "message": "Прием успешно назначен",
+            "patient_id": patient.id,
+            "appointment_id": appointment.id,
+            "appointment_date": appointment.appointment_date
+        }
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@leads_router.get("/{lead_id}/tasks")
+async def get_lead_tasks(
+    lead_id: str,
+    db: AsyncIOMotorDatabase = Depends(get_database)
+):
+    """Получить задачи для конкретной заявки"""
+    try:
+        from ..services.task_service import TaskService
+        
+        task_service = TaskService(db)
+        tasks = await task_service.get_tasks_by_lead(lead_id)
+        
+        return {
+            "lead_id": lead_id,
+            "tasks": [task.dict() for task in tasks]
+        }
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))

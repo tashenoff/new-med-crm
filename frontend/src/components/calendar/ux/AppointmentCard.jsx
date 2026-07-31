@@ -17,12 +17,31 @@ const AppointmentCard = ({
   patient,
   doctor,
   height,
-  statusColor,
+  statusColor, // Оставляем для обратной совместимости, но не используем
   canEdit,
   onEdit,
   onDragStart,
   onDragEnd
 }) => {
+  // Получаем цвет календаря врача
+  const doctorColor = doctor?.calendar_color || '#3B82F6';
+  
+  // Конвертируем hex в rgba с прозрачностью для фона
+  const hexToRgba = (hex, alpha = 0.15) => {
+    const r = parseInt(hex.slice(1, 3), 16);
+    const g = parseInt(hex.slice(3, 5), 16);
+    const b = parseInt(hex.slice(5, 7), 16);
+    return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+  };
+  
+  // Вычисляем цвет текста на основе яркости фона
+  const getTextColor = (hex) => {
+    const r = parseInt(hex.slice(1, 3), 16);
+    const g = parseInt(hex.slice(3, 5), 16);
+    const b = parseInt(hex.slice(5, 7), 16);
+    const brightness = (r * 299 + g * 587 + b * 114) / 1000;
+    return brightness > 128 ? '#1F2937' : '#FFFFFF';
+  };
   const handleDragStart = (e) => {
     console.log(`🚀 DRAG START: appointmentId=${appointment._id || appointment.id}, patient=${patient?.name}`);
     
@@ -55,13 +74,23 @@ const AppointmentCard = ({
       draggable={canEdit}
       onDragStart={handleDragStart}
       onDragEnd={handleDragEnd}
-      className={`
-        absolute top-1 left-1 right-1 p-2 rounded text-xs 
-        cursor-move z-50 transition-none ${statusColor}
-      `}
-      style={{ height: `${height - 8}px` }}
+      className="absolute top-1 left-1 right-1 rounded text-xs cursor-move z-50 transition-none overflow-hidden"
+      style={{ 
+        height: `${height - 8}px`,
+        backgroundColor: hexToRgba(doctorColor, 0.15),
+        color: getTextColor(doctorColor),
+        padding: '6px 10px 6px 14px'
+      }}
       onClick={handleClick}
     >
+      {/* Цветная полоска слева */}
+      <div 
+        className="absolute top-0 left-0 bottom-0"
+        style={{
+          width: '4px',
+          backgroundColor: doctorColor
+        }}
+      />
       {/* Имя пациента */}
       <div className="font-semibold">
         {patient?.full_name || 'Неизвестный пациент'}
@@ -89,5 +118,3 @@ const AppointmentCard = ({
 };
 
 export default AppointmentCard;
-
-

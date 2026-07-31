@@ -5,6 +5,7 @@ import { useModal } from '../../context/ModalContext';
 import AppointmentModal from './AppointmentModal';
 import PatientModal from './PatientModal';
 import DoctorModal from './DoctorModal';
+import AIChatModal from './AIChatModal';
 
 const ModalManager = () => {
   const { modals, isModalOpen, getModalProps, closeModal } = useModal();
@@ -30,6 +31,13 @@ const ModalManager = () => {
         show={isModalOpen('doctor')}
         onClose={() => closeModal('doctor')}
         {...getModalProps('doctor')}
+      />
+
+      {/* AI Chat Modal */}
+      <AIChatModal
+        show={isModalOpen('aiChat')}
+        onClose={() => closeModal('aiChat')}
+        {...getModalProps('aiChat')}
       />
 
     </>

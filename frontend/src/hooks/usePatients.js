@@ -9,10 +9,25 @@ export const usePatients = () => {
   const [loading, setLoading] = useState(false);
 
   // Получить всех пациентов
-  const fetchPatients = useCallback(async () => {
+  const fetchPatients = useCallback(async (filters = {}) => {
     setLoading(true);
     try {
-      const response = await axios.get(`${API}/patients`);
+      const token = localStorage.getItem('token');
+      
+      // Создаем параметры запроса
+      const params = new URLSearchParams();
+      if (filters.search) params.append('search', filters.search);
+      if (filters.is_returning) params.append('is_returning', filters.is_returning);
+      if (filters.date_from) params.append('date_from', filters.date_from);
+      if (filters.date_to) params.append('date_to', filters.date_to);
+      
+      const url = `${API}/patients${params.toString() ? '?' + params.toString() : ''}`;
+      
+      const response = await axios.get(url, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
       setPatients(response.data);
     } catch (error) {
       console.error('Ошибка при загрузке пациентов:', error);
@@ -28,12 +43,21 @@ export const usePatients = () => {
       console.log('🔍 Отправляемые данные пациента:', patientData);
       console.log('🔍 Тип patientData:', typeof patientData);
       console.log('🔍 Ключи patientData:', Object.keys(patientData || {}));
-      
-      const response = await axios.post(`${API}/patients`, patientData);
-      
-      // Обновляем локальный список
-      setPatients(prev => [...prev, response.data]);
-      
+
+      const token = localStorage.getItem('token');
+      const response = await axios.post(`${API}/patients`, patientData, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      console.log('🔍 Ответ сервера при создании:', response.data);
+      console.log('🔍 ID созданного пациента:', response.data.id || response.data._id);
+
+      // НЕ обновляем локальный список здесь - это делается в компоненте после создания
+      // setPatients(prev => [...prev, response.data]);
+
       return { success: true, data: response.data };
     } catch (error) {
       console.error('Ошибка при создании пациента:', error);
@@ -59,16 +83,17 @@ export const usePatients = () => {
   // Обновить пациента
   const updatePatient = useCallback(async (id, patientData) => {
     try {
-      const response = await axios.put(`${API}/patients/${id}`, patientData);
-      
-      // Обновляем локальный список
-      setPatients(prev => 
-        prev.map(patient => {
-          const patientId = patient.id || patient._id;
-          return String(patientId) === String(id) ? response.data : patient;
-        })
-      );
-      
+      const token = localStorage.getItem('token');
+      const response = await axios.put(`${API}/patients/${id}`, patientData, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      // НЕ обновляем локальный список здесь - это делается в компоненте после обновления
+      // setPatients(prev => ...);
+
       return { success: true, data: response.data };
     } catch (error) {
       console.error('Ошибка при обновлении пациента:', error);
@@ -80,14 +105,16 @@ export const usePatients = () => {
   // Удалить пациента
   const deletePatient = useCallback(async (id) => {
     try {
-      await axios.delete(`${API}/patients/${id}`);
-      
-      // Обновляем локальный список
-      setPatients(prev => prev.filter(patient => {
-        const patientId = patient.id || patient._id;
-        return String(patientId) !== String(id);
-      }));
-      
+      const token = localStorage.getItem('token');
+      await axios.delete(`${API}/patients/${id}`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      // НЕ обновляем локальный список здесь - это делается в компоненте после удаления
+      // setPatients(prev => ...);
+
       return { success: true };
     } catch (error) {
       console.error('Ошибка при удалении пациента:', error);

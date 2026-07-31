@@ -61,11 +61,20 @@ class ServicePrice(BaseModel):
     """Service price directory model"""
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     service_name: str
-    service_code: Optional[str] = None
-    category: Optional[str] = None
+    service_name_kz: Optional[str] = None  # Название на казахском языке
+    service_code: Optional[str] = None  # Код услуги
+    barcode: Optional[str] = None  # Штрих-код
+    category: Optional[str] = None  # Категория/Специальность
     price: float
     unit: Optional[str] = "процедура"  # единица измерения (процедура, час, зуб и т.д.)
+    laboratory_id: Optional[str] = None  # ID лаборатории
+    laboratory_name: Optional[str] = None  # Название лаборатории
+    payment_type: Optional[str] = None  # Оплата (Оплата врачу, и т.д.)
     description: Optional[str] = None
+    disable_discount: bool = False  # Запретить пробивать скидку
+    require_medical_history: bool = False  # Контроль заполнения истории болезней
+    show_in_online_booking: bool = False  # Показывать в "Онлайн записи" и Medflex
+    materials: Optional[list] = []  # Материалы для услуги
     is_active: bool = True
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)
@@ -81,11 +90,20 @@ class ServicePrice(BaseModel):
 class ServicePriceCreate(BaseModel):
     """Model for creating service price"""
     service_name: str
+    service_name_kz: Optional[str] = None
     service_code: Optional[str] = None
+    barcode: Optional[str] = None
     category: Optional[str] = None
     price: float
     unit: Optional[str] = "процедура"
+    laboratory_id: Optional[str] = None
+    laboratory_name: Optional[str] = None
+    payment_type: Optional[str] = None
     description: Optional[str] = None
+    disable_discount: Optional[bool] = False
+    require_medical_history: Optional[bool] = False
+    show_in_online_booking: Optional[bool] = False
+    materials: Optional[list] = []
     
     @validator('price')
     def validate_price(cls, v):
@@ -98,11 +116,20 @@ class ServicePriceCreate(BaseModel):
 class ServicePriceUpdate(BaseModel):
     """Model for updating service price"""
     service_name: Optional[str] = None
+    service_name_kz: Optional[str] = None
     service_code: Optional[str] = None
+    barcode: Optional[str] = None
     category: Optional[str] = None
     price: Optional[float] = None
     unit: Optional[str] = None
+    laboratory_id: Optional[str] = None
+    laboratory_name: Optional[str] = None
+    payment_type: Optional[str] = None
     description: Optional[str] = None
+    disable_discount: Optional[bool] = None
+    require_medical_history: Optional[bool] = None
+    show_in_online_booking: Optional[bool] = None
+    materials: Optional[list] = None
     is_active: Optional[bool] = None
     
     @validator('price')

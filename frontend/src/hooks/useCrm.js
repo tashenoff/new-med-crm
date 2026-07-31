@@ -25,6 +25,7 @@ export const useCrm = () => {
   const [selectedClient, setSelectedClient] = useState(null);
   const [selectedDeal, setSelectedDeal] = useState(null);
   const [selectedSource, setSelectedSource] = useState(null);
+  const [tasks, setTasks] = useState([]);
   
   // Состояния загрузки
   const [dataLoading, setDataLoading] = useState({
@@ -358,6 +359,78 @@ export const useCrm = () => {
     }
   }, [crmApi.sources, fetchSourcesStatistics]);
 
+  // ==================== TASKS ====================
+  
+  const fetchTasks = useCallback(async (filters = {}) => {
+    try {
+      const data = await crmApi.tasks.getAll(filters);
+      setTasks(data);
+      return data;
+    } catch (error) {
+      console.error('Error fetching tasks:', error);
+      return [];
+    }
+  }, [crmApi.tasks]);
+
+  const createTask = useCallback(async (taskData) => {
+    try {
+      const newTask = await crmApi.tasks.create(taskData);
+      setTasks(prev => [newTask, ...prev]);
+      return newTask;
+    } catch (error) {
+      console.error('Error creating task:', error);
+      throw error;
+    }
+  }, [crmApi.tasks]);
+
+  const updateTask = useCallback(async (id, updateData) => {
+    try {
+      const updatedTask = await crmApi.tasks.update(id, updateData);
+      setTasks(prev => prev.map(task => 
+        task.id === id ? updatedTask : task
+      ));
+      return updatedTask;
+    } catch (error) {
+      console.error('Error updating task:', error);
+      throw error;
+    }
+  }, [crmApi.tasks]);
+
+  const completeTask = useCallback(async (id) => {
+    try {
+      const completedTask = await crmApi.tasks.complete(id);
+      setTasks(prev => prev.map(task => 
+        task.id === id ? completedTask : task
+      ));
+      return completedTask;
+    } catch (error) {
+      console.error('Error completing task:', error);
+      throw error;
+    }
+  }, [crmApi.tasks]);
+
+  const getLeadTasks = useCallback(async (leadId) => {
+    try {
+      const result = await crmApi.leads.getTasks(leadId);
+      return result.tasks || [];
+    } catch (error) {
+      console.error('Error fetching lead tasks:', error);
+      return [];
+    }
+  }, [crmApi.leads]);
+
+  const scheduleAppointmentFromLead = useCallback(async (leadId, appointmentData) => {
+    try {
+      const result = await crmApi.leads.scheduleAppointment(leadId, appointmentData);
+      // Обновляем заявки после создания приема
+      await fetchLeads();
+      return result;
+    } catch (error) {
+      console.error('Error scheduling appointment from lead:', error);
+      throw error;
+    }
+  }, [crmApi.leads, fetchLeads]);
+
   // ==================== DASHBOARD DATA ====================
   
   const fetchDashboardData = useCallback(async () => {
@@ -497,6 +570,15 @@ export const useCrm = () => {
     deleteSource,
     fetchSourcesStatistics,
     updateSourcesStatistics,
+    
+    // Методы для задач
+    tasks,
+    fetchTasks,
+    createTask,
+    updateTask,
+    completeTask,
+    getLeadTasks,
+    scheduleAppointmentFromLead,
     
     // Дашборд
     fetchDashboardData,

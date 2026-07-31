@@ -1,0 +1,229 @@
+"""
+Doctor service - business logic for doctor operations
+"""
+from motor.motor_asyncio import AsyncIOMotorDatabase
+from fastapi import HTTPException
+from datetime import datetime
+from typing import List, Optional
+
+from models.doctor import Doctor, DoctorCreate, DoctorUpdate, DoctorSchedule, DoctorWithSchedule
+
+
+class DoctorService:
+    """Service for doctor-related business logic"""
+    
+    def __init__(self, db: AsyncIOMotorDatabase):
+        self.db = db
+    
+    async def create_doctor(self, doctor_data: DoctorCreate) -> Doctor:
+        """Create a new doctor with validation"""
+        doctor_dict = doctor_data.dict()
+        
+        # Проверка на дублирование врача по имени И телефону (оба совпадают)
+        # Это позволяет иметь врачей с одинаковым именем, но разными телефонами
+        existing_doctor = await self.db.doctors.find_one({
+            "full_name": doctor_dict["full_name"],
+            "phone": doctor_dict["phone"],
+            "is_active": True
+        })
+        
+        if existing_doctor:
+            raise HTTPException(
+                status_code=400, 
+                detail=f"Врач '{doctor_dict['full_name']}' с телефоном '{doctor_dict['phone']}' уже существует"
+            )
+        
+        # Дополнительная проверка: если телефон уже используется другим врачом
+        phone_exists = await self.db.doctors.find_one({
+            "phone": doctor_dict["phone"],
+            "is_active": True
+        })
+        
+        if phone_exists and phone_exists["full_name"] != doctor_dict["full_name"]:
+            raise HTTPException(
+                status_code=400, 
+                detail=f"Телефон '{doctor_dict['phone']}' уже используется врачом '{phone_exists['full_name']}'"
+            )
+        
+        # Автоматическое определение payment_mode при создании
+        services = doctor_dict.get("services", [])
+        
+        # Проверяем, есть ли индивидуальные комиссии
+        has_individual_commissions = False
+        if isinstance(services, list) and services:
+            for service in services:
+                if isinstance(service, dict) and ("commission_type" in service or "commission_value" in service):
+                    has_individual_commissions = True
+                    break
+        
+        # Устанавливаем payment_mode на основе структуры данных
+        doctor_dict["payment_mode"] = "individual" if has_individual_commissions else "general"
+        
+        doctor_obj = Doctor(**doctor_dict)
+        await self.db.doctors.insert_one(doctor_obj.dict())
+        return doctor_obj
+    
+    async def get_doctors(self) -> List[Doctor]:
+        """Get all active doctors"""
+        doctors = await self.db.doctors.find({"is_active": True}).sort("full_name", 1).to_list(1000)
+        
+        # Исправляем пустые телефоны перед валидацией
+        fixed_doctors = []
+        for doctor in doctors:
+            # Конвертируем _id в строку и устанавливаем как id
+            if "_id" in doctor:
+                doctor["id"] = str(doctor["_id"])
+                del doctor["_id"]  # Удаляем _id, чтобы не было конфликтов
+            elif "id" in doctor and not isinstance(doctor["id"], str):
+                doctor["id"] = str(doctor["id"])
+            
+            # Проверяем и исправляем пустые телефоны
+            if not doctor.get("phone") or len(doctor.get("phone", "").replace("+", "").replace(" ", "").replace("-", "").replace("(", "").replace(")", "")) < 10:
+                doctor["phone"] = "+7 (000) 000-00-00"
+                # Обновляем в БД для будущих запросов  
+                if "id" in doctor:
+                    await self.db.doctors.update_one(
+                        {"id": doctor["id"]},
+                        {"$set": {"phone": "+7 (000) 000-00-00"}}
+                    )
+            
+            fixed_doctors.append(Doctor(**doctor))
+        
+        return fixed_doctors
+    
+    async def get_doctor_by_id(self, doctor_id: str) -> Doctor:
+        """Get doctor by ID"""
+        doctor = await self.db.doctors.find_one({"id": doctor_id})
+        if not doctor:
+            raise HTTPException(status_code=404, detail="Doctor not found")
+        return Doctor(**doctor)
+    
+    async def update_doctor(self, doctor_id: str, update_data: DoctorUpdate) -> Doctor:
+        """Update doctor with auto payment_mode detection"""
+        update_dict = {k: v for k, v in update_data.dict().items() if v is not None}
+        update_dict["updated_at"] = datetime.utcnow()
+
+        # Проверка на дублирование телефона при обновлении
+        if "phone" in update_dict:
+            phone_exists = await self.db.doctors.find_one({
+                "phone": update_dict["phone"],
+                "id": {"$ne": doctor_id},  # Исключаем текущего врача
+                "is_active": True
+            })
+            if phone_exists:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Телефон '{update_dict['phone']}' уже используется врачом '{phone_exists['full_name']}'"
+                )
+        
+        # Автоматическое определение payment_mode на основе структуры services
+        if "services" in update_dict and update_dict["services"] is not None:
+            services = update_dict["services"]
+            
+            # Проверяем, есть ли индивидуальные комиссии
+            has_individual_commissions = False
+            if isinstance(services, list) and services:
+                for service in services:
+                    if isinstance(service, dict) and ("commission_type" in service or "commission_value" in service):
+                        has_individual_commissions = True
+                        break
+            
+            # Устанавливаем payment_mode на основе структуры данных
+            update_dict["payment_mode"] = "individual" if has_individual_commissions else "general"
+        
+        result = await self.db.doctors.update_one(
+            {"id": doctor_id}, 
+            {"$set": update_dict}
+        )
+        
+        if result.matched_count == 0:
+            raise HTTPException(status_code=404, detail="Doctor not found")
+        
+        updated_doctor = await self.db.doctors.find_one({"id": doctor_id})
+        return Doctor(**updated_doctor)
+    
+    async def delete_doctor(self, doctor_id: str) -> dict:
+        """Soft delete doctor (mark as inactive)"""
+        result = await self.db.doctors.update_one(
+            {"id": doctor_id}, 
+            {"$set": {"is_active": False, "updated_at": datetime.utcnow()}}
+        )
+        if result.matched_count == 0:
+            raise HTTPException(status_code=404, detail="Doctor not found")
+        return {"message": "Doctor deactivated successfully"}
+    
+    async def get_available_doctors(
+        self, 
+        appointment_date: str, 
+        appointment_time: Optional[str] = None
+    ) -> List[DoctorWithSchedule]:
+        """Get doctors available on a specific date and optionally time"""
+        try:
+            # Parse date to get day of week
+            date_obj = datetime.strptime(appointment_date, "%Y-%m-%d")
+            day_of_week = date_obj.weekday()
+        except ValueError:
+            raise HTTPException(status_code=400, detail="Invalid date format. Use YYYY-MM-DD")
+        
+        # Get doctors with schedules for this day
+        pipeline = [
+            {"$match": {"is_active": True}},
+            {
+                "$lookup": {
+                    "from": "doctor_schedules",
+                    "localField": "id",
+                    "foreignField": "doctor_id",
+                    "as": "schedule"
+                }
+            },
+            {
+                "$match": {
+                    "schedule": {
+                        "$elemMatch": {
+                            "day_of_week": day_of_week,
+                            "is_active": True
+                        }
+                    }
+                }
+            }
+        ]
+        
+        available_doctors = []
+        doctors = await self.db.doctors.aggregate(pipeline).to_list(None)
+        
+        for doctor in doctors:
+            # Filter schedule for the requested day
+            day_schedules = [s for s in doctor["schedule"] if s["day_of_week"] == day_of_week and s["is_active"]]
+            
+            if appointment_time:
+                # Check if appointment time is within working hours
+                time_available = False
+                try:
+                    appointment_time_obj = datetime.strptime(appointment_time, "%H:%M").time()
+                    for schedule in day_schedules:
+                        start_time_obj = datetime.strptime(schedule["start_time"], "%H:%M").time()
+                        end_time_obj = datetime.strptime(schedule["end_time"], "%H:%M").time()
+                        if start_time_obj <= appointment_time_obj <= end_time_obj:
+                            time_available = True
+                            break
+                except ValueError:
+                    raise HTTPException(status_code=400, detail="Invalid time format. Use HH:MM")
+                
+                if not time_available:
+                    continue
+            
+            doctor_with_schedule = DoctorWithSchedule(
+                id=doctor["id"],
+                full_name=doctor["full_name"],
+                specialty=doctor["specialty"],
+                phone=doctor.get("phone"),
+                calendar_color=doctor["calendar_color"],
+                is_active=doctor["is_active"],
+                user_id=doctor.get("user_id"),
+                created_at=doctor["created_at"],
+                updated_at=doctor["updated_at"],
+                schedule=[DoctorSchedule(**s) for s in day_schedules]
+            )
+            available_doctors.append(doctor_with_schedule)
+        
+        return available_doctors

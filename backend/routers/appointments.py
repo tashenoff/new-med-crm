@@ -5,6 +5,7 @@ from datetime import datetime
 from enum import Enum
 from motor.motor_asyncio import AsyncIOMotorDatabase
 import uuid
+from bson import ObjectId
 
 # Import appointment models from models module
 from models.appointment import (
@@ -81,12 +82,37 @@ async def create_appointment(
     db: AsyncIOMotorDatabase = Depends(get_database)
 ):
     # Check if patient exists
-    patient = await db.patients.find_one({"id": appointment.patient_id})
+    # Пациенты могут иметь поле id, или быть старыми без id (только _id)
+    try:
+        patient = await db.patients.find_one({
+            "$or": [
+                {"id": appointment.patient_id},
+                {"_id": appointment.patient_id},
+                {"_id": ObjectId(appointment.patient_id)}  # Try as ObjectId
+            ]
+        })
+    except:
+        # If ObjectId conversion fails, search only by string id
+        patient = await db.patients.find_one({"id": appointment.patient_id})
+    
     if not patient:
         raise HTTPException(status_code=404, detail="Patient not found")
     
-    # Check if doctor exists
-    doctor = await db.doctors.find_one({"id": appointment.doctor_id})
+    # Check if doctor exists - check multiple ID formats
+    doctor_search_queries = [
+        {"id": appointment.doctor_id},
+        {"_id": appointment.doctor_id}
+    ]
+    if len(appointment.doctor_id) == 24:
+        try:
+            doctor_search_queries.append({"_id": ObjectId(appointment.doctor_id)})
+        except:
+            pass
+    
+    doctor = await db.doctors.find_one({
+        "$or": doctor_search_queries,
+        "is_active": True
+    })
     if not doctor:
         raise HTTPException(status_code=404, detail="Doctor not found")
     
@@ -122,6 +148,38 @@ async def create_appointment(
     appointment_dict = appointment.dict()
     appointment_obj = Appointment(**appointment_dict)
     await db.appointments.insert_one(appointment_obj.dict())
+    
+    # Отправка автоматических уведомлений
+    try:
+        from services.notification_sender import NotificationSender
+        notification_sender = NotificationSender(db)
+        
+        # Получаем имя пациента
+        patient_name = patient.get('full_name') or patient.get('name', 'Пациент')
+        
+        # Получаем имя врача
+        doctor_name = doctor.get('full_name', 'Врач')
+        
+        # Получаем информацию о кабинете если указан
+        cabinet_name = None
+        if appointment.room_id:
+            room = await db.rooms.find_one({"id": appointment.room_id})
+            if room:
+                cabinet_name = room.get('name', '')
+        
+        # Отправляем уведомление о создании записи
+        await notification_sender.send_appointment_created_notification(
+            patient_phone=patient.get('phone'),
+            patient_name=patient_name,
+            doctor_name=doctor_name,
+            appointment_date=appointment.appointment_date,
+            appointment_time=appointment.appointment_time,
+            cabinet=cabinet_name
+        )
+    except Exception as e:
+        # Не прерываем создание записи если не удалось отправить уведомление
+        print(f"⚠️ Не удалось отправить уведомление: {str(e)}")
+    
     return appointment_obj
 
 
@@ -132,72 +190,126 @@ async def get_appointments(
     current_user: UserInDB = Depends(get_current_active_user),
     db: AsyncIOMotorDatabase = Depends(get_database)
 ):
-    query = {}
+    try:
+        query = {}
+        
+        # Role-based filtering
+        if current_user.role == UserRole.PATIENT:
+            query["patient_id"] = current_user.patient_id
+        elif current_user.role == UserRole.DOCTOR:
+            query["doctor_id"] = current_user.doctor_id
+        # Admins can see all appointments
+        
+        if date_from or date_to:
+            date_query = {}
+            if date_from:
+                date_query["$gte"] = date_from
+            if date_to:
+                date_query["$lte"] = date_to
+            query["appointment_date"] = date_query
+        
+        # Aggregate appointments with patient and doctor details
+        pipeline = [
+            {"$match": query},
+            # Lookup patients - улучшенная логика
+            {
+                "$lookup": {
+                    "from": "patients",
+                    "let": {"patient_id_str": "$patient_id"},
+                    "pipeline": [
+                        {
+                            "$match": {
+                                "$expr": {
+                                    "$or": [
+                                        {"$eq": ["$id", "$$patient_id_str"]},
+                                        {"$eq": [{"$toString": "$_id"}, "$$patient_id_str"]}
+                                    ]
+                                }
+                            }
+                        },
+                        {
+                            "$addFields": {
+                                "full_name": {"$ifNull": ["$full_name", "$name"]}
+                            }
+                        },
+                        {"$limit": 1}
+                    ],
+                    "as": "patient"
+                }
+            },
+            # Lookup doctors - улучшенная логика для поддержки разных ID
+            {
+                "$lookup": {
+                    "from": "doctors",
+                    "let": {"doctor_id_str": "$doctor_id"},
+                    "pipeline": [
+                        {
+                            "$match": {
+                                "$expr": {
+                                    "$or": [
+                                        {"$eq": ["$id", "$$doctor_id_str"]},
+                                        {"$eq": ["$_id", "$$doctor_id_str"]},
+                                        {"$eq": [{"$toString": "$_id"}, "$$doctor_id_str"]}
+                                    ]
+                                }
+                            }
+                        },
+                        {"$limit": 1}
+                    ],
+                    "as": "doctor"
+                }
+            },
+            # Добавляем фильтры чтобы пропустить записи без пациента или врача
+            {
+                "$match": {
+                    "patient": {"$ne": []},
+                    "doctor": {"$ne": []}
+                }
+            },
+            {"$unwind": "$patient"},
+            {"$unwind": "$doctor"},
+            {
+                "$project": {
+                    "_id": 0,
+                    "id": 1,
+                    "patient_id": 1,
+                    "doctor_id": 1,
+                    "room_id": {"$ifNull": ["$room_id", None]},
+                    "appointment_date": 1,
+                    "appointment_time": 1,
+                    "end_time": {"$ifNull": ["$end_time", None]},
+                    "price": {"$ifNull": ["$price", 0]},
+                    "deposit_type": {"$ifNull": ["$deposit_type", None]},
+                    "deposit": {"$ifNull": ["$deposit", None]},
+                    "payment_type_id": {"$ifNull": ["$payment_type_id", None]},
+                    "payment_type_name": {"$ifNull": ["$payment_type_name", None]},
+                    "status": 1,
+                    "reason": {"$ifNull": ["$reason", ""]},
+                    "notes": {"$ifNull": ["$notes", ""]},
+                    "patient_notes": {"$ifNull": ["$patient_notes", ""]},
+                    "created_at": 1,
+                    "updated_at": 1,
+                    "patient_name": "$patient.full_name",
+                    "doctor_name": "$doctor.full_name",
+                    "doctor_specialty": {"$ifNull": ["$doctor.specialty", ""]},
+                    "doctor_color": {"$ifNull": ["$doctor.calendar_color", "#3b82f6"]}
+                }
+            },
+            {"$sort": {"appointment_date": 1, "appointment_time": 1}}
+        ]
+        
+        print(f"🔍 Запрос appointments с query: {query}")
+        appointments = await db.appointments.aggregate(pipeline).to_list(length=10000)
+        print(f"✅ Загружено {len(appointments)} appointments")
+        
+        return [AppointmentWithDetails(**appointment) for appointment in appointments]
     
-    # Role-based filtering
-    if current_user.role == UserRole.PATIENT:
-        query["patient_id"] = current_user.patient_id
-    elif current_user.role == UserRole.DOCTOR:
-        query["doctor_id"] = current_user.doctor_id
-    # Admins can see all appointments
-    
-    if date_from or date_to:
-        date_query = {}
-        if date_from:
-            date_query["$gte"] = date_from
-        if date_to:
-            date_query["$lte"] = date_to
-        query["appointment_date"] = date_query
-    
-    # Aggregate appointments with patient and doctor details
-    pipeline = [
-        {"$match": query},
-        {
-            "$lookup": {
-                "from": "patients",
-                "localField": "patient_id",
-                "foreignField": "id",
-                "as": "patient"
-            }
-        },
-        {
-            "$lookup": {
-                "from": "doctors",
-                "localField": "doctor_id",
-                "foreignField": "id",
-                "as": "doctor"
-            }
-        },
-        {"$unwind": "$patient"},
-        {"$unwind": "$doctor"},
-        {
-            "$project": {
-                "_id": 0,
-                "id": 1,
-                "patient_id": 1,
-                "doctor_id": 1,
-                "room_id": {"$ifNull": ["$room_id", None]},
-                "appointment_date": 1,
-                "appointment_time": 1,
-                "end_time": {"$ifNull": ["$end_time", None]},
-                "price": {"$ifNull": ["$price", None]},
-                "status": 1,
-                "reason": 1,
-                "notes": 1,
-                "patient_notes": {"$ifNull": ["$patient_notes", None]},
-                "created_at": 1,
-                "updated_at": 1,
-                "patient_name": "$patient.full_name",
-                "doctor_name": "$doctor.full_name",
-                "doctor_specialty": "$doctor.specialty",
-                "doctor_color": "$doctor.calendar_color"
-            }
-        },
-        {"$sort": {"appointment_date": 1, "appointment_time": 1}}
-    ]
-    
-    appointments = await db.appointments.aggregate(pipeline).to_list(None)  # Убираем лимит
-    return [AppointmentWithDetails(**appointment) for appointment in appointments]
+    except Exception as e:
+        print(f"❌ Ошибка в get_appointments: {str(e)}")
+        print(f"❌ Тип ошибки: {type(e)}")
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=f"Ошибка при загрузке записей: {str(e)}")
 
 
 @appointments_router.get("/{appointment_id}", response_model=AppointmentWithDetails)
@@ -208,19 +320,50 @@ async def get_appointment(
 ):
     pipeline = [
         {"$match": {"id": appointment_id}},
+        # Lookup patients
         {
             "$lookup": {
                 "from": "patients",
-                "localField": "patient_id",
-                "foreignField": "id",
+                "let": {"patient_id_str": "$patient_id"},
+                "pipeline": [
+                    {
+                        "$match": {
+                            "$expr": {
+                                "$or": [
+                                    {"$eq": ["$id", "$$patient_id_str"]},
+                                    {"$eq": [{"$toString": "$_id"}, "$$patient_id_str"]}
+                                ]
+                            }
+                        }
+                    },
+                    {
+                        "$addFields": {
+                            "full_name": {"$ifNull": ["$full_name", "$name"]}
+                        }
+                    }
+                ],
                 "as": "patient"
             }
         },
+        # Lookup doctors - улучшенная логика
         {
             "$lookup": {
                 "from": "doctors",
-                "localField": "doctor_id",
-                "foreignField": "id",
+                "let": {"doctor_id_str": "$doctor_id"},
+                "pipeline": [
+                    {
+                        "$match": {
+                            "$expr": {
+                                "$or": [
+                                    {"$eq": ["$id", "$$doctor_id_str"]},
+                                    {"$eq": ["$_id", "$$doctor_id_str"]},
+                                    {"$eq": [{"$toString": "$_id"}, "$$doctor_id_str"]}
+                                ]
+                            }
+                        }
+                    },
+                    {"$limit": 1}
+                ],
                 "as": "doctor"
             }
         },

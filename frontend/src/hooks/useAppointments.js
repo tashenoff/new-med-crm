@@ -33,13 +33,21 @@ export const useAppointments = () => {
   const fetchAppointments = useCallback(async () => {
     setLoading(true);
     try {
-      console.log('🔄 useAppointments: fetchAppointments - загружаем с сервера');
+      console.log('🔄 useAppointments: fetchAppointments - загружаем с сервера', `${API}/appointments`);
       const response = await axios.get(`${API}/appointments`);
       console.log('🔄 useAppointments: fetchAppointments - получили', response.data.length, 'записей');
-      console.log('🔄 useAppointments: проверяем нашу запись в новых данных:', response.data.find(apt => (apt.id || apt._id) === '6cbc8990-5333-4a09-8de7-da6ea02e3710')?.room_id);
+      
+      if (response.data.length > 0) {
+        console.log('🔄 useAppointments: Первая запись из ответа:', response.data[0]);
+        console.log('🔄 useAppointments: Все записи:', response.data);
+      } else {
+        console.warn('⚠️ useAppointments: Сервер вернул пустой массив записей!');
+      }
+      
       setAppointmentsWithLog(response.data);
     } catch (error) {
-      console.error('Ошибка при загрузке записей:', error);
+      console.error('❌ useAppointments: Ошибка при загрузке записей:', error);
+      console.error('❌ URL:', `${API}/appointments`);
       throw error;
     } finally {
       setLoading(false);

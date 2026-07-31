@@ -1,18 +1,58 @@
 import React from 'react';
 
-const Navigation = ({ activeTab, setActiveTab, availableTabs, sidebarOpen, setSidebarOpen, user, activeSection }) => {
+const Navigation = ({
+  activeTab,
+  setActiveTab,
+  availableTabs,
+  sidebarOpen,
+  setSidebarOpen,
+  user,
+  activeSection,
+  warehouseView,
+  onWarehouseSectionChange,
+  onToggleSidebar
+}) => {
   const [expandedSections, setExpandedSections] = React.useState({
     statistics: true // Автоматически раскрываем статистику
   });
+  const warehouseMenuItems = [
+    { key: 'warehouse-materials', label: 'Материалы' },
+    { key: 'warehouse-attention', label: 'Требует внимания' },
+    { key: 'warehouse-inventory', label: 'Инвентаризация' },
+    { key: 'warehouse-deleted', label: 'Удаленные материалы' }
+  ];
+  const [warehouseActiveItem, setWarehouseActiveItem] = React.useState(warehouseMenuItems[0].key);
+
+  React.useEffect(() => {
+    if (activeSection === 'warehouse') {
+      setWarehouseActiveItem(warehouseMenuItems[0].key);
+    }
+  }, [activeSection]);
+
+  React.useEffect(() => {
+    if (!warehouseView) return;
+    const match = warehouseMenuItems.find(item => item.key === warehouseView);
+    setWarehouseActiveItem(match ? match.key : warehouseMenuItems[0].key);
+  }, [warehouseView]);
+  // Вспомогательная функция для проверки прав доступа
+  const hasPermission = (permission) => {
+    if (!user) return false;
+    // Super admin и admin всегда имеют доступ
+    if (user.role === 'super_admin' || user.role === 'admin') return true;
+    // Проверяем наличие конкретного разрешения
+    return user.permissions && user.permissions.includes(permission);
+  };
+
   // Структура меню с поддержкой подразделов
   const getMenuStructure = () => {
     // Если активна CRM секция, показываем CRM пункты меню
     if (activeSection === 'crm') {
       const crmItems = [
         { key: 'crm-dashboard', label: 'Дашборд', type: 'tab' },
-        { key: 'crm-leads', label: 'Заявки', type: 'tab' },
+        { key: 'crm-leads', label: 'Сделки', type: 'tab' },
+        { key: 'crm-tasks', label: 'Задачи', type: 'tab' },
         { key: 'crm-clients', label: 'Контакты', type: 'tab' },
-        { key: 'crm-deals', label: 'Сделки', type: 'tab' },
+        { key: 'crm-deals', label: 'Воронка', type: 'tab' },
         { key: 'crm-contacts', label: 'Источники', type: 'tab' }
       ];
 
@@ -37,15 +77,36 @@ const Navigation = ({ activeTab, setActiveTab, availableTabs, sidebarOpen, setSi
       return financeItems;
     }
 
-    // HMS меню
-    const baseItems = [
-      { key: 'calendar', label: 'Календарь', type: 'tab' },
-    ];
+    if (activeSection === 'warehouse') {
+      return [
+        { key: 'warehouse-label', label: 'Приход / Расход', type: 'warehouse-label' },
+        ...warehouseMenuItems.map(item => ({
+          ...item,
+          type: 'warehouse-item'
+        }))
+      ];
+    }
 
-    if (availableTabs.some(tab => tab.key === 'patients')) {
+    // HMS меню с проверкой прав доступа
+    const baseItems = [];
+    
+    // Календарь доступен если есть право calendar_view
+    if (hasPermission('calendar_view')) {
+      baseItems.push({ key: 'calendar', label: 'Календарь', type: 'tab' });
+    }
+
+    // Пациенты доступны если есть право patients_view
+    if (hasPermission('patients_view')) {
       baseItems.push({ key: 'patients', label: 'Пациенты', type: 'tab' });
-      
-      // Добавляем секцию статистики с подразделами
+    }
+    
+    // Рассылка доступна если есть право broadcast_view
+    if (hasPermission('broadcast_view')) {
+      baseItems.push({ key: 'broadcast', label: 'Рассылка', type: 'tab' });
+    }
+    
+    // Добавляем секцию статистики если есть право statistics_view
+    if (hasPermission('statistics_view')) {
       baseItems.push({
         key: 'statistics',
         label: 'Статистика',
@@ -57,27 +118,37 @@ const Navigation = ({ activeTab, setActiveTab, availableTabs, sidebarOpen, setSi
       });
     }
 
-    if (availableTabs.some(tab => tab.key === 'doctors')) {
+    // Врачи доступны если есть право doctors_view
+    if (hasPermission('doctors_view')) {
       baseItems.push({ key: 'doctors', label: 'Врачи', type: 'tab' });
     }
 
-    if (user?.role === 'admin') {
+    // Расписание врачей только для админов
+    if (user?.role === 'admin' || user?.role === 'super_admin') {
       baseItems.push({ key: 'doctor-schedule', label: 'Расписание врачей', type: 'tab' });
     }
 
-    // Справочник с подразделами (только для админов)
-    if (user?.role === 'admin') {
+    // Справочник доступен если есть право directory_view
+    if (hasPermission('directory_view')) {
       baseItems.push({
         key: 'directory',
         label: 'Справочник',
         type: 'accordion',
         subItems: [
           { key: 'service-prices', label: 'Ценовая политика', type: 'tab' },
+          { key: 'laboratories', label: 'Лаборатории', type: 'tab' },
+          { key: 'lab-price-statistics', label: 'Статистика прайса лаборатории', type: 'tab' },
           { key: 'room-management', label: 'Кабинеты', type: 'tab' },
           { key: 'specialties', label: 'Специальности', type: 'tab' },
-          { key: 'payment-types', label: 'Тип оплаты', type: 'tab' }
+          { key: 'payment-types', label: 'Тип оплаты', type: 'tab' },
+          { key: 'loyalty', label: 'Программа лояльности', type: 'tab' }
         ]
       });
+    }
+      
+    // Управление персоналом (только для админов)
+    if (user?.role === 'admin' || user?.role === 'super_admin') {
+      baseItems.push({ key: 'staff-management', label: 'Управление персоналом', type: 'tab' });
     }
 
     return baseItems;
@@ -93,6 +164,11 @@ const Navigation = ({ activeTab, setActiveTab, availableTabs, sidebarOpen, setSi
       patients: (
         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+        </svg>
+      ),
+      broadcast: (
+        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
         </svg>
       ),
       statistics: (
@@ -141,6 +217,11 @@ const Navigation = ({ activeTab, setActiveTab, availableTabs, sidebarOpen, setSi
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
         </svg>
       ),
+      'crm-tasks': (
+        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
+        </svg>
+      ),
       'crm-clients': (
         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197m13.5-9a2.5 2.5 0 11-5 0 2.5 2.5 0 015 0z" />
@@ -181,6 +262,22 @@ const Navigation = ({ activeTab, setActiveTab, availableTabs, sidebarOpen, setSi
         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
         </svg>
+      ),
+      loyalty: (
+        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+        </svg>
+      ),
+      warehouse: (
+        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 7h18v11H3z" />
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 7l9-4 9 4" />
+        </svg>
+      ),
+      'staff-management': (
+        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M21 10a2 2 0 11-4 0 2 2 0 014 0z" />
+        </svg>
       )
     };
     return icons[tabKey] || (
@@ -195,6 +292,14 @@ const Navigation = ({ activeTab, setActiveTab, availableTabs, sidebarOpen, setSi
     // Close sidebar on mobile after selection
     if (window.innerWidth < 1024) {
       setSidebarOpen(false);
+    }
+  };
+
+  const handleWarehouseItemClick = (itemKey) => {
+    setWarehouseActiveItem(itemKey);
+    handleTabClick('warehouse');
+    if (onWarehouseSectionChange) {
+      onWarehouseSectionChange(itemKey);
     }
   };
 
@@ -234,47 +339,70 @@ const Navigation = ({ activeTab, setActiveTab, availableTabs, sidebarOpen, setSi
       )}
 
       {/* HMS Sidebar */}
-      <nav className={`
-        fixed left-0 top-0 h-full bg-white dark:bg-gray-900 shadow-lg z-50 transform transition-transform duration-300 ease-in-out
-        w-64 border-r border-gray-200 dark:border-gray-700
+      <nav
+        className={`
+        fixed left-0 top-0 h-full backdrop-blur-2xl shadow-lg z-50 transform transition-transform duration-300 ease-in-out
+        w-64 border-r border-white/40
         ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}
         lg:fixed lg:z-50
-      `}>
+      `}
+        style={{ backgroundColor: 'rgba(255,255,255,0.14)' }}
+      >
         <div className="flex flex-col h-full">
           {/* Sidebar Header */}
           <div className="px-6 py-6 border-b border-gray-200 dark:border-gray-700 bg-gradient-to-r from-blue-600 to-purple-600">
-            <div className="flex items-center space-x-3">
-              <div className="w-10 h-10 bg-white bg-opacity-20 rounded-lg flex items-center justify-center">
-                <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197m13.5-9a2.5 2.5 0 11-5 0 2.5 2.5 0 015 0z" />
-                </svg>
-              </div>
-              <div>
-                <h2 className="text-white font-bold text-lg">Мед Ассистент</h2>
-                <p className="text-blue-100 text-sm">Система управления</p>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center space-x-3">
+                <div className="w-10 h-10 bg-white bg-opacity-20 rounded-lg flex items-center justify-center">
+                  <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197m13.5-9a2.5 2.5 0 11-5 0 2.5 2.5 0 015 0z" />
+                  </svg>
+                </div>
+                <div>
+                  <h2 className="text-white font-bold text-lg">Мед Ассистент</h2>
+                  <p className="text-blue-100 text-sm">Система управления</p>
+                </div>
               </div>
             </div>
           </div>
 
           {/* Navigation Items */}
           <div className="flex-1 py-6">
-            <div className="px-3 space-y-1">
+            <div className="px-3 space-y-1 text-left">
               {getMenuStructure().map(item => (
                 <div key={item.key}>
-                  {item.type === 'tab' && (
+                  {item.type === 'warehouse-label' && (
+                    <div className="px-3 py-2 text-xs font-semibold uppercase tracking-wider text-white/60">
+                      {item.label}
+                    </div>
+                  )}
+                  {item.type === 'warehouse-item' && (
                     <button
-                      onClick={() => handleTabClick(item.key)}
-                      className={`
-                        w-full flex items-center px-3 py-3 text-left rounded-lg font-medium transition-all duration-200
-                        ${activeTab === item.key
-                          ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 border-r-2 border-blue-600 dark:border-blue-400 shadow-sm'
-                          : 'text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white hover:bg-gray-50 dark:hover:bg-gray-800'
-                        }
-                      `}
+                      onClick={() => handleWarehouseItemClick(item.key)}
+                      className={`w-full flex items-center justify-start gap-3 px-3 py-2 rounded-lg transition-colors duration-200 text-sm ${
+                        warehouseActiveItem === item.key
+                      ? 'text-white'
+                      : 'text-white/70 hover:text-white'
+                    }`}
                     >
-                      <span className={`
+                      <span className={`w-2 h-2 rounded-full transition-all ${warehouseActiveItem === item.key ? 'bg-blue-600' : 'bg-gray-300 dark:bg-gray-600'}`}></span>
+                      <span>{item.label}</span>
+                    </button>
+                  )}
+                  {item.type === 'tab' && (
+                      <button
+                        onClick={() => handleTabClick(item.key)}
+                      className={`
+                        w-full flex items-center justify-start px-3 py-3 text-left rounded-lg font-medium transition-all duration-200
+                      ${activeTab === item.key
+                        ? 'bg-white/15 text-white border-r-2 border-white/60 shadow-sm'
+                        : 'text-white/70 hover:text-white'
+                      }
+                    `}
+                    >
+                        <span className={`
                         mr-3 flex-shrink-0
-                        ${activeTab === item.key ? 'text-blue-600 dark:text-blue-400' : 'text-gray-400 dark:text-gray-500'}
+                        ${activeTab === item.key ? 'text-white' : 'text-white/60'}
                       `}>
                         {getTabIcon(item.key)}
                       </span>
@@ -295,14 +423,14 @@ const Navigation = ({ activeTab, setActiveTab, availableTabs, sidebarOpen, setSi
                         className={`
                           w-full flex items-center px-3 py-3 text-left rounded-lg font-medium transition-all duration-200
                           ${(item.subItems && item.subItems.some(subItem => activeTab === subItem.key))
-                            ? 'bg-blue-50 text-blue-700'
-                            : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
+                            ? 'bg-white/10 text-white'
+                            : 'text-white/70 hover:text-white hover:bg-white/5'
                           }
                         `}
                       >
                         <span className={`
                           mr-3 flex-shrink-0
-                          ${(item.subItems && item.subItems.some(subItem => activeTab === subItem.key)) ? 'text-blue-600' : 'text-gray-400'}
+                          ${(item.subItems && item.subItems.some(subItem => activeTab === subItem.key)) ? 'text-white' : 'text-white/60'}
                         `}>
                           {getTabIcon(item.key)}
                         </span>
@@ -332,14 +460,14 @@ const Navigation = ({ activeTab, setActiveTab, availableTabs, sidebarOpen, setSi
                               className={`
                                 w-full flex items-center px-3 py-2 text-left rounded-lg transition-all duration-200 text-sm
                                 ${activeTab === subItem.key
-                                  ? 'bg-blue-100 text-blue-700 font-medium shadow-sm'
-                                  : 'text-gray-500 hover:text-gray-900 hover:bg-gray-50'
+                                  ? 'bg-white/15 text-white font-medium shadow-sm'
+                                  : 'text-white/70 hover:text-white hover:bg-white/5'
                                 }
                               `}
                             >
                               <span className={`
                                 mr-3 flex-shrink-0 text-xs
-                                ${activeTab === subItem.key ? 'text-blue-600' : 'text-gray-400'}
+                                ${activeTab === subItem.key ? 'text-white' : 'text-white/60'}
                               `}>
                                 {getTabIcon(subItem.key)}
                               </span>
@@ -364,14 +492,14 @@ const Navigation = ({ activeTab, setActiveTab, availableTabs, sidebarOpen, setSi
                         className={`
                           w-full flex items-center px-3 py-3 text-left rounded-lg font-medium transition-all duration-200
                           ${(activeTab === 'treatment-statistics' || activeTab === 'doctor-statistics')
-                            ? 'bg-blue-50 text-blue-700'
-                            : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
+                            ? 'bg-white/10 text-white'
+                            : 'text-white/70 hover:text-white hover:bg-white/5'
                           }
                         `}
                       >
                         <span className={`
                           mr-3 flex-shrink-0
-                          ${(activeTab === 'treatment-statistics' || activeTab === 'doctor-statistics') ? 'text-blue-600' : 'text-gray-400'}
+                          ${(activeTab === 'treatment-statistics' || activeTab === 'doctor-statistics') ? 'text-white' : 'text-white/60'}
                         `}>
                           {getTabIcon(item.key)}
                         </span>
@@ -401,12 +529,12 @@ const Navigation = ({ activeTab, setActiveTab, availableTabs, sidebarOpen, setSi
                               className={`
                                 w-full flex items-center px-3 py-2 text-left rounded-lg font-medium transition-all duration-200
                                 ${activeTab === subItem.key
-                                  ? 'bg-blue-100 text-blue-700 border-l-2 border-blue-600'
-                                  : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'
+                                  ? 'bg-white/15 text-white border-l-2 border-white/60'
+                                  : 'text-white/70 hover:text-white hover:bg-white/5'
                                 }
                               `}
                             >
-                              <span className="mr-3 w-2 h-2 bg-current rounded-full opacity-60"></span>
+                                <span className="mr-3 w-2 h-2 bg-white rounded-full opacity-60"></span>
                               <span className="text-sm">{subItem.label}</span>
                               {activeTab === subItem.key && (
                                 <span className="ml-auto">
@@ -425,11 +553,24 @@ const Navigation = ({ activeTab, setActiveTab, availableTabs, sidebarOpen, setSi
           </div>
 
           {/* Footer */}
-          <div className="px-6 py-4 border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800">
-            <div className="text-xs text-gray-500 dark:text-gray-400 text-center">
+          <div className="px-6 py-4 border-t border-white/30 bg-white/10 dark:bg-white/5">
+            <div className="text-xs text-white/70 text-center">
               <p>© 2025 Мед Ассистент</p>
               <p>Версия 1.0.0</p>
             </div>
+            {onToggleSidebar && (
+              <div className="flex justify-center pt-3">
+                <button
+                  onClick={onToggleSidebar}
+                  aria-label="Закрыть сайдбар"
+                  className="p-2 rounded-full bg-white/20 hover:bg-white/30 transition-colors"
+                >
+                  <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18 12H6m0 0l5-5m-5 5l5 5" />
+                  </svg>
+                </button>
+              </div>
+            )}
           </div>
         </div>
       </nav>

@@ -26,7 +26,7 @@ const ServiceSelector = ({ onServiceAdd, selectedPatient }) => {
   const fetchCategories = async () => {
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch(`${API}/api/service-prices/categories`, {
+      const response = await fetch(`${API}/api/service-categories`, {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
@@ -35,7 +35,9 @@ const ServiceSelector = ({ onServiceAdd, selectedPatient }) => {
 
       if (response.ok) {
         const data = await response.json();
-        setCategories(data.categories || []);
+        // API возвращает массив объектов ServiceCategory [{id, name, ...}]
+        const categoryNames = data.map(cat => cat.name);
+        setCategories(categoryNames);
       }
     } catch (error) {
       console.error('Error fetching categories:', error);

@@ -9,6 +9,8 @@ from motor.motor_asyncio import AsyncIOMotorDatabase
 from pymongo import ASCENDING, DESCENDING
 from ..models.lead import Lead, LeadStatus, LeadSource, LeadPriority
 from ..schemas.lead_schemas import LeadCreate, LeadUpdate, LeadSearchFilters
+from ..models.task import Task, TaskType, TaskPriority, TaskStatus
+from ..schemas.task_schemas import TaskCreate
 
 
 class LeadService:
@@ -34,11 +36,33 @@ class LeadService:
         # Сохраняем в БД
         await self.collection.insert_one(lead.dict())
         
+        # Автоматически создаем задачу для нового лида в статусе "Неразобранное"
+        if lead.status == LeadStatus.NEW:
+            await self._create_initial_task(lead, created_by)
+        
         return lead
     
     async def get_lead_by_id(self, lead_id: str) -> Optional[Lead]:
         """Получить лида по ID"""
         lead_data = await self.collection.find_one({"id": lead_id})
+        if lead_data:
+            return Lead(**lead_data)
+        return None
+    
+    async def get_active_lead_by_phone(self, phone: str) -> Optional[Lead]:
+        """Получить активного лида по номеру телефона
+        
+        Активный лид = лид в статусе new, contacted или in_progress
+        Это предотвращает создание дубликатов в рамках одного обращения
+        """
+        # Очищаем номер от пробелов и спецсимволов для поиска
+        clean_phone = phone.replace("+", "").replace(" ", "").replace("-", "").replace("(", "").replace(")", "")
+        
+        lead_data = await self.collection.find_one({
+            "phone": {"$regex": clean_phone},
+            "status": {"$in": [LeadStatus.NEW, LeadStatus.CONTACTED, LeadStatus.IN_PROGRESS]}
+        })
+        
         if lead_data:
             return Lead(**lead_data)
         return None
@@ -288,15 +312,37 @@ class LeadService:
                 "by_manager": by_manager
             }
         
-        return {
-            "total_leads": 0,
-            "new_leads": 0,
-            "in_progress_leads": 0,
-            "converted_leads": 0,
-            "rejected_leads": 0,
-            "conversion_rate": 0,
-            "avg_conversion_time": None,
-            "by_source": {},
-            "by_manager": {}
-        }
+            return {
+                "total_leads": 0,
+                "new_leads": 0,
+                "in_progress_leads": 0,
+                "converted_leads": 0,
+                "rejected_leads": 0,
+                "conversion_rate": 0,
+                "avg_conversion_time": None,
+                "by_source": {},
+                "by_manager": {}
+            }
+    
+    async def _create_initial_task(self, lead: Lead, created_by: Optional[str] = None):
+        """Создать автоматическую задачу для нового лида"""
+        from .task_service import TaskService
+        
+        task_service = TaskService(self.db)
+        
+        # Вычисляем срок выполнения задачи (через 24 часа)
+        from datetime import timedelta
+        due_date = datetime.utcnow() + timedelta(hours=24)
+        
+        task_data = TaskCreate(
+            title=f"Связаться с {lead.full_name}",
+            description=f"Обработать новую заявку из источника: {lead.source}. Телефон: {lead.phone}",
+            type=TaskType.CALL,
+            priority=TaskPriority.HIGH if lead.priority == "urgent" else TaskPriority.MEDIUM,
+            lead_id=lead.id,
+            assigned_to=lead.assigned_manager_id,
+            due_date=due_date
+        )
+        
+        await task_service.create_task(task_data, created_by=created_by)
 

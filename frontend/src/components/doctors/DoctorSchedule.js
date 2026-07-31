@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import PanelHeader from '../common/PanelHeader';
 
 const DoctorSchedule = ({ doctors, user, canEdit }) => {
   const [selectedDoctor, setSelectedDoctor] = useState('');
@@ -207,13 +208,19 @@ const DoctorSchedule = ({ doctors, user, canEdit }) => {
 
   return (
     <div className="space-y-6">
-      {/* Заголовок */}
-      <div className="flex justify-between items-center">
-        <h2 className="text-2xl font-bold">Расписание врачей</h2>
-        <div className="text-sm text-gray-500">
-          Врачей: {doctors.length} (активных: {doctors.filter(doctor => doctor.is_active).length})
-        </div>
-      </div>
+      <div className={`calendar-container calendar-view-panel rounded-2xl`}>
+        <PanelHeader
+          title="Расписание врачей"
+          subtitle="Управление рабочим временем и графиком врачей"
+        />
+
+        <div className="bg-white dark:bg-gray-800 rounded-b-2xl border border-t-0 border-gray-200 dark:border-gray-700 p-4 space-y-4 shadow-sm">
+          {/* Статистика врачей */}
+          <div className="flex justify-end">
+            <div className="text-sm text-gray-500">
+              Врачей: {doctors.length} (активных: {doctors.filter(doctor => doctor.is_active).length})
+            </div>
+          </div>
 
       {/* Сообщения */}
       {error && (
@@ -300,6 +307,8 @@ const DoctorSchedule = ({ doctors, user, canEdit }) => {
           {canEdit && <ScheduleForm />}
         </>
       )}
+        </div>
+      </div>
     </div>
   );
 };

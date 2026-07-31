@@ -55,6 +55,13 @@ from .services import (
     ServiceCreate
 )
 
+from .material import (
+    WarehouseThreshold,
+    Material,
+    MaterialCreate,
+    MaterialUpdate
+)
+
 from .appointment import (
     AppointmentStatus,
     Appointment,
@@ -100,5 +107,9 @@ __all__ = [
     "ServicePriceCreate",
     "ServicePriceUpdate",
     "Service",
-    "ServiceCreate"
+    "ServiceCreate",
+    "WarehouseThreshold",
+    "Material",
+    "MaterialCreate",
+    "MaterialUpdate"
 ]

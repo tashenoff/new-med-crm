@@ -12,7 +12,12 @@ export const useDoctors = () => {
   const fetchDoctors = useCallback(async () => {
     setLoading(true);
     try {
-      const response = await axios.get(`${API}/doctors`);
+      const token = localStorage.getItem('token');
+      const response = await axios.get(`${API}/doctors`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
       setDoctors(response.data);
     } catch (error) {
       console.error('Ошибка при загрузке врачей:', error);
@@ -25,7 +30,13 @@ export const useDoctors = () => {
   // Создать нового врача
   const createDoctor = useCallback(async (doctorData) => {
     try {
-      const response = await axios.post(`${API}/doctors`, doctorData);
+      const token = localStorage.getItem('token');
+      const response = await axios.post(`${API}/doctors`, doctorData, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
       
       // Обновляем локальный список
       setDoctors(prev => [...prev, response.data]);
@@ -55,7 +66,13 @@ export const useDoctors = () => {
   // Обновить врача
   const updateDoctor = useCallback(async (id, doctorData) => {
     try {
-      const response = await axios.put(`${API}/doctors/${id}`, doctorData);
+      const token = localStorage.getItem('token');
+      const response = await axios.put(`${API}/doctors/${id}`, doctorData, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
       
       // Обновляем локальный список
       setDoctors(prev => 
@@ -76,7 +93,12 @@ export const useDoctors = () => {
   // Удалить врача
   const deleteDoctor = useCallback(async (id) => {
     try {
-      await axios.delete(`${API}/doctors/${id}`);
+      const token = localStorage.getItem('token');
+      await axios.delete(`${API}/doctors/${id}`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
       
       // Обновляем локальный список
       setDoctors(prev => prev.filter(doctor => {

@@ -7,8 +7,10 @@ import { useLastAppointments } from '../../../hooks/useLastAppointments';
 import TreatmentPlanInfo from './TreatmentPlanInfo';
 import Modal from '../../modals/Modal';
 import { tableClasses, tableHeaderClasses, tableRowClasses, buttonPrimaryClasses, buttonSecondaryClasses } from '../../modals/modalUtils';
+import TelephonySection from '../telephony/TelephonySection';
 
 const ClientsView = ({ user }) => {
+  const [activeView, setActiveView] = useState('clients'); // 'clients' или 'telephony'
   const [filteredClients, setFilteredClients] = useState([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -226,6 +228,37 @@ const ClientsView = ({ user }) => {
 
   return (
     <div className="space-y-6">
+      {/* Переключатель вкладок */}
+      <div className="bg-white rounded-lg shadow-sm border border-gray-200">
+        <div className="flex gap-2 p-2">
+          <button
+            onClick={() => setActiveView('clients')}
+            className={`flex-1 py-3 px-4 rounded-lg font-medium transition-colors ${
+              activeView === 'clients'
+                ? 'bg-blue-600 text-white'
+                : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+            }`}
+          >
+            👥 Контакты
+          </button>
+          <button
+            onClick={() => setActiveView('telephony')}
+            className={`flex-1 py-3 px-4 rounded-lg font-medium transition-colors ${
+              activeView === 'telephony'
+                ? 'bg-blue-600 text-white'
+                : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+            }`}
+          >
+            📞 API Телефонии
+          </button>
+        </div>
+      </div>
+
+      {/* Контент вкладок */}
+      {activeView === 'telephony' ? (
+        <TelephonySection />
+      ) : (
+        <>
       {/* Header */}
       <div className="flex justify-between items-center">
         <div>
@@ -766,9 +799,10 @@ const ClientsView = ({ user }) => {
           </div>
         )}
       </Modal>
+        </>
+      )}
     </div>
   );
 };
 
 export default ClientsView;
-

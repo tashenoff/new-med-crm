@@ -11,7 +11,8 @@ export const GlobalRefreshProvider = ({ children }) => {
     crmClients: 0,
     crmLeads: 0,
     crmDeals: 0,
-    treatmentPlans: 0 // Добавляем триггер для планов лечения
+    treatmentPlans: 0, // Добавляем триггер для планов лечения
+    insights: 0
   });
 
   // Функции для запуска обновления различных сущностей
@@ -31,6 +32,7 @@ export const GlobalRefreshProvider = ({ children }) => {
   const refreshCrmLeads = useCallback(() => triggerRefresh('crmLeads'), [triggerRefresh]);
   const refreshCrmDeals = useCallback(() => triggerRefresh('crmDeals'), [triggerRefresh]);
   const refreshTreatmentPlans = useCallback(() => triggerRefresh('treatmentPlans'), [triggerRefresh]);
+  const refreshInsights = useCallback(() => triggerRefresh('insights'), [triggerRefresh]);
 
   // Функция для обновления всех данных HMS (пациенты, записи, врачи)
   const refreshAllHMS = useCallback(() => {
@@ -39,7 +41,8 @@ export const GlobalRefreshProvider = ({ children }) => {
       ...prev,
       patients: prev.patients + 1,
       appointments: prev.appointments + 1,
-      doctors: prev.doctors + 1
+      doctors: prev.doctors + 1,
+      insights: prev.insights + 1
     }));
   }, []);
 
@@ -50,7 +53,8 @@ export const GlobalRefreshProvider = ({ children }) => {
       ...prev,
       crmClients: prev.crmClients + 1,
       crmLeads: prev.crmLeads + 1,
-      crmDeals: prev.crmDeals + 1
+      crmDeals: prev.crmDeals + 1,
+      insights: prev.insights + 1
     }));
   }, []);
 
@@ -64,6 +68,7 @@ export const GlobalRefreshProvider = ({ children }) => {
     refreshCrmLeads,
     refreshCrmDeals,
     refreshTreatmentPlans,
+    refreshInsights,
     refreshAllHMS,
     refreshAllCRM
   };

@@ -6,6 +6,7 @@ export { appointmentsApi } from './appointments';
 export { patientsApi } from './patients';
 export { doctorsApi } from './doctors';
 export { roomsApi } from './rooms';
+export { insightsApi } from './insights';
 
 // Аутентификация
 export { authApi } from './auth';
@@ -19,6 +20,7 @@ export const api = {
   patients: patientsApi,
   doctors: doctorsApi,
   rooms: roomsApi,
+  insights: insightsApi,
   auth: authApi,
   services: servicesApi
 };

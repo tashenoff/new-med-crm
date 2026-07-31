@@ -50,9 +50,9 @@ const TimeGrid = ({
   const dateString = currentDate.toISOString().split('T')[0];
 
   return (
-    <div className={`min-w-0 flex-1 border-r ${themeClasses.border.light} last:border-r-0`}>
+    <div className={`min-w-0 flex-1 border-r ${themeClasses.border.light} last:border-r-0 calendar-room-column`}>
       {/* Заголовок кабинета */}
-      <div className={`h-12 border-b border-l ${themeClasses.border.default} ${themeClasses.bg.secondary} flex items-center justify-center font-semibold ${themeClasses.text.primary}`}>
+      <div className={`h-12 border-b border-l ${themeClasses.border.default} ${themeClasses.bg.secondary} flex items-center justify-center font-semibold ${themeClasses.text.primary} calendar-room-header`}>
         {room.name}
       </div>
       

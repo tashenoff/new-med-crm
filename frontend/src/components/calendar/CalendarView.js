@@ -3,17 +3,19 @@ import TimeGrid from './ux/TimeGrid';
 import DateNavigation from './ux/DateNavigation';
 import { DragDropManager } from './functions/DragDropManager';
 import { themeClasses } from '../../hooks/useTheme';
-import { 
-  generateTimeSlots, 
-  getAppointmentHeight, 
-  canAppointmentFitInSchedule 
+import PanelHeader from '../common/PanelHeader';
+import {
+  generateTimeSlots,
+  getAppointmentHeight,
+  canAppointmentFitInSchedule
 } from './utils/timeUtils';
-import { 
-  isSlotOccupied, 
-  getAppointmentForSlot, 
-  checkTimeConflicts, 
-  getStatusColor 
+import {
+  isSlotOccupied,
+  getAppointmentForSlot,
+  checkTimeConflicts,
+  getStatusColor
 } from './utils/appointmentUtils';
+import './CalendarView.css';
 
 /**
  * Основной компонент календаря
@@ -32,11 +34,25 @@ const CalendarView = ({
   onNewAppointment,
   onRefreshCalendar,
   blockAppointmentUpdates,
-  unblockAppointmentUpdates
+  unblockAppointmentUpdates,
+  canEdit = false
 }) => {
+  // 🔍 ОТЛАДКА: Логируем данные которые приходят в CalendarView
+  console.log('📅 CalendarView RENDER:', {
+    appointmentsCount: appointments.length,
+    roomsCount: rooms.length,
+    patientsCount: patients.length,
+    doctorsCount: doctors.length,
+    currentDate: currentDate?.toISOString?.(),
+    canEdit
+  });
+  
+  if (appointments.length > 0) {
+    console.log('📋 Первая запись:', appointments[0]);
+  }
+  
   // Состояние для подсветки слота при drag over
   const [dragOverSlot, setDragOverSlot] = useState(null);
-  const canEdit = user?.role === 'admin' || user?.role === 'doctor';
   
   // Устанавливаем текущую дату по умолчанию если не передана
   const safeCurrentDate = currentDate || new Date();
@@ -101,61 +117,74 @@ const CalendarView = ({
 
 
   return (
-    <div className={`calendar-container rounded-lg ${themeClasses.bg.card} ${themeClasses.shadow.default}`}>
-      {/* Навигация по датам */}
-      <DateNavigation 
-        currentDate={safeCurrentDate} 
-        onDateChange={onDateChange}
-        onNewAppointment={onNewAppointment}
-      />
-      
-      {/* Заголовок с временными метками */}
-      <div className={`flex ${themeClasses.border.default} border-b`}>
-        {/* Колонка времени */}
-        <div className={`w-20 flex-shrink-0 border-r ${themeClasses.border.light}`}>
-          <div className={`h-12 border-b border-l ${themeClasses.border.default} ${themeClasses.bg.secondary} flex items-center justify-center font-semibold ${themeClasses.text.primary}`}>
-            Время
-          </div>
-          {timeSlots.map((time) => (
-            <div key={time} className={`h-16 border-b border-l ${themeClasses.border.light} flex items-center justify-center text-sm font-medium ${themeClasses.text.secondary}`}>
-              {time}
-            </div>
-          ))}
-        </div>
+    <div className="space-y-6">
+      <div className={`calendar-container calendar-view-panel rounded-2xl ${themeClasses.shadow.default}`}>
+        <PanelHeader
+          title="Расписание врачей"
+          subtitle="Управление приемами и расписанием кабинетов"
+          onAction={canEdit ? onNewAppointment : undefined}
+          actionLabel="+ Новая запись"
+        />
 
-        {/* Кабинеты */}
-        <div className="flex flex-1 min-w-0">
-          {rooms.length === 0 ? (
-            <div className={`flex-1 flex items-center justify-center p-8 ${themeClasses.text.muted}`}>
-              Нет доступных кабинетов
+        <div className="bg-white dark:bg-gray-800 rounded-b-2xl border border-t-0 border-gray-200 dark:border-gray-700 p-4 space-y-4 shadow-sm">
+          {/* Навигация по датам */}
+          <DateNavigation
+            currentDate={safeCurrentDate}
+            onDateChange={onDateChange}
+            onNewAppointment={canEdit ? onNewAppointment : null}
+          />
+
+          {/* Заголовок с временными метками */}
+          <div className="max-h-[calc(100vh-280px)] overflow-y-auto">
+            <div className={`calendar-grid flex ${themeClasses.border.default} border-b`}>
+              {/* Колонка времени */}
+              <div className={`w-20 flex-shrink-0 border-r ${themeClasses.border.light} calendar-time-column`}>
+                <div className={`h-12 border-b border-l ${themeClasses.border.default} ${themeClasses.bg.secondary} flex items-center justify-center font-semibold ${themeClasses.text.primary} calendar-time-header`}>
+                  Время
+                </div>
+                {timeSlots.map((time) => (
+                  <div key={time} className={`h-16 border-b border-l ${themeClasses.border.light} flex items-center justify-center text-sm font-medium ${themeClasses.text.secondary} calendar-time-label`}>
+                    {time}
+                  </div>
+                ))}
+              </div>
+
+              {/* Кабинеты */}
+              <div className="flex flex-1 min-w-0 calendar-rooms-wrapper">
+                {rooms.length === 0 ? (
+                  <div className={`flex-1 flex items-center justify-center p-8 ${themeClasses.text.muted} calendar-no-rooms`}>
+                    Нет доступных кабинетов
+                  </div>
+                ) : (
+                  rooms.map((room) => (
+                    <TimeGrid
+                      key={room.id}
+                      room={room}
+                      timeSlots={timeSlots}
+                      currentDate={safeCurrentDate}
+                      appointments={appointments}
+                      patients={patients}
+                      doctors={doctors}
+                      getAvailableDoctorForSlot={getAvailableDoctorForSlot}
+                      getAppointmentForSlot={getAppointmentForSlotWrapper}
+                      getAppointmentHeight={getAppointmentHeight}
+                      getStatusColor={getStatusColor}
+                      isSlotOccupied={isSlotOccupiedWrapper}
+                      canEdit={canEdit}
+                      onSlotClick={onSlotClick}
+                      onEditAppointment={onEditAppointment}
+                      onDragOver={dragDropManager.handleDragOver}
+                      onDragEnter={(e) => { e.preventDefault(); e.stopPropagation(); }}
+                      onDrop={dragDropManager.handleDrop}
+                      onDragStart={dragDropManager.handleDragStart}
+                      onDragEnd={dragDropManager.handleDragEnd}
+                      dragOverSlot={dragOverSlot}
+                    />
+                  ))
+                )}
+              </div>
             </div>
-          ) : (
-            rooms.map((room) => (
-              <TimeGrid
-                key={room.id}
-                room={room}
-                timeSlots={timeSlots}
-                currentDate={safeCurrentDate}
-                appointments={appointments}
-                patients={patients}
-                doctors={doctors}
-                getAvailableDoctorForSlot={getAvailableDoctorForSlot}
-                getAppointmentForSlot={getAppointmentForSlotWrapper}
-                getAppointmentHeight={getAppointmentHeight}
-                getStatusColor={getStatusColor}
-                isSlotOccupied={isSlotOccupiedWrapper}
-                canEdit={canEdit}
-                onSlotClick={onSlotClick}
-                onEditAppointment={onEditAppointment}
-                onDragOver={dragDropManager.handleDragOver}
-                onDragEnter={(e) => { e.preventDefault(); e.stopPropagation(); }}
-                onDrop={dragDropManager.handleDrop}
-                onDragStart={dragDropManager.handleDragStart}
-                onDragEnd={dragDropManager.handleDragEnd}
-                dragOverSlot={dragOverSlot}
-              />
-            ))
-          )}
+          </div>
         </div>
       </div>
     </div>

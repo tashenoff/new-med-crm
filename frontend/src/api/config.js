@@ -7,7 +7,7 @@ export const API_BASE_URL = `${BACKEND_URL}/api`;
 // Создаем экземпляр axios с базовой конфигурацией
 export const apiClient = axios.create({
   baseURL: API_BASE_URL,
-  timeout: 10000,
+  timeout: 30000,
   headers: {
     'Content-Type': 'application/json',
   },

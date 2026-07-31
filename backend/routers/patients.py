@@ -55,8 +55,21 @@ class Patient(BaseModel):
     appointments_count: Optional[int] = 0  # Total completed appointments
     records_count: Optional[int] = 0  # Total records count
     user_id: Optional[str] = None  # Link to User if patient has account
+    # Bonus system fields
+    bonus_balance: Optional[float] = 0.0  # Current bonus balance
+    total_bonus_earned: Optional[float] = 0.0  # Total bonuses earned
+    total_bonus_spent: Optional[float] = 0.0  # Total bonuses spent
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)
+    # Legacy fields from import
+    external_id: Optional[str] = None
+    name: Optional[str] = None
+    FirstName: Optional[str] = None
+    Phone: Optional[str] = None
+    DateOfBirth: Optional[str] = None
+
+    class Config:
+        extra = "ignore"  # Ignore extra fields not defined in the model
 
 class PatientCreate(BaseModel):
     full_name: str
@@ -111,6 +124,9 @@ async def create_patient(
 @patients_router.get("", response_model=List[Patient])
 async def get_patients(
     search: Optional[str] = None,
+    is_returning: Optional[str] = None,  # "all", "returning", "new"
+    date_from: Optional[str] = None,  # Дата начала периода (YYYY-MM-DD)
+    date_to: Optional[str] = None,  # Дата окончания периода (YYYY-MM-DD)
     current_user: UserInDB = Depends(require_role([UserRole.ADMIN, UserRole.DOCTOR]))
 ):
     query = {}
@@ -123,22 +139,109 @@ async def get_patients(
             ]
         }
     
+    # Фильтрация по периоду (по дате создания пациента)
+    if date_from or date_to:
+        date_query = {}
+        if date_from:
+            try:
+                date_from_dt = datetime.strptime(date_from, "%Y-%m-%d")
+                date_query["$gte"] = date_from_dt
+            except ValueError:
+                logger.warning(f"Invalid date_from format: {date_from}")
+        
+        if date_to:
+            try:
+                # Добавляем 1 день, чтобы включить весь день date_to
+                date_to_dt = datetime.strptime(date_to, "%Y-%m-%d")
+                from datetime import timedelta
+                date_to_dt = date_to_dt + timedelta(days=1)
+                date_query["$lt"] = date_to_dt
+            except ValueError:
+                logger.warning(f"Invalid date_to format: {date_to}")
+        
+        if date_query:
+            if "$or" in query:
+                # Если уже есть условие поиска, комбинируем его с датой
+                query = {"$and": [query, {"created_at": date_query}]}
+            else:
+                query["created_at"] = date_query
+    
     patients = await db.patients.find(query).sort("created_at", -1).to_list(1000)
     
-    # Convert patients with error handling
+    # Фильтрация по статусу повторности и периоду записей
+    if is_returning and is_returning != "all":
+        filtered_patients = []
+        for patient_data in patients:
+            patient_id = patient_data.get('id') or str(patient_data.get('_id'))
+            
+            # Запрос для подсчета записей с учетом периода
+            appointments_query = {"patient_id": patient_id}
+            if date_from or date_to:
+                appt_date_query = {}
+                if date_from:
+                    try:
+                        date_from_dt = datetime.strptime(date_from, "%Y-%m-%d")
+                        appt_date_query["$gte"] = date_from_dt
+                    except ValueError:
+                        pass
+                
+                if date_to:
+                    try:
+                        from datetime import timedelta
+                        date_to_dt = datetime.strptime(date_to, "%Y-%m-%d") + timedelta(days=1)
+                        appt_date_query["$lt"] = date_to_dt
+                    except ValueError:
+                        pass
+                
+                if appt_date_query:
+                    appointments_query["date"] = appt_date_query
+            
+            # Проверяем наличие записей у пациента
+            appointments_count = await db.appointments.count_documents(appointments_query)
+            
+            if is_returning == "returning" and appointments_count > 0:
+                filtered_patients.append(patient_data)
+            elif is_returning == "new" and appointments_count == 0:
+                filtered_patients.append(patient_data)
+        
+        patients = filtered_patients
+
+    # Convert patients with proper data mapping
     result = []
     for patient_data in patients:
         try:
+            # Convert MongoDB _id to id field for old patients without id
+            if 'id' not in patient_data and '_id' in patient_data:
+                patient_data['id'] = str(patient_data['_id'])
+            
+            patient_id = patient_data.get('id')
+            
             # Remove MongoDB _id field
             if '_id' in patient_data:
                 del patient_data['_id']
+
+            # Map legacy fields to proper fields
+            if 'name' in patient_data and not patient_data.get('full_name'):
+                patient_data['full_name'] = patient_data['name']
+
+            # Convert datetime objects to strings for birth_date and DateOfBirth
+            if 'birth_date' in patient_data and isinstance(patient_data['birth_date'], datetime):
+                patient_data['birth_date'] = patient_data['birth_date'].strftime('%Y-%m-%d')
+            if 'DateOfBirth' in patient_data and isinstance(patient_data['DateOfBirth'], datetime):
+                patient_data['DateOfBirth'] = patient_data['DateOfBirth'].strftime('%Y-%m-%d')
+            
+            # Добавляем информацию о количестве записей
+            if patient_id:
+                appointments_count = await db.appointments.count_documents({"patient_id": patient_id})
+                patient_data['appointments_count'] = appointments_count
+
             result.append(Patient(**patient_data))
         except Exception as e:
             logger.error(f"Error converting patient {patient_data.get('id', 'unknown')}: {str(e)}")
             logger.error(f"Patient data keys: {list(patient_data.keys())}")
             logger.error(f"Patient data: {patient_data}")
             continue
-    
+
     return result
 
 @patients_router.get("/{patient_id}", response_model=Patient)
@@ -184,3 +287,52 @@ async def delete_patient(
     if result.deleted_count == 0:
         raise HTTPException(status_code=404, detail="Patient not found")
     return {"message": "Patient deleted successfully"}
+
+# Statistics endpoint
+class PatientStats(BaseModel):
+    total_patients: int
+    active_patients: int  # patients with appointments_count > 0
+    total_revenue: float
+    total_debt: float
+    patients_by_source: dict
+
+@patients_router.get("/stats", response_model=PatientStats)
+async def get_patient_stats(
+    current_user: UserInDB = Depends(require_role([UserRole.ADMIN, UserRole.DOCTOR]))
+):
+    """Получить статистику по пациентам"""
+    # Общее количество пациентов
+    total_patients = await db.patients.count_documents({})
+
+    # Активные пациенты (с приемами)
+    active_patients = await db.patients.count_documents({"appointments_count": {"$gt": 0}})
+
+    # Общая выручка
+    revenue_pipeline = [
+        {"$group": {"_id": None, "total": {"$sum": "$revenue"}}}
+    ]
+    revenue_result = await db.patients.aggregate(revenue_pipeline).to_list(1)
+    total_revenue = revenue_result[0]["total"] if revenue_result else 0.0
+
+    # Общий долг
+    debt_pipeline = [
+        {"$group": {"_id": None, "total": {"$sum": "$debt"}}}
+    ]
+    debt_result = await db.patients.aggregate(debt_pipeline).to_list(1)
+    total_debt = debt_result[0]["total"] if debt_result else 0.0
+
+    # Распределение по источникам
+    source_pipeline = [
+        {"$group": {"_id": "$source", "count": {"$sum": 1}}},
+        {"$sort": {"count": -1}}
+    ]
+    source_result = await db.patients.aggregate(source_pipeline).to_list(None)
+    patients_by_source = {item["_id"] or "other": item["count"] for item in source_result}
+
+    return PatientStats(
+        total_patients=total_patients,
+        active_patients=active_patients,
+        total_revenue=total_revenue,
+        total_debt=total_debt,
+        patients_by_source=patients_by_source
+    )

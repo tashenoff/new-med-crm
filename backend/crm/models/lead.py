@@ -28,6 +28,7 @@ class LeadSource(str, Enum):
     REFERRAL = "referral"         # Рекомендация
     ADVERTISING = "advertising"    # Реклама
     WALK_IN = "walk_in"           # Прямое обращение
+    WHATSAPP = "whatsapp"         # WhatsApp рассылка
     OTHER = "other"               # Другое
 
 

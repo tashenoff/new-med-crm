@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import Modal from '../modals/Modal';
+import PanelHeader from '../common/PanelHeader';
 import { inputClasses, selectClasses, buttonPrimaryClasses, buttonSecondaryClasses, buttonDangerClasses, tableClasses, tableHeaderClasses, tableRowClasses } from '../modals/modalUtils';
 
 const API = import.meta.env.VITE_BACKEND_URL;
@@ -327,19 +328,16 @@ const Rooms = ({ user }) => {
   };
 
   return (
-    <div className="p-6 dark:bg-gray-900 dark:text-white">
-      <div className="flex justify-between items-center mb-6">
-        <h1 className="text-2xl font-bold dark:text-white">Кабинеты</h1>
-        {user?.role === 'admin' && (
-          <button
-            onClick={handleCreateRoom}
-            className={buttonPrimaryClasses}
-            disabled={loading}
-          >
-            + Добавить кабинет
-          </button>
-        )}
-      </div>
+    <div className="space-y-6">
+      <div className={`calendar-container calendar-view-panel rounded-2xl`}>
+        <PanelHeader
+          title="Кабинеты"
+          subtitle="Управление медицинскими кабинетами и их расписанием"
+          onAction={user?.role === 'admin' ? handleCreateRoom : undefined}
+          actionLabel="+ Добавить кабинет"
+        />
+
+        <div className="bg-white dark:bg-gray-800 rounded-b-2xl border border-t-0 border-gray-200 dark:border-gray-700 p-4 space-y-4 shadow-sm">
 
       {error && (
         <div className="mb-4 p-4 bg-red-100 border border-red-400 text-red-700 rounded dark:bg-red-900 dark:border-red-600 dark:text-red-300">
@@ -612,6 +610,8 @@ const Rooms = ({ user }) => {
           </div>
         </div>
       </Modal>
+        </div>
+      </div>
     </div>
   );
 };

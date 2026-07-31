@@ -7,6 +7,8 @@ import { useGlobalRefresh } from '../hooks/useGlobalRefresh';
 import { useModal } from '../context/ModalContext';
 import CalendarView from '../components/calendar/CalendarView';
 import NewCalendar from '../components/calendar/NewCalendar';
+import DoctorCashbackWidget from '../components/loyalty/DoctorCashbackWidget';
+import PatientBonusWidget from '../components/loyalty/PatientBonusWidget';
 
 const CalendarPage = ({ user }) => {
   // Data hooks
@@ -481,6 +483,16 @@ const CalendarPage = ({ user }) => {
         </div>
       )}
 
+      {/* Виджет кэшбэка для врачей */}
+      {user?.role === 'doctor' && user?.id && (
+        <DoctorCashbackWidget doctorId={user.id} />
+      )}
+
+      {/* Виджет бонусов для пациентов */}
+      {user?.role === 'patient' && user?.id && (
+        <PatientBonusWidget patientId={user.id} />
+      )}
+
       {/* Старый календарь (временно) */}
       <CalendarView
         appointments={appointmentsHook.appointments}
@@ -493,7 +505,7 @@ const CalendarPage = ({ user }) => {
         onSlotClick={handleSlotClick}
         onEditAppointment={handleEditAppointment}
         onMoveAppointment={handleMoveAppointment}
-        canEdit={user?.role === 'admin' || user?.role === 'doctor'}
+        canEdit={user?.permissions?.includes('calendar_edit') || user?.role === 'admin' || user?.role === 'super_admin'}
         onNewAppointment={handleNewAppointment}
       />
 
