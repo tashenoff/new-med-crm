@@ -91,6 +91,12 @@ async def create_admin_user():
         client.close()
         return
     
+    # bcrypt has a max password length of 72 bytes - truncate if needed
+    password_bytes = password.encode('utf-8')
+    if len(password_bytes) > 72:
+        print("⚠️  Пароль слишком длинный, будет обрезан до 72 байт")
+        password = password_bytes[:72].decode('utf-8', errors='ignore')
+    
     # Хеширование пароля
     hashed_password = get_password_hash(password)
     
