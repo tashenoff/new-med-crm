@@ -223,11 +223,10 @@ const WarehouseMaterials = ({ user, viewKey = 'warehouse-materials', onOpenAiCha
   };
 
   const stats = useMemo(() => {
-    const uniqueCategories = new Set(materials.map(m => m.material_type || 'Без категории'));
-    return { 
-      totalMaterials: materials.length,
-      totalCategories: uniqueCategories.size
-    };
+    const totalIncoming = materials.reduce((sum, material) => sum + (material.incoming || 0), 0);
+    const totalOutgoing = materials.reduce((sum, material) => sum + (material.outgoing || 0), 0);
+    const totalBalance = materials.reduce((sum, material) => sum + (material.balance || 0), 0);
+    return { totalIncoming, totalOutgoing, totalBalance };
   }, [materials]);
 
   const handleCreateMaterial = () => {
@@ -242,7 +241,7 @@ const WarehouseMaterials = ({ user, viewKey = 'warehouse-materials', onOpenAiCha
         <div className={`calendar-container calendar-view-panel rounded-2xl ${themeClasses.shadow.default}`}>
           <PanelHeader
             title="Материалы"
-            subtitle="Список складских материалов."
+            subtitle="Список складских материалов, поступлений и остатков."
             onAction={user?.role === 'admin' ? handleCreateMaterial : undefined}
             actionLabel="+ Добавить материал"
           />
@@ -292,14 +291,18 @@ const WarehouseMaterials = ({ user, viewKey = 'warehouse-materials', onOpenAiCha
               </div>
             )}
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div className="bg-gray-50 dark:bg-gray-900 p-4 rounded-xl text-center">
-                <p className="text-sm text-gray-500">Всего материалов</p>
-                <p className="text-2xl font-semibold text-gray-900 dark:text-white">{stats.totalMaterials}</p>
+                <p className="text-sm text-gray-500">Материалов</p>
+                <p className="text-2xl font-semibold text-gray-900 dark:text-white">{materials.length}</p>
               </div>
               <div className="bg-gray-50 dark:bg-gray-900 p-4 rounded-xl text-center">
-                <p className="text-sm text-gray-500">Категорий</p>
-                <p className="text-2xl font-semibold text-gray-900 dark:text-white">{stats.totalCategories}</p>
+                <p className="text-sm text-gray-500">Общий приход</p>
+                <p className="text-2xl font-semibold text-gray-900 dark:text-white">{stats.totalIncoming}</p>
+              </div>
+              <div className="bg-gray-50 dark:bg-gray-900 p-4 rounded-xl text-center">
+                <p className="text-sm text-gray-500">Текущий остаток</p>
+                <p className="text-2xl font-semibold text-gray-900 dark:text-white">{stats.totalBalance}</p>
               </div>
             </div>
 
@@ -311,9 +314,15 @@ const WarehouseMaterials = ({ user, viewKey = 'warehouse-materials', onOpenAiCha
                       <input type="checkbox" disabled />
                     </th>
                     <th className={tableCellClasses}>Название</th>
-                    <th className={tableCellClasses}>Ед. изм.</th>
+                    <th className={tableCellClasses}>На начало периода</th>
+                    <th className={tableCellClasses}>Приход за период</th>
+                    <th className={tableCellClasses}>Расход за период</th>
+                    <th className={tableCellClasses}>Инвентаризация</th>
+                    <th className={tableCellClasses}>Остаток</th>
+                    <th className={tableCellClasses}>Единица измерения</th>
+                    <th className={tableCellClasses}>Тип</th>
                     <th className={tableCellClasses}>Категория</th>
-                    <th className={tableCellClasses}>Штрих-код</th>
+                    <th className={tableCellClasses}>Код</th>
                     <th className={tableCellClasses}></th>
                   </tr>
                 </thead>
@@ -324,7 +333,13 @@ const WarehouseMaterials = ({ user, viewKey = 'warehouse-materials', onOpenAiCha
                         <input type="checkbox" />
                       </td>
                       <td className={tableCellClasses}>{material.name}</td>
+                      <td className={tableCellClasses}>{material .start_period || 0}</td>
+                      <td className={tableCellClasses}>{material.incoming || 0}</td>
+                      <td className={tableCellClasses}>{material.outgoing || 0}</td>
+                      <td className={tableCellClasses}>{material.inventory || 0}</td>
+                      <td className={tableCellClasses}>{material.balance || 0}</td>
                       <td className={tableCellClasses}>{material.unit || '-'}</td>
+                      <td className={tableCellClasses}>{material.material_type || '-'}</td>
                       <td className={tableCellClasses}>{material.material_type || '-'}</td>
                       <td className={tableCellClasses}>{material.barcode || '-'}</td>
                       <td className={`${tableCellClasses} space-x-2`}>
