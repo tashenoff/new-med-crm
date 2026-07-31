@@ -275,7 +275,7 @@ const PatientsPage = ({ user }) => {
         onAddPatient={handleAddPatient}
         onEditPatient={handleEditPatient}
         onDeletePatient={handleDeletePatient}
-        canManage={user?.role === 'admin' || user?.role === 'doctor'}
+        canManage={user?.role === 'admin' || user?.role === 'super_admin' || user?.role === 'doctor'}
       />
 
       {/* Модальные окна теперь управляются через ModalManager */}
