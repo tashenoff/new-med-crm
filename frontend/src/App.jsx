@@ -331,7 +331,7 @@ function ClinicApp() {
           <Route path="/specialties" element={<Specialties user={user} />} />
           <Route path="/payment-types" element={<PaymentTypes user={user} />} />
           <Route path="/room-management" element={<Rooms user={user} />} />
-          <Route path="/doctor-schedule" element={<DoctorSchedule doctors={doctorsHook.doctors} user={user} canEdit={user?.role === 'admin'} />} />
+          <Route path="/doctor-schedule" element={<DoctorSchedule doctors={doctorsHook.doctors} user={user} canEdit={user?.role === 'admin' || user?.role === 'super_admin'} />} />
           <Route path="/loyalty" element={<LoyaltyPage user={user} />} />
           <Route path="/staff-management" element={<StaffManagementPage user={user} />} />
           <Route path="/warehouse" element={<WarehousePage user={user} warehouseView={warehouseView} onOpenAiChat={openAiChatWithMaterialForm} onCloseAiChat={closeAiChatSidebar} aiChatSidebarOpen={aiChatSidebarOpen} materialRefreshTrigger={materialRefreshTrigger} />} />
@@ -354,7 +354,7 @@ function ClinicApp() {
               {activeTab === 'statistics' && <DoctorStatistics user={user} />}
               {activeTab === 'treatment-statistics' && <TreatmentPlanStatistics />}
               {activeTab === 'doctor-statistics' && <DoctorStatistics />}
-              {activeTab === 'doctor-schedule' && <DoctorSchedule doctors={[]} user={user} canEdit={user?.role === 'admin'} />}
+              {activeTab === 'doctor-schedule' && <DoctorSchedule doctors={[]} user={user} canEdit={user?.role === 'admin' || user?.role === 'super_admin'} />}
               {activeTab === 'service-prices' && <ServicePrices user={user} />}
               {activeTab === 'specialties' && <Specialties user={user} />}
               {activeTab === 'payment-types' && <PaymentTypes user={user} />}
