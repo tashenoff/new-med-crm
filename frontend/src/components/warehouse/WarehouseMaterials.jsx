@@ -33,11 +33,6 @@ const initialForm = {
   barcode: '',
   material_type: 'Материал',
   is_product: false,
-  start_period: '',
-  incoming: '',
-  outgoing: '',
-  inventory: '',
-  balance: '',
   warehouses: defaultWarehouses.map((item) => ({ ...item }))
 };
 
@@ -140,11 +135,11 @@ const WarehouseMaterials = ({ user, viewKey = 'warehouse-materials', onOpenAiCha
       barcode: formValues.barcode,
       material_type: formValues.material_type,
       is_product: formValues.is_product,
-      start_period: getNumber(formValues.start_period),
-      incoming: getNumber(formValues.incoming),
-      outgoing: getNumber(formValues.outgoing),
-      inventory: getNumber(formValues.inventory),
-      balance: getNumber(formValues.balance),
+      start_period: 0,
+      incoming: 0,
+      outgoing: 0,
+      inventory: 0,
+      balance: 0,
       warehouses: formValues.warehouses.map((warehouse) => ({
         warehouse_name: warehouse.warehouse_name,
         min_stock: getNumber(warehouse.min_stock)
@@ -178,11 +173,6 @@ const WarehouseMaterials = ({ user, viewKey = 'warehouse-materials', onOpenAiCha
       barcode: material.barcode || '',
       material_type: material.material_type || 'Материал',
       is_product: material.is_product || false,
-      start_period: material.start_period?.toString() || '',
-      incoming: material.incoming?.toString() || '',
-      outgoing: material.outgoing?.toString() || '',
-      inventory: material.inventory?.toString() || '',
-      balance: material.balance?.toString() || '',
       warehouses: defaultWarehouses.map((item) => {
         const match = material.warehouses?.find((wh) => wh.warehouse_name === item.warehouse_name);
         return {
@@ -399,7 +389,7 @@ const WarehouseMaterials = ({ user, viewKey = 'warehouse-materials', onOpenAiCha
       >
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className={labelClasses}>Название *</label>
+            <label className={labelClasses}>Название</label>
             <input
               type="text"
               value={formValues.name}
@@ -408,6 +398,18 @@ const WarehouseMaterials = ({ user, viewKey = 'warehouse-materials', onOpenAiCha
               required
             />
           </div>
+
+          <div className="flex items-center gap-2">
+            <input
+              type="checkbox"
+              id="is_product"
+              checked={formValues.is_product}
+              onChange={(e) => setFormValues({ ...formValues, is_product: e.target.checked })}
+              className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+            />
+            <label htmlFor="is_product" className="text-sm text-gray-600 dark:text-gray-300">Это товар</label>
+          </div>
+
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className={labelClasses}>Единица измерения</label>
@@ -416,118 +418,75 @@ const WarehouseMaterials = ({ user, viewKey = 'warehouse-materials', onOpenAiCha
                 value={formValues.unit}
                 onChange={(e) => setFormValues({ ...formValues, unit: e.target.value })}
                 className={inputClasses}
+                placeholder="шт, кг, л и т.д."
               />
             </div>
             <div>
-              <label className={labelClasses}>Штрих-код</label>
+              <label className={labelClasses}>Категория</label>
+              <select
+                value={formValues.material_type}
+                onChange={(e) => setFormValues({ ...formValues, material_type: e.target.value })}
+                className={inputClasses}
+              >
+                <option value="Без категории">Без категории</option>
+                <option value="Материал">Материал</option>
+                <option value="Расходник">Расходник</option>
+                <option value="Инструмент">Инструмент</option>
+                <option value="Медикамент">Медикамент</option>
+              </select>
+            </div>
+          </div>
+
+          <div>
+            <label className={labelClasses}>Штрих-код</label>
+            <div className="relative">
               <input
                 type="text"
                 value={formValues.barcode}
                 onChange={(e) => setFormValues({ ...formValues, barcode: e.target.value })}
                 className={inputClasses}
+                placeholder="Если имеется"
               />
+              <button
+                type="button"
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v16h16" />
+                </svg>
+              </button>
             </div>
           </div>
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className={labelClasses}>Тип</label>
-              <input
-                type="text"
-                value={formValues.material_type}
-                onChange={(e) => setFormValues({ ...formValues, material_type: e.target.value })}
-                className={inputClasses}
-              />
+
+          <details className="border border-gray-200 dark:border-gray-700 rounded-lg">
+            <summary className="cursor-pointer px-4 py-3 font-medium text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-lg">
+              Минимальные остатки
+            </summary>
+            <div className="px-4 pb-4 pt-2 space-y-3">
+              {formValues.warehouses.map((warehouse, index) => (
+                <div key={warehouse.warehouse_name} className="grid grid-cols-2 gap-3 items-center">
+                  <label className="text-sm text-gray-600 dark:text-gray-400">
+                    {warehouse.warehouse_name}
+                  </label>
+                  <div className="relative flex items-center">
+                    <label className="text-sm text-gray-500 dark:text-gray-400 mr-2">Мин остаток</label>
+                    <input
+                      type="number"
+                      min="0"
+                      value={warehouse.min_stock}
+                      onChange={(e) => handleWarehouseChange(index, e.target.value)}
+                      className={inputClasses}
+                      placeholder="0"
+                    />
+                  </div>
+                </div>
+              ))}
             </div>
-            <div className="flex items-center gap-2 mt-6">
-              <input
-                type="checkbox"
-                checked={formValues.is_product}
-                onChange={(e) => setFormValues({ ...formValues, is_product: e.target.checked })}
-              />
-              <span className="text-sm text-gray-600 dark:text-gray-300">Это товар</span>
-            </div>
-          </div>
-          <div className="grid grid-cols-4 gap-4">
-            <div>
-              <label className={labelClasses}>На начало периода</label>
-              <input
-                type="number"
-                min="0"
-                value={formValues.start_period}
-                onChange={(e) => setFormValues({ ...formValues, start_period: e.target.value })}
-                className={inputClasses}
-              />
-            </div>
-            <div>
-              <label className={labelClasses}>Приход за период</label>
-              <input
-                type="number"
-                min="0"
-                value={formValues.incoming}
-                onChange={(e) => setFormValues({ ...formValues, incoming: e.target.value })}
-                className={inputClasses}
-              />
-            </div>
-            <div>
-              <label className={labelClasses}>Расход за период</label>
-              <input
-                type="number"
-                min="0"
-                value={formValues.outgoing}
-                onChange={(e) => setFormValues({ ...formValues, outgoing: e.target.value })}
-                className={inputClasses}
-              />
-            </div>
-            <div>
-              <label className={labelClasses}>Инвентаризация</label>
-              <input
-                type="number"
-                min="0"
-                value={formValues.inventory}
-                onChange={(e) => setFormValues({ ...formValues, inventory: e.target.value })}
-                className={inputClasses}
-              />
-            </div>
-          </div>
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className={labelClasses}>Остаток</label>
-              <input
-                type="number"
-                min="0"
-                value={formValues.balance}
-                onChange={(e) => setFormValues({ ...formValues, balance: e.target.value })}
-                className={inputClasses}
-              />
-            </div>
-            <div>
-              <label className={labelClasses}>Eдиница измерения (повтор)</label>
-              <input
-                type="text"
-                value={formValues.unit}
-                onChange={(e) => setFormValues({ ...formValues, unit: e.target.value })}
-                className={inputClasses}
-              />
-            </div>
-          </div>
-          <div className="space-y-3">
-            <h3 className="text-sm font-semibold text-gray-600 dark:text-gray-300">Склады</h3>
-            {formValues.warehouses.map((warehouse, index) => (
-              <div key={warehouse.warehouse_name} className="flex items-center gap-3">
-                <div className="w-48 text-sm text-gray-600 dark:text-gray-300">{warehouse.warehouse_name}</div>
-                <input
-                  type="number"
-                  min="0"
-                  value={warehouse.min_stock}
-                  onChange={(e) => handleWarehouseChange(index, e.target.value)}
-                  className={inputClasses}
-                />
-              </div>
-            ))}
-          </div>
+          </details>
+
           <div className="flex gap-3 pt-4">
             <button type="submit" disabled={loading} className={`${buttonPrimaryClasses} flex-1`}>
-              {loading ? 'Сохраняем...' : editing ? 'Обновить' : 'Сохранить'}
+              {loading ? 'Сохраняем...' : 'Сохранить'}
             </button>
             <button
               type="button"
