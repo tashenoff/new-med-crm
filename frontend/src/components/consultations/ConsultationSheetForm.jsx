@@ -7,6 +7,7 @@ const ConsultationSheetForm = ({ patientId, onSave, onCancel, editingSheet = nul
   const [icd10Query, setIcd10Query] = useState('');
   const [icd10Results, setIcd10Results] = useState([]);
   const [showIcd10Dropdown, setShowIcd10Dropdown] = useState(false);
+  const [servicesError, setServicesError] = useState('');
   const [visibleFields, setVisibleFields] = useState({
     complaints: true,
     examination: true,
@@ -129,6 +130,14 @@ const ConsultationSheetForm = ({ patientId, onSave, onCancel, editingSheet = nul
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    
+    // Валидация: услуги обязательны
+    if (form.treatment_services.length === 0) {
+      setServicesError('Необходимо добавить хотя бы одну услугу из прайса');
+      return;
+    }
+    
+    setServicesError('');
     onSave(form);
   };
 
@@ -310,8 +319,15 @@ const ConsultationSheetForm = ({ patientId, onSave, onCancel, editingSheet = nul
       {/* Назначенные услуги из прайса */}
       <div className="border-t border-gray-200 pt-4">
         <label className="block text-sm font-medium text-gray-700 mb-2">
-          Назначить услуги из прайса
+          Назначить услуги из прайса <span className="text-red-500">*</span>
         </label>
+        
+        {/* Сообщение об ошибке */}
+        {servicesError && (
+          <div className="mb-2 p-2 bg-red-50 border border-red-200 rounded text-sm text-red-600">
+            {servicesError}
+          </div>
+        )}
         
         {/* Добавленные услуги */}
         {form.treatment_services.length > 0 && (
@@ -368,6 +384,7 @@ const ConsultationSheetForm = ({ patientId, onSave, onCancel, editingSheet = nul
         {/* Автодополнение для добавления услуг */}
         <ServiceAutocomplete
           onAddService={(service) => {
+            setServicesError(''); // Сбрасываем ошибку при добавлении услуги
             setForm({
               ...form,
               treatment_services: [...form.treatment_services, service]

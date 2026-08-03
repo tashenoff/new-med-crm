@@ -8,7 +8,7 @@ import DoctorCashbackWidget from '../components/loyalty/DoctorCashbackWidget';
 const DoctorsPage = ({ user }) => {
   // Data hook
   const doctorsHook = useDoctors();
-  const { refreshTriggers } = useGlobalRefresh();
+  const { refreshTriggers, refreshDoctors } = useGlobalRefresh();
   
   // Modal hook
   const { openModal, closeModal, updateModalProps, getModalProps } = useModal();
@@ -116,6 +116,9 @@ const DoctorsPage = ({ user }) => {
         throw new Error(result.error);
       }
 
+      // Триггерим глобальное обновление списка врачей для других компонентов (например, расписание)
+      refreshDoctors();
+      
       closeModal('doctor');
     } catch (error) {
       console.error('Ошибка при сохранении врача:', error);

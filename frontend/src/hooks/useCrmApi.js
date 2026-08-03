@@ -369,6 +369,11 @@ export const useCrmApi = () => {
       return await apiCall('GET', `/integration/client-last-appointment/${clientId}`);
     }, [apiCall]),
 
+    // Получить комплексную статистику для дашборда
+    getDashboardStatistics: useCallback(async () => {
+      return await apiCall('GET', '/integration/dashboard-statistics');
+    }, [apiCall]),
+
   };
 
   // Очистить ошибку

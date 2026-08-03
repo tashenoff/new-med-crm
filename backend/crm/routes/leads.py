@@ -19,10 +19,59 @@ from ..dependencies import get_database
 leads_router = APIRouter(prefix="/leads", tags=["Leads"])
 
 
-def lead_to_response(lead) -> LeadResponse:
-    """Конвертирует модель Lead в LeadResponse"""
+async def lead_to_response(lead, db: AsyncIOMotorDatabase) -> LeadResponse:
+    """Конвертирует модель Lead в LeadResponse с получением суммы плана лечения"""
     lead_dict = lead.dict()
     lead_dict["full_name"] = lead.full_name
+    lead_dict["treatment_plan_total"] = 0
+    lead_dict["manager_name"] = None
+    
+    # Получаем сумму из планов лечения
+    patient_id = None
+    
+    # Сначала пробуем по converted_to_client_id
+    if lead.converted_to_client_id:
+        patient_id = lead.converted_to_client_id
+    else:
+        # Если нет converted_to_client_id, ищем пациента по телефону
+        if lead.phone:
+            # Нормализуем телефон для поиска
+            phone_normalized = lead.phone.replace("+", "").replace(" ", "").replace("-", "").replace("(", "").replace(")", "")
+            
+            # Ищем пациента по телефону
+            patient = await db.patients.find_one({
+                "$or": [
+                    {"phone": lead.phone},
+                    {"phone": phone_normalized},
+                    {"phone": {"$regex": phone_normalized[-10:], "$options": "i"}}  # Последние 10 цифр
+                ]
+            })
+            
+            if patient:
+                patient_id = patient.get("id")
+    
+    # Если нашли patient_id, получаем планы лечения
+    if patient_id:
+        # Получаем все планы лечения для этого пациента
+        treatment_plans = await db.treatment_plans.find({"patient_id": patient_id}).to_list(None)
+        
+        if treatment_plans:
+            # Суммируем total_cost из всех планов лечения
+            total = sum(plan.get("total_cost", 0) or 0 for plan in treatment_plans)
+            lead_dict["treatment_plan_total"] = total
+    
+    # Получаем имя менеджера если назначен
+    if lead.assigned_manager_id:
+        # Ищем в коллекции users
+        manager = await db.users.find_one({"id": lead.assigned_manager_id})
+        if manager:
+            lead_dict["manager_name"] = manager.get("full_name") or manager.get("username")
+        else:
+            # Ищем в коллекции staff
+            staff = await db.staff.find_one({"id": lead.assigned_manager_id})
+            if staff:
+                lead_dict["manager_name"] = staff.get("full_name") or staff.get("name")
+    
     return LeadResponse(**lead_dict)
 
 
@@ -35,7 +84,7 @@ async def create_lead(
     try:
         lead_service = LeadService(db)
         lead = await lead_service.create_lead(lead_data)
-        return lead_to_response(lead)
+        return await lead_to_response(lead, db)
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
@@ -64,7 +113,12 @@ async def get_leads(
         )
         
         leads = await lead_service.get_leads(skip=skip, limit=limit, filters=filters)
-        return [lead_to_response(lead) for lead in leads]
+        # Асинхронно получаем данные для каждого лида
+        responses = []
+        for lead in leads:
+            response = await lead_to_response(lead, db)
+            responses.append(response)
+        return responses
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
@@ -81,7 +135,7 @@ async def get_lead(
     if not lead:
         raise HTTPException(status_code=404, detail="Лид не найден")
     
-    return lead_to_response(lead)
+    return await lead_to_response(lead, db)
 
 
 @leads_router.put("/{lead_id}", response_model=LeadResponse)
@@ -98,7 +152,7 @@ async def update_lead(
         if not lead:
             raise HTTPException(status_code=404, detail="Лид не найден")
         
-        return lead_to_response(lead)
+        return await lead_to_response(lead, db)
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
@@ -136,7 +190,7 @@ async def update_lead_status(
         if not lead:
             raise HTTPException(status_code=404, detail="Лид не найден")
         
-        return lead_to_response(lead)
+        return await lead_to_response(lead, db)
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
@@ -159,7 +213,7 @@ async def assign_lead_to_manager(
         if not lead:
             raise HTTPException(status_code=404, detail="Лид не найден")
         
-        return lead_to_response(lead)
+        return await lead_to_response(lead, db)
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
@@ -221,7 +275,11 @@ async def get_leads_by_manager(
     try:
         lead_service = LeadService(db)
         leads = await lead_service.get_leads_by_manager(manager_id)
-        return [lead_to_response(lead) for lead in leads]
+        responses = []
+        for lead in leads:
+            response = await lead_to_response(lead, db)
+            responses.append(response)
+        return responses
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
@@ -246,6 +304,9 @@ async def schedule_appointment_from_lead(
     db: AsyncIOMotorDatabase = Depends(get_database)
 ):
     """Назначить прием прямо из заявки"""
+    import uuid
+    from datetime import datetime
+    
     try:
         lead_service = LeadService(db)
         lead = await lead_service.get_lead_by_id(lead_id)
@@ -253,58 +314,113 @@ async def schedule_appointment_from_lead(
         if not lead:
             raise HTTPException(status_code=404, detail="Лид не найден")
         
-        # Импортируем сервисы для работы с пациентами и записями
-        from ...services.patient_service import PatientService
-        from ...services.appointment_service import AppointmentService
-        
-        patient_service = PatientService(db)
-        appointment_service = AppointmentService(db)
+        # Работаем напрямую с базой данных
+        patients_collection = db["patients"]
+        appointments_collection = db["appointments"]
         
         # Создаем или находим пациента
-        patient = None
+        patient_id = None
+        patient_data = None
+        
         if lead.converted_to_client_id:
             # Если лид уже конвертирован, ищем пациента
-            patient = await patient_service.get_patient_by_id(lead.converted_to_client_id)
+            patient_data = await patients_collection.find_one({"id": lead.converted_to_client_id})
+            if patient_data:
+                patient_id = patient_data.get("id")
         
-        if not patient:
-            # Создаем нового пациента из данных лида
-            from ...models.patient import PatientCreate
-            patient_data = PatientCreate(
-                first_name=lead.first_name,
-                last_name=lead.last_name,
-                middle_name=lead.middle_name,
-                phone=lead.phone,
-                email=lead.email,
-                notes=f"Создан из заявки CRM. {lead.description or ''}"
-            )
-            patient = await patient_service.create_patient(patient_data)
+        # Если пациент не найден по converted_to_client_id, ищем по ИИН
+        if not patient_id and hasattr(lead, 'iin') and lead.iin:
+            # Ищем пациента с таким ИИН
+            patient_data = await patients_collection.find_one({"iin": lead.iin})
+            if patient_data:
+                patient_id = patient_data.get("id")
+                # Обновляем лид с найденным пациентом
+                from ..schemas.lead_schemas import LeadUpdate
+                await lead_service.update_lead(lead_id, LeadUpdate(
+                    converted_to_client_id=patient_id
+                ))
+        
+        if not patient_id:
+            # Создаем нового пациента из данных лида только если не нашли по телефону
+            patient_id = str(uuid.uuid4())
+            full_name = f"{lead.first_name or ''} {lead.last_name or ''}".strip()
+            if not full_name:
+                full_name = "Пациент из CRM"
+            
+            new_patient = {
+                "id": patient_id,
+                "full_name": full_name,
+                "first_name": lead.first_name,
+                "last_name": lead.last_name,
+                "middle_name": lead.middle_name,
+                "phone": lead.phone or "",
+                "email": lead.email,
+                "source": "crm_conversion",
+                "notes": f"Создан из заявки CRM. {lead.description or ''}",
+                "crm_client_id": lead_id,
+                "revenue": 0.0,
+                "debt": 0.0,
+                "overpayment": 0.0,
+                "appointments_count": 0,
+                "records_count": 0,
+                "bonus_balance": 0.0,
+                "total_bonus_earned": 0.0,
+                "total_bonus_spent": 0.0,
+                "created_at": datetime.utcnow(),
+                "updated_at": datetime.utcnow()
+            }
+            
+            await patients_collection.insert_one(new_patient)
             
             # Обновляем лид как конвертированный
-            await lead_service.convert_to_client(lead_id, patient.id)
+            from ..schemas.lead_schemas import LeadUpdate
+            await lead_service.update_lead(lead_id, LeadUpdate(
+                converted_to_client_id=patient_id,
+                status=LeadStatus.CONTACTED
+            ))
         
         # Создаем запись на прием
-        from ...models.appointment import AppointmentCreate
-        from datetime import datetime
+        appointment_id = str(uuid.uuid4())
+        appointment_date_str = appointment_data.get('appointment_date')
         
-        appointment_create = AppointmentCreate(
-            patient_id=patient.id,
-            doctor_id=appointment_data.get('doctor_id'),
-            appointment_date=datetime.fromisoformat(appointment_data.get('appointment_date')),
-            service=appointment_data.get('service', 'Консультация'),
-            notes=appointment_data.get('notes', f"Запись из CRM. Заявка: {lead.full_name}")
-        )
+        # Парсим дату
+        if appointment_date_str:
+            try:
+                appointment_date = datetime.fromisoformat(appointment_date_str.replace('Z', '+00:00'))
+            except:
+                appointment_date = datetime.strptime(appointment_date_str, '%Y-%m-%d')
+        else:
+            appointment_date = datetime.utcnow()
         
-        appointment = await appointment_service.create_appointment(appointment_create)
+        new_appointment = {
+            "id": appointment_id,
+            "patient_id": patient_id,
+            "doctor_id": appointment_data.get('doctor_id'),
+            "appointment_date": appointment_date.strftime('%Y-%m-%d'),
+            "appointment_time": appointment_data.get('appointment_time', '10:00'),
+            "end_time": appointment_data.get('end_time', '10:30'),
+            "room_id": appointment_data.get('room_id'),
+            "status": "confirmed",
+            "reason": appointment_data.get('service', 'Консультация'),
+            "notes": appointment_data.get('notes', f"Запись из CRM. Заявка: {lead.full_name}"),
+            "price": appointment_data.get('price', 0),
+            "created_at": datetime.utcnow(),
+            "updated_at": datetime.utcnow()
+        }
+        
+        await appointments_collection.insert_one(new_appointment)
         
         # Обновляем статус лида
         await lead_service.update_lead_status(lead_id, LeadStatus.CONTACTED, "Запись на прием создана")
         
         return {
             "message": "Прием успешно назначен",
-            "patient_id": patient.id,
-            "appointment_id": appointment.id,
-            "appointment_date": appointment.appointment_date
+            "patient_id": patient_id,
+            "appointment_id": appointment_id,
+            "appointment_date": appointment_date.strftime('%Y-%m-%d')
         }
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 

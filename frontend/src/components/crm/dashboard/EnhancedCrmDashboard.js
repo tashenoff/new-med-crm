@@ -17,6 +17,8 @@ const EnhancedCrmDashboard = ({ user }) => {
   const [hmsRevenueStats, setHmsRevenueStats] = useState(null);
   const [loadingHmsRevenue, setLoadingHmsRevenue] = useState(false);
   const [selectedPeriod, setSelectedPeriod] = useState('month');
+  const [dashboardStats, setDashboardStats] = useState(null);
+  const [loadingDashboard, setLoadingDashboard] = useState(false);
   
   const {
     leadsStats,
@@ -43,6 +45,24 @@ const EnhancedCrmDashboard = ({ user }) => {
       console.error('❌ Ошибка получения статистики HMS:', error);
     } finally {
       setLoadingHmsRevenue(false);
+    }
+  };
+
+  // Функция для загрузки комплексной статистики дашборда
+  const fetchDashboardStats = async () => {
+    setLoadingDashboard(true);
+    try {
+      const stats = await crmApi.integration.getDashboardStatistics();
+      setDashboardStats(stats);
+      // Устанавливаем реальную активность
+      if (stats.recent_activity && stats.recent_activity.length > 0) {
+        setRecentActivity(stats.recent_activity);
+      }
+      console.log('✅ Получена статистика дашборда:', stats);
+    } catch (error) {
+      console.error('❌ Ошибка получения статистики дашборда:', error);
+    } finally {
+      setLoadingDashboard(false);
     }
   };
 
@@ -86,18 +106,20 @@ const EnhancedCrmDashboard = ({ user }) => {
     text: isDarkMode ? '#F3F4F6' : '#374151'
   };
 
-  // Данные для графиков
-  const revenueData = [
-    { month: 'Янв', revenue: 45000, target: 50000 },
-    { month: 'Фев', revenue: 52000, target: 50000 },
-    { month: 'Мар', revenue: 48000, target: 55000 },
-    { month: 'Апр', revenue: 61000, target: 55000 },
-    { month: 'Май', revenue: 55000, target: 60000 },
-    { month: 'Июн', revenue: 67000, target: 60000 },
-    { month: 'Июл', revenue: 71000, target: 65000 },
-    { month: 'Авг', revenue: 64000, target: 65000 },
-    { month: 'Сен', revenue: 78000, target: 70000 },
-    { month: 'Окт', revenue: Math.round(stats.clients.totalRevenue), target: 75000 },
+  // Данные для графиков - используем реальные данные из API
+  const revenueData = dashboardStats?.revenue_data || [
+    { month: 'Янв', revenue: 0, target: 50000 },
+    { month: 'Фев', revenue: 0, target: 50000 },
+    { month: 'Мар', revenue: 0, target: 55000 },
+    { month: 'Апр', revenue: 0, target: 55000 },
+    { month: 'Май', revenue: 0, target: 60000 },
+    { month: 'Июн', revenue: 0, target: 60000 },
+    { month: 'Июл', revenue: 0, target: 65000 },
+    { month: 'Авг', revenue: 0, target: 65000 },
+    { month: 'Сен', revenue: 0, target: 70000 },
+    { month: 'Окт', revenue: 0, target: 75000 },
+    { month: 'Ноя', revenue: 0, target: 75000 },
+    { month: 'Дек', revenue: 0, target: 80000 },
   ];
 
   const leadsData = [
@@ -114,57 +136,21 @@ const EnhancedCrmDashboard = ({ user }) => {
     { stage: 'Сделки', count: stats.leads.converted, rate: stats.leads.conversionRate },
   ];
 
-  const topManagersData = managers.slice(0, 5).map((manager, index) => ({
-    name: manager.full_name || `Менеджер ${index + 1}`,
-    deals: Math.floor(Math.random() * 20) + 5,
-    revenue: Math.floor(Math.random() * 100000) + 50000,
-    conversion: Math.floor(Math.random() * 30) + 15
-  }));
+  // Данные по менеджерам - используем реальные из API или fallback на локальных менеджеров
+  const topManagersData = dashboardStats?.managers_stats?.length > 0 
+    ? dashboardStats.managers_stats 
+    : managers.slice(0, 5).map((manager, index) => ({
+        name: manager.full_name || `Менеджер ${index + 1}`,
+        deals: 0,
+        revenue: 0,
+        conversion: 0
+      }));
 
-  // ✨ ЗАГРУЗКА СТАТИСТИКИ HMS ПРИ ИНИЦИАЛИЗАЦИИ
+  // ✨ ЗАГРУЗКА СТАТИСТИКИ ПРИ ИНИЦИАЛИЗАЦИИ
   useEffect(() => {
     if (isInitialized) {
       fetchHmsRevenueStats();
-    }
-  }, [isInitialized]);
-
-  // Моковая активность
-  useEffect(() => {
-    if (isInitialized && recentActivity.length === 0) {
-      setRecentActivity([
-        { 
-          id: 1, 
-          type: 'lead', 
-          action: 'Новая заявка от Анны Смирновой', 
-          description: 'Консультация по имплантации', 
-          time: '2 мин назад',
-          amount: 45000
-        },
-        { 
-          id: 2, 
-          type: 'deal', 
-          action: 'Сделка закрыта', 
-          description: 'План лечения для Ивана Петрова', 
-          time: '15 мин назад',
-          amount: 85000
-        },
-        { 
-          id: 3, 
-          type: 'client', 
-          action: 'Новый VIP клиент', 
-          description: 'Екатерина Козлова', 
-          time: '1 час назад',
-          amount: 120000
-        },
-        { 
-          id: 4, 
-          type: 'meeting', 
-          action: 'Встреча запланирована', 
-          description: 'Консультация в 15:00', 
-          time: '2 часа назад',
-          amount: null
-        }
-      ]);
+      fetchDashboardStats();
     }
   }, [isInitialized]);
 
@@ -261,7 +247,9 @@ const EnhancedCrmDashboard = ({ user }) => {
             />
             <MetricCard
               title="Выручка"
-              value={`${Math.round(stats.clients.totalRevenue / 1000)}K₸`}
+              value={stats.clients.totalRevenue >= 1000 
+                ? `${Math.round(stats.clients.totalRevenue / 1000)}K₸` 
+                : `${Math.round(stats.clients.totalRevenue)}₸`}
               subtitle={loadingHmsRevenue ? 'Загрузка...' : `Планов: ${hmsRevenueStats?.total_plans || 0}`}
               icon={DollarSign}
               trend="up"

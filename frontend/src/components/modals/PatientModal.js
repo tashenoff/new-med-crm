@@ -8,6 +8,7 @@ import ServicePaymentList from '../treatment/ServicePaymentList';
 import AppointmentsSchedule from '../treatment/AppointmentsSchedule';
 import WhatsAppSidebar from '../crm/telephony/WhatsAppSidebar';
 import { FaWhatsapp, FaUser, FaStethoscope, FaFileAlt, FaClipboardList, FaCreditCard, FaCalendarAlt } from 'react-icons/fa';
+import { useGlobalRefresh } from '../../hooks/useGlobalRefresh';
 
 const PatientModal = ({
   show, 
@@ -49,6 +50,9 @@ const PatientModal = ({
   const [procedureFilter, setProcedureFilter] = useState('all'); // all, procedures, non_procedures
 
   const API = import.meta.env.VITE_BACKEND_URL;
+  
+  // Глобальное обновление для синхронизации со страницей пациентов
+  const { refreshTreatmentPlans } = useGlobalRefresh();
 
   useEffect(() => {
     if (editingItem) {
@@ -164,6 +168,11 @@ const PatientModal = ({
         setShowConsultationForm(false);
         setEditingConsultation(null);
         fetchConsultationSheets();
+        // Обновляем локальные планы лечения
+        fetchTreatmentPlans();
+        // Триггерим глобальное обновление для страницы пациентов
+        console.log('🔄 Консультация сохранена, обновляем планы лечения на странице пациентов');
+        refreshTreatmentPlans();
       }
     } catch (error) {
       console.error('Error saving consultation sheet:', error);

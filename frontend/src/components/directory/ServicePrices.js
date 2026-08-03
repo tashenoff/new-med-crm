@@ -350,14 +350,14 @@ const ServicePrices = ({ user }) => {
         <PanelHeader
           title="Прайс-лист услуг"
           subtitle="Управление ценами и категориями медицинских услуг"
-          onAction={user?.role === 'admin' || user?.role === 'super_admin' ? handleCreate : undefined}
+          onAction={(user?.role === 'admin' || user?.role === 'super_admin') ? handleCreate : undefined}
           actionLabel="+ Добавить услугу"
         />
 
         <div className="bg-white dark:bg-gray-800 rounded-b-2xl border border-t-0 border-gray-200 dark:border-gray-700 p-4 space-y-4 shadow-sm">
           
           {/* Category Management Section */}
-          {user?.role === 'admin' || user?.role === 'super_admin' && (
+          {(user?.role === 'admin' || user?.role === 'super_admin') && (
             <div className="bg-gray-50 dark:bg-gray-700 p-4 rounded-lg">
               <div className="flex items-center justify-between mb-3">
                 <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
@@ -430,7 +430,7 @@ const ServicePrices = ({ user }) => {
                 <td className="px-6 py-4">{price.description || '-'}</td>
                 <td className="px-6 py-4">
                   <div className="flex space-x-2">
-                    {user?.role === 'admin' || user?.role === 'super_admin' && (
+                    {(user?.role === 'admin' || user?.role === 'super_admin') && (
                       <>
                         <button
                           onClick={() => handleEdit(price)}

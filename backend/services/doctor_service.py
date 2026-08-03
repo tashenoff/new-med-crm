@@ -70,11 +70,16 @@ class DoctorService:
         # Исправляем пустые телефоны перед валидацией
         fixed_doctors = []
         for doctor in doctors:
-            # Конвертируем _id в строку и устанавливаем как id
+            # ВАЖНО: Используем поле "id" (UUID) если оно существует
+            # НЕ перезаписываем его значением _id (MongoDB ObjectId)
             if "_id" in doctor:
-                doctor["id"] = str(doctor["_id"])
+                if "id" not in doctor:
+                    # Только если id не существует, используем _id
+                    doctor["id"] = str(doctor["_id"])
                 del doctor["_id"]  # Удаляем _id, чтобы не было конфликтов
-            elif "id" in doctor and not isinstance(doctor["id"], str):
+            
+            # Убедимся что id это строка
+            if "id" in doctor and not isinstance(doctor["id"], str):
                 doctor["id"] = str(doctor["id"])
             
             # Проверяем и исправляем пустые телефоны
@@ -93,28 +98,68 @@ class DoctorService:
     
     async def get_doctor_by_id(self, doctor_id: str) -> Doctor:
         """Get doctor by ID"""
-        doctor = await self.db.doctors.find_one({"id": doctor_id})
+        from bson import ObjectId
+        
+        # Создаём условия поиска по всем форматам ID
+        search_conditions = [
+            {"id": doctor_id},
+            {"_id": doctor_id}
+        ]
+        if len(doctor_id) == 24 and all(c in '0123456789abcdef' for c in doctor_id.lower()):
+            try:
+                search_conditions.append({"_id": ObjectId(doctor_id)})
+            except:
+                pass
+        
+        doctor = await self.db.doctors.find_one({"$or": search_conditions})
         if not doctor:
             raise HTTPException(status_code=404, detail="Doctor not found")
+        
+        # Конвертируем _id в строку для модели
+        if "_id" in doctor:
+            if "id" not in doctor:
+                doctor["id"] = str(doctor["_id"])
+            del doctor["_id"]
+        
         return Doctor(**doctor)
     
     async def update_doctor(self, doctor_id: str, update_data: DoctorUpdate) -> Doctor:
         """Update doctor with auto payment_mode detection"""
+        from bson import ObjectId
+        
         update_dict = {k: v for k, v in update_data.dict().items() if v is not None}
         update_dict["updated_at"] = datetime.utcnow()
 
+        # Создаём условия поиска для текущего врача по всем форматам ID
+        search_conditions = [
+            {"id": doctor_id},
+            {"_id": doctor_id}
+        ]
+        # Если doctor_id - валидный ObjectId, добавляем и такой вариант
+        if len(doctor_id) == 24 and all(c in '0123456789abcdef' for c in doctor_id.lower()):
+            try:
+                search_conditions.append({"_id": ObjectId(doctor_id)})
+            except:
+                pass
+        
         # Проверка на дублирование телефона при обновлении
         if "phone" in update_dict:
-            phone_exists = await self.db.doctors.find_one({
-                "phone": update_dict["phone"],
-                "id": {"$ne": doctor_id},  # Исключаем текущего врача
-                "is_active": True
-            })
-            if phone_exists:
-                raise HTTPException(
-                    status_code=400,
-                    detail=f"Телефон '{update_dict['phone']}' уже используется врачом '{phone_exists['full_name']}'"
-                )
+            # Сначала найдём текущего врача, чтобы узнать его полные данные
+            current_doctor = await self.db.doctors.find_one({"$or": search_conditions})
+            
+            if current_doctor:
+                # Ищем врачей с таким же телефоном, исключая текущего по _id
+                current_id = current_doctor.get("_id")
+                phone_exists = await self.db.doctors.find_one({
+                    "phone": update_dict["phone"],
+                    "_id": {"$ne": current_id},  # Исключаем текущего врача по _id
+                    "is_active": True
+                })
+                if phone_exists:
+                    raise HTTPException(
+                        status_code=400,
+                        detail=f"Телефон '{update_dict['phone']}' уже используется врачом '{phone_exists['full_name']}'"
+                    )
         
         # Автоматическое определение payment_mode на основе структуры services
         if "services" in update_dict and update_dict["services"] is not None:
@@ -131,21 +176,43 @@ class DoctorService:
             # Устанавливаем payment_mode на основе структуры данных
             update_dict["payment_mode"] = "individual" if has_individual_commissions else "general"
         
+        # Обновляем врача по всем возможным форматам ID
         result = await self.db.doctors.update_one(
-            {"id": doctor_id}, 
+            {"$or": search_conditions}, 
             {"$set": update_dict}
         )
         
         if result.matched_count == 0:
             raise HTTPException(status_code=404, detail="Doctor not found")
         
-        updated_doctor = await self.db.doctors.find_one({"id": doctor_id})
+        # Находим обновленного врача
+        updated_doctor = await self.db.doctors.find_one({"$or": search_conditions})
+        
+        # Конвертируем _id в строку для модели
+        if updated_doctor and "_id" in updated_doctor:
+            if "id" not in updated_doctor:
+                updated_doctor["id"] = str(updated_doctor["_id"])
+            del updated_doctor["_id"]
+        
         return Doctor(**updated_doctor)
     
     async def delete_doctor(self, doctor_id: str) -> dict:
         """Soft delete doctor (mark as inactive)"""
+        from bson import ObjectId
+        
+        # Создаём условия поиска по всем форматам ID
+        search_conditions = [
+            {"id": doctor_id},
+            {"_id": doctor_id}
+        ]
+        if len(doctor_id) == 24 and all(c in '0123456789abcdef' for c in doctor_id.lower()):
+            try:
+                search_conditions.append({"_id": ObjectId(doctor_id)})
+            except:
+                pass
+        
         result = await self.db.doctors.update_one(
-            {"id": doctor_id}, 
+            {"$or": search_conditions}, 
             {"$set": {"is_active": False, "updated_at": datetime.utcnow()}}
         )
         if result.matched_count == 0:

@@ -11,14 +11,22 @@ const WarehouseAttention = () => {
 
   const loadMaterialsNeedingAttention = async () => {
     try {
-      const token = localStorage.getItem('access_token');
+      const token = localStorage.getItem('token');
       const response = await fetch('/api/materials/needs-attention', {
         headers: { 'Authorization': `Bearer ${token}` }
       });
+      
+      if (!response.ok) {
+        console.error('Ошибка загрузки материалов:', response.status);
+        setMaterials([]);
+        return;
+      }
+      
       const data = await response.json();
-      setMaterials(data);
+      setMaterials(Array.isArray(data) ? data : []);
     } catch (error) {
       console.error('Ошибка загрузки материалов:', error);
+      setMaterials([]);
     } finally {
       setLoading(false);
     }

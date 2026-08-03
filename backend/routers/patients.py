@@ -168,14 +168,17 @@ async def get_patients(
     
     patients = await db.patients.find(query).sort("created_at", -1).to_list(1000)
     
-    # Фильтрация по статусу повторности и периоду записей
+    # Фильтрация по статусу повторности (только завершённые записи)
     if is_returning and is_returning != "all":
         filtered_patients = []
         for patient_data in patients:
             patient_id = patient_data.get('id') or str(patient_data.get('_id'))
             
-            # Запрос для подсчета записей с учетом периода
-            appointments_query = {"patient_id": patient_id}
+            # Запрос для подсчета ЗАВЕРШЁННЫХ записей с учетом периода
+            appointments_query = {
+                "patient_id": patient_id,
+                "status": "completed"  # Только завершённые записи
+            }
             if date_from or date_to:
                 appt_date_query = {}
                 if date_from:
@@ -194,14 +197,14 @@ async def get_patients(
                         pass
                 
                 if appt_date_query:
-                    appointments_query["date"] = appt_date_query
+                    appointments_query["appointment_date"] = appt_date_query
             
-            # Проверяем наличие записей у пациента
-            appointments_count = await db.appointments.count_documents(appointments_query)
+            # Проверяем наличие ЗАВЕРШЁННЫХ записей у пациента
+            completed_count = await db.appointments.count_documents(appointments_query)
             
-            if is_returning == "returning" and appointments_count > 0:
+            if is_returning == "returning" and completed_count > 0:
                 filtered_patients.append(patient_data)
-            elif is_returning == "new" and appointments_count == 0:
+            elif is_returning == "new" and completed_count == 0:
                 filtered_patients.append(patient_data)
         
         patients = filtered_patients
@@ -230,10 +233,14 @@ async def get_patients(
             if 'DateOfBirth' in patient_data and isinstance(patient_data['DateOfBirth'], datetime):
                 patient_data['DateOfBirth'] = patient_data['DateOfBirth'].strftime('%Y-%m-%d')
             
-            # Добавляем информацию о количестве записей
+            # Добавляем информацию о количестве ЗАВЕРШЁННЫХ записей (для определения "повторный")
             if patient_id:
-                appointments_count = await db.appointments.count_documents({"patient_id": patient_id})
-                patient_data['appointments_count'] = appointments_count
+                # Считаем только завершённые записи (completed)
+                completed_appointments_count = await db.appointments.count_documents({
+                    "patient_id": patient_id,
+                    "status": "completed"
+                })
+                patient_data['appointments_count'] = completed_appointments_count
 
             result.append(Patient(**patient_data))
         except Exception as e:

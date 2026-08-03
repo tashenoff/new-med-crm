@@ -2,6 +2,14 @@
  * Утилиты для работы со временем в календаре
  */
 
+import {
+  SLOT_INTERVAL_MINUTES,
+  SLOT_HEIGHT_PX,
+  DEFAULT_APPOINTMENT_DURATION,
+  CALENDAR_START_TIME,
+  CALENDAR_END_TIME
+} from '../../../config/calendarConfig';
+
 /**
  * Проверяет, попадает ли время в диапазон записи
  * @param {string} appointmentStartTime - Время начала (HH:MM)
@@ -29,17 +37,36 @@ export const isTimeInAppointmentRange = (appointmentStartTime, appointmentEndTim
  * @returns {number} Высота в пикселях
  */
 export const getAppointmentHeight = (appointment) => {
-  if (!appointment.end_time) return 64; // Высота одного слота (h-16 = 64px)
+  // Без времени окончания считаем минимальную длительность (30 минут = 1 слот)
+  if (!appointment.end_time) return SLOT_HEIGHT_PX;
   
   const start = appointment.appointment_time.split(':').map(n => parseInt(n));
   const end = appointment.end_time.split(':').map(n => parseInt(n));
   
   const startMinutes = start[0] * 60 + start[1];
   const endMinutes = end[0] * 60 + end[1];
-  const durationMinutes = endMinutes - startMinutes;
+  // Минимальная длительность сеанса — 30 минут
+  const durationMinutes = Math.max(DEFAULT_APPOINTMENT_DURATION, endMinutes - startMinutes);
   
-  // 64px на каждые 30 минут (высота одного слота h-16)
-  return Math.max(64, (durationMinutes / 30) * 64);
+  // SLOT_HEIGHT_PX на каждые SLOT_INTERVAL_MINUTES минут
+  return Math.max(SLOT_HEIGHT_PX, (durationMinutes / SLOT_INTERVAL_MINUTES) * SLOT_HEIGHT_PX);
+};
+
+/**
+ * Возвращает длительность записи в минутах (минимум 30)
+ * @param {Object} appointment - Объект записи
+ * @returns {number}
+ */
+export const getAppointmentDuration = (appointment) => {
+  if (!appointment?.appointment_time || !appointment?.end_time) {
+    return DEFAULT_APPOINTMENT_DURATION;
+  }
+  
+  const [startHour, startMin] = appointment.appointment_time.split(':').map(Number);
+  const [endHour, endMin] = appointment.end_time.split(':').map(Number);
+  const duration = (endHour * 60 + endMin) - (startHour * 60 + startMin);
+  
+  return duration > 0 ? duration : DEFAULT_APPOINTMENT_DURATION;
 };
 
 /**
@@ -49,7 +76,11 @@ export const getAppointmentHeight = (appointment) => {
  * @param {number} intervalMinutes - Интервал в минутах
  * @returns {Array<string>} Массив временных слотов
  */
-export const generateTimeSlots = (startTime = "08:00", endTime = "20:00", intervalMinutes = 30) => {
+export const generateTimeSlots = (
+  startTime = CALENDAR_START_TIME,
+  endTime = CALENDAR_END_TIME,
+  intervalMinutes = SLOT_INTERVAL_MINUTES
+) => {
   const slots = [];
   const [startHour, startMin] = startTime.split(':').map(Number);
   const [endHour, endMin] = endTime.split(':').map(Number);

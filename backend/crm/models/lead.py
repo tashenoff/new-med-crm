@@ -53,6 +53,7 @@ class Lead(BaseModel):
     # Контактная информация
     phone: str = Field(..., description="Номер телефона")
     email: Optional[str] = Field(None, description="Email адрес")
+    iin: Optional[str] = Field(None, description="ИИН (индивидуальный идентификационный номер)")
     
     # Статус и классификация
     status: LeadStatus = Field(LeadStatus.NEW, description="Статус лида")

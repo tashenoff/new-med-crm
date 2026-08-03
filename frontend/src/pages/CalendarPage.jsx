@@ -116,18 +116,28 @@ const CalendarPage = ({ user }) => {
       errorMessage,
       onSave: handleSaveAppointment,
       onCreatePatient: handleCreatePatientFromAppointment,
-      appointments: appointmentsHook.appointments
+      appointments: appointmentsHook.appointments,
+      hideAddPlanForm: true // Скрываем форму добавления плана лечения в календаре
     });
   };
 
   const handleSlotClick = (date, time, roomId = null) => {
+    // Автоматически вычисляем время окончания (по умолчанию 30 минут)
+    const calculateEndTime = (startTime, durationMinutes = 30) => {
+      const [hours, minutes] = startTime.split(':').map(Number);
+      const totalMinutes = hours * 60 + minutes + durationMinutes;
+      const endHours = Math.floor(totalMinutes / 60);
+      const endMinutes = totalMinutes % 60;
+      return `${endHours.toString().padStart(2, '0')}:${endMinutes.toString().padStart(2, '0')}`;
+    };
     
     const appointmentForm = {
       patient_id: '',
       doctor_id: '',
       appointment_date: date,
       appointment_time: time,
-      end_time: '',
+      end_time: calculateEndTime(time, 30), // По умолчанию 30 минут
+      duration: 30, // Добавляем поле длительности
       price: '',
       status: 'unconfirmed',
       reason: '',
@@ -158,7 +168,8 @@ const CalendarPage = ({ user }) => {
       errorMessage,
       onSave: handleSaveAppointment,
       onCreatePatient: handleCreatePatientFromAppointment,
-      appointments: appointmentsHook.appointments
+      appointments: appointmentsHook.appointments,
+      hideAddPlanForm: true // Скрываем форму добавления плана лечения в календаре
     };
     
     openModal('appointment', modalProps);
@@ -200,19 +211,20 @@ const CalendarPage = ({ user }) => {
       errorMessage,
       onSave: handleSaveAppointment,
       onCreatePatient: handleCreatePatientFromAppointment,
-      appointments: appointmentsHook.appointments
+      appointments: appointmentsHook.appointments,
+      hideAddPlanForm: true // Скрываем форму добавления плана лечения в календаре
     };
     
     openModal('appointment', modalProps);
   };
 
-  const handleSaveAppointment = async (e) => {
-    e.preventDefault();
+  const handleSaveAppointment = async (formData) => {
+    // formData приходит из AppointmentModal, это данные формы, а не event
     setLoading(true);
     setErrorMessage(null);
     
-    // Используем ref для получения актуальных данных
-    const appointmentForm = appointmentFormRef.current;
+    // Используем переданные данные формы или ref для получения актуальных данных
+    const appointmentForm = formData || appointmentFormRef.current;
     const editingItem = editingItemRef.current;
     
     console.log('🔥 DEBUG: appointmentFormRef.current:', appointmentForm);
@@ -445,18 +457,37 @@ const CalendarPage = ({ user }) => {
     });
   };
 
-  // Заглушка для создания пациента из записи
+  // Создание пациента из записи
   const handleCreatePatientFromAppointment = async (newPatientData) => {
     try {
       setLoading(true);
       const result = await patientsHook.createPatient(newPatientData);
       
       if (result.success) {
-        // Обновляем форму записи с новым пациентом
-        setAppointmentForm(prev => ({
-          ...prev,
-          patient_id: result.data.id || result.data._id
-        }));
+        const newPatientId = result.data.id || result.data._id;
+        const newPatient = result.data;
+        
+        // Обновляем форму записи с новым пациентом через ref
+        const updatedForm = {
+          ...appointmentFormRef.current,
+          patient_id: newPatientId
+        };
+        appointmentFormRef.current = updatedForm;
+        setCurrentAppointmentForm(updatedForm);
+        
+        // Добавляем нового пациента в текущий список пациентов для немедленного отображения
+        const updatedPatients = [...patientsHook.patients, newPatient];
+        
+        // Обновляем пропсы модального окна с новым списком пациентов и формой
+        updateModalProps('appointment', { 
+          appointmentForm: updatedForm,
+          patients: updatedPatients
+        });
+        
+        // Фоновая загрузка для синхронизации с сервером
+        patientsHook.fetchPatients();
+        
+        console.log('✅ Новый пациент создан и добавлен в список:', newPatientId);
       }
       
       return result;

@@ -6,7 +6,7 @@ const DealsView = ({ user }) => {
   const [newDeal, setNewDeal] = useState({
     title: '',
     client_id: '',
-    value: '',
+    amount: 0,
     expected_close_date: '',
     description: '',
     services: []
@@ -38,7 +38,7 @@ const DealsView = ({ user }) => {
       setNewDeal({
         title: '',
         client_id: '',
-        value: '',
+        amount: 0,
         expected_close_date: '',
         description: '',
         services: []
@@ -151,7 +151,7 @@ const DealsView = ({ user }) => {
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="text-sm font-medium text-green-600">
-                          {(deal.value || 0).toLocaleString()}₸
+                          {(deal.amount || 0).toLocaleString()}₸
                         </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
@@ -232,8 +232,8 @@ const DealsView = ({ user }) => {
                 <label className="block text-sm font-medium text-gray-700 mb-1">Сумма сделки *</label>
                 <input
                   type="number"
-                  value={newDeal.value}
-                  onChange={(e) => setNewDeal({...newDeal, value: e.target.value})}
+                  value={newDeal.amount}
+                  onChange={(e) => setNewDeal({...newDeal, amount: parseFloat(e.target.value) || 0})}
                   className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm"
                   placeholder="0"
                   min="0"
@@ -271,7 +271,7 @@ const DealsView = ({ user }) => {
               </button>
               <button
                 onClick={handleCreateDeal}
-                disabled={!newDeal.title || !newDeal.client_id || !newDeal.value}
+                disabled={!newDeal.title || !newDeal.client_id || newDeal.amount <= 0}
                 className="bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors"
               >
                 Создать

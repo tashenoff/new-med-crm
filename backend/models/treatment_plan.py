@@ -16,6 +16,7 @@ class TreatmentPlan(BaseModel):
     created_by: str  # User ID who created the plan
     created_by_name: str  # Name of the user who created
     assigned_doctor_id: Optional[str] = None  # ID врача, которому назначен план
+    doctor_name: Optional[str] = None  # Имя врача, составившего план (получается из description или lookup)
     notes: Optional[str] = None
     # Payment tracking
     payment_status: str = "unpaid"  # unpaid, partially_paid, paid, overdue

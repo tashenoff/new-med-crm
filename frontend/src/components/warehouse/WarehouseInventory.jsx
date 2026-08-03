@@ -17,7 +17,7 @@ const WarehouseInventory = ({ user }) => {
 
   const loadInventories = async () => {
     try {
-      const token = localStorage.getItem('access_token');
+      const token = localStorage.getItem('token');
       let url = '/api/inventories?';
       if (selectedWarehouse) url += `warehouse=${encodeURIComponent(selectedWarehouse)}&`;
       if (selectedStatus) url += `status=${encodeURIComponent(selectedStatus)}`;
@@ -25,10 +25,18 @@ const WarehouseInventory = ({ user }) => {
       const response = await fetch(url, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
+      
+      if (!response.ok) {
+        console.error('Ошибка загрузки инвентаризаций:', response.status);
+        setInventories([]);
+        return;
+      }
+      
       const data = await response.json();
-      setInventories(data);
+      setInventories(Array.isArray(data) ? data : []);
     } catch (error) {
       console.error('Ошибка загрузки инвентаризаций:', error);
+      setInventories([]);
     } finally {
       setLoading(false);
     }
@@ -36,14 +44,22 @@ const WarehouseInventory = ({ user }) => {
 
   const loadMaterials = async () => {
     try {
-      const token = localStorage.getItem('access_token');
+      const token = localStorage.getItem('token');
       const response = await fetch('/api/materials?status=active', {
         headers: { 'Authorization': `Bearer ${token}` }
       });
+      
+      if (!response.ok) {
+        console.error('Ошибка загрузки материалов:', response.status);
+        setMaterials([]);
+        return;
+      }
+      
       const data = await response.json();
-      setMaterials(data);
+      setMaterials(Array.isArray(data) ? data : []);
     } catch (error) {
       console.error('Ошибка загрузки материалов:', error);
+      setMaterials([]);
     }
   };
 
@@ -61,7 +77,7 @@ const WarehouseInventory = ({ user }) => {
     if (!confirm('Удалить эту инвентаризацию?')) return;
     
     try {
-      const token = localStorage.getItem('access_token');
+      const token = localStorage.getItem('token');
       await fetch(`/api/inventories/${id}`, {
         method: 'DELETE',
         headers: { 'Authorization': `Bearer ${token}` }
@@ -274,7 +290,7 @@ const InventoryModal = ({ inventory, materials, onClose, onSave }) => {
     e.preventDefault();
     
     try {
-      const token = localStorage.getItem('access_token');
+      const token = localStorage.getItem('token');
       const url = inventory 
         ? `/api/inventories/${inventory.id}`
         : '/api/inventories';

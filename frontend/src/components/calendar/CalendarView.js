@@ -15,6 +15,11 @@ import {
   checkTimeConflicts,
   getStatusColor
 } from './utils/appointmentUtils';
+import {
+  SLOT_INTERVAL_MINUTES,
+  CALENDAR_START_TIME,
+  CALENDAR_END_TIME
+} from '../../config/calendarConfig';
 import './CalendarView.css';
 
 /**
@@ -57,9 +62,9 @@ const CalendarView = ({
   // Устанавливаем текущую дату по умолчанию если не передана
   const safeCurrentDate = currentDate || new Date();
 
-  // Генерируем временные слоты
+  // Генерируем временные слоты (шаг по умолчанию — 30 минут)
   const timeSlots = useMemo(() => 
-    generateTimeSlots("08:00", "20:00", 30), 
+    generateTimeSlots(CALENDAR_START_TIME, CALENDAR_END_TIME, SLOT_INTERVAL_MINUTES), 
     []
   );
 
@@ -121,7 +126,7 @@ const CalendarView = ({
       <div className={`calendar-container calendar-view-panel rounded-2xl ${themeClasses.shadow.default}`}>
         <PanelHeader
           title="Расписание врачей"
-          subtitle="Управление приемами и расписанием кабинетов"
+          subtitle={`Управление приемами и расписанием кабинетов • интервал ${SLOT_INTERVAL_MINUTES} мин`}
           onAction={canEdit ? onNewAppointment : undefined}
           actionLabel="+ Новая запись"
         />

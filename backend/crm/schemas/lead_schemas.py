@@ -15,6 +15,7 @@ class LeadBase(BaseModel):
     middle_name: Optional[str] = Field(None, max_length=50, description="Отчество")
     phone: str = Field(..., min_length=10, max_length=20, description="Номер телефона")
     email: Optional[str] = Field(None, description="Email адрес")
+    iin: Optional[str] = Field(None, min_length=12, max_length=12, description="ИИН (индивидуальный идентификационный номер)")
     source: LeadSource = Field(..., description="Источник лида")
     source_id: Optional[str] = Field(None, description="ID источника из CRM")
     priority: LeadPriority = Field(LeadPriority.MEDIUM, description="Приоритет")
@@ -52,6 +53,7 @@ class LeadUpdate(BaseModel):
     middle_name: Optional[str] = Field(None, max_length=50)
     phone: Optional[str] = Field(None, min_length=10, max_length=20)
     email: Optional[str] = Field(None)
+    iin: Optional[str] = Field(None, min_length=12, max_length=12)
     status: Optional[LeadStatus] = Field(None)
     source: Optional[LeadSource] = Field(None)
     source_id: Optional[str] = Field(None, description="ID источника из CRM")
@@ -88,6 +90,7 @@ class LeadResponse(BaseModel):
     middle_name: Optional[str]
     phone: str
     email: Optional[str]
+    iin: Optional[str] = None
     status: LeadStatus
     source: LeadSource
     source_id: Optional[str]
@@ -108,6 +111,8 @@ class LeadResponse(BaseModel):
     contact_attempts: int
     last_contact_date: Optional[datetime]
     full_name: str  # computed field
+    treatment_plan_total: Optional[float] = None  # Общая сумма из плана лечения
+    manager_name: Optional[str] = None  # Имя менеджера
 
     class Config:
         from_attributes = True

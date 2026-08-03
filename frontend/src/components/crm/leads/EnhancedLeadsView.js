@@ -25,6 +25,7 @@ const EnhancedLeadsView = ({ user }) => {
   const [leadTasks, setLeadTasks] = useState({});
   const [doctors, setDoctors] = useState([]);
   const [patients, setPatients] = useState([]);
+  const [rooms, setRooms] = useState([]);
   const [appointmentForm, setAppointmentForm] = useState({});
   const [newTask, setNewTask] = useState({
     title: '',
@@ -121,27 +122,41 @@ const EnhancedLeadsView = ({ user }) => {
     note: { label: 'Заметка', icon: <FileText className="w-4 h-4" />, color: 'bg-gray-500' }
   };
 
-  // Загрузка врачей и пациентов при монтировании
+  // Загрузка врачей, пациентов и кабинетов при монтировании
   useEffect(() => {
     const loadData = async () => {
       try {
-        const [doctorsResponse, patientsResponse] = await Promise.all([
-          fetch(`${import.meta.env.VITE_BACKEND_URL || 'https://medicodebase.preview.emergentagent.com'}/api/doctors`, {
-            headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
+        const token = localStorage.getItem('token');
+        const baseUrl = import.meta.env.VITE_BACKEND_URL || 'https://medicodebase.preview.emergentagent.com';
+        
+        const [doctorsResponse, patientsResponse, roomsResponse] = await Promise.all([
+          fetch(`${baseUrl}/api/doctors`, {
+            headers: { 'Authorization': `Bearer ${token}` }
           }),
-          fetch(`${import.meta.env.VITE_BACKEND_URL || 'https://medicodebase.preview.emergentagent.com'}/api/patients`, {
-            headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
+          fetch(`${baseUrl}/api/patients`, {
+            headers: { 'Authorization': `Bearer ${token}` }
+          }),
+          fetch(`${baseUrl}/api/rooms`, {
+            headers: { 'Authorization': `Bearer ${token}` }
           })
         ]);
         
         if (doctorsResponse.ok) {
           const doctorsData = await doctorsResponse.json();
           setDoctors(doctorsData);
+          console.log('✅ Загружено врачей:', doctorsData.length);
         }
         
         if (patientsResponse.ok) {
           const patientsData = await patientsResponse.json();
           setPatients(patientsData);
+          console.log('✅ Загружено пациентов:', patientsData.length);
+        }
+        
+        if (roomsResponse.ok) {
+          const roomsData = await roomsResponse.json();
+          setRooms(roomsData);
+          console.log('✅ Загружено кабинетов:', roomsData.length);
         }
       } catch (error) {
         console.error('Error loading data:', error);
@@ -465,19 +480,10 @@ const EnhancedLeadsView = ({ user }) => {
     return acc;
   }, {});
 
-  // Генерируем фиксированные суммы для каждой заявки
-  const getLeadAmount = (leadId) => {
-    // Используем ID заявки как seed для получения стабильной суммы
-    let seed = 1;
-    if (leadId) {
-      // Если ID строка, преобразуем в число через хеш
-      if (typeof leadId === 'string') {
-        seed = leadId.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
-      } else {
-        seed = Number(leadId) || 1;
-      }
-    }
-    return Math.floor((seed * 12345) % 100000) + 10000;
+  // Получаем сумму из плана лечения или budget
+  const getLeadAmount = (lead) => {
+    // Приоритет: treatment_plan_total > budget
+    return lead?.treatment_plan_total || lead?.budget || 0;
   };
 
   // Расчет сумм для каждой колонки
@@ -485,7 +491,7 @@ const EnhancedLeadsView = ({ user }) => {
     const leads = groupedLeads[status] || [];
     const count = leads.length;
     const totalAmount = leads.reduce((sum, lead) => {
-      return sum + getLeadAmount(lead.id);
+      return sum + getLeadAmount(lead);
     }, 0);
     return { count, totalAmount };
   };
@@ -561,8 +567,12 @@ const EnhancedLeadsView = ({ user }) => {
               body: JSON.stringify({
                 doctor_id: appointmentData.doctor_id,
                 appointment_date: appointmentData.appointment_date,
-                service: appointmentData.service || 'Консультация',
-                notes: appointmentData.notes || `Запись из CRM. Заявка: ${lead.first_name} ${lead.last_name}`
+                appointment_time: appointmentData.appointment_time,
+                end_time: appointmentData.end_time,
+                room_id: appointmentData.room_id,
+                service: appointmentData.service || appointmentData.reason || 'Консультация',
+                notes: appointmentData.notes || `Запись из CRM. Заявка: ${lead.first_name} ${lead.last_name}`,
+                price: appointmentData.price || 0
               })
             }
           );
@@ -628,7 +638,7 @@ const EnhancedLeadsView = ({ user }) => {
 
   // Компонент карточки заявки для канбана
   const LeadCard = ({ lead, onDragStart }) => {
-    const mockAmount = getLeadAmount(lead.id);
+    const leadAmount = getLeadAmount(lead);
     const tasks = leadTasks[lead.id] || [];
     const urgentTasks = tasks.filter(t => t.status !== 'completed' && t.priority === 'high').length;
 
@@ -670,7 +680,7 @@ const EnhancedLeadsView = ({ user }) => {
         {/* Amount */}
         <div className="mb-3">
           <span className={cn("text-lg font-bold", themeClasses.text.primary)}>
-            {mockAmount.toLocaleString()} ₸
+            {leadAmount.toLocaleString()} ₸
           </span>
         </div>
 

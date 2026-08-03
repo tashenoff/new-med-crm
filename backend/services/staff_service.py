@@ -351,8 +351,12 @@ class StaffService:
         """
         personnel = []
         
-        # Получаем обычный персонал из staff (не врачи)
-        staff_cursor = self.collection.find({"is_active": True})
+        # Получаем обычный персонал из staff (ИСКЛЮЧАЯ врачей - они приходят из doctors)
+        # Врачи в staff создаются только для хранения учетных данных (email/password)
+        staff_cursor = self.collection.find({
+            "is_active": True,
+            "role": {"$ne": "doctor"}  # Исключаем врачей - они читаются из коллекции doctors
+        })
         async for staff_doc in staff_cursor:
             # Проверяем есть ли у сотрудника запись в users (т.е. есть ли доступ)
             user_doc = await self.users_collection.find_one({"_id": staff_doc["_id"]})

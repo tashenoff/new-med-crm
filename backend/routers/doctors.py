@@ -18,6 +18,8 @@ from models.doctor import (
     DoctorWithSchedule
 )
 
+from models.room import RoomSchedule
+
 # Import auth dependencies
 from models.auth import UserInDB, UserRole
 from routers.auth import get_current_active_user, require_role
@@ -276,3 +278,221 @@ async def delete_doctor_schedule(
         raise HTTPException(status_code=404, detail="Schedule not found")
     
     return {"message": "Schedule deleted successfully"}
+
+
+# ============================================================================
+# Combined Schedule Endpoint (Doctor + Room)
+# ============================================================================
+
+from pydantic import BaseModel
+
+class DoctorScheduleWithRoomCreate(BaseModel):
+    """Model for creating doctor schedule with room assignment"""
+    doctor_id: str
+    day_of_week: int
+    start_time: str
+    end_time: str
+    room_id: Optional[str] = None  # Опциональный кабинет
+
+
+@doctors_router.post("/schedule/with-room")
+async def create_doctor_schedule_with_room(
+    schedule_data: DoctorScheduleWithRoomCreate,
+    current_user: UserInDB = Depends(require_role([UserRole.ADMIN, UserRole.SUPER_ADMIN]))
+):
+    """
+    Create doctor's working schedule with automatic room assignment.
+    If room_id is provided:
+    - Checks room availability for the given day and time
+    - Creates both doctor schedule and room schedule entries
+    """
+    doctor_id = schedule_data.doctor_id
+    
+    # Check if doctor exists
+    search_queries = [
+        {"id": doctor_id},
+        {"_id": doctor_id}
+    ]
+    if len(doctor_id) == 24:
+        try:
+            search_queries.append({"_id": ObjectId(doctor_id)})
+        except:
+            pass
+    
+    doctor = await db.doctors.find_one({
+        "$or": search_queries,
+        "is_active": True
+    })
+    
+    if not doctor:
+        raise HTTPException(status_code=404, detail="Врач не найден")
+    
+    # Validate day_of_week (0-6)
+    if schedule_data.day_of_week < 0 or schedule_data.day_of_week > 6:
+        raise HTTPException(status_code=400, detail="Неверный день недели. Должен быть 0-6")
+    
+    # Validate time format
+    try:
+        start_dt = datetime.strptime(schedule_data.start_time, "%H:%M")
+        end_dt = datetime.strptime(schedule_data.end_time, "%H:%M")
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Неверный формат времени. Используйте HH:MM")
+    
+    if start_dt >= end_dt:
+        raise HTTPException(status_code=400, detail="Время начала должно быть раньше времени окончания")
+    
+    # Check for existing doctor schedule for this day
+    existing_doctor_schedule = await db.doctor_schedules.find_one({
+        "doctor_id": doctor_id,
+        "day_of_week": schedule_data.day_of_week,
+        "is_active": True
+    })
+    
+    if existing_doctor_schedule:
+        raise HTTPException(status_code=400, detail="У врача уже есть расписание на этот день")
+    
+    # If room_id provided, check room availability
+    room_schedule_created = None
+    if schedule_data.room_id:
+        # Check room exists
+        room_search_queries = [
+            {"id": schedule_data.room_id},
+            {"_id": schedule_data.room_id}
+        ]
+        if len(schedule_data.room_id) == 24:
+            try:
+                room_search_queries.append({"_id": ObjectId(schedule_data.room_id)})
+            except:
+                pass
+        
+        room = await db.rooms.find_one({
+            "$or": room_search_queries,
+            "is_active": True
+        })
+        
+        if not room:
+            raise HTTPException(status_code=404, detail="Кабинет не найден")
+        
+        # Check for time conflicts in the room
+        conflicting_schedules = await db.room_schedules.find({
+            "room_id": schedule_data.room_id,
+            "day_of_week": schedule_data.day_of_week,
+            "is_active": True,
+            "$or": [
+                # New schedule starts during existing schedule
+                {
+                    "start_time": {"$lte": schedule_data.start_time},
+                    "end_time": {"$gt": schedule_data.start_time}
+                },
+                # New schedule ends during existing schedule
+                {
+                    "start_time": {"$lt": schedule_data.end_time},
+                    "end_time": {"$gte": schedule_data.end_time}
+                },
+                # New schedule encompasses existing schedule
+                {
+                    "start_time": {"$gte": schedule_data.start_time},
+                    "end_time": {"$lte": schedule_data.end_time}
+                }
+            ]
+        }).to_list(None)
+        
+        if conflicting_schedules:
+            # Get conflicting doctor info
+            conflict_info = []
+            for conflict in conflicting_schedules:
+                conflict_doctor = await db.doctors.find_one({
+                    "$or": [{"id": conflict["doctor_id"]}, {"_id": conflict["doctor_id"]}]
+                })
+                doctor_name = conflict_doctor["full_name"] if conflict_doctor else "Неизвестный врач"
+                conflict_info.append(f"{doctor_name} ({conflict['start_time']}-{conflict['end_time']})")
+            
+            raise HTTPException(
+                status_code=400, 
+                detail=f"Кабинет занят в это время: {', '.join(conflict_info)}"
+            )
+        
+        # Create room schedule
+        room_schedule = RoomSchedule(
+            room_id=schedule_data.room_id,
+            doctor_id=doctor_id,
+            day_of_week=schedule_data.day_of_week,
+            start_time=schedule_data.start_time,
+            end_time=schedule_data.end_time
+        )
+        await db.room_schedules.insert_one(room_schedule.dict())
+        room_schedule_created = room_schedule
+    
+    # Create doctor schedule
+    doctor_schedule = DoctorSchedule(
+        doctor_id=doctor_id,
+        day_of_week=schedule_data.day_of_week,
+        start_time=schedule_data.start_time,
+        end_time=schedule_data.end_time
+    )
+    await db.doctor_schedules.insert_one(doctor_schedule.dict())
+    
+    return {
+        "doctor_schedule": doctor_schedule.dict(),
+        "room_schedule": room_schedule_created.dict() if room_schedule_created else None,
+        "message": "Расписание успешно создано"
+    }
+
+
+@doctors_router.get("/schedule/check-room-availability/{room_id}")
+async def check_room_availability(
+    room_id: str,
+    day_of_week: int,
+    start_time: str,
+    end_time: str,
+    current_user: UserInDB = Depends(get_current_active_user)
+):
+    """
+    Check if a room is available for the given day and time.
+    Returns available time slots and any conflicts.
+    """
+    # Get all schedules for this room on this day
+    room_schedules = await db.room_schedules.find({
+        "room_id": room_id,
+        "day_of_week": day_of_week,
+        "is_active": True
+    }).sort("start_time", 1).to_list(None)
+    
+    conflicts = []
+    for schedule in room_schedules:
+        # Check for time overlap
+        schedule_start = schedule["start_time"]
+        schedule_end = schedule["end_time"]
+        
+        has_conflict = (
+            (start_time >= schedule_start and start_time < schedule_end) or
+            (end_time > schedule_start and end_time <= schedule_end) or
+            (start_time <= schedule_start and end_time >= schedule_end)
+        )
+        
+        if has_conflict:
+            # Get doctor info
+            doctor = await db.doctors.find_one({
+                "$or": [{"id": schedule["doctor_id"]}, {"_id": schedule["doctor_id"]}]
+            })
+            conflicts.append({
+                "doctor_name": doctor["full_name"] if doctor else "Неизвестный врач",
+                "doctor_id": schedule["doctor_id"],
+                "start_time": schedule_start,
+                "end_time": schedule_end
+            })
+    
+    return {
+        "room_id": room_id,
+        "day_of_week": day_of_week,
+        "requested_time": f"{start_time}-{end_time}",
+        "is_available": len(conflicts) == 0,
+        "conflicts": conflicts,
+        "existing_schedules": [
+            {
+                "doctor_id": s["doctor_id"],
+                "start_time": s["start_time"],
+                "end_time": s["end_time"]
+            } for s in room_schedules
+        ]
+    }

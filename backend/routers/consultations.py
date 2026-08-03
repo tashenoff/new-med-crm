@@ -94,7 +94,12 @@ async def update_consultation_sheet(
     current_user: User = Depends(get_current_user)
 ) -> ConsultationSheet:
     """Обновить консультационный лист"""
-    sheet = await consultation_service.update_consultation_sheet(sheet_id, data)
+    sheet = await consultation_service.update_consultation_sheet(
+        sheet_id, 
+        data,
+        user_id=current_user.id,
+        user_name=current_user.full_name
+    )
     if not sheet:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,

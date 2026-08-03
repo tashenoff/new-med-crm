@@ -71,6 +71,14 @@ const PatientsPage = ({ user }) => {
     }
   }, [patientsHook.patients.length]);
 
+  // Слушаем глобальный триггер для обновления планов лечения
+  useEffect(() => {
+    if (refreshTriggers.treatmentPlans > 0 && patientsHook.patients.length > 0) {
+      console.log('🔄 Получен триггер обновления планов лечения, перезагружаем данные');
+      fetchAllTreatmentPlans();
+    }
+  }, [refreshTriggers.treatmentPlans, patientsHook.patients.length]);
+
   // Слушаем глобальные триггеры для обновления данных
   useEffect(() => {
     console.log('🔄 Получен триггер обновления пациентов, перезагружаем список');

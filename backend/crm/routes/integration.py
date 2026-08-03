@@ -382,6 +382,198 @@ async def get_client_hms_appointments(
         raise HTTPException(status_code=400, detail=str(e))
 
 
+@integration_router.get("/dashboard-statistics")
+async def get_dashboard_statistics(
+    db: AsyncIOMotorDatabase = Depends(get_database)
+):
+    """Получить комплексную статистику для CRM дашборда"""
+    try:
+        from datetime import timedelta
+        
+        # Получаем текущую дату
+        now = datetime.utcnow()
+        
+        # ===== СТАТИСТИКА ВЫРУЧКИ ПО МЕСЯЦАМ =====
+        # Получаем все планы лечения
+        treatment_plans = await db.treatment_plans.find({}).to_list(None)
+        
+        # Группируем по месяцам
+        monthly_revenue = {}
+        for plan in treatment_plans:
+            created_at = plan.get("created_at")
+            if created_at:
+                if isinstance(created_at, str):
+                    try:
+                        created_at = datetime.fromisoformat(created_at.replace("Z", "+00:00"))
+                    except:
+                        continue
+                month_key = created_at.strftime("%Y-%m")
+                if month_key not in monthly_revenue:
+                    monthly_revenue[month_key] = {"revenue": 0, "target": 0}
+                monthly_revenue[month_key]["revenue"] += plan.get("paid_amount", 0) or 0
+        
+        # Форматируем для графика (последние 12 месяцев)
+        revenue_data = []
+        month_names = {
+            "01": "Янв", "02": "Фев", "03": "Мар", "04": "Апр",
+            "05": "Май", "06": "Июн", "07": "Июл", "08": "Авг",
+            "09": "Сен", "10": "Окт", "11": "Ноя", "12": "Дек"
+        }
+        
+        for i in range(11, -1, -1):
+            month_date = now - timedelta(days=i*30)
+            month_key = month_date.strftime("%Y-%m")
+            month_num = month_date.strftime("%m")
+            month_data = monthly_revenue.get(month_key, {"revenue": 0, "target": 0})
+            revenue_data.append({
+                "month": month_names.get(month_num, month_num),
+                "revenue": month_data["revenue"],
+                "target": 50000  # Можно сделать настраиваемым
+            })
+        
+        # ===== НЕДАВНЯЯ АКТИВНОСТЬ =====
+        recent_activity = []
+        
+        # Последние заявки
+        leads_collection = db.crm_leads
+        recent_leads = await leads_collection.find({}).sort("created_at", -1).limit(5).to_list(None)
+        for lead in recent_leads:
+            created_at = lead.get("created_at")
+            time_ago = "недавно"
+            if created_at:
+                if isinstance(created_at, str):
+                    try:
+                        created_at = datetime.fromisoformat(created_at.replace("Z", "+00:00"))
+                    except:
+                        pass
+                if isinstance(created_at, datetime):
+                    diff = now - created_at.replace(tzinfo=None)
+                    if diff.days > 0:
+                        time_ago = f"{diff.days} дн. назад"
+                    elif diff.seconds > 3600:
+                        time_ago = f"{diff.seconds // 3600} ч. назад"
+                    elif diff.seconds > 60:
+                        time_ago = f"{diff.seconds // 60} мин. назад"
+                    else:
+                        time_ago = "только что"
+            
+            recent_activity.append({
+                "id": lead.get("id"),
+                "type": "lead",
+                "action": f"Новая заявка от {lead.get('full_name', 'Неизвестно')}",
+                "description": lead.get("service_interest", "Консультация"),
+                "time": time_ago,
+                "amount": lead.get("expected_revenue", 0)
+            })
+        
+        # Последние сделки
+        deals_collection = db.crm_deals
+        recent_deals = await deals_collection.find({"status": "won"}).sort("closed_at", -1).limit(3).to_list(None)
+        for deal in recent_deals:
+            closed_at = deal.get("closed_at")
+            time_ago = "недавно"
+            if closed_at:
+                if isinstance(closed_at, str):
+                    try:
+                        closed_at = datetime.fromisoformat(closed_at.replace("Z", "+00:00"))
+                    except:
+                        pass
+                if isinstance(closed_at, datetime):
+                    diff = now - closed_at.replace(tzinfo=None)
+                    if diff.days > 0:
+                        time_ago = f"{diff.days} дн. назад"
+                    elif diff.seconds > 3600:
+                        time_ago = f"{diff.seconds // 3600} ч. назад"
+                    elif diff.seconds > 60:
+                        time_ago = f"{diff.seconds // 60} мин. назад"
+            
+            recent_activity.append({
+                "id": deal.get("id"),
+                "type": "deal",
+                "action": "Сделка закрыта",
+                "description": deal.get("title", "Сделка"),
+                "time": time_ago,
+                "amount": deal.get("amount", 0)
+            })
+        
+        # Последние клиенты
+        clients_collection = db.crm_clients
+        recent_clients = await clients_collection.find({}).sort("created_at", -1).limit(3).to_list(None)
+        for client in recent_clients:
+            created_at = client.get("created_at")
+            time_ago = "недавно"
+            if created_at:
+                if isinstance(created_at, str):
+                    try:
+                        created_at = datetime.fromisoformat(created_at.replace("Z", "+00:00"))
+                    except:
+                        pass
+                if isinstance(created_at, datetime):
+                    diff = now - created_at.replace(tzinfo=None)
+                    if diff.days > 0:
+                        time_ago = f"{diff.days} дн. назад"
+                    elif diff.seconds > 3600:
+                        time_ago = f"{diff.seconds // 3600} ч. назад"
+                    elif diff.seconds > 60:
+                        time_ago = f"{diff.seconds // 60} мин. назад"
+            
+            client_type = "VIP клиент" if client.get("segment") == "vip" else "Новый клиент"
+            recent_activity.append({
+                "id": client.get("id"),
+                "type": "client",
+                "action": client_type,
+                "description": client.get("full_name", "Неизвестно"),
+                "time": time_ago,
+                "amount": client.get("total_spent", 0)
+            })
+        
+        # Сортируем по времени (свежие первыми) и берем 10
+        recent_activity = sorted(recent_activity, key=lambda x: x.get("time", ""), reverse=False)[:10]
+        
+        # ===== СТАТИСТИКА ПО МЕНЕДЖЕРАМ =====
+        managers_collection = db.crm_managers
+        managers_list = await managers_collection.find({"status": "active"}).to_list(None)
+        
+        managers_stats = []
+        for manager in managers_list[:5]:  # Топ 5
+            manager_id = manager.get("id")
+            
+            # Считаем сделки менеджера
+            manager_deals = await deals_collection.count_documents({"manager_id": manager_id})
+            won_deals = await deals_collection.count_documents({"manager_id": manager_id, "status": "won"})
+            
+            # Считаем выручку менеджера
+            manager_revenue_cursor = deals_collection.aggregate([
+                {"$match": {"manager_id": manager_id, "status": "won"}},
+                {"$group": {"_id": None, "total": {"$sum": "$amount"}}}
+            ])
+            manager_revenue_result = await manager_revenue_cursor.to_list(None)
+            manager_revenue = manager_revenue_result[0]["total"] if manager_revenue_result else 0
+            
+            conversion = round((won_deals / manager_deals * 100) if manager_deals > 0 else 0)
+            
+            managers_stats.append({
+                "name": manager.get("full_name", f"Менеджер"),
+                "deals": manager_deals,
+                "revenue": manager_revenue,
+                "conversion": conversion
+            })
+        
+        # Сортируем по выручке
+        managers_stats.sort(key=lambda x: x["revenue"], reverse=True)
+        
+        return {
+            "revenue_data": revenue_data,
+            "recent_activity": recent_activity,
+            "managers_stats": managers_stats
+        }
+        
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=400, detail=str(e))
+
+
 @integration_router.get("/client-hms-data/{client_id}/treatment-plans")
 async def get_client_hms_treatment_plans(
     client_id: str,

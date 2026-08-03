@@ -197,7 +197,37 @@ async def get_appointments(
         if current_user.role == UserRole.PATIENT:
             query["patient_id"] = current_user.patient_id
         elif current_user.role == UserRole.DOCTOR:
-            query["doctor_id"] = current_user.doctor_id
+            # ИСПРАВЛЕНИЕ: Ищем записи по doctor_id и также по _id врача
+            # Это нужно для совместимости со старыми записями, где doctor_id мог быть MongoDB _id
+            doctor_id = current_user.doctor_id
+            if doctor_id:
+                # Получаем информацию о враче чтобы найти его _id
+                doctor = await db.doctors.find_one({
+                    "$or": [
+                        {"id": doctor_id},
+                        {"_id": doctor_id}
+                    ]
+                })
+                if doctor:
+                    # Собираем все возможные ID врача для поиска записей
+                    possible_ids = [doctor_id]
+                    if doctor.get("_id") and str(doctor["_id"]) != doctor_id:
+                        possible_ids.append(str(doctor["_id"]))
+                    if doctor.get("id") and doctor["id"] != doctor_id:
+                        possible_ids.append(doctor["id"])
+                    
+                    # Убираем дубликаты
+                    possible_ids = list(set(possible_ids))
+                    
+                    if len(possible_ids) > 1:
+                        query["doctor_id"] = {"$in": possible_ids}
+                    else:
+                        query["doctor_id"] = doctor_id
+                else:
+                    query["doctor_id"] = doctor_id
+            else:
+                # Если doctor_id не установлен, используем id пользователя
+                query["doctor_id"] = current_user.id
         # Admins can see all appointments
         
         if date_from or date_to:

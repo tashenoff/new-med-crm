@@ -42,6 +42,7 @@ import { CalendarPage, PatientsPage, DoctorsPage, WarehousePage } from './pages'
 import LoyaltyPage from './pages/LoyaltyPage';
 import BroadcastPage from './pages/BroadcastPage';
 import StaffManagementPage from './pages/StaffManagementPage';
+import SettingsPage from './pages/SettingsPage';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { ModalProvider } from './context/ModalContext';
 import { NotificationProvider } from './context/NotificationContext';
@@ -157,6 +158,14 @@ function ClinicApp() {
       return () => clearTimeout(timer);
     }
   }, [errorMessage]);
+
+  // Слушаем глобальный триггер обновления врачей
+  useEffect(() => {
+    if (refreshTriggers.doctors > 0) {
+      console.log('🔄 App.jsx: Получен триггер обновления врачей, перезагружаем список');
+      doctorsHook.fetchDoctors();
+    }
+  }, [refreshTriggers.doctors, doctorsHook.fetchDoctors]);
 
   // Permissions
   const canManagePatients = user?.role === 'admin' || user?.role === 'doctor';
@@ -334,6 +343,7 @@ function ClinicApp() {
           <Route path="/doctor-schedule" element={<DoctorSchedule doctors={doctorsHook.doctors} user={user} canEdit={user?.role === 'admin' || user?.role === 'super_admin'} />} />
           <Route path="/loyalty" element={<LoyaltyPage user={user} />} />
           <Route path="/staff-management" element={<StaffManagementPage user={user} />} />
+          <Route path="/settings" element={<SettingsPage user={user} />} />
           <Route path="/warehouse" element={<WarehousePage user={user} warehouseView={warehouseView} onOpenAiChat={openAiChatWithMaterialForm} onCloseAiChat={closeAiChatSidebar} aiChatSidebarOpen={aiChatSidebarOpen} materialRefreshTrigger={materialRefreshTrigger} />} />
           
           {/* Fallback routes for other tabs */}
@@ -354,7 +364,7 @@ function ClinicApp() {
               {activeTab === 'statistics' && <DoctorStatistics user={user} />}
               {activeTab === 'treatment-statistics' && <TreatmentPlanStatistics />}
               {activeTab === 'doctor-statistics' && <DoctorStatistics />}
-              {activeTab === 'doctor-schedule' && <DoctorSchedule doctors={[]} user={user} canEdit={user?.role === 'admin' || user?.role === 'super_admin'} />}
+              {activeTab === 'doctor-schedule' && <DoctorSchedule doctors={doctorsHook.doctors} user={user} canEdit={user?.role === 'admin' || user?.role === 'super_admin'} />}
               {activeTab === 'service-prices' && <ServicePrices user={user} />}
               {activeTab === 'specialties' && <Specialties user={user} />}
               {activeTab === 'payment-types' && <PaymentTypes user={user} />}
