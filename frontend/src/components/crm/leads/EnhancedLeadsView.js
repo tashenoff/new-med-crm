@@ -106,10 +106,10 @@ const EnhancedLeadsView = ({ user }) => {
       badge: 'bg-red-500'
     },
     closed: { 
-      label: 'Закрыта', 
-      color: 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200', 
-      icon: <Eye className="w-4 h-4" />,
-      badge: 'bg-gray-500'
+      label: 'Оплачено', 
+      color: 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900 dark:text-emerald-200', 
+      icon: <DollarSign className="w-4 h-4" />,
+      badge: 'bg-emerald-600'
     }
   };
 

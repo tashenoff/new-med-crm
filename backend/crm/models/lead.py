@@ -10,12 +10,13 @@ from enum import Enum
 
 class LeadStatus(str, Enum):
     """Статусы лидов"""
-    NEW = "new"                    # Новый
-    IN_PROGRESS = "in_progress"    # В работе
-    CONTACTED = "contacted"        # Связались
+    NEW = "new"                    # Новый (НЕРАЗОБРАННЫЕ)
+    CONTACTED = "contacted"        # Связались (ЗАПИСАН НА ПРИЕМ)
+    IN_PROGRESS = "in_progress"    # В работе (ЗАПИСЬ ПОДТВЕРЖДЕНА)
+    CONVERTED = "converted"        # Конвертирован (ПАЦИЕНТ ПРИШЁЛ)
+    CLOSED = "closed"              # Закрыт (ОПЛАЧЕНО)
     QUALIFIED = "qualified"        # Квалифицирован
-    CONVERTED = "converted"        # Конвертирован
-    REJECTED = "rejected"          # Отказ
+    REJECTED = "rejected"          # Отказ (ОТКЛОНЕНО)
     LOST = "lost"                  # Потерян
 
 

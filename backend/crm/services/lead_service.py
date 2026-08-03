@@ -345,4 +345,208 @@ class LeadService:
         )
         
         await task_service.create_task(task_data, created_by=created_by)
+    
+    async def sync_lead_from_appointment_status(
+        self,
+        patient_id: str,
+        appointment_status: str,
+        appointment_id: Optional[str] = None
+    ) -> Optional[Lead]:
+        """
+        Синхронизация статуса лида на основе статуса записи на прием.
+        
+        Логика:
+        - confirmed (подтверждено) -> in_progress (ЗАПИСЬ ПОДТВЕРЖДЕНА)
+        - arrived / in_progress (пациент пришел / на приеме) -> converted (ПАЦИЕНТ ПРИШЁЛ)
+        """
+        lead = None
+        
+        # Способ 1: Находим лида через CRM клиента
+        client = await self.db.crm_clients.find_one({"hms_patient_id": patient_id})
+        
+        if client:
+            # Найдем лида, который был конвертирован в этого клиента
+            lead = await self.collection.find_one({
+                "$or": [
+                    {"converted_to_client_id": client.get("id")},
+                    {"converted_to_appointment_id": appointment_id}
+                ]
+            })
+            
+            if not lead:
+                # Попробуем найти по телефону клиента
+                client_phone = client.get("phone")
+                if client_phone:
+                    clean_phone = client_phone.replace("+", "").replace(" ", "").replace("-", "").replace("(", "").replace(")", "")
+                    lead = await self.collection.find_one({
+                        "phone": {"$regex": clean_phone},
+                        "status": {"$nin": [LeadStatus.CLOSED.value, LeadStatus.REJECTED.value, LeadStatus.LOST.value]}
+                    })
+        
+        # Способ 2: Поиск напрямую через пациента HMS
+        if not lead:
+            print(f"ℹ️ CRM клиент не найден, ищем пациента напрямую для {patient_id}")
+            patient = await self.db.patients.find_one({"id": patient_id})
+            
+            if patient and patient.get("phone"):
+                clean_phone = patient["phone"].replace("+", "").replace(" ", "").replace("-", "").replace("(", "").replace(")", "")
+                
+                # Сначала ищем ТОЧНОЕ совпадение телефона
+                lead = await self.collection.find_one({
+                    "phone": clean_phone,
+                    "status": {"$nin": [LeadStatus.CLOSED.value, LeadStatus.REJECTED.value, LeadStatus.LOST.value]}
+                })
+                
+                if lead:
+                    print(f"✅ Найден лид по ТОЧНОМУ телефону пациента: {patient.get('phone')}")
+                else:
+                    # Если не нашли точное, ищем по regex но выбираем лучшее совпадение
+                    leads_cursor = await self.collection.find({
+                        "phone": {"$regex": clean_phone},
+                        "status": {"$nin": [LeadStatus.CLOSED.value, LeadStatus.REJECTED.value, LeadStatus.LOST.value]}
+                    }).to_list(None)
+                    
+                    if leads_cursor:
+                        # Выбираем лида с наиболее близким телефоном (наименьшая разница в длине)
+                        best_lead = None
+                        min_diff = float('inf')
+                        for l in leads_cursor:
+                            l_phone = l.get("phone", "").replace("+", "").replace(" ", "").replace("-", "")
+                            diff = abs(len(l_phone) - len(clean_phone))
+                            if diff < min_diff:
+                                min_diff = diff
+                                best_lead = l
+                        lead = best_lead
+                        if lead:
+                            print(f"✅ Найден лид по regex (лучшее совпадение): {lead.get('phone')}")
+        
+        if not lead:
+            print(f"⚠️ Лид не найден для пациента {patient_id}")
+            return None
+        
+        # Определяем новый статус на основе статуса записи
+        new_status = None
+        status_note = ""
+        
+        if appointment_status == "confirmed":
+            # Запись подтверждена -> in_progress
+            if lead.get("status") in [LeadStatus.NEW.value, LeadStatus.CONTACTED.value]:
+                new_status = LeadStatus.IN_PROGRESS.value
+                status_note = "Запись на прием подтверждена"
+        
+        elif appointment_status in ["arrived", "in_progress", "completed"]:
+            # Пациент пришел -> converted
+            if lead.get("status") in [LeadStatus.NEW.value, LeadStatus.CONTACTED.value, LeadStatus.IN_PROGRESS.value]:
+                new_status = LeadStatus.CONVERTED.value
+                status_note = f"Пациент на приеме (статус: {appointment_status})"
+        
+        if new_status and new_status != lead.get("status"):
+            update_data = {
+                "status": new_status,
+                "updated_at": datetime.utcnow()
+            }
+            
+            # Добавляем заметку
+            existing_notes = lead.get("notes") or ""
+            timestamp = datetime.utcnow().strftime("%Y-%m-%d %H:%M")
+            new_note = f"[{timestamp}] Автоматическое обновление: {status_note}"
+            update_data["notes"] = f"{existing_notes}\n{new_note}".strip()
+            
+            result = await self.collection.update_one(
+                {"id": lead["id"]},
+                {"$set": update_data}
+            )
+            
+            if result.modified_count > 0:
+                print(f"✅ Статус лида {lead['id']} обновлен: {lead.get('status')} -> {new_status}")
+                return await self.get_lead_by_id(lead["id"])
+        
+        return None
+    
+    async def sync_lead_from_payment_status(
+        self,
+        patient_id: str
+    ) -> Optional[Lead]:
+        """
+        Синхронизация статуса лида на основе оплаты планов лечения.
+        
+        Логика:
+        - Если ВСЕ планы лечения пациента полностью оплачены -> closed (ОПЛАЧЕНО)
+        """
+        # Находим клиента CRM по hms_patient_id
+        client = await self.db.crm_clients.find_one({"hms_patient_id": patient_id})
+        
+        if not client:
+            print(f"⚠️ CRM клиент не найден для пациента {patient_id}")
+            return None
+        
+        # Проверяем все планы лечения этого пациента
+        treatment_plans = await self.db.treatment_plans.find({
+            "patient_id": patient_id
+        }).to_list(None)
+        
+        if not treatment_plans:
+            print(f"⚠️ Планы лечения не найдены для пациента {patient_id}")
+            return None
+        
+        # Проверяем, все ли планы оплачены
+        all_paid = True
+        for plan in treatment_plans:
+            payment_status = plan.get("payment_status", "unpaid")
+            if payment_status != "paid":
+                all_paid = False
+                break
+        
+        if not all_paid:
+            print(f"ℹ️ Не все планы лечения оплачены для пациента {patient_id}")
+            return None
+        
+        # Находим лида
+        lead = await self.collection.find_one({
+            "$or": [
+                {"converted_to_client_id": client.get("id")},
+                {"phone": {"$regex": client.get("phone", "NOMATCH").replace("+", "").replace(" ", "").replace("-", "")}}
+            ],
+            "status": {"$nin": [LeadStatus.CLOSED.value, LeadStatus.REJECTED.value, LeadStatus.LOST.value]}
+        })
+        
+        if not lead:
+            print(f"⚠️ Активный лид не найден для клиента {client.get('id')}")
+            return None
+        
+        # Обновляем статус на CLOSED (ОПЛАЧЕНО)
+        update_data = {
+            "status": LeadStatus.CLOSED.value,
+            "updated_at": datetime.utcnow()
+        }
+        
+        # Добавляем заметку
+        existing_notes = lead.get("notes") or ""
+        timestamp = datetime.utcnow().strftime("%Y-%m-%d %H:%M")
+        total_paid = sum(plan.get("paid_amount", 0) or 0 for plan in treatment_plans)
+        new_note = f"[{timestamp}] Автоматическое обновление: Все планы лечения оплачены. Общая сумма: {total_paid}₸"
+        update_data["notes"] = f"{existing_notes}\n{new_note}".strip()
+        
+        result = await self.collection.update_one(
+            {"id": lead["id"]},
+            {"$set": update_data}
+        )
+        
+        if result.modified_count > 0:
+            print(f"✅ Статус лида {lead['id']} обновлен на CLOSED (ОПЛАЧЕНО)")
+            return await self.get_lead_by_id(lead["id"])
+        
+        return None
+    
+    async def find_lead_by_phone(self, phone: str) -> Optional[Lead]:
+        """Найти лида по номеру телефона"""
+        clean_phone = phone.replace("+", "").replace(" ", "").replace("-", "").replace("(", "").replace(")", "")
+        
+        lead_data = await self.collection.find_one({
+            "phone": {"$regex": clean_phone}
+        })
+        
+        if lead_data:
+            return Lead(**lead_data)
+        return None
 

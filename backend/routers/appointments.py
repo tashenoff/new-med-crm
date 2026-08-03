@@ -494,6 +494,20 @@ async def update_appointment(
     )
     
     updated_appointment = await db.appointments.find_one({"id": appointment_id})
+    
+    # Синхронизация статуса лида в CRM при изменении статуса записи
+    if "status" in update_dict:
+        try:
+            from crm.services.lead_service import LeadService
+            lead_service = LeadService(db)
+            await lead_service.sync_lead_from_appointment_status(
+                patient_id=updated_appointment["patient_id"],
+                appointment_status=update_dict["status"],
+                appointment_id=appointment_id
+            )
+        except Exception as e:
+            print(f"⚠️ Не удалось синхронизировать статус лида: {str(e)}")
+    
     return Appointment(**updated_appointment)
 
 
