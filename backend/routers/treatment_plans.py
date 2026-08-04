@@ -487,6 +487,87 @@ async def mark_service_paid(
     return plan_dict
 
 
+# ============================================================================
+# Add deposit payment to treatment plan
+# ============================================================================
+
+from pydantic import BaseModel
+
+class AddDepositPayment(BaseModel):
+    amount: float
+    payment_method: Optional[str] = "cash"
+    note: Optional[str] = None
+
+@treatment_plans_router.post("/treatment-plans/{plan_id}/add-deposit")
+async def add_deposit_to_plan(
+    plan_id: str,
+    payment: AddDepositPayment,
+    current_user: UserInDB = Depends(get_current_active_user)
+):
+    """Add a deposit payment to cover the debt in treatment plan"""
+    # Get the plan
+    plan = await db.treatment_plans.find_one({"id": plan_id})
+    if not plan:
+        raise HTTPException(status_code=404, detail="Treatment plan not found")
+    
+    patient_id = plan.get("patient_id")
+    
+    # Get current deposit amount from appointments
+    current_deposit = 0
+    if patient_id:
+        appointments = await db.appointments.find({
+            "patient_id": patient_id,
+            "deposit": {"$gt": 0}
+        }).to_list(100)
+        current_deposit = sum(apt.get("deposit", 0) or 0 for apt in appointments)
+    
+    # Get the extra_deposit already in the plan (if any)
+    extra_deposit = plan.get("extra_deposit", 0)
+    
+    # Add the new payment to extra_deposit
+    new_extra_deposit = extra_deposit + payment.amount
+    
+    # Update the plan with the new extra deposit
+    await db.treatment_plans.update_one(
+        {"id": plan_id},
+        {"$set": {
+            "extra_deposit": new_extra_deposit,
+            "updated_at": datetime.utcnow()
+        }}
+    )
+    
+    # Log the payment
+    payment_log = {
+        "plan_id": plan_id,
+        "patient_id": patient_id,
+        "amount": payment.amount,
+        "payment_method": payment.payment_method,
+        "note": payment.note,
+        "paid_by": current_user.full_name,
+        "paid_by_id": current_user.id,
+        "paid_at": datetime.utcnow(),
+        "type": "deposit_topup"
+    }
+    await db.payment_logs.insert_one(payment_log)
+    
+    print(f"💰 Доплата {payment.amount}₸ добавлена к плану {plan_id}")
+    
+    # Return updated plan with new deposit info
+    updated_plan = await db.treatment_plans.find_one({"id": plan_id})
+    plan_dict = TreatmentPlan(**updated_plan).dict()
+    
+    total_deposit = current_deposit + new_extra_deposit
+    plan_dict['deposit_amount'] = total_deposit
+    plan_dict['deposit_balance'] = total_deposit - plan.get("total_cost", 0)
+    plan_dict['extra_deposit'] = new_extra_deposit
+    
+    return {
+        "success": True,
+        "message": f"Доплата {payment.amount}₸ успешно добавлена",
+        "plan": plan_dict
+    }
+
+
 @treatment_plans_router.post("/treatment-plans/{plan_id}/services/{service_id}/sessions/{session_index}/mark-paid")
 async def mark_session_paid(
     plan_id: str,

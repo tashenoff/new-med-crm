@@ -111,15 +111,104 @@ const ServicePaymentList = ({ plan, onUpdate, paymentFilter = 'all', procedureFi
   const totalAmount = plan.total_cost || 0;
   const paymentProgress = totalAmount > 0 ? Math.round((paidAmount / totalAmount) * 100) : 0;
   
-  // Депозит: общая сумма внесённых депозитов
+  // Депозит: общая сумма внесённых депозитов (deposit_amount = депозит из записей + extra_deposit)
   const depositAmount = plan.deposit_amount || 0;
+  const extraDeposit = plan.extra_deposit || 0;
+  // Депозит только из записей (без доплат)
+  const appointmentDeposit = depositAmount - extraDeposit;
   
-  // Остаток депозита: если deposit_balance есть - используем его, иначе вычисляем
-  // Логика: из депозита списывается сумма оплаченных услуг (но не больше депозита)
-  const usedFromDeposit = Math.min(depositAmount, paidAmount);
-  const depositBalance = plan.deposit_balance !== undefined && plan.deposit_balance !== null 
-    ? plan.deposit_balance 
-    : Math.max(0, depositAmount - usedFromDeposit);
+  // Расчет баланса и долга
+  // Если depositAmount >= totalAmount: есть остаток депозита
+  // Если depositAmount < totalAmount: есть недоплата/долг
+  const usedFromDeposit = Math.min(depositAmount, totalAmount);
+  const depositBalance = depositAmount > totalAmount ? depositAmount - totalAmount : 0;
+  const depositDebt = depositAmount < totalAmount ? totalAmount - depositAmount : 0;
+  const remainingToPay = Math.max(0, totalAmount - paidAmount);
+
+  // Функция для добавления доплаты из кассы
+  const addDepositPayment = async (amount) => {
+    try {
+      setLoading(true);
+      const token = localStorage.getItem('token');
+      const response = await fetch(
+        `${API}/api/treatment-plans/${plan.id}/add-deposit`,
+        {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            amount: amount,
+            payment_method: 'cash',
+            note: 'Доплата из кассы для покрытия плана лечения'
+          })
+        }
+      );
+
+      if (response.ok) {
+        const result = await response.json();
+        if (onUpdate && result.plan) {
+          onUpdate(result.plan);
+        }
+        alert(`✅ Доплата ${amount.toLocaleString()} ₸ успешно добавлена!`);
+      } else {
+        const error = await response.json();
+        alert('Ошибка: ' + (error.detail || 'Не удалось добавить доплату'));
+      }
+    } catch (error) {
+      console.error('Error adding deposit payment:', error);
+      alert('Ошибка при добавлении доплаты: ' + error.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Функция для оплаты остатка (доплаты из депозита)
+  const payRemainingDebt = async () => {
+    try {
+      setLoading(true);
+      const token = localStorage.getItem('token');
+      
+      // Помечаем все неоплаченные услуги как оплаченные
+      const unpaidServices = plan.services.filter(s => s.payment_status !== 'paid');
+      
+      for (const service of unpaidServices) {
+        const response = await fetch(
+          `${API}/api/treatment-plans/${plan.id}/services/${service.service_id}/mark-paid`,
+          {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${token}`,
+              'Content-Type': 'application/json'
+            }
+          }
+        );
+        
+        if (!response.ok) {
+          throw new Error(`Ошибка при оплате услуги ${service.service_name}`);
+        }
+      }
+      
+      // Обновляем план после оплаты всех услуг
+      const planResponse = await fetch(`${API}/api/treatment-plans/${plan.id}`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      
+      if (planResponse.ok) {
+        const updatedPlan = await planResponse.json();
+        if (onUpdate) {
+          onUpdate(updatedPlan);
+        }
+        alert(`✅ План лечения полностью оплачен!\nДоплачено: ${remainingToPay.toLocaleString()} ₸`);
+      }
+    } catch (error) {
+      console.error('Error paying remaining debt:', error);
+      alert('Ошибка при оплате: ' + error.message);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
     <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
@@ -152,14 +241,37 @@ const ServicePaymentList = ({ plan, onUpdate, paymentFilter = 'all', procedureFi
           </div>
           <div>
             <div className="text-xs text-gray-500">Депозит (баланс)</div>
-            <div className="text-lg font-semibold text-blue-600">
-              {depositBalance.toLocaleString()} ₸
-            </div>
-            {depositAmount > 0 && (
-              <div className="text-xs text-blue-500">
-                внесено: {depositAmount.toLocaleString()} ₸
+            {depositBalance > 0 ? (
+              <div className="text-lg font-semibold text-green-600">
+                {depositBalance.toLocaleString()} ₸
+              </div>
+            ) : depositDebt > 0 ? (
+              <div className="text-lg font-semibold text-red-600">
+                -{depositDebt.toLocaleString()} ₸
+              </div>
+            ) : (
+              <div className="text-lg font-semibold text-gray-500">
+                0 ₸
               </div>
             )}
+            {/* Детализация депозита */}
+            <div className="text-xs mt-1">
+              {appointmentDeposit > 0 && (
+                <div className="text-blue-500">
+                  💰 Депозит: {appointmentDeposit.toLocaleString()} ₸
+                </div>
+              )}
+              {extraDeposit > 0 && (
+                <div className="text-green-500">
+                  💳 Доплата: +{extraDeposit.toLocaleString()} ₸
+                </div>
+              )}
+              {depositAmount > 0 && (
+                <div className="text-gray-600 font-medium">
+                  Итого: {depositAmount.toLocaleString()} ₸
+                </div>
+              )}
+            </div>
           </div>
           <div>
             <div className="text-xs text-gray-500">Оплачено</div>
@@ -170,10 +282,88 @@ const ServicePaymentList = ({ plan, onUpdate, paymentFilter = 'all', procedureFi
           <div>
             <div className="text-xs text-gray-500">Остаток к оплате</div>
             <div className="text-lg font-semibold text-red-600">
-              {Math.max(0, totalAmount - paidAmount).toLocaleString()} ₸
+              {remainingToPay.toLocaleString()} ₸
             </div>
           </div>
         </div>
+        
+        {/* Кнопка оплаты остатка если есть недоплата */}
+        {remainingToPay > 0 && (
+          <div className="mt-4 pt-4 border-t border-gray-200">
+            <div className="flex items-center justify-between">
+              <div className="text-sm text-gray-600">
+                {depositAmount > 0 && depositDebt > 0 && (
+                  <span className="text-orange-600">
+                    ⚠️ Депозита недостаточно. Требуется доплата: <strong>{depositDebt.toLocaleString()} ₸</strong>
+                  </span>
+                )}
+              </div>
+              <button
+                onClick={payRemainingDebt}
+                disabled={loading}
+                className="px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed font-semibold transition-all shadow-md hover:shadow-lg flex items-center space-x-2"
+              >
+                {loading ? (
+                  <span>Обработка...</span>
+                ) : (
+                  <>
+                    <span>💳</span>
+                    <span>Оплатить остаток</span>
+                    <span className="ml-2 px-2 py-1 bg-green-700 rounded text-sm">
+                      {remainingToPay.toLocaleString()} ₸
+                    </span>
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        )}
+        
+        {/* Показываем статус если всё оплачено И депозит покрыл всю сумму */}
+        {remainingToPay === 0 && paidAmount > 0 && depositDebt === 0 && (
+          <div className="mt-4 pt-4 border-t border-gray-200 text-center">
+            <div className="inline-flex items-center px-6 py-3 bg-green-100 text-green-700 rounded-lg font-semibold">
+              <span className="text-2xl mr-2">✅</span>
+              <span>План лечения полностью оплачен</span>
+            </div>
+          </div>
+        )}
+        
+        {/* Показываем предупреждение и кнопку доплаты если услуги помечены как оплаченные, но депозит не покрыл всю сумму */}
+        {remainingToPay === 0 && paidAmount > 0 && depositDebt > 0 && (
+          <div className="mt-4 pt-4 border-t border-gray-200">
+            <div className="flex flex-col items-center space-y-3">
+              <div className="inline-flex items-center px-6 py-3 bg-orange-100 text-orange-700 rounded-lg font-semibold">
+                <span className="text-2xl mr-2">⚠️</span>
+                <span>Услуги оплачены, но депозита было недостаточно</span>
+              </div>
+              <div className="text-sm text-gray-600">
+                Недоплата из депозита: <span className="font-bold text-red-600">{depositDebt.toLocaleString()} ₸</span>
+              </div>
+              <button
+                onClick={() => {
+                  if (!loading && window.confirm(`Подтвердите доплату ${depositDebt.toLocaleString()} ₸ из кассы`)) {
+                    addDepositPayment(depositDebt);
+                  }
+                }}
+                disabled={loading}
+                className="px-6 py-3 bg-orange-500 text-white rounded-lg hover:bg-orange-600 disabled:opacity-50 disabled:cursor-not-allowed font-semibold transition-all shadow-md hover:shadow-lg flex items-center space-x-2"
+              >
+                {loading ? (
+                  <span>Обработка...</span>
+                ) : (
+                  <>
+                    <span>💳</span>
+                    <span>Доплатить из кассы</span>
+                    <span className="ml-2 px-2 py-1 bg-orange-600 rounded text-sm">
+                      {depositDebt.toLocaleString()} ₸
+                    </span>
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Список услуг */}

@@ -26,6 +26,7 @@ async def lead_to_response(lead, db: AsyncIOMotorDatabase) -> LeadResponse:
     lead_dict["treatment_plan_total"] = 0
     lead_dict["manager_name"] = None
     lead_dict["deposit_balance"] = None
+    lead_dict["patient_debt"] = None  # Долг пациента если депозит < стоимости
     
     # Получаем сумму из планов лечения
     patient_id = None
@@ -61,25 +62,33 @@ async def lead_to_response(lead, db: AsyncIOMotorDatabase) -> LeadResponse:
             total = sum(plan.get("total_cost", 0) or 0 for plan in treatment_plans)
             lead_dict["treatment_plan_total"] = total
             
-            # Вычисляем остаток депозита если план оплачен
-            deposit_amount = lead.deposit_amount or 0
+            # Получаем extra_deposit из планов лечения
+            extra_deposit = sum(plan.get("extra_deposit", 0) or 0 for plan in treatment_plans)
+            lead_dict["extra_deposit"] = extra_deposit
+            
+            # Вычисляем остаток депозита и долг
+            # deposit_amount из lead - это депозит из записей
+            appointment_deposit = lead.deposit_amount or 0
+            # Общий депозит = депозит из записей + доплата из кассы
+            deposit_amount = appointment_deposit + extra_deposit
+            # Обновляем deposit_amount чтобы показать общую сумму
+            lead_dict["deposit_amount"] = deposit_amount
+            
             if deposit_amount > 0:
-                # Проверяем, есть ли оплаченные планы
-                total_cost_paid_plans = 0
-                all_plans_paid = True
+                # Суммируем стоимость ВСЕХ планов (не только оплаченных)
+                total_cost_all_plans = total  # Уже вычислено выше
                 
-                for plan in treatment_plans:
-                    payment_status = plan.get("payment_status", "unpaid")
-                    if payment_status == "paid":
-                        total_cost_paid_plans += plan.get("total_cost", 0) or 0
+                if total_cost_all_plans > 0:
+                    if deposit_amount >= total_cost_all_plans:
+                        # Депозит больше или равен стоимости - показываем остаток
+                        deposit_balance = deposit_amount - total_cost_all_plans
+                        lead_dict["deposit_balance"] = deposit_balance
+                        lead_dict["patient_debt"] = 0
                     else:
-                        all_plans_paid = False
-                
-                # Если хотя бы один план оплачен, показываем остаток депозита
-                if total_cost_paid_plans > 0:
-                    # Остаток = депозит - стоимость оплаченных планов (но не меньше 0)
-                    deposit_balance = max(0, deposit_amount - total_cost_paid_plans)
-                    lead_dict["deposit_balance"] = deposit_balance
+                        # Депозит меньше стоимости - показываем долг
+                        patient_debt = total_cost_all_plans - deposit_amount
+                        lead_dict["deposit_balance"] = 0  # Весь депозит использован
+                        lead_dict["patient_debt"] = patient_debt
     
     # Получаем имя менеджера если назначен
     if lead.assigned_manager_id:

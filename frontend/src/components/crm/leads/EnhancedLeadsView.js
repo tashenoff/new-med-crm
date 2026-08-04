@@ -644,7 +644,10 @@ const EnhancedLeadsView = ({ user }) => {
   const LeadCard = ({ lead, onDragStart }) => {
     const leadAmount = getLeadAmount(lead);
     const depositAmount = lead.deposit_amount || 0;
+    const extraDeposit = lead.extra_deposit || 0;
+    const appointmentDeposit = depositAmount - extraDeposit;
     const depositBalance = lead.deposit_balance;
+    const patientDebt = lead.patient_debt;
     const appointmentPrice = lead.appointment_price || 0;
     const tasks = leadTasks[lead.id] || [];
     const urgentTasks = tasks.filter(t => t.status !== 'completed' && t.priority === 'high').length;
@@ -691,15 +694,41 @@ const EnhancedLeadsView = ({ user }) => {
           </span>
           {/* Показываем депозит если есть */}
           {depositAmount > 0 && (
-            <div className="mt-1">
+            <div className="mt-1 space-y-0.5">
               <span className="text-sm font-medium text-blue-600">
-                💰 Депозит: {depositAmount.toLocaleString()} ₸
+                💰 Депозит: {appointmentDeposit.toLocaleString()} ₸
               </span>
-              {/* Показываем остаток депозита если план оплачен */}
-              {depositBalance !== null && depositBalance !== undefined && (
+              {extraDeposit > 0 && (
+                <span className="text-xs font-medium text-green-600 block">
+                  💳 +{extraDeposit.toLocaleString()} ₸ доплата
+                </span>
+              )}
+              {(appointmentDeposit > 0 && extraDeposit > 0) && (
+                <span className="text-xs text-gray-500 block">
+                  Итого: {depositAmount.toLocaleString()} ₸
+                </span>
+              )}
+              {/* Показываем остаток депозита или долг */}
+              {depositBalance !== null && depositBalance !== undefined && depositBalance > 0 && (
                 <div className="mt-1">
                   <span className="text-sm font-medium text-green-600">
                     💵 Остаток: {depositBalance.toLocaleString()} ₸
+                  </span>
+                </div>
+              )}
+              {/* Показываем долг если депозит < стоимости */}
+              {patientDebt !== null && patientDebt !== undefined && patientDebt > 0 && (
+                <div className="mt-1">
+                  <span className="text-sm font-medium text-red-600">
+                    ⚠️ Долг: {patientDebt.toLocaleString()} ₸
+                  </span>
+                </div>
+              )}
+              {/* Если депозит полностью использован (остаток = 0) */}
+              {depositBalance === 0 && !patientDebt && (
+                <div className="mt-1">
+                  <span className="text-sm font-medium text-gray-500">
+                    ✅ Использован
                   </span>
                 </div>
               )}

@@ -98,9 +98,13 @@ class TreatmentPlanService:
             plan_obj = TreatmentPlan(**plan)
             # Добавляем депозит как атрибут
             plan_dict = plan_obj.dict()
-            plan_dict['deposit_amount'] = deposit_amount
-            # deposit_balance - остаток депозита (если не установлен, равен deposit_amount)
-            plan_dict['deposit_balance'] = plan.get('deposit_balance', deposit_amount)
+            # extra_deposit - доплаты из кассы
+            extra_deposit = plan.get('extra_deposit', 0) or 0
+            total_deposit = deposit_amount + extra_deposit
+            plan_dict['deposit_amount'] = total_deposit
+            plan_dict['extra_deposit'] = extra_deposit
+            # deposit_balance - остаток депозита (если не установлен, равен total_deposit)
+            plan_dict['deposit_balance'] = plan.get('deposit_balance', total_deposit)
             plans.append(plan_dict)
         
         return plans
@@ -137,9 +141,15 @@ class TreatmentPlanService:
         # Преобразуем в объект и добавляем депозит
         plan_obj = TreatmentPlan(**treatment_plan)
         plan_dict = plan_obj.dict()
-        plan_dict['deposit_amount'] = deposit_amount
-        # deposit_balance - остаток депозита (если не установлен, равен deposit_amount)
-        plan_dict['deposit_balance'] = treatment_plan.get('deposit_balance', deposit_amount)
+        
+        # extra_deposit - доплаты из кассы
+        extra_deposit = treatment_plan.get('extra_deposit', 0) or 0
+        total_deposit = deposit_amount + extra_deposit
+        
+        plan_dict['deposit_amount'] = total_deposit
+        plan_dict['extra_deposit'] = extra_deposit
+        # deposit_balance - остаток депозита (если не установлен, равен total_deposit)
+        plan_dict['deposit_balance'] = treatment_plan.get('deposit_balance', total_deposit)
         
         return plan_dict
     
