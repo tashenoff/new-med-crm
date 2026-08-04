@@ -110,6 +110,16 @@ const ServicePaymentList = ({ plan, onUpdate, paymentFilter = 'all', procedureFi
     .reduce((sum, s) => sum + (s.total_price || 0), 0);
   const totalAmount = plan.total_cost || 0;
   const paymentProgress = totalAmount > 0 ? Math.round((paidAmount / totalAmount) * 100) : 0;
+  
+  // Депозит: общая сумма внесённых депозитов
+  const depositAmount = plan.deposit_amount || 0;
+  
+  // Остаток депозита: если deposit_balance есть - используем его, иначе вычисляем
+  // Логика: из депозита списывается сумма оплаченных услуг (но не больше депозита)
+  const usedFromDeposit = Math.min(depositAmount, paidAmount);
+  const depositBalance = plan.deposit_balance !== undefined && plan.deposit_balance !== null 
+    ? plan.deposit_balance 
+    : Math.max(0, depositAmount - usedFromDeposit);
 
   return (
     <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
@@ -133,12 +143,23 @@ const ServicePaymentList = ({ plan, onUpdate, paymentFilter = 'all', procedureFi
             style={{ width: `${paymentProgress}%` }}
           />
         </div>
-        <div className="grid grid-cols-3 gap-4 text-center">
+        <div className="grid grid-cols-4 gap-4 text-center">
           <div>
             <div className="text-xs text-gray-500">Всего к оплате</div>
             <div className="text-lg font-semibold text-gray-900">
               {totalAmount.toLocaleString()} ₸
             </div>
+          </div>
+          <div>
+            <div className="text-xs text-gray-500">Депозит (баланс)</div>
+            <div className="text-lg font-semibold text-blue-600">
+              {depositBalance.toLocaleString()} ₸
+            </div>
+            {depositAmount > 0 && (
+              <div className="text-xs text-blue-500">
+                внесено: {depositAmount.toLocaleString()} ₸
+              </div>
+            )}
           </div>
           <div>
             <div className="text-xs text-gray-500">Оплачено</div>
@@ -147,9 +168,9 @@ const ServicePaymentList = ({ plan, onUpdate, paymentFilter = 'all', procedureFi
             </div>
           </div>
           <div>
-            <div className="text-xs text-gray-500">Остаток</div>
+            <div className="text-xs text-gray-500">Остаток к оплате</div>
             <div className="text-lg font-semibold text-red-600">
-              {(totalAmount - paidAmount).toLocaleString()} ₸
+              {Math.max(0, totalAmount - paidAmount).toLocaleString()} ₸
             </div>
           </div>
         </div>

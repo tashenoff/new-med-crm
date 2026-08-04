@@ -458,6 +458,11 @@ const ClientsView = ({ user }) => {
                                      appointment.status === 'confirmed' ? 'Подтвержден' :
                                      appointment.status === 'completed' ? 'Завершен' : appointment.status}
                               </div>
+                              {appointment.deposit && appointment.deposit > 0 && (
+                                <div className="text-xs text-green-600 font-medium mt-1">
+                                  💰 Депозит: {appointment.deposit.toLocaleString()}₸
+                                </div>
+                              )}
                             </div>
                           );
                         }

@@ -574,7 +574,9 @@ const EnhancedLeadsView = ({ user }) => {
                 room_id: appointmentData.room_id,
                 service: appointmentData.service || appointmentData.reason || 'Консультация',
                 notes: appointmentData.notes || `Запись из CRM. Заявка: ${lead.first_name} ${lead.last_name}`,
-                price: appointmentData.price || 0
+                price: appointmentData.price || 0,
+                deposit: appointmentData.deposit || null,
+                deposit_type: appointmentData.deposit_type || null
               })
             }
           );
@@ -641,6 +643,9 @@ const EnhancedLeadsView = ({ user }) => {
   // Компонент карточки заявки для канбана
   const LeadCard = ({ lead, onDragStart }) => {
     const leadAmount = getLeadAmount(lead);
+    const depositAmount = lead.deposit_amount || 0;
+    const depositBalance = lead.deposit_balance;
+    const appointmentPrice = lead.appointment_price || 0;
     const tasks = leadTasks[lead.id] || [];
     const urgentTasks = tasks.filter(t => t.status !== 'completed' && t.priority === 'high').length;
 
@@ -684,6 +689,30 @@ const EnhancedLeadsView = ({ user }) => {
           <span className={cn("text-lg font-bold", themeClasses.text.primary)}>
             {leadAmount.toLocaleString()} ₸
           </span>
+          {/* Показываем депозит если есть */}
+          {depositAmount > 0 && (
+            <div className="mt-1">
+              <span className="text-sm font-medium text-blue-600">
+                💰 Депозит: {depositAmount.toLocaleString()} ₸
+              </span>
+              {/* Показываем остаток депозита если план оплачен */}
+              {depositBalance !== null && depositBalance !== undefined && (
+                <div className="mt-1">
+                  <span className="text-sm font-medium text-green-600">
+                    💵 Остаток: {depositBalance.toLocaleString()} ₸
+                  </span>
+                </div>
+              )}
+            </div>
+          )}
+          {/* Показываем цену записи если есть */}
+          {appointmentPrice > 0 && depositAmount === 0 && (
+            <div className="mt-1">
+              <span className="text-xs text-gray-500">
+                Запись: {appointmentPrice.toLocaleString()} ₸
+              </span>
+            </div>
+          )}
         </div>
 
         {/* Contact */}

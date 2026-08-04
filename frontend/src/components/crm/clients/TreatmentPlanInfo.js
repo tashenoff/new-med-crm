@@ -26,8 +26,9 @@ const TreatmentPlanInfo = ({
     );
   }
 
-  const { totalAmount, paidAmount, pendingAmount, treatmentPlansCount, plans } = treatmentData;
-  const paidPercentage = totalAmount > 0 ? Math.round((paidAmount / totalAmount) * 100) : 0;
+  const { totalAmount, paidAmount, pendingAmount, treatmentPlansCount, plans, depositAmount = 0 } = treatmentData;
+  const totalPaidWithDeposit = paidAmount + depositAmount;
+  const paidPercentage = totalAmount > 0 ? Math.round((totalPaidWithDeposit / totalAmount) * 100) : 0;
 
   if (compact) {
     return (
@@ -83,10 +84,22 @@ const TreatmentPlanInfo = ({
             <div>
               <div className="text-gray-600">Оплачено ({paidPercentage}%):</div>
               <div className="font-medium text-green-600">
-                {paidAmount.toLocaleString()}₸
+                {totalPaidWithDeposit.toLocaleString()}₸
               </div>
             </div>
           </div>
+
+          {/* Депозит (если есть) */}
+          {depositAmount > 0 && (
+            <div className="pt-1 border-t border-blue-200">
+              <div className="flex justify-between items-center">
+                <span className="text-xs text-gray-600">💰 Из них депозит:</span>
+                <span className="text-sm font-medium text-blue-600">
+                  {depositAmount.toLocaleString()}₸
+                </span>
+              </div>
+            </div>
+          )}
 
           {pendingAmount > 0 && (
             <div className="pt-1 border-t border-blue-200">

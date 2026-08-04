@@ -823,11 +823,11 @@ const AppointmentModal = ({
       });
     }
 
-    // Для новых записей подпись обязательна
-    if (!editingItem && !hasSignature) {
-      setConsentFileError('Необходимо поставить подпись пациента');
-      return;
-    }
+    // Подпись теперь не обязательна (факсимиле опционально)
+    // if (!editingItem && !hasSignature) {
+    //   setConsentFileError('Необходимо поставить подпись пациента');
+    //   return;
+    // }
 
     // Проверяем, что все необходимые согласия приняты
     const missingConsents = requiredConsents.filter(consent => !acceptedConsents[consent.id]);
@@ -1379,7 +1379,6 @@ const AppointmentModal = ({
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
               Подпись согласия пациента на обработку персональных данных
-              {!editingItem && <span className="text-red-500 ml-1">*</span>}
             </label>
             <div className="border-2 border-gray-300 rounded-lg p-4 bg-white">
               <div className="mb-2 text-sm text-gray-600">
@@ -1424,9 +1423,7 @@ const AppointmentModal = ({
             {consentFileError && (
               <p className="mt-1 text-sm text-red-600">{consentFileError}</p>
             )}
-            {editingItem && (
-              <p className="mt-1 text-xs text-gray-500">При редактировании подпись не обязательна</p>
-            )}
+            <p className="mt-1 text-xs text-gray-500">При редактировании подпись не обязательна</p>
           </div>
 
           {/* Документы согласий */}

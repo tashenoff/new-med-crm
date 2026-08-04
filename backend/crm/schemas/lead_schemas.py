@@ -113,6 +113,9 @@ class LeadResponse(BaseModel):
     full_name: str  # computed field
     treatment_plan_total: Optional[float] = None  # Общая сумма из плана лечения
     manager_name: Optional[str] = None  # Имя менеджера
+    deposit_amount: Optional[float] = None  # Сумма депозита из записи
+    deposit_type: Optional[str] = None  # Тип депозита (fixed/percent)
+    deposit_balance: Optional[float] = None  # Остаток депозита после оплаты плана лечения
 
     class Config:
         from_attributes = True

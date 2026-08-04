@@ -161,13 +161,13 @@ async def create_treatment_plan(
     )
 
 
-@treatment_plans_router.get("/patients/{patient_id}/treatment-plans", response_model=List[TreatmentPlan])
+@treatment_plans_router.get("/patients/{patient_id}/treatment-plans")
 async def get_patient_treatment_plans(
     patient_id: str,
     current_user: UserInDB = Depends(require_role([UserRole.ADMIN, UserRole.SUPER_ADMIN, UserRole.DOCTOR, UserRole.PATIENT])),
     service: TreatmentPlanService = Depends(get_treatment_plan_service)
 ):
-    """Get all treatment plans for a patient"""
+    """Get all treatment plans for a patient (with deposit_amount from appointments)"""
     # Patients can only access their own treatment plans
     if current_user.role == UserRole.PATIENT and current_user.patient_id != patient_id:
         raise HTTPException(status_code=403, detail="Access denied")
@@ -175,19 +175,20 @@ async def get_patient_treatment_plans(
     return await service.get_patient_treatment_plans(patient_id)
 
 
-@treatment_plans_router.get("/treatment-plans/{plan_id}", response_model=TreatmentPlan)
+@treatment_plans_router.get("/treatment-plans/{plan_id}")
 async def get_treatment_plan(
     plan_id: str,
     current_user: UserInDB = Depends(require_role([UserRole.ADMIN, UserRole.SUPER_ADMIN, UserRole.DOCTOR, UserRole.PATIENT])),
     service: TreatmentPlanService = Depends(get_treatment_plan_service)
 ):
-    """Get a specific treatment plan"""
+    """Get a specific treatment plan (with deposit_amount from patient appointments)"""
     treatment_plan = await service.get_treatment_plan(plan_id)
     
     # Patients can only access their own treatment plans
     if current_user.role == UserRole.PATIENT:
-        patient = await db.patients.find_one({"id": treatment_plan.patient_id})
-        if not patient or current_user.patient_id != treatment_plan.patient_id:
+        patient_id = treatment_plan.get("patient_id")
+        patient = await db.patients.find_one({"id": patient_id})
+        if not patient or current_user.patient_id != patient_id:
             raise HTTPException(status_code=403, detail="Access denied")
     
     return treatment_plan
@@ -203,7 +204,7 @@ async def update_treatment_plan(
     """Update treatment plan"""
     # Get current plan state before update
     old_plan = await service.get_treatment_plan(plan_id)
-    old_payment_status = old_plan.payment_status
+    old_payment_status = old_plan.get("payment_status") if isinstance(old_plan, dict) else old_plan.payment_status
     
     # Update the plan
     updated_plan = await service.update_treatment_plan(plan_id, update_data)
@@ -390,6 +391,21 @@ async def mark_service_paid(
     old_payment_status = plan.get("payment_status", "unpaid")
     patient_id = plan.get("patient_id")
     
+    # Получить текущий депозит пациента
+    deposit_amount = 0
+    if patient_id:
+        appointments = await db.appointments.find({
+            "patient_id": patient_id,
+            "deposit": {"$gt": 0}
+        }).to_list(100)
+        deposit_amount = sum(apt.get("deposit", 0) or 0 for apt in appointments)
+    
+    # Получить текущий баланс депозита (сколько осталось)
+    deposit_balance = plan.get("deposit_balance")
+    if deposit_balance is None:
+        # Если баланс не установлен, инициализируем его полной суммой депозита
+        deposit_balance = deposit_amount
+    
     # Найти услугу в плане
     service_found = False
     service_price = 0
@@ -400,6 +416,12 @@ async def mark_service_paid(
             # Установить статус оплаты услуги
             service["payment_status"] = "paid"
             service_price = service.get("total_price", 0)
+            
+            # Списать из депозита если есть баланс
+            if deposit_balance > 0:
+                amount_from_deposit = min(deposit_balance, service_price)
+                deposit_balance -= amount_from_deposit
+                service["paid_from_deposit"] = amount_from_deposit
             break
     
     if not service_found:
@@ -425,7 +447,7 @@ async def mark_service_paid(
         plan["payment_status"] = "unpaid"
         plan["paid_amount"] = 0
     
-    # Сохранить изменения
+    # Сохранить изменения с обновленным балансом депозита
     await db.treatment_plans.update_one(
         {"id": plan_id},
         {"$set": {
@@ -433,6 +455,7 @@ async def mark_service_paid(
             "payment_status": plan["payment_status"],
             "paid_amount": plan["paid_amount"],
             "payment_date": plan.get("payment_date"),
+            "deposit_balance": deposit_balance,
             "updated_at": datetime.utcnow()
         }}
     )
@@ -446,9 +469,22 @@ async def mark_service_paid(
         except Exception as e:
             print(f"⚠️ Не удалось синхронизировать статус лида после оплаты: {str(e)}")
     
-    # Вернуть обновленный план
+    # Вернуть обновленный план с deposit_amount и deposit_balance
     updated_plan = await db.treatment_plans.find_one({"id": plan_id})
-    return TreatmentPlan(**updated_plan)
+    plan_dict = TreatmentPlan(**updated_plan).dict()
+    
+    # Получить deposit_amount из записей пациента
+    total_deposit = 0
+    if patient_id:
+        appointments = await db.appointments.find({
+            "patient_id": patient_id,
+            "deposit": {"$gt": 0}
+        }).to_list(100)
+        total_deposit = sum(apt.get("deposit", 0) or 0 for apt in appointments)
+    
+    plan_dict['deposit_amount'] = total_deposit
+    plan_dict['deposit_balance'] = updated_plan.get('deposit_balance', total_deposit)
+    return plan_dict
 
 
 @treatment_plans_router.post("/treatment-plans/{plan_id}/services/{service_id}/sessions/{session_index}/mark-paid")
@@ -554,6 +590,19 @@ async def mark_session_paid(
         except Exception as e:
             print(f"⚠️ Не удалось синхронизировать статус лида после оплаты сессии: {str(e)}")
     
-    # Вернуть обновленный план
+    # Вернуть обновленный план с deposit_amount и deposit_balance
     updated_plan = await db.treatment_plans.find_one({"id": plan_id})
-    return TreatmentPlan(**updated_plan)
+    plan_dict = TreatmentPlan(**updated_plan).dict()
+    
+    # Получить deposit_amount из записей пациента
+    total_deposit = 0
+    if patient_id:
+        appointments = await db.appointments.find({
+            "patient_id": patient_id,
+            "deposit": {"$gt": 0}
+        }).to_list(100)
+        total_deposit = sum(apt.get("deposit", 0) or 0 for apt in appointments)
+    
+    plan_dict['deposit_amount'] = total_deposit
+    plan_dict['deposit_balance'] = updated_plan.get('deposit_balance', total_deposit)
+    return plan_dict

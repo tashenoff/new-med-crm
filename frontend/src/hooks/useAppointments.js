@@ -16,6 +16,20 @@ const cleanAppointmentData = (appointmentData) => {
     cleanData.price = 0;
   }
   
+  // Обработка депозита
+  if (cleanData.deposit !== undefined && cleanData.deposit !== '' && cleanData.deposit !== null) {
+    cleanData.deposit = parseFloat(cleanData.deposit) || 0;
+  }
+  
+  // Логируем данные депозита для отладки
+  if (cleanData.deposit || cleanData.deposit_type) {
+    console.log('💰 useAppointments: Депозит в данных записи:', {
+      deposit: cleanData.deposit,
+      deposit_type: cleanData.deposit_type,
+      price: cleanData.price
+    });
+  }
+  
   return cleanData;
 };
 

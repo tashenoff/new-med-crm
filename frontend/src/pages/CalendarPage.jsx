@@ -102,6 +102,8 @@ const CalendarPage = ({ user }) => {
         appointment_time: '',
         end_time: '',
         price: '',
+        deposit_type: '',
+        deposit: '',
         status: 'unconfirmed',
         reason: '',
         notes: '',
@@ -139,6 +141,8 @@ const CalendarPage = ({ user }) => {
       end_time: calculateEndTime(time, 30), // По умолчанию 30 минут
       duration: 30, // Добавляем поле длительности
       price: '',
+      deposit_type: '',
+      deposit: '',
       status: 'unconfirmed',
       reason: '',
       notes: '',
@@ -184,6 +188,8 @@ const CalendarPage = ({ user }) => {
       appointment_time: appointment.appointment_time,
       end_time: appointment.end_time || '',
       price: appointment.price || '',
+      deposit_type: appointment.deposit_type || '',
+      deposit: appointment.deposit || '',
       status: appointment.status || 'unconfirmed',
       reason: appointment.reason || '',
       notes: appointment.notes || '',

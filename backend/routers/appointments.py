@@ -43,6 +43,75 @@ class AppointmentStatusUpdate(BaseModel):
 
 
 # Helper functions
+async def apply_deposit_to_treatment_plans(patient_id: str, deposit_amount: float, appointment_id: str, db: AsyncIOMotorDatabase):
+    """Применить депозит записи к планам лечения пациента"""
+    if not deposit_amount or deposit_amount <= 0:
+        return
+    
+    try:
+        # Находим все активные планы лечения пациента (не завершенные и не отмененные)
+        active_plans = await db.treatment_plans.find({
+            "patient_id": patient_id,
+            "status": {"$nin": ["completed", "cancelled"]},
+            "payment_status": {"$ne": "paid"}  # Только не полностью оплаченные
+        }).sort("created_at", 1).to_list(100)  # Сортируем по дате создания, чтобы сначала обработать старые планы
+        
+        remaining_deposit = deposit_amount
+        
+        for plan in active_plans:
+            if remaining_deposit <= 0:
+                break
+            
+            total_cost = plan.get("total_cost", 0)
+            paid_amount = plan.get("paid_amount", 0)
+            current_deposit = plan.get("deposit_amount", 0)
+            
+            # Сколько еще нужно оплатить
+            remaining_to_pay = total_cost - paid_amount - current_deposit
+            
+            if remaining_to_pay <= 0:
+                continue
+            
+            # Сколько депозита применить к этому плану
+            deposit_to_apply = min(remaining_deposit, remaining_to_pay)
+            remaining_deposit -= deposit_to_apply
+            
+            # Обновляем план
+            new_deposit_amount = current_deposit + deposit_to_apply
+            new_total_paid = paid_amount + new_deposit_amount
+            
+            # Определяем новый статус оплаты
+            if new_total_paid >= total_cost:
+                new_payment_status = "paid"
+            elif new_total_paid > 0:
+                new_payment_status = "partially_paid"
+            else:
+                new_payment_status = "unpaid"
+            
+            # Добавляем ID записи к плану
+            appointment_ids = plan.get("appointment_ids", [])
+            if appointment_id not in appointment_ids:
+                appointment_ids.append(appointment_id)
+            
+            await db.treatment_plans.update_one(
+                {"id": plan["id"]},
+                {"$set": {
+                    "deposit_amount": new_deposit_amount,
+                    "payment_status": new_payment_status,
+                    "appointment_ids": appointment_ids,
+                    "updated_at": datetime.utcnow()
+                }}
+            )
+            
+            print(f"✅ Депозит {deposit_to_apply}₸ применен к плану лечения {plan['id']} пациента {patient_id}")
+        
+        if remaining_deposit > 0:
+            print(f"ℹ️ Остаток депозита {remaining_deposit}₸ будет применен к следующим планам лечения")
+    
+    except Exception as e:
+        print(f"⚠️ Ошибка при применении депозита к плану лечения: {str(e)}")
+
+
 async def check_doctor_availability(doctor_id: str, appointment_date: str, appointment_time: str, db: AsyncIOMotorDatabase):
     """Check if doctor is available on the given date and time"""
     try:
@@ -148,6 +217,49 @@ async def create_appointment(
     appointment_dict = appointment.dict()
     appointment_obj = Appointment(**appointment_dict)
     await db.appointments.insert_one(appointment_obj.dict())
+    
+    # Вычисляем фактическую сумму депозита
+    deposit_amount = 0
+    if appointment.deposit and appointment.deposit > 0:
+        deposit_amount = appointment.deposit
+        if appointment.deposit_type == 'percent' and appointment.price:
+            deposit_amount = (appointment.price * appointment.deposit) / 100
+        
+        await apply_deposit_to_treatment_plans(
+            patient_id=appointment.patient_id,
+            deposit_amount=deposit_amount,
+            appointment_id=appointment_obj.id,
+            db=db
+        )
+        print(f"💰 Депозит {deposit_amount}₸ из записи {appointment_obj.id} применен к планам лечения")
+    
+    # Синхронизируем депозит с CRM лидом (если запись создана из лида)
+    try:
+        # Поиск лида по номеру телефона пациента или по ID записи
+        patient_phone = patient.get('phone')
+        if patient_phone:
+            # Ищем лид с таким телефоном
+            lead = await db.crm_leads.find_one({
+                "phone": {"$regex": patient_phone[-9:]}  # Поиск по последним 9 цифрам
+            })
+            
+            if lead:
+                # Обновляем лид с данными о депозите и записи
+                update_data = {
+                    "converted_to_appointment_id": appointment_obj.id,
+                    "appointment_price": appointment.price or 0,
+                    "deposit_amount": deposit_amount,
+                    "deposit_type": appointment.deposit_type,
+                    "updated_at": datetime.utcnow()
+                }
+                
+                await db.crm_leads.update_one(
+                    {"id": lead["id"]},
+                    {"$set": update_data}
+                )
+                print(f"✅ Лид {lead['id']} обновлен с депозитом {deposit_amount}₸")
+    except Exception as e:
+        print(f"⚠️ Не удалось синхронизировать депозит с лидом: {str(e)}")
     
     # Отправка автоматических уведомлений
     try:

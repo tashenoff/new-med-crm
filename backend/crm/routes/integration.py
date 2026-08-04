@@ -97,7 +97,9 @@ async def get_client_revenue_from_hms(
         # Вычисляем суммы
         total_amount = sum(plan.get("total_cost", 0) for plan in treatment_plans)
         paid_amount = sum(plan.get("paid_amount", 0) for plan in treatment_plans)
-        pending_amount = total_amount - paid_amount
+        deposit_amount = sum(plan.get("deposit_amount", 0) for plan in treatment_plans)  # Сумма депозитов
+        total_paid_with_deposit = paid_amount + deposit_amount
+        pending_amount = max(0, total_amount - total_paid_with_deposit)
         
         plans_info = [
             {
@@ -105,6 +107,7 @@ async def get_client_revenue_from_hms(
                 "title": plan["title"],
                 "total_cost": plan.get("total_cost", 0),
                 "paid_amount": plan.get("paid_amount", 0),
+                "deposit_amount": plan.get("deposit_amount", 0),  # Депозит плана
                 "payment_status": plan.get("payment_status", "unpaid"),
                 "status": plan.get("status", "draft"),
                 "payment_date": plan.get("payment_date"),
@@ -118,6 +121,7 @@ async def get_client_revenue_from_hms(
             "hms_patient_id": crm_client["hms_patient_id"],
             "total_amount": total_amount,
             "paid_amount": paid_amount,
+            "deposit_amount": deposit_amount,  # Сумма депозитов из записей
             "pending_amount": pending_amount,
             "treatment_plans_count": len(treatment_plans),
             "plans": plans_info
@@ -319,7 +323,10 @@ async def get_client_last_appointment(
                 "doctor_name": doctor.get("full_name", "Неизвестный врач") if doctor else "Неизвестный врач",
                 "doctor_specialty": doctor.get("specialty", "") if doctor else "",
                 "reason": last_appointment.get("reason", ""),
-                "status": last_appointment.get("status", "")
+                "status": last_appointment.get("status", ""),
+                "deposit": last_appointment.get("deposit", 0),
+                "deposit_type": last_appointment.get("deposit_type", ""),
+                "price": last_appointment.get("price", 0)
             }
             
             return {"last_appointment": appointment_info}

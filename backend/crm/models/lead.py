@@ -82,6 +82,11 @@ class Lead(BaseModel):
     converted_to_client_id: Optional[str] = Field(None, description="ID клиента после конвертации")
     converted_to_appointment_id: Optional[str] = Field(None, description="ID записи после конвертации")
     
+    # Депозит из записи
+    deposit_amount: Optional[float] = Field(0.0, description="Сумма депозита из записи")
+    deposit_type: Optional[str] = Field(None, description="Тип депозита (fixed/percent)")
+    appointment_price: Optional[float] = Field(0.0, description="Цена записи")
+    
     # Системные поля
     created_at: datetime = Field(default_factory=datetime.utcnow, description="Дата создания")
     updated_at: datetime = Field(default_factory=datetime.utcnow, description="Дата последнего обновления")

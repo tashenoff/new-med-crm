@@ -25,6 +25,7 @@ async def lead_to_response(lead, db: AsyncIOMotorDatabase) -> LeadResponse:
     lead_dict["full_name"] = lead.full_name
     lead_dict["treatment_plan_total"] = 0
     lead_dict["manager_name"] = None
+    lead_dict["deposit_balance"] = None
     
     # Получаем сумму из планов лечения
     patient_id = None
@@ -59,6 +60,26 @@ async def lead_to_response(lead, db: AsyncIOMotorDatabase) -> LeadResponse:
             # Суммируем total_cost из всех планов лечения
             total = sum(plan.get("total_cost", 0) or 0 for plan in treatment_plans)
             lead_dict["treatment_plan_total"] = total
+            
+            # Вычисляем остаток депозита если план оплачен
+            deposit_amount = lead.deposit_amount or 0
+            if deposit_amount > 0:
+                # Проверяем, есть ли оплаченные планы
+                total_cost_paid_plans = 0
+                all_plans_paid = True
+                
+                for plan in treatment_plans:
+                    payment_status = plan.get("payment_status", "unpaid")
+                    if payment_status == "paid":
+                        total_cost_paid_plans += plan.get("total_cost", 0) or 0
+                    else:
+                        all_plans_paid = False
+                
+                # Если хотя бы один план оплачен, показываем остаток депозита
+                if total_cost_paid_plans > 0:
+                    # Остаток = депозит - стоимость оплаченных планов (но не меньше 0)
+                    deposit_balance = max(0, deposit_amount - total_cost_paid_plans)
+                    lead_dict["deposit_balance"] = deposit_balance
     
     # Получаем имя менеджера если назначен
     if lead.assigned_manager_id:
@@ -392,6 +413,23 @@ async def schedule_appointment_from_lead(
         else:
             appointment_date = datetime.utcnow()
         
+        # Получаем данные депозита
+        deposit = appointment_data.get('deposit')
+        deposit_type = appointment_data.get('deposit_type')
+        price = appointment_data.get('price', 0)
+        
+        # Преобразуем значения депозита в числа
+        if deposit:
+            try:
+                deposit = float(deposit)
+            except (ValueError, TypeError):
+                deposit = None
+        if price:
+            try:
+                price = float(price)
+            except (ValueError, TypeError):
+                price = 0
+        
         new_appointment = {
             "id": appointment_id,
             "patient_id": patient_id,
@@ -403,12 +441,33 @@ async def schedule_appointment_from_lead(
             "status": "confirmed",
             "reason": appointment_data.get('service', 'Консультация'),
             "notes": appointment_data.get('notes', f"Запись из CRM. Заявка: {lead.full_name}"),
-            "price": appointment_data.get('price', 0),
+            "price": price,
+            "deposit": deposit,
+            "deposit_type": deposit_type,
             "created_at": datetime.utcnow(),
             "updated_at": datetime.utcnow()
         }
         
         await appointments_collection.insert_one(new_appointment)
+        
+        # Вычисляем фактическую сумму депозита и обновляем лид
+        if deposit and deposit > 0:
+            deposit_amount = deposit
+            if deposit_type == 'percent' and price:
+                deposit_amount = (price * deposit) / 100
+            
+            # Обновляем лид с данными о депозите
+            await db.crm_leads.update_one(
+                {"id": lead_id},
+                {"$set": {
+                    "deposit_amount": deposit_amount,
+                    "deposit_type": deposit_type,
+                    "appointment_price": price,
+                    "converted_to_appointment_id": appointment_id,
+                    "updated_at": datetime.utcnow()
+                }}
+            )
+            print(f"✅ Лид {lead_id} обновлен с депозитом {deposit_amount}₸")
         
         # Обновляем статус лида
         await lead_service.update_lead_status(lead_id, LeadStatus.CONTACTED, "Запись на прием создана")

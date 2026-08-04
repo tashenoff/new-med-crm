@@ -21,6 +21,7 @@ class TreatmentPlan(BaseModel):
     # Payment tracking
     payment_status: str = "unpaid"  # unpaid, partially_paid, paid, overdue
     paid_amount: Optional[float] = 0.0
+    deposit_amount: Optional[float] = 0.0  # Сумма депозитов из записей на прием
     payment_date: Optional[datetime] = None
     # Execution tracking  
     execution_status: str = "pending"  # pending, in_progress, completed, cancelled, no_show

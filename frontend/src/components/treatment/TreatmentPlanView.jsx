@@ -109,7 +109,7 @@ const TreatmentPlanView = ({ plan, onUpdate }) => {
       </div>
 
       {/* Финансовая информация */}
-      <div className="grid grid-cols-3 gap-4 mb-4 p-3 bg-gray-50 rounded-lg">
+      <div className="grid grid-cols-4 gap-4 mb-4 p-3 bg-gray-50 rounded-lg">
         <div>
           <div className="text-xs text-gray-500">Стоимость плана</div>
           <div className="text-lg font-semibold text-gray-900">
@@ -117,15 +117,24 @@ const TreatmentPlanView = ({ plan, onUpdate }) => {
           </div>
         </div>
         <div>
+          <div className="text-xs text-gray-500">Депозит</div>
+          <div className="text-lg font-semibold text-blue-600">
+            {(plan.deposit_amount || 0).toLocaleString()} ₸
+          </div>
+          {(plan.deposit_amount || 0) > 0 && (
+            <div className="text-xs text-blue-500">из записей</div>
+          )}
+        </div>
+        <div>
           <div className="text-xs text-gray-500">Оплачено</div>
           <div className="text-lg font-semibold text-green-600">
-            {(plan.paid_amount || 0).toLocaleString()} ₸
+            {((plan.paid_amount || 0) + (plan.deposit_amount || 0)).toLocaleString()} ₸
           </div>
         </div>
         <div>
           <div className="text-xs text-gray-500">Остаток</div>
           <div className="text-lg font-semibold text-red-600">
-            {((plan.total_cost || 0) - (plan.paid_amount || 0)).toLocaleString()} ₸
+            {((plan.total_cost || 0) - (plan.paid_amount || 0) - (plan.deposit_amount || 0)).toLocaleString()} ₸
           </div>
         </div>
       </div>

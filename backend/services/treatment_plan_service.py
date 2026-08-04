@@ -88,15 +88,60 @@ class TreatmentPlanService:
             raise HTTPException(status_code=404, detail="Patient not found")
         
         treatment_plans = await self.db.treatment_plans.find({"patient_id": patient_id}).sort("created_at", -1).to_list(100)
-        return [TreatmentPlan(**plan) for plan in treatment_plans]
+        
+        # Получаем сумму депозитов из записей пациента
+        deposit_amount = await self._get_patient_deposit_amount(patient_id)
+        
+        # Добавляем deposit_amount и deposit_balance к каждому плану
+        plans = []
+        for plan in treatment_plans:
+            plan_obj = TreatmentPlan(**plan)
+            # Добавляем депозит как атрибут
+            plan_dict = plan_obj.dict()
+            plan_dict['deposit_amount'] = deposit_amount
+            # deposit_balance - остаток депозита (если не установлен, равен deposit_amount)
+            plan_dict['deposit_balance'] = plan.get('deposit_balance', deposit_amount)
+            plans.append(plan_dict)
+        
+        return plans
     
-    async def get_treatment_plan(self, plan_id: str) -> TreatmentPlan:
-        """Get a specific treatment plan"""
+    async def _get_patient_deposit_amount(self, patient_id: str) -> float:
+        """Получить сумму депозитов из записей пациента"""
+        try:
+            # Находим все записи пациента с депозитом
+            appointments = await self.db.appointments.find({
+                "patient_id": patient_id,
+                "deposit": {"$gt": 0}
+            }).to_list(100)
+            
+            # Суммируем все депозиты
+            total_deposit = sum(apt.get("deposit", 0) or 0 for apt in appointments)
+            
+            logger.info(f"Сумма депозитов для пациента {patient_id}: {total_deposit}₸")
+            return total_deposit
+            
+        except Exception as e:
+            logger.error(f"Ошибка получения депозита для пациента {patient_id}: {str(e)}")
+            return 0
+    
+    async def get_treatment_plan(self, plan_id: str) -> dict:
+        """Get a specific treatment plan with deposit amount and balance"""
         treatment_plan = await self.db.treatment_plans.find_one({"id": plan_id})
         if not treatment_plan:
             raise HTTPException(status_code=404, detail="Treatment plan not found")
         
-        return TreatmentPlan(**treatment_plan)
+        # Получаем сумму депозитов из записей пациента
+        patient_id = treatment_plan.get("patient_id")
+        deposit_amount = await self._get_patient_deposit_amount(patient_id) if patient_id else 0
+        
+        # Преобразуем в объект и добавляем депозит
+        plan_obj = TreatmentPlan(**treatment_plan)
+        plan_dict = plan_obj.dict()
+        plan_dict['deposit_amount'] = deposit_amount
+        # deposit_balance - остаток депозита (если не установлен, равен deposit_amount)
+        plan_dict['deposit_balance'] = treatment_plan.get('deposit_balance', deposit_amount)
+        
+        return plan_dict
     
     async def update_treatment_plan(
         self,
