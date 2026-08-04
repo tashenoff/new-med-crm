@@ -473,12 +473,8 @@ class LeadService:
         Логика:
         - Если ВСЕ планы лечения пациента полностью оплачены -> closed (ОПЛАЧЕНО)
         """
-        # Находим клиента CRM по hms_patient_id
-        client = await self.db.crm_clients.find_one({"hms_patient_id": patient_id})
-        
-        if not client:
-            print(f"⚠️ CRM клиент не найден для пациента {patient_id}")
-            return None
+        lead = None
+        patient_phone = None
         
         # Проверяем все планы лечения этого пациента
         treatment_plans = await self.db.treatment_plans.find({
@@ -501,17 +497,46 @@ class LeadService:
             print(f"ℹ️ Не все планы лечения оплачены для пациента {patient_id}")
             return None
         
-        # Находим лида
-        lead = await self.collection.find_one({
-            "$or": [
-                {"converted_to_client_id": client.get("id")},
-                {"phone": {"$regex": client.get("phone", "NOMATCH").replace("+", "").replace(" ", "").replace("-", "")}}
-            ],
-            "status": {"$nin": [LeadStatus.CLOSED.value, LeadStatus.REJECTED.value, LeadStatus.LOST.value]}
-        })
+        # Способ 1: Находим лида через CRM клиента
+        client = await self.db.crm_clients.find_one({"hms_patient_id": patient_id})
+        
+        if client:
+            lead = await self.collection.find_one({
+                "$or": [
+                    {"converted_to_client_id": client.get("id")},
+                    {"phone": {"$regex": client.get("phone", "NOMATCH").replace("+", "").replace(" ", "").replace("-", "")}}
+                ],
+                "status": {"$nin": [LeadStatus.CLOSED.value, LeadStatus.REJECTED.value, LeadStatus.LOST.value]}
+            })
+            patient_phone = client.get("phone")
+        
+        # Способ 2: Поиск напрямую через пациента HMS
+        if not lead:
+            print(f"ℹ️ CRM клиент не найден, ищем пациента напрямую для {patient_id}")
+            patient = await self.db.patients.find_one({"id": patient_id})
+            
+            if patient and patient.get("phone"):
+                patient_phone = patient["phone"]
+                clean_phone = patient_phone.replace("+", "").replace(" ", "").replace("-", "").replace("(", "").replace(")", "")
+                
+                # Сначала ищем ТОЧНОЕ совпадение телефона
+                lead = await self.collection.find_one({
+                    "phone": clean_phone,
+                    "status": {"$nin": [LeadStatus.CLOSED.value, LeadStatus.REJECTED.value, LeadStatus.LOST.value]}
+                })
+                
+                if not lead:
+                    # Если не нашли точное, ищем по regex
+                    lead = await self.collection.find_one({
+                        "phone": {"$regex": clean_phone},
+                        "status": {"$nin": [LeadStatus.CLOSED.value, LeadStatus.REJECTED.value, LeadStatus.LOST.value]}
+                    })
+                
+                if lead:
+                    print(f"✅ Найден лид по телефону пациента: {patient_phone}")
         
         if not lead:
-            print(f"⚠️ Активный лид не найден для клиента {client.get('id')}")
+            print(f"⚠️ Активный лид не найден для пациента {patient_id}")
             return None
         
         # Обновляем статус на CLOSED (ОПЛАЧЕНО)

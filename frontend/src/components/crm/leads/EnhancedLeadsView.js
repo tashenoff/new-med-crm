@@ -553,6 +553,8 @@ const EnhancedLeadsView = ({ user }) => {
       editingItem: null,
       loading: false,
       errorMessage: null,
+      // Скрываем кнопку создания пациента - в CRM пациент создается автоматически через API
+      hideCreatePatientButton: true,
       onSave: async (appointmentData) => {
         try {
           // Используем наш CRM API для назначения приема

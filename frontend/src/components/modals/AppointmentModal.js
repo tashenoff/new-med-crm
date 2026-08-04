@@ -27,7 +27,8 @@ const AppointmentModal = ({
   errorMessage = null,
   onCreatePatient = () => { },
   appointments = [], // Добавляем пропс для существующих записей
-  hideAddPlanForm = false // Скрыть форму добавления плана лечения (для календаря)
+  hideAddPlanForm = false, // Скрыть форму добавления плана лечения (для календаря)
+  hideCreatePatientButton = false // Скрыть кнопку создания пациента (для CRM - пациент создается автоматически)
 }) => {
   // Используем локальное состояние для формы, чтобы изменения работали корректно
   const [appointmentForm, setLocalAppointmentForm] = useState(initialAppointmentForm);
@@ -986,13 +987,15 @@ const AppointmentModal = ({
                 )}
               </div>
 
-              <button
-                type="button"
-                onClick={() => setShowNewPatientForm(!showNewPatientForm)}
-                className="px-3 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 text-sm"
-              >
-                {showNewPatientForm ? 'Отмена' : '+ Новый'}
-              </button>
+              {!hideCreatePatientButton && (
+                <button
+                  type="button"
+                  onClick={() => setShowNewPatientForm(!showNewPatientForm)}
+                  className="px-3 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 text-sm"
+                >
+                  {showNewPatientForm ? 'Отмена' : '+ Новый'}
+                </button>
+              )}
             </div>
 
             {/* Выбранный пациент */}
@@ -1091,13 +1094,15 @@ const AppointmentModal = ({
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
                 />
               </div>
-              <button
-                type="button"
-                onClick={handleCreateNewPatient}
-                className="mt-3 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm"
-              >
-                Создать пациента
-              </button>
+              {!hideCreatePatientButton && (
+                <button
+                  type="button"
+                  onClick={handleCreateNewPatient}
+                  className="mt-3 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm"
+                >
+                  Создать пациента
+                </button>
+              )}
             </div>
           )}
 
