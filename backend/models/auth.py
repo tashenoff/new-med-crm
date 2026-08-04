@@ -55,6 +55,7 @@ class UserLogin(BaseModel):
     """Model for user login"""
     email: EmailStr
     password: str
+    remember_me: bool = False  # Запомнить меня - бессрочный токен
 
 
 class Token(BaseModel):

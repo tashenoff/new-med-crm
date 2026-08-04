@@ -4,6 +4,7 @@ import { useAuth } from '../../context/AuthContext';
 function LoginForm({ onSwitchToRegister }) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [rememberMe, setRememberMe] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const { login } = useAuth();
@@ -16,7 +17,7 @@ function LoginForm({ onSwitchToRegister }) {
     setLoading(true);
     setError('');
 
-    const result = await login(email, password);
+    const result = await login(email, password, rememberMe);
     if (!result.success) {
       setError(result.error);
     }
@@ -69,6 +70,19 @@ function LoginForm({ onSwitchToRegister }) {
                 className="appearance-none rounded-lg relative block w-full px-4 py-3 bg-white/90 backdrop-blur-sm border border-white/30 placeholder-gray-500 text-gray-900 focus:outline-none focus:ring-2 focus:ring-orange-400 focus:border-orange-400 focus:bg-white/95 transition-all duration-200 shadow-sm"
                 placeholder="Пароль"
               />
+            </div>
+            <div className="flex items-center">
+              <input
+                id="rememberMe"
+                name="rememberMe"
+                type="checkbox"
+                checked={rememberMe}
+                onChange={(e) => setRememberMe(e.target.checked)}
+                className="h-4 w-4 text-orange-500 focus:ring-orange-400 border-white/30 rounded bg-white/90 cursor-pointer"
+              />
+              <label htmlFor="rememberMe" className="ml-2 block text-sm text-white cursor-pointer select-none">
+                Запомнить меня
+              </label>
             </div>
             <div>
               <button

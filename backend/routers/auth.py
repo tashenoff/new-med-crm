@@ -197,7 +197,13 @@ async def login(form_data: UserLogin, db: AsyncIOMotorDatabase = Depends(get_dat
             detail="Incorrect email or password",
             headers={"WWW-Authenticate": "Bearer"},
         )
-    access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+    
+    # Если remember_me = True, создаем бессрочный токен (100 лет)
+    if form_data.remember_me:
+        access_token_expires = timedelta(days=36500)  # ~100 лет
+    else:
+        access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+    
     access_token = create_access_token(
         data={"sub": user.email}, expires_delta=access_token_expires
     )

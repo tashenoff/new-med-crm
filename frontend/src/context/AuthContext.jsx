@@ -63,9 +63,13 @@ export function AuthProvider({ children }) {
     setLoading(false);
   };
 
-  const login = async (email, password) => {
+  const login = async (email, password, rememberMe = false) => {
     try {
-      const response = await axios.post(`${API}/auth/login`, { email, password });
+      const response = await axios.post(`${API}/auth/login`, { 
+        email, 
+        password,
+        remember_me: rememberMe 
+      });
       const { access_token, user: userData } = response.data;
       
       setToken(access_token);
