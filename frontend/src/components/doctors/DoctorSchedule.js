@@ -25,6 +25,8 @@ const DoctorSchedule = ({ doctors, user, canEdit, rooms = [] }) => {
   // Modal states
   const [showAddModal, setShowAddModal] = useState(false);
   const [showFixedModal, setShowFixedModal] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [editingSchedule, setEditingSchedule] = useState(null);
   const [formData, setFormData] = useState({
     doctor_id: '',
     day_of_week: 0,
@@ -348,6 +350,119 @@ const DoctorSchedule = ({ doctors, user, canEdit, rooms = [] }) => {
     }
   };
 
+  // Открытие модалки редактирования
+  const handleOpenEditModal = (item, scheduleIndex = 0) => {
+    if (!item.schedules || item.schedules.length === 0) return;
+    
+    const schedule = item.schedules[scheduleIndex];
+    setEditingSchedule({
+      ...schedule,
+      doctor_name: item.doctor_name,
+      doctor_specialty: item.doctor_specialty,
+      allSchedules: item.schedules,
+      currentIndex: scheduleIndex
+    });
+    setFormData({
+      doctor_id: item.doctor_id,
+      day_of_week: schedule.day_of_week,
+      start_time: schedule.start_time,
+      end_time: schedule.end_time,
+      room_id: item.room_id || '',
+      schedule_type: 'fixed',
+      replacement_doctor_id: ''
+    });
+    setShowEditModal(true);
+  };
+
+  // Выбрать конкретное расписание для редактирования
+  const handleSelectScheduleToEdit = (index) => {
+    if (!editingSchedule || !editingSchedule.allSchedules) return;
+    
+    const schedule = editingSchedule.allSchedules[index];
+    setEditingSchedule({
+      ...schedule,
+      doctor_name: editingSchedule.doctor_name,
+      doctor_specialty: editingSchedule.doctor_specialty,
+      allSchedules: editingSchedule.allSchedules,
+      currentIndex: index
+    });
+    setFormData({
+      ...formData,
+      day_of_week: schedule.day_of_week,
+      start_time: schedule.start_time,
+      end_time: schedule.end_time
+    });
+  };
+
+  // Обновление расписания
+  const handleUpdateSchedule = async () => {
+    if (!editingSchedule || !formData.start_time || !formData.end_time) {
+      setError('Заполните все обязательные поля');
+      return;
+    }
+
+    // Check room availability if room is selected
+    if (formData.room_id) {
+      const availability = await checkRoomAvailability(
+        formData.room_id,
+        formData.day_of_week,
+        formData.start_time,
+        formData.end_time
+      );
+      
+      if (!availability.is_available) {
+        // Проверяем, не является ли конфликт с текущим расписанием
+        const isSameSchedule = availability.conflicts.some(
+          c => c.doctor_id === formData.doctor_id && c.day_of_week === formData.day_of_week
+        );
+        
+        if (!isSameSchedule) {
+          const conflictInfo = availability.conflicts.map(c => 
+            `${c.doctor_name} (${c.start_time}-${c.end_time})`
+          ).join(', ');
+          setError(`Кабинет занят в это время: ${conflictInfo}`);
+          setTimeout(() => setError(''), 7000);
+          return;
+        }
+      }
+    }
+
+    try {
+      const token = localStorage.getItem('token');
+      
+      // Обновляем расписание врача
+      const response = await fetch(`${API}/api/doctors/${formData.doctor_id}/schedule/${editingSchedule.id}`, {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          day_of_week: parseInt(formData.day_of_week),
+          start_time: formData.start_time,
+          end_time: formData.end_time
+        })
+      });
+
+      if (response.ok) {
+        setSuccess('График обновлен успешно');
+        fetchAllSchedules();
+        setShowEditModal(false);
+        setEditingSchedule(null);
+        resetForm();
+        setTimeout(() => setSuccess(''), 3000);
+      } else {
+        const errorData = await response.json();
+        setError(errorData.detail || 'Ошибка при обновлении графика');
+        setTimeout(() => setError(''), 5000);
+      }
+    } catch (error) {
+      setError('Ошибка соединения');
+      console.error('Error updating schedule:', error);
+      setTimeout(() => setError(''), 5000);
+    }
+  };
+
   const resetForm = () => {
     setFormData({
       doctor_id: '',
@@ -561,17 +676,26 @@ const DoctorSchedule = ({ doctors, user, canEdit, rooms = [] }) => {
                         </td>
                         {canEdit && (
                           <td className="px-6 py-4">
-                            <button
-                              onClick={() => {
-                                if (item.schedules.length > 0) {
-                                  handleDeleteSchedule(item.doctor_id, item.schedules[0].id);
-                                }
-                              }}
-                              className="text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300"
-                              title="Удалить"
-                            >
-                              🗑️
-                            </button>
+                            <div className="flex items-center gap-2">
+                              <button
+                                onClick={() => handleOpenEditModal(item)}
+                                className="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300"
+                                title="Редактировать"
+                              >
+                                ✏️
+                              </button>
+                              <button
+                                onClick={() => {
+                                  if (item.schedules.length > 0) {
+                                    handleDeleteSchedule(item.doctor_id, item.schedules[0].id);
+                                  }
+                                }}
+                                className="text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300"
+                                title="Удалить"
+                              >
+                                🗑️
+                              </button>
+                            </div>
                           </td>
                         )}
                       </tr>
@@ -727,6 +851,131 @@ const DoctorSchedule = ({ doctors, user, canEdit, rooms = [] }) => {
               disabled={!formData.doctor_id}
             >
               Добавить
+            </button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* Модальное окно редактирования графика */}
+      <Modal
+        show={showEditModal}
+        onClose={() => {
+          setShowEditModal(false);
+          setEditingSchedule(null);
+          resetForm();
+        }}
+        title="Редактировать график"
+      >
+        <div className="space-y-4">
+          {editingSchedule && (
+            <div className="bg-blue-50 dark:bg-blue-900/30 border border-blue-200 dark:border-blue-800 rounded-lg p-3 mb-4">
+              <div className="font-medium text-blue-800 dark:text-blue-300">
+                {editingSchedule.doctor_name}
+              </div>
+              {editingSchedule.doctor_specialty && (
+                <div className="text-sm text-blue-600 dark:text-blue-400">
+                  {editingSchedule.doctor_specialty}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Выбор дня для редактирования, если у врача несколько дней */}
+          {editingSchedule?.allSchedules && editingSchedule.allSchedules.length > 1 && (
+            <div className="mb-4">
+              <label className="block text-sm font-medium mb-2 dark:text-gray-200">
+                Выберите день для редактирования ({editingSchedule.allSchedules.length} дней):
+              </label>
+              <div className="flex flex-wrap gap-2">
+                {editingSchedule.allSchedules.map((schedule, index) => (
+                  <button
+                    key={schedule.id}
+                    onClick={() => handleSelectScheduleToEdit(index)}
+                    className={`px-3 py-2 rounded-lg text-sm font-medium border transition-colors ${
+                      editingSchedule.currentIndex === index
+                        ? 'bg-blue-600 text-white border-blue-600'
+                        : 'bg-white text-gray-700 border-gray-300 hover:border-blue-400 dark:bg-gray-700 dark:text-gray-200 dark:border-gray-600'
+                    }`}
+                  >
+                    {daysOfWeek[schedule.day_of_week]?.name}
+                    <span className="ml-1 text-xs opacity-75">
+                      ({schedule.start_time}-{schedule.end_time})
+                    </span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          <div>
+            <label className="block text-sm font-medium mb-1 dark:text-gray-200">День недели *</label>
+            <select
+              value={formData.day_of_week}
+              onChange={(e) => setFormData({ ...formData, day_of_week: parseInt(e.target.value) })}
+              className={selectClasses}
+              required
+            >
+              {daysOfWeek.map(day => (
+                <option key={day.id} value={day.id}>{day.name}</option>
+              ))}
+            </select>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium mb-1 dark:text-gray-200">Время начала *</label>
+              <input
+                type="time"
+                value={formData.start_time}
+                onChange={(e) => setFormData({ ...formData, start_time: e.target.value })}
+                className={inputClasses}
+                required
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-1 dark:text-gray-200">Время окончания *</label>
+              <input
+                type="time"
+                value={formData.end_time}
+                onChange={(e) => setFormData({ ...formData, end_time: e.target.value })}
+                className={inputClasses}
+                required
+              />
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium mb-1 dark:text-gray-200">Кабинет/Кресло</label>
+            <select
+              value={formData.room_id}
+              onChange={(e) => setFormData({ ...formData, room_id: e.target.value })}
+              className={selectClasses}
+            >
+              <option value="">Выберите кабинет</option>
+              {allRooms.map(room => (
+                <option key={room.id} value={room.id}>
+                  {room.name}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div className="flex justify-end space-x-3 pt-4">
+            <button
+              onClick={() => {
+                setShowEditModal(false);
+                setEditingSchedule(null);
+                resetForm();
+              }}
+              className={buttonSecondaryClasses}
+            >
+              Отмена
+            </button>
+            <button
+              onClick={handleUpdateSchedule}
+              className={buttonPrimaryClasses}
+            >
+              Сохранить
             </button>
           </div>
         </div>

@@ -353,14 +353,18 @@ const DoctorModal = ({
                 </p>
               </div>
               
-              <input
-                type="tel"
-                placeholder="Телефон *"
-                value={doctorForm.phone || ''}
-                onChange={(e) => setDoctorForm({...doctorForm, phone: e.target.value})}
-                className={inputClasses}
-                required
-              />
+              <div className="flex">
+                <span className="inline-flex items-center px-3 text-sm text-gray-900 bg-gray-200 border border-r-0 border-gray-300 rounded-l-lg dark:bg-gray-600 dark:text-gray-300 dark:border-gray-600">
+                  +7
+                </span>
+                <input
+                  type="tel"
+                  placeholder="(XXX) XXX-XX-XX"
+                  value={doctorForm.phone || ''}
+                  onChange={(e) => setDoctorForm({...doctorForm, phone: e.target.value})}
+                  className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-r-lg focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                />
+              </div>
               
               <div>
                 <label className={labelClasses}>Цвет календаря</label>

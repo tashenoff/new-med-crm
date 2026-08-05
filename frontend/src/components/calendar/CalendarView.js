@@ -127,8 +127,6 @@ const CalendarView = ({
         <PanelHeader
           title="Расписание врачей"
           subtitle={`Управление приемами и расписанием кабинетов • интервал ${SLOT_INTERVAL_MINUTES} мин`}
-          onAction={canEdit ? onNewAppointment : undefined}
-          actionLabel="+ Новая запись"
         />
 
         <div className="bg-white dark:bg-gray-800 rounded-b-2xl border border-t-0 border-gray-200 dark:border-gray-700 p-4 space-y-4 shadow-sm">

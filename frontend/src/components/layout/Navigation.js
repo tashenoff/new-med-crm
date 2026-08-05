@@ -378,7 +378,7 @@ const Navigation = ({
           </div>
 
           {/* Navigation Items */}
-          <div className="flex-1 py-6">
+          <div className="flex-1 py-6 overflow-y-auto">
             <div className="px-3 space-y-1 text-left">
               {getMenuStructure().map(item => (
                 <div key={item.key}>
