@@ -21,7 +21,25 @@ export const useCrmApi = () => {
   // Обработка ошибок
   const handleError = useCallback((error) => {
     console.error('CRM API Error:', error);
-    const message = error.response?.data?.detail || error.message || 'Произошла ошибка';
+    let message = 'Произошла ошибка';
+    
+    const detail = error.response?.data?.detail;
+    if (detail) {
+      if (typeof detail === 'string') {
+        message = detail;
+      } else if (Array.isArray(detail)) {
+        // Pydantic validation errors - массив объектов с полями {type, loc, msg, input, ctx, url}
+        message = detail.map(err => {
+          const field = err.loc ? err.loc.slice(1).join('.') : 'поле';
+          return `${field}: ${err.msg}`;
+        }).join('; ');
+      } else if (typeof detail === 'object' && detail.msg) {
+        message = detail.msg;
+      }
+    } else if (error.message) {
+      message = error.message;
+    }
+    
     setError(message);
     throw new Error(message);
   }, []);
@@ -134,6 +152,32 @@ export const useCrmApi = () => {
     scheduleAppointment: useCallback(async (leadId, appointmentData) => {
       return await apiCall('POST', `/leads/${leadId}/schedule-appointment`, appointmentData);
     }, [apiCall]),
+
+    // Проверить пациента по номеру телефона (без глобального loading)
+    checkPatientByPhone: useCallback(async (phone) => {
+      try {
+        // Кодируем телефон для безопасной передачи в URL
+        const encodedPhone = encodeURIComponent(phone);
+        const token = localStorage.getItem('token');
+        const response = await fetch(
+          `${CRM_API}/leads/check-phone/${encodedPhone}`,
+          {
+            method: 'GET',
+            headers: {
+              'Content-Type': 'application/json',
+              ...(token ? { Authorization: `Bearer ${token}` } : {}),
+            },
+          }
+        );
+        if (!response.ok) {
+          return { patient: null, active_lead: null };
+        }
+        return await response.json();
+      } catch (error) {
+        console.error('Error checking patient by phone:', error);
+        return { patient: null, active_lead: null };
+      }
+    }, []),
   };
 
   // ==================== CLIENTS API ====================

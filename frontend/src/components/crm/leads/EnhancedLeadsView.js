@@ -1,16 +1,18 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   Users, Phone, Mail, Calendar, Clock, CheckCircle, AlertCircle,
   UserPlus, MessageSquare, PhoneCall, Eye, Edit, Trash2,
   Target, Plus, Filter, Search, MoreHorizontal, FileText,
   Star, Flag, ArrowRight, CheckSquare, PlayCircle, DollarSign,
-  User, Building
+  User, Building, Loader2, UserCheck, AlertTriangle
 } from 'lucide-react';
+import { FaWhatsapp } from 'react-icons/fa';
 import { useCrm } from '../../../hooks/useCrm';
 import { useTheme, themeClasses, cn } from '../../../hooks/useTheme';
 import { useModal } from '../../../context/ModalContext';
 import Modal from '../../modals/Modal';
 import PanelHeader from '../../common/PanelHeader';
+import WhatsAppSidebar from '../telephony/WhatsAppSidebar';
 import { inputClasses, selectClasses, labelClasses, buttonPrimaryClasses, buttonSecondaryClasses } from '../../modals/modalUtils';
 
 const EnhancedLeadsView = ({ user }) => {
@@ -26,6 +28,7 @@ const EnhancedLeadsView = ({ user }) => {
   const [doctors, setDoctors] = useState([]);
   const [patients, setPatients] = useState([]);
   const [rooms, setRooms] = useState([]);
+  const [appointments, setAppointments] = useState([]);
   const [appointmentForm, setAppointmentForm] = useState({});
   const [newTask, setNewTask] = useState({
     title: '',
@@ -54,6 +57,17 @@ const EnhancedLeadsView = ({ user }) => {
     bgColor: 'bg-gray-50 dark:bg-gray-800'
   });
 
+  // Состояния для модального окна HMS данных
+  const [showHmsDataModal, setShowHmsDataModal] = useState(false);
+  const [selectedLeadForHms, setSelectedLeadForHms] = useState(null);
+  const [hmsData, setHmsData] = useState({ appointments: [], treatmentPlans: [] });
+  const [loadingHmsData, setLoadingHmsData] = useState(false);
+
+  // Состояния для WhatsApp сайдбара
+  const [showWhatsAppSidebar, setShowWhatsAppSidebar] = useState(false);
+  const [whatsAppPhone, setWhatsAppPhone] = useState(null);
+  const [whatsAppLeadName, setWhatsAppLeadName] = useState('');
+
   const { isDarkMode } = useTheme();
   const { openModal, closeModal } = useModal();
 
@@ -70,8 +84,15 @@ const EnhancedLeadsView = ({ user }) => {
     deleteLead,
     fetchAvailableManagers,
     fetchSources,
-    clearError
+    clearError,
+    checkPatientByPhone
   } = useCrm();
+
+  // Состояния для проверки пациента по телефону
+  const [foundPatient, setFoundPatient] = useState(null);
+  const [foundActiveLead, setFoundActiveLead] = useState(null);
+  const [isCheckingPhone, setIsCheckingPhone] = useState(false);
+  const phoneCheckTimeoutRef = useRef(null);
 
   // Статусы заявок с улучшенными цветами
   const leadStatuses = {
@@ -122,14 +143,14 @@ const EnhancedLeadsView = ({ user }) => {
     note: { label: 'Заметка', icon: <FileText className="w-4 h-4" />, color: 'bg-gray-500' }
   };
 
-  // Загрузка врачей, пациентов и кабинетов при монтировании
+  // Загрузка врачей, пациентов, кабинетов и записей при монтировании
   useEffect(() => {
     const loadData = async () => {
       try {
         const token = localStorage.getItem('token');
         const baseUrl = import.meta.env.VITE_BACKEND_URL || 'https://medicodebase.preview.emergentagent.com';
         
-        const [doctorsResponse, patientsResponse, roomsResponse] = await Promise.all([
+        const [doctorsResponse, patientsResponse, roomsResponse, appointmentsResponse] = await Promise.all([
           fetch(`${baseUrl}/api/doctors`, {
             headers: { 'Authorization': `Bearer ${token}` }
           }),
@@ -137,6 +158,9 @@ const EnhancedLeadsView = ({ user }) => {
             headers: { 'Authorization': `Bearer ${token}` }
           }),
           fetch(`${baseUrl}/api/rooms`, {
+            headers: { 'Authorization': `Bearer ${token}` }
+          }),
+          fetch(`${baseUrl}/api/appointments`, {
             headers: { 'Authorization': `Bearer ${token}` }
           })
         ]);
@@ -157,6 +181,12 @@ const EnhancedLeadsView = ({ user }) => {
           const roomsData = await roomsResponse.json();
           setRooms(roomsData);
           console.log('✅ Загружено кабинетов:', roomsData.length);
+        }
+        
+        if (appointmentsResponse.ok) {
+          const appointmentsData = await appointmentsResponse.json();
+          setAppointments(appointmentsData);
+          console.log('✅ Загружено записей на прием:', appointmentsData.length);
         }
       } catch (error) {
         console.error('Error loading data:', error);
@@ -260,9 +290,188 @@ const EnhancedLeadsView = ({ user }) => {
     }
   };
 
+  // Функция для загрузки данных HMS по лиду (планы лечения и приемы)
+  const handleShowLeadHmsData = async (lead) => {
+    setSelectedLeadForHms(lead);
+    setShowHmsDataModal(true);
+    setLoadingHmsData(true);
+
+    try {
+      const API = import.meta.env.VITE_BACKEND_URL || 'https://medicodebase.preview.emergentagent.com';
+      const token = localStorage.getItem('token');
+
+      let patientId = lead.converted_to_client_id;
+
+      // Если нет converted_to_client_id, ищем пациента по телефону
+      if (!patientId && lead.phone) {
+        const phoneDigits = lead.phone.replace(/\D/g, '');
+        const searchPhone = phoneDigits.length > 10 ? phoneDigits.slice(-10) : phoneDigits;
+        
+        // Ищем среди пациентов
+        const foundPatient = patients.find(p => {
+          const pPhone = (p.phone || '').replace(/\D/g, '');
+          return pPhone.endsWith(searchPhone) || searchPhone.endsWith(pPhone.slice(-10));
+        });
+        
+        if (foundPatient) {
+          patientId = foundPatient.id;
+        }
+      }
+
+      if (patientId) {
+        // Получаем данные HMS по patient_id
+        const [appointmentsRes, plansRes] = await Promise.all([
+          fetch(`${API}/api/appointments?patient_id=${patientId}`, {
+            headers: { 'Authorization': `Bearer ${token}` }
+          }),
+          fetch(`${API}/api/patients/${patientId}/treatment-plans`, {
+            headers: { 'Authorization': `Bearer ${token}` }
+          })
+        ]);
+
+        const appointmentsData = appointmentsRes.ok ? await appointmentsRes.json() : [];
+        const plansData = plansRes.ok ? await plansRes.json() : [];
+
+        setHmsData({
+          appointments: Array.isArray(appointmentsData) ? appointmentsData : [],
+          treatmentPlans: Array.isArray(plansData) ? plansData : []
+        });
+      } else {
+        // Пациент не найден - показываем пустые данные
+        setHmsData({ appointments: [], treatmentPlans: [] });
+      }
+    } catch (error) {
+      console.error('Error loading HMS data for lead:', error);
+      setHmsData({ appointments: [], treatmentPlans: [] });
+    } finally {
+      setLoadingHmsData(false);
+    }
+  };
+
+  // Функция для проверки пациента по телефону (только при полном номере - 10 цифр)
+  const handlePhoneCheck = useCallback(async (phone) => {
+    // Очищаем предыдущий таймер
+    if (phoneCheckTimeoutRef.current) {
+      clearTimeout(phoneCheckTimeoutRef.current);
+    }
+    
+    // Получаем только цифры (без +7)
+    let digits = phone.replace(/\D/g, '');
+    if (digits.startsWith('7') || digits.startsWith('8')) {
+      digits = digits.slice(1);
+    }
+    
+    // Проверяем только если введён полный номер (10 цифр)
+    if (digits.length < 10) {
+      setFoundPatient(null);
+      setFoundActiveLead(null);
+      setIsCheckingPhone(false);
+      return;
+    }
+    
+    setIsCheckingPhone(true);
+    
+    // Небольшая задержка для плавности UI
+    phoneCheckTimeoutRef.current = setTimeout(async () => {
+      try {
+        const result = await checkPatientByPhone(phone);
+        const patient = result?.patient || null;
+        const activeLead = result?.active_lead || null;
+        
+        setFoundPatient(patient);
+        setFoundActiveLead(activeLead);
+        
+        // Автоматически заполняем данные если найден пациент или активный лид
+        if (patient) {
+          const nameParts = (patient.full_name || '').trim().split(/\s+/);
+          setNewLead(prev => ({
+            ...prev,
+            last_name: nameParts[0] || '',
+            first_name: nameParts[1] || '',
+            middle_name: nameParts[2] || '',
+            email: patient.email || prev.email,
+          }));
+        } else if (activeLead) {
+          const nameParts = (activeLead.full_name || '').trim().split(/\s+/);
+          setNewLead(prev => ({
+            ...prev,
+            first_name: nameParts[0] || '',
+            last_name: nameParts[1] || '',
+          }));
+        }
+      } catch (error) {
+        console.error('Error checking phone:', error);
+        setFoundPatient(null);
+        setFoundActiveLead(null);
+      } finally {
+        setIsCheckingPhone(false);
+      }
+    }, 300);
+  }, [checkPatientByPhone]);
+
+  // Форматирование телефона: +7 (XXX) XXX-XX-XX
+  const formatPhoneNumber = (value) => {
+    // Убираем всё кроме цифр
+    let digits = value.replace(/\D/g, '');
+    
+    // Убираем 7 или 8 в начале если есть (будем добавлять +7 автоматически)
+    if (digits.startsWith('7') || digits.startsWith('8')) {
+      digits = digits.slice(1);
+    }
+    
+    // Ограничиваем 10 цифрами
+    digits = digits.slice(0, 10);
+    
+    // Если нет цифр, возвращаем пустую строку
+    if (digits.length === 0) {
+      return '';
+    }
+    
+    // Форматируем: +7 (XXX) XXX-XX-XX
+    let formatted = '+7';
+    if (digits.length > 0) {
+      formatted += ' (' + digits.slice(0, 3);
+    }
+    if (digits.length >= 3) {
+      formatted += ') ';
+    }
+    if (digits.length > 3) {
+      formatted += digits.slice(3, 6);
+    }
+    if (digits.length > 6) {
+      formatted += '-' + digits.slice(6, 8);
+    }
+    if (digits.length > 8) {
+      formatted += '-' + digits.slice(8, 10);
+    }
+    
+    return formatted;
+  };
+
+  // Обработчик изменения телефона
+  const handlePhoneChange = (e) => {
+    const formatted = formatPhoneNumber(e.target.value);
+    setNewLead({ ...newLead, phone: formatted });
+    handlePhoneCheck(formatted);
+  };
+
   const handleCreateLead = async () => {
     try {
-      await createLead(newLead);
+      // Подготавливаем данные для отправки
+      const leadData = {
+        ...newLead,
+        // Убеждаемся что source имеет допустимое значение
+        source: newLead.source || 'website',
+        // Очищаем пустые значения
+        email: newLead.email || null,
+        source_id: newLead.source_id || null,
+        company: newLead.company || null,
+        description: newLead.description || null,
+        middle_name: newLead.middle_name || null,
+        services_interested: newLead.services_interested?.length > 0 ? newLead.services_interested : []
+      };
+      
+      await createLead(leadData);
       setShowCreateModal(false);
       setNewLead({
         first_name: '',
@@ -277,10 +486,13 @@ const EnhancedLeadsView = ({ user }) => {
         description: '',
         services_interested: []
       });
+      // Очищаем найденные данные
+      setFoundPatient(null);
+      setFoundActiveLead(null);
       alert('Заявка успешно создана!');
     } catch (error) {
       console.error('Error creating lead:', error);
-      alert('Ошибка при создании заявки');
+      alert('Ошибка при создании заявки: ' + (error.message || 'Неизвестная ошибка'));
     }
   };
 
@@ -480,10 +692,19 @@ const EnhancedLeadsView = ({ user }) => {
     return acc;
   }, {});
 
-  // Получаем сумму из плана лечения или budget
+  // Получаем сумму из плана лечения (только план лечения, не budget/цену приёма)
   const getLeadAmount = (lead) => {
-    // Приоритет: treatment_plan_total > budget
-    return lead?.treatment_plan_total || lead?.budget || 0;
+    // DEBUG: логируем данные для диагностики
+    if (lead?.treatment_plan_total || lead?.budget || lead?.appointment_price) {
+      console.log('🔍 Lead amounts:', {
+        name: lead.full_name,
+        treatment_plan_total: lead.treatment_plan_total,
+        budget: lead.budget,
+        appointment_price: lead.appointment_price
+      });
+    }
+    // Показываем только сумму плана лечения, а не цену приёма или бюджет
+    return lead?.treatment_plan_total || 0;
   };
 
   // Расчет сумм для каждой колонки
@@ -587,6 +808,15 @@ const EnhancedLeadsView = ({ user }) => {
             closeModal('appointment');
             // Обновляем список заявок
             await fetchLeads();
+            // Обновляем список записей для корректной проверки конфликтов
+            const baseUrl = import.meta.env.VITE_BACKEND_URL || 'https://medicodebase.preview.emergentagent.com';
+            const appointmentsResponse = await fetch(`${baseUrl}/api/appointments`, {
+              headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
+            });
+            if (appointmentsResponse.ok) {
+              const appointmentsData = await appointmentsResponse.json();
+              setAppointments(appointmentsData);
+            }
           } else {
             const error = await response.json();
             throw new Error(error.detail || 'Не удалось назначить прием');
@@ -636,7 +866,7 @@ const EnhancedLeadsView = ({ user }) => {
           throw error;
         }
       },
-      appointments: []
+      appointments: appointments  // Передаем записи для проверки конфликтов времени на фронтенде
     });
   };
 
@@ -661,9 +891,10 @@ const EnhancedLeadsView = ({ user }) => {
       <div
         draggable
         onDragStart={(e) => onDragStart(e, lead)}
+        onClick={() => handleShowLeadHmsData(lead)}
         className={cn(
           "bg-white dark:bg-gray-800 rounded-lg p-4 mb-3 border border-gray-200 dark:border-gray-600",
-          "hover:shadow-md transition-all cursor-move",
+          "hover:shadow-md transition-all cursor-pointer",
           themeClasses.shadow.sm
         )}
       >
@@ -681,7 +912,10 @@ const EnhancedLeadsView = ({ user }) => {
             {urgentTasks > 0 && (
               <div className="w-2 h-2 bg-red-500 rounded-full"></div>
             )}
-            <button className={cn("p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-700")}>
+            <button 
+              onClick={(e) => e.stopPropagation()}
+              className={cn("p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-700")}
+            >
               <MoreHorizontal className="w-3 h-3" />
             </button>
           </div>
@@ -751,6 +985,20 @@ const EnhancedLeadsView = ({ user }) => {
             <span className={cn("text-xs truncate", themeClasses.text.secondary)}>
               {lead.phone}
             </span>
+            {lead.phone && (
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setWhatsAppPhone(lead.phone);
+                  setWhatsAppLeadName(`${lead.first_name} ${lead.last_name}`);
+                  setShowWhatsAppSidebar(true);
+                }}
+                className="text-green-500 hover:text-green-600 transition-colors"
+                title="Открыть WhatsApp"
+              >
+                <FaWhatsapp className="w-4 h-4" />
+              </button>
+            )}
           </div>
           {lead.email && (
             <div className="flex items-center space-x-2">
@@ -991,7 +1239,11 @@ const EnhancedLeadsView = ({ user }) => {
       {/* Create Lead Modal */}
       <Modal 
         show={showCreateModal} 
-        onClose={() => setShowCreateModal(false)}
+        onClose={() => {
+          setShowCreateModal(false);
+          setFoundPatient(null);
+          setFoundActiveLead(null);
+        }}
         title="Новая заявка"
         errorMessage={error}
         size="max-w-md"
@@ -1022,14 +1274,70 @@ const EnhancedLeadsView = ({ user }) => {
           
           <div>
             <label className={labelClasses}>Телефон *</label>
-            <input
-              type="tel"
-              value={newLead.phone}
-              onChange={(e) => setNewLead({...newLead, phone: e.target.value})}
-              className={inputClasses}
-              placeholder="+7 (___) ___-__-__"
-            />
+            <div className="relative">
+              <input
+                type="tel"
+                value={newLead.phone}
+                onChange={handlePhoneChange}
+                className={inputClasses}
+                placeholder="+7 (___) ___-__-__"
+              />
+              {isCheckingPhone && (
+                <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                  <Loader2 className="w-4 h-4 animate-spin text-blue-500" />
+                </div>
+              )}
+            </div>
           </div>
+
+          {/* Блок с информацией о найденном пациенте */}
+          {foundPatient && (
+            <div className="p-4 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg">
+              <div className="flex items-start gap-3">
+                <UserCheck className="w-5 h-5 text-green-600 dark:text-green-400 mt-0.5 flex-shrink-0" />
+                <div className="flex-1">
+                  <p className="text-sm font-medium text-green-800 dark:text-green-200">
+                    Пациент найден в базе! Данные подставлены автоматически.
+                  </p>
+                  <div className="mt-2 space-y-1 text-sm text-green-700 dark:text-green-300">
+                    <p><span className="font-medium">ФИО:</span> {foundPatient.full_name}</p>
+                    <p><span className="font-medium">Телефон:</span> {foundPatient.phone}</p>
+                    {foundPatient.email && <p><span className="font-medium">Email:</span> {foundPatient.email}</p>}
+                    {foundPatient.birth_date && <p><span className="font-medium">Дата рождения:</span> {foundPatient.birth_date}</p>}
+                    {foundPatient.iin && <p><span className="font-medium">ИИН:</span> {foundPatient.iin}</p>}
+                    {foundPatient.appointments_count > 0 && (
+                      <p><span className="font-medium">Приёмов:</span> {foundPatient.appointments_count}</p>
+                    )}
+                    {foundPatient.revenue > 0 && (
+                      <p><span className="font-medium">Выручка:</span> {foundPatient.revenue?.toLocaleString('ru-RU')} ₸</p>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Предупреждение об активном лиде */}
+          {foundActiveLead && !foundPatient && (
+            <div className="p-4 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg">
+              <div className="flex items-start gap-3">
+                <AlertTriangle className="w-5 h-5 text-yellow-600 dark:text-yellow-400 mt-0.5 flex-shrink-0" />
+                <div className="flex-1">
+                  <p className="text-sm font-medium text-yellow-800 dark:text-yellow-200">
+                    Активная заявка с таким телефоном уже существует! Данные подставлены.
+                  </p>
+                  <div className="mt-2 space-y-1 text-sm text-yellow-700 dark:text-yellow-300">
+                    <p><span className="font-medium">ФИО:</span> {foundActiveLead.full_name}</p>
+                    <p><span className="font-medium">Статус:</span> {
+                      foundActiveLead.status === 'new' ? 'Новая' :
+                      foundActiveLead.status === 'contacted' ? 'Связались' :
+                      foundActiveLead.status === 'in_progress' ? 'В работе' : foundActiveLead.status
+                    }</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
           
           <div>
             <label className={labelClasses}>Email</label>
@@ -1065,15 +1373,20 @@ const EnhancedLeadsView = ({ user }) => {
               }}
               className={inputClasses}
             >
-              <option value="">Выберите источник</option>
-              {sources.map((source) => (
-                <option key={source.id} value={source.id}>
-                  {source.name} ({source.type})
-                </option>
-              ))}
-              {sources.length === 0 && Object.entries(leadSources).map(([key, label]) => (
-                <option key={key} value={key}>{label}</option>
-              ))}
+              {sources.length > 0 ? (
+                <>
+                  <option value="">Выберите источник</option>
+                  {sources.map((source) => (
+                    <option key={source.id} value={source.id}>
+                      {source.name} ({source.type})
+                    </option>
+                  ))}
+                </>
+              ) : (
+                Object.entries(leadSources).map(([key, label]) => (
+                  <option key={key} value={key}>{label}</option>
+                ))
+              )}
             </select>
           </div>
           
@@ -1091,7 +1404,11 @@ const EnhancedLeadsView = ({ user }) => {
         
         <div className="flex justify-end gap-3 mt-6">
           <button
-            onClick={() => setShowCreateModal(false)}
+            onClick={() => {
+              setShowCreateModal(false);
+              setFoundPatient(null);
+              setFoundActiveLead(null);
+            }}
             className="px-4 py-2 text-gray-600 hover:text-gray-800 transition-colors"
           >
             Отмена
@@ -1301,6 +1618,87 @@ const EnhancedLeadsView = ({ user }) => {
           </button>
         </div>
       </Modal>
+
+      {/* HMS Data Modal */}
+      <Modal
+        show={showHmsDataModal}
+        onClose={() => { setShowHmsDataModal(false); setSelectedLeadForHms(null); setHmsData({ appointments: [], treatmentPlans: [] }); }}
+        title={selectedLeadForHms ? `Данные HMS - ${selectedLeadForHms.first_name} ${selectedLeadForHms.last_name}` : 'Данные HMS'}
+        size="max-w-4xl"
+      >
+        {loadingHmsData ? (
+          <div className="flex justify-center items-center py-8">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+            <span className="ml-2 text-gray-600">Загрузка...</span>
+          </div>
+        ) : (
+          <div className="space-y-6">
+            <div>
+              <h3 className="text-lg font-semibold mb-4">📋 Планы лечения</h3>
+              {hmsData.treatmentPlans.length > 0 ? (
+                <table className="min-w-full divide-y divide-gray-200">
+                  <thead className="bg-gray-50"><tr>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">План</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Статус плана</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Статус оплаты</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Стоимость</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Оплачено</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Дата создания</th>
+                  </tr></thead>
+                  <tbody className="divide-y divide-gray-200">
+                    {hmsData.treatmentPlans.map((plan, i) => (
+                      <tr key={plan.id || i}>
+                        <td className="px-4 py-3 text-sm"><div className="font-medium">{plan.title || `План ${i+1}`}</div>{plan.assigned_doctor && <div className="text-xs text-gray-500">Назначен врачом {plan.assigned_doctor}</div>}</td>
+                        <td className="px-4 py-3"><span className={`px-2 py-1 text-xs rounded-full ${plan.status === 'approved' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'}`}>{plan.status === 'approved' ? 'Утвержден' : plan.status || '-'}</span></td>
+                        <td className="px-4 py-3"><span className={`px-2 py-1 text-xs rounded-full ${plan.payment_status === 'paid' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>{plan.payment_status === 'paid' ? 'Оплачен' : 'Не оплачен'}</span></td>
+                        <td className="px-4 py-3 text-sm">{plan.total_cost?.toLocaleString() || 0} ₸</td>
+                        <td className="px-4 py-3 text-sm">{plan.paid_amount?.toLocaleString() || 0} ₸</td>
+                        <td className="px-4 py-3 text-sm text-gray-500">{plan.created_at ? new Date(plan.created_at).toLocaleDateString('ru-RU') : '-'}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              ) : <div className="text-gray-500 text-center py-4">Планы лечения не найдены</div>}
+            </div>
+            <div>
+              <h3 className="text-lg font-semibold mb-4">📅 Приемы</h3>
+              {hmsData.appointments.length > 0 ? (
+                <table className="min-w-full divide-y divide-gray-200">
+                  <thead className="bg-gray-50"><tr>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Дата и время</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Врач</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Статус</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Заметки</th>
+                  </tr></thead>
+                  <tbody className="divide-y divide-gray-200">
+                    {hmsData.appointments.map((a, i) => (
+                      <tr key={a.id || i}>
+                        <td className="px-4 py-3 text-sm">{a.appointment_date ? new Date(a.appointment_date).toLocaleDateString('ru-RU') + ', ' + (a.appointment_time || a.start_time || '') : '-'}</td>
+                        <td className="px-4 py-3 text-sm">{a.doctor_name || 'Не указан'}</td>
+                        <td className="px-4 py-3"><span className={`px-2 py-1 text-xs rounded-full ${a.status === 'completed' ? 'bg-green-100 text-green-800' : a.status === 'confirmed' ? 'bg-blue-100 text-blue-800' : 'bg-yellow-100 text-yellow-800'}`}>{a.status === 'completed' ? 'Завершен' : a.status === 'confirmed' ? 'Подтвержден' : 'Запланирован'}</span></td>
+                        <td className="px-4 py-3 text-sm text-gray-500">{a.notes || 'Нет заметок'}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              ) : <div className="text-gray-500 text-center py-4">Приемы не найдены</div>}
+            </div>
+            <div className="flex justify-end pt-4"><button onClick={() => setShowHmsDataModal(false)} className="px-4 py-2 text-gray-600 hover:text-gray-800">Закрыть</button></div>
+          </div>
+        )}
+      </Modal>
+
+      {/* WhatsApp Sidebar */}
+      <WhatsAppSidebar
+        phone={whatsAppPhone}
+        patientName={whatsAppLeadName}
+        isOpen={showWhatsAppSidebar}
+        onClose={() => {
+          setShowWhatsAppSidebar(false);
+          setWhatsAppPhone(null);
+          setWhatsAppLeadName('');
+        }}
+      />
         </div>
       </div>
     </div>

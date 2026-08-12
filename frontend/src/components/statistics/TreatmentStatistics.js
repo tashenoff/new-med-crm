@@ -489,7 +489,7 @@ const TreatmentStatistics = () => {
       {activeCategory === 'treatment' && activeTab === 'patients' && patientStats && (
         <div className="space-y-6">
           {/* Patient Summary */}
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             <StatCard
               title="Всего пациентов"
               value={patientStats.summary.total_patients}
@@ -507,13 +507,6 @@ const TreatmentStatistics = () => {
               value={patientStats.summary.patients_with_no_shows}
               color="orange"
               icon="⚠️"
-            />
-            <StatCard
-              title="VIP пациенты"
-              value={patientStats.summary.high_value_patients}
-              subtitle="Планы > 50,000 ₸"
-              color="purple"
-              icon="⭐"
             />
           </div>
 

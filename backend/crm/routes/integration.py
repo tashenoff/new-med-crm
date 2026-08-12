@@ -94,10 +94,59 @@ async def get_client_revenue_from_hms(
             "patient_id": crm_client["hms_patient_id"]
         }).to_list(None)
         
-        # Вычисляем суммы
+        # Вычисляем суммы из планов лечения
         total_amount = sum(plan.get("total_cost", 0) for plan in treatment_plans)
         paid_amount = sum(plan.get("paid_amount", 0) for plan in treatment_plans)
-        deposit_amount = sum(plan.get("deposit_amount", 0) for plan in treatment_plans)  # Сумма депозитов
+        deposit_in_plans = sum(plan.get("deposit_amount", 0) for plan in treatment_plans)  # Депозит применённый к планам
+        
+        # ✅ НОВОЕ: Получаем депозиты из записей пациента (appointments)
+        hms_patient_id = crm_client["hms_patient_id"]
+        appointments_with_deposit = await db.appointments.find({
+            "patient_id": hms_patient_id,
+            "deposit": {"$gt": 0}  # Только записи с депозитом
+        }).to_list(None)
+        
+        # Вычисляем общую сумму депозитов из записей
+        deposit_from_appointments = 0
+        for appointment in appointments_with_deposit:
+            deposit_value = appointment.get("deposit", 0) or 0
+            deposit_type = appointment.get("deposit_type")
+            price = appointment.get("price", 0) or 0
+            
+            # Если депозит в процентах - вычисляем сумму
+            if deposit_type == "percent" and price > 0:
+                deposit_from_appointments += (price * deposit_value) / 100
+            else:
+                deposit_from_appointments += deposit_value
+        
+        # ✅ НОВОЕ: Проверяем также лид (crm_leads) для этого пациента
+        # Ищем лид по телефону клиента или по hms_patient_id
+        lead_deposit = 0
+        client_phone = crm_client.get("phone")
+        if client_phone:
+            phone_normalized = client_phone.replace("+", "").replace(" ", "").replace("-", "").replace("(", "").replace(")", "")
+            lead = await db.crm_leads.find_one({
+                "$or": [
+                    {"phone": client_phone},
+                    {"phone": phone_normalized},
+                    {"phone": {"$regex": phone_normalized[-9:] if len(phone_normalized) >= 9 else phone_normalized}},
+                    {"converted_to_client_id": hms_patient_id}
+                ]
+            })
+            if lead:
+                lead_deposit = lead.get("deposit_amount", 0) or 0
+        
+        # Берём максимальное значение из записей или лида (они должны быть синхронизированы, 
+        # но на случай рассинхрона берём большее)
+        total_deposit_from_sources = max(deposit_from_appointments, lead_deposit)
+        
+        # Остаток депозита = депозит из записей/лида - депозит применённый к планам
+        # Если депозит из записей больше чем применённый - есть остаток
+        deposit_balance = max(0, total_deposit_from_sources - deposit_in_plans)
+        
+        # Общая сумма депозита для отображения (максимум из всех источников)
+        deposit_amount = max(deposit_in_plans, total_deposit_from_sources)
+        
         total_paid_with_deposit = paid_amount + deposit_amount
         pending_amount = max(0, total_amount - total_paid_with_deposit)
         
@@ -121,7 +170,10 @@ async def get_client_revenue_from_hms(
             "hms_patient_id": crm_client["hms_patient_id"],
             "total_amount": total_amount,
             "paid_amount": paid_amount,
-            "deposit_amount": deposit_amount,  # Сумма депозитов из записей
+            "deposit_amount": deposit_amount,  # Общая сумма депозитов
+            "deposit_in_plans": deposit_in_plans,  # Депозит применённый к планам
+            "deposit_from_appointments": total_deposit_from_sources,  # Депозит из записей/лида
+            "deposit_balance": deposit_balance,  # ✅ НОВОЕ: Остаток депозита
             "pending_amount": pending_amount,
             "treatment_plans_count": len(treatment_plans),
             "plans": plans_info

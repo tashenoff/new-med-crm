@@ -4,6 +4,10 @@ import axios from 'axios';
 const API_URL = import.meta.env.VITE_BACKEND_URL;
 
 const SettingsPage = ({ user }) => {
+  // Вкладки
+  const [activeTab, setActiveTab] = useState('data');
+  
+  // Данные (сброс)
   const [collections, setCollections] = useState([]);
   const [selectedCollections, setSelectedCollections] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -11,6 +15,17 @@ const SettingsPage = ({ user }) => {
   const [result, setResult] = useState(null);
   const [error, setError] = useState(null);
   const [showConfirmModal, setShowConfirmModal] = useState(false);
+  
+  // AI настройки
+  const [aiSettings, setAiSettings] = useState(null);
+  const [loadingAiSettings, setLoadingAiSettings] = useState(false);
+  const [aiError, setAiError] = useState(null);
+  
+  // Результаты анализа
+  const [analyses, setAnalyses] = useState([]);
+  const [userSummaries, setUserSummaries] = useState([]);
+  const [loadingAnalyses, setLoadingAnalyses] = useState(false);
+  const [selectedAnalysis, setSelectedAnalysis] = useState(null);
 
   // Загрузка списка доступных коллекций
   useEffect(() => {
@@ -31,6 +46,73 @@ const SettingsPage = ({ user }) => {
 
     fetchCollections();
   }, []);
+
+  // Загрузка AI настроек
+  useEffect(() => {
+    if (activeTab === 'ai' || activeTab === 'quality') {
+      fetchAiSettings();
+    }
+    if (activeTab === 'quality') {
+      fetchUserSummaries();
+      fetchAnalyses();
+    }
+  }, [activeTab]);
+
+  const fetchAiSettings = async () => {
+    setLoadingAiSettings(true);
+    try {
+      const token = localStorage.getItem('token');
+      const response = await axios.get(`${API_URL}/api/service-quality/settings`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      setAiSettings(response.data);
+    } catch (err) {
+      console.error('Ошибка загрузки настроек AI:', err);
+      setAiError('Не удалось загрузить настройки AI');
+    } finally {
+      setLoadingAiSettings(false);
+    }
+  };
+
+  const fetchUserSummaries = async () => {
+    setLoadingAnalyses(true);
+    try {
+      const token = localStorage.getItem('token');
+      const response = await axios.get(`${API_URL}/api/service-quality/summary/users?days=30`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      setUserSummaries(response.data);
+    } catch (err) {
+      console.error('Ошибка загрузки сводок:', err);
+    } finally {
+      setLoadingAnalyses(false);
+    }
+  };
+
+  const fetchAnalyses = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      const response = await axios.get(`${API_URL}/api/service-quality/analyses?limit=50`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      setAnalyses(response.data.items || []);
+    } catch (err) {
+      console.error('Ошибка загрузки анализов:', err);
+    }
+  };
+
+  const toggleAiAnalysis = async (enabled) => {
+    try {
+      const token = localStorage.getItem('token');
+      await axios.post(`${API_URL}/api/service-quality/settings/toggle?enabled=${enabled}`, {}, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      setAiSettings(prev => ({ ...prev, ai_whatsapp_analysis_enabled: enabled }));
+    } catch (err) {
+      console.error('Ошибка переключения AI:', err);
+      setAiError('Не удалось изменить настройку');
+    }
+  };
 
   const handleCollectionToggle = (key) => {
     setSelectedCollections(prev => 
@@ -117,25 +199,78 @@ const SettingsPage = ({ user }) => {
     );
   }
 
+  const getRatingColor = (r) => ({ excellent: 'text-green-400', good: 'text-blue-400', satisfactory: 'text-yellow-400', poor: 'text-orange-400', very_poor: 'text-red-400' }[r] || 'text-gray-400');
+  const getRatingLabel = (r) => ({ excellent: 'Отлично', good: 'Хорошо', satisfactory: 'Удовл.', poor: 'Плохо', very_poor: 'Очень плохо' }[r] || r);
+
   return (
-    <div className="p-6 max-w-4xl mx-auto">
+    <div className="p-6 max-w-6xl mx-auto">
       <div className="bg-white/20 backdrop-blur-lg rounded-xl shadow-lg p-6">
-        <h1 className="text-2xl font-bold text-white mb-6 flex items-center gap-3">
-          <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-          </svg>
-          Настройки системы
-        </h1>
+        <h1 className="text-2xl font-bold text-white mb-6">⚙️ Настройки системы</h1>
+
+        {/* Вкладки */}
+        <div className="flex gap-2 mb-6 border-b border-white/20 pb-4">
+          <button onClick={() => setActiveTab('data')} className={`px-4 py-2 rounded-lg ${activeTab === 'data' ? 'bg-blue-600 text-white' : 'bg-white/10 text-white/70'}`}>🗑️ Сброс данных</button>
+          <button onClick={() => setActiveTab('ai')} className={`px-4 py-2 rounded-lg ${activeTab === 'ai' ? 'bg-blue-600 text-white' : 'bg-white/10 text-white/70'}`}>🤖 AI Анализ</button>
+          <button onClick={() => setActiveTab('quality')} className={`px-4 py-2 rounded-lg ${activeTab === 'quality' ? 'bg-blue-600 text-white' : 'bg-white/10 text-white/70'}`}>📊 Качество</button>
+        </div>
+
+        {/* AI настройки */}
+        {activeTab === 'ai' && (
+          <div className="bg-white/10 rounded-lg p-6 mb-6">
+            <h2 className="text-xl font-semibold text-white mb-4">🤖 AI Анализ WhatsApp</h2>
+            {loadingAiSettings ? <div className="text-white/70">Загрузка...</div> : aiSettings ? (
+              <div className="space-y-4">
+                <div className="flex items-center justify-between bg-white/5 rounded-lg p-4">
+                  <div><p className="text-white font-medium">Включить AI анализ качества</p><p className="text-white/60 text-sm">Автоматический анализ переписок</p></div>
+                  <button onClick={() => toggleAiAnalysis(!aiSettings.ai_whatsapp_analysis_enabled)} className={`relative inline-flex h-8 w-14 items-center rounded-full ${aiSettings.ai_whatsapp_analysis_enabled ? 'bg-green-500' : 'bg-gray-500'}`}>
+                    <span className={`inline-block h-6 w-6 transform rounded-full bg-white transition ${aiSettings.ai_whatsapp_analysis_enabled ? 'translate-x-7' : 'translate-x-1'}`} />
+                  </button>
+                </div>
+                <div className={`p-4 rounded-lg ${aiSettings.ai_whatsapp_analysis_enabled ? 'bg-green-500/20 border border-green-500' : 'bg-gray-500/20 border border-gray-500'}`}>
+                  <span className={`w-3 h-3 rounded-full inline-block mr-2 ${aiSettings.ai_whatsapp_analysis_enabled ? 'bg-green-500 animate-pulse' : 'bg-gray-500'}`}></span>
+                  <span className="text-white">{aiSettings.ai_whatsapp_analysis_enabled ? 'AI анализ активен' : 'AI анализ отключен'}</span>
+                </div>
+              </div>
+            ) : <div className="text-red-400">{aiError || 'Ошибка загрузки'}</div>}
+          </div>
+        )}
+
+        {/* Качество обслуживания */}
+        {activeTab === 'quality' && (
+          <div className="space-y-6">
+            <div className="bg-white/10 rounded-lg p-6">
+              <h2 className="text-xl font-semibold text-white mb-4">📊 Рейтинг операторов (30 дней)</h2>
+              {loadingAnalyses ? <div className="text-white/70">Загрузка...</div> : userSummaries.length > 0 ? (
+                <div className="space-y-3">{userSummaries.map((s, i) => (
+                  <div key={s.user_id} className="bg-white/5 rounded-lg p-4 flex items-center justify-between">
+                    <div className="flex items-center gap-4"><span className="text-xl font-bold text-white/50">#{i + 1}</span><div><p className="text-white">{s.user_name || 'Неизвестный'}</p></div></div>
+                    <div className="flex items-center gap-4"><span className="text-2xl font-bold text-white">{s.average_score.toFixed(1)}</span><span className="text-white/50 text-sm">{s.total_analyses} анализов</span></div>
+                  </div>
+                ))}</div>
+              ) : <div className="text-white/50 text-center py-8">📭 Нет данных. Включите AI анализ.</div>}
+            </div>
+            <div className="bg-white/10 rounded-lg p-6">
+              <h2 className="text-xl font-semibold text-white mb-4">📋 Последние анализы</h2>
+              {analyses.length > 0 ? (
+                <div className="space-y-2">{analyses.slice(0, 10).map((a) => (
+                  <div key={a.id} className="bg-white/5 rounded-lg p-4 cursor-pointer hover:bg-white/10" onClick={() => setSelectedAnalysis(selectedAnalysis?.id === a.id ? null : a)}>
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-3"><span className={`text-xl font-bold ${getRatingColor(a.overall_rating)}`}>{a.overall_score}</span><div><p className="text-white text-sm">{a.user_name} → {a.contact_name || a.phone}</p><p className="text-white/50 text-xs">{new Date(a.analyzed_at).toLocaleString()}</p></div></div>
+                      <span className={`px-2 py-1 rounded text-xs ${getRatingColor(a.overall_rating)} bg-white/10`}>{getRatingLabel(a.overall_rating)}</span>
+                    </div>
+                    {selectedAnalysis?.id === a.id && a.ai_summary && <div className="mt-3 pt-3 border-t border-white/10 text-sm text-white/80">{a.ai_summary}</div>}
+                  </div>
+                ))}</div>
+              ) : <div className="text-white/50 text-center py-4">Нет анализов</div>}
+            </div>
+          </div>
+        )}
 
         {/* Секция сброса данных */}
+        {activeTab === 'data' && (
+        <>
         <div className="bg-white/10 rounded-lg p-6 mb-6">
-          <h2 className="text-xl font-semibold text-white mb-4 flex items-center gap-2">
-            <svg className="w-6 h-6 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-            </svg>
-            Сброс данных
-          </h2>
+          <h2 className="text-xl font-semibold text-white mb-4 flex items-center gap-2">🗑️ Сброс данных</h2>
           
           <p className="text-white/70 mb-4">
             Выберите коллекции данных, которые хотите очистить. Это действие необратимо!
@@ -234,22 +369,21 @@ const SettingsPage = ({ user }) => {
         </div>
 
         {/* Информационный блок */}
-        <div className="bg-yellow-500/10 border border-yellow-500/30 rounded-lg p-4">
+        <div className="bg-yellow-500/10 border border-yellow-500/30 rounded-lg p-4 mt-4">
           <div className="flex items-start gap-3">
-            <svg className="w-6 h-6 text-yellow-400 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-            </svg>
+            <span className="text-yellow-400 text-xl">⚠️</span>
             <div className="text-yellow-200 text-sm">
               <p className="font-semibold mb-1">Важная информация</p>
               <ul className="list-disc list-inside space-y-1">
                 <li>Операция сброса данных необратима</li>
-                <li>Пользователи, врачи и базовые справочники не будут удалены</li>
+                <li>Пользователи и базовые справочники не будут удалены</li>
                 <li>Все операции записываются в журнал аудита</li>
-                <li>Рекомендуется создать резервную копию перед сбросом</li>
               </ul>
             </div>
           </div>
         </div>
+        </>
+        )}
       </div>
 
       {/* Модальное окно подтверждения */}

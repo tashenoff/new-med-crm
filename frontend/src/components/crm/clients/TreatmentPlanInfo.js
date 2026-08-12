@@ -18,7 +18,19 @@ const TreatmentPlanInfo = ({
     );
   }
 
-  if (!treatmentData || treatmentData.treatmentPlansCount === 0) {
+  // ✅ ОБНОВЛЕНО: Если нет данных - показываем сообщение
+  // Но если есть депозит - показываем его даже без планов
+  if (!treatmentData) {
+    return (
+      <div className="text-xs text-gray-400">
+        Данные не загружены
+      </div>
+    );
+  }
+  
+  // Если нет планов и нет депозита - показываем "не найдены"
+  const hasDeposit = (treatmentData.depositAmount || 0) > 0 || (treatmentData.depositBalance || 0) > 0;
+  if (treatmentData.treatmentPlansCount === 0 && !hasDeposit) {
     return (
       <div className="text-xs text-gray-400">
         Планы лечения не найдены
@@ -26,7 +38,17 @@ const TreatmentPlanInfo = ({
     );
   }
 
-  const { totalAmount, paidAmount, pendingAmount, treatmentPlansCount, plans, depositAmount = 0 } = treatmentData;
+  const { 
+    totalAmount, 
+    paidAmount, 
+    pendingAmount, 
+    treatmentPlansCount, 
+    plans, 
+    depositAmount = 0,
+    depositBalance = 0,  // ✅ Остаток депозита
+    depositInPlans = 0,  // Депозит применённый к планам
+    depositFromAppointments = 0  // Депозит из записей
+  } = treatmentData;
   const totalPaidWithDeposit = paidAmount + depositAmount;
   const paidPercentage = totalAmount > 0 ? Math.round((totalPaidWithDeposit / totalAmount) * 100) : 0;
 
@@ -47,6 +69,17 @@ const TreatmentPlanInfo = ({
               </div>
             )}
           </>
+        )}
+        {/* ✅ НОВОЕ: Показываем депозит и остаток */}
+        {depositAmount > 0 && (
+          <div className="text-xs text-blue-600 font-medium">
+            💰 Депозит: {depositAmount.toLocaleString()}₸
+          </div>
+        )}
+        {depositBalance > 0 && (
+          <div className="text-xs text-green-600 font-medium">
+            💵 Остаток: {depositBalance.toLocaleString()}₸
+          </div>
         )}
       </div>
     );
@@ -96,6 +129,18 @@ const TreatmentPlanInfo = ({
                 <span className="text-xs text-gray-600">💰 Из них депозит:</span>
                 <span className="text-sm font-medium text-blue-600">
                   {depositAmount.toLocaleString()}₸
+                </span>
+              </div>
+            </div>
+          )}
+
+          {/* ✅ НОВОЕ: Остаток депозита (если есть) */}
+          {depositBalance > 0 && (
+            <div className="pt-1 border-t border-blue-200">
+              <div className="flex justify-between items-center">
+                <span className="text-xs text-gray-600">💵 Остаток депозита:</span>
+                <span className="text-sm font-medium text-green-600">
+                  {depositBalance.toLocaleString()}₸
                 </span>
               </div>
             </div>

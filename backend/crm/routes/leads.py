@@ -61,6 +61,7 @@ async def lead_to_response(lead, db: AsyncIOMotorDatabase) -> LeadResponse:
             # Суммируем total_cost из всех планов лечения
             total = sum(plan.get("total_cost", 0) or 0 for plan in treatment_plans)
             lead_dict["treatment_plan_total"] = total
+            print(f"📊 Lead {lead.full_name}: найдено {len(treatment_plans)} планов лечения, total_cost={total}")
             
             # Получаем extra_deposit из планов лечения
             extra_deposit = sum(plan.get("extra_deposit", 0) or 0 for plan in treatment_plans)
@@ -151,6 +152,73 @@ async def get_leads(
         return responses
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
+
+
+@leads_router.get("/check-phone/{phone}")
+async def check_patient_by_phone(
+    phone: str,
+    db: AsyncIOMotorDatabase = Depends(get_database)
+):
+    """Проверить наличие пациента по номеру телефона
+    
+    Возвращает данные пациента если найден, иначе null.
+    Также возвращает активного лида если есть.
+    """
+    # Нормализуем телефон для поиска
+    phone_normalized = phone.replace("+", "").replace(" ", "").replace("-", "").replace("(", "").replace(")", "")
+    
+    # Ищем пациента по телефону
+    patient = await db.patients.find_one({
+        "$or": [
+            {"phone": phone},
+            {"phone": phone_normalized},
+            {"phone": {"$regex": phone_normalized[-10:] if len(phone_normalized) >= 10 else phone_normalized, "$options": "i"}},
+            {"Phone": phone},
+            {"Phone": phone_normalized},
+            {"Phone": {"$regex": phone_normalized[-10:] if len(phone_normalized) >= 10 else phone_normalized, "$options": "i"}}
+        ]
+    })
+    
+    # Ищем активного лида по этому телефону
+    active_lead = await db.crm_leads.find_one({
+        "$or": [
+            {"phone": phone},
+            {"phone": phone_normalized},
+            {"phone": {"$regex": phone_normalized[-10:] if len(phone_normalized) >= 10 else phone_normalized, "$options": "i"}}
+        ],
+        "status": {"$in": ["new", "contacted", "in_progress"]}
+    })
+    
+    result = {
+        "patient": None,
+        "active_lead": None
+    }
+    
+    if patient:
+        # Возвращаем только нужные данные пациента
+        result["patient"] = {
+            "id": patient.get("id") or str(patient.get("_id")),
+            "full_name": patient.get("full_name") or patient.get("name") or f"{patient.get('FirstName', '')} {patient.get('LastName', '')}".strip(),
+            "phone": patient.get("phone") or patient.get("Phone"),
+            "email": patient.get("email"),
+            "birth_date": patient.get("birth_date") or patient.get("DateOfBirth"),
+            "iin": patient.get("iin"),
+            "gender": patient.get("gender"),
+            "revenue": patient.get("revenue", 0),
+            "appointments_count": patient.get("appointments_count", 0),
+            "created_at": str(patient.get("created_at")) if patient.get("created_at") else None
+        }
+    
+    if active_lead:
+        result["active_lead"] = {
+            "id": active_lead.get("id"),
+            "full_name": f"{active_lead.get('first_name', '')} {active_lead.get('last_name', '')}".strip(),
+            "phone": active_lead.get("phone"),
+            "status": active_lead.get("status"),
+            "created_at": str(active_lead.get("created_at")) if active_lead.get("created_at") else None
+        }
+    
+    return result
 
 
 @leads_router.get("/{lead_id}", response_model=LeadResponse)
@@ -343,6 +411,91 @@ async def schedule_appointment_from_lead(
         
         if not lead:
             raise HTTPException(status_code=404, detail="Лид не найден")
+        
+        # === ПРОВЕРКА КОНФЛИКТОВ ВРЕМЕНИ ===
+        appointments_collection = db["appointments"]
+        
+        appointment_date = appointment_data.get('appointment_date')
+        appointment_time = appointment_data.get('appointment_time', '10:00')
+        end_time = appointment_data.get('end_time', '10:30')
+        doctor_id = appointment_data.get('doctor_id')
+        room_id = appointment_data.get('room_id')
+        
+        # Функция проверки пересечения времени
+        def times_overlap(start1: str, end1: str, start2: str, end2: str) -> bool:
+            """Проверяет пересечение двух временных интервалов"""
+            def time_to_minutes(t: str) -> int:
+                if not t:
+                    return 0
+                parts = t.split(':')
+                return int(parts[0]) * 60 + int(parts[1])
+            
+            s1, e1 = time_to_minutes(start1), time_to_minutes(end1)
+            s2, e2 = time_to_minutes(start2), time_to_minutes(end2)
+            return s1 < e2 and s2 < e1
+        
+        # Нормализуем дату для поиска
+        if appointment_date:
+            try:
+                parsed_date = datetime.fromisoformat(appointment_date.replace('Z', '+00:00'))
+                search_date = parsed_date.strftime('%Y-%m-%d')
+            except:
+                search_date = appointment_date
+        else:
+            search_date = datetime.utcnow().strftime('%Y-%m-%d')
+        
+        # Ищем все записи на эту дату
+        existing_appointments = await appointments_collection.find({
+            "appointment_date": search_date,
+            "status": {"$nin": ["cancelled", "no_show"]}  # Исключаем отмененные
+        }).to_list(None)
+        
+        conflicts = []
+        
+        for apt in existing_appointments:
+            apt_start = apt.get('appointment_time', '')
+            apt_end = apt.get('end_time', '')
+            
+            if not apt_start:
+                continue
+            
+            # Проверяем пересечение времени
+            if times_overlap(appointment_time, end_time, apt_start, apt_end):
+                # Проверяем конфликт по врачу
+                if doctor_id and apt.get('doctor_id') == doctor_id:
+                    # Получаем имя врача для сообщения
+                    doctor = await db.doctors.find_one({"id": doctor_id})
+                    doctor_name = doctor.get('full_name', 'Врач') if doctor else 'Врач'
+                    
+                    # Получаем имя пациента для сообщения
+                    patient = await db.patients.find_one({"id": apt.get('patient_id')})
+                    patient_name = patient.get('full_name', 'Пациент') if patient else 'Пациент'
+                    
+                    conflicts.append(
+                        f"Врач '{doctor_name}' уже записан на {apt_start}-{apt_end} (пациент: {patient_name})"
+                    )
+                
+                # Проверяем конфликт по кабинету
+                if room_id and apt.get('room_id') == room_id:
+                    # Получаем название кабинета
+                    room = await db.rooms.find_one({"id": room_id})
+                    room_name = room.get('name', 'Кабинет') if room else 'Кабинет'
+                    
+                    # Получаем имя пациента
+                    patient = await db.patients.find_one({"id": apt.get('patient_id')})
+                    patient_name = patient.get('full_name', 'Пациент') if patient else 'Пациент'
+                    
+                    conflicts.append(
+                        f"Кабинет '{room_name}' уже занят на {apt_start}-{apt_end} (пациент: {patient_name})"
+                    )
+        
+        # Если есть конфликты - возвращаем ошибку
+        if conflicts:
+            raise HTTPException(
+                status_code=409,
+                detail=f"Конфликт расписания: {'; '.join(conflicts)}"
+            )
+        # === КОНЕЦ ПРОВЕРКИ КОНФЛИКТОВ ===
         
         # Работаем напрямую с базой данных
         patients_collection = db["patients"]

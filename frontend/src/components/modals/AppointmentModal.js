@@ -116,23 +116,53 @@ const AppointmentModal = ({
   };
 
   // Проверяет конфликт времени и устанавливает сообщение
-  const checkTimeConflict = (roomId, date, time) => {
+  const checkTimeConflict = (roomId, date, time, doctorId = null) => {
     setTimeConflictMessage('');
 
-    if (!editingItem) { // Только для новых записей
-      const conflictingAppointments = appointments?.filter(apt => {
-        return apt.appointment_date === date &&
-          apt.room_id === roomId &&
-          doTimesOverlap(time, appointmentForm.end_time, apt.appointment_time, apt.end_time);
-      });
-
-      if (conflictingAppointments.length > 0) {
-        const conflictNames = conflictingAppointments.map(apt => {
-          const patient = patients.find(p => p.id === apt.patient_id);
-          return patient ? patient.full_name : 'Неизвестный пациент';
-        }).join(', ');
-
-        setTimeConflictMessage(`⚠️ КОНФЛИКТ: На это время уже записан ${conflictNames}`);
+    if (!editingItem && appointments?.length > 0) { // Только для новых записей
+      const conflicts = [];
+      
+      // Проверяем конфликты по кабинету
+      if (roomId) {
+        const roomConflicts = appointments.filter(apt => {
+          return apt.appointment_date === date &&
+            apt.room_id === roomId &&
+            apt.status !== 'cancelled' && apt.status !== 'no_show' &&
+            doTimesOverlap(time, appointmentForm.end_time, apt.appointment_time, apt.end_time);
+        });
+        
+        if (roomConflicts.length > 0) {
+          const conflictNames = roomConflicts.map(apt => {
+            const patient = patients.find(p => p.id === apt.patient_id);
+            return patient ? patient.full_name : 'Неизвестный пациент';
+          }).join(', ');
+          conflicts.push(`Кабинет занят (${conflictNames})`);
+        }
+      }
+      
+      // Проверяем конфликты по врачу
+      const checkDoctorId = doctorId || appointmentForm.doctor_id;
+      if (checkDoctorId) {
+        const doctorConflicts = appointments.filter(apt => {
+          return apt.appointment_date === date &&
+            apt.doctor_id === checkDoctorId &&
+            apt.status !== 'cancelled' && apt.status !== 'no_show' &&
+            doTimesOverlap(time, appointmentForm.end_time, apt.appointment_time, apt.end_time);
+        });
+        
+        if (doctorConflicts.length > 0) {
+          const doctor = doctors.find(d => d.id === checkDoctorId);
+          const doctorName = doctor ? doctor.full_name : 'Врач';
+          const conflictNames = doctorConflicts.map(apt => {
+            const patient = patients.find(p => p.id === apt.patient_id);
+            return patient ? patient.full_name : 'Неизвестный пациент';
+          }).join(', ');
+          conflicts.push(`${doctorName} уже записан (${conflictNames})`);
+        }
+      }
+      
+      if (conflicts.length > 0) {
+        setTimeConflictMessage(`⚠️ КОНФЛИКТ: ${conflicts.join('; ')}`);
       }
     }
   };
@@ -1159,7 +1189,14 @@ const AppointmentModal = ({
 
             <select
               value={appointmentForm.doctor_id}
-              onChange={(e) => setAppointmentForm({ ...appointmentForm, doctor_id: e.target.value })}
+              onChange={(e) => {
+                const newDoctorId = e.target.value;
+                setAppointmentForm({ ...appointmentForm, doctor_id: newDoctorId });
+                // Проверяем конфликты с новым врачом
+                if (appointmentForm.appointment_date && appointmentForm.appointment_time) {
+                  checkTimeConflict(appointmentForm.room_id, appointmentForm.appointment_date, appointmentForm.appointment_time, newDoctorId);
+                }
+              }}
               className={inputClasses}
               required
               disabled={!appointmentForm.appointment_date || loadingDoctors}

@@ -50,6 +50,9 @@ async def get_patient_statistics(
     current_user: UserInDB = Depends(require_role([UserRole.ADMIN, UserRole.SUPER_ADMIN, UserRole.DOCTOR]))
 ):
     """Get patient-specific treatment plan statistics"""
+    # Получаем общее количество пациентов из коллекции patients
+    total_patients_count = await db.patients.count_documents({})
+    
     # Aggregate patient statistics
     pipeline = [
         {
@@ -133,10 +136,9 @@ async def get_patient_statistics(
     return {
         "patient_statistics": patient_stats,
         "summary": {
-            "total_patients": len(patient_stats),
+            "total_patients": total_patients_count,
             "patients_with_unpaid": len([p for p in patient_stats if p["unpaid_plans"] > 0]),
-            "patients_with_no_shows": len([p for p in patient_stats if p["no_show_plans"] > 0]),
-            "high_value_patients": len([p for p in patient_stats if p["total_cost"] > 50000])
+            "patients_with_no_shows": len([p for p in patient_stats if p["no_show_plans"] > 0])
         }
     }
 

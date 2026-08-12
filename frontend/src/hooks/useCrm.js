@@ -137,6 +137,16 @@ export const useCrm = () => {
     }
   }, [crmApi.leads]);
 
+  // Проверить пациента по номеру телефона
+  const checkPatientByPhone = useCallback(async (phone) => {
+    try {
+      return await crmApi.leads.checkPatientByPhone(phone);
+    } catch (error) {
+      console.error('Error checking patient by phone:', error);
+      return { patient: null, active_lead: null };
+    }
+  }, [crmApi.leads]);
+
   // ==================== CLIENTS ====================
   
   const fetchClients = useCallback(async (filters = {}) => {
@@ -544,6 +554,7 @@ export const useCrm = () => {
     convertLead,
     deleteLead,
     fetchLeadsStatistics,
+    checkPatientByPhone,
     
     // Методы для клиентов
     fetchClients,

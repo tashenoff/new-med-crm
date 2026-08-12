@@ -33,7 +33,10 @@ export const useTreatmentPlanSync = () => {
       const planData = {
         totalAmount: revenueData.total_amount || 0,
         paidAmount: revenueData.paid_amount || 0,
-        depositAmount: revenueData.deposit_amount || 0,  // Сумма депозитов из записей
+        depositAmount: revenueData.deposit_amount || 0,  // Общая сумма депозитов
+        depositInPlans: revenueData.deposit_in_plans || 0,  // Депозит применённый к планам
+        depositFromAppointments: revenueData.deposit_from_appointments || 0,  // Депозит из записей
+        depositBalance: revenueData.deposit_balance || 0,  // ✅ Остаток депозита
         pendingAmount: revenueData.pending_amount || 0,
         treatmentPlansCount: revenueData.treatment_plans_count || 0,
         plans: revenueData.plans || [],

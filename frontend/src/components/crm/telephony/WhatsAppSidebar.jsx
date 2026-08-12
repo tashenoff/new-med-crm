@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { API_BASE_URL } from '../../../api/config';
 
 const WhatsAppSidebar = ({ phone, patientName, isOpen, onClose }) => {
@@ -102,10 +103,20 @@ const WhatsAppSidebar = ({ phone, patientName, isOpen, onClose }) => {
 
   if (!isOpen) return null;
 
-  return (
-    <div className="fixed right-0 top-0 h-screen w-96 bg-white shadow-2xl border-l border-gray-200 flex flex-col z-50 animate-slide-in">
-      {/* Шапка */}
-      <div className="bg-gradient-to-r from-green-500 to-green-600 p-4 text-white">
+  return createPortal(
+    <div 
+      className="flex flex-col bg-white shadow-2xl border-l border-gray-200 overflow-hidden"
+      style={{
+        position: 'fixed',
+        top: 0,
+        right: 0,
+        bottom: 0,
+        width: '384px',
+        zIndex: 99999
+      }}
+    >
+      {/* Шапка - фиксированная */}
+      <div className="flex-shrink-0 bg-gradient-to-r from-green-500 to-green-600 p-4 text-white">
         <div className="flex items-center justify-between mb-2">
           <div className="flex items-center gap-2">
             <span className="text-2xl">💬</span>
@@ -124,9 +135,9 @@ const WhatsAppSidebar = ({ phone, patientName, isOpen, onClose }) => {
         </div>
       </div>
 
-      {/* Статистика */}
+      {/* Статистика - фиксированная */}
       {totalCount > 0 && (
-        <div className="px-4 py-2 bg-gray-50 border-b border-gray-200 text-sm">
+        <div className="flex-shrink-0 px-4 py-2 bg-gray-50 border-b border-gray-200 text-sm">
           <div className="flex items-center justify-between text-gray-600">
             <span>📊 Всего: <span className="font-semibold">{totalCount}</span></span>
             <button
@@ -140,8 +151,8 @@ const WhatsAppSidebar = ({ phone, patientName, isOpen, onClose }) => {
         </div>
       )}
 
-      {/* Область сообщений */}
-      <div className="flex-1 overflow-y-auto p-4 space-y-3 bg-gray-50">
+      {/* Область сообщений - скроллируемая */}
+      <div className="flex-1 min-h-0 overflow-y-auto p-4 space-y-3 bg-gray-50">
         {loading && (
           <div className="flex flex-col items-center justify-center h-full">
             <div className="animate-spin w-10 h-10 border-4 border-green-500 border-t-transparent rounded-full"></div>
@@ -220,16 +231,16 @@ const WhatsAppSidebar = ({ phone, patientName, isOpen, onClose }) => {
         )}
       </div>
 
-      {/* Статистика внизу */}
-      <div className="px-4 py-2 bg-gray-100 border-t border-gray-200">
+      {/* Статистика внизу - фиксированная */}
+      <div className="flex-shrink-0 px-4 py-2 bg-gray-100 border-t border-gray-200">
         <div className="flex items-center justify-between text-xs text-gray-600">
           <span>📥 {messages.filter(m => !m.metadata?.from_me).length}</span>
           <span>📤 {messages.filter(m => m.metadata?.from_me).length}</span>
         </div>
       </div>
 
-      {/* Поле ввода */}
-      <div className="p-4 bg-white border-t border-gray-200">
+      {/* Поле ввода - фиксированное внизу */}
+      <div className="flex-shrink-0 p-3 bg-white border-t border-gray-200">
         <div className="flex flex-col gap-2">
           <textarea
             placeholder="Введите сообщение..."
@@ -242,7 +253,7 @@ const WhatsAppSidebar = ({ phone, patientName, isOpen, onClose }) => {
               }
             }}
             className="w-full px-3 py-2 border border-gray-300 rounded-lg resize-none focus:ring-2 focus:ring-green-500 focus:border-transparent text-sm"
-            rows="3"
+            rows="2"
           />
           <button
             onClick={handleSendMessage}
@@ -251,12 +262,10 @@ const WhatsAppSidebar = ({ phone, patientName, isOpen, onClose }) => {
           >
             {sending ? '📤 Отправка...' : '📲 Отправить'}
           </button>
-          <p className="text-xs text-gray-400 text-center">
-            Через Wazzup24 API
-          </p>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 };
 

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useCrm } from '../../../hooks/useCrm';
 import Modal from '../../modals/Modal';
 import { inputClasses, selectClasses, labelClasses, buttonPrimaryClasses, buttonSecondaryClasses } from '../../modals/modalUtils';
@@ -22,6 +22,12 @@ const LeadsView = ({ user }) => {
     services_interested: []
   });
 
+  // Состояния для проверки пациента по телефону
+  const [foundPatient, setFoundPatient] = useState(null);
+  const [foundActiveLead, setFoundActiveLead] = useState(null);
+  const [isCheckingPhone, setIsCheckingPhone] = useState(false);
+  const phoneCheckTimeoutRef = useRef(null);
+
   const {
     leads,
     managers,
@@ -35,7 +41,8 @@ const LeadsView = ({ user }) => {
     deleteLead,
     fetchAvailableManagers,
     fetchSources,
-    clearError
+    clearError,
+    checkPatientByPhone
   } = useCrm();
 
   // Статусы заявок
@@ -119,9 +126,130 @@ const LeadsView = ({ user }) => {
     }
   };
 
+  // Функция для проверки пациента по телефону (только при полном номере - 10 цифр)
+  const handlePhoneCheck = useCallback(async (phone) => {
+    // Очищаем предыдущий таймер
+    if (phoneCheckTimeoutRef.current) {
+      clearTimeout(phoneCheckTimeoutRef.current);
+    }
+    
+    // Получаем только цифры (без +7)
+    let digits = phone.replace(/\D/g, '');
+    if (digits.startsWith('7') || digits.startsWith('8')) {
+      digits = digits.slice(1);
+    }
+    
+    // Проверяем только если введён полный номер (10 цифр)
+    if (digits.length < 10) {
+      setFoundPatient(null);
+      setFoundActiveLead(null);
+      setIsCheckingPhone(false);
+      return;
+    }
+    
+    setIsCheckingPhone(true);
+    
+    // Небольшая задержка для плавности UI
+    phoneCheckTimeoutRef.current = setTimeout(async () => {
+      try {
+        const result = await checkPatientByPhone(phone);
+        const patient = result?.patient || null;
+        const activeLead = result?.active_lead || null;
+        
+        setFoundPatient(patient);
+        setFoundActiveLead(activeLead);
+        
+        // Автоматически заполняем данные если найден пациент или активный лид
+        if (patient) {
+          const nameParts = (patient.full_name || '').trim().split(/\s+/);
+          setNewLead(prev => ({
+            ...prev,
+            last_name: nameParts[0] || '',
+            first_name: nameParts[1] || '',
+            middle_name: nameParts[2] || '',
+            email: patient.email || prev.email,
+          }));
+        } else if (activeLead) {
+          const nameParts = (activeLead.full_name || '').trim().split(/\s+/);
+          setNewLead(prev => ({
+            ...prev,
+            first_name: nameParts[0] || '',
+            last_name: nameParts[1] || '',
+          }));
+        }
+      } catch (error) {
+        console.error('Error checking phone:', error);
+        setFoundPatient(null);
+        setFoundActiveLead(null);
+      } finally {
+        setIsCheckingPhone(false);
+      }
+    }, 300);
+  }, [checkPatientByPhone]);
+
+  // Форматирование телефона: +7 (XXX) XXX-XX-XX
+  const formatPhoneNumber = (value) => {
+    // Убираем всё кроме цифр
+    let digits = value.replace(/\D/g, '');
+    
+    // Убираем 7 или 8 в начале если есть (будем добавлять +7 автоматически)
+    if (digits.startsWith('7') || digits.startsWith('8')) {
+      digits = digits.slice(1);
+    }
+    
+    // Ограничиваем 10 цифрами
+    digits = digits.slice(0, 10);
+    
+    // Если нет цифр, возвращаем пустую строку
+    if (digits.length === 0) {
+      return '';
+    }
+    
+    // Форматируем: +7 (XXX) XXX-XX-XX
+    let formatted = '+7';
+    if (digits.length > 0) {
+      formatted += ' (' + digits.slice(0, 3);
+    }
+    if (digits.length >= 3) {
+      formatted += ') ';
+    }
+    if (digits.length > 3) {
+      formatted += digits.slice(3, 6);
+    }
+    if (digits.length > 6) {
+      formatted += '-' + digits.slice(6, 8);
+    }
+    if (digits.length > 8) {
+      formatted += '-' + digits.slice(8, 10);
+    }
+    
+    return formatted;
+  };
+
+  // Обработчик изменения телефона
+  const handlePhoneChange = (e) => {
+    const formatted = formatPhoneNumber(e.target.value);
+    setNewLead({ ...newLead, phone: formatted });
+    handlePhoneCheck(formatted);
+  };
+
   const handleCreateLead = async () => {
     try {
-      await createLead(newLead);
+      // Подготавливаем данные для отправки
+      const leadData = {
+        ...newLead,
+        // Убеждаемся что source имеет допустимое значение
+        source: newLead.source || 'website',
+        // Очищаем пустые значения
+        email: newLead.email || null,
+        source_id: newLead.source_id || null,
+        company: newLead.company || null,
+        description: newLead.description || null,
+        middle_name: newLead.middle_name || null,
+        services_interested: newLead.services_interested?.length > 0 ? newLead.services_interested : []
+      };
+      
+      await createLead(leadData);
       setShowCreateModal(false);
       setNewLead({
         first_name: '',
@@ -136,10 +264,13 @@ const LeadsView = ({ user }) => {
         description: '',
         services_interested: []
       });
+      // Очищаем найденные данные
+      setFoundPatient(null);
+      setFoundActiveLead(null);
       alert('Заявка успешно создана!');
     } catch (error) {
       console.error('Error creating lead:', error);
-      alert('Ошибка при создании заявки');
+      alert('Ошибка при создании заявки: ' + (error.message || 'Неизвестная ошибка'));
     }
   };
 
@@ -324,14 +455,70 @@ const LeadsView = ({ user }) => {
               
               <div>
                 <label className={labelClasses}>Телефон *</label>
-                <input
-                  type="tel"
-                  value={newLead.phone}
-                  onChange={(e) => setNewLead({...newLead, phone: e.target.value})}
-                  className={inputClasses}
-                  placeholder="+7 (___) ___-__-__"
-                />
+                <div className="relative">
+                  <input
+                    type="tel"
+                    value={newLead.phone}
+                    onChange={handlePhoneChange}
+                    className={inputClasses}
+                    placeholder="+7 (___) ___-__-__"
+                  />
+                  {isCheckingPhone && (
+                    <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                      <div className="w-4 h-4 animate-spin rounded-full border-2 border-blue-500 border-t-transparent"></div>
+                    </div>
+                  )}
+                </div>
               </div>
+
+              {/* Блок с информацией о найденном пациенте */}
+              {foundPatient && (
+                <div className="p-4 bg-green-50 border border-green-200 rounded-lg">
+                  <div className="flex items-start gap-3">
+                    <span className="text-green-600 text-xl">✅</span>
+                    <div className="flex-1">
+                      <p className="text-sm font-medium text-green-800">
+                        Пациент найден в базе! Данные подставлены автоматически.
+                      </p>
+                      <div className="mt-2 space-y-1 text-sm text-green-700">
+                        <p><span className="font-medium">ФИО:</span> {foundPatient.full_name}</p>
+                        <p><span className="font-medium">Телефон:</span> {foundPatient.phone}</p>
+                        {foundPatient.email && <p><span className="font-medium">Email:</span> {foundPatient.email}</p>}
+                        {foundPatient.birth_date && <p><span className="font-medium">Дата рождения:</span> {foundPatient.birth_date}</p>}
+                        {foundPatient.iin && <p><span className="font-medium">ИИН:</span> {foundPatient.iin}</p>}
+                        {foundPatient.appointments_count > 0 && (
+                          <p><span className="font-medium">Приёмов:</span> {foundPatient.appointments_count}</p>
+                        )}
+                        {foundPatient.revenue > 0 && (
+                          <p><span className="font-medium">Выручка:</span> {foundPatient.revenue?.toLocaleString('ru-RU')} ₸</p>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Предупреждение об активном лиде */}
+              {foundActiveLead && !foundPatient && (
+                <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+                  <div className="flex items-start gap-3">
+                    <span className="text-yellow-600 text-xl">⚠️</span>
+                    <div className="flex-1">
+                      <p className="text-sm font-medium text-yellow-800">
+                        Активная заявка с таким телефоном уже существует! Данные подставлены.
+                      </p>
+                      <div className="mt-2 space-y-1 text-sm text-yellow-700">
+                        <p><span className="font-medium">ФИО:</span> {foundActiveLead.full_name}</p>
+                        <p><span className="font-medium">Статус:</span> {
+                          foundActiveLead.status === 'new' ? 'Новая' :
+                          foundActiveLead.status === 'contacted' ? 'Связались' :
+                          foundActiveLead.status === 'in_progress' ? 'В работе' : foundActiveLead.status
+                        }</p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
               
               <div>
                 <label className={labelClasses}>Email</label>

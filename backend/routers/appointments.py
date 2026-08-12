@@ -299,14 +299,18 @@ async def create_appointment(
 async def get_appointments(
     date_from: Optional[str] = None, 
     date_to: Optional[str] = None,
+    patient_id: Optional[str] = None,
     current_user: UserInDB = Depends(get_current_active_user),
     db: AsyncIOMotorDatabase = Depends(get_database)
 ):
     try:
         query = {}
         
+        # Фильтр по patient_id из query параметра (для модальных окон HMS данных)
+        if patient_id:
+            query["patient_id"] = patient_id
         # Role-based filtering
-        if current_user.role == UserRole.PATIENT:
+        elif current_user.role == UserRole.PATIENT:
             query["patient_id"] = current_user.patient_id
         elif current_user.role == UserRole.DOCTOR:
             # ИСПРАВЛЕНИЕ: Ищем записи по doctor_id и также по _id врача

@@ -441,6 +441,9 @@ async def webhook_incoming_message(
             # Проверяем, нет ли активного лида с этим телефоном
             existing_active_lead = await lead_service.get_active_lead_by_phone(contact_phone)
             
+            # Автоматический AI-анализ после каждого сообщения (если включен)
+            await _trigger_auto_ai_analysis(contact_phone, contact_name)
+            
             if existing_active_lead:
                 # Уже есть активный лид - не создаем дубликат
                 print(f"Активный лид уже существует для {contact_phone}, ID: {existing_active_lead.id}")
@@ -482,6 +485,91 @@ async def webhook_incoming_message(
         import traceback
         traceback.print_exc()
         return {"status": "error", "message": str(e)}
+
+
+async def _trigger_auto_ai_analysis(phone: str, contact_name: Optional[str] = None):
+    """
+    Автоматический AI-анализ диалога
+    Запускается в фоне при получении входящего сообщения
+    """
+    try:
+        from services.ai_quality_service import ai_quality_service
+        from database import db
+        
+        # Проверяем, включен ли автоматический анализ
+        if not await ai_quality_service.is_analysis_enabled():
+            print("🤖 AI-анализ отключен в настройках")
+            return
+        
+        settings = await ai_quality_service.get_settings()
+        
+        # Получаем историю сообщений для анализа
+        history = await wazzup_service.get_history_from_db(phone, limit=settings.ai_batch_size, skip=0)
+        messages = history.get("messages", [])
+        
+        if len(messages) < 3:
+            print(f"🤖 Недостаточно сообщений для анализа ({len(messages)} < 3)")
+            return
+        
+        # Проверяем, есть ли новый анализ за последние 10 минут
+        from datetime import timedelta
+        recent_cutoff = datetime.utcnow() - timedelta(minutes=10)
+        recent_analysis = await db.service_quality_analyses.find_one({
+            "phone": {"$regex": phone[-10:]},
+            "analyzed_at": {"$gte": recent_cutoff}
+        })
+        
+        if recent_analysis:
+            print(f"🤖 Недавний анализ уже есть для {phone}, пропускаем")
+            return
+        
+        # Преобразуем сообщения в нужный формат
+        formatted_messages = []
+        for msg in messages:
+            formatted_messages.append({
+                "message_id": msg.id,
+                "text": msg.text,
+                "direction": "outgoing" if msg.metadata.get("from_me") else "incoming",
+                "timestamp": msg.sent_at,
+                "contact_name": msg.metadata.get("contact_name") or contact_name
+            })
+        
+        # Определяем оператора
+        operator_id = "system"
+        operator_name = "Оператор"
+        operator_email = None
+        
+        # Пытаемся найти менеджера, привязанного к лиду
+        from crm.services.lead_service import LeadService
+        lead_service = LeadService(db)
+        lead = await lead_service.get_active_lead_by_phone(phone)
+        if lead and lead.assigned_manager_id:
+            manager = await db.users.find_one({"_id": lead.assigned_manager_id})
+            if manager:
+                operator_id = str(manager.get("_id"))
+                operator_name = manager.get("full_name", "Оператор")
+                operator_email = manager.get("email")
+        
+        # Запускаем анализ
+        print(f"🤖 Запуск AI-анализа диалога с {phone}...")
+        analysis = await ai_quality_service.analyze_conversation(
+            messages=formatted_messages,
+            operator_id=operator_id,
+            operator_name=operator_name,
+            operator_email=operator_email,
+            phone=phone,
+            contact_name=contact_name
+        )
+        
+        if analysis:
+            print(f"✅ AI-анализ завершён! Оценка: {analysis.overall_score}/5 ({analysis.overall_rating.value})")
+        else:
+            print(f"⚠️ AI-анализ не удался или был пропущен")
+            
+    except Exception as e:
+        print(f"❌ Ошибка автоматического AI-анализа: {e}")
+        import traceback
+        traceback.print_exc()
 
 
 # ========== ИСТОРИЯ СООБЩЕНИЙ (из MongoDB) ==========

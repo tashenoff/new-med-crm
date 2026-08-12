@@ -1,9 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useCrm } from '../../../hooks/useCrm';
 import { useCrmApi } from '../../../hooks/useCrmApi';
 import { useGlobalRefresh } from '../../../hooks/useGlobalRefresh';
 import { useTreatmentPlanSync } from '../../../hooks/useTreatmentPlanSync';
 import { useLastAppointments } from '../../../hooks/useLastAppointments';
+import { usePatients } from '../../../hooks/usePatients';
 import TreatmentPlanInfo from './TreatmentPlanInfo';
 import Modal from '../../modals/Modal';
 import { tableClasses, tableHeaderClasses, tableRowClasses, buttonPrimaryClasses, buttonSecondaryClasses } from '../../modals/modalUtils';
@@ -11,7 +12,7 @@ import TelephonySection from '../telephony/TelephonySection';
 
 const ClientsView = ({ user }) => {
   const [activeView, setActiveView] = useState('clients'); // 'clients' или 'telephony'
-  const [filteredClients, setFilteredClients] = useState([]);
+  const [filteredContacts, setFilteredContacts] = useState([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showHmsDataModal, setShowHmsDataModal] = useState(false);
@@ -30,7 +31,6 @@ const ClientsView = ({ user }) => {
 
   const {
     clients,
-    clientsDetailedStats,
     loading,
     error,
     isInitialized,
@@ -42,13 +42,18 @@ const ClientsView = ({ user }) => {
   const crmApi = useCrmApi();
   const { refreshPatients, refreshAllHMS, refreshTriggers } = useGlobalRefresh();
   
+  // Хук для HMS пациентов
+  const { 
+    patients: hmsPatients, 
+    loading: patientsLoading, 
+    fetchPatients 
+  } = usePatients();
+
   // Хук для синхронизации планов лечения
   const {
     treatmentPlansData,
     syncMultipleClients,
-    getClientTreatmentPlans,
-    isClientSyncing,
-    getSyncStats
+    isClientSyncing
   } = useTreatmentPlanSync();
 
   // Хук для получения последних приемов
@@ -59,47 +64,96 @@ const ClientsView = ({ user }) => {
     getCachedAppointment
   } = useLastAppointments();
 
+  // ✨ Загружаем HMS пациентов при инициализации
   useEffect(() => {
-    filterClients();
-  }, [clients, searchTerm]);
+    fetchPatients();
+  }, [fetchPatients]);
 
-  // ✨ АВТОМАТИЧЕСКАЯ СИНХРОНИЗАЦИЯ ПЛАНОВ ЛЕЧЕНИЯ
+  // ✨ Объединяем CRM клиентов и HMS пациентов
+  const allContacts = useMemo(() => {
+    // Создаём Set из hms_patient_id для быстрого поиска
+    const linkedPatientIds = new Set(
+      clients
+        .filter(c => c.is_hms_patient && c.hms_patient_id)
+        .map(c => c.hms_patient_id)
+    );
+
+    // CRM клиенты с маркировкой
+    const crmContacts = clients.map(client => ({
+      ...client,
+      _source: 'crm',
+      _displayName: `${client.first_name || ''} ${client.last_name || ''}`.trim() || client.phone,
+      _isLinkedToHMS: client.is_hms_patient
+    }));
+
+    // HMS пациенты, которые НЕ связаны с CRM (избегаем дубликатов)
+    const hmsOnlyContacts = hmsPatients
+      .filter(patient => !linkedPatientIds.has(patient.id))
+      .map(patient => ({
+        id: patient.id,
+        first_name: patient.first_name || (patient.full_name ? patient.full_name.split(' ')[0] : ''),
+        last_name: patient.last_name || (patient.full_name ? patient.full_name.split(' ').slice(1).join(' ') : ''),
+        phone: patient.phone || '',
+        email: patient.email || '',
+        created_at: patient.created_at,
+        is_hms_patient: true,
+        hms_patient_id: patient.id,
+        _source: 'hms',
+        _displayName: patient.full_name || `${patient.first_name || ''} ${patient.last_name || ''}`.trim(),
+        _isLinkedToHMS: true
+      }));
+
+    return [...crmContacts, ...hmsOnlyContacts];
+  }, [clients, hmsPatients]);
+
+  // Фильтрация контактов
   useEffect(() => {
-    if (clients.length > 0 && isInitialized) {
-      console.log('🔄 Запуск автоматической синхронизации планов лечения для клиентов');
-      syncMultipleClients(clients);
-    }
-  }, [clients, isInitialized, syncMultipleClients]);
-
-  // ✨ АВТОМАТИЧЕСКАЯ ЗАГРУЗКА ИНФОРМАЦИИ О ПРИЕМАХ
-  useEffect(() => {
-    if (clients.length > 0 && isInitialized) {
-      loadMultipleAppointments(clients);
-    }
-  }, [clients, isInitialized, loadMultipleAppointments]);
-
-  // ✨ СЛУШАЕМ ГЛОБАЛЬНЫЕ ИЗМЕНЕНИЯ ПЛАНОВ ЛЕЧЕНИЯ
-  useEffect(() => {
-    if (refreshTriggers.treatmentPlans && clients.length > 0) {
-      console.log('🔄 Получен триггер обновления планов лечения, перезагружаем данные');
-      syncMultipleClients(clients);
-    }
-  }, [refreshTriggers.treatmentPlans, clients, syncMultipleClients]);
-
-  const filterClients = () => {
-    let filtered = clients;
+    let filtered = allContacts;
     
     if (searchTerm) {
-      filtered = clients.filter(client => 
-        `${client.first_name} ${client.last_name}`.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        client.phone.includes(searchTerm) ||
-        (client.email && client.email.toLowerCase().includes(searchTerm.toLowerCase())) ||
-        false
+      const term = searchTerm.toLowerCase();
+      filtered = allContacts.filter(contact => 
+        contact._displayName?.toLowerCase().includes(term) ||
+        contact.phone?.includes(searchTerm) ||
+        (contact.email && contact.email.toLowerCase().includes(term))
       );
     }
     
-    setFilteredClients(filtered);
-  };
+    setFilteredContacts(filtered);
+  }, [allContacts, searchTerm]);
+
+  // ✨ АВТОМАТИЧЕСКАЯ СИНХРОНИЗАЦИЯ ПЛАНОВ ЛЕЧЕНИЯ
+  useEffect(() => {
+    const hmsContacts = allContacts.filter(c => c._isLinkedToHMS);
+    if (hmsContacts.length > 0 && isInitialized) {
+      console.log('🔄 Запуск автоматической синхронизации планов лечения для контактов');
+      syncMultipleClients(hmsContacts);
+    }
+  }, [allContacts, isInitialized, syncMultipleClients]);
+
+  // ✨ АВТОМАТИЧЕСКАЯ ЗАГРУЗКА ИНФОРМАЦИИ О ПРИЕМАХ
+  useEffect(() => {
+    const hmsContacts = allContacts.filter(c => c._isLinkedToHMS);
+    if (hmsContacts.length > 0 && isInitialized) {
+      loadMultipleAppointments(hmsContacts);
+    }
+  }, [allContacts, isInitialized, loadMultipleAppointments]);
+
+  // ✨ СЛУШАЕМ ГЛОБАЛЬНЫЕ ИЗМЕНЕНИЯ ПЛАНОВ ЛЕЧЕНИЯ
+  useEffect(() => {
+    const hmsContacts = allContacts.filter(c => c._isLinkedToHMS);
+    if (refreshTriggers.treatmentPlans && hmsContacts.length > 0) {
+      console.log('🔄 Получен триггер обновления планов лечения, перезагружаем данные');
+      syncMultipleClients(hmsContacts);
+    }
+  }, [refreshTriggers.treatmentPlans, allContacts, syncMultipleClients]);
+
+  // Слушаем обновления пациентов
+  useEffect(() => {
+    if (refreshTriggers.patients) {
+      fetchPatients();
+    }
+  }, [refreshTriggers.patients, fetchPatients]);
 
   const handleCreateClient = async () => {
     try {
@@ -122,7 +176,7 @@ const ClientsView = ({ user }) => {
   };
 
   const handleShowHmsData = async (client) => {
-    if (!client.is_hms_patient) {
+    if (!client._isLinkedToHMS) {
       alert('Контакт не является пациентом HMS');
       return;
     }
@@ -135,21 +189,45 @@ const ClientsView = ({ user }) => {
       const API = import.meta.env.VITE_BACKEND_URL;
       const token = localStorage.getItem('token');
 
-      // Получаем данные пациента по CRM client_id
-      const [appointmentsResponse, treatmentPlansResponse] = await Promise.all([
-        fetch(`${API}/api/crm/integration/client-hms-data/${client.id}/appointments`, {
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json'
-          }
-        }),
-        fetch(`${API}/api/crm/integration/client-hms-data/${client.id}/treatment-plans`, {
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json'
-          }
-        })
-      ]);
+      // Для чистых HMS пациентов используем hms_patient_id напрямую
+      // Для CRM клиентов используем интеграционный API
+      const patientId = client.hms_patient_id || client.id;
+      
+      let appointmentsResponse, treatmentPlansResponse;
+      
+      if (client._source === 'hms') {
+        // Прямой доступ к HMS API для чистых HMS пациентов
+        [appointmentsResponse, treatmentPlansResponse] = await Promise.all([
+          fetch(`${API}/api/appointments?patient_id=${patientId}`, {
+            headers: {
+              'Authorization': `Bearer ${token}`,
+              'Content-Type': 'application/json'
+            }
+          }),
+          fetch(`${API}/api/patients/${patientId}/treatment-plans`, {
+            headers: {
+              'Authorization': `Bearer ${token}`,
+              'Content-Type': 'application/json'
+            }
+          })
+        ]);
+      } else {
+        // Используем CRM интеграционный API для CRM клиентов
+        [appointmentsResponse, treatmentPlansResponse] = await Promise.all([
+          fetch(`${API}/api/crm/integration/client-hms-data/${client.id}/appointments`, {
+            headers: {
+              'Authorization': `Bearer ${token}`,
+              'Content-Type': 'application/json'
+            }
+          }),
+          fetch(`${API}/api/crm/integration/client-hms-data/${client.id}/treatment-plans`, {
+            headers: {
+              'Authorization': `Bearer ${token}`,
+              'Content-Type': 'application/json'
+            }
+          })
+        ]);
+      }
 
       const appointments = appointmentsResponse.ok ? await appointmentsResponse.json() : [];
       const treatmentPlans = treatmentPlansResponse.ok ? await treatmentPlansResponse.json() : [];
@@ -263,30 +341,9 @@ const ClientsView = ({ user }) => {
       <div className="flex justify-between items-center">
         <div>
           <h1 className="text-3xl font-bold text-gray-900">👥 Контакты</h1>
-          <p className="text-gray-600 mt-1">База контактов CRM</p>
+          <p className="text-gray-600 mt-1">CRM клиенты и HMS пациенты</p>
         </div>
         <div className="flex gap-3">
-          {/* Статистика автосинхронизации */}
-          <div className="text-sm text-gray-600">
-            {(() => {
-              const stats = getSyncStats();
-              return (
-                <div className="flex items-center gap-2">
-                  <span className="text-green-600">✅ Автосинхронизация планов лечения</span>
-                  <span>•</span>
-                  <span>Загружено: {stats.cachedClientsCount}</span>
-                  {stats.syncingCount > 0 && (
-                    <>
-                      <span>•</span>
-                      <span className="text-blue-600">
-                        Синхронизируется: {stats.syncingCount}
-                      </span>
-                    </>
-                  )}
-                </div>
-              );
-            })()}
-          </div>
           <button 
             onClick={() => setShowCreateModal(true)}
             className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors"
@@ -297,62 +354,69 @@ const ClientsView = ({ user }) => {
       </div>
 
       {/* Statistics */}
-      {clientsDetailedStats && (
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          {/* Общее количество */}
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-            <div className="flex items-center">
-              <div className="flex-shrink-0">
-                <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
-                  <span className="text-blue-600 font-semibold">👥</span>
-                </div>
-              </div>
-              <div className="ml-4">
-                <p className="text-sm font-medium text-gray-500">Всего контактов</p>
-                <p className="text-2xl font-bold text-gray-900">{clientsDetailedStats.total_clients}</p>
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+        {/* Всего контактов */}
+        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+          <div className="flex items-center">
+            <div className="flex-shrink-0">
+              <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
+                <span className="text-blue-600 font-semibold">👥</span>
               </div>
             </div>
-          </div>
-
-          {/* Только CRM */}
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-            <div className="flex items-center">
-              <div className="flex-shrink-0">
-                <div className="w-8 h-8 bg-orange-100 rounded-full flex items-center justify-center">
-                  <span className="text-orange-600 font-semibold">🏢</span>
-                </div>
-              </div>
-              <div className="ml-4">
-                <p className="text-sm font-medium text-gray-500">Только CRM</p>
-                <p className="text-2xl font-bold text-gray-900">{clientsDetailedStats.crm_only_clients}</p>
-                <p className="text-xs text-gray-400">
-                  {clientsDetailedStats.total_clients > 0 
-                    ? Math.round((clientsDetailedStats.crm_only_clients / clientsDetailedStats.total_clients) * 100)
-                    : 0}% от общего
-                </p>
-              </div>
-            </div>
-          </div>
-
-          {/* HMS Пациенты */}
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-            <div className="flex items-center">
-              <div className="flex-shrink-0">
-                <div className="w-8 h-8 bg-green-100 rounded-full flex items-center justify-center">
-                  <span className="text-green-600 font-semibold">🏥</span>
-                </div>
-              </div>
-              <div className="ml-4">
-                <p className="text-sm font-medium text-gray-500">HMS Пациенты</p>
-                <p className="text-2xl font-bold text-gray-900">{clientsDetailedStats.hms_patients}</p>
-                <p className="text-xs text-green-600 font-medium">
-                  {clientsDetailedStats.hms_conversion_rate}% конвертация
-                </p>
-              </div>
+            <div className="ml-4">
+              <p className="text-sm font-medium text-gray-500">Всего</p>
+              <p className="text-2xl font-bold text-gray-900">{allContacts.length}</p>
             </div>
           </div>
         </div>
-      )}
+
+        {/* CRM клиенты */}
+        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+          <div className="flex items-center">
+            <div className="flex-shrink-0">
+              <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
+                <span className="text-blue-600 font-semibold">📋</span>
+              </div>
+            </div>
+            <div className="ml-4">
+              <p className="text-sm font-medium text-gray-500">CRM клиенты</p>
+              <p className="text-2xl font-bold text-gray-900">{clients.length}</p>
+            </div>
+          </div>
+        </div>
+
+        {/* HMS Пациенты */}
+        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+          <div className="flex items-center">
+            <div className="flex-shrink-0">
+              <div className="w-8 h-8 bg-purple-100 rounded-full flex items-center justify-center">
+                <span className="text-purple-600 font-semibold">🏥</span>
+              </div>
+            </div>
+            <div className="ml-4">
+              <p className="text-sm font-medium text-gray-500">HMS пациенты</p>
+              <p className="text-2xl font-bold text-gray-900">{hmsPatients.length}</p>
+            </div>
+          </div>
+        </div>
+
+        {/* Связанные */}
+        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+          <div className="flex items-center">
+            <div className="flex-shrink-0">
+              <div className="w-8 h-8 bg-green-100 rounded-full flex items-center justify-center">
+                <span className="text-green-600 font-semibold">🔗</span>
+              </div>
+            </div>
+            <div className="ml-4">
+              <p className="text-sm font-medium text-gray-500">Связанные CRM+HMS</p>
+              <p className="text-2xl font-bold text-gray-900">
+                {clients.filter(c => c.is_hms_patient).length}
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
 
       {/* Search */}
       <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
@@ -365,11 +429,11 @@ const ClientsView = ({ user }) => {
         />
       </div>
 
-      {/* Clients List */}
+      {/* Contacts List */}
       <div className="bg-white rounded-lg shadow-sm border border-gray-200">
-        {filteredClients.length === 0 ? (
+        {filteredContacts.length === 0 ? (
           <div className="text-center py-8 text-gray-500">
-            <p>Контакты не найдены</p>
+            <p>{loading || patientsLoading ? 'Загрузка...' : 'Контакты не найдены'}</p>
           </div>
         ) : (
           <div className="overflow-x-auto">
@@ -380,7 +444,7 @@ const ClientsView = ({ user }) => {
                     Контакт
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Контакты
+                    Телефон/Email
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Планы лечения
@@ -394,25 +458,35 @@ const ClientsView = ({ user }) => {
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
-                {filteredClients.map((client) => (
+                {filteredContacts.map((client) => (
                   <tr key={client.id} className="hover:bg-gray-50">
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="font-medium text-gray-900">{client.full_name || `${client.first_name} ${client.last_name}`}</div>
+                      <div className="font-medium text-gray-900">{client._displayName || `${client.first_name} ${client.last_name}`}</div>
                       <div className="text-sm text-gray-500">
-                        Контакт с {new Date(client.created_at).toLocaleDateString('ru-RU')}
+                        {client.created_at ? `с ${new Date(client.created_at).toLocaleDateString('ru-RU')}` : ''}
                       </div>
-                      {client.is_hms_patient && (
-                        <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800 mt-1">
-                          🏥 Пациент HMS
-                        </span>
-                      )}
+                      <div className="flex gap-1 mt-1">
+                        {client._source === 'hms' ? (
+                          <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-purple-100 text-purple-800">
+                            🏥 HMS
+                          </span>
+                        ) : client._source === 'crm' && client.is_hms_patient ? (
+                          <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800">
+                            🔗 CRM + HMS
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800">
+                            📋 CRM
+                          </span>
+                        )}
+                      </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="text-sm text-gray-900">{client.phone}</div>
                       <div className="text-sm text-gray-500">{client.email || 'Email не указан'}</div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      {client.is_hms_patient ? (
+                      {client._isLinkedToHMS ? (
                         <TreatmentPlanInfo
                           treatmentData={treatmentPlansData[client.id]}
                           isLoading={isClientSyncing(client.id)}
@@ -421,7 +495,7 @@ const ClientsView = ({ user }) => {
                         />
                       ) : (
                         <div className="text-xs text-gray-400">
-                          Не HMS пациент
+                          Не пациент HMS
                         </div>
                       )}
                     </td>
@@ -467,7 +541,7 @@ const ClientsView = ({ user }) => {
                           );
                         }
                         
-                        if (client.is_hms_patient) {
+                        if (client._isLinkedToHMS) {
                           return <div className="text-xs text-gray-400">Нет завершенных приемов</div>;
                         } else {
                           return <div className="text-xs text-gray-400">Не пациент HMS</div>;
@@ -475,7 +549,7 @@ const ClientsView = ({ user }) => {
                       })()}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium space-x-2">
-                      {client.is_hms_patient ? (
+                      {client._isLinkedToHMS ? (
                         <>
                           <button
                             onClick={() => handleShowHmsData(client)}
@@ -491,15 +565,12 @@ const ClientsView = ({ user }) => {
                           >
                             📅
                           </button>
-                          <span className="text-green-600" title="Уже пациент HMS">
-                            ✅
-                          </span>
                         </>
                       ) : (
                         <>
                           <button
                             onClick={() => handleConvertToHMS(client)}
-                            className="text-green-600 hover:text-green-900"
+                            className="text-green-600 hover:text-green-900 mr-2"
                             title="Конвертировать в пациента HMS"
                           >
                             🏥
