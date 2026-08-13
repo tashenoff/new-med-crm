@@ -133,14 +133,11 @@ const LeadsView = ({ user }) => {
       clearTimeout(phoneCheckTimeoutRef.current);
     }
     
-    // Получаем только цифры (без +7)
-    let digits = phone.replace(/\D/g, '');
-    if (digits.startsWith('7') || digits.startsWith('8')) {
-      digits = digits.slice(1);
-    }
+    // Получаем только цифры
+    const digits = phone.replace(/\D/g, '');
     
-    // Проверяем только если введён полный номер (10 цифр)
-    if (digits.length < 10) {
+    // Проверяем только если введён полный номер (11 цифр с +7)
+    if (digits.length < 11) {
       setFoundPatient(null);
       setFoundActiveLead(null);
       setIsCheckingPhone(false);
@@ -187,43 +184,21 @@ const LeadsView = ({ user }) => {
     }, 300);
   }, [checkPatientByPhone]);
 
-  // Форматирование телефона: +7 (XXX) XXX-XX-XX
+  // Форматирование телефона: просто добавляем + в начало
   const formatPhoneNumber = (value) => {
     // Убираем всё кроме цифр
     let digits = value.replace(/\D/g, '');
     
-    // Убираем 7 или 8 в начале если есть (будем добавлять +7 автоматически)
-    if (digits.startsWith('7') || digits.startsWith('8')) {
-      digits = digits.slice(1);
-    }
-    
-    // Ограничиваем 10 цифрами
-    digits = digits.slice(0, 10);
+    // Ограничиваем 11 цифрами (код страны + 10 цифр)
+    digits = digits.slice(0, 11);
     
     // Если нет цифр, возвращаем пустую строку
     if (digits.length === 0) {
       return '';
     }
     
-    // Форматируем: +7 (XXX) XXX-XX-XX
-    let formatted = '+7';
-    if (digits.length > 0) {
-      formatted += ' (' + digits.slice(0, 3);
-    }
-    if (digits.length >= 3) {
-      formatted += ') ';
-    }
-    if (digits.length > 3) {
-      formatted += digits.slice(3, 6);
-    }
-    if (digits.length > 6) {
-      formatted += '-' + digits.slice(6, 8);
-    }
-    if (digits.length > 8) {
-      formatted += '-' + digits.slice(8, 10);
-    }
-    
-    return formatted;
+    // Просто добавляем + в начало
+    return '+' + digits;
   };
 
   // Обработчик изменения телефона
