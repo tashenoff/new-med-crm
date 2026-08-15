@@ -14,7 +14,6 @@ const PatientsView = ({
   setDateTo,
   onAddPatient,
   onEditPatient,
-  onDeletePatient,
   canManage 
 }) => {
   // Фильтрация теперь происходит на сервере, поэтому просто отображаем полученные данные
@@ -170,16 +169,16 @@ const PatientsView = ({
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Статус / Дата
                       </th>
-                      {canManage && (
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Действия
-                        </th>
-                      )}
                     </tr>
                   </thead>
                   <tbody className="bg-white divide-y divide-gray-200">
                     {filteredPatients.map(patient => (
-                      <tr key={patient.id} className="hover:bg-gray-50">
+                      <tr 
+                        key={patient.id} 
+                        className="hover:bg-gray-50 cursor-pointer transition-colors"
+                        onClick={() => canManage && onEditPatient(patient)}
+                        title={canManage ? "Нажмите для редактирования" : ""}
+                      >
                         <td className="px-6 py-4 whitespace-nowrap">
                           <div className="font-medium text-gray-900">{patient.full_name}</div>
                           {patient.notes && (
@@ -278,22 +277,6 @@ const PatientsView = ({
                             </span>
                           </div>
                         </td>
-                        {canManage && (
-                          <td className="px-6 py-4 whitespace-nowrap text-sm font-medium space-x-2">
-                            <button
-                              onClick={() => onEditPatient(patient)}
-                              className="text-blue-600 hover:text-blue-900"
-                            >
-                              Редактировать
-                            </button>
-                            <button
-                              onClick={() => onDeletePatient(patient.id)}
-                              className="text-red-600 hover:text-red-900"
-                            >
-                              Удалить
-                            </button>
-                          </td>
-                        )}
                       </tr>
                     ))}
                   </tbody>

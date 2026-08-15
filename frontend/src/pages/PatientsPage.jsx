@@ -127,11 +127,18 @@ const PatientsPage = ({ user }) => {
 
   const handleEditPatient = (patient) => {
     console.log('🔍 handleEditPatient вызван с пациентом:', patient);
-    console.log('🔍 ID пациента:', patient.id || patient._id);
+    const patientId = patient.id || patient._id;
+    console.log('🔍 ID пациента:', patientId);
     console.log('🔍 Все ключи пациента:', Object.keys(patient));
+    
+    // Проверка ID при открытии
+    if (!patientId) {
+      alert('⚠️ У пациента нет ID!\n\nKeys: ' + Object.keys(patient).join(', '));
+    }
 
     openModal('patient', {
       patientForm: {
+        id: patientId, // Сохраняем ID в форме для надёжного обновления
         full_name: patient.full_name || '',
         phone: patient.phone || '',
         iin: patient.iin || '',
@@ -156,6 +163,13 @@ const PatientsPage = ({ user }) => {
 
   const handleSavePatient = async (e, formData = null) => {
     e.preventDefault();
+    
+    // Защита от двойного вызова
+    if (loading) {
+      console.log('⚠️ handleSavePatient уже выполняется, пропускаем');
+      return;
+    }
+    
     setLoading(true);
     
     // Получаем данные из модального контекста или используем переданные данные
@@ -164,20 +178,37 @@ const PatientsPage = ({ user }) => {
     const patientForm = formData || modalProps.patientForm;
     
     try {
-      console.log('🔍 Отправляемые данные пациента в PatientsPage:', patientForm);
-      console.log('🔍 Тип patientForm:', typeof patientForm);
-      console.log('🔍 Ключи patientForm:', Object.keys(patientForm || {}));
-      console.log('🔍 editingItem:', editingItem);
-      
       let result;
-      if (editingItem) {
-        const patientId = editingItem.id || editingItem._id;
-        console.log('🔍 Обновление пациента:', patientId);
-        console.log('🔍 editingItem:', editingItem);
-        console.log('🔍 Все ключи editingItem:', Object.keys(editingItem));
-        result = await patientsHook.updatePatient(patientId, patientForm);
+      // Проверяем editingItem, _editingItemId ИЛИ наличие id в patientForm (для надёжности)
+      const patientId = editingItem?.id || editingItem?._id || patientForm?._editingItemId || patientForm?.id || patientForm?._id;
+      
+      // Диагностика для отладки дубликатов
+      const debugInfo = {
+        'editingItem?.id': editingItem?.id,
+        'editingItem?._id': editingItem?._id,
+        'patientForm?._editingItemId': patientForm?._editingItemId,
+        'patientForm?.id': patientForm?.id,
+        'patientForm?._id': patientForm?._id,
+        'patientId (результат)': patientId,
+        'Режим': patientId ? 'ОБНОВЛЕНИЕ' : 'СОЗДАНИЕ'
+      };
+      console.log('🔍 handleSavePatient - Диагностика:', debugInfo);
+      
+      // ВРЕМЕННО: alert для диагностики
+      if (!patientId) {
+        alert('⚠️ ВНИМАНИЕ: patientId не найден! Будет создан дубликат!\n\n' + JSON.stringify(debugInfo, null, 2));
+      }
+      
+      if (patientId) {
+        // Убираем служебные поля из данных для отправки
+        const { id, _id, _editingItemId, ...dataToSend } = patientForm;
+        console.log('📝 Обновление пациента ID:', patientId, 'Данные:', dataToSend);
+        result = await patientsHook.updatePatient(patientId, dataToSend);
       } else {
-        result = await patientsHook.createPatient(patientForm);
+        // Убираем служебные поля
+        const { _editingItemId, ...dataToCreate } = patientForm;
+        console.log('➕ Создание нового пациента. Данные:', dataToCreate);
+        result = await patientsHook.createPatient(dataToCreate);
         if (result.success) {
           // Обновляем список пациентов после создания
           await patientsHook.fetchPatients();

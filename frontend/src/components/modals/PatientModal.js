@@ -29,6 +29,20 @@ const PatientModal = ({
   const [uploading, setUploading] = useState(false);
   const [selectedFile, setSelectedFile] = useState(null);
   const [documentDescription, setDocumentDescription] = useState('');
+  
+  // Сохраняем ID редактируемого пациента в локальном состоянии для надёжности
+  const [currentPatientId, setCurrentPatientId] = useState(null);
+  
+  // Обновляем ID когда меняется editingItem
+  React.useEffect(() => {
+    if (editingItem) {
+      const id = editingItem.id || editingItem._id;
+      setCurrentPatientId(id);
+    } else if (!show) {
+      // Сбрасываем только когда модалка закрывается
+      setCurrentPatientId(null);
+    }
+  }, [editingItem, show]);
   const [planForm, setPlanForm] = useState({
     title: '',
     description: '',
@@ -50,6 +64,28 @@ const PatientModal = ({
   const [procedureFilter, setProcedureFilter] = useState('all'); // all, procedures, non_procedures
 
   const API = import.meta.env.VITE_BACKEND_URL;
+  
+  // Безопасная функция обновления формы, которая всегда сохраняет ID пациента
+  const safeSetPatientForm = (updates) => {
+    const patientId = currentPatientId || patientForm.id || patientForm._id || editingItem?.id || editingItem?._id;
+    const updatedForm = typeof updates === 'function' 
+      ? updates(patientForm) 
+      : { ...patientForm, ...updates };
+    
+    // Всегда сохраняем ID если он есть
+    if (patientId && !updatedForm.id) {
+      updatedForm.id = patientId;
+    }
+    
+    // Диагностика
+    console.log('🔄 safeSetPatientForm:', {
+      'patientId сохранён': patientId,
+      'updates': updates,
+      'updatedForm.id': updatedForm.id
+    });
+    
+    setPatientForm(updatedForm);
+  };
   
   // Глобальное обновление для синхронизации со страницей пациентов
   const { refreshTreatmentPlans } = useGlobalRefresh();
@@ -466,13 +502,23 @@ const PatientModal = ({
 
         {/* Tab Content */}
         {activeTab === 'info' && (
-          <form onSubmit={(e) => onSave(e, patientForm)} className="space-y-4">
+          <form onSubmit={(e) => {
+            // Используем currentPatientId из локального состояния - он надёжнее
+            const patientIdToUse = currentPatientId || editingItem?.id || editingItem?._id;
+            
+            // Передаём ID напрямую вместе с patientForm для надёжности
+            const formDataWithId = {
+              ...patientForm,
+              _editingItemId: patientIdToUse
+            };
+            onSave(e, formDataWithId);
+          }} className="space-y-4">
             <div className="grid grid-cols-2 gap-4">
               <input
                 type="text"
                 placeholder="Полное имя *"
                 value={patientForm.full_name || ''}
-                onChange={(e) => setPatientForm({...patientForm, full_name: e.target.value})}
+                onChange={(e) => safeSetPatientForm({ full_name: e.target.value })}
                 className={inputClasses}
                 required
               />
@@ -482,7 +528,7 @@ const PatientModal = ({
                   type="tel"
                   placeholder="Телефон *"
                   value={patientForm.phone}
-                  onChange={(e) => setPatientForm({...patientForm, phone: e.target.value})}
+                  onChange={(e) => safeSetPatientForm({ phone: e.target.value })}
                   className={inputClasses}
                   required
                 />
@@ -504,7 +550,7 @@ const PatientModal = ({
                 type="text"
                 placeholder="ИИН"
                 value={patientForm.iin || ''}
-                onChange={(e) => setPatientForm({...patientForm, iin: e.target.value})}
+                onChange={(e) => safeSetPatientForm({ iin: e.target.value })}
                 className={inputClasses}
               />
               
@@ -512,7 +558,7 @@ const PatientModal = ({
                 type="date"
                 placeholder="Дата рождения"
                 value={patientForm.birth_date || ''}
-                onChange={(e) => setPatientForm({...patientForm, birth_date: e.target.value})}
+                onChange={(e) => safeSetPatientForm({ birth_date: e.target.value })}
                 className={inputClasses}
               />
             </div>
@@ -520,7 +566,7 @@ const PatientModal = ({
             <div className="grid grid-cols-2 gap-4">
               <select
                 value={patientForm.gender || ''}
-                onChange={(e) => setPatientForm({...patientForm, gender: e.target.value})}
+                onChange={(e) => safeSetPatientForm({ gender: e.target.value })}
                 className={inputClasses}
               >
                 <option value="">Выберите пол</option>
@@ -533,14 +579,14 @@ const PatientModal = ({
                 type="text"
                 placeholder="Кто направил пациента"
                 value={patientForm.referrer || ''}
-                onChange={(e) => setPatientForm({...patientForm, referrer: e.target.value})}
+                onChange={(e) => safeSetPatientForm({ referrer: e.target.value })}
                 className={inputClasses}
               />
             </div>
             
             <select
               value={patientForm.source}
-              onChange={(e) => setPatientForm({...patientForm, source: e.target.value})}
+              onChange={(e) => safeSetPatientForm({ source: e.target.value })}
               className={inputClasses}
             >
               <option value="phone">Телефонный звонок</option>
@@ -562,7 +608,7 @@ const PatientModal = ({
                       step="0.01"
                       min="0"
                       value={patientForm.revenue || 0}
-                      onChange={(e) => setPatientForm({...patientForm, revenue: parseFloat(e.target.value) || 0})}
+                      onChange={(e) => safeSetPatientForm({ revenue: parseFloat(e.target.value) || 0 })}
                       className={inputClasses}
                     />
                   </div>
@@ -574,7 +620,7 @@ const PatientModal = ({
                       step="0.01"
                       min="0"
                       value={patientForm.debt || 0}
-                      onChange={(e) => setPatientForm({...patientForm, debt: parseFloat(e.target.value) || 0})}
+                      onChange={(e) => safeSetPatientForm({ debt: parseFloat(e.target.value) || 0 })}
                       className={inputClasses}
                     />
                   </div>
@@ -586,7 +632,7 @@ const PatientModal = ({
                       step="0.01"
                       min="0"
                       value={patientForm.overpayment || 0}
-                      onChange={(e) => setPatientForm({...patientForm, overpayment: parseFloat(e.target.value) || 0})}
+                      onChange={(e) => safeSetPatientForm({ overpayment: parseFloat(e.target.value) || 0 })}
                       className={inputClasses}
                     />
                   </div>
@@ -599,7 +645,7 @@ const PatientModal = ({
                       type="number"
                       min="0"
                       value={patientForm.appointments_count || 0}
-                      onChange={(e) => setPatientForm({...patientForm, appointments_count: parseInt(e.target.value) || 0})}
+                      onChange={(e) => safeSetPatientForm({ appointments_count: parseInt(e.target.value) || 0 })}
                       className={inputClasses}
                     />
                   </div>
@@ -610,7 +656,7 @@ const PatientModal = ({
                       type="number"
                       min="0"
                       value={patientForm.records_count || 0}
-                      onChange={(e) => setPatientForm({...patientForm, records_count: parseInt(e.target.value) || 0})}
+                      onChange={(e) => safeSetPatientForm({ records_count: parseInt(e.target.value) || 0 })}
                       className={inputClasses}
                     />
                   </div>
@@ -621,7 +667,7 @@ const PatientModal = ({
             <textarea
               placeholder="Заметки"
               value={patientForm.notes}
-              onChange={(e) => setPatientForm({...patientForm, notes: e.target.value})}
+              onChange={(e) => safeSetPatientForm({ notes: e.target.value })}
               className={inputClasses}
               rows="3"
             />

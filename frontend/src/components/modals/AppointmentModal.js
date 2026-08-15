@@ -859,12 +859,12 @@ const AppointmentModal = ({
     //   return;
     // }
 
-    // Проверяем, что все необходимые согласия приняты
-    const missingConsents = requiredConsents.filter(consent => !acceptedConsents[consent.id]);
-    if (!editingItem && missingConsents.length > 0) {
-      setConsentFileError(`Необходимо принять все согласия: ${missingConsents.map(c => c.title).join(', ')}`);
-      return;
-    }
+    // Проверка согласий отключена (блок скрыт)
+    // const missingConsents = requiredConsents.filter(consent => !acceptedConsents[consent.id]);
+    // if (!editingItem && missingConsents.length > 0) {
+    //   setConsentFileError(`Необходимо принять все согласия: ${missingConsents.map(c => c.title).join(', ')}`);
+    //   return;
+    // }
 
     // Если есть подпись — конвертируем и загружаем к документам пациента
     if (hasSignature && appointmentForm.patient_id) {
@@ -1238,7 +1238,8 @@ const AppointmentModal = ({
           </div>
 
           <div className="space-y-4">
-            <div className="grid grid-cols-3 gap-4">
+            <div className="grid grid-cols-2 gap-4">
+              {/* Цена (₸) - СКРЫТО (не требуется)
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Цена (₸)</label>
                 <input
@@ -1251,6 +1252,7 @@ const AppointmentModal = ({
                   className={inputClasses}
                 />
               </div>
+              */}
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Тип оплаты</label>
@@ -1288,57 +1290,80 @@ const AppointmentModal = ({
             </div>
 
             {/* Секция депозита */}
-            <div className="border-2 border-blue-200 rounded-lg p-4 bg-blue-50">
-              <h4 className="font-medium text-blue-900 mb-3">💰 Депозит (предоплата)</h4>
-              <div className="grid grid-cols-3 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Тип депозита</label>
-                  <select
-                    value={appointmentForm.deposit_type || ''}
-                    onChange={(e) => setAppointmentForm({ ...appointmentForm, deposit_type: e.target.value, deposit: '' })}
-                    className={selectClasses}
-                  >
-                    <option value="">Без депозита</option>
-                    <option value="fixed">Фиксированная сумма</option>
-                  </select>
-                </div>
-
-                {appointmentForm.deposit_type && (
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      {appointmentForm.deposit_type === 'percent' ? 'Процент (%)' : 'Сумма (₸)'}
-                    </label>
-                    <input
-                      type="number"
-                      step={appointmentForm.deposit_type === 'percent' ? '1' : '0.01'}
-                      min="0"
-                      max={appointmentForm.deposit_type === 'percent' ? '100' : undefined}
-                      placeholder={appointmentForm.deposit_type === 'percent' ? '0-100' : '0'}
-                      value={appointmentForm.deposit || ''}
-                      onChange={(e) => setAppointmentForm({ ...appointmentForm, deposit: e.target.value })}
-                      className={inputClasses}
-                    />
-                  </div>
-                )}
-
-                {appointmentForm.deposit_type && appointmentForm.deposit && (
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Сумма депозита</label>
-                    <div className="px-3 py-2 bg-green-100 border border-green-300 rounded-lg font-bold text-green-800">
-                      {appointmentForm.deposit_type === 'percent' && appointmentForm.price
-                        ? `${((parseFloat(appointmentForm.price) * parseFloat(appointmentForm.deposit)) / 100).toFixed(2)} ₸`
-                        : appointmentForm.deposit_type === 'fixed'
-                          ? `${parseFloat(appointmentForm.deposit || 0).toFixed(2)} ₸`
-                          : '0 ₸'}
+            {(() => {
+              // Проверяем, заблокирован ли депозит (при редактировании записи с уже внесённым депозитом)
+              const isDepositLocked = editingItem && 
+                editingItem.deposit && 
+                parseFloat(editingItem.deposit) > 0;
+              
+              return (
+                <div className={`border-2 rounded-lg p-4 ${isDepositLocked ? 'border-orange-300 bg-orange-50' : 'border-blue-200 bg-blue-50'}`}>
+                  <h4 className="font-medium text-blue-900 mb-3">
+                    💰 Депозит (предоплата)
+                    {isDepositLocked && <span className="ml-2 text-orange-600 text-sm font-normal">🔒 Заблокировано</span>}
+                  </h4>
+                  
+                  {isDepositLocked && (
+                    <div className="mb-3 p-2 bg-orange-100 border border-orange-300 rounded-lg">
+                      <p className="text-sm text-orange-700">
+                        ⚠️ Депозит уже внесён и применён к плану лечения. Изменение депозита невозможно.
+                      </p>
                     </div>
-                  </div>
-                )}
-              </div>
+                  )}
+                  
+                  <div className="grid grid-cols-3 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Тип депозита</label>
+                      <select
+                        value={appointmentForm.deposit_type || ''}
+                        onChange={(e) => setAppointmentForm({ ...appointmentForm, deposit_type: e.target.value, deposit: '' })}
+                        className={`${selectClasses} ${isDepositLocked ? 'bg-gray-100 cursor-not-allowed' : ''}`}
+                        disabled={isDepositLocked}
+                      >
+                        <option value="">Без депозита</option>
+                        <option value="fixed">Фиксированная сумма</option>
+                      </select>
+                    </div>
 
-              {appointmentForm.deposit_type === 'percent' && !appointmentForm.price && (
-                <p className="text-sm text-orange-600 mt-2">⚠️ Укажите цену записи для расчета депозита</p>
-              )}
-            </div>
+                    {appointmentForm.deposit_type && (
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          {appointmentForm.deposit_type === 'percent' ? 'Процент (%)' : 'Сумма (₸)'}
+                        </label>
+                        <input
+                          type="number"
+                          step={appointmentForm.deposit_type === 'percent' ? '1' : '0.01'}
+                          min="0"
+                          max={appointmentForm.deposit_type === 'percent' ? '100' : undefined}
+                          placeholder={appointmentForm.deposit_type === 'percent' ? '0-100' : '0'}
+                          value={appointmentForm.deposit || ''}
+                          onChange={(e) => setAppointmentForm({ ...appointmentForm, deposit: e.target.value })}
+                          className={`${inputClasses} ${isDepositLocked ? 'bg-gray-100 cursor-not-allowed' : ''}`}
+                          disabled={isDepositLocked}
+                        />
+                      </div>
+                    )}
+
+                    {appointmentForm.deposit_type && appointmentForm.deposit && (
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Сумма депозита</label>
+                        <div className={`px-3 py-2 border rounded-lg font-bold ${isDepositLocked ? 'bg-orange-100 border-orange-300 text-orange-800' : 'bg-green-100 border-green-300 text-green-800'}`}>
+                          {appointmentForm.deposit_type === 'percent' && appointmentForm.price
+                            ? `${((parseFloat(appointmentForm.price) * parseFloat(appointmentForm.deposit)) / 100).toFixed(2)} ₸`
+                            : appointmentForm.deposit_type === 'fixed'
+                              ? `${parseFloat(appointmentForm.deposit || 0).toFixed(2)} ₸`
+                              : '0 ₸'}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  {appointmentForm.deposit_type === 'percent' && !appointmentForm.price && (
+                    <p className="text-sm text-orange-600 mt-2">⚠️ Укажите цену записи для расчета депозита</p>
+                  )}
+                </div>
+              );
+            })()}
           </div>
 
           <div className="hidden">
@@ -1412,7 +1437,7 @@ const AppointmentModal = ({
             </div>
           </div>
 
-          {/* Подпись пациента на обработку персональных данных */}
+          {/* Подпись пациента на обработку персональных данных - СКРЫТО (не требуется)
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
               Подпись согласия пациента на обработку персональных данных
@@ -1462,8 +1487,9 @@ const AppointmentModal = ({
             )}
             <p className="mt-1 text-xs text-gray-500">При редактировании подпись не обязательна</p>
           </div>
+          */}
 
-          {/* Документы согласий */}
+          {/* Документы согласий - СКРЫТО (не требуется)
           <div className="border-2 border-indigo-200 rounded-lg p-4 bg-indigo-50">
             <h4 className="font-medium text-indigo-900 mb-3">📄 Информированные согласия</h4>
             <div className="space-y-3">
@@ -1520,6 +1546,7 @@ const AppointmentModal = ({
               </div>
             )}
           </div>
+          */}
 
           <div className="flex space-x-3">
             <button

@@ -47,7 +47,8 @@ const TimeGrid = ({
   onDragEnd,
   dragOverSlot
 }) => {
-  const dateString = currentDate.toISOString().split('T')[0];
+  // Используем локальную дату вместо UTC (toISOString конвертирует в UTC и сдвигает дату)
+  const dateString = `${currentDate.getFullYear()}-${String(currentDate.getMonth() + 1).padStart(2, '0')}-${String(currentDate.getDate()).padStart(2, '0')}`;
 
   return (
     <div className={`min-w-0 flex-1 border-r ${themeClasses.border.light} last:border-r-0 calendar-room-column`}>

@@ -1,8 +1,54 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { FaChevronDown, FaChevronRight, FaStethoscope, FaClipboardList, FaNotesMedical, FaUserMd, FaFileMedical } from 'react-icons/fa';
 
 const ServicePaymentList = ({ plan, onUpdate, paymentFilter = 'all', procedureFilter = 'all' }) => {
   const [loading, setLoading] = useState(false);
+  const [consultation, setConsultation] = useState(null);
+  const [consultationLoading, setConsultationLoading] = useState(false);
+  const [expandedSections, setExpandedSections] = useState({});
   const API = import.meta.env.VITE_BACKEND_URL;
+
+  // Загрузка данных консультации при монтировании
+  useEffect(() => {
+    const fetchConsultation = async () => {
+      try {
+        setConsultationLoading(true);
+        const token = localStorage.getItem('token');
+        
+        // Пробуем получить консультацию через API плана
+        const response = await fetch(
+          `${API}/api/treatment-plans/${plan.id}/consultation`,
+          {
+            headers: {
+              'Authorization': `Bearer ${token}`,
+              'Content-Type': 'application/json'
+            }
+          }
+        );
+
+        if (response.ok) {
+          const data = await response.json();
+          if (data) {
+            setConsultation(data);
+          }
+        }
+      } catch (error) {
+        console.error('Error fetching consultation:', error);
+      } finally {
+        setConsultationLoading(false);
+      }
+    };
+
+    fetchConsultation();
+  }, [plan.id, API]);
+
+  // Функция для переключения раскрытия секции
+  const toggleSection = (sectionName) => {
+    setExpandedSections(prev => ({
+      ...prev,
+      [sectionName]: !prev[sectionName]
+    }));
+  };
 
   // Фильтруем услуги на основе переданных фильтров
   const filteredServices = plan.services.filter(service => {
@@ -210,6 +256,41 @@ const ServicePaymentList = ({ plan, onUpdate, paymentFilter = 'all', procedureFi
     }
   };
 
+  // Компонент раскрывающейся секции
+  const AccordionSection = ({ title, icon, content, sectionKey, color = "blue" }) => {
+    if (!content) return null;
+    
+    const isExpanded = expandedSections[sectionKey];
+    const colorClasses = {
+      blue: "bg-blue-50 border-blue-200 text-blue-700 hover:bg-blue-100",
+      green: "bg-green-50 border-green-200 text-green-700 hover:bg-green-100",
+      purple: "bg-purple-50 border-purple-200 text-purple-700 hover:bg-purple-100",
+      orange: "bg-orange-50 border-orange-200 text-orange-700 hover:bg-orange-100",
+      gray: "bg-gray-50 border-gray-200 text-gray-700 hover:bg-gray-100",
+      yellow: "bg-yellow-50 border-yellow-200 text-yellow-700 hover:bg-yellow-100"
+    };
+    
+    return (
+      <div className={`border rounded-lg mb-2 overflow-hidden ${colorClasses[color].split(' ').slice(1, 2).join(' ')}`}>
+        <button
+          onClick={() => toggleSection(sectionKey)}
+          className={`w-full px-4 py-3 flex items-center justify-between transition-colors ${colorClasses[color]}`}
+        >
+          <div className="flex items-center space-x-3">
+            <span className="text-lg">{icon}</span>
+            <span className="font-medium text-sm">{title}</span>
+          </div>
+          {isExpanded ? <FaChevronDown className="text-gray-400" /> : <FaChevronRight className="text-gray-400" />}
+        </button>
+        {isExpanded && (
+          <div className="px-4 py-3 bg-white border-t text-sm text-gray-700 whitespace-pre-wrap">
+            {content}
+          </div>
+        )}
+      </div>
+    );
+  };
+
   return (
     <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
       {/* Заголовок */}
@@ -219,6 +300,75 @@ const ServicePaymentList = ({ plan, onUpdate, paymentFilter = 'all', procedureFi
           <p className="text-sm text-gray-600">{plan.description}</p>
         )}
       </div>
+
+      {/* Детали консультации (аккордеон) */}
+      {consultationLoading ? (
+        <div className="mb-4 p-4 bg-gray-50 rounded-lg text-center text-gray-500">
+          <span className="animate-pulse">Загрузка данных консультации...</span>
+        </div>
+      ) : consultation ? (
+        <div className="mb-4">
+          <div className="flex items-center justify-between mb-3">
+            <h4 className="font-medium text-gray-800 flex items-center">
+              <FaFileMedical className="mr-2 text-blue-500" />
+              Данные консультации от {new Date(consultation.consultation_date).toLocaleDateString('ru-RU')}
+            </h4>
+            <span className="text-xs text-gray-500">
+              Врач: {consultation.doctor_name}
+            </span>
+          </div>
+          
+          <div className="space-y-1">
+            <AccordionSection
+              title="Жалобы"
+              icon={<FaClipboardList />}
+              content={consultation.complaints}
+              sectionKey="complaints"
+              color="blue"
+            />
+            
+            <AccordionSection
+              title="Анамнез"
+              icon={<FaNotesMedical />}
+              content={consultation.anamnesis}
+              sectionKey="anamnesis"
+              color="purple"
+            />
+            
+            <AccordionSection
+              title="Объективный осмотр"
+              icon={<FaStethoscope />}
+              content={consultation.examination}
+              sectionKey="examination"
+              color="green"
+            />
+            
+            <AccordionSection
+              title={`Диагноз${consultation.icd10_codes?.length > 0 ? ` (МКБ-10: ${consultation.icd10_codes.map(c => c.code).join(', ')})` : ''}`}
+              icon={<FaUserMd />}
+              content={consultation.diagnosis}
+              sectionKey="diagnosis"
+              color="orange"
+            />
+            
+            <AccordionSection
+              title="Рекомендации"
+              icon="📋"
+              content={consultation.recommendations}
+              sectionKey="recommendations"
+              color="yellow"
+            />
+            
+            <AccordionSection
+              title="Дополнительные заметки"
+              icon="📝"
+              content={consultation.notes}
+              sectionKey="consultationNotes"
+              color="gray"
+            />
+          </div>
+        </div>
+      ) : null}
 
       {/* Прогресс оплаты */}
       <div className="mb-6 p-4 bg-gray-50 rounded-lg">

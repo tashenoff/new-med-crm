@@ -1,16 +1,15 @@
 /**
  * Единая конфигурация календаря и длительности приёмов
  *
- * Базовое правило: сеанс не может быть короче 30 минут.
  * Сетка календаря строится с шагом 30 минут.
- * Если нужен приём длиннее 30 минут — выбирается произвольное время окончания.
+ * При выборе «Произвольное время» можно указать любую длительность.
  */
 
 // Шаг сетки календаря (минуты)
 export const SLOT_INTERVAL_MINUTES = 30;
 
-// Минимальная длительность приёма (минуты)
-export const MIN_APPOINTMENT_DURATION = 30;
+// Минимальная длительность приёма (минуты) — без ограничений
+export const MIN_APPOINTMENT_DURATION = 1;
 
 // Длительность приёма по умолчанию (минуты)
 export const DEFAULT_APPOINTMENT_DURATION = 30;
@@ -81,7 +80,7 @@ export const getDefaultEndTime = (startTime) => addMinutes(startTime, DEFAULT_AP
 export const getMinEndTime = (startTime) => addMinutes(startTime, MIN_APPOINTMENT_DURATION);
 
 /**
- * Проверяет, что длительность приёма не меньше минимальной
+ * Проверяет корректность длительности приёма
  * @returns {{ valid: boolean, duration: number|null, message: string }}
  */
 export const validateAppointmentDuration = (startTime, endTime) => {
@@ -100,11 +99,11 @@ export const validateAppointmentDuration = (startTime, endTime) => {
     return { valid: false, duration: null, message: 'Некорректное время приёма' };
   }
 
-  if (duration < MIN_APPOINTMENT_DURATION) {
+  if (duration <= 0) {
     return {
       valid: false,
       duration,
-      message: `Минимальная длительность приёма — ${MIN_APPOINTMENT_DURATION} минут`
+      message: 'Время окончания должно быть позже времени начала'
     };
   }
 

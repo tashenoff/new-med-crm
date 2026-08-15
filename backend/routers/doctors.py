@@ -234,6 +234,11 @@ async def update_doctor_schedule(
     current_user: UserInDB = Depends(require_role([UserRole.ADMIN, UserRole.SUPER_ADMIN]))
 ):
     """Update doctor's working schedule"""
+    # Сначала получаем текущее расписание (до изменений) для поиска связанной записи в room_schedules
+    current_schedule = await db.doctor_schedules.find_one({"id": schedule_id, "doctor_id": doctor_id})
+    if not current_schedule:
+        raise HTTPException(status_code=404, detail="Schedule not found")
+    
     update_dict = {k: v for k, v in schedule_update.dict().items() if v is not None}
     update_dict["updated_at"] = datetime.utcnow()
     
@@ -250,6 +255,7 @@ async def update_doctor_schedule(
         except ValueError:
             raise HTTPException(status_code=400, detail="Invalid end_time format. Use HH:MM")
     
+    # Обновляем doctor_schedules
     result = await db.doctor_schedules.update_one(
         {"id": schedule_id, "doctor_id": doctor_id}, 
         {"$set": update_dict}
@@ -257,6 +263,36 @@ async def update_doctor_schedule(
     
     if result.matched_count == 0:
         raise HTTPException(status_code=404, detail="Schedule not found")
+    
+    # ВАЖНО: Также обновляем связанную запись в room_schedules
+    # Ищем по doctor_id и старым значениям day_of_week, start_time, end_time
+    room_schedule_query = {
+        "doctor_id": doctor_id,
+        "day_of_week": current_schedule["day_of_week"],
+        "start_time": current_schedule["start_time"],
+        "end_time": current_schedule["end_time"],
+        "is_active": True
+    }
+    
+    # Формируем данные для обновления room_schedule
+    room_update_dict = {"updated_at": datetime.utcnow()}
+    if "day_of_week" in update_dict:
+        room_update_dict["day_of_week"] = update_dict["day_of_week"]
+    if "start_time" in update_dict:
+        room_update_dict["start_time"] = update_dict["start_time"]
+    if "end_time" in update_dict:
+        room_update_dict["end_time"] = update_dict["end_time"]
+    if "is_active" in update_dict:
+        room_update_dict["is_active"] = update_dict["is_active"]
+    
+    # Обновляем room_schedules если есть связанная запись
+    room_update_result = await db.room_schedules.update_one(
+        room_schedule_query,
+        {"$set": room_update_dict}
+    )
+    
+    if room_update_result.modified_count > 0:
+        print(f"✅ Также обновлена связанная запись в room_schedules для врача {doctor_id}")
     
     updated_schedule = await db.doctor_schedules.find_one({"id": schedule_id})
     return DoctorSchedule(**updated_schedule)
@@ -269,6 +305,12 @@ async def delete_doctor_schedule(
     current_user: UserInDB = Depends(require_role([UserRole.ADMIN, UserRole.SUPER_ADMIN]))
 ):
     """Delete doctor's working schedule"""
+    # Сначала получаем расписание для поиска связанной записи в room_schedules
+    current_schedule = await db.doctor_schedules.find_one({"id": schedule_id, "doctor_id": doctor_id})
+    if not current_schedule:
+        raise HTTPException(status_code=404, detail="Schedule not found")
+    
+    # Деактивируем doctor_schedule
     result = await db.doctor_schedules.update_one(
         {"id": schedule_id, "doctor_id": doctor_id}, 
         {"$set": {"is_active": False, "updated_at": datetime.utcnow()}}
@@ -276,6 +318,23 @@ async def delete_doctor_schedule(
     
     if result.matched_count == 0:
         raise HTTPException(status_code=404, detail="Schedule not found")
+    
+    # ВАЖНО: Также деактивируем связанную запись в room_schedules
+    room_schedule_query = {
+        "doctor_id": doctor_id,
+        "day_of_week": current_schedule["day_of_week"],
+        "start_time": current_schedule["start_time"],
+        "end_time": current_schedule["end_time"],
+        "is_active": True
+    }
+    
+    room_delete_result = await db.room_schedules.update_one(
+        room_schedule_query,
+        {"$set": {"is_active": False, "updated_at": datetime.utcnow()}}
+    )
+    
+    if room_delete_result.modified_count > 0:
+        print(f"✅ Также деактивирована связанная запись в room_schedules для врача {doctor_id}")
     
     return {"message": "Schedule deleted successfully"}
 

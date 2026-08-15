@@ -18,6 +18,8 @@ class TreatmentPlan(BaseModel):
     assigned_doctor_id: Optional[str] = None  # ID врача, которому назначен план
     doctor_name: Optional[str] = None  # Имя врача, составившего план (получается из description или lookup)
     notes: Optional[str] = None
+    # Связь с консультационным листом
+    consultation_sheet_id: Optional[str] = None  # ID консультации, из которой создан план
     # Payment tracking
     payment_status: str = "unpaid"  # unpaid, partially_paid, paid, overdue
     paid_amount: Optional[float] = 0.0
@@ -42,6 +44,7 @@ class TreatmentPlanCreate(BaseModel):
     status: str = "draft"
     assigned_doctor_id: Optional[str] = None  # ID врача, которому назначен план
     notes: Optional[str] = None
+    consultation_sheet_id: Optional[str] = None  # ID консультации, из которой создан план
     # Payment tracking
     payment_status: str = "unpaid"
     paid_amount: Optional[float] = 0.0

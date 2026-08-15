@@ -239,6 +239,7 @@ class ConsultationService:
             started_at=None,
             completed_at=None,
             appointment_ids=[],
+            consultation_sheet_id=consultation.id,  # Сохраняем ссылку на консультацию
             created_at=datetime.utcnow(),
             updated_at=datetime.utcnow()
         )
@@ -345,6 +346,7 @@ class ConsultationService:
                 started_at=None,
                 completed_at=None,
                 appointment_ids=[],
+                consultation_sheet_id=consultation.id,  # Сохраняем ссылку на консультацию
                 created_at=datetime.utcnow(),
                 updated_at=datetime.utcnow()
             )

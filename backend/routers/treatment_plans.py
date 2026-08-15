@@ -259,6 +259,85 @@ async def delete_treatment_plan(
     return await service.delete_treatment_plan(plan_id)
 
 
+@treatment_plans_router.get("/treatment-plans/{plan_id}/consultation")
+async def get_treatment_plan_consultation(
+    plan_id: str,
+    current_user: UserInDB = Depends(require_role([UserRole.ADMIN, UserRole.SUPER_ADMIN, UserRole.DOCTOR, UserRole.PATIENT])),
+):
+    """Получить данные консультационного листа, из которого создан план лечения"""
+    import re
+    from datetime import datetime
+    
+    # Получить план лечения
+    plan = await db.treatment_plans.find_one({"id": plan_id})
+    if not plan:
+        raise HTTPException(status_code=404, detail="Treatment plan not found")
+    
+    # Проверить права доступа для пациентов
+    if current_user.role == UserRole.PATIENT:
+        patient_id = plan.get("patient_id")
+        if current_user.patient_id != patient_id:
+            raise HTTPException(status_code=403, detail="Access denied")
+    
+    consultation = None
+    
+    # Способ 1: Прямая ссылка на консультацию
+    consultation_sheet_id = plan.get("consultation_sheet_id")
+    if consultation_sheet_id:
+        consultation = await db.consultation_sheets.find_one({"id": consultation_sheet_id})
+    
+    # Способ 2: Поиск по паттерну названия "План лечения от DD.MM.YYYY" и patient_id
+    if not consultation:
+        title = plan.get("title", "")
+        patient_id = plan.get("patient_id")
+        
+        # Ищем дату в названии плана
+        date_match = re.search(r'План лечения от (\d{2})\.(\d{2})\.(\d{4})', title)
+        if date_match and patient_id:
+            day, month, year = date_match.groups()
+            try:
+                plan_date = datetime(int(year), int(month), int(day))
+                # Ищем консультацию в этот день для данного пациента
+                start_of_day = plan_date.replace(hour=0, minute=0, second=0, microsecond=0)
+                end_of_day = plan_date.replace(hour=23, minute=59, second=59, microsecond=999999)
+                
+                consultation = await db.consultation_sheets.find_one({
+                    "patient_id": patient_id,
+                    "consultation_date": {
+                        "$gte": start_of_day,
+                        "$lte": end_of_day
+                    }
+                })
+                
+                # Если нашли консультацию, обновим план со ссылкой на неё
+                if consultation:
+                    await db.treatment_plans.update_one(
+                        {"id": plan_id},
+                        {"$set": {"consultation_sheet_id": consultation["id"]}}
+                    )
+            except (ValueError, TypeError):
+                pass
+    
+    # Способ 3: Поиск по assigned_doctor_id и patient_id (последняя консультация)
+    if not consultation:
+        patient_id = plan.get("patient_id")
+        doctor_id = plan.get("assigned_doctor_id")
+        if patient_id and doctor_id:
+            consultation = await db.consultation_sheets.find_one(
+                {"patient_id": patient_id, "doctor_id": doctor_id},
+                sort=[("consultation_date", -1)]  # Последняя консультация
+            )
+    
+    if not consultation:
+        return None
+    
+    # Убрать MongoDB _id
+    if "_id" in consultation:
+        del consultation["_id"]
+    
+    return consultation
+
+
 @treatment_plans_router.post("/treatment-plans/{plan_id}/services/{service_id}/mark-completed")
 async def mark_service_procedure_completed(
     plan_id: str,

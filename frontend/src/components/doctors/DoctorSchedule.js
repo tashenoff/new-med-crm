@@ -26,6 +26,7 @@ const DoctorSchedule = ({ doctors, user, canEdit, rooms = [] }) => {
   const [showAddModal, setShowAddModal] = useState(false);
   const [showFixedModal, setShowFixedModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
+  const [showWeekModal, setShowWeekModal] = useState(false);
   const [editingSchedule, setEditingSchedule] = useState(null);
   const [formData, setFormData] = useState({
     doctor_id: '',
@@ -36,6 +37,17 @@ const DoctorSchedule = ({ doctors, user, canEdit, rooms = [] }) => {
     schedule_type: 'fixed', // fixed, shift
     replacement_doctor_id: ''
   });
+  
+  // Week schedule state - для выбора нескольких дней
+  const [weekScheduleData, setWeekScheduleData] = useState({
+    doctor_id: '',
+    room_id: '',
+    selectedDays: [], // массив выбранных дней недели [0, 1, 2, ...]
+    start_time: '09:00',
+    end_time: '18:00'
+  });
+  const [weekScheduleSaving, setWeekScheduleSaving] = useState(false);
+  const [roomConflicts, setRoomConflicts] = useState({}); // {dayId: {is_available, conflicts}}
 
   const API = import.meta.env.VITE_BACKEND_URL;
   
@@ -350,6 +362,49 @@ const DoctorSchedule = ({ doctors, user, canEdit, rooms = [] }) => {
     }
   };
 
+  // Удаление всех расписаний врача
+  const handleDeleteAllSchedules = async (doctorId, schedules) => {
+    if (!schedules || schedules.length === 0) return;
+    
+    const daysNames = schedules.map(s => daysOfWeek[s.day_of_week]?.name).join(', ');
+    if (!window.confirm(`Удалить ВСЕ расписания врача (${schedules.length} дн.: ${daysNames})?`)) return;
+
+    setLoading(true);
+    const token = localStorage.getItem('token');
+    let deletedCount = 0;
+    let failedCount = 0;
+
+    for (const schedule of schedules) {
+      try {
+        const response = await fetch(`${API}/api/doctors/${doctorId}/schedule/${schedule.id}`, {
+          method: 'DELETE',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          }
+        });
+        if (response.ok) {
+          deletedCount++;
+        } else {
+          failedCount++;
+        }
+      } catch (error) {
+        failedCount++;
+      }
+    }
+
+    setLoading(false);
+    
+    if (deletedCount > 0) {
+      setSuccess(`Удалено ${deletedCount} из ${schedules.length} записей`);
+      fetchAllSchedules();
+    }
+    if (failedCount > 0) {
+      setError(`Не удалось удалить ${failedCount} записей`);
+    }
+    setTimeout(() => { setSuccess(''); setError(''); }, 5000);
+  };
+
   // Открытие модалки редактирования
   const handleOpenEditModal = (item, scheduleIndex = 0) => {
     if (!item.schedules || item.schedules.length === 0) return;
@@ -475,6 +530,185 @@ const DoctorSchedule = ({ doctors, user, canEdit, rooms = [] }) => {
     });
   };
 
+  const resetWeekForm = () => {
+    setWeekScheduleData({
+      doctor_id: '',
+      room_id: '',
+      selectedDays: [],
+      start_time: '09:00',
+      end_time: '18:00'
+    });
+    setRoomConflicts({});
+  };
+
+  // Переключение выбора дня недели
+  const toggleDaySelection = (dayId) => {
+    const isSelected = weekScheduleData.selectedDays.includes(dayId);
+    const newDays = isSelected
+      ? weekScheduleData.selectedDays.filter(d => d !== dayId)
+      : [...weekScheduleData.selectedDays, dayId].sort((a, b) => a - b);
+    
+    updateWeekScheduleWithCheck({ selectedDays: newDays });
+  };
+
+  // Выбрать все рабочие дни (Пн-Пт)
+  const selectWorkDays = () => {
+    updateWeekScheduleWithCheck({ selectedDays: [0, 1, 2, 3, 4] });
+  };
+
+  // Выбрать все дни недели
+  const selectAllDays = () => {
+    updateWeekScheduleWithCheck({ selectedDays: [0, 1, 2, 3, 4, 5, 6] });
+  };
+
+  // Очистить выбор дней
+  const clearDaysSelection = () => {
+    setWeekScheduleData(prev => ({
+      ...prev,
+      selectedDays: []
+    }));
+    setRoomConflicts({});
+  };
+
+  // Проверка занятости кабинета для выбранных дней
+  const checkWeekRoomAvailability = async (roomId, days, startTime, endTime) => {
+    if (!roomId || days.length === 0) {
+      setRoomConflicts({});
+      return;
+    }
+
+    const newConflicts = {};
+    for (const dayId of days) {
+      const result = await checkRoomAvailability(roomId, dayId, startTime, endTime);
+      newConflicts[dayId] = result;
+    }
+    setRoomConflicts(newConflicts);
+  };
+
+  // Обновление weekScheduleData с проверкой кабинета
+  const updateWeekScheduleWithCheck = (updates) => {
+    const newData = { ...weekScheduleData, ...updates };
+    setWeekScheduleData(newData);
+    
+    // Проверяем кабинет при изменении кабинета, дней или времени
+    if (newData.room_id && newData.selectedDays.length > 0) {
+      checkWeekRoomAvailability(newData.room_id, newData.selectedDays, newData.start_time, newData.end_time);
+    } else {
+      setRoomConflicts({});
+    }
+  };
+
+  // Сохранение недельного расписания
+  const handleSaveWeekSchedule = async () => {
+    if (!weekScheduleData.doctor_id) {
+      setError('Выберите врача');
+      setTimeout(() => setError(''), 3000);
+      return;
+    }
+
+    if (weekScheduleData.selectedDays.length === 0) {
+      setError('Выберите хотя бы один день недели');
+      setTimeout(() => setError(''), 3000);
+      return;
+    }
+
+    if (!weekScheduleData.start_time || !weekScheduleData.end_time) {
+      setError('Укажите время начала и окончания');
+      setTimeout(() => setError(''), 3000);
+      return;
+    }
+
+    setWeekScheduleSaving(true);
+    setError('');
+
+    const token = localStorage.getItem('token');
+    const results = { success: [], failed: [] };
+
+    // Создаём расписание для каждого выбранного дня
+    for (const dayOfWeek of weekScheduleData.selectedDays) {
+      try {
+        // Проверяем доступность кабинета если выбран
+        if (weekScheduleData.room_id) {
+          const availability = await checkRoomAvailability(
+            weekScheduleData.room_id,
+            dayOfWeek,
+            weekScheduleData.start_time,
+            weekScheduleData.end_time
+          );
+
+          if (!availability.is_available) {
+            const dayName = daysOfWeek[dayOfWeek]?.name || dayOfWeek;
+            const conflictInfo = availability.conflicts.map(c =>
+              `${c.doctor_name} (${c.start_time}-${c.end_time})`
+            ).join(', ');
+            results.failed.push({
+              day: dayName,
+              reason: `Кабинет занят: ${conflictInfo}`
+            });
+            continue;
+          }
+        }
+
+        // Используем endpoint с поддержкой кабинета
+        const response = await fetch(`${API}/api/doctors/schedule/with-room`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            doctor_id: weekScheduleData.doctor_id,
+            day_of_week: dayOfWeek,
+            start_time: weekScheduleData.start_time,
+            end_time: weekScheduleData.end_time,
+            room_id: weekScheduleData.room_id || null
+          })
+        });
+
+        const dayName = daysOfWeek[dayOfWeek]?.name || dayOfWeek;
+
+        if (response.ok) {
+          results.success.push(dayName);
+        } else {
+          const errorData = await response.json();
+          results.failed.push({
+            day: dayName,
+            reason: errorData.detail || 'Ошибка создания'
+          });
+        }
+      } catch (err) {
+        const dayName = daysOfWeek[dayOfWeek]?.name || dayOfWeek;
+        results.failed.push({
+          day: dayName,
+          reason: 'Ошибка соединения'
+        });
+      }
+    }
+
+    setWeekScheduleSaving(false);
+
+    // Формируем сообщение о результате
+    if (results.success.length > 0 && results.failed.length === 0) {
+      setSuccess(`Расписание успешно создано для: ${results.success.join(', ')}`);
+      setShowWeekModal(false);
+      resetWeekForm();
+      fetchAllSchedules();
+    } else if (results.success.length > 0 && results.failed.length > 0) {
+      setSuccess(`Создано для: ${results.success.join(', ')}`);
+      const failedMsg = results.failed.map(f => `${f.day}: ${f.reason}`).join('; ');
+      setError(`Не удалось создать для: ${failedMsg}`);
+      fetchAllSchedules();
+    } else {
+      const failedMsg = results.failed.map(f => `${f.day}: ${f.reason}`).join('; ');
+      setError(`Ошибка создания расписания: ${failedMsg}`);
+    }
+
+    setTimeout(() => {
+      setSuccess('');
+      setError('');
+    }, 7000);
+  };
+
   const getMonthYearLabel = () => {
     return `${months[selectedMonth].label} ${selectedYear}`;
   };
@@ -500,11 +734,28 @@ const DoctorSchedule = ({ doctors, user, canEdit, rooms = [] }) => {
         />
 
         <div className="bg-white dark:bg-gray-800 rounded-b-2xl border border-t-0 border-gray-200 dark:border-gray-700 p-4 space-y-4 shadow-sm">
-          {/* Статистика врачей */}
-          <div className="flex justify-end">
+          {/* Статистика и кнопки управления */}
+          <div className="flex flex-wrap justify-between items-center gap-4">
             <div className="text-sm text-gray-500">
               Врачей: {doctors.length} (активных: {doctors.filter(doctor => doctor.is_active).length})
             </div>
+            
+            {canEdit && (
+              <div className="flex gap-2 flex-wrap">
+                <button
+                  onClick={() => setShowAddModal(true)}
+                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm font-medium"
+                >
+                  + График врача
+                </button>
+                <button
+                  onClick={() => setShowWeekModal(true)}
+                  className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 text-sm font-medium"
+                >
+                  📅 На неделю
+                </button>
+              </div>
+            )}
           </div>
 
           {/* Фильтры */}
@@ -685,13 +936,9 @@ const DoctorSchedule = ({ doctors, user, canEdit, rooms = [] }) => {
                                 ✏️
                               </button>
                               <button
-                                onClick={() => {
-                                  if (item.schedules.length > 0) {
-                                    handleDeleteSchedule(item.doctor_id, item.schedules[0].id);
-                                  }
-                                }}
+                                onClick={() => handleDeleteAllSchedules(item.doctor_id, item.schedules)}
                                 className="text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300"
-                                title="Удалить"
+                                title={`Удалить все расписания (${item.schedules?.length || 0} дн.)`}
                               >
                                 🗑️
                               </button>
@@ -706,49 +953,29 @@ const DoctorSchedule = ({ doctors, user, canEdit, rooms = [] }) => {
             )}
           </div>
 
-          {/* Пагинация и кнопки */}
+          {/* Пагинация */}
           <div className="flex flex-col sm:flex-row justify-between items-center gap-4 pt-4">
             <div className="text-sm text-gray-500 dark:text-gray-400">
               Всего {filteredSchedules.length} записей
             </div>
             
-            <div className="flex items-center gap-4">
-              {canEdit && (
-                <div className="flex gap-2">
+            {totalPages > 1 && (
+              <div className="flex items-center gap-1">
+                {Array.from({ length: totalPages }, (_, i) => i + 1).map(page => (
                   <button
-                    onClick={() => setShowAddModal(true)}
-                    className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm font-medium"
+                    key={page}
+                    onClick={() => setCurrentPage(page)}
+                    className={`px-3 py-1 rounded ${
+                      currentPage === page
+                        ? 'bg-blue-600 text-white'
+                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600'
+                    }`}
                   >
-                    Добавить график врача
+                    {page}
                   </button>
-                  <button
-                    onClick={() => setShowFixedModal(true)}
-                    className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 text-sm font-medium"
-                  >
-                    Добавить зафиксированный график
-                  </button>
-                </div>
-              )}
-              
-              {/* Пагинация */}
-              {totalPages > 1 && (
-                <div className="flex items-center gap-1">
-                  {Array.from({ length: totalPages }, (_, i) => i + 1).map(page => (
-                    <button
-                      key={page}
-                      onClick={() => setCurrentPage(page)}
-                      className={`px-3 py-1 rounded ${
-                        currentPage === page
-                          ? 'bg-blue-600 text-white'
-                          : 'bg-gray-100 text-gray-700 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600'
-                      }`}
-                    >
-                      {page}
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
+                ))}
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -976,6 +1203,97 @@ const DoctorSchedule = ({ doctors, user, canEdit, rooms = [] }) => {
               className={buttonPrimaryClasses}
             >
               Сохранить
+            </button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* Модальное окно для создания недельного расписания */}
+      <Modal show={showWeekModal} onClose={() => { setShowWeekModal(false); resetWeekForm(); }} title="Расписание на неделю" size="max-w-2xl">
+        <div className="space-y-6">
+          <div>
+            <label className="block text-sm font-medium mb-1 dark:text-gray-200">Врач *</label>
+            <select value={weekScheduleData.doctor_id} onChange={(e) => setWeekScheduleData({ ...weekScheduleData, doctor_id: e.target.value })} className={selectClasses} required>
+              <option value="">Выберите врача</option>
+              {doctors.filter(d => d.is_active).map(doctor => (
+                <option key={doctor.id} value={doctor.id}>{doctor.full_name} - {doctor.specialty}</option>
+              ))}
+            </select>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium mb-2 dark:text-gray-200">
+              Дни недели * <span className="text-gray-500 font-normal ml-2">(выбрано: {weekScheduleData.selectedDays.length})</span>
+            </label>
+            <div className="flex gap-2 mb-3">
+              <button type="button" onClick={selectWorkDays} className="px-3 py-1 text-xs bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 rounded-lg border border-gray-300 dark:border-gray-600">Пн-Пт</button>
+              <button type="button" onClick={selectAllDays} className="px-3 py-1 text-xs bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 rounded-lg border border-gray-300 dark:border-gray-600">Все дни</button>
+              <button type="button" onClick={clearDaysSelection} className="px-3 py-1 text-xs bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 rounded-lg border border-gray-300 dark:border-gray-600">Очистить</button>
+            </div>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+              {daysOfWeek.map(day => {
+                const isSelected = weekScheduleData.selectedDays.includes(day.id);
+                return (
+                  <button key={day.id} type="button" onClick={() => toggleDaySelection(day.id)}
+                    className={`px-4 py-3 rounded-lg text-sm font-medium border-2 transition-all ${isSelected ? 'bg-blue-600 text-white border-blue-600 shadow-md' : 'bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-200 border-gray-300 dark:border-gray-600 hover:border-blue-400'}`}>
+                    {isSelected && '✓ '}{day.name}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium mb-1 dark:text-gray-200">Время начала *</label>
+              <input type="time" value={weekScheduleData.start_time} onChange={(e) => updateWeekScheduleWithCheck({ start_time: e.target.value })} className={inputClasses} required />
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-1 dark:text-gray-200">Время окончания *</label>
+              <input type="time" value={weekScheduleData.end_time} onChange={(e) => updateWeekScheduleWithCheck({ end_time: e.target.value })} className={inputClasses} required />
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium mb-1 dark:text-gray-200">Кабинет/Кресло</label>
+            <select value={weekScheduleData.room_id} onChange={(e) => updateWeekScheduleWithCheck({ room_id: e.target.value })} className={selectClasses}>
+              <option value="">Выберите кабинет (необязательно)</option>
+              {allRooms.map(room => <option key={room.id} value={room.id}>{room.name}</option>)}
+            </select>
+          </div>
+
+          {/* Предпросмотр с проверкой конфликтов */}
+          {weekScheduleData.selectedDays.length > 0 && (
+            <div className="bg-blue-50 dark:bg-blue-900/30 border border-blue-200 dark:border-blue-700 rounded-lg p-4">
+              <div className="text-sm text-blue-800 dark:text-blue-200"><strong>Предпросмотр:</strong>
+                <div className="mt-2 space-y-1">
+                  {weekScheduleData.selectedDays.map(d => {
+                    const conflict = roomConflicts[d];
+                    const hasConflict = conflict && !conflict.is_available;
+                    return (
+                      <div key={d} className={`flex items-center gap-2 ${hasConflict ? 'text-red-600 dark:text-red-400' : ''}`}>
+                        <span className={`w-2 h-2 rounded-full ${hasConflict ? 'bg-red-500' : 'bg-green-500'}`}></span>
+                        <span>{daysOfWeek[d]?.name}: {weekScheduleData.start_time}-{weekScheduleData.end_time}</span>
+                        {hasConflict && <span className="text-xs">⚠️ Кабинет занят: {conflict.conflicts.map(c => c.doctor_name).join(', ')}</span>}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Предупреждение о конфликтах */}
+          {Object.values(roomConflicts).some(c => !c.is_available) && (
+            <div className="bg-yellow-50 dark:bg-yellow-900/30 border border-yellow-300 dark:border-yellow-700 rounded-lg p-3 text-sm text-yellow-800 dark:text-yellow-200">
+              ⚠️ Внимание: кабинет занят в некоторые дни. При сохранении эти дни будут пропущены.
+            </div>
+          )}
+
+          <div className="flex justify-end space-x-3 pt-4 border-t dark:border-gray-700">
+            <button onClick={() => { setShowWeekModal(false); resetWeekForm(); }} className={`px-4 ${buttonSecondaryClasses}`} disabled={weekScheduleSaving}>Отмена</button>
+            <button onClick={handleSaveWeekSchedule} className={`px-4 ${buttonPrimaryClasses}`} disabled={weekScheduleSaving || !weekScheduleData.selectedDays.length || !weekScheduleData.doctor_id}>
+              {weekScheduleSaving ? 'Сохранение...' : `Сохранить (${weekScheduleData.selectedDays.length} дн.)`}
             </button>
           </div>
         </div>

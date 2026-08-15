@@ -2,12 +2,10 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { inputClasses, selectClasses } from '../modalUtils';
 import {
   DURATION_OPTIONS,
-  MIN_APPOINTMENT_DURATION,
   DEFAULT_APPOINTMENT_DURATION,
   SLOT_INTERVAL_MINUTES,
   addMinutes,
   getDurationMinutes,
-  getMinEndTime,
   formatDuration,
   validateAppointmentDuration
 } from '../../../config/calendarConfig';
@@ -21,10 +19,8 @@ const PRESET_VALUES = DURATION_OPTIONS
  * Блок полей "Дата / Время начала / Длительность / Время окончания"
  *
  * Правила:
- *  - минимальная длительность сеанса — 30 минут;
  *  - по умолчанию выбрана длительность 30 минут;
- *  - для приёма дольше 30 минут можно выбрать пресет или "Произвольное время"
- *    и вручную указать время окончания.
+ *  - можно выбрать пресет или "Произвольное время" и вручную указать время окончания.
  */
 const AppointmentTimeFields = ({
   appointmentForm = {},
@@ -114,20 +110,15 @@ const AppointmentTimeFields = ({
               <option key={option.value} value={option.value}>{option.label}</option>
             ))}
           </select>
-          <p className="text-xs text-gray-500 mt-1">
-            Минимум {MIN_APPOINTMENT_DURATION} мин
-          </p>
         </div>
 
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">
-            Время окончания
-            {isCustom && <span className="text-blue-600 ml-1">(произвольное)</span>}
+            Время окончания {isCustom && '*'}
           </label>
           <input
             type="time"
             value={endTime}
-            min={startTime ? getMinEndTime(startTime) : undefined}
             onChange={(e) => {
               setIsCustom(true);
               onEndTimeChange(e.target.value);
@@ -136,6 +127,9 @@ const AppointmentTimeFields = ({
             readOnly={!isCustom}
             title={isCustom ? '' : 'Выберите «Произвольное время», чтобы указать время вручную'}
           />
+          {isCustom && (
+            <p className="text-xs text-blue-600 mt-1">Произвольное время</p>
+          )}
         </div>
       </div>
 
