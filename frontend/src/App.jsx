@@ -38,7 +38,7 @@ import DoctorStatistics from './components/statistics/DoctorStatistics';
 import TreatmentPlanStatistics from './components/statistics/TreatmentPlanStatistics';
 import LoginForm from './components/auth/LoginForm';
 import RegisterForm from './components/auth/RegisterForm';
-import { CalendarPage, PatientsPage, DoctorsPage, WarehousePage } from './pages';
+import { CalendarPage, PatientsPage, DoctorsPage, WarehousePage, QualityAssessmentPage } from './pages';
 import LoyaltyPage from './pages/LoyaltyPage';
 import BroadcastPage from './pages/BroadcastPage';
 import StaffManagementPage from './pages/StaffManagementPage';
@@ -96,6 +96,7 @@ function ClinicApp() {
     if (pathname.startsWith('/room-management')) return 'room-management';
     if (pathname.startsWith('/doctor-schedule')) return 'doctor-schedule';
     if (pathname.startsWith('/loyalty')) return 'loyalty';
+    if (pathname.startsWith('/quality-assessment')) return 'quality-assessment';
     if (pathname.startsWith('/crm')) return pathname.replace('/', '');
     if (pathname.startsWith('/finance')) return pathname.replace('/', '');
     return 'calendar';
@@ -344,6 +345,7 @@ function ClinicApp() {
           <Route path="/loyalty" element={<LoyaltyPage user={user} />} />
           <Route path="/staff-management" element={<StaffManagementPage user={user} />} />
           <Route path="/settings" element={<SettingsPage user={user} />} />
+          <Route path="/quality-assessment" element={<QualityAssessmentPage user={user} />} />
           <Route path="/warehouse" element={<WarehousePage user={user} warehouseView={warehouseView} onOpenAiChat={openAiChatWithMaterialForm} onCloseAiChat={closeAiChatSidebar} aiChatSidebarOpen={aiChatSidebarOpen} materialRefreshTrigger={materialRefreshTrigger} />} />
           
           {/* Fallback routes for other tabs */}
@@ -369,6 +371,7 @@ function ClinicApp() {
               {activeTab === 'specialties' && <Specialties user={user} />}
               {activeTab === 'payment-types' && <PaymentTypes user={user} />}
               {activeTab === 'room-management' && <Rooms user={user} />}
+              {activeTab === 'quality-assessment' && <QualityAssessmentPage user={user} />}
               {activeTab === 'warehouse' && <WarehousePage user={user} warehouseView={warehouseView} onOpenAiChat={openAiChatWithMaterialForm} onCloseAiChat={closeAiChatSidebar} aiChatSidebarOpen={aiChatSidebarOpen} />}
             </div>
           } />

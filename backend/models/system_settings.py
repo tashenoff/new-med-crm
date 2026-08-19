@@ -37,6 +37,27 @@ class SystemSettings(BaseModel):
     # Настройки модели
     ai_model_temperature: float = Field(default=0.3, description="Temperature для AI модели (0-1)")
     
+    # Пользовательские инструкции для AI анализа качества
+    ai_custom_instructions: str = Field(
+        default="",
+        description="Дополнительные инструкции для AI при анализе качества коммуникаций"
+    )
+    ai_evaluation_criteria: Dict[str, Any] = Field(
+        default_factory=lambda: {
+            "response_time": {"enabled": True, "weight": 1.0, "description": "Скорость ответов оператора"},
+            "politeness": {"enabled": True, "weight": 1.0, "description": "Вежливость и уважительность"},
+            "helpfulness": {"enabled": True, "weight": 1.0, "description": "Полезность предоставленной информации"},
+            "professionalism": {"enabled": True, "weight": 1.0, "description": "Профессионализм в общении"},
+            "problem_resolution": {"enabled": True, "weight": 1.0, "description": "Эффективность решения вопроса клиента"},
+            "communication": {"enabled": True, "weight": 1.0, "description": "Качество коммуникации в целом"}
+        },
+        description="Критерии оценки с весами"
+    )
+    ai_clinic_context: str = Field(
+        default="",
+        description="Контекст клиники для AI (специфика услуг, правила общения)"
+    )
+    
     # Метаданные
     updated_at: datetime = Field(default_factory=datetime.utcnow)
     updated_by: Optional[str] = None
@@ -52,6 +73,9 @@ class SystemSettingsUpdate(BaseModel):
     ai_batch_analysis: Optional[bool] = None
     ai_batch_size: Optional[int] = None
     ai_model_temperature: Optional[float] = None
+    ai_custom_instructions: Optional[str] = None
+    ai_evaluation_criteria: Optional[Dict[str, Any]] = None
+    ai_clinic_context: Optional[str] = None
 
 
 class SystemSettingsResponse(BaseModel):
@@ -65,5 +89,8 @@ class SystemSettingsResponse(BaseModel):
     ai_batch_analysis: bool
     ai_batch_size: int
     ai_model_temperature: float
+    ai_custom_instructions: str = ""
+    ai_evaluation_criteria: Dict[str, Any] = {}
+    ai_clinic_context: str = ""
     updated_at: datetime
     updated_by: Optional[str] = None

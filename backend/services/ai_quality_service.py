@@ -31,7 +31,7 @@ OPEN_ROUTER_MODEL = os.environ.get("OPEN_ROUTER_MODEL")
 OPEN_ROUTER_URL = "https://openrouter.ai/api/v1/chat/completions"
 
 
-QUALITY_ANALYSIS_PROMPT = """Ты - эксперт по анализу качества обслуживания клиентов в медицинской клинике.
+QUALITY_ANALYSIS_PROMPT_BASE = """Ты - эксперт по анализу качества обслуживания клиентов в медицинской клинике.
 
 Проанализируй диалог между оператором (сотрудником) и клиентом через WhatsApp.
 
@@ -41,26 +41,18 @@ QUALITY_ANALYSIS_PROMPT = """Ты - эксперт по анализу каче�
 ИНФОРМАЦИЯ:
 - Оператор: {operator_name}
 - Клиент: {customer_name}
+{clinic_context}
+{custom_instructions}
 
 Оцени качество обслуживания по критериям (от 1 до 5):
-1. response_time - Скорость ответов
-2. politeness - Вежливость
-3. helpfulness - Полезность информации
-4. professionalism - Профессионализм
-5. problem_resolution - Решение вопроса
-6. communication - Качество коммуникации
+{evaluation_criteria}
 
 Ответь СТРОГО в JSON:
 {{
     "overall_score": <1-5>,
     "overall_rating": "<excellent|good|satisfactory|poor|very_poor>",
     "metrics": [
-        {{"category": "response_time", "score": <1-5>, "comment": "..."}},
-        {{"category": "politeness", "score": <1-5>, "comment": "..."}},
-        {{"category": "helpfulness", "score": <1-5>, "comment": "..."}},
-        {{"category": "professionalism", "score": <1-5>, "comment": "..."}},
-        {{"category": "problem_resolution", "score": <1-5>, "comment": "..."}},
-        {{"category": "communication", "score": <1-5>, "comment": "..."}}
+        {{"category": "<категория>", "score": <1-5>, "comment": "..."}}
     ],
     "customer_sentiment": "<positive|neutral|negative>",
     "operator_sentiment": "<positive|neutral|negative>",
@@ -72,6 +64,21 @@ QUALITY_ANALYSIS_PROMPT = """Ты - эксперт по анализу каче�
 
 overall_rating: 5=excellent, 4=good, 3=satisfactory, 2=poor, 1=very_poor
 """
+
+# Дефолтный промпт для совместимости
+QUALITY_ANALYSIS_PROMPT = QUALITY_ANALYSIS_PROMPT_BASE.format(
+    conversation="{conversation}",
+    operator_name="{operator_name}",
+    customer_name="{customer_name}",
+    clinic_context="",
+    custom_instructions="",
+    evaluation_criteria="""1. response_time - Скорость ответов
+2. politeness - Вежливость
+3. helpfulness - Полезность информации
+4. professionalism - Профессионализм
+5. problem_resolution - Решение вопроса
+6. communication - Качество коммуникации"""
+)
 
 
 class AIQualityService:
@@ -109,7 +116,7 @@ class AIQualityService:
         
         conv_text = self._format_conversation(filtered, operator_name, contact_name)
         start = datetime.utcnow()
-        ai_resp = await self._call_openrouter(conv_text, operator_name, contact_name or "Клиент", settings.ai_model_temperature)
+        ai_resp = await self._call_openrouter_with_settings(conv_text, operator_name, contact_name or "Клиент", settings)
         duration = int((datetime.utcnow() - start).total_seconds() * 1000)
         
         if not ai_resp:
@@ -146,7 +153,75 @@ class AIQualityService:
             lines.append(f"[{time_str}] {sender}: {text}")
         return "\n".join(lines)
     
+    def _build_evaluation_criteria(self, criteria: Dict[str, Any]) -> str:
+        """Собрать строку критериев оценки из настроек"""
+        if not criteria:
+            return """1. response_time - Скорость ответов
+2. politeness - Вежливость
+3. helpfulness - Полезность информации
+4. professionalism - Профессионализм
+5. problem_resolution - Решение вопроса
+6. communication - Качество коммуникации"""
+        
+        lines = []
+        idx = 1
+        for key, value in criteria.items():
+            if isinstance(value, dict) and value.get("enabled", True):
+                desc = value.get("description", key)
+                weight = value.get("weight", 1.0)
+                weight_info = f" (вес: {weight})" if weight != 1.0 else ""
+                lines.append(f"{idx}. {key} - {desc}{weight_info}")
+                idx += 1
+        
+        return "\n".join(lines) if lines else """1. response_time - Скорость ответов
+2. politeness - Вежливость
+3. helpfulness - Полезность информации
+4. professionalism - Профессионализм
+5. problem_resolution - Решение вопроса
+6. communication - Качество коммуникации"""
+
+    async def _call_openrouter_with_settings(self, conversation: str, operator: str, customer: str, settings: SystemSettings) -> Optional[Dict]:
+        """Вызов OpenRouter с использованием настраиваемых инструкций"""
+        # Собираем контекст клиники
+        clinic_context = ""
+        if settings.ai_clinic_context:
+            clinic_context = f"\nКОНТЕКСТ КЛИНИКИ:\n{settings.ai_clinic_context}"
+        
+        # Собираем пользовательские инструкции
+        custom_instructions = ""
+        if settings.ai_custom_instructions:
+            custom_instructions = f"\nДОПОЛНИТЕЛЬНЫЕ ИНСТРУКЦИИ:\n{settings.ai_custom_instructions}"
+        
+        # Собираем критерии оценки
+        evaluation_criteria = self._build_evaluation_criteria(settings.ai_evaluation_criteria)
+        
+        # Формируем промпт
+        prompt = QUALITY_ANALYSIS_PROMPT_BASE.format(
+            conversation=conversation,
+            operator_name=operator,
+            customer_name=customer,
+            clinic_context=clinic_context,
+            custom_instructions=custom_instructions,
+            evaluation_criteria=evaluation_criteria
+        )
+        
+        payload = {
+            "model": OPEN_ROUTER_MODEL, 
+            "messages": [{"role": "user", "content": prompt}], 
+            "temperature": settings.ai_model_temperature, 
+            "max_tokens": 2000
+        }
+        headers = {"Authorization": f"Bearer {OPEN_ROUTER_API_KEY}", "Content-Type": "application/json"}
+        try:
+            resp = await asyncio.to_thread(requests.post, OPEN_ROUTER_URL, json=payload, headers=headers, timeout=60)
+            resp.raise_for_status()
+            return resp.json()
+        except Exception as e:
+            logger.exception(f"Ошибка OpenRouter: {e}")
+            return None
+
     async def _call_openrouter(self, conversation: str, operator: str, customer: str, temp: float) -> Optional[Dict]:
+        """Обратная совместимость - вызов без настроек"""
         prompt = QUALITY_ANALYSIS_PROMPT.format(conversation=conversation, operator_name=operator, customer_name=customer)
         payload = {"model": OPEN_ROUTER_MODEL, "messages": [{"role": "user", "content": prompt}], "temperature": temp, "max_tokens": 2000}
         headers = {"Authorization": f"Bearer {OPEN_ROUTER_API_KEY}", "Content-Type": "application/json"}
