@@ -49,7 +49,8 @@ async def create_inventory(
     """Создать новую инвентаризацию"""
     return await service.create_inventory(
         inventory_data, 
-        created_by=current_user.email
+        created_by=current_user.email,
+        employee_name=current_user.full_name
     )
 
 

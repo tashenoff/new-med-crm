@@ -1,5 +1,6 @@
-import React, { useState, useEffect } from 'react';
-import { Calendar, User, FileText, Plus, Edit, Trash2, CheckCircle, Clock } from 'lucide-react';
+import React, { useState, useEffect, useRef } from 'react';
+import { Calendar, FileText, Plus, Edit, Trash2, CheckCircle, Clock } from 'lucide-react';
+import { materialsApi } from '../../api/materials';
 
 const WarehouseInventory = ({ user }) => {
   const [inventories, setInventories] = useState([]);
@@ -17,8 +18,9 @@ const WarehouseInventory = ({ user }) => {
 
   const loadInventories = async () => {
     try {
+      const API = import.meta.env.VITE_BACKEND_URL;
       const token = localStorage.getItem('token');
-      let url = '/api/inventories?';
+      let url = `${API}/api/inventories?`;
       if (selectedWarehouse) url += `warehouse=${encodeURIComponent(selectedWarehouse)}&`;
       if (selectedStatus) url += `status=${encodeURIComponent(selectedStatus)}`;
 
@@ -44,19 +46,13 @@ const WarehouseInventory = ({ user }) => {
 
   const loadMaterials = async () => {
     try {
-      const token = localStorage.getItem('token');
-      const response = await fetch('/api/materials?status=active', {
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
-      
-      if (!response.ok) {
-        console.error('Ошибка загрузки материалов:', response.status);
+      const result = await materialsApi.list('', 'active');
+      if (result.success) {
+        setMaterials(Array.isArray(result.data) ? result.data : []);
+      } else {
+        console.error('Ошибка загрузки материалов:', result.error);
         setMaterials([]);
-        return;
       }
-      
-      const data = await response.json();
-      setMaterials(Array.isArray(data) ? data : []);
     } catch (error) {
       console.error('Ошибка загрузки материалов:', error);
       setMaterials([]);
@@ -186,9 +182,6 @@ const WarehouseInventory = ({ user }) => {
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Дата заполнения
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Сотрудник
-                </th>
                 <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Действия
                 </th>
@@ -197,7 +190,7 @@ const WarehouseInventory = ({ user }) => {
             <tbody className="bg-white divide-y divide-gray-200">
               {inventories.length === 0 ? (
                 <tr>
-                  <td colSpan="7" className="px-6 py-12 text-center text-gray-500">
+                  <td colSpan="6" className="px-6 py-12 text-center text-gray-500">
                     <FileText className="w-12 h-12 mx-auto mb-3 text-gray-400" />
                     <p className="text-sm">Нет инвентаризаций</p>
                     <p className="text-xs text-gray-400 mt-1">Создайте первую инвентаризацию</p>
@@ -223,12 +216,6 @@ const WarehouseInventory = ({ user }) => {
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                       {formatDate(inventory.completion_date)}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      <div className="flex items-center">
-                        <User className="w-4 h-4 mr-2 text-gray-400" />
-                        {inventory.employee}
-                      </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                       <button
@@ -280,20 +267,34 @@ const WarehouseInventory = ({ user }) => {
 const InventoryModal = ({ inventory, materials, onClose, onSave }) => {
   const [formData, setFormData] = useState({
     warehouse_name: inventory?.warehouse_name || 'Склад по умолчанию',
-    employee: inventory?.employee || '',
     status: inventory?.status || 'На заполнении',
     notes: inventory?.notes || '',
     items: inventory?.items || []
   });
+  const [materialSearch, setMaterialSearch] = useState('');
+  const [materialDropdownOpen, setMaterialDropdownOpen] = useState(false);
+  const materialSearchRef = useRef(null);
+
+  const filteredMaterials = materials.filter(m =>
+    m.name.toLowerCase().includes(materialSearch.toLowerCase())
+  );
+
+  const handleMaterialSelect = (material) => {
+    addMaterial(material);
+    setMaterialSearch('');
+    setMaterialDropdownOpen(false);
+    materialSearchRef.current?.focus();
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     
     try {
       const token = localStorage.getItem('token');
+      const API = import.meta.env.VITE_BACKEND_URL;
       const url = inventory 
-        ? `/api/inventories/${inventory.id}`
-        : '/api/inventories';
+        ? `${API}/api/inventories/${inventory.id}`
+        : `${API}/api/inventories`;
       
       const method = inventory ? 'PUT' : 'POST';
       
@@ -308,9 +309,14 @@ const InventoryModal = ({ inventory, materials, onClose, onSave }) => {
 
       if (response.ok) {
         onSave();
+      } else {
+        const errorData = await response.text();
+        console.error('Ошибка сохранения инвентаризации:', response.status, errorData);
+        alert(`Ошибка сохранения: ${response.status}. ${errorData}`);
       }
     } catch (error) {
       console.error('Ошибка сохранения:', error);
+      alert('Не удалось сохранить инвентаризацию. Проверьте, запущен ли backend-сервер.');
     }
   };
 
@@ -366,7 +372,7 @@ const InventoryModal = ({ inventory, materials, onClose, onSave }) => {
 
         <form onSubmit={handleSubmit} className="flex flex-col" style={{ maxHeight: 'calc(90vh - 140px)' }}>
           <div className="px-6 py-4 overflow-y-auto">
-            <div className="grid grid-cols-2 gap-4 mb-4">
+            <div className="grid grid-cols-1 gap-4 mb-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Склад</label>
                 <select
@@ -378,17 +384,6 @@ const InventoryModal = ({ inventory, materials, onClose, onSave }) => {
                   <option value="Склад по умолчанию">Склад по умолчанию</option>
                   <option value="Основной склад">Основной склад</option>
                 </select>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Сотрудник</label>
-                <input
-                  type="text"
-                  value={formData.employee}
-                  onChange={(e) => setFormData({ ...formData, employee: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  required
-                />
               </div>
             </div>
 
@@ -416,23 +411,39 @@ const InventoryModal = ({ inventory, materials, onClose, onSave }) => {
 
             <div className="mb-2">
               <label className="block text-sm font-medium text-gray-700 mb-2">Материалы</label>
-              <select
-                onChange={(e) => {
-                  const material = materials.find(m => m.id === e.target.value);
-                  if (material) {
-                    addMaterial(material);
-                    e.target.value = '';
-                  }
-                }}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 mb-2"
-              >
-                <option value="">Выберите материал для добавления</option>
-                {materials.map(material => (
-                  <option key={material.id} value={material.id}>
-                    {material.name} (остаток: {material.balance})
-                  </option>
-                ))}
-              </select>
+              <div className="relative mb-2" ref={materialSearchRef}>
+                <input
+                  type="text"
+                  placeholder="Поиск материала..."
+                  value={materialSearch}
+                  onChange={(e) => {
+                    setMaterialSearch(e.target.value);
+                    setMaterialDropdownOpen(true);
+                  }}
+                  onFocus={() => setMaterialDropdownOpen(true)}
+                  onBlur={() => setTimeout(() => setMaterialDropdownOpen(false), 200)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+                {materialDropdownOpen && (
+                  <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-48 overflow-y-auto">
+                    {filteredMaterials.length === 0 ? (
+                      <div className="px-3 py-2 text-sm text-gray-500">Ничего не найдено</div>
+                    ) : (
+                      filteredMaterials.map(material => (
+                        <button
+                          key={material.id}
+                          type="button"
+                          onClick={() => handleMaterialSelect(material)}
+                          className="w-full px-3 py-2 text-left text-sm hover:bg-blue-50 focus:bg-blue-50 focus:outline-none border-b border-gray-100 last:border-b-0"
+                        >
+                          <span className="font-medium">{material.name}</span>
+                          <span className="text-gray-500 ml-2">(остаток: {material.balance})</span>
+                        </button>
+                      ))
+                    )}
+                  </div>
+                )}
+              </div>
 
               {formData.items.length > 0 && (
                 <div className="border border-gray-200 rounded-lg overflow-hidden">

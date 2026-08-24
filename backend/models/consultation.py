@@ -37,6 +37,9 @@ class ConsultationSheet(BaseModel):
     consultation_date: datetime = Field(default_factory=datetime.utcnow)
     complaints: Optional[str] = None  # Жалобы
     anamnesis: Optional[str] = None  # Анамнез
+    anamnesis_morbi: Optional[str] = None  # Анамнез заболевания
+    anamnesis_vitae: Optional[str] = None  # Анамнез жизни
+    local_status: Optional[str] = None  # Локальный статус
     examination: Optional[str] = None  # Объективный осмотр
     icd10_codes: List[ICD10Code] = []  # МКБ-10 коды
     diagnosis: Optional[str] = None  # Диагноз
@@ -56,6 +59,9 @@ class ConsultationSheetCreate(BaseModel):
     doctor_id: str
     complaints: Optional[str] = None
     anamnesis: Optional[str] = None
+    anamnesis_morbi: Optional[str] = None
+    anamnesis_vitae: Optional[str] = None
+    local_status: Optional[str] = None
     examination: Optional[str] = None
     icd10_codes: List[ICD10Code] = []
     diagnosis: Optional[str] = None
@@ -70,6 +76,9 @@ class ConsultationSheetUpdate(BaseModel):
     doctor_id: Optional[str] = None
     complaints: Optional[str] = None
     anamnesis: Optional[str] = None
+    anamnesis_morbi: Optional[str] = None
+    anamnesis_vitae: Optional[str] = None
+    local_status: Optional[str] = None
     examination: Optional[str] = None
     icd10_codes: Optional[List[ICD10Code]] = None
     diagnosis: Optional[str] = None

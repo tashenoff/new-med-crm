@@ -35,7 +35,7 @@ class InventoryBase(BaseModel):
     """Базовая модель инвентаризации"""
     warehouse_name: str
     status: InventoryStatus = InventoryStatus.IN_PROGRESS
-    employee: str  # ФИО сотрудника, проводящего инвентаризацию
+    employee: Optional[str] = None  # ФИО сотрудника (автозаполняется из текущего пользователя)
     notes: Optional[str] = None
 
 

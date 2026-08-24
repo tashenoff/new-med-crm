@@ -32,7 +32,8 @@ const AppointmentTimeFields = ({
   const endTime = appointmentForm.end_time || '';
 
   const duration = useMemo(() => getDurationMinutes(startTime, endTime), [startTime, endTime]);
-  const [isCustom, setIsCustom] = useState(false);
+  // Произвольное время включено по умолчанию (поле "Время окончания" активно)
+  const [isCustom, setIsCustom] = useState(true);
 
   // Если длительность не совпадает с пресетами — включаем режим произвольного времени
   useEffect(() => {
@@ -73,7 +74,7 @@ const AppointmentTimeFields = ({
 
   return (
     <div className="space-y-3">
-      <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
+      <div className="grid grid-cols-2 gap-4 md:grid-cols-3">
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">Дата приема *</label>
           <input
@@ -98,6 +99,7 @@ const AppointmentTimeFields = ({
           />
         </div>
 
+        {/* Длительность — скрыта, произвольное время по умолчанию
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">Длительность *</label>
           <select
@@ -111,6 +113,7 @@ const AppointmentTimeFields = ({
             ))}
           </select>
         </div>
+        */}
 
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -124,12 +127,7 @@ const AppointmentTimeFields = ({
               onEndTimeChange(e.target.value);
             }}
             className={inputClasses}
-            readOnly={!isCustom}
-            title={isCustom ? '' : 'Выберите «Произвольное время», чтобы указать время вручную'}
           />
-          {isCustom && (
-            <p className="text-xs text-blue-600 mt-1">Произвольное время</p>
-          )}
         </div>
       </div>
 

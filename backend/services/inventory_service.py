@@ -11,7 +11,7 @@ from models.inventory import (
     Inventory, InventoryCreate, InventoryUpdate, 
     InventoryItem, InventoryStatus, MaterialNeedsAttention
 )
-from models.material import Material
+from models.material import Material, WarehouseThreshold
 
 
 class InventoryService:
@@ -58,7 +58,8 @@ class InventoryService:
     async def create_inventory(
         self, 
         inventory_data: InventoryCreate,
-        created_by: str
+        created_by: str,
+        employee_name: str = None
     ) -> Inventory:
         """Создать новую инвентаризацию"""
         # Получить следующий номер
@@ -70,9 +71,14 @@ class InventoryService:
             for item in inventory_data.items
         ]
         
+        # Автозаполнение сотрудника из текущего пользователя, если не указано
+        data_dict = inventory_data.model_dump(exclude={"items"})
+        if not data_dict.get("employee") and employee_name:
+            data_dict["employee"] = employee_name
+        
         # Создать инвентаризацию
         inventory = Inventory(
-            **inventory_data.model_dump(exclude={"items"}),
+            **data_dict,
             number=number,
             items=items,
             created_by=created_by
@@ -101,6 +107,23 @@ class InventoryService:
         # Если статус меняется на "Заполнено", добавить дату заполнения
         if update_dict.get("status") == InventoryStatus.COMPLETED:
             update_dict["completion_date"] = datetime.utcnow()
+            
+            # Обновить остатки материалов на складе по фактическим данным инвентаризации
+            if "items" in update_dict:
+                for item in update_dict["items"]:
+                    if item.get("actual_quantity") is not None:
+                        material_id = item.get("material_id")
+                        actual_qty = item["actual_quantity"]
+                        
+                        # Обновляем balance материала и фиксируем инвентаризационную корректировку
+                        await self.db.materials.update_one(
+                            {"id": material_id},
+                            {"$set": {
+                                "balance": actual_qty,
+                                "inventory": actual_qty,
+                                "updated_at": datetime.utcnow()
+                            }}
+                        )
         
         update_dict["updated_at"] = datetime.utcnow()
 
@@ -134,9 +157,17 @@ class InventoryService:
         for material_data in materials:
             material = Material(**material_data)
             
+            # Если у материала не настроены склады — используем минимальный остаток 0,
+            # но материал с нулевым остатком всё равно должен попасть в внимание
+            warehouse_thresholds = material.warehouses or []
+            if not warehouse_thresholds:
+                warehouse_thresholds = [
+                    WarehouseThreshold(warehouse_name="Без склада", min_stock=0.0)
+                ]
+            
             # Проверить каждый склад
-            for warehouse in material.warehouses:
-                if material.balance < warehouse.min_stock:
+            for warehouse in warehouse_thresholds:
+                if material.balance <= warehouse.min_stock:
                     shortage = warehouse.min_stock - material.balance
                     
                     # Найти последнюю инвентаризацию для этого материала и склада

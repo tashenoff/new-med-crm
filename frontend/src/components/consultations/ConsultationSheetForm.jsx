@@ -10,6 +10,9 @@ const ConsultationSheetForm = ({ patientId, onSave, onCancel, editingSheet = nul
   const [servicesError, setServicesError] = useState('');
   const [visibleFields, setVisibleFields] = useState({
     complaints: true,
+    anamnesis_morbi: true,
+    anamnesis_vitae: true,
+    local_status: true,
     examination: true,
     icd10_codes: true,
     diagnosis: true,
@@ -21,6 +24,9 @@ const ConsultationSheetForm = ({ patientId, onSave, onCancel, editingSheet = nul
     patient_id: patientId,
     doctor_id: '',
     complaints: '',
+    anamnesis_morbi: '',
+    anamnesis_vitae: '',
+    local_status: '',
     examination: '',
     icd10_codes: [],
     diagnosis: '',
@@ -46,6 +52,9 @@ const ConsultationSheetForm = ({ patientId, onSave, onCancel, editingSheet = nul
         patient_id: editingSheet.patient_id,
         doctor_id: editingSheet.doctor_id,
         complaints: editingSheet.complaints || '',
+        anamnesis_morbi: editingSheet.anamnesis_morbi || '',
+        anamnesis_vitae: editingSheet.anamnesis_vitae || '',
+        local_status: editingSheet.local_status || '',
         examination: editingSheet.examination || '',
         icd10_codes: editingSheet.icd10_codes || [],
         diagnosis: editingSheet.diagnosis || '',
@@ -185,6 +194,84 @@ const ConsultationSheetForm = ({ patientId, onSave, onCancel, editingSheet = nul
             className={textareaClasses}
             rows="3"
             placeholder="Опишите жалобы пациента..."
+          />
+        </div>
+      )}
+
+      {/* Анамнез заболевания */}
+      {visibleFields.anamnesis_morbi && (
+        <div>
+          <div className="flex justify-between items-center mb-1">
+            <label className="text-sm font-medium text-gray-700">
+              Анамнез заболевания
+            </label>
+            <button
+              type="button"
+              onClick={() => toggleFieldVisibility('anamnesis_morbi')}
+              className="text-gray-400 hover:text-red-600 transition-colors"
+              title="Скрыть поле"
+            >
+              ✕
+            </button>
+          </div>
+          <textarea
+            value={form.anamnesis_morbi}
+            onChange={(e) => setForm({ ...form, anamnesis_morbi: e.target.value })}
+            className={textareaClasses}
+            rows="3"
+            placeholder="История развития заболевания..."
+          />
+        </div>
+      )}
+
+      {/* Анамнез жизни */}
+      {visibleFields.anamnesis_vitae && (
+        <div>
+          <div className="flex justify-between items-center mb-1">
+            <label className="text-sm font-medium text-gray-700">
+              Анамнез жизни
+            </label>
+            <button
+              type="button"
+              onClick={() => toggleFieldVisibility('anamnesis_vitae')}
+              className="text-gray-400 hover:text-red-600 transition-colors"
+              title="Скрыть поле"
+            >
+              ✕
+            </button>
+          </div>
+          <textarea
+            value={form.anamnesis_vitae}
+            onChange={(e) => setForm({ ...form, anamnesis_vitae: e.target.value })}
+            className={textareaClasses}
+            rows="3"
+            placeholder="Условия жизни, перенесённые заболевания, вредные привычки..."
+          />
+        </div>
+      )}
+
+      {/* Локальный статус */}
+      {visibleFields.local_status && (
+        <div>
+          <div className="flex justify-between items-center mb-1">
+            <label className="text-sm font-medium text-gray-700">
+              Локальный статус
+            </label>
+            <button
+              type="button"
+              onClick={() => toggleFieldVisibility('local_status')}
+              className="text-gray-400 hover:text-red-600 transition-colors"
+              title="Скрыть поле"
+            >
+              ✕
+            </button>
+          </div>
+          <textarea
+            value={form.local_status}
+            onChange={(e) => setForm({ ...form, local_status: e.target.value })}
+            className={textareaClasses}
+            rows="3"
+            placeholder="Описание локального статуса..."
           />
         </div>
       )}
@@ -478,7 +565,7 @@ const ConsultationSheetForm = ({ patientId, onSave, onCancel, editingSheet = nul
       )}
 
       {/* Панель восстановления скрытых полей */}
-      {(!visibleFields.complaints || !visibleFields.examination || 
+      {(!visibleFields.complaints || !visibleFields.anamnesis_morbi || !visibleFields.anamnesis_vitae || !visibleFields.local_status || !visibleFields.examination || 
         !visibleFields.icd10_codes || !visibleFields.diagnosis || !visibleFields.treatment || 
         !visibleFields.recommendations || !visibleFields.notes) && (
         <div className="bg-gray-50 border border-gray-300 rounded-lg p-3">
@@ -491,6 +578,33 @@ const ConsultationSheetForm = ({ patientId, onSave, onCancel, editingSheet = nul
                 className="px-3 py-1 bg-blue-100 text-blue-700 rounded hover:bg-blue-200 text-sm"
               >
                 + Жалобы
+              </button>
+            )}
+            {!visibleFields.anamnesis_morbi && (
+              <button
+                type="button"
+                onClick={() => toggleFieldVisibility('anamnesis_morbi')}
+                className="px-3 py-1 bg-blue-100 text-blue-700 rounded hover:bg-blue-200 text-sm"
+              >
+                + Анамнез заболевания
+              </button>
+            )}
+            {!visibleFields.anamnesis_vitae && (
+              <button
+                type="button"
+                onClick={() => toggleFieldVisibility('anamnesis_vitae')}
+                className="px-3 py-1 bg-blue-100 text-blue-700 rounded hover:bg-blue-200 text-sm"
+              >
+                + Анамнез жизни
+              </button>
+            )}
+            {!visibleFields.local_status && (
+              <button
+                type="button"
+                onClick={() => toggleFieldVisibility('local_status')}
+                className="px-3 py-1 bg-blue-100 text-blue-700 rounded hover:bg-blue-200 text-sm"
+              >
+                + Локальный статус
               </button>
             )}
             {!visibleFields.examination && (

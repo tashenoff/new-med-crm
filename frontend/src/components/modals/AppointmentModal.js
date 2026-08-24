@@ -70,6 +70,7 @@ const AppointmentModal = ({
   const [consentDragOver, setConsentDragOver] = useState(false);
   const [uploadingConsent, setUploadingConsent] = useState(false);
   const [hasSignature, setHasSignature] = useState(false);
+  const [submitting, setSubmitting] = useState(false); // Локальный прелоадер для защиты от двойного нажатия
   const signaturePadRef = useRef(null);
   const [acceptedConsents, setAcceptedConsents] = useState({});
   const [requiredConsents, setRequiredConsents] = useState([CONSENT_DOCUMENTS.base]);
@@ -835,6 +836,7 @@ const AppointmentModal = ({
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    setSubmitting(true);
 
     // Минимальная длительность сеанса — 30 минут
     const durationCheck = validateAppointmentDuration(
@@ -895,7 +897,11 @@ const AppointmentModal = ({
 
     // Передаём управление родительскому обработчику
     // Передаём данные формы, а не event
-    onSave(appointmentForm);
+    try {
+      await onSave(appointmentForm);
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   if (!show) return null;
@@ -1254,6 +1260,7 @@ const AppointmentModal = ({
               </div>
               */}
 
+              {/* Тип оплаты — скрыт, используется в плане лечения
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Тип оплаты</label>
                 <select
@@ -1270,6 +1277,7 @@ const AppointmentModal = ({
                   ))}
                 </select>
               </div>
+              */}
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Статус записи</label>
@@ -1315,8 +1323,15 @@ const AppointmentModal = ({
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">Тип депозита</label>
                       <select
-                        value={appointmentForm.deposit_type || ''}
-                        onChange={(e) => setAppointmentForm({ ...appointmentForm, deposit_type: e.target.value, deposit: '' })}
+                        value={appointmentForm.deposit_type || 'fixed'}
+                        onChange={(e) => {
+                          const newType = e.target.value;
+                          setAppointmentForm({ 
+                            ...appointmentForm, 
+                            deposit_type: newType, 
+                            deposit: newType === 'fixed' ? 2000 : '' 
+                          });
+                        }}
                         className={`${selectClasses} ${isDepositLocked ? 'bg-gray-100 cursor-not-allowed' : ''}`}
                         disabled={isDepositLocked}
                       >
@@ -1367,6 +1382,7 @@ const AppointmentModal = ({
           </div>
 
           <div className="hidden">
+            {/* Тип оплаты — скрыт, используется в плане лечения
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Тип оплаты</label>
               <select
@@ -1383,6 +1399,7 @@ const AppointmentModal = ({
                 ))}
               </select>
             </div>
+            */}
 
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Статус записи</label>
@@ -1551,16 +1568,16 @@ const AppointmentModal = ({
           <div className="flex space-x-3">
             <button
               type="submit"
-              disabled={loading || uploadingConsent}
+              disabled={loading || uploadingConsent || submitting}
               className="flex-1 bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700 disabled:opacity-50 flex items-center justify-center gap-2"
             >
-              {(loading || uploadingConsent) && (
+              {(loading || uploadingConsent || submitting) && (
                 <svg className="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                   <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                   <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                 </svg>
               )}
-              {uploadingConsent ? 'Сохранение подписи...' : loading ? 'Сохранение записи...' : (editingItem ? 'Обновить' : 'Создать')}
+              {uploadingConsent ? 'Сохранение подписи...' : (loading || submitting) ? 'Сохранение записи...' : (editingItem ? 'Обновить' : 'Создать')}
             </button>
             <button
               type="button"

@@ -11,8 +11,9 @@ const WarehouseAttention = () => {
 
   const loadMaterialsNeedingAttention = async () => {
     try {
+      const API = import.meta.env.VITE_BACKEND_URL;
       const token = localStorage.getItem('token');
-      const response = await fetch('/api/materials/needs-attention', {
+      const response = await fetch(`${API}/api/materials/needs-attention`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       
@@ -42,6 +43,7 @@ const WarehouseAttention = () => {
   };
 
   const getSeverityColor = (shortage, minStock) => {
+    if (minStock <= 0) return 'bg-red-100 border-red-300';
     const percentage = (shortage / minStock) * 100;
     if (percentage >= 75) return 'bg-red-100 border-red-300';
     if (percentage >= 50) return 'bg-orange-100 border-orange-300';
@@ -49,6 +51,7 @@ const WarehouseAttention = () => {
   };
 
   const getSeverityTextColor = (shortage, minStock) => {
+    if (minStock <= 0) return 'text-red-800';
     const percentage = (shortage / minStock) * 100;
     if (percentage >= 75) return 'text-red-800';
     if (percentage >= 50) return 'text-orange-800';
@@ -141,7 +144,9 @@ const WarehouseAttention = () => {
                 <div>
                   <div className="text-xs text-gray-600 mb-1">Процент дефицита</div>
                   <div className={`text-lg font-semibold ${getSeverityTextColor(material.shortage, material.min_stock)}`}>
-                    {((material.shortage / material.min_stock) * 100).toFixed(1)}%
+                    {material.min_stock > 0
+                      ? `${((material.shortage / material.min_stock) * 100).toFixed(1)}%`
+                      : '100%'}
                   </div>
                 </div>
 
@@ -165,13 +170,13 @@ const WarehouseAttention = () => {
                 <div className="w-full bg-gray-200 rounded-full h-2 overflow-hidden">
                   <div
                     className={`h-2 rounded-full transition-all ${
-                      (material.shortage / material.min_stock) * 100 >= 75
+                      (material.min_stock > 0 && (material.shortage / material.min_stock) * 100 >= 75)
                         ? 'bg-red-500'
-                        : (material.shortage / material.min_stock) * 100 >= 50
+                        : (material.min_stock > 0 && (material.shortage / material.min_stock) * 100 >= 50)
                         ? 'bg-orange-500'
                         : 'bg-yellow-500'
                     }`}
-                    style={{ width: `${Math.min(100, (material.shortage / material.min_stock) * 100)}%` }}
+                    style={{ width: `${Math.min(100, material.min_stock > 0 ? (material.shortage / material.min_stock) * 100 : 100)}%` }}
                   />
                 </div>
               </div>
