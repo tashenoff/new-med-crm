@@ -35,8 +35,10 @@ const EnhancedLeadsView = ({ user }) => {
     description: '',
     priority: 'medium',
     due_date: '',
-    type: 'call'
+    type: 'call',
+    status: 'new'
   });
+  const [taskStatuses, setTaskStatuses] = useState([]);
   const [newLead, setNewLead] = useState({
     first_name: '',
     last_name: '',
@@ -238,10 +240,29 @@ const EnhancedLeadsView = ({ user }) => {
     other: 'Другое'
   };
 
+  // Загрузка статусов задач
+  const fetchTaskStatuses = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      const baseUrl = import.meta.env.VITE_BACKEND_URL || 'https://medicodebase.preview.emergentagent.com';
+      const response = await fetch(`${baseUrl}/api/crm/task-statuses`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (response.ok) {
+        const data = await response.json();
+        setTaskStatuses(data.statuses || []);
+        console.log('✅ Загружено статусов задач:', data.statuses?.length || 0);
+      }
+    } catch (error) {
+      console.error('Error loading task statuses:', error);
+    }
+  };
+
   useEffect(() => {
     fetchLeads();
     fetchAvailableManagers();
     fetchSources();
+    fetchTaskStatuses();
   }, []);
 
   useEffect(() => {
@@ -295,6 +316,9 @@ const EnhancedLeadsView = ({ user }) => {
     setSelectedLeadForHms(lead);
     setShowHmsDataModal(true);
     setLoadingHmsData(true);
+
+    // Загружаем задачи для этого лида
+    loadLeadTasks(lead.id);
 
     try {
       const API = import.meta.env.VITE_BACKEND_URL || 'https://medicodebase.preview.emergentagent.com';
@@ -474,6 +498,20 @@ const EnhancedLeadsView = ({ user }) => {
   const handleCreateTask = async () => {
     try {
       const token = localStorage.getItem('token');
+      
+      // Подготовка данных задачи
+      const taskData = {
+        title: newTask.title,
+        type: newTask.type,
+        priority: newTask.priority,
+        status: newTask.status,
+        lead_id: selectedLead?.id
+      };
+      
+      // Добавляем опциональные поля только если они заполнены
+      if (newTask.description) taskData.description = newTask.description;
+      if (newTask.due_date) taskData.due_date = newTask.due_date;
+      
       const response = await fetch(
         `${import.meta.env.VITE_BACKEND_URL || 'https://medicodebase.preview.emergentagent.com'}/api/crm/tasks`,
         {
@@ -482,10 +520,7 @@ const EnhancedLeadsView = ({ user }) => {
             'Content-Type': 'application/json',
             'Authorization': `Bearer ${token}`
           },
-          body: JSON.stringify({
-            ...newTask,
-            lead_id: selectedLead?.id
-          })
+          body: JSON.stringify(taskData)
         }
       );
       
@@ -496,7 +531,8 @@ const EnhancedLeadsView = ({ user }) => {
           description: '',
           priority: 'medium',
           due_date: '',
-          type: 'call'
+          type: 'call',
+          status: 'new'
         });
         // Обновляем список задач для этой заявки
         if (selectedLead) {
@@ -1473,6 +1509,36 @@ const EnhancedLeadsView = ({ user }) => {
               />
             </div>
           </div>
+
+          {/* Выбор статуса задачи */}
+          <div>
+            <label className={labelClasses}>Статус задачи</label>
+            <select
+              value={newTask.status}
+              onChange={(e) => setNewTask({...newTask, status: e.target.value})}
+              className={inputClasses}
+            >
+              {taskStatuses.length > 0 ? (
+                taskStatuses.map((status) => (
+                  <option key={status.id} value={status.code}>
+                    {status.icon} {status.name}
+                  </option>
+                ))
+              ) : (
+                <>
+                  <option value="new">📋 Новая</option>
+                  <option value="in_progress">⏳ В работе</option>
+                  <option value="completed">✅ Выполнена</option>
+                  <option value="cancelled">❌ Отменена</option>
+                </>
+              )}
+            </select>
+            {taskStatuses.length > 0 && (
+              <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                Статусы настраиваются в разделе "Справочники → Статусы задач"
+              </p>
+            )}
+          </div>
         </div>
         
         <div className="flex justify-end gap-3 mt-6">
@@ -1666,6 +1732,67 @@ const EnhancedLeadsView = ({ user }) => {
                 </table>
               ) : <div className="text-gray-500 text-center py-4">Приемы не найдены</div>}
             </div>
+
+            {/* Раздел задач */}
+            <div>
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-semibold">✅ Задачи</h3>
+                <button
+                  onClick={() => {
+                    setSelectedLead(selectedLeadForHms);
+                    setShowTaskModal(true);
+                  }}
+                  className="bg-purple-600 text-white px-3 py-1.5 text-sm rounded-lg hover:bg-purple-700 transition-colors flex items-center gap-1"
+                >
+                  <Plus className="w-4 h-4" />
+                  Создать задачу
+                </button>
+              </div>
+              {selectedLeadForHms && leadTasks[selectedLeadForHms.id]?.length > 0 ? (
+                <div className="space-y-2">
+                  {leadTasks[selectedLeadForHms.id].map((task) => {
+                    const statusInfo = taskStatuses.find(s => s.code === task.status) || { icon: '📋', name: task.status, color: '#6B7280' };
+                    return (
+                      <div key={task.id} className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700 rounded-lg border border-gray-200 dark:border-gray-600">
+                        <div className="flex items-center gap-3">
+                          <span className="text-lg">{statusInfo.icon}</span>
+                          <div>
+                            <div className="font-medium text-sm">{task.title}</div>
+                            <div className="text-xs text-gray-500 flex items-center gap-2">
+                              <span>{taskTypes[task.type]?.label || task.type}</span>
+                              {task.due_date && (
+                                <span className={task.status === 'overdue' ? 'text-red-500' : ''}>
+                                  • До {new Date(task.due_date).toLocaleDateString('ru-RU')}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <span 
+                            className="px-2 py-1 text-xs rounded-full text-white"
+                            style={{ backgroundColor: statusInfo.color }}
+                          >
+                            {statusInfo.name}
+                          </span>
+                          <span className={`px-2 py-1 text-xs rounded-full ${
+                            task.priority === 'high' || task.priority === 'urgent' ? 'bg-red-100 text-red-800' :
+                            task.priority === 'medium' ? 'bg-yellow-100 text-yellow-800' : 'bg-gray-100 text-gray-800'
+                          }`}>
+                            {task.priority === 'high' ? 'Высокий' : task.priority === 'urgent' ? 'Срочный' : task.priority === 'medium' ? 'Средний' : 'Низкий'}
+                          </span>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : (
+                <div className="text-gray-500 text-center py-4 bg-gray-50 dark:bg-gray-700 rounded-lg">
+                  Задач пока нет. Нажмите "Создать задачу" чтобы добавить.
+                </div>
+              )}
+            </div>
+
             <div className="flex justify-end pt-4"><button onClick={() => setShowHmsDataModal(false)} className="px-4 py-2 text-gray-600 hover:text-gray-800">Закрыть</button></div>
           </div>
         )}

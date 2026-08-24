@@ -14,12 +14,12 @@ from models.auth import User
 from database import get_database
 
 
-router = APIRouter(prefix="/api/crm/tasks", tags=["CRM Tasks"])
+router = APIRouter(prefix="/tasks", tags=["CRM Tasks"])
 
 
-async def get_task_service() -> TaskService:
+def get_task_service() -> TaskService:
     """Получить сервис задач"""
-    db = await get_database()
+    db = get_database()
     return TaskService(db)
 
 
@@ -32,7 +32,7 @@ async def create_task(
     Создать новую задачу
     """
     try:
-        task_service = await get_task_service()
+        task_service = get_task_service()
         task = await task_service.create_task(task_data, created_by=current_user.username)
         return task
     except Exception as e:
@@ -58,7 +58,7 @@ async def get_tasks(
     Получить список задач с фильтрацией
     """
     try:
-        task_service = await get_task_service()
+        task_service = get_task_service()
         
         # Формируем фильтры
         filters = TaskSearchFilters(
@@ -89,7 +89,7 @@ async def count_tasks(
     Подсчитать количество задач
     """
     try:
-        task_service = await get_task_service()
+        task_service = get_task_service()
         
         filters = None
         if status or assigned_to:
@@ -129,7 +129,7 @@ async def get_overdue_tasks(
     Получить просроченные задачи
     """
     try:
-        task_service = await get_task_service()
+        task_service = get_task_service()
         tasks = await task_service.get_overdue_tasks(assigned_to=assigned_to)
         return tasks
     except Exception as e:
@@ -145,7 +145,7 @@ async def get_tasks_by_lead(
     Получить задачи по лиду
     """
     try:
-        task_service = await get_task_service()
+        task_service = get_task_service()
         tasks = await task_service.get_tasks_by_lead(lead_id)
         return tasks
     except Exception as e:
@@ -161,7 +161,7 @@ async def get_tasks_by_client(
     Получить задачи по клиенту
     """
     try:
-        task_service = await get_task_service()
+        task_service = get_task_service()
         tasks = await task_service.get_tasks_by_client(client_id)
         return tasks
     except Exception as e:
@@ -177,7 +177,7 @@ async def get_task(
     Получить задачу по ID
     """
     try:
-        task_service = await get_task_service()
+        task_service = get_task_service()
         task = await task_service.get_task_by_id(task_id)
         if not task:
             raise HTTPException(status_code=404, detail="Задача не найдена")
@@ -198,7 +198,7 @@ async def update_task(
     Обновить задачу
     """
     try:
-        task_service = await get_task_service()
+        task_service = get_task_service()
         task = await task_service.update_task(task_id, update_data)
         if not task:
             raise HTTPException(status_code=404, detail="Задача не найдена")
@@ -218,7 +218,7 @@ async def delete_task(
     Удалить задачу
     """
     try:
-        task_service = await get_task_service()
+        task_service = get_task_service()
         success = await task_service.delete_task(task_id)
         if not success:
             raise HTTPException(status_code=404, detail="Задача не найдена")
@@ -238,7 +238,7 @@ async def complete_task(
     Отметить задачу как выполненную
     """
     try:
-        task_service = await get_task_service()
+        task_service = get_task_service()
         task = await task_service.complete_task(task_id)
         if not task:
             raise HTTPException(status_code=404, detail="Задача не найдена")
@@ -258,7 +258,7 @@ async def cancel_task(
     Отменить задачу
     """
     try:
-        task_service = await get_task_service()
+        task_service = get_task_service()
         task = await task_service.cancel_task(task_id)
         if not task:
             raise HTTPException(status_code=404, detail="Задача не найдена")
@@ -277,7 +277,7 @@ async def update_overdue_tasks(
     Обновить статус просроченных задач (служебный endpoint)
     """
     try:
-        task_service = await get_task_service()
+        task_service = get_task_service()
         count = await task_service.update_overdue_tasks()
         return {"updated_count": count, "message": f"Обновлено {count} просроченных задач"}
     except Exception as e:

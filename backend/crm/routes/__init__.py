@@ -9,6 +9,7 @@ from .contacts import contacts_router
 from .sources import sources_router
 from .integration import integration_router
 from .tasks import router as tasks_router
+from .task_statuses import router as task_statuses_router
 
 # Основной роутер CRM
 crm_router = APIRouter(tags=["CRM"])
@@ -22,6 +23,7 @@ crm_router.include_router(contacts_router)
 crm_router.include_router(sources_router)
 crm_router.include_router(integration_router)
 crm_router.include_router(tasks_router)
+crm_router.include_router(task_statuses_router)
 
 __all__ = ["crm_router"]
 

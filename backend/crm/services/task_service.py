@@ -25,7 +25,9 @@ class TaskService:
         task_dict["created_at"] = datetime.utcnow()
         task_dict["updated_at"] = datetime.utcnow()
         task_dict["created_by"] = created_by
-        task_dict["status"] = TaskStatus.NEW
+        # Используем статус из входных данных или NEW по умолчанию
+        if "status" not in task_dict or task_dict["status"] is None:
+            task_dict["status"] = TaskStatus.NEW
         
         # Создаем объект Task для валидации
         task = Task(**task_dict)

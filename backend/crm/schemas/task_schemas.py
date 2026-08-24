@@ -14,6 +14,7 @@ class TaskCreate(BaseModel):
     type: TaskType = Field(TaskType.CALL, description="Тип задачи")
     custom_type_name: Optional[str] = Field(None, description="Название пользовательского типа")
     description: Optional[str] = Field(None, description="Описание задачи")
+    status: TaskStatus = Field(TaskStatus.NEW, description="Статус задачи")
     priority: TaskPriority = Field(TaskPriority.MEDIUM, description="Приоритет")
     assigned_to: Optional[str] = Field(None, description="ID ответственного менеджера")
     lead_id: Optional[str] = Field(None, description="ID связанного лида")

@@ -27,6 +27,7 @@ import FunnelView from './components/crm/funnel/FunnelView';
 import ManagersView from './components/crm/managers/ManagersView';
 import SourcesView from './components/crm/contacts/ContactsView';
 import TasksView from './components/crm/tasks/TasksView';
+import TaskStatuses from './components/crm/directory/TaskStatuses';
 
 import FinanceDashboard from './components/finance/dashboard/FinanceDashboard';
 import IncomeView from './components/finance/income/IncomeView';
@@ -358,6 +359,7 @@ function ClinicApp() {
               {activeTab === 'crm-deals' && <FunnelView user={user} />}
               {activeTab === 'crm-managers' && <ManagersView user={user} />}
               {activeTab === 'crm-contacts' && <SourcesView user={user} />}
+              {activeTab === 'crm-task-statuses' && <TaskStatuses user={user} />}
               {activeTab === 'finance-dashboard' && <FinanceDashboard user={user} />}
               {activeTab === 'finance-income' && <IncomeView user={user} />}
               {activeTab === 'finance-expenses' && <ExpensesView user={user} />}
