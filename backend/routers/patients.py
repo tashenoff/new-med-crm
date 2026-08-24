@@ -37,6 +37,7 @@ class Patient(BaseModel):
     birth_date: Optional[str] = None  # Date of birth (YYYY-MM-DD format)
     gender: Optional[str] = None  # "male", "female", "other"
     source: PatientSource = PatientSource.OTHER
+    source_id: Optional[str] = None  # ID источника из CRM
     referrer: Optional[str] = None  # Who referred this patient
     notes: Optional[str] = None
     # Additional name fields (for CRM integration)
@@ -74,22 +75,24 @@ class Patient(BaseModel):
 class PatientCreate(BaseModel):
     full_name: str
     phone: str
+    last_name: Optional[str] = None  # Фамилия
     iin: Optional[str] = None
     birth_date: Optional[str] = None
     gender: Optional[str] = None
     source: PatientSource = PatientSource.OTHER
-    referrer: Optional[str] = None
+    source_id: Optional[str] = None  # ID источника из CRM
     notes: Optional[str] = None
     user_id: Optional[str] = None
 
 class PatientUpdate(BaseModel):
     full_name: Optional[str] = None
     phone: Optional[str] = None
+    last_name: Optional[str] = None
     iin: Optional[str] = None
     birth_date: Optional[str] = None
     gender: Optional[str] = None
     source: Optional[PatientSource] = None
-    referrer: Optional[str] = None
+    source_id: Optional[str] = None  # ID источника из CRM
     notes: Optional[str] = None
     revenue: Optional[float] = None
     debt: Optional[float] = None

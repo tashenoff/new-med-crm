@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import Modal from './Modal';
 import { inputClasses, selectClasses, textareaClasses, labelClasses, buttonPrimaryClasses, buttonSecondaryClasses, buttonSuccessClasses, buttonDangerClasses, cardHeaderClasses, tabClasses, tableClasses, tableHeaderClasses, tableRowClasses } from './modalUtils';
 import ServiceSelector from '../treatment/ServiceSelector';
@@ -9,6 +9,7 @@ import AppointmentsSchedule from '../treatment/AppointmentsSchedule';
 import WhatsAppSidebar from '../crm/telephony/WhatsAppSidebar';
 import { FaWhatsapp, FaUser, FaStethoscope, FaFileAlt, FaClipboardList, FaCreditCard, FaCalendarAlt } from 'react-icons/fa';
 import { useGlobalRefresh } from '../../hooks/useGlobalRefresh';
+import { usePhoneInput } from '../../hooks/usePhoneInput';
 
 const PatientModal = ({
   show, 
@@ -62,6 +63,10 @@ const PatientModal = ({
   // Фильтры для счетов
   const [paymentFilter, setPaymentFilter] = useState('all'); // all, paid, unpaid
   const [procedureFilter, setProcedureFilter] = useState('all'); // all, procedures, non_procedures
+  
+  // Источники (каналы привлечения)
+  const [sources, setSources] = useState([]);
+  const [loadingSources, setLoadingSources] = useState(false);
 
   const API = import.meta.env.VITE_BACKEND_URL;
   
@@ -89,6 +94,52 @@ const PatientModal = ({
   
   // Глобальное обновление для синхронизации со страницей пациентов
   const { refreshTreatmentPlans } = useGlobalRefresh();
+  
+  // Функция проверки — есть ли пациент с таким номером в базе (как в CRM)
+  const checkPatientByPhone = useCallback(async (phone) => {
+    console.log('🔍 checkPatientByPhone called with:', phone);
+    try {
+      const token = localStorage.getItem('token');
+      const encodedPhone = encodeURIComponent(phone);
+      const url = `${API}/api/crm/leads/check-phone/${encodedPhone}`;
+      console.log('🔍 Checking URL:', url);
+      
+      const response = await fetch(url, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+      });
+      
+      console.log('🔍 Response status:', response.status);
+      if (!response.ok) {
+        console.log('❌ Response not OK');
+        return { patient: null, active_lead: null };
+      }
+      
+      const result = await response.json();
+      console.log('✅ Check result:', result);
+      return result;
+    } catch (error) {
+      console.error('❌ Error checking patient by phone:', error);
+      return { patient: null, active_lead: null };
+    }
+  }, [API]);
+
+  // Хук для форматирования и валидации телефона (с проверкой дубликата в БД)
+  const phoneHook = usePhoneInput(
+    patientForm.phone,
+    (formattedPhone) => {
+      safeSetPatientForm({ phone: formattedPhone });
+    },
+    checkPatientByPhone
+  );
+  
+  // Синхронизация хука телефона с внешним patientForm.phone (при редактировании)
+  useEffect(() => {
+    phoneHook.syncValue(patientForm.phone || '');
+  }, [patientForm.phone]);
 
   useEffect(() => {
     if (editingItem) {
@@ -183,6 +234,37 @@ const PatientModal = ({
       console.error('Error fetching consultation sheets:', error);
     }
   };
+
+  // Функция для загрузки источников (каналов привлечения)
+  const fetchSources = async () => {
+    try {
+      setLoadingSources(true);
+      const token = localStorage.getItem('token');
+
+      const response = await fetch(`${API}/api/crm/sources/`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (response.ok) {
+        const sourcesData = await response.json();
+        setSources(sourcesData);
+      }
+    } catch (error) {
+      console.error('Error fetching sources:', error);
+    } finally {
+      setLoadingSources(false);
+    }
+  };
+
+  // Загрузка источников при открытии модала
+  useEffect(() => {
+    if (show) {
+      fetchSources();
+    }
+  }, [show]);
 
   const handleSaveConsultation = async (formData) => {
     try {
@@ -523,26 +605,13 @@ const PatientModal = ({
                 required
               />
               
-              <div className="relative">
-                <input
-                  type="tel"
-                  placeholder="Телефон *"
-                  value={patientForm.phone}
-                  onChange={(e) => safeSetPatientForm({ phone: e.target.value })}
-                  className={inputClasses}
-                  required
-                />
-                {editingItem && editingItem.phone && (
-                  <div
-                    onClick={() => setShowWhatsAppHistory(true)}
-                    className="absolute right-3 top-3 text-green-600 cursor-pointer"
-                    style={{ width: '20px', height: '20px' }}
-                    title="Открыть WhatsApp"
-                  >
-                    <FaWhatsapp style={{ width: '20px', height: '20px', display: 'block' }} />
-                  </div>
-                )}
-              </div>
+              <input
+                type="text"
+                placeholder="Фамилия"
+                value={patientForm.last_name || ''}
+                onChange={(e) => safeSetPatientForm({ last_name: e.target.value })}
+                className={inputClasses}
+              />
             </div>
 
             <div className="grid grid-cols-2 gap-4">
@@ -575,27 +644,83 @@ const PatientModal = ({
                 <option value="other">Другой</option>
               </select>
               
-              <input
-                type="text"
-                placeholder="Кто направил пациента"
-                value={patientForm.referrer || ''}
-                onChange={(e) => safeSetPatientForm({ referrer: e.target.value })}
-                className={inputClasses}
-              />
+              <div className="relative">
+                <input
+                  {...phoneHook.phoneInputProps}
+                  placeholder="Телефон *"
+                  className={inputClasses}
+                  required
+                />
+                {editingItem && editingItem.phone && (
+                  <div
+                    onClick={() => setShowWhatsAppHistory(true)}
+                    className="absolute right-3 top-3 text-green-600 cursor-pointer"
+                    style={{ width: '20px', height: '20px' }}
+                    title="Открыть WhatsApp"
+                  >
+                    <FaWhatsapp style={{ width: '20px', height: '20px', display: 'block' }} />
+                  </div>
+                )}
+                {phoneHook.isChecking && (
+                  <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                    <div className="w-4 h-4 animate-spin rounded-full border-2 border-blue-500 border-t-transparent"></div>
+                  </div>
+                )}
+              </div>
             </div>
-            
-            <select
-              value={patientForm.source}
-              onChange={(e) => safeSetPatientForm({ source: e.target.value })}
-              className={inputClasses}
-            >
-              <option value="phone">Телефонный звонок</option>
-              <option value="walk_in">Обращение в клинику</option>
-              <option value="referral">Направление врача</option>
-              <option value="website">Веб-сайт</option>
-              <option value="social_media">Социальные сети</option>
-              <option value="other">Другое</option>
-            </select>
+
+            {/* Блок с информацией о найденном пациенте/лиде */}
+            {phoneHook.hasMatch && phoneHook.foundData && (
+              <div className="p-3 bg-orange-50 border border-orange-200 rounded-lg text-sm">
+                {phoneHook.foundData.patient ? (
+                  <div className="flex items-center gap-2 text-orange-700">
+                    <span>⚠️</span>
+                    <span>
+                      Пациент <strong>{phoneHook.foundData.patient.full_name}</strong> уже существует с таким номером телефона
+                    </span>
+                  </div>
+                ) : phoneHook.foundData.active_lead && (
+                  <div className="flex items-center gap-2 text-orange-700">
+                    <span>ℹ️</span>
+                    <span>
+                      Активная заявка с таким номером: <strong>{phoneHook.foundData.active_lead.full_name}</strong>
+                    </span>
+                  </div>
+                )}
+              </div>
+            )}
+
+            <div>
+              <label className="block text-sm text-gray-600 mb-1">Канал привлечения клиента</label>
+              <select
+                value={patientForm.source_id || ''}
+                onChange={(e) => {
+                  const selectedValue = e.target.value;
+                  const selectedSource = sources.find(s => s.id === selectedValue);
+                  if (selectedSource) {
+                    safeSetPatientForm({ 
+                      source_id: selectedValue,
+                      source: selectedSource.type 
+                    });
+                  } else {
+                    safeSetPatientForm({ 
+                      source_id: selectedValue,
+                      source: '' 
+                    });
+                  }
+                }}
+                className={inputClasses}
+                disabled={loadingSources}
+              >
+                <option value="">Выберите источник</option>
+                {sources.map((source) => (
+                  <option key={source.id} value={source.id}>
+                    {source.name}
+                  </option>
+                ))}
+              </select>
+              {loadingSources && <span className="text-xs text-gray-400 ml-2">Загрузка...</span>}
+            </div>
 
             {editingItem && (
               <div>
@@ -675,8 +800,9 @@ const PatientModal = ({
             <div className="flex space-x-3">
               <button
                 type="submit"
-                disabled={loading}
-                className={`flex-1 ${buttonSuccessClasses}`}
+                disabled={loading || phoneHook.hasMatch}
+                className={`flex-1 ${buttonSuccessClasses} ${phoneHook.hasMatch ? 'opacity-50 cursor-not-allowed' : ''}`}
+                title={phoneHook.hasMatch ? 'Пациент с таким номером уже существует' : ''}
               >
                 {loading ? 'Сохранение...' : (editingItem ? 'Обновить' : 'Создать')}
               </button>

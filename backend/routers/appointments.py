@@ -429,6 +429,8 @@ async def get_appointments(
                     "deposit": {"$ifNull": ["$deposit", None]},
                     "payment_type_id": {"$ifNull": ["$payment_type_id", None]},
                     "payment_type_name": {"$ifNull": ["$payment_type_name", None]},
+                    "source": {"$ifNull": ["$source", None]},
+                    "source_id": {"$ifNull": ["$source_id", None]},
                     "status": 1,
                     "reason": {"$ifNull": ["$reason", ""]},
                     "notes": {"$ifNull": ["$notes", ""]},
@@ -526,6 +528,12 @@ async def get_appointment(
                 "appointment_time": 1,
                 "end_time": {"$ifNull": ["$end_time", None]},
                 "price": {"$ifNull": ["$price", None]},
+                "deposit_type": {"$ifNull": ["$deposit_type", None]},
+                "deposit": {"$ifNull": ["$deposit", None]},
+                "payment_type_id": {"$ifNull": ["$payment_type_id", None]},
+                "payment_type_name": {"$ifNull": ["$payment_type_name", None]},
+                "source": {"$ifNull": ["$source", None]},
+                "source_id": {"$ifNull": ["$source_id", None]},
                 "status": 1,
                 "reason": 1,
                 "notes": 1,
@@ -624,6 +632,47 @@ async def update_appointment(
         except Exception as e:
             print(f"⚠️ Не удалось синхронизировать статус лида: {str(e)}")
     
+    return Appointment(**updated_appointment)
+
+
+@appointments_router.patch("/{appointment_id}/status", response_model=Appointment)
+async def update_appointment_status(
+    appointment_id: str,
+    status_update: AppointmentStatusUpdate,
+    current_user: UserInDB = Depends(get_current_active_user),
+    db: AsyncIOMotorDatabase = Depends(get_database)
+):
+    """Обновить только статус записи"""
+    existing = await db.appointments.find_one({"id": appointment_id})
+    if not existing:
+        raise HTTPException(status_code=404, detail="Appointment not found")
+
+    update_dict = status_update.model_dump(exclude_none=True)
+    update_dict["updated_at"] = datetime.utcnow()
+
+    result = await db.appointments.update_one(
+        {"id": appointment_id},
+        {"$set": update_dict}
+    )
+
+    if result.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Appointment not found")
+
+    updated_appointment = await db.appointments.find_one({"id": appointment_id})
+
+    # Синхронизация статуса лида в CRM при изменении статуса записи
+    if "status" in update_dict:
+        try:
+            from crm.services.lead_service import LeadService
+            lead_service = LeadService(db)
+            await lead_service.sync_lead_from_appointment_status(
+                patient_id=updated_appointment["patient_id"],
+                appointment_status=update_dict["status"],
+                appointment_id=appointment_id
+            )
+        except Exception as e:
+            print(f"⚠️ Не удалось синхронизировать статус лида: {str(e)}")
+
     return Appointment(**updated_appointment)
 
 

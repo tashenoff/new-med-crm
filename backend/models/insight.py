@@ -9,7 +9,7 @@ from pydantic import BaseModel, Field
 class InsightBadgeAction(BaseModel):
     """Пояснение действия, которое можно предпринять по бейджу."""
 
-    type: str
+    type: Optional[str] = None  # Может отсутствовать, если LLM не сгенерировала
     payload: Optional[Dict[str, Any]] = None  # Может отсутствовать, если LLM не сгенерировала payload
 
 

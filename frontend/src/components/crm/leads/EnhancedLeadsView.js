@@ -734,12 +734,20 @@ const EnhancedLeadsView = ({ user }) => {
         notes: `Запись из CRM. Заявка: ${lead.first_name} ${lead.last_name}${lead.phone ? `, тел: ${lead.phone}` : ''}`,
         patient_notes: '',
         price: 0,
+        deposit_type: 'fixed',  // ✅ Добавлено: тип депозита по умолчанию
+        deposit: 2000,           // ✅ Добавлено: сумма депозита по умолчанию
+        // Источник из лида - для основной формы записи
+        source: lead.source,
+        source_id: lead.source_id,
         // Дополнительные данные для создания пациента если не найден
         lead_first_name: lead.first_name,
         lead_last_name: lead.last_name,
         lead_middle_name: lead.middle_name || '',
         lead_phone: lead.phone,
         lead_email: lead.email,
+        // Источник из лида - для формы создания пациента
+        lead_source: lead.source,
+        lead_source_id: lead.source_id,
         // Флаг что пациент не найден - нужно сразу показать форму создания
         showNewPatientForm: patientNotFound
       },

@@ -36,6 +36,8 @@ class Appointment(BaseModel):
     deposit_type: Optional[str] = None  # 'percent' или 'fixed'
     deposit: Optional[float] = None  # Deposit amount (предоплата/депозит) - процент или сумма
     payment_type_id: Optional[str] = None  # ID типа оплаты
+    source: Optional[str] = None  # Тип источника (канал привлечения)
+    source_id: Optional[str] = None  # ID источника из CRM
     status: AppointmentStatus = AppointmentStatus.UNCONFIRMED
     reason: Optional[str] = None
     notes: Optional[str] = None
@@ -88,6 +90,8 @@ class AppointmentCreate(BaseModel):
     deposit_type: Optional[str] = None  # 'percent' или 'fixed'
     deposit: Optional[float] = None  # Deposit amount (предоплата/депозит) - процент или сумма
     payment_type_id: Optional[str] = None  # ID типа оплаты
+    source: Optional[str] = None  # Тип источника (канал привлечения)
+    source_id: Optional[str] = None  # ID источника из CRM
     status: Optional[AppointmentStatus] = AppointmentStatus.UNCONFIRMED
     reason: Optional[str] = None
     notes: Optional[str] = None
@@ -132,6 +136,8 @@ class AppointmentUpdate(BaseModel):
     deposit_type: Optional[str] = None  # 'percent' или 'fixed'
     deposit: Optional[float] = None  # Deposit amount (предоплата/депозит) - процент или сумма
     payment_type_id: Optional[str] = None  # ID типа оплаты
+    source: Optional[str] = None  # Тип источника (канал привлечения)
+    source_id: Optional[str] = None  # ID источника из CRM
     status: Optional[AppointmentStatus] = None
     reason: Optional[str] = None
     notes: Optional[str] = None
@@ -179,6 +185,8 @@ class AppointmentWithDetails(BaseModel):
     deposit: Optional[float]  # Deposit amount (предоплата/депозит) - процент или сумма
     payment_type_id: Optional[str] = None
     payment_type_name: Optional[str] = None  # Название типа оплаты
+    source: Optional[str] = None  # Тип источника (канал привлечения)
+    source_id: Optional[str] = None  # ID источника из CRM
     status: AppointmentStatus
     reason: Optional[str]
     notes: Optional[str]

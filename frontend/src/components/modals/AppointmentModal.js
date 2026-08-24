@@ -69,6 +69,8 @@ const AppointmentModal = ({
   const [consentFileError, setConsentFileError] = useState('');
   const [consentDragOver, setConsentDragOver] = useState(false);
   const [uploadingConsent, setUploadingConsent] = useState(false);
+  const [sources, setSources] = useState([]);
+  const [loadingSources, setLoadingSources] = useState(false);
   const [hasSignature, setHasSignature] = useState(false);
   const [submitting, setSubmitting] = useState(false); // Локальный прелоадер для защиты от двойного нажатия
   const signaturePadRef = useRef(null);
@@ -94,6 +96,7 @@ const AppointmentModal = ({
     birth_date: '',
     gender: '',
     source: 'walk_in',
+    source_id: '',
     referrer: '',
     notes: ''
   });
@@ -370,10 +373,38 @@ const AppointmentModal = ({
     }
   };
 
+  // Функция для загрузки источников (каналов привлечения)
+  const fetchSources = async () => {
+    try {
+      setLoadingSources(true);
+      const token = localStorage.getItem('token');
+
+      const response = await fetch(`${API}/api/crm/sources/`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (response.ok) {
+        const sourcesData = await response.json();
+        console.log('📌 Loaded sources:', sourcesData);
+        setSources(sourcesData);
+      } else {
+        console.error('❌ Failed to fetch sources:', response.status);
+      }
+    } catch (error) {
+      console.error('Error fetching sources:', error);
+    } finally {
+      setLoadingSources(false);
+    }
+  };
+
   useEffect(() => {
     if (show) {
       fetchRooms();
       fetchPaymentTypes();
+      fetchSources();
     }
   }, [show]); // Перезагружаем при открытии модала
 
@@ -436,6 +467,10 @@ const AppointmentModal = ({
       if (appointmentForm.showNewPatientForm) {
         setShowNewPatientForm(true);
         // Предзаполняем форму данными из лида
+        console.log('📌 Initializing newPatientForm with lead data:', {
+          lead_source: appointmentForm.lead_source,
+          lead_source_id: appointmentForm.lead_source_id
+        });
         setNewPatientForm({
           full_name: `${appointmentForm.lead_first_name || ''} ${appointmentForm.lead_last_name || ''}`.trim(),
           phone: appointmentForm.lead_phone || '',
@@ -443,7 +478,8 @@ const AppointmentModal = ({
           iin: '',
           birth_date: '',
           gender: '',
-          source: 'phone',
+          source: appointmentForm.lead_source || 'phone',
+          source_id: appointmentForm.lead_source_id || '',
           referrer: '',
           notes: `Создан из CRM заявки`
         });
@@ -459,7 +495,7 @@ const AppointmentModal = ({
         setShowNewPatientForm(false);
       }
     }
-  }, [show, appointmentForm?.patient_id, appointmentForm?.lead_first_name, appointmentForm?.showNewPatientForm, patients]);
+  }, [show, appointmentForm?.patient_id, appointmentForm?.lead_first_name, appointmentForm?.lead_source_id, appointmentForm?.showNewPatientForm, patients]);
 
   // Сброс всех состояний при закрытии модала
   useEffect(() => {
@@ -495,6 +531,7 @@ const AppointmentModal = ({
         birth_date: '',
         gender: '',
         source: 'walk_in',
+        source_id: '',
         referrer: '',
         notes: ''
       });
@@ -802,6 +839,7 @@ const AppointmentModal = ({
         birth_date: '',
         gender: '',
         source: 'walk_in',
+        source_id: '',
         referrer: '',
         notes: ''
       });
@@ -1099,18 +1137,39 @@ const AppointmentModal = ({
                   <option value="male">Мужской</option>
                   <option value="female">Женский</option>
                 </select>
-                <select
-                  value={newPatientForm.source}
-                  onChange={(e) => setNewPatientForm({ ...newPatientForm, source: e.target.value })}
-                  className="px-3 py-2 border border-gray-300 rounded-lg text-sm"
-                >
-                  <option value="walk_in">Обращение в клинику</option>
-                  <option value="phone">Телефонный звонок</option>
-                  <option value="referral">Направление врача</option>
-                  <option value="website">Веб-сайт</option>
-                  <option value="social_media">Социальные сети</option>
-                  <option value="other">Другое</option>
-                </select>
+                <div>
+                  <label className="block text-xs text-gray-500 mb-1">Канал привлечения клиента</label>
+                  <select
+                    value={newPatientForm.source_id || ''}
+                    onChange={(e) => {
+                      const selectedValue = e.target.value;
+                      const selectedSource = sources.find(s => s.id === selectedValue);
+                      if (selectedSource) {
+                        setNewPatientForm({ 
+                          ...newPatientForm, 
+                          source_id: selectedValue,
+                          source: selectedSource.type 
+                        });
+                      } else {
+                        setNewPatientForm({ 
+                          ...newPatientForm, 
+                          source_id: selectedValue,
+                          source: '' 
+                        });
+                      }
+                    }}
+                    className="px-3 py-2 border border-gray-300 rounded-lg text-sm w-full"
+                    disabled={loadingSources}
+                  >
+                    <option value="">Выберите источник</option>
+                    {sources.map((source) => (
+                      <option key={source.id} value={source.id}>
+                        {source.name}
+                      </option>
+                    ))}
+                  </select>
+                  {loadingSources && <span className="text-xs text-gray-400 ml-2">Загрузка...</span>}
+                </div>
               </div>
               <div className="mt-3">
                 <input
@@ -1241,6 +1300,43 @@ const AppointmentModal = ({
                 </div>
               </div>
             )}
+          </div>
+
+          {/* Выбор источника (канал привлечения) */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Канал привлечения
+              {loadingSources && <span className="text-gray-400 ml-2 text-xs">Загрузка...</span>}
+            </label>
+            <select
+              value={appointmentForm.source_id || ''}
+              onChange={(e) => {
+                const selectedValue = e.target.value;
+                const selectedSource = sources.find(s => s.id === selectedValue);
+                if (selectedSource) {
+                  setAppointmentForm({ 
+                    ...appointmentForm, 
+                    source_id: selectedValue,
+                    source: selectedSource.type 
+                  });
+                } else {
+                  setAppointmentForm({ 
+                    ...appointmentForm, 
+                    source_id: selectedValue,
+                    source: '' 
+                  });
+                }
+              }}
+              className={inputClasses}
+              disabled={loadingSources}
+            >
+              <option value="">Выберите источник</option>
+              {sources.map((source) => (
+                <option key={source.id} value={source.id}>
+                  {source.name}
+                </option>
+              ))}
+            </select>
           </div>
 
           <div className="space-y-4">

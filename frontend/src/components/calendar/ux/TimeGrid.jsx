@@ -41,6 +41,7 @@ const TimeGrid = ({
   canEdit,
   onSlotClick,
   onEditAppointment,
+  onStatusChange,
   onDragOver,
   onDrop,
   onDragStart,
@@ -92,6 +93,7 @@ const TimeGrid = ({
                 statusColor={getStatusColor(appointment.status)}
                 canEdit={canEdit}
                 onEdit={onEditAppointment}
+                onStatusChange={onStatusChange}
                 onDragStart={onDragStart}
                 onDragEnd={onDragEnd}
               />

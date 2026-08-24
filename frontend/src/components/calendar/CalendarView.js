@@ -38,6 +38,7 @@ const CalendarView = ({
   onEditAppointment,
   onMoveAppointment,
   onNewAppointment,
+  onStatusChange,
   onRefreshCalendar,
   blockAppointmentUpdates,
   unblockAppointmentUpdates,
@@ -168,6 +169,7 @@ const CalendarView = ({
               canEdit={canEdit}
               onSlotClick={onSlotClick}
               onEditAppointment={onEditAppointment}
+              onStatusChange={onStatusChange}
               onDragOver={dragDropManager.handleDragOver}
               onDragEnter={(e) => { e.preventDefault(); e.stopPropagation(); }}
               onDrop={dragDropManager.handleDrop}

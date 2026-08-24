@@ -124,7 +124,7 @@ export const useAppointments = () => {
       await axios.delete(`${API}/appointments/${id}`);
       
       // Обновляем локальный список
-      setAppointments(prev => prev.filter(appointment => appointment._id !== id));
+      setAppointments(prev => prev.filter(appointment => (appointment.id || appointment._id) !== id));
       
       return { success: true };
     } catch (error) {
@@ -142,7 +142,7 @@ export const useAppointments = () => {
       // Обновляем локальный список
       setAppointments(prev => 
         prev.map(appointment => 
-          appointment._id === id ? { ...appointment, status } : appointment
+          (appointment.id || appointment._id) === id ? { ...appointment, status } : appointment
         )
       );
       

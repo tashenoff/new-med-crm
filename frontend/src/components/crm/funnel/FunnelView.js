@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useCrm } from '../../../hooks/useCrm';
 import PanelHeader from '../../common/PanelHeader';
 
@@ -17,7 +17,8 @@ const DROPPED_STAGES = [
 
 const ALL_STAGES = [...FUNNEL_STAGES, ...DROPPED_STAGES];
 
-const CHANNELS = [
+// Статический фолбэк для каналов (используется если источники не загружены)
+const STATIC_CHANNELS = [
   { value: 'all',         label: 'Все каналы' },
   { value: 'website',     label: 'Сайт' },
   { value: 'phone',       label: 'Телефон' },
@@ -54,10 +55,54 @@ function fmtDate(dt) {
 }
 
 const FunnelView = ({ user }) => {
-  const { leads, loading, isInitialized } = useCrm();
+  const { leads, sources, fetchSources, loading, isInitialized } = useCrm();
 
   const [selectedChannel, setSelectedChannel] = useState('all');
   const [selectedStage, setSelectedStage] = useState(null);
+
+  // Загрузка источников при монтировании
+  useEffect(() => {
+    fetchSources();
+  }, [fetchSources]);
+
+  // Формируем динамический список каналов из загруженных источников
+  const CHANNELS = useMemo(() => {
+    if (sources && sources.length > 0) {
+      return [
+        { value: 'all', label: 'Все каналы' },
+        ...sources.map(source => ({
+          value: source.id,
+          label: source.name,
+          type: source.type
+        }))
+      ];
+    }
+    return STATIC_CHANNELS;
+  }, [sources]);
+
+  // Обновляем CHANNEL_ICONS для поддержки динамических источников
+  const getChannelIcon = (sourceValue) => {
+    // Если это source_id, пытаемся найти тип источника
+    if (sources && sources.length > 0) {
+      const source = sources.find(s => s.id === sourceValue);
+      if (source) {
+        return CHANNEL_ICONS[source.type] || '📍';
+      }
+    }
+    return CHANNEL_ICONS[sourceValue] || '•';
+  };
+
+  // Функция получения названия канала
+  const getChannelLabel = (sourceValue) => {
+    const channel = CHANNELS.find(c => c.value === sourceValue);
+    if (channel) return channel.label;
+    // Пробуем найти по source_id в sources
+    if (sources && sources.length > 0) {
+      const source = sources.find(s => s.id === sourceValue);
+      if (source) return source.name;
+    }
+    return STATIC_CHANNELS.find(c => c.value === sourceValue)?.label || sourceValue;
+  };
 
   // Фильтрация по каналу
   const filteredLeads = useMemo(() => {

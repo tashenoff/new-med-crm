@@ -538,7 +538,8 @@ async def schedule_appointment_from_lead(
                 "middle_name": lead.middle_name,
                 "phone": lead.phone or "",
                 "email": lead.email,
-                "source": "crm_conversion",
+                "source": str(lead.source.value) if hasattr(lead.source, 'value') else str(lead.source),
+                "source_id": lead.source_id,  # Передаем ID источника из лида
                 "notes": f"Создан из заявки CRM. {lead.description or ''}",
                 "crm_client_id": lead_id,
                 "revenue": 0.0,
@@ -606,6 +607,9 @@ async def schedule_appointment_from_lead(
             "price": price,
             "deposit": deposit,
             "deposit_type": deposit_type,
+            # Источник из лида
+            "source": str(lead.source.value) if hasattr(lead.source, 'value') else str(lead.source),
+            "source_id": lead.source_id,
             "created_at": datetime.utcnow(),
             "updated_at": datetime.utcnow()
         }

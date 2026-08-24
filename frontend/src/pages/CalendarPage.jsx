@@ -190,6 +190,8 @@ const CalendarPage = ({ user }) => {
       price: appointment.price || '',
       deposit_type: appointment.deposit_type || '',
       deposit: appointment.deposit || '',
+      source: appointment.source || '',
+      source_id: appointment.source_id || '',
       status: appointment.status || 'unconfirmed',
       reason: appointment.reason || '',
       notes: appointment.notes || '',
@@ -348,8 +350,13 @@ const CalendarPage = ({ user }) => {
   };
 
   const handleStatusChange = async (appointmentId, newStatus) => {
+    console.log(' Смена статуса:', appointmentId, newStatus);
     try {
       const result = await appointmentsHook.updateAppointmentStatus(appointmentId, newStatus);
+      if (!result.success) {
+        throw new Error(result.error);
+      }
+      await appointmentsHook.fetchAppointments();
       
       if (!result.success) {
         throw new Error(result.error);
@@ -544,6 +551,7 @@ const CalendarPage = ({ user }) => {
         onMoveAppointment={handleMoveAppointment}
         canEdit={user?.permissions?.includes('calendar_edit') || user?.role === 'admin' || user?.role === 'super_admin'}
         onNewAppointment={handleNewAppointment}
+        onStatusChange={handleStatusChange}
       />
 
       {/* Модальные окна теперь управляются через ModalManager */}
@@ -552,3 +560,5 @@ const CalendarPage = ({ user }) => {
 };
 
 export default CalendarPage;
+
+

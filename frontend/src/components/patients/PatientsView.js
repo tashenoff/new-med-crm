@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import PanelHeader from '../common/PanelHeader';
 
 const PatientsView = ({ 
@@ -16,6 +16,55 @@ const PatientsView = ({
   onEditPatient,
   canManage 
 }) => {
+  // Источники (каналы привлечения)
+  const [sources, setSources] = useState([]);
+  
+  // Загрузка источников
+  useEffect(() => {
+    const fetchSources = async () => {
+      try {
+        const API = import.meta.env.VITE_BACKEND_URL;
+        const token = localStorage.getItem('token');
+        const response = await fetch(`${API}/api/crm/sources/`, {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          }
+        });
+        if (response.ok) {
+          const data = await response.json();
+          setSources(data);
+        }
+      } catch (error) {
+        console.error('Error fetching sources:', error);
+      }
+    };
+    fetchSources();
+  }, []);
+
+  // Функция получения названия источника
+  const getSourceName = (patient) => {
+    // Если есть source_id, ищем в загруженных источниках
+    if (patient.source_id && sources.length > 0) {
+      const source = sources.find(s => s.id === patient.source_id);
+      if (source) return source.name;
+    }
+    // Фолбэк на статические названия по типу
+    const sourceLabels = {
+      'phone': 'Телефон',
+      'walk_in': 'Обращение',
+      'referral': 'Направление',
+      'website': 'Веб-сайт',
+      'social_media': 'Соц. сети',
+      'social': 'Соц. сети',
+      'advertising': 'Реклама',
+      'email': 'Email',
+      'crm_conversion': 'CRM',
+      'other': 'Другое'
+    };
+    return sourceLabels[patient.source] || patient.source || 'Не указан';
+  };
+
   // Фильтрация теперь происходит на сервере, поэтому просто отображаем полученные данные
   const filteredPatients = patients;
 
@@ -213,15 +262,13 @@ const PatientsView = ({
                             patient.source === 'walk_in' ? 'bg-green-100 text-green-800' :
                             patient.source === 'referral' ? 'bg-purple-100 text-purple-800' :
                             patient.source === 'website' ? 'bg-indigo-100 text-indigo-800' :
-                            patient.source === 'social_media' ? 'bg-pink-100 text-pink-800' :
+                            patient.source === 'social_media' || patient.source === 'social' ? 'bg-pink-100 text-pink-800' :
+                            patient.source === 'advertising' ? 'bg-orange-100 text-orange-800' :
+                            patient.source === 'email' ? 'bg-cyan-100 text-cyan-800' :
+                            patient.source === 'crm_conversion' ? 'bg-emerald-100 text-emerald-800' :
                             'bg-gray-100 text-gray-800'
                           }`}>
-                            {patient.source === 'phone' ? 'Телефон' :
-                             patient.source === 'walk_in' ? 'Обращение' :
-                             patient.source === 'referral' ? 'Направление' :
-                             patient.source === 'website' ? 'Веб-сайт' :
-                             patient.source === 'social_media' ? 'Соц. сети' :
-                             'Другое'}
+                            {getSourceName(patient)}
                           </span>
                         </td>
                         <td className="px-6 py-4">
