@@ -97,6 +97,7 @@ from routers.laboratories import laboratories_router
 from routers.staff import router as staff_router
 from routers.settings import router as settings_router
 from routers.service_quality import router as service_quality_router
+from routers.price_import import price_import_router
 
 # Include all API routers with /api prefix
 app.include_router(auth_router, prefix="/api")
@@ -120,6 +121,7 @@ app.include_router(laboratories_router)
 app.include_router(staff_router)
 app.include_router(settings_router)
 app.include_router(service_quality_router)
+app.include_router(price_import_router, prefix="/api")
 
 # Include the CRM router
 from crm import crm_router

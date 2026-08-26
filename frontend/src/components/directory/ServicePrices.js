@@ -14,6 +14,24 @@ const ServicePrices = ({ user }) => {
   const [materialSearch, setMaterialSearch] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  
+  // Import Excel states
+  const [showImportModal, setShowImportModal] = useState(false);
+  const [importFile, setImportFile] = useState(null);
+  const [importPreview, setImportPreview] = useState(null);
+  const [importLoading, setImportLoading] = useState(false);
+  const [importError, setImportError] = useState('');
+  const [importResult, setImportResult] = useState(null);
+  const [importOptions, setImportOptions] = useState({
+    update_existing: false,
+    skip_duplicates: true
+  });
+
+  // Pagination and filtering states
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(25);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [selectedCategory, setSelectedCategory] = useState('');
 
   // Modal states
   const [showModal, setShowModal] = useState(false);
@@ -24,14 +42,10 @@ const ServicePrices = ({ user }) => {
     service_name: '',
     service_name_kz: '',
     service_code: '',
-    barcode: '',
     category: '',
     price: '',
-    payment_type: '',
     description: '',
     disable_discount: false,
-    require_medical_history: false,
-    show_in_online_booking: false,
     materials: []
   });
   const [categoryFormData, setCategoryFormData] = useState({
@@ -166,14 +180,10 @@ const ServicePrices = ({ user }) => {
       service_name: '',
       service_name_kz: '',
       service_code: '',
-      barcode: '',
       category: '',
       price: '',
-      payment_type: '',
       description: '',
       disable_discount: false,
-      require_medical_history: false,
-      show_in_online_booking: false,
       materials: []
     });
     setMaterialSearch('');
@@ -187,14 +197,10 @@ const ServicePrices = ({ user }) => {
       service_name: price.service_name,
       service_name_kz: price.service_name_kz || '',
       service_code: price.service_code || '',
-      barcode: price.barcode || '',
       category: price.category || '',
       price: price.price || '',
-      payment_type: price.payment_type || '',
       description: price.description || '',
       disable_discount: price.disable_discount || false,
-      require_medical_history: price.require_medical_history || false,
-      show_in_online_booking: price.show_in_online_booking || false,
       materials: price.materials || []
     });
     setShowModal(true);
@@ -344,6 +350,132 @@ const ServicePrices = ({ user }) => {
     }
   };
 
+  // ===== Import Excel functions =====
+  const handleImportClick = () => {
+    setShowImportModal(true);
+    setImportFile(null);
+    setImportPreview(null);
+    setImportError('');
+    setImportResult(null);
+  };
+
+  const handleFileSelect = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    
+    const allowedTypes = ['.xls', '.xlsx'];
+    const fileExt = '.' + file.name.split('.').pop().toLowerCase();
+    
+    if (!allowedTypes.includes(fileExt)) {
+      setImportError('Разрешены только файлы .xls и .xlsx');
+      return;
+    }
+    
+    setImportFile(file);
+    setImportError('');
+    setImportResult(null);
+    
+    // Preview file
+    try {
+      setImportLoading(true);
+      const token = localStorage.getItem('token');
+      const formData = new FormData();
+      formData.append('file', file);
+      
+      const response = await fetch(`${API}/api/price-import/preview`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}` },
+        body: formData
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        setImportPreview(data);
+      } else {
+        const errorData = await response.json();
+        setImportError(errorData.detail?.message || errorData.detail || 'Ошибка предпросмотра файла');
+      }
+    } catch (error) {
+      console.error('Preview error:', error);
+      setImportError('Ошибка подключения к серверу');
+    } finally {
+      setImportLoading(false);
+    }
+  };
+
+  const handleImportConfirm = async () => {
+    if (!importFile) return;
+    
+    try {
+      setImportLoading(true);
+      setImportError('');
+      
+      const token = localStorage.getItem('token');
+      const formData = new FormData();
+      formData.append('file', importFile);
+      
+      const params = new URLSearchParams({
+        update_existing: importOptions.update_existing,
+        skip_duplicates: importOptions.skip_duplicates
+      });
+      
+      const response = await fetch(`${API}/api/price-import/upload?${params}`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}` },
+        body: formData
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        setImportResult(data);
+        // Refresh data
+        await fetchServicePrices();
+        await fetchCategories();
+      } else {
+        const errorData = await response.json();
+        setImportError(errorData.detail?.message || errorData.detail || 'Ошибка импорта');
+      }
+    } catch (error) {
+      console.error('Import error:', error);
+      setImportError('Ошибка подключения к серверу');
+    } finally {
+      setImportLoading(false);
+    }
+  };
+
+  const closeImportModal = () => {
+    setShowImportModal(false);
+    setImportFile(null);
+    setImportPreview(null);
+    setImportError('');
+    setImportResult(null);
+  };
+
+  // Filter and paginate services
+  const filteredServices = servicePrices.filter(price => {
+    const matchesSearch = !searchQuery || 
+      price.service_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      price.service_code?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      price.description?.toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesCategory = !selectedCategory || price.category === selectedCategory;
+    return matchesSearch && matchesCategory;
+  });
+
+  const totalPages = Math.ceil(filteredServices.length / itemsPerPage);
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const paginatedServices = filteredServices.slice(startIndex, startIndex + itemsPerPage);
+
+  // Reset to first page when filters change
+  const handleSearchChange = (value) => {
+    setSearchQuery(value);
+    setCurrentPage(1);
+  };
+
+  const handleCategoryFilter = (value) => {
+    setSelectedCategory(value);
+    setCurrentPage(1);
+  };
+
   return (
     <div className="space-y-6">
       <div className={`calendar-container calendar-view-panel rounded-2xl`}>
@@ -363,12 +495,21 @@ const ServicePrices = ({ user }) => {
                 <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
                   Категории услуг
                 </h3>
-                <button
-                  onClick={handleCreateCategory}
-                  className={buttonPrimaryClasses}
-                >
-                  + Добавить категорию
-                </button>
+                <div className="flex gap-2">
+                  <button
+                    onClick={handleImportClick}
+                    className={buttonSecondaryClasses}
+                    title="Импортировать прайс из Excel файла"
+                  >
+                    📥 Импорт Excel
+                  </button>
+                  <button
+                    onClick={handleCreateCategory}
+                    className={buttonPrimaryClasses}
+                  >
+                    + Добавить категорию
+                  </button>
+                </div>
               </div>
               <div className="flex flex-wrap gap-2 max-h-64 overflow-y-auto">
                 {categories.length > 0 ? (
@@ -404,6 +545,34 @@ const ServicePrices = ({ user }) => {
         </div>
       )}
 
+      {/* Search and Filter */}
+      <div className="flex flex-wrap gap-4 items-center">
+        <div className="flex-1 min-w-[200px]">
+          <input
+            type="text"
+            placeholder="Поиск по названию, коду..."
+            value={searchQuery}
+            onChange={(e) => handleSearchChange(e.target.value)}
+            className={inputClasses}
+          />
+        </div>
+        <div className="w-48">
+          <select
+            value={selectedCategory}
+            onChange={(e) => handleCategoryFilter(e.target.value)}
+            className={selectClasses}
+          >
+            <option value="">Все категории</option>
+            {categories.map(cat => (
+              <option key={cat.id} value={cat.name}>{cat.name}</option>
+            ))}
+          </select>
+        </div>
+        <div className="text-sm text-gray-500 dark:text-gray-400">
+          Найдено: {filteredServices.length} из {servicePrices.length}
+        </div>
+      </div>
+
       {loading && (
         <div className="text-center py-4">
           <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900 dark:border-white"></div>
@@ -422,12 +591,12 @@ const ServicePrices = ({ user }) => {
             </tr>
           </thead>
           <tbody>
-            {servicePrices.map((price) => (
+            {paginatedServices.map((price) => (
               <tr key={price.id} className={tableRowClasses}>
                 <td className="px-6 py-4 font-medium">{price.service_name}</td>
                 <td className="px-6 py-4">{price.category || '-'}</td>
-                <td className="px-6 py-4">{price.price ? `${price.price} ₸` : '-'}</td>
-                <td className="px-6 py-4">{price.description || '-'}</td>
+                <td className="px-6 py-4">{price.price ? `${price.price.toLocaleString()} ₸` : '-'}</td>
+                <td className="px-6 py-4 max-w-xs truncate">{price.description || '-'}</td>
                 <td className="px-6 py-4">
                   <div className="flex space-x-2">
                     {(user?.role === 'admin' || user?.role === 'super_admin') && (
@@ -452,16 +621,75 @@ const ServicePrices = ({ user }) => {
                 </td>
               </tr>
             ))}
-            {servicePrices.length === 0 && !loading && (
+            {paginatedServices.length === 0 && !loading && (
               <tr>
                 <td colSpan="5" className="px-6 py-4 text-center text-gray-500">
-                  Услуги не найдены
+                  {searchQuery || selectedCategory ? 'Ничего не найдено' : 'Услуги не добавлены'}
                 </td>
               </tr>
             )}
           </tbody>
         </table>
       </div>
+
+      {/* Pagination */}
+      {totalPages > 1 && (
+        <div className="flex flex-wrap items-center justify-between gap-4 pt-4">
+          <div className="flex items-center gap-2">
+            <span className="text-sm text-gray-600 dark:text-gray-400">Показать:</span>
+            <select
+              value={itemsPerPage}
+              onChange={(e) => { setItemsPerPage(Number(e.target.value)); setCurrentPage(1); }}
+              className="border border-gray-300 dark:border-gray-600 rounded px-2 py-1 text-sm bg-white dark:bg-gray-700"
+            >
+              <option value={25}>25</option>
+              <option value={50}>50</option>
+              <option value={100}>100</option>
+              <option value={200}>200</option>
+            </select>
+          </div>
+          
+          <div className="flex items-center gap-1">
+            <button
+              onClick={() => setCurrentPage(1)}
+              disabled={currentPage === 1}
+              className="px-2 py-1 text-sm border rounded disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-100 dark:hover:bg-gray-700"
+            >
+              ««
+            </button>
+            <button
+              onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+              disabled={currentPage === 1}
+              className="px-2 py-1 text-sm border rounded disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-100 dark:hover:bg-gray-700"
+            >
+              «
+            </button>
+            
+            <span className="px-3 py-1 text-sm">
+              {currentPage} из {totalPages}
+            </span>
+            
+            <button
+              onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+              disabled={currentPage === totalPages}
+              className="px-2 py-1 text-sm border rounded disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-100 dark:hover:bg-gray-700"
+            >
+              »
+            </button>
+            <button
+              onClick={() => setCurrentPage(totalPages)}
+              disabled={currentPage === totalPages}
+              className="px-2 py-1 text-sm border rounded disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-100 dark:hover:bg-gray-700"
+            >
+              »»
+            </button>
+          </div>
+          
+          <div className="text-sm text-gray-600 dark:text-gray-400">
+            {startIndex + 1}-{Math.min(startIndex + itemsPerPage, filteredServices.length)} из {filteredServices.length}
+          </div>
+        </div>
+      )}
 
       {/* Service Price Modal */}
       <Modal
@@ -516,20 +744,6 @@ const ServicePrices = ({ user }) => {
                 Используется для внутреннего учета
               </p>
             </div>
-
-            <div>
-              <label className={labelClasses}>Штрих-код</label>
-              <input
-                type="text"
-                value={formData.barcode}
-                onChange={(e) => setFormData(prev => ({ ...prev, barcode: e.target.value }))}
-                className={inputClasses}
-                placeholder="123456789"
-              />
-              <p className="text-xs text-gray-500 mt-1">
-                Используется при продаже товаров, для быстрого сканирования
-              </p>
-            </div>
           </div>
 
           <div>
@@ -563,58 +777,16 @@ const ServicePrices = ({ user }) => {
             </div>
 
             <div>
-              <label className={labelClasses}>Оплата</label>
+              <label className={labelClasses}>Скидка</label>
               <select
-                value={formData.payment_type}
-                onChange={(e) => setFormData(prev => ({ ...prev, payment_type: e.target.value }))}
+                value={formData.disable_discount ? "no" : "yes"}
+                onChange={(e) => setFormData(prev => ({ ...prev, disable_discount: e.target.value === "no" }))}
                 className={selectClasses}
               >
-                <option value="">Оплата врачу</option>
-                <option value="doctor">Оплата врачу</option>
-                <option value="clinic">Оплата клинике</option>
+                <option value="yes">Разрешена</option>
+                <option value="no">Запрещена</option>
               </select>
             </div>
-          </div>
-
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className={labelClasses}>Запретить пробивать скидку</label>
-              <select
-                value={formData.disable_discount ? "yes" : "no"}
-                onChange={(e) => setFormData(prev => ({ ...prev, disable_discount: e.target.value === "yes" }))}
-                className={selectClasses}
-              >
-                <option value="yes">Скидка разрешена</option>
-                <option value="no">Скидка запрещена</option>
-              </select>
-            </div>
-
-            <div>
-              <label className={labelClasses}>Контроль заполнения истории болезней</label>
-              <select
-                value={formData.require_medical_history ? "required" : "not_required"}
-                onChange={(e) => setFormData(prev => ({ ...prev, require_medical_history: e.target.value === "required" }))}
-                className={selectClasses}
-              >
-                <option value="required">Требует заполнения</option>
-                <option value="not_required">Не требует</option>
-              </select>
-              <p className="text-xs text-gray-500 mt-1">
-                Влияет на отчёт по заполняемости карт ИБ
-              </p>
-            </div>
-          </div>
-
-          <div>
-            <label className={labelClasses}>Показывать в "Онлайн записи" и Medflex</label>
-            <select
-              value={formData.show_in_online_booking ? "yes" : "no"}
-              onChange={(e) => setFormData(prev => ({ ...prev, show_in_online_booking: e.target.value === "yes" }))}
-              className={selectClasses}
-            >
-              <option value="no">Нет</option>
-              <option value="yes">Да</option>
-            </select>
           </div>
 
           <div>
@@ -786,6 +958,96 @@ const ServicePrices = ({ user }) => {
           </div>
         </div>
       </Modal>
+
+      {/* Import Excel Modal */}
+      <Modal
+        show={showImportModal}
+        onClose={closeImportModal}
+        title="Импорт прайса из Excel"
+      >
+        <div className="space-y-4">
+          {!importResult && (
+            <>
+              <div>
+                <label className={labelClasses}>Выберите файл Excel (.xls, .xlsx)</label>
+                <input
+                  type="file"
+                  accept=".xls,.xlsx"
+                  onChange={handleFileSelect}
+                  className="block w-full text-sm text-gray-500 dark:text-gray-400 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 dark:file:bg-blue-900 dark:file:text-blue-300"
+                />
+                <p className="mt-1 text-xs text-gray-500">Колонки: Название, Цена (обязательные), Специальность, Код, Скидка, Статус</p>
+              </div>
+
+              {importLoading && (
+                <div className="text-center py-4">
+                  <div className="inline-block animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600"></div>
+                  <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">Анализ файла...</p>
+                </div>
+              )}
+
+              {importError && (
+                <div className="p-3 bg-red-100 border border-red-400 text-red-700 rounded dark:bg-red-900 dark:text-red-300 text-sm">
+                  {importError}
+                </div>
+              )}
+
+              {importPreview && !importLoading && (
+                <div className="space-y-3">
+                  <div className="bg-blue-50 dark:bg-blue-900/30 p-3 rounded-lg">
+                    <h4 className="font-medium text-blue-800 dark:text-blue-300 mb-2">Предпросмотр</h4>
+                    <div className="grid grid-cols-2 gap-2 text-sm">
+                      <div>Услуг в файле: <b>{importPreview.total_services}</b></div>
+                      <div>Новых: <b className="text-green-600">{importPreview.services_preview?.new_count || 0}</b></div>
+                      <div>Дубликатов: <b className="text-yellow-600">{importPreview.services_preview?.duplicate_count || 0}</b></div>
+                      <div>Категорий: <b>{importPreview.categories?.total || 0}</b></div>
+                    </div>
+                    {importPreview.categories?.new?.length > 0 && (
+                      <p className="mt-2 pt-2 border-t border-blue-200 text-sm text-blue-700 dark:text-blue-400">
+                        Новые категории: {importPreview.categories.new.join(', ')}
+                      </p>
+                    )}
+                  </div>
+                  <div className="space-y-2">
+                    <label className="flex items-center gap-2 text-sm">
+                      <input type="checkbox" checked={importOptions.update_existing} onChange={(e) => setImportOptions({...importOptions, update_existing: e.target.checked})} className="rounded"/>
+                      <span className="text-gray-700 dark:text-gray-300">Обновлять существующие услуги</span>
+                    </label>
+                    <label className="flex items-center gap-2 text-sm">
+                      <input type="checkbox" checked={importOptions.skip_duplicates} onChange={(e) => setImportOptions({...importOptions, skip_duplicates: e.target.checked})} className="rounded"/>
+                      <span className="text-gray-700 dark:text-gray-300">Пропускать дубликаты</span>
+                    </label>
+                  </div>
+                </div>
+              )}
+            </>
+          )}
+
+          {importResult && (
+            <div className="p-4 bg-green-50 dark:bg-green-900/30 rounded-lg">
+              <h4 className="font-medium text-green-800 dark:text-green-300 mb-2">✅ Импорт завершён!</h4>
+              <div className="grid grid-cols-2 gap-2 text-sm text-green-700 dark:text-green-400">
+                <div>Создано: <b>{importResult.services?.created || 0}</b></div>
+                <div>Обновлено: <b>{importResult.services?.updated || 0}</b></div>
+                <div>Пропущено: <b>{importResult.services?.skipped || 0}</b></div>
+                <div>Новых категорий: <b>{importResult.categories?.created || 0}</b></div>
+              </div>
+            </div>
+          )}
+
+          <div className="flex justify-end space-x-3 pt-4 border-t">
+            <button onClick={closeImportModal} className={buttonSecondaryClasses}>
+              {importResult ? 'Закрыть' : 'Отмена'}
+            </button>
+            {!importResult && importPreview && (
+              <button onClick={handleImportConfirm} className={buttonPrimaryClasses} disabled={importLoading}>
+                {importLoading ? 'Импорт...' : `Импортировать (${importPreview.services_preview?.new_count || 0})`}
+              </button>
+            )}
+          </div>
+        </div>
+      </Modal>
+
         </div>
       </div>
     </div>

@@ -24,3 +24,5 @@ __all__ = [
     "MaterialService",
     "InsightsService",
 ]
+
+from .price_import_service import PriceImportService
