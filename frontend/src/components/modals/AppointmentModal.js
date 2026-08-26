@@ -102,7 +102,14 @@ const AppointmentModal = ({
   });
 
   const API = import.meta.env.VITE_BACKEND_URL;
-  const selectedPatient = patients?.find(p => p.id === appointmentForm.patient_id);
+  
+  // Ищем пациента в списке, если не найден - создаём объект из данных формы/editingItem
+  const foundPatient = patients?.find(p => p.id === appointmentForm.patient_id);
+  const selectedPatient = foundPatient || (appointmentForm.patient_id && editingItem ? {
+    id: appointmentForm.patient_id,
+    full_name: editingItem.patient_name || 'Пациент',
+    phone: editingItem.patient_phone || ''
+  } : null);
 
   // Простая функция проверки пересечения времени
   const doTimesOverlap = (start1, end1, start2, end2) => {
