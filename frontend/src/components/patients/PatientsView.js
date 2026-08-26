@@ -229,7 +229,9 @@ const PatientsView = ({
                         title={canManage ? "Нажмите для редактирования" : ""}
                       >
                         <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="font-medium text-gray-900">{patient.full_name}</div>
+                          <div className="font-medium text-gray-900">
+                            {patient.full_name || `${patient.first_name || ''} ${patient.last_name || ''}`.trim() || patient.name || 'Без имени'}
+                          </div>
                           {patient.notes && (
                             <div className="text-sm text-gray-500">{patient.notes}</div>
                           )}
