@@ -229,6 +229,18 @@ async def get_patients(
             # Map legacy fields to proper fields
             if 'name' in patient_data and not patient_data.get('full_name'):
                 patient_data['full_name'] = patient_data['name']
+            
+            # Ensure full_name exists (fallback to first_name + last_name)
+            if not patient_data.get('full_name'):
+                first = patient_data.get('first_name', '') or ''
+                last = patient_data.get('last_name', '') or ''
+                patient_data['full_name'] = f"{first} {last}".strip() or patient_data.get('phone', 'Пациент')
+            
+            # Normalize source to valid PatientSource enum value (fallback to 'other' for unknown sources like 'email', 'advertising', etc.)
+            valid_sources = {'website', 'phone', 'referral', 'walk_in', 'social_media', 'crm_conversion', 'other'}
+            current_source = patient_data.get('source', 'other')
+            if current_source not in valid_sources:
+                patient_data['source'] = 'other'
 
             # Convert datetime objects to strings for birth_date and DateOfBirth
             if 'birth_date' in patient_data and isinstance(patient_data['birth_date'], datetime):
