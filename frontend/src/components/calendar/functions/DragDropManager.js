@@ -177,7 +177,7 @@ export class DragDropManager {
     if (conflicts.length > 0) {
       const conflictNames = conflicts.map(apt => {
         const patient = this.patients.find(p => p.id === apt.patient_id);
-        return patient ? patient.full_name : 'Неизвестный пациент';
+        return patient?.full_name || apt.patient_name || 'Неизвестный пациент';
       }).join(', ');
       
       const confirm = window.confirm(

@@ -87,8 +87,12 @@ const AppointmentCard = ({
     };
   }, [showStatusMenu]);
 
-  // Получаем цвет календаря врача
-  const doctorColor = doctor?.calendar_color || '#3B82F6';
+  // Получаем цвет календаря врача (fallback на appointment.doctor_color с бэкенда)
+  const doctorColor = doctor?.calendar_color || appointment.doctor_color || '#3B82F6';
+  
+  // Получаем имена с fallback на данные из appointment (бэкенд возвращает patient_name/doctor_name)
+  const patientName = patient?.full_name || appointment.patient_name || 'Загрузка...';
+  const doctorName = doctor?.full_name || appointment.doctor_name || 'Загрузка...';
 
   // Возможные статусы
   const STATUSES = [
@@ -260,12 +264,16 @@ const AppointmentCard = ({
 
       {/* Имя пациента */}
       <div className="font-semibold pr-4">
-        {patient?.full_name || 'Неизвестный пациент'}
+        {patientName === 'Загрузка...' ? (
+          <div className="h-4 bg-gray-200 rounded animate-pulse w-24"></div>
+        ) : patientName}
       </div>
 
       {/* Имя врача */}
       <div className="text-xs opacity-75">
-        {doctor?.full_name || 'Неизвестный врач'}
+        {doctorName === 'Загрузка...' ? (
+          <div className="h-3 bg-gray-200 rounded animate-pulse w-20 mt-1"></div>
+        ) : doctorName}
       </div>
 
       {/* Причина приема */}

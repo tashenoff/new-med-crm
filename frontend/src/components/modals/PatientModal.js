@@ -595,22 +595,14 @@ const PatientModal = ({
             };
             onSave(e, formDataWithId);
           }} className="space-y-4">
-            <div className="grid grid-cols-2 gap-4">
+            <div>
               <input
                 type="text"
-                placeholder="Полное имя *"
+                placeholder="ФИО *"
                 value={patientForm.full_name || ''}
                 onChange={(e) => safeSetPatientForm({ full_name: e.target.value })}
                 className={inputClasses}
                 required
-              />
-              
-              <input
-                type="text"
-                placeholder="Фамилия"
-                value={patientForm.last_name || ''}
-                onChange={(e) => safeSetPatientForm({ last_name: e.target.value })}
-                className={inputClasses}
               />
             </div>
 

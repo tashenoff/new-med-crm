@@ -8,8 +8,8 @@ from ..models.client import ClientStatus, ClientType
 
 class ClientBase(BaseModel):
     """Базовая схема клиента"""
-    first_name: str = Field(..., min_length=1, max_length=50)
-    last_name: str = Field(..., min_length=1, max_length=50)
+    first_name: str = Field(..., min_length=1, max_length=100, description="ФИО")
+    last_name: Optional[str] = Field(None, max_length=50, description="Фамилия (опционально)")
     middle_name: Optional[str] = Field(None, max_length=50)
     phone: str = Field(..., min_length=10, max_length=20)
     email: Optional[str] = Field(None)
@@ -53,8 +53,8 @@ class ClientResponse(BaseModel):
     """Схема ответа с данными клиента"""
     id: str
     first_name: str
-    last_name: str
-    middle_name: Optional[str]
+    last_name: Optional[str] = None
+    middle_name: Optional[str] = None
     phone: str
     email: Optional[str]
     status: ClientStatus

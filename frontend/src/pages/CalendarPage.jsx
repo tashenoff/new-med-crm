@@ -283,7 +283,7 @@ const CalendarPage = ({ user }) => {
         if (conflictingAppointments.length > 0) {
           const conflictNames = conflictingAppointments.map(apt => {
             const patient = patientsHook.patients.find(p => p.id === apt.patient_id);
-            return patient ? patient.full_name : 'Неизвестный пациент';
+            return patient?.full_name || apt.patient_name || 'Неизвестный пациент';
           }).join(', ');
           
           alert(`ОШИБКА: Время пересекается с записями: ${conflictNames}\n\nИзмените время записи.`);

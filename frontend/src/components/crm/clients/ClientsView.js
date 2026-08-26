@@ -622,37 +622,14 @@ const ClientsView = ({ user }) => {
             </div>
             
             <div className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Имя *</label>
-                  <input
-                    type="text"
-                    value={newClient.first_name}
-                    onChange={(e) => setNewClient({...newClient, first_name: e.target.value})}
-                    className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm"
-                    placeholder="Введите имя"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Фамилия *</label>
-                  <input
-                    type="text"
-                    value={newClient.last_name}
-                    onChange={(e) => setNewClient({...newClient, last_name: e.target.value})}
-                    className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm"
-                    placeholder="Введите фамилию"
-                  />
-                </div>
-              </div>
-              
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Отчество</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">ФИО *</label>
                 <input
                   type="text"
-                  value={newClient.middle_name}
-                  onChange={(e) => setNewClient({...newClient, middle_name: e.target.value})}
+                  value={newClient.first_name}
+                  onChange={(e) => setNewClient({...newClient, first_name: e.target.value})}
                   className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm"
-                  placeholder="Введите отчество"
+                  placeholder="Введите ФИО"
                 />
               </div>
               
@@ -700,7 +677,7 @@ const ClientsView = ({ user }) => {
               </button>
               <button
                 onClick={handleCreateClient}
-                disabled={!newClient.first_name || !newClient.last_name || !newClient.phone}
+                disabled={!newClient.first_name || !newClient.phone}
                 className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors"
               >
                 Создать

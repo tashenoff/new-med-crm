@@ -138,7 +138,7 @@ const AppointmentModal = ({
         if (roomConflicts.length > 0) {
           const conflictNames = roomConflicts.map(apt => {
             const patient = patients.find(p => p.id === apt.patient_id);
-            return patient ? patient.full_name : 'Неизвестный пациент';
+            return patient?.full_name || apt.patient_name || 'Неизвестный пациент';
           }).join(', ');
           conflicts.push(`Кабинет занят (${conflictNames})`);
         }
@@ -156,10 +156,10 @@ const AppointmentModal = ({
         
         if (doctorConflicts.length > 0) {
           const doctor = doctors.find(d => d.id === checkDoctorId);
-          const doctorName = doctor ? doctor.full_name : 'Врач';
+          const doctorName = doctor?.full_name || 'Врач';
           const conflictNames = doctorConflicts.map(apt => {
             const patient = patients.find(p => p.id === apt.patient_id);
-            return patient ? patient.full_name : 'Неизвестный пациент';
+            return patient?.full_name || apt.patient_name || 'Неизвестный пациент';
           }).join(', ');
           conflicts.push(`${doctorName} уже записан (${conflictNames})`);
         }

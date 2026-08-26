@@ -1268,27 +1268,15 @@ const EnhancedLeadsView = ({ user }) => {
         size="max-w-md"
       >
         <div className="space-y-4">
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className={labelClasses}>Имя *</label>
-              <input
-                type="text"
-                value={newLead.first_name}
-                onChange={(e) => setNewLead({...newLead, first_name: e.target.value})}
-                className={inputClasses}
-                placeholder="Введите имя"
-              />
-            </div>
-            <div>
-              <label className={labelClasses}>Фамилия *</label>
-              <input
-                type="text"
-                value={newLead.last_name}
-                onChange={(e) => setNewLead({...newLead, last_name: e.target.value})}
-                className={inputClasses}
-                placeholder="Введите фамилию"
-              />
-            </div>
+          <div>
+            <label className={labelClasses}>ФИО *</label>
+            <input
+              type="text"
+              value={newLead.first_name}
+              onChange={(e) => setNewLead({...newLead, first_name: e.target.value})}
+              className={inputClasses}
+              placeholder="Введите ФИО"
+            />
           </div>
           
           <div>
@@ -1434,7 +1422,7 @@ const EnhancedLeadsView = ({ user }) => {
           </button>
           <button
             onClick={handleCreateLead}
-            disabled={!newLead.first_name || !newLead.last_name || !newLead.phone}
+            disabled={!newLead.first_name || !newLead.phone}
             className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors"
           >
             Создать

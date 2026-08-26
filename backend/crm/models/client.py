@@ -28,8 +28,8 @@ class Client(BaseModel):
     id: Optional[str] = Field(None, description="Уникальный идентификатор")
     
     # Основная информация
-    first_name: str = Field(..., description="Имя")
-    last_name: str = Field(..., description="Фамилия")
+    first_name: str = Field(..., description="ФИО")
+    last_name: Optional[str] = Field(None, description="Фамилия (опционально)")
     middle_name: Optional[str] = Field(None, description="Отчество")
     
     # Контактная информация

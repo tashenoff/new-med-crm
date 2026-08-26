@@ -44,6 +44,10 @@ const AppointmentCard = ({
     }
   };
 
+  // Получаем имена с fallback на данные из appointment (бэкенд возвращает patient_name/doctor_name)
+  const patientName = patient?.full_name || patient?.name || appointment.patient_name || 'Загрузка...';
+  const doctorName = doctor?.full_name || doctor?.name || appointment.doctor_name || 'Загрузка...';
+
   // Цвет карточки в зависимости от статуса
   const getStatusColor = (status) => {
     switch (status) {
@@ -76,13 +80,17 @@ const AppointmentCard = ({
       
       {/* Имя пациента */}
       <div className="text-sm font-semibold mb-1 truncate">
-        {patient?.name || 'Неизвестный пациент'}
+        {patientName === 'Загрузка...' ? (
+          <div className="h-4 bg-gray-300 rounded animate-pulse w-20"></div>
+        ) : patientName}
       </div>
       
       {/* Врач */}
       {doctor && (
         <div className="text-xs text-gray-600 truncate">
-          Врач: {doctor.name}
+          {doctorName === 'Загрузка...' ? (
+            <div className="h-3 bg-gray-300 rounded animate-pulse w-16"></div>
+          ) : `Врач: ${doctorName}`}
         </div>
       )}
       

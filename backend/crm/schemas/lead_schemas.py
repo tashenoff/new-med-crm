@@ -10,8 +10,8 @@ from ..models.lead import LeadStatus, LeadSource, LeadPriority
 
 class LeadBase(BaseModel):
     """Базовая схема лида"""
-    first_name: str = Field(..., min_length=1, max_length=50, description="Имя")
-    last_name: str = Field(..., min_length=1, max_length=50, description="Фамилия")
+    first_name: str = Field(..., min_length=1, max_length=100, description="ФИО")
+    last_name: Optional[str] = Field(None, max_length=50, description="Фамилия (опционально)")
     middle_name: Optional[str] = Field(None, max_length=50, description="Отчество")
     phone: str = Field(..., min_length=10, max_length=20, description="Номер телефона")
     email: Optional[str] = Field(None, description="Email адрес")
@@ -86,8 +86,8 @@ class LeadResponse(BaseModel):
     """Схема ответа с данными лида"""
     id: str
     first_name: str
-    last_name: str
-    middle_name: Optional[str]
+    last_name: Optional[str] = None
+    middle_name: Optional[str] = None
     phone: str
     email: Optional[str]
     iin: Optional[str] = None
