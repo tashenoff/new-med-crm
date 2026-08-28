@@ -193,6 +193,7 @@ class ConsultationService:
             service = {
                 "service_id": ts.service_id,
                 "service_name": ts.service_name,
+                "category": ts.category if hasattr(ts, 'category') and ts.category else None,  # Категория из прайса
                 "quantity_total": ts.quantity,
                 "quantity_completed": 0,
                 "price_per_unit": ts.price_per_unit,
@@ -234,6 +235,7 @@ class ConsultationService:
             created_by=user_id,
             created_by_name=user_name,
             assigned_doctor_id=consultation.doctor_id,
+            doctor_name=consultation.doctor_name,  # Имя врача для отчётов
             notes=consultation.recommendations or "",
             payment_status="unpaid",
             paid_amount=0.0,
@@ -277,6 +279,7 @@ class ConsultationService:
             service = {
                 "service_id": ts.service_id,
                 "service_name": ts.service_name,
+                "category": ts.category if hasattr(ts, 'category') and ts.category else None,  # Категория из прайса
                 "quantity_total": ts.quantity,
                 "quantity_completed": 0,
                 "price_per_unit": ts.price_per_unit,
@@ -341,6 +344,7 @@ class ConsultationService:
                 created_by=user_id,
                 created_by_name=user_name,
                 assigned_doctor_id=consultation.doctor_id,
+                doctor_name=consultation.doctor_name,  # Имя врача для отчётов
                 notes=consultation.recommendations or "",
                 payment_status="unpaid",
                 paid_amount=0.0,

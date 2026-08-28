@@ -42,6 +42,19 @@ class TreatmentPlanService:
         if not patient:
             raise HTTPException(status_code=404, detail="Patient not found")
         
+        # Получаем имя врача если указан assigned_doctor_id
+        doctor_name = None
+        if plan_data.assigned_doctor_id:
+            doctor = await self.db.doctors.find_one({"id": plan_data.assigned_doctor_id})
+            if not doctor:
+                # Пробуем найти по _id
+                try:
+                    doctor = await self.db.doctors.find_one({"_id": ObjectId(plan_data.assigned_doctor_id)})
+                except:
+                    pass
+            if doctor:
+                doctor_name = doctor.get("full_name", "Неизвестный врач")
+        
         # Create treatment plan record
         treatment_plan = TreatmentPlan(
             patient_id=patient_id,
@@ -53,6 +66,7 @@ class TreatmentPlanService:
             created_by=created_by,
             created_by_name=created_by_name,
             assigned_doctor_id=plan_data.assigned_doctor_id,
+            doctor_name=doctor_name,  # Добавляем имя врача для отчётов
             notes=plan_data.notes,
             # Enhanced tracking fields
             payment_status=plan_data.payment_status,

@@ -26,7 +26,9 @@ async def upload_price_file(
 ):
     """
     Upload Excel file (.xls, .xlsx) with service prices.
-    Categories from 'Специальность' column will be auto-created.
+    
+    Категории из колонки 'Специальность' автоматически добавляются
+    в справочник специальностей врачей (specialties).
     """
     if not file.filename:
         raise HTTPException(status_code=400, detail="Файл не выбран")
@@ -86,11 +88,11 @@ async def preview_price_file(
     
     services, categories, parse_errors = service.parse_excel(content, file.filename)
     
-    # Check existing categories
+    # Check existing categories (now checking specialties collection)
     existing_cats = []
     new_cats = []
     for cat in categories:
-        exists = await db.service_categories.find_one({"name": cat, "is_active": True})
+        exists = await db.specialties.find_one({"name": cat, "is_active": True})
         (existing_cats if exists else new_cats).append(cat)
     
     # Check duplicates
@@ -124,7 +126,7 @@ async def get_template_info(current_user: UserInDB = Depends(get_current_active_
             {"name": "Цена", "aliases": ["Price", "Стоимость"], "required": True}
         ],
         "optional_columns": [
-            {"name": "Специальность", "description": "Категория (создается автоматически)"},
+            {"name": "Специальность", "description": "Категория → добавляется в справочник специальностей врачей"},
             {"name": "Код", "description": "Код услуги"},
             {"name": "Скидка", "description": "Разрешена/Запрещена"},
             {"name": "Начисление", "description": "Тип оплаты"},
@@ -132,6 +134,122 @@ async def get_template_info(current_user: UserInDB = Depends(get_current_active_
         ],
         "notes": [
             "Цены могут содержать пробелы и ₸ (очищаются автоматически)",
-            "Категории из 'Специальность' создаются в справочнике автоматически"
+            "Категории из колонки 'Специальность' автоматически добавляются в справочник специальностей врачей"
         ]
+    }
+
+
+@price_import_router.delete("/clear-all")
+async def clear_all_prices(
+    clear_categories: bool = Query(True, description="Также очистить service_categories"),
+    current_user: UserInDB = Depends(require_role([UserRole.ADMIN, UserRole.SUPER_ADMIN]))
+):
+    """
+    Полная очистка прайса (service_prices) и опционально категорий (service_categories).
+    Специальности (specialties) НЕ удаляются - они могут использоваться врачами.
+    """
+    # Удаляем все записи из service_prices
+    prices_result = await db.service_prices.delete_many({})
+    prices_deleted = prices_result.deleted_count
+    
+    categories_deleted = 0
+    if clear_categories:
+        # Удаляем все записи из service_categories (старый справочник)
+        categories_result = await db.service_categories.delete_many({})
+        categories_deleted = categories_result.deleted_count
+    
+    return {
+        "success": True,
+        "message": "Прайс очищен",
+        "deleted": {
+            "service_prices": prices_deleted,
+            "service_categories": categories_deleted if clear_categories else "не удалялись"
+        },
+        "note": "Специальности врачей (specialties) не затронуты"
+    }
+
+
+@price_import_router.get("/stats")
+async def get_import_stats(
+    current_user: UserInDB = Depends(get_current_active_user)
+):
+    """Получить статистику по прайсу и справочникам"""
+    prices_count = await db.service_prices.count_documents({"is_active": True})
+    prices_total = await db.service_prices.count_documents({})
+    
+    categories_count = await db.service_categories.count_documents({"is_active": True})
+    specialties_count = await db.specialties.count_documents({"is_active": True})
+    
+    # Уникальные категории в прайсе
+    price_categories = await db.service_prices.distinct("category", {"is_active": True, "category": {"$ne": None}})
+    
+    return {
+        "service_prices": {
+            "active": prices_count,
+            "total": prices_total,
+            "unique_categories": len(price_categories),
+            "categories_list": sorted(price_categories)
+        },
+        "service_categories": {
+            "active": categories_count,
+            "note": "Старый справочник категорий (может быть не синхронизирован)"
+        },
+        "specialties": {
+            "active": specialties_count,
+            "note": "Справочник специальностей врачей (используется для отчётов)"
+        }
+    }
+
+
+@price_import_router.delete("/clear-specialties")
+async def clear_specialties(
+    only_imported: bool = Query(True, description="Удалить только импортированные из прайса"),
+    current_user: UserInDB = Depends(require_role([UserRole.ADMIN, UserRole.SUPER_ADMIN]))
+):
+    """
+    Очистка специальностей врачей (specialties).
+    По умолчанию удаляет только те, что были импортированы из прайса.
+    """
+    if only_imported:
+        # Удаляем только специальности с описанием "Импортировано из прайса"
+        result = await db.specialties.delete_many({
+            "description": "Импортировано из прайса"
+        })
+    else:
+        # Удаляем все специальности
+        result = await db.specialties.delete_many({})
+    
+    return {
+        "success": True,
+        "message": "Специальности удалены",
+        "deleted": result.deleted_count,
+        "mode": "только импортированные" if only_imported else "все"
+    }
+
+
+@price_import_router.delete("/reset-all")
+async def reset_all_data(
+    confirm: bool = Query(..., description="Подтвердите удаление: confirm=true"),
+    current_user: UserInDB = Depends(require_role([UserRole.SUPER_ADMIN]))
+):
+    """
+    ⚠️ ПОЛНЫЙ СБРОС: удаляет прайс, категории и специальности.
+    Требует роль SUPER_ADMIN и подтверждение confirm=true.
+    """
+    if not confirm:
+        raise HTTPException(status_code=400, detail="Добавьте confirm=true для подтверждения")
+    
+    prices_result = await db.service_prices.delete_many({})
+    categories_result = await db.service_categories.delete_many({})
+    specialties_result = await db.specialties.delete_many({})
+    
+    return {
+        "success": True,
+        "message": "Полный сброс выполнен",
+        "deleted": {
+            "service_prices": prices_result.deleted_count,
+            "service_categories": categories_result.deleted_count,
+            "specialties": specialties_result.deleted_count
+        },
+        "warning": "Все данные удалены. Специальности врачей тоже удалены!"
     }

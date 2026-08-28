@@ -27,6 +27,11 @@ const ServicePrices = ({ user }) => {
     skip_duplicates: true
   });
 
+  // Clear price modal state
+  const [showClearModal, setShowClearModal] = useState(false);
+  const [clearLoading, setClearLoading] = useState(false);
+  const [priceStats, setPriceStats] = useState(null);
+
   // Pagination and filtering states
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(25);
@@ -451,6 +456,79 @@ const ServicePrices = ({ user }) => {
     setImportResult(null);
   };
 
+  // ===== Clear Price functions =====
+  const handleClearClick = async () => {
+    // Fetch stats first
+    try {
+      setClearLoading(true);
+      const token = localStorage.getItem('token');
+      const response = await fetch(`${API}/api/price-import/stats`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        setPriceStats(data);
+      }
+    } catch (error) {
+      console.error('Error fetching stats:', error);
+    } finally {
+      setClearLoading(false);
+    }
+    setShowClearModal(true);
+  };
+
+  const handleClearPrices = async (clearSpecialties = false) => {
+    try {
+      setClearLoading(true);
+      const token = localStorage.getItem('token');
+      
+      // Clear service prices and categories
+      const response = await fetch(`${API}/api/price-import/clear-all?clear_categories=true`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        setError(errorData.detail || 'Ошибка при очистке прайса');
+        return;
+      }
+
+      // Optionally clear specialties imported from price
+      if (clearSpecialties) {
+        const specResponse = await fetch(`${API}/api/price-import/clear-specialties?only_imported=true`, {
+          method: 'DELETE',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          }
+        });
+        
+        if (!specResponse.ok) {
+          console.error('Error clearing specialties');
+        }
+      }
+      
+      // Refresh data
+      await fetchServicePrices();
+      await fetchCategories();
+      setShowClearModal(false);
+      setError('');
+    } catch (error) {
+      console.error('Error clearing prices:', error);
+      setError('Ошибка подключения к серверу');
+    } finally {
+      setClearLoading(false);
+    }
+  };
+
   // Filter and paginate services
   const filteredServices = servicePrices.filter(price => {
     const matchesSearch = !searchQuery || 
@@ -496,6 +574,13 @@ const ServicePrices = ({ user }) => {
                   Категории услуг
                 </h3>
                 <div className="flex gap-2">
+                  <button
+                    onClick={handleClearClick}
+                    className={buttonDangerClasses}
+                    title="Очистить прайс и категории"
+                  >
+                    🗑️ Очистить прайс
+                  </button>
                   <button
                     onClick={handleImportClick}
                     className={buttonSecondaryClasses}
@@ -1044,6 +1129,64 @@ const ServicePrices = ({ user }) => {
                 {importLoading ? 'Импорт...' : `Импортировать (${importPreview.services_preview?.new_count || 0})`}
               </button>
             )}
+          </div>
+        </div>
+      </Modal>
+
+      {/* Clear Price Modal */}
+      <Modal
+        show={showClearModal}
+        onClose={() => setShowClearModal(false)}
+        title="🗑️ Очистка прайса"
+        size="max-w-md"
+      >
+        <div className="space-y-4">
+          {priceStats && (
+            <div className="bg-yellow-50 dark:bg-yellow-900/30 p-4 rounded-lg border border-yellow-200 dark:border-yellow-700">
+              <h4 className="font-medium text-yellow-800 dark:text-yellow-300 mb-2">Текущая статистика:</h4>
+              <div className="text-sm space-y-1 text-yellow-700 dark:text-yellow-400">
+                <div>• Услуг в прайсе: <b>{priceStats.service_prices?.active || 0}</b></div>
+                <div>• Категорий услуг: <b>{priceStats.service_categories?.active || 0}</b></div>
+                <div>• Специальностей врачей: <b>{priceStats.specialties?.active || 0}</b></div>
+                {priceStats.service_prices?.categories_list?.length > 0 && (
+                  <div className="mt-2 pt-2 border-t border-yellow-200">
+                    <span className="text-xs">Категории: {priceStats.service_prices.categories_list.slice(0, 5).join(', ')}{priceStats.service_prices.categories_list.length > 5 ? '...' : ''}</span>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          <div className="bg-red-50 dark:bg-red-900/30 p-4 rounded-lg border border-red-200 dark:border-red-700">
+            <p className="text-red-700 dark:text-red-300 text-sm">
+              ⚠️ <b>Внимание!</b> Будут удалены все услуги из прайса и категории услуг.
+            </p>
+            <p className="text-red-600 dark:text-red-400 text-xs mt-2">
+              Специальности врачей по умолчанию НЕ удаляются (они могут быть привязаны к врачам).
+            </p>
+          </div>
+
+          <div className="flex flex-col gap-3 pt-4 border-t">
+            <button
+              onClick={() => handleClearPrices(false)}
+              disabled={clearLoading}
+              className={`w-full ${buttonDangerClasses}`}
+            >
+              {clearLoading ? 'Удаление...' : '🗑️ Очистить прайс'}
+            </button>
+            <button
+              onClick={() => handleClearPrices(true)}
+              disabled={clearLoading}
+              className="w-full px-4 py-2 text-sm border-2 border-red-500 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/30 rounded-lg transition"
+            >
+              🗑️ Очистить прайс + импортированные специальности
+            </button>
+            <button
+              onClick={() => setShowClearModal(false)}
+              className={`w-full ${buttonSecondaryClasses}`}
+            >
+              Отмена
+            </button>
           </div>
         </div>
       </Modal>

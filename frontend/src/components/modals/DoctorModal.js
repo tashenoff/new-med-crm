@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import Modal from './Modal';
 import { inputClasses, selectClasses, labelClasses, buttonPrimaryClasses, buttonSecondaryClasses } from './modalUtils';
 
@@ -161,6 +161,18 @@ const DoctorModal = ({
       console.error('DoctorModal: Error fetching service prices:', error);
     }
   };
+
+  // Фильтруем услуги по выбранной специальности (категории)
+  const filteredServices = useMemo(() => {
+    if (!doctorForm.specialty) {
+      return []; // Пока не выбрана специальность — не показываем услуги
+    }
+    return services.filter(service => {
+      const serviceCategory = (service.category || '').toLowerCase().trim();
+      const selectedSpecialty = doctorForm.specialty.toLowerCase().trim();
+      return serviceCategory === selectedSpecialty;
+    });
+  }, [services, doctorForm.specialty]);
 
   // Обработчик для изменения услуг
   const handleServiceToggle = (serviceId) => {
@@ -432,10 +444,27 @@ const DoctorModal = ({
                 </div>
               </div>
               
-              {services.length > 0 ? (
+              {/* Индикатор фильтрации по специальности */}
+              {doctorForm.specialty && (
+                <div className="text-xs text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20 px-3 py-2 rounded-lg">
+                  📋 Показаны услуги для специальности: <strong>{doctorForm.specialty}</strong>
+                  {filteredServices.length === 0 && services.length > 0 && (
+                    <span className="ml-1 text-amber-600 dark:text-amber-400">
+                      — нет услуг с этой категорией
+                    </span>
+                  )}
+                </div>
+              )}
+              {!doctorForm.specialty && services.length > 0 && (
+                <div className="text-xs text-gray-500 dark:text-gray-400 bg-gray-50 dark:bg-gray-800 px-3 py-2 rounded-lg">
+                  👆 Выберите специальность, чтобы увидеть соответствующие услуги
+                </div>
+              )}
+              
+              {filteredServices.length > 0 ? (
                 <div className="max-h-64 overflow-y-auto border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700">
                   {(() => {
-                    const servicesByCategory = services.reduce((acc, service) => {
+                    const servicesByCategory = filteredServices.reduce((acc, service) => {
                       const category = service.category || 'Без категории';
                       if (!acc[category]) acc[category] = [];
                       acc[category].push(service);
@@ -523,18 +552,28 @@ const DoctorModal = ({
               ) : (
                 <div className="text-center py-8 text-gray-500 dark:text-gray-400">
                   <p>🔧 Услуги не найдены</p>
-                  <p className="text-sm">Создайте услуги в разделе "Услуги"</p>
+                  <p className="text-sm">
+                    {doctorForm.specialty 
+                      ? `В категории "${doctorForm.specialty}" пока нет услуг. Создайте услуги в разделе "Справочник"`
+                      : 'Создайте услуги в разделе "Справочник"'}
+                  </p>
                 </div>
               )}
               
-              {selectedServices.length > 0 && (
-                <div className="text-xs text-green-600 dark:text-green-400 mt-2">
-                  ✅ Выбрано услуг: {selectedServices.length}
+              {filteredServices.length > 0 && doctorForm.specialty && (
+                <div className="text-xs text-green-600 dark:text-green-400 mt-1">
+                  📊 Найдено услуг: {filteredServices.length}
+                  <span className="ml-2">✅ Выбрано: {selectedServices.length}</span>
                   {paymentMode === 'individual' && (
                     <span className="ml-2 text-blue-600 dark:text-blue-400">
                       (с индивидуальными комиссиями)
                     </span>
                   )}
+                </div>
+              )}
+              {selectedServices.length > 0 && !doctorForm.specialty && (
+                <div className="text-xs text-green-600 dark:text-green-400 mt-1">
+                  ✅ Выбрано услуг: {selectedServices.length}
                 </div>
               )}
               

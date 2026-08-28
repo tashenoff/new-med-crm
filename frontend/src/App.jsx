@@ -18,6 +18,7 @@ import LabPriceStatistics from './components/directory/LabPriceStatistics';
 import Rooms from './components/directory/Rooms';
 import Specialties from './components/specialties/Specialties';
 import PaymentTypes from './components/payment-types/PaymentTypes';
+import ServicesReport from './components/reports/ServicesReport';
 import ChangePasswordModal from './components/modals/ChangePasswordModal';
 
 import EnhancedCrmDashboard from './components/crm/dashboard/EnhancedCrmDashboard';
@@ -98,6 +99,7 @@ function ClinicApp() {
     if (pathname.startsWith('/doctor-schedule')) return 'doctor-schedule';
     if (pathname.startsWith('/loyalty')) return 'loyalty';
     if (pathname.startsWith('/quality-assessment')) return 'quality-assessment';
+    if (pathname.startsWith('/services-report')) return 'services-report';
     if (pathname.startsWith('/crm')) return pathname.replace('/', '');
     if (pathname.startsWith('/finance')) return pathname.replace('/', '');
     return 'calendar';
@@ -344,6 +346,7 @@ function ClinicApp() {
           <Route path="/room-management" element={<Rooms user={user} />} />
           <Route path="/doctor-schedule" element={<DoctorSchedule doctors={doctorsHook.doctors} user={user} canEdit={user?.role === 'admin' || user?.role === 'super_admin'} />} />
           <Route path="/loyalty" element={<LoyaltyPage user={user} />} />
+          <Route path="/services-report" element={<ServicesReport user={user} />} />
           <Route path="/staff-management" element={<StaffManagementPage user={user} />} />
           <Route path="/settings" element={<SettingsPage user={user} />} />
           <Route path="/quality-assessment" element={<QualityAssessmentPage user={user} />} />
@@ -372,6 +375,7 @@ function ClinicApp() {
               {activeTab === 'service-prices' && <ServicePrices user={user} />}
               {activeTab === 'specialties' && <Specialties user={user} />}
               {activeTab === 'payment-types' && <PaymentTypes user={user} />}
+              {activeTab === 'services-report' && <ServicesReport user={user} />}
               {activeTab === 'room-management' && <Rooms user={user} />}
               {activeTab === 'quality-assessment' && <QualityAssessmentPage user={user} />}
               {activeTab === 'warehouse' && <WarehousePage user={user} warehouseView={warehouseView} onOpenAiChat={openAiChatWithMaterialForm} onCloseAiChat={closeAiChatSidebar} aiChatSidebarOpen={aiChatSidebarOpen} />}

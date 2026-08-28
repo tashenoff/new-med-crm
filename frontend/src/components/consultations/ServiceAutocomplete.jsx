@@ -60,6 +60,7 @@ const ServiceAutocomplete = ({ onAddService }) => {
     const baseService = {
       service_id: selectedService.id,
       service_name: selectedService.service_name,
+      category: selectedService.category || '',  // Категория из прайса (specialties)
       price_per_unit: selectedService.price || 0,
     };
 

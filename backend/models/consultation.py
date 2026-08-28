@@ -14,6 +14,7 @@ class TreatmentService(BaseModel):
     """Назначенная услуга из прайса"""
     service_id: str
     service_name: str
+    category: Optional[str] = None  # Категория услуги (из specialties/прайса) для отчётов
     quantity: int = 1
     price_per_unit: float
     total_price: float

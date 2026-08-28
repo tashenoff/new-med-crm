@@ -10,7 +10,7 @@ from typing import List, Dict, Any, Tuple, Optional
 from motor.motor_asyncio import AsyncIOMotorDatabase
 from io import BytesIO
 
-from models.services import ServicePrice, ServiceCategory
+from models.services import ServicePrice, ServiceCategory, Specialty
 
 
 class PriceImportService:
@@ -202,25 +202,32 @@ class PriceImportService:
         return services, list(categories_set), errors
     
     async def ensure_categories_exist(self, categories: List[str]) -> Dict[str, int]:
-        """Ensure all categories exist in service_categories. Creates missing ones."""
+        """Ensure all categories exist in specialties collection. Creates missing ones.
+        
+        Категории из прайса (колонка Специальность) добавляются в справочник
+        специальностей врачей (specialties), чтобы можно было связать услуги
+        с врачами и делать отчёты по специальностям.
+        """
         created = 0
         existing = 0
         
         for category_name in categories:
             if not category_name:
                 continue
-            exists = await self.db.service_categories.find_one({
+            # Проверяем существование в specialties
+            exists = await self.db.specialties.find_one({
                 "name": category_name, "is_active": True
             })
             if exists:
                 existing += 1
             else:
-                category = ServiceCategory(
+                # Создаём новую специальность
+                specialty = Specialty(
                     name=category_name,
                     description="Импортировано из прайса",
                     is_active=True
                 )
-                await self.db.service_categories.insert_one(category.dict())
+                await self.db.specialties.insert_one(specialty.dict())
                 created += 1
         
         return {'created': created, 'existing': existing}
