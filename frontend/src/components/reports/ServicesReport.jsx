@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { API_BASE_URL } from '../../api/config';
 import ServiceDetailModal from '../modals/ServiceDetailModal';
 
@@ -25,8 +25,9 @@ const ServicesReport = ({ user }) => {
   const now = new Date();
   const [year, setYear] = useState(now.getFullYear());
   const [month, setMonth] = useState(null); // null = весь год
-  const [category, setCategory] = useState(''); // '' = все
-  const [doctorId, setDoctorId] = useState(''); // '' = все
+  const [selectedCategories, setSelectedCategories] = useState([]); // [] = все
+  const [selectedDoctorIds, setSelectedDoctorIds] = useState([]); // [] = все
+  const [showOnlyDebt, setShowOnlyDebt] = useState(false); // только с задолженностью
 
   // Опции для фильтров
   const [categories, setCategories] = useState([]);
@@ -82,8 +83,8 @@ const ServicesReport = ({ user }) => {
       const params = new URLSearchParams();
       params.append('year', year);
       if (month) params.append('month', month);
-      if (category) params.append('category', category);
-      if (doctorId) params.append('doctor_id', doctorId);
+      if (selectedCategories.length > 0) params.append('categories', selectedCategories.join(','));
+      if (selectedDoctorIds.length > 0) params.append('doctor_ids', selectedDoctorIds.join(','));
       const response = await fetch(`${API_BASE_URL}/reports/services-report?${params}`, {
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -98,15 +99,59 @@ const ServicesReport = ({ user }) => {
     } finally {
       setLoading(false);
     }
-  }, [year, month, category, doctorId]);
+  }, [year, month, selectedCategories, selectedDoctorIds]);
 
   useEffect(() => {
     fetchReport();
   }, [year, month]);
 
+  // Фильтруем врачей по выбранным категориям
+  const filteredDoctors = useMemo(() => {
+    if (selectedCategories.length === 0) return doctors;
+    return doctors.filter(doc => {
+      const docSpecialties = doc.specialties || (doc.specialty ? [doc.specialty] : []);
+      return docSpecialties.some(spec => selectedCategories.includes(spec));
+    });
+  }, [doctors, selectedCategories]);
+
+  // Сбрасываем выбранных врачей если они не проходят фильтр по категориям
+  useEffect(() => {
+    if (selectedCategories.length > 0 && selectedDoctorIds.length > 0) {
+      const validIds = filteredDoctors.map(d => d.id);
+      const newSelected = selectedDoctorIds.filter(id => validIds.includes(id));
+      if (newSelected.length !== selectedDoctorIds.length) {
+        setSelectedDoctorIds(newSelected);
+      }
+    }
+  }, [filteredDoctors, selectedDoctorIds, selectedCategories]);
+
   const handleApplyFilters = () => {
     fetchReport();
   };
+
+  // Фильтруем итоговые данные по задолженности
+  const filteredItems = useMemo(() => {
+    if (!data?.items) return [];
+    if (!showOnlyDebt) return data.items;
+    return data.items.filter(item => {
+      const outstanding = (item.total_expected || 0) - (item.total_paid || 0);
+      return outstanding > 0;
+    });
+  }, [data, showOnlyDebt]);
+
+  // Пересчитываем totals на основе отфильтрованных данных
+  const filteredTotals = useMemo(() => {
+    if (!data?.totals) return null;
+    if (!showOnlyDebt) return data.totals;
+    const totalExpected = filteredItems.reduce((sum, item) => sum + (item.total_expected || 0), 0);
+    const totalPaid = filteredItems.reduce((sum, item) => sum + (item.total_paid || 0), 0);
+    return {
+      total_expected: totalExpected,
+      total_paid: totalPaid,
+      total_outstanding: totalExpected - totalPaid,
+      services_count: filteredItems.length
+    };
+  }, [filteredItems, data, showOnlyDebt]);
 
   const formatMoney = (amount) => {
     return ((amount || 0)).toLocaleString('ru-RU', { minimumFractionDigits: 0, maximumFractionDigits: 0 }) + ' ₸';
@@ -184,29 +229,139 @@ const ServicesReport = ({ user }) => {
         <div className="flex flex-wrap items-center gap-4">
           <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Фильтры:</span>
 
-          {/* Специальность */}
-          <select
-            value={category}
-            onChange={(e) => setCategory(e.target.value)}
-            className="px-3 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg text-sm text-gray-700 dark:text-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-          >
-            <option value="">Все специальности</option>
-            {categories.map(cat => (
-              <option key={cat} value={cat}>{cat}</option>
-            ))}
-          </select>
+          {/* Специальности (множественный выбор) */}
+          <div className="relative">
+            <button
+              type="button"
+              onClick={() => {
+                const dropdown = document.getElementById('category-dropdown');
+                if (dropdown) dropdown.classList.toggle('hidden');
+              }}
+              className="px-3 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg text-sm text-gray-700 dark:text-gray-300 hover:border-gray-400 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 min-w-[180px] text-left flex items-center justify-between gap-2"
+            >
+              <span className="truncate">
+                {selectedCategories.length === 0
+                  ? 'Все специальности'
+                  : `Выбрано: ${selectedCategories.length}`}
+              </span>
+              <svg className="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+              </svg>
+            </button>
+            <div
+              id="category-dropdown"
+              className="hidden absolute z-50 mt-1 w-64 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg max-h-64 overflow-y-auto"
+            >
+              <label className="flex items-center gap-2 px-3 py-2 hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer border-b border-gray-100 dark:border-gray-700">
+                <input
+                  type="checkbox"
+                  checked={selectedCategories.length === 0}
+                  onChange={() => setSelectedCategories([])}
+                  className="rounded text-blue-600 focus:ring-blue-500"
+                />
+                <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Все специальности</span>
+              </label>
+              {categories.map(cat => {
+                const isSelected = selectedCategories.includes(cat);
+                return (
+                  <label
+                    key={cat}
+                    className="flex items-center gap-2 px-3 py-2 hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer"
+                  >
+                    <input
+                      type="checkbox"
+                      checked={isSelected}
+                      onChange={() => {
+                        if (isSelected) {
+                          setSelectedCategories(prev => prev.filter(c => c !== cat));
+                        } else {
+                          setSelectedCategories(prev => [...prev, cat]);
+                        }
+                      }}
+                      className="rounded text-blue-600 focus:ring-blue-500"
+                    />
+                    <span className="text-sm text-gray-700 dark:text-gray-300">{cat}</span>
+                  </label>
+                );
+              })}
+            </div>
+          </div>
 
-          {/* Врач */}
-          <select
-            value={doctorId}
-            onChange={(e) => setDoctorId(e.target.value)}
-            className="px-3 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg text-sm text-gray-700 dark:text-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-          >
-            <option value="">Все врачи</option>
-            {doctors.map(doc => (
-              <option key={doc.id} value={doc.id}>{doc.name}</option>
-            ))}
-          </select>
+          {/* Врачи (множественный выбор) */}
+          <div className="relative">
+            <button
+              type="button"
+              onClick={() => {
+                const dropdown = document.getElementById('doctor-dropdown');
+                if (dropdown) dropdown.classList.toggle('hidden');
+              }}
+              className="px-3 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg text-sm text-gray-700 dark:text-gray-300 hover:border-gray-400 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 min-w-[180px] text-left flex items-center justify-between gap-2"
+            >
+              <span className="truncate">
+                {selectedDoctorIds.length === 0
+                  ? 'Все врачи'
+                  : `Выбрано врачей: ${selectedDoctorIds.length}`}
+              </span>
+              <svg className="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+              </svg>
+            </button>
+            <div
+              id="doctor-dropdown"
+              className="hidden absolute z-50 mt-1 w-64 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg max-h-64 overflow-y-auto"
+            >
+              <label className="flex items-center gap-2 px-3 py-2 hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer border-b border-gray-100 dark:border-gray-700">
+                <input
+                  type="checkbox"
+                  checked={selectedDoctorIds.length === 0}
+                  onChange={() => setSelectedDoctorIds([])}
+                  className="rounded text-blue-600 focus:ring-blue-500"
+                />
+                <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Все врачи</span>
+              </label>
+              {filteredDoctors.map(doc => {
+                const isSelected = selectedDoctorIds.includes(doc.id);
+                return (
+                  <label
+                    key={doc.id}
+                    className="flex items-center gap-2 px-3 py-2 hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer"
+                  >
+                    <input
+                      type="checkbox"
+                      checked={isSelected}
+                      onChange={() => {
+                        if (isSelected) {
+                          setSelectedDoctorIds(prev => prev.filter(id => id !== doc.id));
+                        } else {
+                          setSelectedDoctorIds(prev => [...prev, doc.id]);
+                        }
+                      }}
+                      className="rounded text-blue-600 focus:ring-blue-500"
+                    />
+                    <span className="text-sm text-gray-700 dark:text-gray-300">{doc.name}</span>
+                  </label>
+                );
+              })}
+              {filteredDoctors.length === 0 && selectedCategories.length > 0 && (
+                <div className="px-3 py-4 text-sm text-gray-400 text-center">
+                  Нет врачей с выбранными специальностями
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Только с задолженностью */}
+          <label className="flex items-center gap-2 px-3 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg cursor-pointer hover:border-gray-400 transition-colors select-none">
+            <input
+              type="checkbox"
+              checked={showOnlyDebt}
+              onChange={(e) => setShowOnlyDebt(e.target.checked)}
+              className="rounded text-red-500 focus:ring-red-500"
+            />
+            <span className="text-sm text-gray-700 dark:text-gray-300 whitespace-nowrap">
+              Только с задолженностью
+            </span>
+          </label>
 
           {/* Применить */}
           <button
@@ -220,19 +375,19 @@ const ServicesReport = ({ user }) => {
       </div>
 
       {/* Totals Cards */}
-      {data?.totals && (
+      {filteredTotals && (
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-5">
             <p className="text-sm text-gray-500 dark:text-gray-400 mb-1">Ожидаемый доход</p>
-            <p className="text-2xl font-bold text-blue-600">{formatMoney(data.totals.total_expected)}</p>
+            <p className="text-2xl font-bold text-blue-600">{formatMoney(filteredTotals.total_expected)}</p>
           </div>
           <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-5">
             <p className="text-sm text-gray-500 dark:text-gray-400 mb-1">Фактически оплачено</p>
-            <p className="text-2xl font-bold text-green-600">{formatMoney(data.totals.total_paid)}</p>
+            <p className="text-2xl font-bold text-green-600">{formatMoney(filteredTotals.total_paid)}</p>
           </div>
           <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-5">
             <p className="text-sm text-gray-500 dark:text-gray-400 mb-1">Задолженность</p>
-            <p className="text-2xl font-bold text-red-600">{formatMoney(data.totals.total_outstanding)}</p>
+            <p className="text-2xl font-bold text-red-600">{formatMoney(filteredTotals.total_outstanding)}</p>
           </div>
         </div>
       )}
@@ -266,14 +421,14 @@ const ServicesReport = ({ user }) => {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
-              {data?.items?.length === 0 ? (
+              {filteredItems.length === 0 ? (
                 <tr>
                   <td colSpan={7} className="px-4 py-12 text-center text-gray-500 dark:text-gray-400">
                     Нет данных для отображения. Создайте планы лечения с услугами.
                   </td>
                 </tr>
               ) : (
-                data?.items?.map((item, index) => {
+                filteredItems.map((item, index) => {
                   const outstanding = item.total_expected - item.total_paid;
                   return (
                     <tr
@@ -315,7 +470,12 @@ const ServicesReport = ({ user }) => {
         {/* Footer with count */}
         <div className="px-4 py-3 bg-gray-50 dark:bg-gray-700/50 border-t border-gray-200 dark:border-gray-700">
           <p className="text-sm text-gray-500 dark:text-gray-400">
-            Всего услуг: <span className="font-medium">{data?.totals?.services_count || 0}</span>
+            Всего услуг: <span className="font-medium">{filteredTotals?.services_count || 0}</span>
+            {showOnlyDebt && filteredTotals && (
+              <>
+                {' • '}Задолженность: <span className="font-medium text-red-600">{formatMoney(filteredTotals.total_outstanding)}</span>
+              </>
+            )}
           </p>
         </div>
       </div>

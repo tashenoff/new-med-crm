@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import PanelHeader from '../common/PanelHeader';
+import TreatmentPlansModal from '../modals/TreatmentPlansModal';
 
 const TreatmentPlanStatistics = () => {
   const [statistics, setStatistics] = useState(null);
@@ -10,6 +11,8 @@ const TreatmentPlanStatistics = () => {
   const [dateTo, setDateTo] = useState('');
   const [activeTab, setActiveTab] = useState('overview');
   const [searchTerm, setSearchTerm] = useState('');
+  const [treatmentPlansModal, setTreatmentPlansModal] = useState({ show: false, patient: null, plans: [] });
+  const [loadingPlans, setLoadingPlans] = useState(false);
 
   const API = import.meta.env.VITE_BACKEND_URL;
 
@@ -91,6 +94,25 @@ const TreatmentPlanStatistics = () => {
       }
     } catch (err) {
       console.error('🔥 TreatmentPlanStatistics: Ошибка сети при загрузке пациентов:', err);
+    }
+  };
+
+  const handlePatientClick = async (patient) => {
+    setLoadingPlans(true);
+    setTreatmentPlansModal({ show: true, patient, plans: [] });
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch(`${API}/api/patients/${patient.patient_id}/treatment-plans`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (response.ok) {
+        const plans = await response.json();
+        setTreatmentPlansModal(prev => ({ ...prev, plans }));
+      }
+    } catch (err) {
+      console.error('Error loading treatment plans:', err);
+    } finally {
+      setLoadingPlans(false);
     }
   };
 
@@ -487,7 +509,11 @@ const TreatmentPlanStatistics = () => {
                     )
                     .slice(0, 20)
                     .map((patient, index) => (
-                    <tr key={patient.patient_id} className="hover:bg-gray-50">
+                    <tr key={patient.patient_id} 
+                          className="hover:bg-gray-50 cursor-pointer transition-colors"
+                          onClick={() => handlePatientClick(patient)}
+                          title="Нажмите для просмотра планов лечения"
+                        >
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div>
                           <div className="text-sm font-medium text-gray-900">
@@ -623,6 +649,14 @@ const TreatmentPlanStatistics = () => {
       )}
         </div>
       </div>
+    {treatmentPlansModal.show && (
+        <TreatmentPlansModal
+          show={treatmentPlansModal.show}
+          onClose={() => setTreatmentPlansModal({ show: false, patient: null, plans: [] })}
+          patient={treatmentPlansModal.patient}
+          plans={treatmentPlansModal.plans}
+        />
+      )}
     </div>
   );
 };

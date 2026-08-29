@@ -168,8 +168,8 @@ async def initialize_default_services(
 async def get_services_report(
     year: Optional[int] = None,
     month: Optional[int] = None,
-    category: Optional[str] = None,
-    doctor_id: Optional[str] = None,
+    categories: Optional[str] = None,
+    doctor_ids: Optional[str] = None,
     current_user: UserInDB = Depends(get_current_active_user),
 ):
     """
@@ -180,8 +180,8 @@ async def get_services_report(
     Параметры:
     - year: год для фильтрации (например, 2026)
     - month: месяц для фильтрации (1-12). Если указан year, фильтр по месяцу применяется только в пределах года.
-    - category: фильтр по категории/специальности (например, "Терапия")
-    - doctor_id: фильтр по врачу (ID врача)
+    - categories: фильтр по категориям/специальностям (через запятую, например "Терапия,Хирургия")
+    - doctor_ids: фильтр по врачам (ID через запятую)
     """
     # Формируем фильтр по дате
     date_filter = {}
@@ -200,9 +200,13 @@ async def get_services_report(
             }
         }
 
-    # Фильтр по врачу
-    if doctor_id:
-        date_filter["assigned_doctor_id"] = doctor_id
+    # Фильтр по врачам (поддерживает несколько ID через запятую)
+    if doctor_ids:
+        ids_list = [id.strip() for id in doctor_ids.split(",") if id.strip()]
+        if len(ids_list) == 1:
+            date_filter["assigned_doctor_id"] = ids_list[0]
+        elif len(ids_list) > 1:
+            date_filter["assigned_doctor_id"] = {"$in": ids_list}
 
     # Получаем планы лечения с фильтром
     treatment_plans = await db.treatment_plans.find(date_filter).to_list(10000)
@@ -222,9 +226,11 @@ async def get_services_report(
 
             svc_category = svc.get("category", "Без категории")
 
-            # Фильтр по категории
-            if category and svc_category.lower() != category.lower():
-                continue
+            # Фильтр по категориям
+            if categories:
+                categories_list = [cat.strip().lower() for cat in categories.split(",") if cat.strip()]
+                if categories_list and svc_category.lower() not in categories_list:
+                    continue
 
             unit_price = svc.get("price_per_unit", svc.get("price", 0))
             total_price = svc.get("total_price", 0)
@@ -258,9 +264,11 @@ async def get_services_report(
                 if not svc_name or svc_name not in services_map:
                     continue
 
-                # Если фильтр по категории, проверяем что услуга в результатах
-                if category and svc.get("category", "").lower() != category.lower():
-                    continue
+                # Если фильтр по категориям, проверяем что услуга в результатах
+                if categories:
+                    categories_list = [cat.strip().lower() for cat in categories.split(",") if cat.strip()]
+                    if categories_list and svc.get("category", "").lower() not in categories_list:
+                        continue
 
                 svc_total = float(svc.get("total_price", 0))
                 if svc_total > 0 and svc.get("payment_status") != "paid":
@@ -391,6 +399,7 @@ async def get_service_detail_report(
 
         # Получаем информацию о кабинетах из связанных записей
         appointment_ids = plan.get("appointment_ids", [])
+        room_found = False
         if appointment_ids:
             appointments = await db.appointments.find(
                 {"id": {"$in": appointment_ids}}
@@ -401,6 +410,35 @@ async def get_service_detail_report(
                     room = await db.rooms.find_one({"id": room_id})
                     if room and room.get("name"):
                         patients_map[patient_id]["appointment_rooms"].add(room["name"])
+                        room_found = True
+        
+        # Fallback: если кабинет не найден через записи, ищем через расписание врача
+        if not room_found:
+            assigned_doctor_id = plan.get("assigned_doctor_id") or plan.get("doctor_id")
+            plan_created_at = plan.get("created_at")
+            if assigned_doctor_id and plan_created_at:
+                try:
+                    # Определяем день недели по дате создания плана
+                    if hasattr(plan_created_at, 'weekday'):
+                        day_of_week = plan_created_at.weekday()
+                    else:
+                        day_of_week = 0
+                    
+                    # Ищем расписание кабинета для этого врача на этот день недели
+                    room_schedules = await db.room_schedules.find({
+                        "doctor_id": assigned_doctor_id,
+                        "day_of_week": day_of_week,
+                        "is_active": True
+                    }).to_list(10)
+                    
+                    for rs in room_schedules:
+                        room_id = rs.get("room_id")
+                        if room_id:
+                            room = await db.rooms.find_one({"id": room_id})
+                            if room and room.get("name"):
+                                patients_map[patient_id]["appointment_rooms"].add(room["name"])
+                except Exception:
+                    pass  # Игнорируем ошибки в fallback логике
 
     # Получаем имена пациентов и собираем финальные данные
     result_patients = []
@@ -456,10 +494,14 @@ async def get_services_report_filters(
     # Получаем всех активных врачей напрямую из коллекции doctors
     doctors_docs = await db.doctors.find(
         {"is_active": True},
-        {"id": 1, "full_name": 1}
+        {"id": 1, "full_name": 1, "specialty": 1, "specialties": 1}
     ).to_list(1000)
     doctors = [
-        {"id": doc.get("id") or str(doc.get("_id")), "name": doc.get("full_name", "Неизвестный врач")}
+        {
+            "id": doc.get("id") or str(doc.get("_id")),
+            "name": doc.get("full_name", "Неизвестный врач"),
+            "specialties": doc.get("specialties") or ([doc["specialty"]] if doc.get("specialty") else [])
+        }
         for doc in doctors_docs if doc.get("id") or doc.get("_id")
     ]
     # Сортировка по имени

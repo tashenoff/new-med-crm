@@ -44,7 +44,8 @@ const DoctorsPage = ({ user }) => {
     openModal('doctor', {
       doctorForm: {
         full_name: '',
-        specialty: '',
+        specialty: null,
+        specialties: [],
         phone: '',
         calendar_color: '#3B82F6',
         payment_type: 'percentage',
@@ -64,7 +65,8 @@ const DoctorsPage = ({ user }) => {
     openModal('doctor', {
       doctorForm: {
         full_name: doctor.full_name || '',
-        specialty: doctor.specialty || '',
+        specialty: doctor.specialty || null,
+        specialties: doctor.specialties || [],
         phone: doctor.phone || '',
         calendar_color: doctor.calendar_color || '#3B82F6',
         payment_type: doctor.payment_type || 'percentage',
@@ -90,7 +92,8 @@ const DoctorsPage = ({ user }) => {
       // Очищаем данные от лишних полей, которых нет в API
       const cleanDoctorData = {
         full_name: doctorForm?.full_name?.trim() || '',
-        specialty: doctorForm?.specialty?.trim() || '',
+        specialty: doctorForm?.specialty || null,
+        specialties: doctorForm?.specialties || [],
         phone: doctorForm.phone || null,
         calendar_color: doctorForm.calendar_color || '#3B82F6',
         payment_type: doctorForm.payment_type || 'percentage',

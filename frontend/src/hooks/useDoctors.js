@@ -131,6 +131,7 @@ export const useDoctors = () => {
     const term = searchTerm.toLowerCase();
     return doctors.filter(doctor => 
       doctor.full_name?.toLowerCase().includes(term) ||
+      (doctor.specialties || []).join(' ').toLowerCase().includes(term) ||
       doctor.specialty?.toLowerCase().includes(term) ||
       doctor.phone?.includes(term) ||
       doctor.email?.toLowerCase().includes(term)

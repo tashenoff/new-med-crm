@@ -100,11 +100,16 @@ const AppointmentModal = ({
     referrer: '',
     notes: ''
   });
+  // Храним только что созданного пациента отдельно (решает проблему race condition с props)
+  const [justCreatedPatient, setJustCreatedPatient] = useState(null);
 
   const API = import.meta.env.VITE_BACKEND_URL;
   
-  // Ищем пациента в списке, если не найден - создаём объект из данных формы/editingItem
-  const foundPatient = patients?.find(p => p.id === appointmentForm.patient_id);
+  // Ищем пациента в списке patients, затем в justCreatedPatient (для только что созданных),
+  // затем в filteredPatients. Если не найден - создаём объект из данных формы/editingItem
+  const foundPatient = patients?.find(p => p.id === appointmentForm.patient_id) 
+    || (justCreatedPatient?.id === appointmentForm.patient_id ? justCreatedPatient : null)
+    || filteredPatients?.find(p => p.id === appointmentForm.patient_id);
   const selectedPatient = foundPatient || (appointmentForm.patient_id && editingItem ? {
     id: appointmentForm.patient_id,
     full_name: editingItem.patient_name || 'Пациент',
@@ -521,6 +526,7 @@ const AppointmentModal = ({
       setPatientSearch('');
       setShowPatientDropdown(false);
       setFilteredPatients([]);
+      setJustCreatedPatient(null); // Сбрасываем только что созданного пациента
       setConsentFile(null);
       setConsentFileError('');
       setConsentDragOver(false);
@@ -823,18 +829,29 @@ const AppointmentModal = ({
     try {
       const result = await onCreatePatient(newPatientForm);
       
-      if (result && result.success) {
-        // Получаем данные созданного пациента
-        const newPatient = result.data;
+      // Поддерживаем оба формата ответа:
+      // 1. { success: true, data: newPatient } - из CalendarPage
+      // 2. newPatient напрямую - из CRM
+      const newPatient = result?.success ? result.data : (result?.id || result?._id ? result : null);
+      
+      if (newPatient) {
         const newPatientId = newPatient.id || newPatient._id;
+        
+        // Сохраняем созданного пациента в отдельный state для решения race condition
+        setJustCreatedPatient(newPatient);
         
         // Автоматически выбираем нового пациента
         setAppointmentForm({...appointmentForm, patient_id: newPatientId});
         setPatientSearch(newPatient.full_name);
         setShowPatientDropdown(false);
-        setFilteredPatients([]);
         
-        console.log('✅ Пациент создан и автоматически выбран:', newPatient.full_name);
+        // Добавляем нового пациента в список отфильтрованных пациентов для немедленного отображения
+        // Это дополнительная защита от race condition когда props.patients ещё не обновился
+        setFilteredPatients([newPatient]);
+        
+        console.log('✅ Пациент создан и автоматически выбран:', newPatient.full_name, 'ID:', newPatientId);
+      } else {
+        console.warn('⚠️ Не удалось получить данные созданного пациента:', result);
       }
       
       // Reset form and hide the new patient section

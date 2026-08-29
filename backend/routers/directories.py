@@ -181,10 +181,16 @@ async def delete_specialty(
     current_user: UserInDB = Depends(require_role([UserRole.ADMIN, UserRole.SUPER_ADMIN]))
 ):
     """Delete (deactivate) specialty"""
-    # Check if specialty is used by any doctors
+    # Check if specialty is used by any doctors (support both old `specialty` and new `specialties` fields)
     specialty = await db.specialties.find_one({"id": specialty_id})
     if specialty:
-        used_count = await db.doctors.count_documents({"specialty": specialty["name"], "is_active": True})
+        used_count = await db.doctors.count_documents({
+            "$or": [
+                {"specialty": specialty["name"], "is_active": True},
+                {"specialties": specialty["name"], "is_active": True}
+            ],
+            "is_active": True
+        })
         if used_count > 0:
             raise HTTPException(
                 status_code=400, 

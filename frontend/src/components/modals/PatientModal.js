@@ -1270,21 +1270,8 @@ const PatientModal = ({
                             plans.map(p => p.id === updatedPlan.id ? updatedPlan : p)
                           );
                         }}
+                        onEdit={handleEditTreatmentPlan}
                       />
-                      <div className="flex justify-end space-x-2 mt-2">
-                        <button
-                          onClick={() => handleEditTreatmentPlan(plan)}
-                          className="px-3 py-1 text-blue-600 border border-blue-600 rounded hover:bg-blue-50 text-sm"
-                        >
-                          Редактировать
-                        </button>
-                        <button
-                          onClick={() => handleDeleteTreatmentPlan(plan.id)}
-                          className="px-3 py-1 text-red-600 border border-red-600 rounded hover:bg-red-50 text-sm"
-                        >
-                          Удалить
-                        </button>
-                      </div>
                     </div>
                   ))}
                 </div>

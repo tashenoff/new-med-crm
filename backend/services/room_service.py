@@ -156,10 +156,18 @@ class RoomService:
         if not doctor:
             raise HTTPException(status_code=404, detail="Doctor not found")
         
+        # Получаем специальность врача (поддерживаем оба формата: specialty и specialties)
+        doctor_specialty = ""
+        doctor_specialties = doctor.get("specialties", [])
+        if isinstance(doctor_specialties, list) and len(doctor_specialties) > 0:
+            doctor_specialty = doctor_specialties[0]
+        else:
+            doctor_specialty = doctor.get("specialty", "")
+        
         return {
             "doctor_id": doctor["id"],
             "doctor_name": doctor["full_name"],
-            "doctor_specialty": doctor["specialty"],
+            "doctor_specialty": doctor_specialty,
             "schedule_id": schedule["id"],
             "start_time": schedule["start_time"],
             "end_time": schedule["end_time"]

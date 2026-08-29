@@ -13,12 +13,13 @@ const DoctorsView = ({
   const filteredDoctors = doctors.filter(doctor => {
     const searchTermLower = searchTerm.toLowerCase();
     const fullName = doctor.full_name || '';
-    const specialty = doctor.specialty || '';
+    const specialties = doctor.specialties || (doctor.specialty ? [doctor.specialty] : []);
+    const specialtiesStr = specialties.join(' ');
     const phone = doctor.phone || '';
     
     return (
       fullName.toLowerCase().includes(searchTermLower) ||
-      specialty.toLowerCase().includes(searchTermLower) ||
+      specialtiesStr.toLowerCase().includes(searchTermLower) ||
       phone.includes(searchTerm)
     );
   });
@@ -97,9 +98,25 @@ const DoctorsView = ({
                           </div>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
-                          <span className="px-2 py-1 text-xs rounded font-medium bg-purple-100 text-purple-800">
-                            {doctor.specialty}
-                          </span>
+                          <div className="flex flex-wrap gap-1">
+                            {(doctor.specialties || (doctor.specialty ? [doctor.specialty] : [])).map((spec, idx) => (
+                              <span
+                                key={idx}
+                                className={`px-2 py-1 text-xs rounded font-medium ${
+                                  idx === 0
+                                    ? 'bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-200'
+                                    : 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300'
+                                }`}
+                              >
+                                {spec}
+                              </span>
+                            ))}
+                            {(doctor.specialties || []).length === 0 && !doctor.specialty && (
+                              <span className="px-2 py-1 text-xs rounded font-medium bg-gray-100 text-gray-400">
+                                Не указана
+                              </span>
+                            )}
+                          </div>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                           {doctor.phone}

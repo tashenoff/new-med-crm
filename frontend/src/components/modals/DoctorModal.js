@@ -37,7 +37,8 @@ const DoctorModal = ({
         
         const initialForm = {
           full_name: editingItem.full_name || '',
-          specialty: editingItem.specialty || '',
+          specialty: editingItem.specialty || null,
+          specialties: editingItem.specialties || [],
           phone: editingItem.phone || '',
           calendar_color: editingItem.calendar_color || '#3B82F6',
           payment_type: editingItem.payment_type || 'percentage',
@@ -47,6 +48,17 @@ const DoctorModal = ({
           services: editingItem.services || [],
           payment_mode: editingItem.payment_mode || 'general'
         };
+
+        // Если нет specialties, но есть specialty - конвертируем
+        if (!initialForm.specialties || initialForm.specialties.length === 0) {
+          if (editingItem.specialty) {
+            initialForm.specialties = [editingItem.specialty];
+          }
+        }
+        // Если нет specialty, но есть specialties - берём первый
+        if (!initialForm.specialty && initialForm.specialties && initialForm.specialties.length > 0) {
+          initialForm.specialty = initialForm.specialties[0];
+        }
         
         console.log('  ✅ Инициализируем форму:', initialForm);
         setDoctorForm(initialForm);
@@ -162,17 +174,17 @@ const DoctorModal = ({
     }
   };
 
-  // Фильтруем услуги по выбранной специальности (категории)
+  // Фильтруем услуги по выбранным специальностям (категориям)
   const filteredServices = useMemo(() => {
-    if (!doctorForm.specialty) {
+    const selectedSpecialties = doctorForm.specialties || [];
+    if (selectedSpecialties.length === 0) {
       return []; // Пока не выбрана специальность — не показываем услуги
     }
     return services.filter(service => {
       const serviceCategory = (service.category || '').toLowerCase().trim();
-      const selectedSpecialty = doctorForm.specialty.toLowerCase().trim();
-      return serviceCategory === selectedSpecialty;
+      return selectedSpecialties.some(spec => spec.toLowerCase().trim() === serviceCategory);
     });
-  }, [services, doctorForm.specialty]);
+  }, [services, doctorForm.specialties]);
 
   // Обработчик для изменения услуг
   const handleServiceToggle = (serviceId) => {
@@ -340,29 +352,92 @@ const DoctorModal = ({
               />
               
               <div>
-                <label className={labelClasses}>Специальность *</label>
-                <select
-                  value={doctorForm.specialty || ''}
-                  onChange={(e) => {
-                    console.log('🔄 Изменение специальности:', e.target.value);
-                    setDoctorForm({...doctorForm, specialty: e.target.value});
-                  }}
-                  className={inputClasses}
-                  required
-                >
-                  <option value="">Выберите специальность</option>
-                  {specialties.map(specialty => (
-                    <option key={specialty.id} value={specialty.name}>{specialty.name}</option>
-                  ))}
-                </select>
-                {specialties.length === 0 && (
-                  <p className="text-sm text-red-500 dark:text-red-400 mt-1">
-                    ⚠️ Специальности не найдены. Создайте специальности в разделе "Специальности"
+                <label className={labelClasses}>Специальности *</label>
+                <div className="space-y-2">
+                  {specialties.length === 0 ? (
+                    <p className="text-sm text-red-500 dark:text-red-400">
+                      ⚠️ Специальности не найдены. Создайте специальности в разделе "Справочники"
+                    </p>
+                  ) : (
+                    <div className="max-h-48 overflow-y-auto border border-gray-300 dark:border-gray-600 rounded-lg p-2 space-y-1">
+                      {specialties.map(specialty => {
+                        const isSelected = (doctorForm.specialties || []).includes(specialty.name);
+                        return (
+                          <label
+                            key={specialty.id}
+                            className={`flex items-center space-x-2 px-3 py-2 rounded-md cursor-pointer transition-colors ${
+                              isSelected
+                                ? 'bg-purple-100 dark:bg-purple-900/30 border border-purple-300 dark:border-purple-700'
+                                : 'hover:bg-gray-100 dark:hover:bg-gray-700 border border-transparent'
+                            }`}
+                          >
+                            <input
+                              type="checkbox"
+                              checked={isSelected}
+                              onChange={() => {
+                                let newSpecialties = [...(doctorForm.specialties || [])];
+                                if (isSelected) {
+                                  newSpecialties = newSpecialties.filter(s => s !== specialty.name);
+                                } else {
+                                  newSpecialties.push(specialty.name);
+                                }
+                                // Также обновляем specialty (первая выбранная)
+                                const primarySpecialty = newSpecialties.length > 0 ? newSpecialties[0] : null;
+                                setDoctorForm({
+                                  ...doctorForm,
+                                  specialties: newSpecialties,
+                                  specialty: primarySpecialty
+                                });
+                              }}
+                              className="rounded text-purple-600 focus:ring-purple-500"
+                            />
+                            <span className={`text-sm ${isSelected ? 'font-medium text-purple-800 dark:text-purple-200' : 'text-gray-700 dark:text-gray-300'}`}>
+                              {specialty.name}
+                            </span>
+                            {isSelected && (
+                              <span className="ml-auto text-xs text-purple-500 dark:text-purple-400">
+                                {(doctorForm.specialties || []).indexOf(specialty.name) === 0 ? '✅ Основная' : ''}
+                              </span>
+                            )}
+                          </label>
+                        );
+                      })}
+                    </div>
+                  )}
+                  {(doctorForm.specialties || []).length > 0 && (
+                    <div className="flex flex-wrap gap-1.5 mt-2">
+                      {(doctorForm.specialties || []).map((spec, idx) => (
+                        <span
+                          key={spec}
+                          className={`inline-flex items-center gap-1 px-2.5 py-1 text-xs rounded-full ${
+                            idx === 0
+                              ? 'bg-purple-100 text-purple-800 dark:bg-purple-900/40 dark:text-purple-200'
+                              : 'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300'
+                          }`}
+                        >
+                          {spec}
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const newSpecialties = (doctorForm.specialties || []).filter(s => s !== spec);
+                              setDoctorForm({
+                                ...doctorForm,
+                                specialties: newSpecialties,
+                                specialty: newSpecialties.length > 0 ? newSpecialties[0] : null
+                              });
+                            }}
+                            className="ml-1 hover:text-red-500"
+                          >
+                            ✕
+                          </button>
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                  <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
+                    Загружено специальностей: {specialties.length} | Выбрано: {(doctorForm.specialties || []).length}
                   </p>
-                )}
-                <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
-                  Загружено специальностей: {specialties.length} | Текущее значение: "{doctorForm.specialty || 'пусто'}"
-                </p>
+                </div>
               </div>
               
               <div className="flex">
@@ -444,10 +519,10 @@ const DoctorModal = ({
                 </div>
               </div>
               
-              {/* Индикатор фильтрации по специальности */}
-              {doctorForm.specialty && (
+              {/* Индикатор фильтрации по специальностям */}
+              {(doctorForm.specialties || []).length > 0 && (
                 <div className="text-xs text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20 px-3 py-2 rounded-lg">
-                  📋 Показаны услуги для специальности: <strong>{doctorForm.specialty}</strong>
+                  📋 Показаны услуги для специальностей: <strong>{(doctorForm.specialties || []).join(', ')}</strong>
                   {filteredServices.length === 0 && services.length > 0 && (
                     <span className="ml-1 text-amber-600 dark:text-amber-400">
                       — нет услуг с этой категорией

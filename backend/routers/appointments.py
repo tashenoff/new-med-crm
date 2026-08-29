@@ -233,10 +233,12 @@ async def create_appointment(
         )
         print(f"💰 Депозит {deposit_amount}₸ из записи {appointment_obj.id} применен к планам лечения")
     
-    # Синхронизируем депозит с CRM лидом (если запись создана из лида)
+    # Синхронизируем с CRM - либо обновляем существующий лид, либо создаём новый
     try:
         # Поиск лида по номеру телефона пациента или по ID записи
         patient_phone = patient.get('phone')
+        patient_name = patient.get('full_name') or patient.get('name', 'Пациент')
+        
         if patient_phone:
             # Ищем лид с таким телефоном
             lead = await db.crm_leads.find_one({
@@ -244,12 +246,14 @@ async def create_appointment(
             })
             
             if lead:
-                # Обновляем лид с данными о депозите и записи
+                # Обновляем существующий лид с данными о записи
                 update_data = {
                     "converted_to_appointment_id": appointment_obj.id,
+                    "converted_to_client_id": appointment.patient_id,
                     "appointment_price": appointment.price or 0,
                     "deposit_amount": deposit_amount,
                     "deposit_type": appointment.deposit_type,
+                    "status": "contacted",  # Статус "Записан на приём"
                     "updated_at": datetime.utcnow()
                 }
                 
@@ -257,9 +261,45 @@ async def create_appointment(
                     {"id": lead["id"]},
                     {"$set": update_data}
                 )
-                print(f"✅ Лид {lead['id']} обновлен с депозитом {deposit_amount}₸")
+                print(f"✅ Лид {lead['id']} обновлен - статус 'Записан на приём', депозит {deposit_amount}₸")
+            else:
+                # Создаём новый лид для пациента записанного через календарь
+                lead_id = str(uuid.uuid4())
+                
+                # Определяем источник
+                source = appointment.source if hasattr(appointment, 'source') and appointment.source else patient.get('source', 'other')
+                source_id = appointment.source_id if hasattr(appointment, 'source_id') and appointment.source_id else patient.get('source_id')
+                
+                # Разбираем ФИО на части
+                name_parts = patient_name.split() if patient_name else []
+                first_name = name_parts[0] if len(name_parts) > 0 else ''
+                last_name = name_parts[1] if len(name_parts) > 1 else ''
+                middle_name = ' '.join(name_parts[2:]) if len(name_parts) > 2 else ''
+                
+                new_lead = {
+                    "id": lead_id,
+                    "first_name": first_name,
+                    "last_name": last_name,
+                    "middle_name": middle_name,
+                    "phone": patient_phone,
+                    "email": patient.get('email', ''),
+                    "source": source,
+                    "source_id": source_id,
+                    "status": "contacted",  # Статус "Записан на приём"
+                    "description": f"Автоматически создан при записи через календарь",
+                    "converted_to_client_id": appointment.patient_id,
+                    "converted_to_appointment_id": appointment_obj.id,
+                    "appointment_price": appointment.price or 0,
+                    "deposit_amount": deposit_amount,
+                    "deposit_type": appointment.deposit_type,
+                    "created_at": datetime.utcnow(),
+                    "updated_at": datetime.utcnow()
+                }
+                
+                await db.crm_leads.insert_one(new_lead)
+                print(f"✅ Создан новый лид {lead_id} для пациента {patient_name} - статус 'Записан на приём'")
     except Exception as e:
-        print(f"⚠️ Не удалось синхронизировать депозит с лидом: {str(e)}")
+        print(f"⚠️ Не удалось синхронизировать с CRM: {str(e)}")
     
     # Отправка автоматических уведомлений
     try:
@@ -439,7 +479,12 @@ async def get_appointments(
                     "updated_at": 1,
                     "patient_name": "$patient.full_name",
                     "doctor_name": "$doctor.full_name",
-                    "doctor_specialty": {"$ifNull": ["$doctor.specialty", ""]},
+                    "doctor_specialty": {
+                        "$ifNull": [
+                            {"$arrayElemAt": ["$doctor.specialties", 0]},
+                            {"$ifNull": ["$doctor.specialty", ""]}
+                        ]
+                    },
                     "doctor_color": {"$ifNull": ["$doctor.calendar_color", "#3b82f6"]}
                 }
             },
@@ -542,8 +587,13 @@ async def get_appointment(
                 "updated_at": 1,
                 "patient_name": "$patient.full_name",
                 "doctor_name": "$doctor.full_name",
-                "doctor_specialty": "$doctor.specialty",
-                "doctor_color": "$doctor.calendar_color"
+                "doctor_specialty": {
+                        "$ifNull": [
+                            {"$arrayElemAt": ["$doctor.specialties", 0]},
+                            {"$ifNull": ["$doctor.specialty", None]}
+                        ]
+                    },
+                    "doctor_color": "$doctor.calendar_color"
             }
         }
     ]

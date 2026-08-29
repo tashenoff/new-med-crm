@@ -23,7 +23,8 @@ class Doctor(BaseModel):
     """Main doctor model"""
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     full_name: str
-    specialty: str
+    specialty: Optional[str] = None  # Keep for backward compatibility (single specialty)
+    specialties: List[str] = []  # Multiple specialties (preferred field)
     phone: Optional[str] = None
     calendar_color: str = "#3B82F6"  # Default blue color
     is_active: bool = True
@@ -66,7 +67,8 @@ class Doctor(BaseModel):
 class DoctorCreate(BaseModel):
     """Model for creating a new doctor"""
     full_name: str
-    specialty: str
+    specialty: Optional[str] = None  # Keep for backward compatibility
+    specialties: List[str] = []  # Multiple specialties (preferred)
     phone: Optional[str] = None
     calendar_color: str = "#3B82F6"
     user_id: Optional[str] = None
@@ -106,7 +108,8 @@ class DoctorCreate(BaseModel):
 class DoctorUpdate(BaseModel):
     """Model for updating doctor information"""
     full_name: Optional[str] = None
-    specialty: Optional[str] = None
+    specialty: Optional[str] = None  # Keep for backward compatibility
+    specialties: Optional[List[str]] = None  # Multiple specialties (preferred)
     phone: Optional[str] = None
     calendar_color: Optional[str] = None
     is_active: Optional[bool] = None
@@ -208,7 +211,8 @@ class DoctorWithSchedule(BaseModel):
     """Doctor model with schedule information"""
     id: str
     full_name: str
-    specialty: str
+    specialty: Optional[str] = None  # Keep for backward compatibility
+    specialties: List[str] = []  # Multiple specialties (preferred)
     phone: Optional[str]
     calendar_color: str
     is_active: bool

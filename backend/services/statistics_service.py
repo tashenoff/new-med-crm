@@ -174,7 +174,12 @@ class StatisticsService:
                     "_id": 0,
                     "doctor_id": "$_id",
                     "doctor_name": "$doctor.full_name",
-                    "doctor_specialty": "$doctor.specialty",
+                    "doctor_specialty": {
+                        "$ifNull": [
+                            {"$arrayElemAt": ["$doctor.specialties", 0]},
+                            {"$ifNull": ["$doctor.specialty", ""]}
+                        ]
+                    },
                     "doctor_phone": "$doctor.phone",
                     "total_appointments": 1,
                     "completed_appointments": 1,
@@ -264,10 +269,18 @@ class StatisticsService:
         
         # Add doctors with zero stats
         for doctor in doctors_without_appointments:
+            # Получаем специальность врача (поддерживаем оба формата: specialty и specialties)
+            doctor_specialty = ""
+            doctor_specialties = doctor.get("specialties", [])
+            if isinstance(doctor_specialties, list) and len(doctor_specialties) > 0:
+                doctor_specialty = doctor_specialties[0]
+            else:
+                doctor_specialty = doctor.get("specialty", "")
+            
             doctor_stats.append({
                 "doctor_id": doctor["id"],
                 "doctor_name": doctor["full_name"],
-                "doctor_specialty": doctor["specialty"],
+                "doctor_specialty": doctor_specialty,
                 "doctor_phone": doctor.get("phone", ""),
                 "total_appointments": 0,
                 "completed_appointments": 0,

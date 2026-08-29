@@ -97,8 +97,13 @@ async def receive_phone_number(update: Update, context: ContextTypes.DEFAULT_TYP
         user_info = f"\n👤 Найден пациент: {name}\n"
     elif doctor:
         name = doctor.get('full_name') or doctor.get('name', 'Не указано')
-        specialty = doctor.get('specialty', {})
-        specialty_name = specialty.get('name', 'Не указана') if isinstance(specialty, dict) else 'Не указана'
+        # Получаем специальность (поддерживаем оба формата: specialty, specialties и dict)
+        specialties_list = doctor.get('specialties', [])
+        if isinstance(specialties_list, list) and len(specialties_list) > 0:
+            specialty_name = specialties_list[0]
+        else:
+            specialty = doctor.get('specialty', {})
+            specialty_name = specialty.get('name', 'Не указана') if isinstance(specialty, dict) else (specialty if specialty else 'Не указана')
         user_info = f"\n👨‍⚕️ Найден врач: {name}\nСпециальность: {specialty_name}\n"
     else:
         user_info = "\n⚠️ Пользователь с таким номером не найден в системе.\nВы будете зарегистрированы как новый пациент.\n"
@@ -172,8 +177,13 @@ async def receive_verification_code(update: Update, context: ContextTypes.DEFAUL
             doctor = await db.doctors.find_one({"_id": ObjectId(user.doctor_id)})
             if doctor:
                 user_name = doctor.get('full_name') or doctor.get('name', 'Врач')
-                specialty = doctor.get('specialty', {})
-                specialty_name = specialty.get('name', '') if isinstance(specialty, dict) else ''
+                # Получаем специальность (поддерживаем оба формата: specialty, specialties и dict)
+                specialties_list = doctor.get('specialties', [])
+                if isinstance(specialties_list, list) and len(specialties_list) > 0:
+                    specialty_name = specialties_list[0]
+                else:
+                    specialty = doctor.get('specialty', {})
+                    specialty_name = specialty.get('name', '') if isinstance(specialty, dict) else (specialty if specialty else '')
                 if specialty_name:
                     user_details = f"\n📋 Специальность: {specialty_name}"
         except:

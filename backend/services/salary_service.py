@@ -258,10 +258,18 @@ class SalaryService:
         """Собрать данные о зарплате врача"""
         doctor_services = doctor.get("services", [])
         
+        # Получаем специальность врача (поддерживаем оба формата: specialty и specialties)
+        doctor_specialty = ""
+        doctor_specialties = doctor.get("specialties", [])
+        if isinstance(doctor_specialties, list) and len(doctor_specialties) > 0:
+            doctor_specialty = doctor_specialties[0]
+        else:
+            doctor_specialty = doctor.get("specialty", "")
+        
         return {
             "doctor_id": doctor["id"],
             "doctor_name": doctor["full_name"],
-            "doctor_specialty": doctor["specialty"],
+            "doctor_specialty": doctor_specialty,
             # Настройки оплаты за планы лечения
             "payment_type": doctor.get("payment_type", "percentage"),
             "payment_value": doctor.get("payment_value", 0.0),

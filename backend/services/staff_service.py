@@ -398,12 +398,20 @@ class StaffService:
             if created_at and hasattr(created_at, 'isoformat'):
                 created_at = created_at.isoformat()
             
+            # Получаем специальность врача (поддерживаем оба формата: specialty и specialties)
+            doctor_specialty = ""
+            doctor_specialties = doctor_doc.get("specialties", [])
+            if isinstance(doctor_specialties, list) and len(doctor_specialties) > 0:
+                doctor_specialty = ", ".join(doctor_specialties)
+            else:
+                doctor_specialty = doctor_doc.get("specialty", "")
+            
             personnel.append({
                 "id": str(doctor_id),  # Убедимся что id это строка
                 "full_name": doctor_doc.get("full_name", ""),
                 "email": email or "",
                 "phone": doctor_doc.get("phone", ""),
-                "specialty": doctor_doc.get("specialty", ""),
+                "specialty": doctor_specialty,
                 "role": "doctor",
                 "is_active": doctor_doc.get("is_active", True),
                 "created_at": created_at,

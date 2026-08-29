@@ -278,8 +278,13 @@ async def doctors_list_command(update: Update, context: ContextTypes.DEFAULT_TYP
     
     for i, doctor in enumerate(doctors, 1):
         name = doctor.get('name', 'Не указано')
-        specialty = doctor.get('specialty', {})
-        specialty_name = specialty.get('name', 'Не указана') if isinstance(specialty, dict) else 'Не указана'
+        # Получаем специальность (поддерживаем оба формата: specialty, specialties и dict)
+        specialties_list = doctor.get('specialties', [])
+        if isinstance(specialties_list, list) and len(specialties_list) > 0:
+            specialty_name = specialties_list[0]
+        else:
+            specialty = doctor.get('specialty', {})
+            specialty_name = specialty.get('name', 'Не указана') if isinstance(specialty, dict) else (specialty if specialty else 'Не указана')
         phone = doctor.get('phone', 'Не указан')
         
         message += f"{i}. {name}\n"

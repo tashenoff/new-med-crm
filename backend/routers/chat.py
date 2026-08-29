@@ -209,6 +209,7 @@ async def get_crm_context_for_ai(user_message: str) -> str:
             doctors_cursor = db.doctors.find({"is_active": True}, {
                 "full_name": 1,
                 "specialty": 1,
+                "specialties": 1,
                 "phone": 1,
                 "email": 1
             }).limit(10)

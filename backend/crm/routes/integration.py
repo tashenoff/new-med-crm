@@ -14,6 +14,16 @@ from ..dependencies import get_database
 integration_router = APIRouter(prefix="/integration", tags=["Integration"])
 
 
+def _get_doctor_specialty(doctor: dict) -> str:
+    """Get doctor specialty string (handles both old `specialty: str` and new `specialties: List[str]`)."""
+    if not doctor:
+        return ""
+    specialties = doctor.get("specialties", [])
+    if isinstance(specialties, list) and len(specialties) > 0:
+        return specialties[0]
+    return doctor.get("specialty", "")
+
+
 class TreatmentPlanSync(BaseModel):
     """Схема для синхронизации плана лечения"""
     treatment_plan_id: str
@@ -373,7 +383,7 @@ async def get_client_last_appointment(
                 "date": last_appointment["appointment_date"],
                 "time": last_appointment["appointment_time"],
                 "doctor_name": doctor.get("full_name", "Неизвестный врач") if doctor else "Неизвестный врач",
-                "doctor_specialty": doctor.get("specialty", "") if doctor else "",
+                "doctor_specialty": _get_doctor_specialty(doctor),
                 "reason": last_appointment.get("reason", ""),
                 "status": last_appointment.get("status", ""),
                 "deposit": last_appointment.get("deposit", 0),
@@ -427,7 +437,7 @@ async def get_client_hms_appointments(
                 "appointment_date": appointment.get("appointment_date"),
                 "appointment_time": appointment.get("appointment_time"),
                 "doctor_name": doctor.get("full_name", "Неизвестный врач") if doctor else "Неизвестный врач",
-                "doctor_specialty": doctor.get("specialty", "") if doctor else "",
+                "doctor_specialty": _get_doctor_specialty(doctor),
                 "reason": appointment.get("reason", ""),
                 "status": appointment.get("status", ""),
                 "notes": appointment.get("notes", ""),
