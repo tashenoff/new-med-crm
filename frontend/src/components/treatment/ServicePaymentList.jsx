@@ -170,7 +170,13 @@ const ServicePaymentList = ({ plan, onUpdate, onEdit, paymentFilter = 'all', pro
   const usedFromDeposit = Math.min(depositAmount, totalAmount);
   const depositBalance = depositAmount > totalAmount ? depositAmount - totalAmount : 0;
   const depositDebt = depositAmount < totalAmount ? totalAmount - depositAmount : 0;
+  // remainingToPay - сумма неоплаченных услуг (без учёта депозита)
   const remainingToPay = Math.max(0, totalAmount - paidAmount);
+  // actualRemainingToPay - реальная сумма к доплате с учётом депозита
+  // Если есть депозит и он покрывает часть суммы, показываем только недостающую часть
+  const actualRemainingToPay = depositAmount > 0 
+    ? Math.max(0, totalAmount - paidAmount - depositAmount)  // Учитываем депозит
+    : remainingToPay;  // Если нет депозита, показываем полную сумму
 
   // Функция для добавления доплаты из кассы
   const addDepositPayment = async (amount) => {
@@ -247,7 +253,7 @@ const ServicePaymentList = ({ plan, onUpdate, onEdit, paymentFilter = 'all', pro
         if (onUpdate) {
           onUpdate(updatedPlan);
         }
-        alert(`✅ План лечения полностью оплачен!\nДоплачено: ${remainingToPay.toLocaleString()} ₸`);
+        alert(`✅ План лечения полностью оплачен!\nДоплачено: ${actualRemainingToPay.toLocaleString()} ₸`);
       }
     } catch (error) {
       console.error('Error paying remaining debt:', error);
@@ -509,13 +515,13 @@ const ServicePaymentList = ({ plan, onUpdate, onEdit, paymentFilter = 'all', pro
             <div>
               <div className="text-xs text-gray-500">Остаток к оплате</div>
               <div className="text-lg font-semibold text-red-600">
-                {remainingToPay.toLocaleString()} ₸
+                {actualRemainingToPay.toLocaleString()} ₸
               </div>
             </div>
           </div>
         
         {/* Кнопка оплаты остатка если есть недоплата */}
-          {remainingToPay > 0 && (
+          {actualRemainingToPay > 0 && (
             <div className="mt-4 pt-4 border-t border-gray-200">
               <div className="flex items-center justify-between">
                 <div className="text-sm text-gray-600">
@@ -537,7 +543,7 @@ const ServicePaymentList = ({ plan, onUpdate, onEdit, paymentFilter = 'all', pro
                       <span>💳</span>
                       <span>Оплатить остаток</span>
                       <span className="ml-2 px-2 py-1 bg-green-700 rounded text-sm">
-                        {remainingToPay.toLocaleString()} ₸
+                        {actualRemainingToPay.toLocaleString()} ₸
                       </span>
                     </>
                   )}
