@@ -50,12 +50,29 @@ const TimeGrid = ({
 }) => {
   // Используем локальную дату вместо UTC (toISOString конвертирует в UTC и сдвигает дату)
   const dateString = `${currentDate.getFullYear()}-${String(currentDate.getMonth() + 1).padStart(2, '0')}-${String(currentDate.getDate()).padStart(2, '0')}`;
+  // Получаем имя врача для текущего дня из расписания кабинета
+  const getDoctorNameForRoom = () => {
+    if (!room?.schedule || !doctors || !currentDate) return null;
+    const dayOfWeek = currentDate.getDay();
+    const adjustedDayOfWeek = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
+    const daySchedule = room.schedule.find(s => 
+      s.day_of_week === adjustedDayOfWeek && s.is_active !== false
+    );
+    if (!daySchedule) return null;
+    const doctor = doctors.find(d => d.id === daySchedule.doctor_id);
+    return doctor ? (doctor.full_name || doctor.name) : null;
+  };
+
+  const doctorName = getDoctorNameForRoom();
 
   return (
     <div className={`min-w-0 flex-1 border-r ${themeClasses.border.light} last:border-r-0 calendar-room-column`}>
       {/* Заголовок кабинета */}
-      <div className={`h-12 border-b border-l ${themeClasses.border.default} ${themeClasses.bg.secondary} flex items-center justify-center font-semibold ${themeClasses.text.primary} calendar-room-header`}>
-        {room.name}
+            <div className={`h-12 border-b border-l ${themeClasses.border.default} ${themeClasses.bg.secondary} flex flex-col items-center justify-center font-semibold ${themeClasses.text.primary} calendar-room-header`}>
+        <span className="text-sm leading-tight">{room.name}</span>
+        {doctorName && (
+          <span className="text-xs font-medium text-blue-600 leading-tight">{doctorName}</span>
+        )}
       </div>
       
       {/* Временные слоты */}

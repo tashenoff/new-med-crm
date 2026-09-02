@@ -459,6 +459,7 @@ const Navigation = ({
                   {item.type === 'tab' && (
                       <button
                         onClick={() => handleTabClick(item.key)}
+                        data-guide={`nav-${item.key}`}
                       className={`
                         w-full flex items-center justify-start px-3 py-3 text-left rounded-lg font-medium transition-all duration-200
                       ${activeTab === item.key

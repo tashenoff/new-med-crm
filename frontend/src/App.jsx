@@ -54,6 +54,8 @@ import { useApi } from './hooks/useApi';
 import { materialsApi } from './api/materials';
 import { GlobalRefreshProvider, useGlobalRefresh } from './hooks/useGlobalRefresh';
 import { ThemeProvider } from './hooks/useTheme';
+import { GuideProvider, useGuide } from './context/GuideContext';
+import { GuideTourModal, GuideTour } from './components/guide';
 import './App.css';
 
 const BACKEND_URL = import.meta.env.VITE_BACKEND_URL;
@@ -408,6 +410,15 @@ function ClinicApp() {
             onClose={() => {}} // Prevent closing without password change
             onPasswordChanged={handlePasswordChanged}
           />
+
+          {/* Guide Tour Components */}
+          <GuideTourModal />
+          <GuideTour onNavigate={(tab, section) => {
+            if (section) {
+              setActiveSection(section);
+            }
+            handleTabChange(tab);
+          }} />
         </div>
       </div>
     </div>
@@ -448,9 +459,11 @@ function App() {
       <AuthProvider>
         <NotificationProvider>
           <ModalProvider>
-            <GlobalRefreshProvider>
-              <AppContent />
-            </GlobalRefreshProvider>
+            <GuideProvider>
+              <GlobalRefreshProvider>
+                <AppContent />
+              </GlobalRefreshProvider>
+            </GuideProvider>
           </ModalProvider>
         </NotificationProvider>
       </AuthProvider>

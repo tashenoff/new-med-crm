@@ -670,6 +670,7 @@ const ConsultationSheetForm = ({ patientId, onSave, onCancel, editingSheet = nul
         <button
           type="submit"
           className={`flex-1 ${buttonSuccessClasses}`}
+          data-guide="create-treatment-plan-btn"
         >
           {editingSheet ? 'Обновить' : 'Создать'}
         </button>

@@ -1443,13 +1443,13 @@ const AppointmentModal = ({
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">Тип депозита</label>
                       <select
-                        value={appointmentForm.deposit_type || 'fixed'}
+                        value={appointmentForm.deposit_type || ''}
                         onChange={(e) => {
                           const newType = e.target.value;
                           setAppointmentForm({ 
                             ...appointmentForm, 
                             deposit_type: newType, 
-                            deposit: newType === 'fixed' ? 2000 : '' 
+                            deposit: '' 
                           });
                         }}
                         className={`${selectClasses} ${isDepositLocked ? 'bg-gray-100 cursor-not-allowed' : ''}`}
@@ -1690,6 +1690,7 @@ const AppointmentModal = ({
               type="submit"
               disabled={loading || uploadingConsent || submitting}
               className="flex-1 bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700 disabled:opacity-50 flex items-center justify-center gap-2"
+              data-guide="save-appointment-btn"
             >
               {(loading || uploadingConsent || submitting) && (
                 <svg className="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">

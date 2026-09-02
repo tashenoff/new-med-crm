@@ -538,6 +538,35 @@ const DoctorModal = ({
               
               {filteredServices.length > 0 ? (
                 <div className="max-h-64 overflow-y-auto border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700">
+                  {/* Чекбокс "Выбрать все" */}
+                  <div className="px-3 py-2 border-b border-gray-200 dark:border-gray-600 bg-gray-50/50 dark:bg-gray-750">
+                    <label className="flex items-center space-x-2 text-sm cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={filteredServices.every(s => selectedServices.includes(s.id))}
+                        onChange={() => {
+                          const allSelected = filteredServices.every(s => selectedServices.includes(s.id));
+                          if (allSelected) {
+                            // Снять все фильтрованные
+                            const filteredIds = filteredServices.map(s => s.id);
+                            setSelectedServices(prev => prev.filter(id => !filteredIds.includes(id)));
+                          } else {
+                            // Выбрать все фильтрованные
+                            const filteredIds = filteredServices.map(s => s.id);
+                            setSelectedServices(prev => {
+                              const newSet = new Set([...prev, ...filteredIds]);
+                              return Array.from(newSet);
+                            });
+                          }
+                        }}
+                        className="text-blue-600 dark:text-blue-400 rounded"
+                      />
+                      <span className="text-gray-700 dark:text-gray-300 font-medium">Выбрать все</span>
+                      <span className="text-xs text-gray-500 dark:text-gray-400">
+                        ({filteredServices.length} услуг)
+                      </span>
+                    </label>
+                  </div>
                   {(() => {
                     const servicesByCategory = filteredServices.reduce((acc, service) => {
                       const category = service.category || 'Без категории';
@@ -707,8 +736,11 @@ const DoctorModal = ({
                       min="0"
                       max={doctorForm.payment_type === 'percentage' ? '100' : undefined}
                       step={doctorForm.payment_type === 'percentage' ? '0.1' : '1'}
-                      value={doctorForm.payment_value ?? 0}
-                      onChange={(e) => setDoctorForm({...doctorForm, payment_value: parseFloat(e.target.value) || 0})}
+                      value={doctorForm.payment_value ?? ''}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        setDoctorForm({...doctorForm, payment_value: val === '' ? '' : parseFloat(val) || 0});
+                      }}
                       className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-l-lg focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                       placeholder={doctorForm.payment_type === 'percentage' ? '0.0' : '0'}
                     />
@@ -749,8 +781,11 @@ const DoctorModal = ({
                         min="0"
                         max="100"
                         step="0.1"
-                        value={doctorForm.hybrid_percentage_value ?? 0}
-                        onChange={(e) => setDoctorForm({...doctorForm, hybrid_percentage_value: parseFloat(e.target.value) || 0})}
+                        value={doctorForm.hybrid_percentage_value ?? ''}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          setDoctorForm({...doctorForm, hybrid_percentage_value: val === '' ? '' : parseFloat(val) || 0});
+                        }}
                         className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-l-lg focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                         placeholder="0.0"
                       />

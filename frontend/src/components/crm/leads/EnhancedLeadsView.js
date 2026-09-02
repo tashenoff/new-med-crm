@@ -770,8 +770,8 @@ const EnhancedLeadsView = ({ user }) => {
         notes: `Запись из CRM. Заявка: ${lead.first_name} ${lead.last_name}${lead.phone ? `, тел: ${lead.phone}` : ''}`,
         patient_notes: '',
         price: 0,
-        deposit_type: 'fixed',  // ✅ Добавлено: тип депозита по умолчанию
-        deposit: 2000,           // ✅ Добавлено: сумма депозита по умолчанию
+        deposit_type: '',         // Без депозита по умолчанию
+        deposit: 0,               // Без депозита по умолчанию
         // Источник из лида - для основной формы записи
         source: lead.source,
         source_id: lead.source_id,

@@ -67,6 +67,7 @@ const DateNavigation = ({ currentDate, onDateChange, onNewAppointment, isFullscr
       {onNewAppointment && (
         <button
           onClick={onNewAppointment}
+          data-guide="add-appointment-btn"
           className={`px-4 py-2 rounded-lg text-sm font-medium ${themeClasses.button.primary} transition-colors flex items-center space-x-2 calendar-new-appointment-btn`}
         >
           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">

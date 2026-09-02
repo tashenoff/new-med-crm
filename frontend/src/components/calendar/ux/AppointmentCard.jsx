@@ -195,7 +195,7 @@ const AppointmentCard = ({
       style={{
         height: `${height - 8}px`,
         backgroundColor: hexToRgba(doctorColor, 0.15),
-        color: getTextColor(doctorColor),
+        color: '#111827',
         padding: '6px 10px 6px 14px'
       }}
       onClick={handleClick}

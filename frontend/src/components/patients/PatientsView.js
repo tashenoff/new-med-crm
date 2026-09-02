@@ -221,12 +221,13 @@ const PatientsView = ({
                     </tr>
                   </thead>
                   <tbody className="bg-white divide-y divide-gray-200">
-                    {filteredPatients.map(patient => (
+                    {filteredPatients.map((patient, index) => (
                       <tr 
                         key={patient.id} 
                         className="hover:bg-gray-50 cursor-pointer transition-colors"
                         onClick={() => canManage && onEditPatient(patient)}
                         title={canManage ? "Нажмите для редактирования" : ""}
+                        data-guide={index === 0 ? "patient-row" : undefined}
                       >
                         <td className="px-6 py-4 whitespace-nowrap">
                           <div className="font-medium text-gray-900">

@@ -48,14 +48,14 @@ const AppointmentCard = ({
   const patientName = patient?.full_name || patient?.name || appointment.patient_name || 'Загрузка...';
   const doctorName = doctor?.full_name || doctor?.name || appointment.doctor_name || 'Загрузка...';
 
-  // Цвет карточки в зависимости от статуса
+  // Цвет фона карточки в зависимости от статуса, текст всегда чёрный
   const getStatusColor = (status) => {
     switch (status) {
-      case 'scheduled': return 'bg-blue-100 text-blue-800';
-      case 'confirmed': return 'bg-green-100 text-green-800';
-      case 'completed': return 'bg-gray-100 text-gray-800';
-      case 'cancelled': return 'bg-red-100 text-red-800';
-      default: return 'bg-blue-100 text-blue-800';
+      case 'scheduled': return 'bg-blue-100 text-gray-900';
+      case 'confirmed': return 'bg-green-100 text-gray-900';
+      case 'completed': return 'bg-gray-100 text-gray-900';
+      case 'cancelled': return 'bg-red-100 text-gray-900';
+      default: return 'bg-blue-100 text-gray-900';
     }
   };
 
@@ -87,7 +87,7 @@ const AppointmentCard = ({
       
       {/* Врач */}
       {doctor && (
-        <div className="text-xs text-gray-600 truncate">
+        <div className="text-xs truncate">
           {doctorName === 'Загрузка...' ? (
             <div className="h-3 bg-gray-300 rounded animate-pulse w-16"></div>
           ) : `Врач: ${doctorName}`}

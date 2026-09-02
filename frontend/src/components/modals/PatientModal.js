@@ -533,6 +533,7 @@ const PatientModal = ({
                 <button
                   onClick={() => setActiveTab('consultations')}
                   className={tabClasses(activeTab === 'consultations')}
+                  data-guide="consultations-tab"
                 >
                   <span className="flex items-center gap-2">
                     <FaStethoscope className="text-sm" />
@@ -1350,6 +1351,7 @@ const PatientModal = ({
                   <button
                     onClick={() => setShowConsultationForm(true)}
                     className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 font-medium transition-colors"
+                    data-guide="new-consultation-btn"
                   >
                     Добавить
                   </button>
