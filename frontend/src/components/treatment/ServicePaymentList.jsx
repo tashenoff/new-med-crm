@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { FaChevronDown, FaChevronRight, FaStethoscope, FaClipboardList, FaNotesMedical, FaUserMd, FaFileMedical } from 'react-icons/fa';
+import { FaChevronDown, FaChevronRight, FaStethoscope, FaClipboardList, FaNotesMedical, FaUserMd, FaFileMedical, FaCreditCard } from 'react-icons/fa';
 
 const ServicePaymentList = ({ plan, onUpdate, onEdit, paymentFilter = 'all', procedureFilter = 'all' }) => {
   const [loading, setLoading] = useState(false);
@@ -8,6 +8,36 @@ const ServicePaymentList = ({ plan, onUpdate, onEdit, paymentFilter = 'all', pro
   const [expandedSections, setExpandedSections] = useState({});
   const [isCollapsed, setIsCollapsed] = useState(true); // По умолчанию свёрнуто
   const API = import.meta.env.VITE_BACKEND_URL;
+  
+  // Способы оплаты
+  const [paymentTypes, setPaymentTypes] = useState([]);
+  const [loadingPaymentTypes, setLoadingPaymentTypes] = useState(false);
+  
+  // Модальное окно выбора способа оплаты
+  const [showPaymentModal, setShowPaymentModal] = useState(false);
+  const [pendingPaymentData, setPendingPaymentData] = useState(null); // { type: 'service' | 'remaining', serviceId: string | null }
+
+  // Загрузка способов оплаты
+  useEffect(() => {
+    const fetchPaymentTypes = async () => {
+      setLoadingPaymentTypes(true);
+      try {
+        const token = localStorage.getItem('token');
+        const response = await fetch(`${API}/api/payment-types`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        if (response.ok) {
+          const data = await response.json();
+          setPaymentTypes(data || []);
+        }
+      } catch (error) {
+        console.error('Error fetching payment types:', error);
+      } finally {
+        setLoadingPaymentTypes(false);
+      }
+    };
+    fetchPaymentTypes();
+  }, [API]);
 
   // Загрузка данных консультации при монтировании
   useEffect(() => {
@@ -74,64 +104,106 @@ const ServicePaymentList = ({ plan, onUpdate, onEdit, paymentFilter = 'all', pro
     return true;
   });
 
-  const markServicePaid = async (serviceId) => {
+  // Открыть модальное окно выбора способа оплаты для оплаты услуги
+  const openPaymentModalForService = (serviceId) => {
+    setPendingPaymentData({ type: 'service', serviceId });
+    setShowPaymentModal(true);
+  };
+
+  // Открыть модальное окно выбора способа оплаты для оплаты остатка
+  const openPaymentModalForRemaining = () => {
+    setPendingPaymentData({ type: 'remaining', serviceId: null });
+    setShowPaymentModal(true);
+  };
+
+  // Выполнить оплату с выбранным способом оплаты
+  const executePayment = async (paymentType) => {
+    if (!pendingPaymentData) return;
+    
     try {
       setLoading(true);
+      setShowPaymentModal(false);
       const token = localStorage.getItem('token');
-      const response = await fetch(
-        `${API}/api/treatment-plans/${plan.id}/services/${serviceId}/mark-paid`,
-        {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json'
+      const paymentData = paymentType ? {
+        payment_method_id: paymentType.id,
+        payment_method_name: paymentType.name
+      } : {};
+      
+      if (pendingPaymentData.type === 'service') {
+        // Оплата одной услуги
+        const response = await fetch(
+          `${API}/api/treatment-plans/${plan.id}/services/${pendingPaymentData.serviceId}/mark-paid`,
+          {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${token}`,
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ payment_data: paymentData })
+          }
+        );
+
+        if (response.ok) {
+          const updatedPlan = await response.json();
+          if (onUpdate) {
+            onUpdate(updatedPlan);
+          }
+        } else {
+          alert('Ошибка при отметке оплаты');
+        }
+      } else if (pendingPaymentData.type === 'remaining') {
+        // Оплата остатка - помечаем все неоплаченные услуги
+        const unpaidServices = plan.services.filter(s => s.payment_status !== 'paid');
+        
+        for (const service of unpaidServices) {
+          const response = await fetch(
+            `${API}/api/treatment-plans/${plan.id}/services/${service.service_id}/mark-paid`,
+            {
+              method: 'POST',
+              headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
+              },
+              body: JSON.stringify({ payment_data: paymentData })
+            }
+          );
+          
+          if (!response.ok) {
+            throw new Error(`Ошибка при оплате услуги ${service.service_name}`);
           }
         }
-      );
-
-      if (response.ok) {
-        const updatedPlan = await response.json();
-        if (onUpdate) {
-          onUpdate(updatedPlan);
+        
+        // Обновляем план после оплаты всех услуг
+        const planResponse = await fetch(`${API}/api/treatment-plans/${plan.id}`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        
+        if (planResponse.ok) {
+          const updatedPlan = await planResponse.json();
+          if (onUpdate) {
+            onUpdate(updatedPlan);
+          }
+          alert(`✅ План лечения полностью оплачен! (${paymentType ? paymentType.name : 'без указания способа'})`);
         }
       }
     } catch (error) {
-      console.error('Error marking service paid:', error);
-      alert('Ошибка при отметке оплаты');
+      console.error('Error executing payment:', error);
+      alert('Ошибка при оплате: ' + error.message);
     } finally {
       setLoading(false);
+      setPendingPaymentData(null);
     }
   };
 
-  const markSessionPaidForService = async (planId, serviceId, sessionIndex) => {
-    try {
-      setLoading(true);
-      const token = localStorage.getItem('token');
-      const response = await fetch(
-        `${API}/api/treatment-plans/${planId}/services/${serviceId}/sessions/${sessionIndex}/mark-paid`,
-        {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json'
-          }
-        }
-      );
+  const markServicePaid = async (serviceId) => {
+    // Сначала показываем выбор способа оплаты
+    openPaymentModalForService(serviceId);
+  };
 
-      if (response.ok) {
-        const updatedPlan = await response.json();
-        if (onUpdate) {
-          onUpdate(updatedPlan);
-        }
-      } else {
-        alert('Ошибка при отметке оплаты процедуры');
-      }
-    } catch (error) {
-      console.error('Error marking session paid:', error);
-      alert('Ошибка при отметке оплаты процедуры');
-    } finally {
-      setLoading(false);
-    }
+  // Функция для оплаты остатка (доплаты из депозита)
+  const payRemainingDebt = async () => {
+    // Сначала показываем выбор способа оплаты
+    openPaymentModalForRemaining();
   };
 
   const getPaymentStatusBadge = (status) => {
@@ -217,52 +289,6 @@ const ServicePaymentList = ({ plan, onUpdate, onEdit, paymentFilter = 'all', pro
     }
   };
 
-  // Функция для оплаты остатка (доплаты из депозита)
-  const payRemainingDebt = async () => {
-    try {
-      setLoading(true);
-      const token = localStorage.getItem('token');
-      
-      // Помечаем все неоплаченные услуги как оплаченные
-      const unpaidServices = plan.services.filter(s => s.payment_status !== 'paid');
-      
-      for (const service of unpaidServices) {
-        const response = await fetch(
-          `${API}/api/treatment-plans/${plan.id}/services/${service.service_id}/mark-paid`,
-          {
-            method: 'POST',
-            headers: {
-              'Authorization': `Bearer ${token}`,
-              'Content-Type': 'application/json'
-            }
-          }
-        );
-        
-        if (!response.ok) {
-          throw new Error(`Ошибка при оплате услуги ${service.service_name}`);
-        }
-      }
-      
-      // Обновляем план после оплаты всех услуг
-      const planResponse = await fetch(`${API}/api/treatment-plans/${plan.id}`, {
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
-      
-      if (planResponse.ok) {
-        const updatedPlan = await planResponse.json();
-        if (onUpdate) {
-          onUpdate(updatedPlan);
-        }
-        alert(`✅ План лечения полностью оплачен!\nДоплачено: ${actualRemainingToPay.toLocaleString()} ₸`);
-      }
-    } catch (error) {
-      console.error('Error paying remaining debt:', error);
-      alert('Ошибка при оплате: ' + error.message);
-    } finally {
-      setLoading(false);
-    }
-  };
-
   // Компонент раскрывающейся секции
   const AccordionSection = ({ title, icon, content, sectionKey, color = "blue" }) => {
     if (!content) return null;
@@ -297,6 +323,74 @@ const ServicePaymentList = ({ plan, onUpdate, onEdit, paymentFilter = 'all', pro
             {content}
           </div>
         )}
+      </div>
+    );
+  };
+
+  // Компонент модального окна выбора способа оплаты
+  const PaymentMethodModal = () => {
+    if (!showPaymentModal) return null;
+    
+    return (
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50" onClick={() => setShowPaymentModal(false)}>
+        <div className="bg-white rounded-xl shadow-2xl p-6 w-full max-w-md mx-4" onClick={e => e.stopPropagation()}>
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-lg font-semibold text-gray-900 flex items-center">
+              <FaCreditCard className="mr-2 text-blue-500" />
+              Выберите способ оплаты
+            </h3>
+            <button
+              onClick={() => setShowPaymentModal(false)}
+              className="text-gray-400 hover:text-gray-600 text-2xl leading-none"
+            >
+              &times;
+            </button>
+          </div>
+          
+          <div className="space-y-3 max-h-80 overflow-y-auto">
+            {loadingPaymentTypes ? (
+              <div className="text-center py-8 text-gray-500">
+                <div className="w-8 h-8 border-4 border-blue-200 border-t-blue-600 rounded-full animate-spin mx-auto mb-2"></div>
+                Загрузка способов оплаты...
+              </div>
+            ) : paymentTypes.length === 0 ? (
+              <div className="text-center py-8 text-gray-500">
+                <p>Нет доступных способов оплаты</p>
+                <p className="text-xs mt-1">Добавьте их в разделе "Тип оплаты" в справочнике</p>
+              </div>
+            ) : (
+              paymentTypes.map(pt => (
+                <button
+                  key={pt.id}
+                  onClick={() => executePayment(pt)}
+                  disabled={loading}
+                  className="w-full px-4 py-4 bg-gray-50 hover:bg-blue-50 border border-gray-200 hover:border-blue-300 rounded-lg transition-all text-left flex items-center justify-between group"
+                >
+                  <div className="flex items-center space-x-3">
+                    <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 font-bold text-sm">
+                      {pt.name.charAt(0).toUpperCase()}
+                    </div>
+                    <div>
+                      <div className="font-medium text-gray-900">{pt.name}</div>
+                      {pt.description && (
+                        <div className="text-xs text-gray-500">{pt.description}</div>
+                      )}
+                    </div>
+                  </div>
+                  <FaChevronRight className="text-gray-300 group-hover:text-blue-400 transition-colors" />
+                </button>
+              ))
+            )}
+          </div>
+          
+          <button
+            onClick={() => executePayment(null)}
+            disabled={loading}
+            className="w-full mt-4 px-4 py-3 bg-gray-100 text-gray-600 rounded-lg hover:bg-gray-200 transition-colors text-sm disabled:opacity-50"
+          >
+            {loading ? 'Обработка...' : 'Продолжить без указания способа оплаты'}
+          </button>
+        </div>
       </div>
     );
   };
@@ -453,74 +547,7 @@ const ServicePaymentList = ({ plan, onUpdate, onEdit, paymentFilter = 'all', pro
             </div>
           ) : null}
 
-          {/* Прогресс оплаты */}
-          <div className="mb-6 p-4 bg-gray-50 rounded-lg">
-        <div className="flex justify-between text-sm text-gray-600 mb-2">
-            <span>Оплачено услуг: {paidServices} из {totalServices}</span>
-            <span className="font-medium">{paymentProgress}%</span>
-          </div>
-          <div className="w-full bg-gray-200 rounded-full h-3 mb-3">
-            <div
-              className="bg-green-600 h-3 rounded-full transition-all duration-300"
-              style={{ width: `${paymentProgress}%` }}
-            />
-          </div>
-          <div className="grid grid-cols-4 gap-4 text-center">
-            <div>
-              <div className="text-xs text-gray-500">Всего к оплате</div>
-              <div className="text-lg font-semibold text-gray-900">
-                {totalAmount.toLocaleString()} ₸
-              </div>
-            </div>
-            <div>
-              <div className="text-xs text-gray-500">Депозит (баланс)</div>
-              {depositBalance > 0 ? (
-                <div className="text-lg font-semibold text-green-600">
-                  {depositBalance.toLocaleString()} ₸
-                </div>
-              ) : depositDebt > 0 ? (
-                <div className="text-lg font-semibold text-red-600">
-                  -{depositDebt.toLocaleString()} ₸
-                </div>
-              ) : (
-                <div className="text-lg font-semibold text-gray-500">
-                  0 ₸
-                </div>
-              )}
-            {/* Детализация депозита */}
-              <div className="text-xs mt-1">
-                {appointmentDeposit > 0 && (
-                  <div className="text-blue-500">
-                    💰 Депозит: {appointmentDeposit.toLocaleString()} ₸
-                  </div>
-                )}
-                {extraDeposit > 0 && (
-                  <div className="text-green-500">
-                    💳 Доплата: +{extraDeposit.toLocaleString()} ₸
-                  </div>
-                )}
-                {depositAmount > 0 && (
-                  <div className="text-gray-600 font-medium">
-                    Итого: {depositAmount.toLocaleString()} ₸
-                  </div>
-                )}
-              </div>
-            </div>
-            <div>
-              <div className="text-xs text-gray-500">Оплачено</div>
-              <div className="text-lg font-semibold text-green-600">
-                {paidAmount.toLocaleString()} ₸
-              </div>
-            </div>
-            <div>
-              <div className="text-xs text-gray-500">Остаток к оплате</div>
-              <div className="text-lg font-semibold text-red-600">
-                {actualRemainingToPay.toLocaleString()} ₸
-              </div>
-            </div>
-          </div>
-        
-        {/* Кнопка оплаты остатка если есть недоплата */}
+          {/* Кнопка оплаты остатка если есть недоплата */}
           {actualRemainingToPay > 0 && (
             <div className="mt-4 pt-4 border-t border-gray-200">
               <div className="flex items-center justify-between">
@@ -552,54 +579,24 @@ const ServicePaymentList = ({ plan, onUpdate, onEdit, paymentFilter = 'all', pro
             </div>
           )}
           
-          {/* Показываем статус если всё оплачено И депозит покрыл всю сумму */}
-          {remainingToPay === 0 && paidAmount > 0 && depositDebt === 0 && (
+          {/* Показываем статус если всё оплачено */}
+          {remainingToPay === 0 && paidAmount > 0 && (
             <div className="mt-4 pt-4 border-t border-gray-200 text-center">
               <div className="inline-flex items-center px-6 py-3 bg-green-100 text-green-700 rounded-lg font-semibold">
                 <span className="text-2xl mr-2">✅</span>
                 <span>План лечения полностью оплачен</span>
               </div>
-            </div>
-          )}
-          
-          {/* Показываем предупреждение и кнопку доплаты если услуги помечены как оплаченные, но депозит не покрыл всю сумму */}
-          {remainingToPay === 0 && paidAmount > 0 && depositDebt > 0 && (
-            <div className="mt-4 pt-4 border-t border-gray-200">
-              <div className="flex flex-col items-center space-y-3">
-                <div className="inline-flex items-center px-6 py-3 bg-orange-100 text-orange-700 rounded-lg font-semibold">
-                  <span className="text-2xl mr-2">⚠️</span>
-                  <span>Услуги оплачены, но депозита было недостаточно</span>
+              {depositDebt > 0 && (
+                <div className="text-xs text-gray-500 mt-2">
+                  Депозит: {depositAmount.toLocaleString()} ₸ · С депозита оплачено: {plan.services.reduce((sum, s) => sum + (s.paid_from_deposit || 0), 0).toLocaleString()} ₸ · Наличными/терминалом: {(paidAmount - plan.services.reduce((sum, s) => sum + (s.paid_from_deposit || 0), 0)).toLocaleString()} ₸
                 </div>
-                <div className="text-sm text-gray-600">
-                  Недоплата из депозита: <span className="font-bold text-red-600">{depositDebt.toLocaleString()} ₸</span>
-                </div>
-                <button
-                  onClick={() => {
-                    if (!loading && window.confirm(`Подтвердите доплату ${depositDebt.toLocaleString()} ₸ из кассы`)) {
-                      addDepositPayment(depositDebt);
-                    }
-                  }}
-                  disabled={loading}
-                  className="px-6 py-3 bg-orange-500 text-white rounded-lg hover:bg-orange-600 disabled:opacity-50 disabled:cursor-not-allowed font-semibold transition-all shadow-md hover:shadow-lg flex items-center space-x-2"
-                >
-                  {loading ? (
-                    <span>Обработка...</span>
-                  ) : (
-                    <>
-                      <span>💳</span>
-                      <span>Доплатить из кассы</span>
-                      <span className="ml-2 px-2 py-1 bg-orange-600 rounded text-sm">
-                        {depositDebt.toLocaleString()} ₸
-                      </span>
-                    </>
-                  )}
-                </button>
-              </div>
+              )}
             </div>
           )}
         </div>
+        )}
 
-      {/* Список услуг */}
+        {/* Список услуг */}
           <div className="space-y-3">
             <h4 className="font-medium text-gray-900 mb-3">Услуги в счете:</h4>
             
@@ -729,12 +726,13 @@ const ServicePaymentList = ({ plan, onUpdate, onEdit, paymentFilter = 'all', pro
                   </div>
                 ) : (
                   /* Обычная услуга или курс с единовременной оплатой */
-                  <div className="flex items-center justify-between">
-                    <div className="flex-1">
-                      <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-4">
+                    {/* Цена и статус */}
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center space-x-6">
                         <div>
                           <div className="text-xs text-gray-500 font-medium mb-1">СТОИМОСТЬ</div>
-                          <div className="text-xl font-bold text-gray-900">
+                          <div className="text-2xl font-bold text-gray-900">
                             {(service.total_price || 0).toLocaleString()} ₸
                           </div>
                         </div>
@@ -749,31 +747,56 @@ const ServicePaymentList = ({ plan, onUpdate, onEdit, paymentFilter = 'all', pro
                         )}
                       </div>
                       
-                      <div className="mt-3">
+                      <div className="text-right">
                         {isPaid ? (
-                          <span className="inline-flex items-center px-4 py-2 bg-green-100 text-green-700 rounded-lg text-sm font-semibold">
-                            <span className="text-lg mr-2">✅</span> Оплачено
-                          </span>
+                          <div className="inline-flex items-center px-4 py-2 bg-green-100 border-2 border-green-300 text-green-700 rounded-lg font-semibold">
+                            <span className="text-lg mr-2">✅</span>
+                            <div>
+                              <div>Оплачено</div>
+                              <div className="text-xs text-green-500">{(service.total_price || 0).toLocaleString()} ₸</div>
+                            </div>
+                          </div>
                         ) : (
-                          <span className="inline-flex items-center px-4 py-2 bg-red-100 text-red-700 rounded-lg text-sm font-semibold">
-                            <span className="text-lg mr-2">❌</span> Не оплачено
-                          </span>
+                          <div className="inline-flex items-center px-4 py-2 bg-red-100 border-2 border-red-300 text-red-700 rounded-lg font-semibold">
+                            <span className="text-lg mr-2">❌</span>
+                            <div>
+                              <div>Не оплачено</div>
+                              <div className="text-xs text-red-500">{(service.total_price || 0).toLocaleString()} ₸</div>
+                            </div>
+                          </div>
                         )}
                       </div>
                     </div>
 
+                    {/* Способ оплаты (если уже оплачено) */}
+                    {isPaid && service.payment_method_name && (
+                      <div className="text-xs text-gray-500">
+                        Способ оплаты: <span className="font-medium text-gray-700">{service.payment_method_name}</span>
+                      </div>
+                    )}
+
                     {/* Кнопка оплаты */}
-                    <div className="ml-6">
-                      {!isPaid && (
+                    {!isPaid && (
+                      <div className="flex justify-end pt-2">
                         <button
                           onClick={() => markServicePaid(service.service_id)}
                           disabled={loading}
-                          className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed font-medium transition-all shadow-md hover:shadow-lg"
+                          className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed font-medium transition-all shadow-md hover:shadow-lg flex items-center space-x-2"
                         >
-                          {loading ? 'Обработка...' : '💳 Оплатить полностью'}
+                          {loading ? (
+                            <span>Обработка...</span>
+                          ) : (
+                            <>
+                              <span>💳</span>
+                              <span>Оплатить</span>
+                              <span className="ml-2 px-2 py-0.5 bg-blue-700 rounded text-sm">
+                                {(service.total_price || 0).toLocaleString()} ₸
+                              </span>
+                            </>
+                          )}
                         </button>
-                      )}
-                    </div>
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
@@ -794,8 +817,9 @@ const ServicePaymentList = ({ plan, onUpdate, onEdit, paymentFilter = 'all', pro
           <div className="mt-4 pt-4 border-t border-gray-200 text-xs text-gray-500">
             Создано: {new Date(plan.created_at).toLocaleString('ru-RU')} • {plan.created_by_name}
           </div>
-        </div>
-      )}
+      
+      {/* Модальное окно выбора способа оплаты */}
+      <PaymentMethodModal />
     </div>
   );
 };

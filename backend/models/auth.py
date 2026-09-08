@@ -25,7 +25,8 @@ class UserRole(str, Enum):
 class User(BaseModel):
     """Main user model for API responses"""
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
-    email: EmailStr
+    email: Optional[EmailStr] = None
+    login: Optional[str] = None  # Логин для входа (альтернатива email)
     full_name: str
     role: UserRole
     is_active: bool = True
@@ -45,7 +46,8 @@ class UserInDB(User):
 
 class UserCreate(BaseModel):
     """Model for user registration"""
-    email: EmailStr
+    email: Optional[EmailStr] = None
+    login: Optional[str] = None  # Логин для входа (альтернатива email)
     password: str
     full_name: str
     role: UserRole = UserRole.PATIENT
@@ -53,7 +55,7 @@ class UserCreate(BaseModel):
 
 class UserLogin(BaseModel):
     """Model for user login"""
-    email: EmailStr
+    email: str  # Может быть email или логин (строка, не EmailStr)
     password: str
     remember_me: bool = False  # Запомнить меня - бессрочный токен
 
@@ -68,6 +70,7 @@ class Token(BaseModel):
 class TokenData(BaseModel):
     """Token payload data model"""
     email: Optional[str] = None
+    login: Optional[str] = None
 
 
 class ChangePasswordRequest(BaseModel):

@@ -114,7 +114,8 @@ ROLE_PERMISSIONS: Dict[StaffRole, List[Permission]] = {
 class StaffMember(BaseModel):
     """Модель сотрудника"""
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
-    email: EmailStr
+    email: Optional[EmailStr] = None
+    login: Optional[str] = None  # Логин для входа (альтернатива email)
     full_name: str
     role: StaffRole
     phone: Optional[str] = None
@@ -146,7 +147,8 @@ class StaffMemberInDB(StaffMember):
 
 class StaffMemberCreate(BaseModel):
     """Модель для создания сотрудника"""
-    email: EmailStr
+    email: Optional[EmailStr] = None
+    login: Optional[str] = None  # Логин для входа (альтернатива email)
     password: str
     full_name: str
     role: StaffRole
@@ -157,6 +159,7 @@ class StaffMemberCreate(BaseModel):
 class StaffMemberUpdate(BaseModel):
     """Модель для обновления сотрудника"""
     email: Optional[EmailStr] = None
+    login: Optional[str] = None  # Логин для входа (альтернатива email)
     full_name: Optional[str] = None
     role: Optional[StaffRole] = None
     phone: Optional[str] = None
@@ -167,7 +170,8 @@ class StaffMemberUpdate(BaseModel):
 class StaffMemberResponse(BaseModel):
     """Модель ответа с информацией о сотруднике"""
     id: str
-    email: EmailStr
+    email: Optional[EmailStr] = None
+    login: Optional[str] = None  # Логин для входа (альтернатива email)
     full_name: str
     role: StaffRole
     phone: Optional[str] = None

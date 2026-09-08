@@ -7,7 +7,7 @@ import TreatmentPlanView from '../treatment/TreatmentPlanView';
 import ServicePaymentList from '../treatment/ServicePaymentList';
 import AppointmentsSchedule from '../treatment/AppointmentsSchedule';
 import WhatsAppSidebar from '../crm/telephony/WhatsAppSidebar';
-import { FaWhatsapp, FaUser, FaStethoscope, FaFileAlt, FaClipboardList, FaCreditCard, FaCalendarAlt } from 'react-icons/fa';
+import { FaWhatsapp, FaUser, FaStethoscope, FaFileAlt, FaClipboardList, FaCreditCard, FaCalendarAlt, FaChevronDown, FaChevronRight, FaNotesMedical, FaUserMd, FaFileMedical } from 'react-icons/fa';
 import { useGlobalRefresh } from '../../hooks/useGlobalRefresh';
 import { usePhoneInput } from '../../hooks/usePhoneInput';
 
@@ -59,6 +59,12 @@ const PatientModal = ({
   const [editingPlan, setEditingPlan] = useState(null);
   const [hasCourseServices, setHasCourseServices] = useState(false);
   const [showWhatsAppHistory, setShowWhatsAppHistory] = useState(false);
+  
+  // Состояние загрузки страницы пациента (прелоадер при открытии)
+  const [pageLoading, setPageLoading] = useState(false);
+  
+  // Состояние для сворачивания/разворачивания консультаций (по умолчанию все развёрнуты)
+  const [expandedConsultations, setExpandedConsultations] = useState({});
   
   // Фильтры для счетов
   const [paymentFilter, setPaymentFilter] = useState('all'); // all, paid, unpaid
@@ -141,9 +147,11 @@ const PatientModal = ({
     phoneHook.syncValue(patientForm.phone || '');
   }, [patientForm.phone]);
 
+  // Загрузка данных при открытии модального окна с существующим пациентом
   useEffect(() => {
-    if (editingItem) {
-      // Всегда загружаем планы при открытии, чтобы проверить наличие курсов
+    if (editingItem && show) {
+      setPageLoading(true);
+      // Всегда загружаем планы при открытии
       fetchTreatmentPlans();
       
       if (activeTab === 'documents') {
@@ -152,8 +160,23 @@ const PatientModal = ({
       if (activeTab === 'consultations') {
         fetchConsultationSheets();
       }
+    } else if (!show) {
+      setPageLoading(false);
     }
-  }, [editingItem, activeTab]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [show]); // Только при открытии/закрытии модалки
+  
+  // Загрузка данных при переключении вкладок
+  useEffect(() => {
+    if (editingItem && show) {
+      if (activeTab === 'documents') {
+        fetchDocuments();
+      }
+      if (activeTab === 'consultations') {
+        fetchConsultationSheets();
+      }
+    }
+  }, [activeTab, editingItem, show]);
   
   // Перезагрузить планы когда переключаемся на вкладку консультаций (могли создать новую)
   useEffect(() => {
@@ -211,6 +234,8 @@ const PatientModal = ({
       }
     } catch (error) {
       console.error('Error fetching treatment plans:', error);
+    } finally {
+      setPageLoading(false);
     }
   };
 
@@ -494,6 +519,104 @@ const PatientModal = ({
     }, 300);
   };
 
+  // Переключение сворачивания/разворачивания карточки консультации
+  const toggleConsultation = (sheetId) => {
+    setExpandedConsultations(prev => ({
+      ...prev,
+      [sheetId]: !prev[sheetId]
+    }));
+  };
+
+  // Компонент сводки оплаты по всем планам лечения
+  const PaymentSummary = ({ plans }) => {
+    // Расчёт общих сумм по всем планам
+    const totalAmount = plans.reduce((sum, p) => sum + (p.total_cost || 0), 0);
+    const paidAmount = plans.reduce((sum, p) => sum + (p.paid_amount || 0), 0);
+    const totalServices = plans.reduce((sum, p) => sum + (p.services?.length || 0), 0);
+    const paidServices = plans.reduce((sum, p) => sum + (p.services?.filter(s => s.payment_status === 'paid').length || 0), 0);
+    const remainingToPay = Math.max(0, totalAmount - paidAmount);
+    const paymentProgress = totalAmount > 0 ? Math.round((paidAmount / totalAmount) * 100) : 0;
+    
+    // Депозит
+    const depositAmount = plans.reduce((sum, p) => sum + (p.deposit_amount || 0), 0);
+    const extraDeposit = plans.reduce((sum, p) => sum + (p.extra_deposit || 0), 0);
+    const appointmentDeposit = depositAmount - extraDeposit;
+    const depositBalance = depositAmount > totalAmount ? depositAmount - totalAmount : 0;
+    const depositDebt = depositAmount < totalAmount ? totalAmount - depositAmount : 0;
+    const actualRemainingToPay = depositAmount > 0
+      ? Math.max(0, totalAmount - paidAmount - depositAmount)
+      : remainingToPay;
+
+    return (
+      <div className="p-5 bg-white rounded-xl border border-gray-200 shadow-sm">
+        <div className="grid grid-cols-3 gap-4 mb-4">
+          <div className="text-center p-3 bg-gray-50 rounded-lg">
+            <div className="text-xs text-gray-500 uppercase tracking-wide font-medium">Всего к оплате</div>
+            <div className="text-2xl font-bold text-gray-900 mt-1">{totalAmount.toLocaleString()} ₸</div>
+            {totalServices > 0 && <div className="text-xs text-gray-400 mt-1">{totalServices} услуг</div>}
+          </div>
+          <div className="text-center p-3 bg-green-50 rounded-lg border border-green-200">
+            <div className="text-xs text-green-600 uppercase tracking-wide font-medium">✅ Оплачено</div>
+            <div className="text-2xl font-bold text-green-600 mt-1">{paidAmount.toLocaleString()} ₸</div>
+            {paidAmount > 0 && (
+              <div className="text-xs text-green-500 mt-1">{paidServices} из {totalServices} услуг</div>
+            )}
+          </div>
+          <div className={`text-center p-3 rounded-lg border ${actualRemainingToPay > 0 ? 'bg-red-50 border-red-200' : 'bg-green-50 border-green-200'}`}>
+            <div className={`text-xs uppercase tracking-wide font-medium ${actualRemainingToPay > 0 ? 'text-red-600' : 'text-green-600'}`}>
+              К оплате
+            </div>
+            <div className={`text-2xl font-bold mt-1 ${actualRemainingToPay > 0 ? 'text-red-600' : 'text-green-600'}`}>
+              {actualRemainingToPay.toLocaleString()} ₸
+            </div>
+            {actualRemainingToPay > 0 && (
+              <div className="text-xs text-red-500 mt-1">{totalServices - paidServices} услуг не оплачено</div>
+            )}
+          </div>
+        </div>
+
+        {totalAmount > 0 && (
+          <div className="mb-4">
+            <div className="flex justify-between text-xs text-gray-500 mb-1">
+              <span>Прогресс оплаты</span>
+              <span className="font-semibold">{paymentProgress}%</span>
+            </div>
+            <div className="w-full bg-gray-200 rounded-full h-4 overflow-hidden">
+              <div
+                className={`h-4 rounded-full transition-all duration-500 ${
+                  paymentProgress === 100
+                    ? 'bg-gradient-to-r from-green-400 to-green-600'
+                    : 'bg-gradient-to-r from-blue-400 to-blue-600'
+                }`}
+                style={{ width: `${paymentProgress}%` }}
+              />
+            </div>
+          </div>
+        )}
+
+        {depositAmount > 0 && (
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-gray-600 bg-gray-50 rounded-lg p-3">
+            <span className="font-medium text-gray-700">💳 Депозит:</span>
+            {appointmentDeposit > 0 && <span className="text-blue-600">💰 {appointmentDeposit.toLocaleString()} ₸</span>}
+            {extraDeposit > 0 && <span className="text-green-600">➕ Доплата: {extraDeposit.toLocaleString()} ₸</span>}
+            <span className="font-medium">Итого: {depositAmount.toLocaleString()} ₸</span>
+            {depositBalance > 0 && <span className="text-green-600 font-medium">✓ Остаток: {depositBalance.toLocaleString()} ₸</span>}
+            {depositDebt > 0 && <span className="text-red-600 font-medium">✗ Непокрыто: {depositDebt.toLocaleString()} ₸</span>}
+          </div>
+        )}
+
+        {remainingToPay === 0 && paidAmount > 0 && (
+          <div className="mt-4 pt-4 border-t border-gray-200 text-center">
+            <div className="inline-flex items-center px-6 py-3 bg-green-100 text-green-700 rounded-lg font-semibold">
+              <span className="text-2xl mr-2">✅</span>
+              <span>Все планы лечения полностью оплачены</span>
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  };
+
   const handleFileUpload = async () => {
     if (!selectedFile || !editingItem) return;
 
@@ -759,6 +882,14 @@ const PatientModal = ({
           </nav>
         </div>
 
+        {/* Прелоадер при загрузке данных пациента */}
+        {pageLoading && editingItem ? (
+          <div className="flex flex-col items-center justify-center py-20">
+            <div className="w-12 h-12 border-4 border-blue-200 border-t-blue-600 rounded-full animate-spin mb-4"></div>
+            <p className="text-gray-500 text-sm">Загрузка данных пациента...</p>
+          </div>
+        ) : (
+          <>
         {/* Tab Content */}
         {activeTab === 'info' && (
           <form onSubmit={(e) => {
@@ -893,44 +1024,6 @@ const PatientModal = ({
 
             {editingItem && (
               <div>
-                <h4 className="text-md font-semibold mb-2">Финансовая информация</h4>
-                <div className="grid grid-cols-3 gap-4">
-                  <div>
-                    <label className="block text-sm text-gray-600 mb-1">Выручка (₸)</label>
-                    <input
-                      type="number"
-                      step="0.01"
-                      min="0"
-                      value={patientForm.revenue || 0}
-                      onChange={(e) => safeSetPatientForm({ revenue: parseFloat(e.target.value) || 0 })}
-                      className={inputClasses}
-                    />
-                  </div>
-                  
-                  <div>
-                    <label className="block text-sm text-gray-600 mb-1">Долг (₸)</label>
-                    <input
-                      type="number"
-                      step="0.01"
-                      min="0"
-                      value={patientForm.debt || 0}
-                      onChange={(e) => safeSetPatientForm({ debt: parseFloat(e.target.value) || 0 })}
-                      className={inputClasses}
-                    />
-                  </div>
-                  
-                  <div>
-                    <label className="block text-sm text-gray-600 mb-1">Переплата (₸)</label>
-                    <input
-                      type="number"
-                      step="0.01"
-                      min="0"
-                      value={patientForm.overpayment || 0}
-                      onChange={(e) => safeSetPatientForm({ overpayment: parseFloat(e.target.value) || 0 })}
-                      className={inputClasses}
-                    />
-                  </div>
-                </div>
                 
                 <div className="grid grid-cols-2 gap-4 mt-3">
                   <div>
@@ -1479,6 +1572,11 @@ const PatientModal = ({
               </p>
             </div>
 
+            {/* Сводка оплаты по всем планам лечения */}
+            {treatmentPlans.length > 0 && (
+              <PaymentSummary plans={treatmentPlans} />
+            )}
+
             {treatmentPlans.length === 0 ? (
               <div className="text-center py-8">
                 <p className="text-gray-500 mb-2">Планы лечения не найдены</p>
@@ -1540,96 +1638,228 @@ const PatientModal = ({
                   </p>
                 ) : (
                   <div className="space-y-3">
-                    {consultationSheets.map((sheet) => (
-                      <div key={sheet.id} className="border rounded-lg p-4 bg-white shadow-sm">
-                        <div className="flex justify-between items-start mb-3">
-                          <div>
-                            <div className="text-sm text-gray-500">
-                              {new Date(sheet.consultation_date).toLocaleDateString('ru-RU')}
+                    {consultationSheets.map((sheet) => {
+                      const isExpanded = expandedConsultations[sheet.id] !== false; // по умолчанию развёрнуто
+                      return (
+                        <div key={sheet.id} className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
+                          {/* Заголовок карточки - всегда видимый */}
+                          <button
+                            onClick={() => toggleConsultation(sheet.id)}
+                            className="w-full px-4 py-3 flex items-center justify-between bg-gradient-to-r from-gray-50 to-gray-100 hover:from-gray-100 hover:to-gray-200 transition-colors border-b border-gray-200"
+                          >
+                            <div className="flex items-center space-x-3 min-w-0">
+                              <div className={`transform transition-transform duration-200 ${isExpanded ? 'rotate-90' : ''}`}>
+                                <FaChevronRight className="text-gray-400 text-sm" />
+                              </div>
+                              <FaFileMedical className="text-blue-500" />
+                              <div className="text-left min-w-0">
+                                <h3 className="text-sm font-semibold text-gray-900 truncate">
+                                  Консультация от {new Date(sheet.consultation_date).toLocaleDateString('ru-RU')}
+                                </h3>
+                                <div className="flex items-center space-x-2 text-xs text-gray-500 mt-0.5">
+                                  <span className="flex items-center">
+                                    <FaUserMd className="mr-1 text-gray-400" />
+                                    {sheet.doctor_name}
+                                  </span>
+                                </div>
+                              </div>
                             </div>
-                            <div className="font-medium text-gray-900">
-                              Врач: {sheet.doctor_name}
+                            <div className="flex items-center space-x-2 flex-shrink-0 ml-2">
+                              <button
+                                onClick={(e) => { e.stopPropagation(); handlePrintConsultation(sheet); }}
+                                className="px-2 py-1 text-gray-700 border border-gray-500 rounded hover:bg-gray-100 text-xs whitespace-nowrap"
+                                title="Печать консультационного листа"
+                              >
+                                Печать
+                              </button>
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setEditingConsultation(sheet);
+                                  setShowConsultationForm(true);
+                                }}
+                                className="px-2 py-1 text-blue-600 border border-blue-600 rounded hover:bg-blue-50 text-xs whitespace-nowrap"
+                              >
+                                Редактировать
+                              </button>
+                              <button
+                                onClick={(e) => { e.stopPropagation(); handleDeleteConsultation(sheet.id); }}
+                                className="px-2 py-1 text-red-600 border border-red-600 rounded hover:bg-red-50 text-xs whitespace-nowrap"
+                              >
+                                Удалить
+                              </button>
+                              {isExpanded ? <FaChevronDown className="text-gray-400" /> : <FaChevronDown className="text-gray-400 rotate-180" />}
                             </div>
-                          </div>
-                          <div className="flex space-x-2">
-                            <button
-                              onClick={() => handlePrintConsultation(sheet)}
-                              className="px-3 py-1 text-gray-700 border border-gray-500 rounded hover:bg-gray-100 text-sm"
-                              title="Печать консультационного листа"
-                            >
-                              Печать
-                            </button>
-                            <button
-                              onClick={() => {
-                                setEditingConsultation(sheet);
-                                setShowConsultationForm(true);
-                              }}
-                              className="px-3 py-1 text-blue-600 border border-blue-600 rounded hover:bg-blue-50 text-sm"
-                            >
-                              Редактировать
-                            </button>
-                            <button
-                              onClick={() => handleDeleteConsultation(sheet.id)}
-                              className="px-3 py-1 text-red-600 border border-red-600 rounded hover:bg-red-50 text-sm"
-                            >
-                              Удалить
-                            </button>
-                          </div>
-                        </div>
+                          </button>
 
-                        {/* ICD-10 Codes */}
-                        {sheet.icd10_codes && sheet.icd10_codes.length > 0 && (
-                          <div className="mb-3">
-                            <div className="text-xs font-medium text-gray-700 mb-1">МКБ-10:</div>
-                            <div className="flex flex-wrap gap-1">
-                              {sheet.icd10_codes.map((code) => (
-                                <span 
-                                  key={code.code}
-                                  className="inline-flex items-center px-2 py-1 bg-blue-100 text-blue-800 rounded text-xs"
-                                >
-                                  <span className="font-medium">{code.code}</span>
-                                  <span className="ml-1 text-blue-600">- {code.name}</span>
-                                </span>
-                              ))}
-                            </div>
-                          </div>
-                        )}
+                          {/* Детальное содержимое - отображается только при раскрытии */}
+                          {isExpanded && (
+                            <div className="p-4">
+                              {/* МКБ-10 коды */}
+                              {sheet.icd10_codes && sheet.icd10_codes.length > 0 && (
+                                <div className="mb-4">
+                                  <div className="text-xs font-medium text-gray-700 mb-1">МКБ-10 коды:</div>
+                                  <div className="flex flex-wrap gap-1">
+                                    {sheet.icd10_codes.map((code) => (
+                                      <span 
+                                        key={code.code}
+                                        className="inline-flex items-center px-2 py-1 bg-blue-100 text-blue-800 rounded text-xs"
+                                      >
+                                        <span className="font-medium">{code.code}</span>
+                                        <span className="ml-1 text-blue-600">- {code.name}</span>
+                                      </span>
+                                    ))}
+                                  </div>
+                                </div>
+                              )}
 
-                        {/* Content Fields */}
-                        {sheet.complaints && (
-                          <div className="mb-2">
-                            <div className="text-xs font-medium text-gray-700">Жалобы:</div>
-                            <div className="text-sm text-gray-600">{sheet.complaints}</div>
-                          </div>
-                        )}
-                        
+                              {/* Все поля консультации */}
+                              <div className="grid grid-cols-1 gap-3">
+                                {sheet.complaints && (
+                                  <div className="bg-gray-50 rounded-lg p-3 border border-gray-200">
+                                    <div className="text-xs font-medium text-gray-700 mb-1 flex items-center">
+                                      <FaClipboardList className="mr-1 text-blue-500" />
+                                      Жалобы
+                                    </div>
+                                    <div className="text-sm text-gray-800 whitespace-pre-wrap">{sheet.complaints}</div>
+                                  </div>
+                                )}
+
+                                {sheet.anamnesis && (
+                                  <div className="bg-gray-50 rounded-lg p-3 border border-gray-200">
+                                    <div className="text-xs font-medium text-gray-700 mb-1 flex items-center">
+                                      <FaNotesMedical className="mr-1 text-green-500" />
+                                      Анамнез
+                                    </div>
+                                    <div className="text-sm text-gray-800 whitespace-pre-wrap">{sheet.anamnesis}</div>
+                                  </div>
+                                )}
+
+                                {sheet.anamnesis_morbi && (
+                                  <div className="bg-gray-50 rounded-lg p-3 border border-gray-200">
+                                    <div className="text-xs font-medium text-gray-700 mb-1 flex items-center">
+                                      <FaNotesMedical className="mr-1 text-green-500" />
+                                      Анамнез заболевания
+                                    </div>
+                                    <div className="text-sm text-gray-800 whitespace-pre-wrap">{sheet.anamnesis_morbi}</div>
+                                  </div>
+                                )}
+
+                                {sheet.anamnesis_vitae && (
+                                  <div className="bg-gray-50 rounded-lg p-3 border border-gray-200">
+                                    <div className="text-xs font-medium text-gray-700 mb-1 flex items-center">
+                                      <FaNotesMedical className="mr-1 text-green-500" />
+                                      Анамнез жизни
+                                    </div>
+                                    <div className="text-sm text-gray-800 whitespace-pre-wrap">{sheet.anamnesis_vitae}</div>
+                                  </div>
+                                )}
+
+                                {sheet.local_status && (
+                                  <div className="bg-gray-50 rounded-lg p-3 border border-gray-200">
+                                    <div className="text-xs font-medium text-gray-700 mb-1 flex items-center">
+                                      <FaStethoscope className="mr-1 text-purple-500" />
+                                      Локальный статус
+                                    </div>
+                                    <div className="text-sm text-gray-800 whitespace-pre-wrap">{sheet.local_status}</div>
+                                  </div>
+                                )}
+
+                                {sheet.examination && (
+                                  <div className="bg-gray-50 rounded-lg p-3 border border-gray-200">
+                                    <div className="text-xs font-medium text-gray-700 mb-1 flex items-center">
+                                      <FaStethoscope className="mr-1 text-indigo-500" />
+                                      Объективный осмотр
+                                    </div>
+                                    <div className="text-sm text-gray-800 whitespace-pre-wrap">{sheet.examination}</div>
+                                  </div>
+                                )}
+
                         {sheet.diagnosis && (
-                          <div className="mb-2">
-                            <div className="text-xs font-medium text-gray-700">Диагноз:</div>
-                            <div className="text-sm text-gray-900 font-medium">{sheet.diagnosis}</div>
-                          </div>
-                        )}
+                                  <div className="bg-gray-50 rounded-lg p-3 border border-gray-200">
+                                    <div className="text-xs font-medium text-gray-700 mb-1 flex items-center">
+                                      <FaUserMd className="mr-1 text-orange-500" />
+                                      Диагноз
+                                    </div>
+                                    <div className="text-sm text-gray-900 font-medium whitespace-pre-wrap">{sheet.diagnosis}</div>
+                                  </div>
+                                )}
 
-                        {sheet.treatment && (
-                          <div className="mb-2">
-                            <div className="text-xs font-medium text-gray-700">Назначенное лечение:</div>
-                            <div className="text-sm text-gray-600">{sheet.treatment}</div>
-                          </div>
-                        )}
+                                {/* Назначенные услуги из прайса */}
+                                {sheet.treatment_services && sheet.treatment_services.length > 0 && (
+                                  <div className="bg-gray-50 rounded-lg p-3 border border-gray-200">
+                                    <div className="text-xs font-medium text-gray-700 mb-1 flex items-center">
+                                      <FaCreditCard className="mr-1 text-teal-500" />
+                                      Назначенные услуги
+                                    </div>
+                                    <div className="overflow-x-auto">
+                                      <table className="w-full text-sm">
+                                        <thead>
+                                          <tr className="border-b border-gray-300">
+                                            <th className="text-left py-1 px-2 text-gray-600">Услуга</th>
+                                            <th className="text-center py-1 px-2 text-gray-600">Кол-во</th>
+                                            <th className="text-right py-1 px-2 text-gray-600">Цена</th>
+                                            <th className="text-right py-1 px-2 text-gray-600">Сумма</th>
+                                          </tr>
+                                        </thead>
+                                        <tbody>
+                                          {sheet.treatment_services.map((service, idx) => (
+                                            <tr key={idx} className="border-b border-gray-200 last:border-b-0">
+                                              <td className="py-1 px-2 text-gray-800">{service.service_name}</td>
+                                              <td className="text-center py-1 px-2 text-gray-800">{service.quantity}</td>
+                                              <td className="text-right py-1 px-2 text-gray-800">{Number(service.price_per_unit).toLocaleString('ru-RU')} ₸</td>
+                                              <td className="text-right py-1 px-2 text-gray-800 font-medium">{Number(service.total_price).toLocaleString('ru-RU')} ₸</td>
+                                            </tr>
+                                          ))}
+                                        </tbody>
+                                      </table>
+                                    </div>
+                                  </div>
+                                )}
 
-                        {sheet.recommendations && (
-                          <div className="mb-2">
-                            <div className="text-xs font-medium text-gray-700">Рекомендации:</div>
-                            <div className="text-sm text-gray-600">{sheet.recommendations}</div>
-                          </div>
-                        )}
+                                {sheet.treatment && (
+                                  <div className="bg-gray-50 rounded-lg p-3 border border-gray-200">
+                                    <div className="text-xs font-medium text-gray-700 mb-1 flex items-center">
+                                      <FaFileMedical className="mr-1 text-red-500" />
+                                      Назначенное лечение
+                                    </div>
+                                    <div className="text-sm text-gray-800 whitespace-pre-wrap">{sheet.treatment}</div>
+                                  </div>
+                                )}
 
-                        <div className="text-xs text-gray-400 mt-2">
-                          Создано {new Date(sheet.created_at).toLocaleString('ru-RU')} 
-                          {' '}пользователем {sheet.created_by_name}
+                                {sheet.recommendations && (
+                                  <div className="bg-gray-50 rounded-lg p-3 border border-gray-200">
+                                    <div className="text-xs font-medium text-gray-700 mb-1 flex items-center">
+                                      <FaClipboardList className="mr-1 text-yellow-600" />
+                                      Рекомендации
+                                    </div>
+                                    <div className="text-sm text-gray-800 whitespace-pre-wrap">{sheet.recommendations}</div>
+                                  </div>
+                                )}
+
+                                {sheet.notes && (
+                                  <div className="bg-gray-50 rounded-lg p-3 border border-gray-200">
+                                    <div className="text-xs font-medium text-gray-700 mb-1 flex items-center">
+                                      <FaFileAlt className="mr-1 text-gray-500" />
+                                      Дополнительные заметки
+                                    </div>
+                                    <div className="text-sm text-gray-800 whitespace-pre-wrap">{sheet.notes}</div>
+                                  </div>
+                                )}
+                              </div>
+
+                              <div className="text-xs text-gray-400 mt-3 pt-2 border-t border-gray-100">
+                                Создано {new Date(sheet.created_at).toLocaleString('ru-RU')} 
+                                {' '}пользователем {sheet.created_by_name}
+                                {sheet.updated_at && (
+                                  <> · Обновлено {new Date(sheet.updated_at).toLocaleString('ru-RU')}</>
+                                )}
+                              </div>
+                            </div>
+                          )}
                         </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 )}
               </>
@@ -1688,6 +1918,8 @@ const PatientModal = ({
               </button>
             </div>
           </div>
+        )}
+          </>
         )}
     </Modal>
     

@@ -5,7 +5,7 @@ API роуты для управления персоналом
 """
 
 from fastapi import APIRouter, Depends, HTTPException, status
-from typing import List
+from typing import List, Optional
 from motor.motor_asyncio import AsyncIOMotorDatabase
 
 from database import get_database
@@ -270,6 +270,7 @@ async def assign_access_to_doctor(
     doctor_id: str,
     email: str,
     password: str,
+    login: Optional[str] = None,
     current_user: User = Depends(require_staff_permission),
     staff_service: StaffService = Depends(get_staff_service)
 ):
@@ -281,7 +282,7 @@ async def assign_access_to_doctor(
     Требует: admin или super_admin роль
     """
     try:
-        result = await staff_service.assign_access_to_doctor(doctor_id, email, password)
+        result = await staff_service.assign_access_to_doctor(doctor_id, email, password, login)
         return {
             "success": True,
             "message": "Доступ успешно назначен врачу",

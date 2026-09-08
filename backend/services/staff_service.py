@@ -92,10 +92,33 @@ class StaffService:
     
     async def get_staff_by_id(self, staff_id: str) -> Optional[StaffMemberResponse]:
         """Получить сотрудника по ID"""
+        # Сначала ищем в коллекции staff
         staff_doc = await self.collection.find_one({"_id": staff_id})
         
+        # Если не нашли — ищем в users (старые пользователи без записи в staff)
         if not staff_doc:
-            return None
+            # У старых пользователей _id может быть ObjectId, а id — строка UUID
+            user_doc = await self.users_collection.find_one({"id": staff_id})
+            if not user_doc:
+                user_doc = await self.users_collection.find_one({"_id": staff_id})
+            if not user_doc:
+                return None
+            # Преобразуем user_doc в формат StaffMemberResponse
+            user_doc["id"] = str(user_doc.pop("_id"))
+            return StaffMemberResponse(
+                id=user_doc["id"],
+                email=user_doc.get("email"),
+                login=user_doc.get("login"),
+                full_name=user_doc.get("full_name", ""),
+                role=user_doc.get("role", "admin"),
+                phone=user_doc.get("phone"),
+                is_active=user_doc.get("is_active", True),
+                created_at=user_doc.get("created_at"),
+                updated_at=user_doc.get("updated_at"),
+                last_login=user_doc.get("last_login"),
+                permissions=[],
+                custom_permissions=[]
+            )
         
         staff_doc["id"] = str(staff_doc.pop("_id"))
         staff = StaffMember(**staff_doc)
@@ -125,13 +148,24 @@ class StaffService:
         if staff_data.role == StaffRole.DOCTOR:
             raise ValueError("Врачи создаются только в разделе 'Врачи'. Используйте раздел управления врачами.")
         
-        # Проверяем, не существует ли уже АКТИВНЫЙ пользователь с таким email
-        existing_staff = await self.collection.find_one({
-            "email": staff_data.email,
-            "is_active": True
-        })
-        if existing_staff:
-            raise ValueError(f"Сотрудник с email {staff_data.email} уже существует")
+        # Должен быть указан хотя бы email или логин
+        if not staff_data.email and not staff_data.login:
+            raise ValueError("Необходимо указать email или логин")
+        
+        # Проверяем, не существует ли уже активный пользователь с таким email (если email указан)
+        if staff_data.email:
+            existing_staff = await self.collection.find_one({
+                "email": staff_data.email,
+                "is_active": True
+            })
+            if existing_staff:
+                raise ValueError(f"Сотрудник с email {staff_data.email} уже существует")
+        
+        # Проверяем уникальность логина (если указан)
+        if staff_data.login:
+            existing_login = await self.users_collection.find_one({"login": staff_data.login})
+            if existing_login:
+                raise ValueError(f"Логин '{staff_data.login}' уже используется другим пользователем")
         
         # Хешируем пароль
         hashed_password = self._hash_password(staff_data.password)
@@ -139,6 +173,7 @@ class StaffService:
         # Создаем сотрудника
         staff_member = StaffMember(
             email=staff_data.email,
+            login=staff_data.login,  # Логин для входа
             full_name=staff_data.full_name,
             role=staff_data.role,
             phone=staff_data.phone,
@@ -157,6 +192,7 @@ class StaffService:
         user_doc = {
             "_id": staff_member.id,
             "email": staff_data.email,
+            "login": staff_data.login,  # Логин для входа (альтернатива email)
             "hashed_password": hashed_password,
             "full_name": staff_data.full_name,
             "role": staff_data.role.value,
@@ -183,8 +219,32 @@ class StaffService:
         """Обновить данные сотрудника"""
         # Проверяем существование сотрудника
         existing_staff = await self.collection.find_one({"_id": staff_id})
+        
+        # Если нет в staff, проверяем есть ли в users (старые пользователи)
         if not existing_staff:
-            return None
+            # У старых пользователей _id может быть ObjectId, а id — строка UUID
+            existing_user = await self.users_collection.find_one({"id": staff_id})
+            if not existing_user:
+                existing_user = await self.users_collection.find_one({"_id": staff_id})
+            if not existing_user:
+                return None
+            # Создаём запись в staff для пользователя из users (автоматическая миграция)
+            staff_data = {
+                "_id": staff_id,
+                "email": existing_user.get("email"),
+                "login": existing_user.get("login"),
+                "full_name": existing_user.get("full_name", ""),
+                "role": existing_user.get("role", "admin"),
+                "phone": existing_user.get("phone"),
+                "is_active": existing_user.get("is_active", True),
+                "custom_permissions": [],
+                "created_at": existing_user.get("created_at", datetime.utcnow()),
+                "updated_at": datetime.utcnow()
+            }
+            if "hashed_password" in existing_user:
+                staff_data["hashed_password"] = existing_user["hashed_password"]
+            await self.collection.insert_one(staff_data)
+            existing_staff = staff_data
         
         # Подготавливаем данные для обновления
         update_data = staff_update.dict(exclude_unset=True)
@@ -217,6 +277,8 @@ class StaffService:
         user_update_fields = {}
         if "email" in update_data:
             user_update_fields["email"] = update_data["email"]
+        if "login" in update_data:
+            user_update_fields["login"] = update_data["login"]
         if "full_name" in update_data:
             user_update_fields["full_name"] = update_data["full_name"]
         if "role" in update_data:
@@ -229,10 +291,17 @@ class StaffService:
         
         if user_update_fields:
             user_update_fields["updated_at"] = datetime.utcnow()
-            await self.users_collection.update_one(
-                {"_id": staff_id},
+            # Ищем пользователя по id (UUID) или _id (ObjectId для старых записей)
+            user_update_result = await self.users_collection.update_one(
+                {"id": staff_id},
                 {"$set": user_update_fields}
             )
+            if user_update_result.modified_count == 0:
+                # Если не нашли по id, пробуем по _id
+                await self.users_collection.update_one(
+                    {"_id": staff_id},
+                    {"$set": user_update_fields}
+                )
         
         # Если у сотрудника роль врача, обновляем запись в коллекции doctors
         if existing_staff.get("role") == "doctor":
@@ -370,6 +439,7 @@ class StaffService:
                 "id": str(staff_doc["_id"]),
                 "full_name": staff_doc.get("full_name", ""),
                 "email": staff_doc.get("email", ""),
+                "login": staff_doc.get("login", ""),
                 "phone": staff_doc.get("phone", ""),
                 "role": staff_doc.get("role", ""),
                 "is_active": staff_doc.get("is_active", True),
@@ -377,6 +447,36 @@ class StaffService:
                 "has_access": user_doc is not None,
                 "type": "staff"
             })
+        
+        # Дополнительно: получаем пользователей из users, у которых нет записи в staff
+        # (старые администраторы, созданные до внедрения коллекции staff)
+        users_cursor = self.users_collection.find({
+            "role": {"$nin": ["doctor", "patient"]},  # Не врачи и не пациенты
+            "is_active": True
+        })
+        async for user_doc in users_cursor:
+            # Используем поле "id" (UUID строку) вместо _id (ObjectId),
+            # чтобы фронтенд отправлял правильный ID для поиска
+            actual_id = user_doc.get("id") or str(user_doc["_id"])
+            # Проверяем, что этот пользователь уже не попал из staff
+            already_added = any(p["id"] == actual_id for p in personnel)
+            if not already_added:
+                created_at = user_doc.get("created_at")
+                if created_at and hasattr(created_at, 'isoformat'):
+                    created_at = created_at.isoformat()
+                
+                personnel.append({
+                    "id": actual_id,
+                    "full_name": user_doc.get("full_name", ""),
+                    "email": user_doc.get("email", ""),
+                    "login": user_doc.get("login", ""),
+                    "phone": user_doc.get("phone", ""),
+                    "role": user_doc.get("role", ""),
+                    "is_active": user_doc.get("is_active", True),
+                    "created_at": created_at,
+                    "has_access": True,
+                    "type": "staff"
+                })
         
         # Получаем врачей из doctors
         doctors_cursor = self.db.doctors.find({"is_active": True})
@@ -410,6 +510,7 @@ class StaffService:
                 "id": str(doctor_id),  # Убедимся что id это строка
                 "full_name": doctor_doc.get("full_name", ""),
                 "email": email or "",
+                "login": (staff_doc.get("login") if staff_doc else "") or (user_doc.get("login") if user_doc else ""),
                 "phone": doctor_doc.get("phone", ""),
                 "specialty": doctor_specialty,
                 "role": "doctor",
@@ -425,7 +526,8 @@ class StaffService:
         self, 
         doctor_id: str, 
         email: str, 
-        password: str
+        password: str,
+        login: Optional[str] = None
     ) -> Dict[str, Any]:
         """
         Назначить врачу логин и пароль для доступа в систему
@@ -440,6 +542,12 @@ class StaffService:
         if existing_user and existing_user["_id"] != doctor_id:
             raise ValueError(f"Email {email} уже используется другим пользователем")
         
+        # Проверяем уникальность логина (если указан)
+        if login:
+            existing_login = await self.users_collection.find_one({"login": login})
+            if existing_login and existing_login["_id"] != doctor_id:
+                raise ValueError(f"Логин '{login}' уже используется другим пользователем")
+        
         # Проверяем, нет ли уже записи в staff для этого врача
         existing_staff = await self.collection.find_one({"_id": doctor_id})
         
@@ -452,6 +560,7 @@ class StaffService:
         staff_data = {
             "_id": doctor_id,
             "email": email,
+            "login": login,
             "full_name": doctor_doc.get("full_name"),
             "role": "doctor",
             "phone": doctor_doc.get("phone"),
@@ -476,6 +585,7 @@ class StaffService:
         user_data = {
             "_id": doctor_id,
             "email": email,
+            "login": login,
             "hashed_password": hashed_password,
             "full_name": doctor_doc.get("full_name"),
             "role": "doctor",
@@ -503,6 +613,7 @@ class StaffService:
         return {
             "id": doctor_id,
             "email": email,
+            "login": login,
             "full_name": doctor_doc.get("full_name"),
             "has_access": True
         }

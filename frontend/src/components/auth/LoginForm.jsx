@@ -46,16 +46,16 @@ function LoginForm({ onSwitchToRegister }) {
               </div>
             )}
             <div>
-              <label htmlFor="email" className="sr-only">Email</label>
+              <label htmlFor="email" className="sr-only">Email или логин</label>
               <input
                 id="email"
                 name="email"
-                type="email"
+                type="text"
                 required
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 className="appearance-none rounded-lg relative block w-full px-4 py-3 bg-white/90 backdrop-blur-sm border border-white/30 placeholder-gray-500 text-gray-900 focus:outline-none focus:ring-2 focus:ring-orange-400 focus:border-orange-400 focus:bg-white/95 transition-all duration-200 shadow-sm"
-                placeholder="Email"
+                placeholder="Email или логин"
               />
             </div>
             <div>

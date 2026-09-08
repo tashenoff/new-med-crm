@@ -17,8 +17,7 @@ const StaffModal = ({
   const roleOptions = [
     { value: 'super_admin', label: 'Супер Администратор' },
     { value: 'admin', label: 'Администратор' },
-    { value: 'marketer', label: 'Маркетолог' },
-    { value: 'administrator', label: 'Администратор клиники' }
+    { value: 'marketer', label: 'Маркетолог' }
   ];
 
   const handleSubmit = (e) => {
@@ -56,7 +55,26 @@ const StaffModal = ({
           </div>
         )}
 
-        {/* Для врачей не показываем основные поля */}
+        {/* Поле логина для врачей (доступно при редактировании) */}
+        {isEditingDoctor && (
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Логин (для входа)
+            </label>
+            <input
+              type="text"
+              value={staffForm.login || ''}
+              onChange={(e) => setStaffForm({ ...staffForm, login: e.target.value })}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              placeholder="myusername"
+            />
+            <p className="text-xs text-gray-500 mt-1">
+              Вход возможен как по email, так и по логину
+            </p>
+          </div>
+        )}
+
+        {/* Для врачей не показываем основные поля (кроме логина) */}
         {!isEditingDoctor && (
           <>
             {/* Полное имя */}
@@ -74,10 +92,10 @@ const StaffModal = ({
               />
             </div>
 
-            {/* Email (логин) */}
+            {/* Email */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
-                Email (логин) <span className="text-red-500">*</span>
+                Email
               </label>
               <input
                 type="email"
@@ -85,7 +103,6 @@ const StaffModal = ({
                 onChange={(e) => setStaffForm({ ...staffForm, email: e.target.value })}
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 placeholder="user@example.com"
-                required
                 disabled={editingItem} // Email нельзя изменить при редактировании
               />
               {editingItem && (
@@ -93,6 +110,23 @@ const StaffModal = ({
                   Email нельзя изменить после создания
                 </p>
               )}
+            </div>
+
+            {/* Логин (для входа вместо email) */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Логин (для входа)
+              </label>
+              <input
+                type="text"
+                value={staffForm.login || ''}
+                onChange={(e) => setStaffForm({ ...staffForm, login: e.target.value })}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                placeholder="myusername"
+              />
+              <p className="text-xs text-gray-500 mt-1">
+                Можно войти как по email, так и по логину
+              </p>
             </div>
 
             {/* Пароль (только при создании) */}
@@ -179,7 +213,6 @@ const StaffModal = ({
                   {staffForm.role === 'admin' && 'Управление пациентами, врачами, CRM, складом, справочниками, просмотр финансов'}
                   {staffForm.role === 'doctor' && 'Работа с пациентами, доступ к календарю, просмотр справочников'}
                   {staffForm.role === 'marketer' && 'Просмотр пациентов, полный доступ к CRM, просмотр статистики'}
-                  {staffForm.role === 'administrator' && 'Просмотр пациентов, доступ к календарю, просмотр справочников'}
                 </p>
               </div>
             )}

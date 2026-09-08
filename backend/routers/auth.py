@@ -92,24 +92,27 @@ async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(s
     )
     try:
         payload = jwt.decode(credentials.credentials, SECRET_KEY, algorithms=[ALGORITHM])
-        email: str = payload.get("sub")
-        if email is None:
+        sub: str = payload.get("sub")
+        if sub is None:
             raise credentials_exception
-        token_data = TokenData(email=email)
+        token_data = TokenData(email=sub)
     except JWTError:
         raise credentials_exception
 
+    # Пробуем найти пользователя по email
     user = await db.users.find_one({"email": token_data.email})
+    # Если не нашли — пробуем по логину (sub мог быть логином)
+    if user is None:
+        user = await db.users.find_one({"login": token_data.email})
     if user is None:
         raise credentials_exception
 
     user["id"] = str(user["_id"])
     del user["_id"]
-    return User(**user)
-
-# UserInDB model is now imported from models.auth
+    return UserInDB(**user)
 
 async def get_user_by_email(email: str, db: AsyncIOMotorDatabase):
+    """Find user by email"""
     user = await db.users.find_one({"email": email})
     if user:
         user["id"] = str(user["_id"])
@@ -117,8 +120,29 @@ async def get_user_by_email(email: str, db: AsyncIOMotorDatabase):
         return UserInDB(**user)
     return None
 
-async def authenticate_user(email: str, password: str, db: AsyncIOMotorDatabase):
-    user = await get_user_by_email(email, db)
+
+async def get_user_by_login(login: str, db: AsyncIOMotorDatabase):
+    """Find user by login name"""
+    user = await db.users.find_one({"login": login})
+    if user:
+        user["id"] = str(user["_id"])
+        del user["_id"]
+        return UserInDB(**user)
+    return None
+
+
+async def get_user_by_email_or_login(username: str, db: AsyncIOMotorDatabase):
+    """Find user by email or login"""
+    # Сначала пробуем найти по email
+    user = await get_user_by_email(username, db)
+    if user:
+        return user
+    # Если не нашли, пробуем по логину
+    return await get_user_by_login(username, db)
+
+
+async def authenticate_user(email_or_login: str, password: str, db: AsyncIOMotorDatabase):
+    user = await get_user_by_email_or_login(email_or_login, db)
     if not user:
         return False
     if not verify_password(password, user.hashed_password):
@@ -153,13 +177,30 @@ def require_role(allowed_roles: list):
 # Auth routes
 @auth_router.post("/register", response_model=Token)
 async def register(user: UserCreate, db: AsyncIOMotorDatabase = Depends(get_database)):
-    # Check if user already exists
-    existing_user = await get_user_by_email(user.email, db)
-    if existing_user:
+    # Должен быть указан хотя бы email или логин
+    if not user.email and not user.login:
         raise HTTPException(
             status_code=400,
-            detail="Email already registered"
+            detail="Необходимо указать email или логин"
         )
+    
+    # Check if user already exists (only if email provided)
+    if user.email:
+        existing_user = await get_user_by_email(user.email, db)
+        if existing_user:
+            raise HTTPException(
+                status_code=400,
+                detail="Email already registered"
+            )
+    
+    # Check if login is already taken (if provided)
+    if user.login:
+        existing_login = await get_user_by_login(user.login, db)
+        if existing_login:
+            raise HTTPException(
+                status_code=400,
+                detail="Login already taken"
+            )
     
     # Hash password
     hashed_password = get_password_hash(user.password)
@@ -204,8 +245,15 @@ async def login(form_data: UserLogin, db: AsyncIOMotorDatabase = Depends(get_dat
     else:
         access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
     
+    # Формируем данные токена
+    # Если email есть — используем его как sub, иначе используем логин
+    token_sub = user.email if user.email else user.login
+    token_data = {"sub": token_sub}
+    if user.login:
+        token_data["login"] = user.login
+    
     access_token = create_access_token(
-        data={"sub": user.email}, expires_delta=access_token_expires
+        data=token_data, expires_delta=access_token_expires
     )
     
     # Convert to public user model

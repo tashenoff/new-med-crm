@@ -2,7 +2,7 @@
 Treatment Plans router - HTTP endpoints for treatment plan operations
 Uses TreatmentPlanService and StatisticsService for business logic
 """
-from fastapi import APIRouter, HTTPException, Depends, status
+from fastapi import APIRouter, HTTPException, Depends, status, Body
 from typing import List, Optional
 from datetime import datetime
 
@@ -461,6 +461,7 @@ async def complete_course_session(
 async def mark_service_paid(
     plan_id: str,
     service_id: str,
+    payment_data: Optional[dict] = Body(None),
     current_user: UserInDB = Depends(require_role([UserRole.ADMIN, UserRole.SUPER_ADMIN, UserRole.DOCTOR])),
 ):
     """Отметить услугу как оплаченную"""
@@ -497,6 +498,13 @@ async def mark_service_paid(
             # Установить статус оплаты услуги
             service["payment_status"] = "paid"
             service_price = service.get("total_price", 0)
+            
+            # Сохранить способ оплаты если передан
+            if payment_data and isinstance(payment_data, dict):
+                if payment_data.get("payment_method_id"):
+                    service["payment_method_id"] = payment_data["payment_method_id"]
+                if payment_data.get("payment_method_name"):
+                    service["payment_method_name"] = payment_data["payment_method_name"]
             
             # Списать из депозита если есть баланс
             if deposit_balance > 0:

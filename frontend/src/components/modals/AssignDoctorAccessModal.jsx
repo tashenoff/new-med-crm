@@ -9,6 +9,7 @@ const AssignDoctorAccessModal = ({
   loading
 }) => {
   const [email, setEmail] = useState('');
+  const [login, setLogin] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
@@ -17,8 +18,8 @@ const AssignDoctorAccessModal = ({
     e.preventDefault();
     setError('');
 
-    if (!email || !password) {
-      setError('Заполните все поля');
+    if ((!email && !login) || !password) {
+      setError('Заполните email или логин и пароль');
       return;
     }
 
@@ -27,9 +28,10 @@ const AssignDoctorAccessModal = ({
       return;
     }
 
-    const result = await onAssign(doctor.id, email, password);
+    const result = await onAssign(doctor.id, email, password, login);
     if (result.success) {
       setEmail('');
+      setLogin('');
       setPassword('');
       onClose();
     } else {
@@ -39,6 +41,7 @@ const AssignDoctorAccessModal = ({
 
   const handleClose = () => {
     setEmail('');
+    setLogin('');
     setPassword('');
     setError('');
     onClose();
@@ -68,7 +71,7 @@ const AssignDoctorAccessModal = ({
         {/* Email */}
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">
-            Email (логин) <span className="text-red-500">*</span>
+            Email
           </label>
           <input
             type="email"
@@ -76,11 +79,27 @@ const AssignDoctorAccessModal = ({
             onChange={(e) => setEmail(e.target.value)}
             className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             placeholder="doctor@example.com"
-            required
             autoFocus
           />
           <p className="text-xs text-gray-500 mt-1">
-            Этот email будет использоваться для входа в систему
+            Email для входа (необязательно, если указан логин)
+          </p>
+        </div>
+
+        {/* Логин */}
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">
+            Логин (для входа)
+          </label>
+          <input
+            type="text"
+            value={login}
+            onChange={(e) => setLogin(e.target.value)}
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            placeholder="myusername"
+          />
+          <p className="text-xs text-gray-500 mt-1">
+            Можно войти как по email, так и по логину
           </p>
         </div>
 

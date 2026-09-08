@@ -85,3 +85,6 @@ android-sdk/ -e
 # Environment files
 *.env
 *.env.*
+
+# Graphify knowledge graph output
+/graphify-out/

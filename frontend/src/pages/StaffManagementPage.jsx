@@ -20,6 +20,7 @@ const StaffManagementPage = ({ user }) => {
   const [staffForm, setStaffForm] = useState({
     full_name: '',
     email: '',
+    login: '',
     password: '',
     role: '',
     phone: '',
@@ -45,6 +46,7 @@ const StaffManagementPage = ({ user }) => {
     setStaffForm({
       full_name: '',
       email: '',
+      login: '',
       password: '',
       role: '',
       phone: '',
@@ -62,6 +64,7 @@ const StaffManagementPage = ({ user }) => {
       setStaffForm({
         full_name: staffMember.full_name || '',
         email: staffMember.email || '',
+        login: staffMember.login || '',
         role: staffMember.role || 'doctor',
         phone: staffMember.phone || '',
         custom_permissions: result.data?.custom_permissions || []
@@ -70,6 +73,7 @@ const StaffManagementPage = ({ user }) => {
       setStaffForm({
         full_name: staffMember.full_name || '',
         email: staffMember.email || '',
+        login: staffMember.login || '',
         role: staffMember.role || '',
         phone: staffMember.phone || '',
         custom_permissions: staffMember.custom_permissions || []
@@ -92,6 +96,7 @@ const StaffManagementPage = ({ user }) => {
         // Для врачей обновляем только custom_permissions
         if (editingItem.type === 'doctor') {
           const updateData = {
+            login: dataToSave.login || undefined,
             custom_permissions: dataToSave.custom_permissions || []
           };
           result = await staffHook.updateStaffMember(editingItem.id, updateData);
@@ -99,6 +104,7 @@ const StaffManagementPage = ({ user }) => {
           // Для обычного персонала обновляем основные данные
           const updateData = {
             full_name: dataToSave.full_name,
+            login: dataToSave.login || undefined,
             role: dataToSave.role,
             phone: dataToSave.phone,
             custom_permissions: dataToSave.custom_permissions || []
@@ -164,6 +170,7 @@ const StaffManagementPage = ({ user }) => {
     setStaffForm({
       full_name: '',
       email: '',
+      login: '',
       password: '',
       role: '',
       phone: ''

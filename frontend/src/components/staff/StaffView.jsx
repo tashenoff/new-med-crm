@@ -18,8 +18,7 @@ const StaffView = ({
     super_admin: 'Супер Администратор',
     admin: 'Администратор',
     doctor: 'Врач',
-    marketer: 'Маркетолог',
-    administrator: 'Администратор клиники'
+    marketer: 'Маркетолог'
   };
 
   // Цвета для бейджей ролей
@@ -28,8 +27,7 @@ const StaffView = ({
       super_admin: 'bg-purple-100 text-purple-800',
       admin: 'bg-blue-100 text-blue-800',
       doctor: 'bg-green-100 text-green-800',
-      marketer: 'bg-orange-100 text-orange-800',
-      administrator: 'bg-gray-100 text-gray-800'
+      marketer: 'bg-orange-100 text-orange-800'
     };
     return colors[role] || 'bg-gray-100 text-gray-800';
   };
@@ -37,7 +35,8 @@ const StaffView = ({
   // Фильтрация персонала
   const filteredStaff = staff.filter(member => {
     const matchesSearch = member.full_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         (member.email && member.email.toLowerCase().includes(searchTerm.toLowerCase()));
+                         (member.email && member.email.toLowerCase().includes(searchTerm.toLowerCase())) ||
+                         (member.login && member.login.toLowerCase().includes(searchTerm.toLowerCase()));
     const matchesRole = filterRole === 'all' || member.role === filterRole;
     return matchesSearch && matchesRole;
   });
@@ -101,7 +100,6 @@ const StaffView = ({
               <option value="admin">Администратор</option>
               <option value="doctor">Врач</option>
               <option value="marketer">Маркетолог</option>
-              <option value="administrator">Администратор клиники</option>
             </select>
           </div>
         </div>
@@ -174,6 +172,9 @@ const StaffView = ({
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="text-sm text-gray-900">{member.email || '—'}</div>
+                    {member.login && (
+                      <div className="text-xs text-gray-500">логин: {member.login}</div>
+                    )}
                     {member.type === 'doctor' && !member.has_access && (
                       <div className="text-xs text-orange-600 flex items-center gap-1">
                         <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">

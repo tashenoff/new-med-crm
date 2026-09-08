@@ -248,13 +248,17 @@ export const useStaff = () => {
   }, [API]);
 
   // НОВЫЙ: Назначить доступ врачу
-  const assignAccessToDoctor = useCallback(async (doctorId, email, password) => {
+  const assignAccessToDoctor = useCallback(async (doctorId, email, password, login) => {
     setLoading(true);
     setError(null);
     
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch(`${API}/api/staff/doctors/${doctorId}/assign-access?email=${encodeURIComponent(email)}&password=${encodeURIComponent(password)}`, {
+      let url = `${API}/api/staff/doctors/${doctorId}/assign-access?email=${encodeURIComponent(email)}&password=${encodeURIComponent(password)}`;
+      if (login) {
+        url += `&login=${encodeURIComponent(login)}`;
+      }
+      const response = await fetch(url, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,

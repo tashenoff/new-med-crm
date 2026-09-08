@@ -1,0 +1,17 @@
+# Project Rules for Cline (Medical CRM)
+
+## Use the Graphify knowledge graph FIRST (MCP server "graphify")
+
+A knowledge graph of this codebase has been built and is served via the **graphify** MCP server.
+
+- **When the user asks anything about structure, connections, dependencies, "how is X connected to Y", "where is X used", "what does X affect", architecture, or codebase-wide questions — DO NOT start by listing/reading project folders.** Use the graphify MCP tools first:
+  - `query_graph` — ask questions about the codebase structure and relations
+  - `get_node` — get details on a specific node (class, function, file, module)
+  - `get_neighbors` — see what a node is connected to
+  - `get_community` — see the cluster/community a node belongs to
+  - `god_nodes` — the most connected / architectural hub nodes
+  - `graph_stats` — statistics about the graph
+  - `shortest_path` — how two symbols/modules relate
+- Only fall back to reading actual files when the graph is insufficient (e.g. you need exact code contents, recent edits, or a node not present in the graph).
+- The graph may become stale after big refactors. If you notice missing/mismatched nodes, suggest running: `E:\new-med-crm\venv\Scripts\graphify.exe update E:\new-med-crm`
+- Never pretend to have used the graph if the MCP call failed — say so and fall back to normal file inspection.
