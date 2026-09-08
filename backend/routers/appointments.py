@@ -103,13 +103,13 @@ async def apply_deposit_to_treatment_plans(patient_id: str, deposit_amount: floa
                 }}
             )
             
-            print(f"✅ Депозит {deposit_to_apply}₸ применен к плану лечения {plan['id']} пациента {patient_id}")
+            print(f"Депозит {deposit_to_apply}_tng применен к плану лечения {plan['id']} пациента {patient_id}")
         
         if remaining_deposit > 0:
-            print(f"ℹ️ Остаток депозита {remaining_deposit}₸ будет применен к следующим планам лечения")
+            print(f"Остаток депозита {remaining_deposit}_tng будет применен к следующим планам лечения")
     
     except Exception as e:
-        print(f"⚠️ Ошибка при применении депозита к плану лечения: {str(e)}")
+        print(f"Ошибка при применении депозита к плану лечения: {str(e)}")
 
 
 async def check_doctor_availability(doctor_id: str, appointment_date: str, appointment_time: str, db: AsyncIOMotorDatabase):
@@ -231,7 +231,7 @@ async def create_appointment(
             appointment_id=appointment_obj.id,
             db=db
         )
-        print(f"💰 Депозит {deposit_amount}₸ из записи {appointment_obj.id} применен к планам лечения")
+        print(f"Депозит {deposit_amount}_tng из записи {appointment_obj.id} применен к планам лечения")
     
     # Синхронизируем с CRM - либо обновляем существующий лид, либо создаём новый
     try:
@@ -261,7 +261,7 @@ async def create_appointment(
                     {"id": lead["id"]},
                     {"$set": update_data}
                 )
-                print(f"✅ Лид {lead['id']} обновлен - статус 'Записан на приём', депозит {deposit_amount}₸")
+                print(f"Лид {lead['id']} обновлен - статус 'Записан на приём', депозит {deposit_amount}_tng")
             else:
                 # Создаём новый лид для пациента записанного через календарь
                 lead_id = str(uuid.uuid4())
@@ -297,9 +297,9 @@ async def create_appointment(
                 }
                 
                 await db.crm_leads.insert_one(new_lead)
-                print(f"✅ Создан новый лид {lead_id} для пациента {patient_name} - статус 'Записан на приём'")
+                print(f"Создан новый лид {lead_id} для пациента {patient_name} - статус 'Записан на приём'")
     except Exception as e:
-        print(f"⚠️ Не удалось синхронизировать с CRM: {str(e)}")
+        print(f"Не удалось синхронизировать с CRM: {str(e)}")
     
     # Отправка автоматических уведомлений
     try:
@@ -330,7 +330,7 @@ async def create_appointment(
         )
     except Exception as e:
         # Не прерываем создание записи если не удалось отправить уведомление
-        print(f"⚠️ Не удалось отправить уведомление: {str(e)}")
+        print(f"Не удалось отправить уведомление: {str(e)}")
     
     return appointment_obj
 
@@ -491,15 +491,15 @@ async def get_appointments(
             {"$sort": {"appointment_date": 1, "appointment_time": 1}}
         ]
         
-        print(f"🔍 Запрос appointments с query: {query}")
+        print(f"Запрос appointments с query: {query}")
         appointments = await db.appointments.aggregate(pipeline).to_list(length=10000)
-        print(f"✅ Загружено {len(appointments)} appointments")
+        print(f"Загружено {len(appointments)} appointments")
         
         return [AppointmentWithDetails(**appointment) for appointment in appointments]
     
     except Exception as e:
-        print(f"❌ Ошибка в get_appointments: {str(e)}")
-        print(f"❌ Тип ошибки: {type(e)}")
+        print(f"Ошибка в get_appointments: {str(e)}")
+        print(f"Тип ошибки: {type(e)}")
         import traceback
         traceback.print_exc()
         raise HTTPException(status_code=500, detail=f"Ошибка при загрузке записей: {str(e)}")
@@ -680,7 +680,7 @@ async def update_appointment(
                 appointment_id=appointment_id
             )
         except Exception as e:
-            print(f"⚠️ Не удалось синхронизировать статус лида: {str(e)}")
+            print(f"Не удалось синхронизировать статус лида: {str(e)}")
     
     return Appointment(**updated_appointment)
 
@@ -721,7 +721,7 @@ async def update_appointment_status(
                 appointment_id=appointment_id
             )
         except Exception as e:
-            print(f"⚠️ Не удалось синхронизировать статус лида: {str(e)}")
+            print(f"Не удалось синхронизировать статус лида: {str(e)}")
 
     return Appointment(**updated_appointment)
 

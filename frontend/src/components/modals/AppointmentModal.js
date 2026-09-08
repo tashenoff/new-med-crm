@@ -30,12 +30,16 @@ const AppointmentModal = ({
   hideAddPlanForm = false, // Скрыть форму добавления плана лечения (для календаря)
   hideCreatePatientButton = false // Скрыть кнопку создания пациента (для CRM - пациент создается автоматически)
 }) => {
-  // Используем локальное состояние для формы, чтобы изменения работали корректно
+// Используем локальное состояние для формы, чтобы изменения работали корректно
   const [appointmentForm, setLocalAppointmentForm] = useState(initialAppointmentForm);
   
+  // Ref для актуальной формы (избегаем устаревших данных в async-замыканиях)
+  const appointmentFormRef = useRef(initialAppointmentForm);
+
   // Функция обновления формы - обновляет и локальное состояние и внешнее (если передано)
   const setAppointmentForm = (newForm) => {
-    const updatedForm = typeof newForm === 'function' ? newForm(appointmentForm) : newForm;
+    const updatedForm = typeof newForm === 'function' ? newForm(appointmentFormRef.current || {}) : newForm;
+    appointmentFormRef.current = updatedForm;
     setLocalAppointmentForm(updatedForm);
     externalSetAppointmentForm(updatedForm);
   };
@@ -43,6 +47,7 @@ const AppointmentModal = ({
   // Синхронизируем локальное состояние с пропсами при открытии модала
   useEffect(() => {
     if (show && initialAppointmentForm && Object.keys(initialAppointmentForm).length > 0) {
+      appointmentFormRef.current = initialAppointmentForm;
       setLocalAppointmentForm(initialAppointmentForm);
     }
   }, [show, initialAppointmentForm]);
@@ -69,8 +74,10 @@ const AppointmentModal = ({
   const [consentFileError, setConsentFileError] = useState('');
   const [consentDragOver, setConsentDragOver] = useState(false);
   const [uploadingConsent, setUploadingConsent] = useState(false);
-  const [sources, setSources] = useState([]);
+const [sources, setSources] = useState([]);
   const [loadingSources, setLoadingSources] = useState(false);
+  const [newPatientSourceError, setNewPatientSourceError] = useState('');
+  const [appointmentSourceError, setAppointmentSourceError] = useState('');
   const [hasSignature, setHasSignature] = useState(false);
   const [submitting, setSubmitting] = useState(false); // Локальный прелоадер для защиты от двойного нажатия
   const signaturePadRef = useRef(null);
@@ -192,10 +199,48 @@ const AppointmentModal = ({
       return;
     }
 
-    // Если кабинет не выбран, показываем всех врачей
+// Если кабинет не выбран — ищем врачей по их расписанию на выбранную дату/время
     if (!roomId) {
-      setAvailableDoctors(doctors);
-      setScheduleMessage('Кабинет не выбран - доступны все врачи');
+      if (time) {
+        try {
+          setLoadingDoctors(true);
+          const token = localStorage.getItem('token');
+          const response = await fetch(
+            `${API}/api/doctors/available/${date}?appointment_time=${encodeURIComponent(time)}`,
+            {
+              headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
+              }
+            }
+          );
+          if (response.ok) {
+            const availableDoctorsData = await response.json();
+            setAvailableDoctors(availableDoctorsData);
+            if (availableDoctorsData.length > 0) {
+              // Авто-выбор врача, у которого есть расписание на это время
+              if (!appointmentFormRef.current?.doctor_id) {
+                setAppointmentForm(prev => ({ ...prev, doctor_id: availableDoctorsData[0].id }));
+              }
+              setScheduleMessage(`Врач на ${time}: ${availableDoctorsData[0].full_name}`);
+            } else {
+              setScheduleMessage(`Нет врачей с расписанием на ${time}`);
+            }
+          } else {
+            setAvailableDoctors(doctors);
+            setScheduleMessage('Кабинет не выбран - доступны все врачи');
+          }
+        } catch (error) {
+          console.error('Error fetching available doctors:', error);
+          setAvailableDoctors(doctors);
+          setScheduleMessage('Кабинет не выбран - доступны все врачи');
+        } finally {
+          setLoadingDoctors(false);
+        }
+      } else {
+        setAvailableDoctors(doctors);
+        setScheduleMessage('Кабинет не выбран - доступны все врачи');
+      }
       return;
     }
 
@@ -229,13 +274,17 @@ const AppointmentModal = ({
             s.start_time <= time && s.end_time > time
           );
 
-          if (timeSchedule) {
+if (timeSchedule) {
             const doctor = doctors.find(d => d.id === timeSchedule.doctor_id);
             if (doctor) {
               setAvailableDoctors([{
                 ...doctor,
                 schedule: [timeSchedule]
               }]);
+              // Авто-выбор врача, у которого есть расписание на это время в этом кабинете
+              if (!appointmentFormRef.current?.doctor_id) {
+                setAppointmentForm(prev => ({ ...prev, doctor_id: doctor.id }));
+              }
               setScheduleMessage(`Врач на ${time}: ${doctor.full_name}`);
             } else {
               setScheduleMessage('Врач не найден');
@@ -824,8 +873,16 @@ const AppointmentModal = ({
     }
   };
 
-  const handleCreateNewPatient = async (e) => {
+const handleCreateNewPatient = async (e) => {
     e.preventDefault();
+
+    // Валидация: источник (канал привлечения) обязателен
+    if (!newPatientForm.source_id) {
+      setNewPatientSourceError('Выберите канал привлечения клиента — это обязательное поле');
+      return;
+    }
+    setNewPatientSourceError('');
+
     try {
       const result = await onCreatePatient(newPatientForm);
       
@@ -900,7 +957,7 @@ const AppointmentModal = ({
     e.preventDefault();
     setSubmitting(true);
 
-    // Минимальная длительность сеанса — 30 минут
+// Минимальная длительность сеанса — 30 минут
     const durationCheck = validateAppointmentDuration(
       appointmentForm.appointment_time,
       appointmentForm.end_time
@@ -909,6 +966,14 @@ const AppointmentModal = ({
       alert(durationCheck.message);
       return;
     }
+
+    // Валидация: источник (канал привлечения) обязателен при создании записи
+    if (!editingItem && !appointmentForm.source_id) {
+      setAppointmentSourceError('Выберите канал привлечения — это обязательное поле');
+      setSubmitting(false);
+      return;
+    }
+    setAppointmentSourceError('');
     // Если время окончания не указано — ставим 30 минут по умолчанию
     if (appointmentForm.appointment_time && !appointmentForm.end_time) {
       setAppointmentForm({
@@ -1161,8 +1226,10 @@ const AppointmentModal = ({
                   <option value="male">Мужской</option>
                   <option value="female">Женский</option>
                 </select>
-                <div>
-                  <label className="block text-xs text-gray-500 mb-1">Канал привлечения клиента</label>
+<div>
+                  <label className="block text-xs text-gray-500 mb-1">
+                    Канал привлечения клиента <span className="text-red-500">*</span>
+                  </label>
                   <select
                     value={newPatientForm.source_id || ''}
                     onChange={(e) => {
@@ -1181,8 +1248,11 @@ const AppointmentModal = ({
                           source: '' 
                         });
                       }
+                      setNewPatientSourceError('');
                     }}
-                    className="px-3 py-2 border border-gray-300 rounded-lg text-sm w-full"
+                    className={`px-3 py-2 border rounded-lg text-sm w-full ${
+                      newPatientSourceError ? 'border-red-400' : 'border-gray-300'
+                    }`}
                     disabled={loadingSources}
                   >
                     <option value="">Выберите источник</option>
@@ -1192,6 +1262,9 @@ const AppointmentModal = ({
                       </option>
                     ))}
                   </select>
+                  {newPatientSourceError && (
+                    <p className="text-xs text-red-600 mt-1">{newPatientSourceError}</p>
+                  )}
                   {loadingSources && <span className="text-xs text-gray-400 ml-2">Загрузка...</span>}
                 </div>
               </div>
@@ -1326,10 +1399,11 @@ const AppointmentModal = ({
             )}
           </div>
 
-          {/* Выбор источника (канал привлечения) */}
+{/* Выбор источника (канал привлечения) */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
               Канал привлечения
+              {!editingItem && <span className="text-red-500">*</span>}
               {loadingSources && <span className="text-gray-400 ml-2 text-xs">Загрузка...</span>}
             </label>
             <select
@@ -1350,8 +1424,9 @@ const AppointmentModal = ({
                     source: '' 
                   });
                 }
+                setAppointmentSourceError('');
               }}
-              className={inputClasses}
+              className={`w-full border rounded-lg px-3 py-2 text-sm ${appointmentSourceError ? 'border-red-400' : 'border-gray-300'}`}
               disabled={loadingSources}
             >
               <option value="">Выберите источник</option>
@@ -1361,6 +1436,9 @@ const AppointmentModal = ({
                 </option>
               ))}
             </select>
+            {appointmentSourceError && (
+              <p className="text-xs text-red-600 mt-1">{appointmentSourceError}</p>
+            )}
           </div>
 
           <div className="space-y-4">

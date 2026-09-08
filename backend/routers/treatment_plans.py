@@ -244,7 +244,7 @@ async def update_treatment_plan(
                 patient_id=updated_plan.patient_id
             )
         except Exception as e:
-            print(f"⚠️ Не удалось синхронизировать статус лида после оплаты: {str(e)}")
+            print(f"Не удалось синхронизировать статус лида после оплаты: {str(e)}")
     
     return updated_plan
 
@@ -548,7 +548,7 @@ async def mark_service_paid(
             lead_service = LeadService(db)
             await lead_service.sync_lead_from_payment_status(patient_id=patient_id)
         except Exception as e:
-            print(f"⚠️ Не удалось синхронизировать статус лида после оплаты: {str(e)}")
+            print(f"Не удалось синхронизировать статус лида после оплаты: {str(e)}")
     
     # Вернуть обновленный план с deposit_amount и deposit_balance
     updated_plan = await db.treatment_plans.find_one({"id": plan_id})
@@ -631,7 +631,7 @@ async def add_deposit_to_plan(
     }
     await db.payment_logs.insert_one(payment_log)
     
-    print(f"💰 Доплата {payment.amount}₸ добавлена к плану {plan_id}")
+    print(f"Доплата {payment.amount}_tng добавлена к плану {plan_id}")
     
     # Return updated plan with new deposit info
     updated_plan = await db.treatment_plans.find_one({"id": plan_id})
@@ -750,7 +750,7 @@ async def mark_session_paid(
             lead_service = LeadService(db)
             await lead_service.sync_lead_from_payment_status(patient_id=patient_id)
         except Exception as e:
-            print(f"⚠️ Не удалось синхронизировать статус лида после оплаты сессии: {str(e)}")
+            print(f"Не удалось синхронизировать статус лида после оплаты сессии: {str(e)}")
     
     # Вернуть обновленный план с deposit_amount и deposit_balance
     updated_plan = await db.treatment_plans.find_one({"id": plan_id})

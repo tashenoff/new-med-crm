@@ -385,7 +385,7 @@ class LeadService:
         
         # Способ 2: Поиск напрямую через пациента HMS
         if not lead:
-            print(f"ℹ️ CRM клиент не найден, ищем пациента напрямую для {patient_id}")
+            print(f"CRM клиент не найден, ищем пациента напрямую для {patient_id}")
             patient = await self.db.patients.find_one({"id": patient_id})
             
             if patient and patient.get("phone"):
@@ -398,7 +398,7 @@ class LeadService:
                 })
                 
                 if lead:
-                    print(f"✅ Найден лид по ТОЧНОМУ телефону пациента: {patient.get('phone')}")
+                    print(f"Найден лид по ТОЧНОМУ телефону пациента: {patient.get('phone')}")
                 else:
                     # Если не нашли точное, ищем по regex но выбираем лучшее совпадение
                     leads_cursor = await self.collection.find({
@@ -418,10 +418,10 @@ class LeadService:
                                 best_lead = l
                         lead = best_lead
                         if lead:
-                            print(f"✅ Найден лид по regex (лучшее совпадение): {lead.get('phone')}")
+                            print(f"Найден лид по regex (лучшее совпадение): {lead.get('phone')}")
         
         if not lead:
-            print(f"⚠️ Лид не найден для пациента {patient_id}")
+            print(f"Лид не найден для пациента {patient_id}")
             return None
         
         # Определяем новый статус на основе статуса записи
@@ -458,7 +458,7 @@ class LeadService:
             )
             
             if result.modified_count > 0:
-                print(f"✅ Статус лида {lead['id']} обновлен: {lead.get('status')} -> {new_status}")
+                print(f"Статус лида {lead['id']} обновлен: {lead.get('status')} -> {new_status}")
                 return await self.get_lead_by_id(lead["id"])
         
         return None
@@ -482,7 +482,7 @@ class LeadService:
         }).to_list(None)
         
         if not treatment_plans:
-            print(f"⚠️ Планы лечения не найдены для пациента {patient_id}")
+            print(f"Планы лечения не найдены для пациента {patient_id}")
             return None
         
         # Проверяем, все ли планы оплачены
@@ -494,7 +494,7 @@ class LeadService:
                 break
         
         if not all_paid:
-            print(f"ℹ️ Не все планы лечения оплачены для пациента {patient_id}")
+            print(f"Не все планы лечения оплачены для пациента {patient_id}")
             return None
         
         # Способ 1: Находим лида через CRM клиента
@@ -512,7 +512,7 @@ class LeadService:
         
         # Способ 2: Поиск напрямую через пациента HMS
         if not lead:
-            print(f"ℹ️ CRM клиент не найден, ищем пациента напрямую для {patient_id}")
+            print(f"CRM клиент не найден, ищем пациента напрямую для {patient_id}")
             patient = await self.db.patients.find_one({"id": patient_id})
             
             if patient and patient.get("phone"):
@@ -533,10 +533,10 @@ class LeadService:
                     })
                 
                 if lead:
-                    print(f"✅ Найден лид по телефону пациента: {patient_phone}")
+                    print(f"Найден лид по телефону пациента: {patient_phone}")
         
         if not lead:
-            print(f"⚠️ Активный лид не найден для пациента {patient_id}")
+            print(f"Активный лид не найден для пациента {patient_id}")
             return None
         
         # Обновляем статус на CLOSED (ОПЛАЧЕНО)
@@ -558,7 +558,7 @@ class LeadService:
         )
         
         if result.modified_count > 0:
-            print(f"✅ Статус лида {lead['id']} обновлен на CLOSED (ОПЛАЧЕНО)")
+            print(f"Статус лида {lead['id']} обновлен на CLOSED (ОПЛАЧЕНО)")
             return await self.get_lead_by_id(lead["id"])
         
         return None

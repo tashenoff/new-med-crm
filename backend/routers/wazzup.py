@@ -432,7 +432,7 @@ async def webhook_incoming_message(
                 )
                 print(f"💾 Сообщение сохранено в БД")
             except Exception as db_error:
-                print(f"⚠️ Ошибка сохранения в БД: {db_error}")
+                print(f"Ошибка сохранения в БД: {db_error}")
             
             # Получаем базу данных (get_database уже возвращает готовую БД)
             from database import db as database
@@ -481,7 +481,7 @@ async def webhook_incoming_message(
         
     except Exception as e:
         # Не возвращаем ошибку, чтобы Wazzup24 не пытался повторно отправить webhook
-        print(f"❌ Ошибка обработки webhook: {str(e)}")
+        print(f"Ошибка обработки webhook: {str(e)}")
         import traceback
         traceback.print_exc()
         return {"status": "error", "message": str(e)}
@@ -562,12 +562,12 @@ async def _trigger_auto_ai_analysis(phone: str, contact_name: Optional[str] = No
         )
         
         if analysis:
-            print(f"✅ AI-анализ завершён! Оценка: {analysis.overall_score}/5 ({analysis.overall_rating.value})")
+            print(f"AI-анализ завершён! Оценка: {analysis.overall_score}/5 ({analysis.overall_rating.value})")
         else:
-            print(f"⚠️ AI-анализ не удался или был пропущен")
+            print(f"AI-анализ не удался или был пропущен")
             
     except Exception as e:
-        print(f"❌ Ошибка автоматического AI-анализа: {e}")
+        print(f"Ошибка автоматического AI-анализа: {e}")
         import traceback
         traceback.print_exc()
 

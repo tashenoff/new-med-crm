@@ -1,3 +1,15 @@
+import sys
+
+# Обеспечиваем UTF-8 вывод в консоль независимо от кодировки Windows (cp1251),
+# чтобы print() с эмодзи/кириллицей не падал с UnicodeEncodeError.
+for _stream_name in ("stdout", "stderr"):
+    _stream = getattr(sys, _stream_name, None)
+    if _stream is not None:
+        try:
+            _stream.reconfigure(encoding="utf-8", errors="replace")
+        except (AttributeError, ValueError):
+            pass
+
 from dotenv import load_dotenv
 import os
 from pathlib import Path

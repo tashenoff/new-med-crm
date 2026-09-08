@@ -318,6 +318,182 @@ const PatientModal = ({
     }
   };
 
+  // Печать консультационного листа: открывает новое окно с готовым к печати A4 документом
+  const handlePrintConsultation = (sheet) => {
+    const patient = editingItem || {};
+    const escapeHtml = (str) => {
+      if (!str) return '';
+      return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
+    };
+    const nl2br = (str) => {
+      if (!str) return '';
+      return escapeHtml(str).replace(/\n/g, '<br/>');
+    };
+
+    const dateStr = sheet.consultation_date
+      ? new Date(sheet.consultation_date).toLocaleDateString('ru-RU', {
+          year: 'numeric', month: 'long', day: 'numeric'
+        })
+      : '';
+
+    const icdList = (sheet.icd10_codes || [])
+      .map((c) => `<div class="value">${escapeHtml(c.code)} — ${escapeHtml(c.name)}</div>`)
+      .join('');
+
+    const servicesList = (sheet.treatment_services || []).map((s) => (
+      `<tr>
+        <td class="txt">${escapeHtml(s.service_name)}</td>
+        <td class="num">${Number(s.quantity || 1)}</td>
+        <td class="num">${Number(s.price_per_unit || 0).toLocaleString('ru-RU')}</td>
+        <td class="num">${Number(s.total_price || 0).toLocaleString('ru-RU')}</td>
+      </tr>`
+    )).join('');
+
+    const section = (title, content) => {
+      if (!content) return '';
+      return `
+        <div class="section">
+          <div class="section-title">${escapeHtml(title)}</div>
+          <div class="value">${content}</div>
+        </div>`;
+    };
+
+    const birthDate = patient.birth_date
+      ? new Date(patient.birth_date).toLocaleDateString('ru-RU')
+      : '';
+
+    const printWindow = window.open('', '_blank', 'width=900,height=1200');
+    if (!printWindow) {
+      alert('Разрешите всплывающие окна для печати документа');
+      return;
+    }
+
+    printWindow.document.write(`<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8"/>
+<title>Консультационный лист</title>
+<style>
+  * { box-sizing: border-box; }
+  body {
+    font-family: 'Times New Roman', 'Arial', sans-serif;
+    font-size: 14px;
+    color: #000;
+    background: #fff;
+    margin: 0;
+    padding: 32px;
+  }
+  @page { size: A4; margin: 20mm; }
+  .header {
+    text-align: center;
+    border-bottom: 2px solid #000;
+    padding-bottom: 12px;
+    margin-bottom: 18px;
+  }
+  .header .clinic { font-size: 16px; font-weight: bold; }
+  .header .doc-title { font-size: 18px; font-weight: bold; margin-top: 6px; }
+  .header .doc-date { font-size: 12px; color: #444; margin-top: 4px; }
+  .info-table { width: 100%; margin-bottom: 16px; }
+  .info-table td { padding: 4px 10px; vertical-align: top; }
+  .info-table .label { font-weight: bold; color: #222; }
+  .info-table .label::after { content: ':'; }
+  .section { margin-bottom: 10px; page-break-inside: avoid; }
+  .section-title {
+    font-weight: bold;
+    font-size: 14px;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+    margin-bottom: 4px;
+    border-bottom: 1px solid #999;
+    padding-bottom: 2px;
+  }
+  .value { white-space: normal; line-height: 1.5; margin-bottom: 6px; }
+  .services-table { width: 100%; border-collapse: collapse; margin-bottom: 8px; }
+  .services-table th, .services-table td {
+    border: 1px solid #333;
+    padding: 5px 8px;
+    font-size: 13px;
+  }
+  .services-table th { background: #eee; text-align: left; }
+  .num { text-align: right; }
+  .txt { text-align: left; }
+  .icd-item { border: 1px solid #333; padding: 4px 8px; margin: 3px 0; }
+  .signature { margin-top: 30px; }
+  .signature .line { border-bottom: 1px solid #000; width: 320px; height: 22px; display: inline-block; }
+  .signature .caption { font-size: 12px; margin-top: 4px; }
+  @media print {
+    body { padding: 0; }
+  }
+</style>
+</head>
+<body>
+  <div class="header">
+    <div class="clinic">Медицинский центр</div>
+    <div class="doc-title">Консультационный лист</div>
+    <div class="doc-date">Дата консультации: ${escapeHtml(dateStr)}</div>
+  </div>
+
+  <table class="info-table">
+    <tr>
+      <td class="label">Пациент</td>
+      <td>${escapeHtml(patient.full_name || '')}</td>
+      <td class="label">Дата рождения</td>
+      <td>${escapeHtml(birthDate)}</td>
+    </tr>
+    <tr>
+      <td class="label">Телефон</td>
+      <td>${escapeHtml(patient.phone || '')}</td>
+      <td class="label">Врач</td>
+      <td>${escapeHtml(sheet.doctor_name || '')}</td>
+    </tr>
+  </table>
+
+  ${section('Жалобы', nl2br(sheet.complaints))}
+  ${section('Анамнез заболевания', nl2br(sheet.anamnesis_morbi || sheet.anamnesis))}
+  ${section('Анамнез жизни', nl2br(sheet.anamnesis_vitae))}
+  ${section('Локальный статус', nl2br(sheet.local_status))}
+  ${section('Объективный осмотр', nl2br(sheet.examination))}
+  ${icdList ? `<div class="section"><div class="section-title">МКБ-10</div>${icdList}</div>` : ''}
+  ${section('Диагноз', nl2br(sheet.diagnosis))}
+  ${section('Назначенное лечение', nl2br(sheet.treatment))}
+  ${servicesList ? `
+    <div class="section">
+      <div class="section-title">Назначенные услуги</div>
+      <table class="services-table">
+        <thead>
+          <tr>
+            <th>Услуга</th>
+            <th class="num">Кол-во</th>
+            <th class="num">Цена</th>
+            <th class="num">Сумма</th>
+          </tr>
+        </thead>
+        <tbody>${servicesList}</tbody>
+      </table>
+    </div>` : ''}
+  ${section('Рекомендации', nl2br(sheet.recommendations))}
+  ${section('Дополнительные заметки', nl2br(sheet.notes))}
+
+  <div class="section signature">
+    <div class="section-title">Подпись врача</div>
+    <div class="line"></div>
+    <div class="caption">${escapeHtml(sheet.doctor_name || '')}</div>
+  </div>
+</body>
+</html>`);
+    printWindow.document.close();
+
+    // Ждём полной отрисовки и открываем диалог печати
+    setTimeout(() => {
+      printWindow.focus();
+      printWindow.print();
+    }, 300);
+  };
+
   const handleFileUpload = async () => {
     if (!selectedFile || !editingItem) return;
 
@@ -1376,6 +1552,13 @@ const PatientModal = ({
                             </div>
                           </div>
                           <div className="flex space-x-2">
+                            <button
+                              onClick={() => handlePrintConsultation(sheet)}
+                              className="px-3 py-1 text-gray-700 border border-gray-500 rounded hover:bg-gray-100 text-sm"
+                              title="Печать консультационного листа"
+                            >
+                              Печать
+                            </button>
                             <button
                               onClick={() => {
                                 setEditingConsultation(sheet);

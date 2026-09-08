@@ -38,9 +38,9 @@ class StaffService:
             # Обрезаем если нужно
             if original_len > 72:
                 password_bytes = password_bytes[:72]
-                print(f"⚠️ Пароль обрезан с {original_len} до 72 байт")
+                print(f"Пароль обрезан с {original_len} до 72 байт")
             
-            print(f"✅ Хеширование пароля длиной {len(password_bytes)} байт")
+            print(f"Хеширование пароля длиной {len(password_bytes)} байт")
             
             # Используем bcrypt напрямую
             salt = bcrypt.gensalt()
@@ -49,7 +49,7 @@ class StaffService:
             # Возвращаем как строку
             return hashed.decode('utf-8')
         except Exception as e:
-            print(f"❌ Ошибка при хешировании пароля: {e}")
+            print(f"Ошибка при хешировании пароля: {e}")
             raise ValueError(f"Не удалось захешировать пароль: {str(e)}")
     
     def _verify_password(self, plain_password: str, hashed_password: str) -> bool:
@@ -205,7 +205,7 @@ class StaffService:
                 p.value if isinstance(p, Permission) else p 
                 for p in update_data["custom_permissions"]
             ]
-            print(f"   ✅ После конвертации: {update_data['custom_permissions']}")
+            print(f"   После конвертации: {update_data['custom_permissions']}")
         
         # Обновляем в коллекции staff
         await self.collection.update_one(

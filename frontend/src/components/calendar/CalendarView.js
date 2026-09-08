@@ -132,10 +132,10 @@ const CalendarView = ({
 
   // Рендер grid календаря (переиспользуемый)
   const renderCalendarGrid = () => (
-    <div className={`calendar-grid flex ${themeClasses.border.default} border-b`}>
-      {/* Колонка времени */}
-      <div className={`w-20 flex-shrink-0 border-r ${themeClasses.border.light} calendar-time-column`}>
-        <div className={`h-12 border-b border-l ${themeClasses.border.default} ${themeClasses.bg.secondary} flex items-center justify-center font-semibold ${themeClasses.text.primary} calendar-time-header`}>
+    <div className={`calendar-grid flex ${themeClasses.border.default} border-b`} style={{ minWidth: 'max-content' }}>
+      {/* Колонка времени — фиксированная (sticky left) */}
+      <div className={`calendar-time-column-sticky w-20 flex-shrink-0 border-r ${themeClasses.border.light} calendar-time-column`}>
+<div className={`h-16 border-b border-l ${themeClasses.border.default} ${themeClasses.bg.secondary} flex items-center justify-center font-semibold ${themeClasses.text.primary} calendar-time-header`}>
           Время
         </div>
         {timeSlots.map((time) => (
@@ -146,7 +146,7 @@ const CalendarView = ({
       </div>
 
       {/* Кабинеты */}
-      <div className="flex flex-1 min-w-0 calendar-rooms-wrapper">
+      <div className="flex calendar-rooms-wrapper">
         {rooms.length === 0 ? (
           <div className={`flex-1 flex items-center justify-center p-8 ${themeClasses.text.muted} calendar-no-rooms`}>
             Нет доступных кабинетов
@@ -205,7 +205,7 @@ const CalendarView = ({
             </button>
           </div>
         </div>
-        <div className="flex-1 overflow-auto p-4">
+        <div className="calendar-main-scroll flex-1 overflow-y-auto overflow-x-auto p-4">
           {renderCalendarGrid()}
         </div>
       </div>
@@ -241,7 +241,7 @@ const CalendarView = ({
             />
 
             {/* Grid календаря */}
-            <div className="max-h-[calc(100vh-280px)] overflow-y-auto">
+            <div className="calendar-main-scroll max-h-[calc(100vh-280px)] overflow-y-auto overflow-x-auto">
               {renderCalendarGrid()}
             </div>
           </div>

@@ -292,7 +292,7 @@ async def update_doctor_schedule(
     )
     
     if room_update_result.modified_count > 0:
-        print(f"✅ Также обновлена связанная запись в room_schedules для врача {doctor_id}")
+        print(f"Также обновлена связанная запись в room_schedules для врача {doctor_id}")
     
     updated_schedule = await db.doctor_schedules.find_one({"id": schedule_id})
     return DoctorSchedule(**updated_schedule)
@@ -334,7 +334,7 @@ async def delete_doctor_schedule(
     )
     
     if room_delete_result.modified_count > 0:
-        print(f"✅ Также деактивирована связанная запись в room_schedules для врача {doctor_id}")
+        print(f"Также деактивирована связанная запись в room_schedules для врача {doctor_id}")
     
     return {"message": "Schedule deleted successfully"}
 

@@ -1,0 +1,152 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {
+    "title": "Медицинская CRM — Runtime-архитектура",
+    "quality_profile": "showcase",
+    "repository": {
+      "url": "https://github.com/tashenoff/new-med-crm",
+      "revision": "8f32cb347997d7005a28e63f8e1a46288606be37"
+    }
+  },
+  "layout": {
+    "mode": "grid",
+    "cols": 12,
+    "gapX": 40,
+    "gapY": 60,
+    "cellW": 150,
+    "cellH": 60
+  },
+  "components": [
+    {
+      "id": "users",
+      "type": "external",
+      "label": "Пользователи",
+      "sublabel": "Браузер · клиника",
+      "row": 0,
+      "col": 0
+    },
+    {
+      "id": "frontend",
+      "type": "frontend",
+      "label": "Веб-интерфейс",
+      "sublabel": "React + Vite + Tailwind",
+      "sources": [
+        { "path": "frontend/src/App.jsx", "line": 1 }
+      ],
+      "row": 0,
+      "col": 3
+    },
+    {
+      "id": "api",
+      "type": "backend",
+      "label": "FastAPI API",
+      "sublabel": "uvicorn :8001 · /api, /api/crm",
+      "sources": [
+        { "path": "backend/server.py", "line": 58 }
+      ],
+      "row": 0,
+      "col": 6
+    },
+    {
+      "id": "mongo",
+      "type": "database",
+      "label": "MongoDB",
+      "sublabel": "БД medcrm · Motor",
+      "sources": [
+        { "path": "backend/database.py", "line": 13 }
+      ],
+      "row": 0,
+      "col": 9
+    },
+    {
+      "id": "llm",
+      "type": "external",
+      "label": "OpenRouter",
+      "sublabel": "LLM · AI-чат · качество",
+      "sources": [
+        { "path": "backend/routers/chat.py", "line": 24 }
+      ],
+      "row": 1,
+      "col": 5
+    },
+    {
+      "id": "wazzup",
+      "type": "external",
+      "label": "WAZZUP24",
+      "sublabel": "WhatsApp-мессенджер",
+      "sources": [
+        { "path": "backend/services/wazzup_service.py", "line": 23 }
+      ],
+      "row": 1,
+      "col": 8
+    },
+    {
+      "id": "tgbot",
+      "type": "backend",
+      "label": "Telegram-бот",
+      "sublabel": "python-telegram-bot",
+      "sources": [
+        { "path": "backend/telegram_bot/bot.py", "line": 57 }
+      ],
+      "row": 1,
+      "col": 9
+    },
+    {
+      "id": "bi",
+      "type": "cloud",
+      "label": "Metabase / Superset",
+      "sublabel": "BI-дашборды · Postgres",
+      "sources": [
+        { "path": "metabase/docker-compose.yml", "line": 4 }
+      ],
+      "row": 2,
+      "col": 11
+    }
+  ],
+  "boundaries": [
+    {
+      "kind": "region",
+      "label": "Медицинская CRM",
+      "wraps": ["frontend", "api", "mongo", "tgbot"]
+    }
+  ],
+  "connections": [
+    { "id": "users-web", "from": "users", "to": "frontend", "label": "HTTPS · Веб", "variant": "emphasis" },
+    { "id": "web-api", "from": "frontend", "to": "api", "label": "REST /api · JWT", "variant": "emphasis" },
+    { "id": "api-db", "from": "api", "to": "mongo", "label": "Motor · async", "variant": "emphasis" },
+    { "id": "api-llm", "from": "api", "to": "llm", "label": "LLM-чат · AI-анализ" },
+    { "id": "api-wazzup", "from": "api", "to": "wazzup", "label": "Рассылки WhatsApp" },
+    { "id": "api-bi", "from": "api", "to": "bi", "label": "Встраивание дашбордов", "variant": "dashed", "labelAt": [1715, 274] },
+    { "id": "bot-db", "from": "tgbot", "to": "mongo", "label": "Общая БД", "variant": "dashed" }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "Стек",
+      "items": [
+        "FastAPI + React SPA + MongoDB (Motor)",
+        "JWT-аутентификация · роли",
+        "Vite dev-proxy /api → :8001"
+      ]
+    },
+    {
+      "dot": "emerald",
+      "title": "Модули бэкенда",
+      "items": [
+        "HMS: расписание, приёмы, врачи, кабинеты",
+        "CRM: лиды · сделки · задачи · клиенты",
+        "Финансы, склад, лояльность, документы"
+      ]
+    },
+    {
+      "dot": "amber",
+      "title": "Интеграции",
+      "items": [
+        "OpenRouter — LLM-чат и AI-анализ качества",
+        "WAZZUP24 — WhatsApp-уведомления",
+        "Telegram-бот и Metabase/Superset (BI)"
+      ]
+    }
+  ]
+}

@@ -85,12 +85,12 @@ class NotificationSender:
                     
                     await wazzup_service.send_message(request)
                     
-                    print(f"✅ Уведомление отправлено пациенту {patient_name} ({patient_phone})")
+                    print(f"Уведомление отправлено пациенту {patient_name} ({patient_phone})")
                     
                 except Exception as e:
-                    print(f"❌ Ошибка отправки уведомления по правилу {rule.id}: {str(e)}")
+                    print(f"Ошибка отправки уведомления по правилу {rule.id}: {str(e)}")
                     continue
         
         except Exception as e:
-            print(f"❌ Ошибка в сервисе отправки уведомлений: {str(e)}")
+            print(f"Ошибка в сервисе отправки уведомлений: {str(e)}")
             # Не прерываем выполнение основной операции

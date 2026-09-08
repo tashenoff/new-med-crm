@@ -1,0 +1,155 @@
+{
+  "schema_version": 1,
+  "diagram_type": "workflow",
+  "meta": {
+    "title": "Работа с HMS — от записи до завершения приёма",
+    "subtitle": "FastAPI + MongoDB · запись пациентов и ведение приёмов",
+    "quality_profile": "showcase",
+    "viewBox": [1400, 700]
+  },
+  "lanes": [
+    { "id": "ui", "label": "Клиент" },
+    { "id": "api", "label": "FastAPI" },
+    { "id": "db", "label": "MongoDB" },
+    { "id": "ext", "label": "Внешние" }
+  ],
+  "phases": [
+    { "id": "booking", "label": "Запись пациента", "fromCol": 0, "toCol": 1 },
+    { "id": "confirm", "label": "Подтверждение", "fromCol": 3, "toCol": 3 },
+    { "id": "visit", "label": "Приём", "fromCol": 4, "toCol": 5, "variant": "emphasis" }
+  ],
+  "mainPath": ["staff", "calendar", "create", "insert", "confirm", "visit", "complete"],
+  "nodes": [
+    {
+      "id": "staff",
+      "lane": "ui",
+      "col": 0,
+      "type": "external",
+      "label": "Регистратор",
+      "sublabel": "пациент",
+      "width": 72,
+      "height": 56
+    },
+    {
+      "id": "calendar",
+      "lane": "ui",
+      "col": 1,
+      "type": "frontend",
+      "label": "Календарь",
+      "sublabel": "занятость",
+      "width": 70,
+      "height": 56
+    },
+    {
+      "id": "create",
+      "lane": "api",
+      "col": 1,
+      "type": "backend",
+      "label": "Создание",
+      "sublabel": "POST /appointments",
+      "tag": "unconfirmed",
+      "width": 76,
+      "height": 64
+    },
+    {
+      "id": "insert",
+      "lane": "db",
+      "col": 3,
+      "type": "database",
+      "label": "Запись в БД",
+      "sublabel": "insert",
+      "width": 72,
+      "height": 56
+    },
+    {
+      "id": "confirm",
+      "lane": "api",
+      "col": 3,
+      "type": "backend",
+      "label": "Подтвердить",
+      "sublabel": "PATCH status",
+      "tag": "confirmed",
+      "width": 76,
+      "height": 64
+    },
+    {
+      "id": "visit",
+      "lane": "ui",
+      "col": 5,
+      "type": "frontend",
+      "label": "Приём",
+      "sublabel": "лечение · услуги",
+      "width": 76,
+      "height": 56
+    },
+    {
+      "id": "complete",
+      "lane": "api",
+      "col": 5,
+      "type": "backend",
+      "label": "Завершение",
+      "sublabel": "completed",
+      "width": 76,
+      "height": 60
+    },
+    {
+      "id": "integrations",
+      "lane": "ext",
+      "col": 1,
+      "type": "external",
+      "label": "WAZZUP · CRM",
+      "sublabel": "уведомление · лид",
+      "width": 76,
+      "height": 56
+    },
+    {
+      "id": "plans",
+      "lane": "ext",
+      "col": 5,
+      "type": "external",
+      "label": "План лечения",
+      "sublabel": "оплата · депозит",
+      "width": 76,
+      "height": 56
+    }
+  ],
+  "edges": [
+    { "id": "staff-calendar", "from": "staff", "to": "calendar", "label": "выбор слота", "role": "main" },
+    { "id": "calendar-create", "from": "calendar", "to": "create", "role": "main", "variant": "emphasis" },
+    { "id": "create-insert", "from": "create", "to": "insert", "role": "main", "variant": "emphasis" },
+    { "id": "insert-confirm", "from": "insert", "to": "confirm", "label": "подтвердить", "role": "main", "labelAt": [430, 289] },
+    { "id": "confirm-visit", "from": "confirm", "to": "visit", "label": "начать приём", "role": "main" },
+    { "id": "visit-complete", "from": "visit", "to": "complete", "label": "завершить", "role": "main", "variant": "emphasis" },
+    { "id": "create-integrations", "from": "create", "to": "integrations", "label": "автоматика", "role": "async", "variant": "dashed", "route": "drop", "fromSide": "bottom", "toSide": "top" },
+    { "id": "complete-plans", "from": "complete", "to": "plans", "label": "оплата", "role": "branch", "variant": "dashed", "route": "drop", "fromSide": "bottom", "toSide": "top" }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "Жизненный цикл записи",
+      "items": [
+        "unconfirmed → confirmed → arrived → in_progress → completed",
+        "Отмена: cancelled · неявка: no_show",
+        "Статусы меняются через PATCH /appointments/{id}/status"
+      ]
+    },
+    {
+      "dot": "emerald",
+      "title": "Автоматика при создании",
+      "items": [
+        "Депозит применяется к активным планам лечения",
+        "CRM-лид: обновление или создание «записан на приём»",
+        "WhatsApp-уведомление пациенту через WAZZUP24"
+      ]
+    },
+    {
+      "dot": "amber",
+      "title": "Проверки слота",
+      "items": [
+        "Расписание врача: doctor_schedules + день недели",
+        "Запрет пересечения с существующими записями",
+        "Роль PATIENT может записывать только себя"
+      ]
+    }
+  ]
+}

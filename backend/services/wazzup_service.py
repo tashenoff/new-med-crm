@@ -120,7 +120,7 @@ class WazzupService:
             )
         except Exception as e:
             # Логируем ошибку, но не прерываем процесс отправки
-            print(f"⚠️ Не удалось сохранить сообщение в БД: {e}")
+            print(f"Не удалось сохранить сообщение в БД: {e}")
         
         return WazzupMessage(
             id=message_id,

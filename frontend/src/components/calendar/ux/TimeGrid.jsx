@@ -66,13 +66,19 @@ const TimeGrid = ({
   const doctorName = getDoctorNameForRoom();
 
   return (
-    <div className={`min-w-0 flex-1 border-r ${themeClasses.border.light} last:border-r-0 calendar-room-column`}>
-      {/* Заголовок кабинета */}
-            <div className={`h-12 border-b border-l ${themeClasses.border.default} ${themeClasses.bg.secondary} flex flex-col items-center justify-center font-semibold ${themeClasses.text.primary} calendar-room-header`}>
-        <span className="text-sm leading-tight">{room.name}</span>
-        {doctorName && (
-          <span className="text-xs font-medium text-blue-600 leading-tight">{doctorName}</span>
-        )}
+    <div className={`flex-shrink-0 border-r ${themeClasses.border.light} last:border-r-0 calendar-room-column`} style={{ width: '180px', minWidth: '180px' }}>
+{/* Заголовок кабинета: отдельная строка для названия кабинета и отдельная — для врача */}
+      <div className={`h-16 border-b border-l ${themeClasses.border.default} ${themeClasses.bg.secondary} font-semibold ${themeClasses.text.primary} calendar-room-header overflow-hidden`}>
+        <div className={`h-8 flex items-center justify-center border-b ${themeClasses.border.default} calendar-room-name-row`}>
+          <span className="text-sm leading-tight text-center w-full px-1.5 block break-words line-clamp-1" title={room.name}>{room.name}</span>
+        </div>
+        <div className="h-8 flex items-center justify-center calendar-room-doctor-row">
+          {doctorName ? (
+            <span className="text-xs font-medium text-blue-600 leading-tight text-center w-full px-1.5 block break-words line-clamp-1" title={doctorName}>{doctorName}</span>
+          ) : (
+            <span className="text-xs text-gray-400 dark:text-gray-500 leading-tight text-center w-full px-1.5 block break-words line-clamp-1">—</span>
+          )}
+        </div>
       </div>
       
       {/* Временные слоты */}

@@ -3,7 +3,7 @@
   background: transparent;
   border-radius: 1rem;
   box-shadow: 0 25px 45px rgba(15, 23, 42, 0.12);
-  overflow: hidden;
+  overflow: visible;
   padding: 0;
   margin: 0;
 }
@@ -88,8 +88,45 @@
   box-shadow: 0 10px 30px rgba(37, 99, 235, 0.35);
 }
 
+/* Основной скролл-контейнер (вертикальный + горизонтальный) */
+.calendar-main-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: #c7d2fe #f1f5f9;
+}
+
+.calendar-main-scroll::-webkit-scrollbar {
+  width: 6px;
+  height: 8px;
+}
+
+.calendar-main-scroll::-webkit-scrollbar-track {
+  background: #f1f5f9;
+  border-radius: 4px;
+}
+
+.calendar-main-scroll::-webkit-scrollbar-thumb {
+  background: #c7d2fe;
+  border-radius: 4px;
+}
+
+.calendar-main-scroll::-webkit-scrollbar-thumb:hover {
+  background: #818cf8;
+}
+
+.calendar-main-scroll::-webkit-scrollbar-corner {
+  background: #f1f5f9;
+}
+
 .calendar-grid {
   border-color: rgba(148, 163, 184, 0.8);
+}
+
+/* Фиксированная колонка времени */
+.calendar-time-column-sticky {
+  position: sticky;
+  left: 0;
+  z-index: 10;
+  box-shadow: 2px 0 8px rgba(15, 23, 42, 0.08);
 }
 
 .calendar-time-column {

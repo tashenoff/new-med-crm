@@ -633,7 +633,7 @@ async def schedule_appointment_from_lead(
                     "updated_at": datetime.utcnow()
                 }}
             )
-            print(f"✅ Лид {lead_id} обновлен с депозитом {deposit_amount}₸")
+            print(f"Лид {lead_id} обновлен с депозитом {deposit_amount}_tng")
         
         # Обновляем статус лида
         await lead_service.update_lead_status(lead_id, LeadStatus.CONTACTED, "Запись на прием создана")
