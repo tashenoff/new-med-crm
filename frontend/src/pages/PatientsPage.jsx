@@ -16,6 +16,7 @@ const PatientsPage = ({ user }) => {
   // UI состояния
   const [searchTerm, setSearchTerm] = useState('');
   const [filterType, setFilterType] = useState('all'); // all, returning, new
+  const [planStatusFilter, setPlanStatusFilter] = useState('all'); // all, closed, open
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
   const [loading, setLoading] = useState(false);
@@ -59,17 +60,18 @@ const PatientsPage = ({ user }) => {
       search: searchTerm,
       is_returning: filterType,
       date_from: dateFrom,
-      date_to: dateTo
+      date_to: dateTo,
+      plan_status: planStatusFilter
     };
     patientsHook.fetchPatients(filters);
-  }, [searchTerm, filterType, dateFrom, dateTo, patientsHook.fetchPatients]);
+  }, [searchTerm, filterType, dateFrom, dateTo, planStatusFilter, patientsHook.fetchPatients]);
 
   // Загрузка планов лечения после загрузки пациентов
   useEffect(() => {
     if (patientsHook.patients.length > 0) {
       fetchAllTreatmentPlans();
     }
-  }, [patientsHook.patients.length]);
+  }, [patientsHook.patients]);
 
   // Слушаем глобальный триггер для обновления планов лечения
   useEffect(() => {
@@ -86,10 +88,11 @@ const PatientsPage = ({ user }) => {
       search: searchTerm,
       is_returning: filterType,
       date_from: dateFrom,
-      date_to: dateTo
+      date_to: dateTo,
+      plan_status: planStatusFilter
     };
     patientsHook.fetchPatients(filters);
-  }, [refreshTriggers.patients, searchTerm, filterType, dateFrom, dateTo, patientsHook.fetchPatients]);
+  }, [refreshTriggers.patients, searchTerm, filterType, dateFrom, dateTo, planStatusFilter, patientsHook.fetchPatients]);
 
   // Автоматическое скрытие ошибок через 5 секунд
   useEffect(() => {
@@ -310,6 +313,8 @@ const PatientsPage = ({ user }) => {
         setSearchTerm={setSearchTerm}
         filterType={filterType}
         setFilterType={setFilterType}
+        planStatusFilter={planStatusFilter}
+        setPlanStatusFilter={setPlanStatusFilter}
         dateFrom={dateFrom}
         setDateFrom={setDateFrom}
         dateTo={dateTo}

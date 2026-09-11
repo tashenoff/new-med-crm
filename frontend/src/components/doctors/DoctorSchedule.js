@@ -28,6 +28,9 @@ const DoctorSchedule = ({ doctors, user, canEdit, rooms = [] }) => {
   const [showEditModal, setShowEditModal] = useState(false);
   const [showWeekModal, setShowWeekModal] = useState(false);
   const [editingSchedule, setEditingSchedule] = useState(null);
+  const [editSelectedDays, setEditSelectedDays] = useState([]);
+  const [editDayTimes, setEditDayTimes] = useState({});
+  const [editSaving, setEditSaving] = useState(false);
   const [formData, setFormData] = useState({
     doctor_id: '',
     day_of_week: 0,
@@ -42,9 +45,10 @@ const DoctorSchedule = ({ doctors, user, canEdit, rooms = [] }) => {
   const [weekScheduleData, setWeekScheduleData] = useState({
     doctor_id: '',
     room_id: '',
-    selectedDays: [], // массив выбранных дней недели [0, 1, 2, ...]
-    start_time: '09:00',
-    end_time: '18:00'
+    selectedDays: [],
+    default_start: '09:00',
+    default_end: '18:00',
+    dayTimes: {}
   });
   const [weekScheduleSaving, setWeekScheduleSaving] = useState(false);
   const [roomConflicts, setRoomConflicts] = useState({}); // {dayId: {is_available, conflicts}}
@@ -426,95 +430,168 @@ const DoctorSchedule = ({ doctors, user, canEdit, rooms = [] }) => {
       schedule_type: 'fixed',
       replacement_doctor_id: ''
     });
+    // Инициализируем выбор дней: по умолчанию выбран текущий день
+    setEditSelectedDays([schedule.id]);
+    const timesMap = {};
+    (schedule.allSchedules || []).forEach((s) => {
+      timesMap[s.id] = { start_time: s.start_time, end_time: s.end_time };
+    });
+    setEditDayTimes(timesMap);
     setShowEditModal(true);
   };
 
-  // Выбрать конкретное расписание для редактирования
-  const handleSelectScheduleToEdit = (index) => {
-    if (!editingSchedule || !editingSchedule.allSchedules) return;
-    
-    const schedule = editingSchedule.allSchedules[index];
-    setEditingSchedule({
-      ...schedule,
-      doctor_name: editingSchedule.doctor_name,
-      doctor_specialty: editingSchedule.doctor_specialty,
-      allSchedules: editingSchedule.allSchedules,
-      currentIndex: index
-    });
-    setFormData({
-      ...formData,
-      day_of_week: schedule.day_of_week,
-      start_time: schedule.start_time,
-      end_time: schedule.end_time
+  const getEditDayTimes = (scheduleId) => {
+    return editDayTimes[scheduleId] || { start_time: '09:00', end_time: '18:00' };
+  };
+
+  const updateEditDayTime = (scheduleId, field, value) => {
+    setEditSelectedDays(prev => prev.includes(scheduleId) ? prev : [...prev, scheduleId]);
+    setEditDayTimes(prev => {
+      const current = prev[scheduleId] || { start_time: '09:00', end_time: '18:00' };
+      return { ...prev, [scheduleId]: { ...current, [field]: value } };
     });
   };
 
-  // Обновление расписания
+  // Переключение выбора дня для массового редактирования
+  // Обычный клик — выбрать только этот день; Ctrl/Cmd+клик — добавить/убрать из набора
+  const toggleEditDaySelection = (scheduleId, event) => {
+    const multi = event?.ctrlKey || event?.metaKey;
+    const target = editingSchedule?.allSchedules?.find(s => s.id === scheduleId);
+
+    if (!multi) {
+      setEditSelectedDays([scheduleId]);
+      if (target) {
+        setFormData(prev => ({
+          ...prev,
+          day_of_week: target.day_of_week
+        }));
+      }
+      return;
+    }
+
+    setEditSelectedDays(prev => {
+      if (prev.includes(scheduleId)) {
+        if (prev.length === 1) return prev;
+        return prev.filter(id => id !== scheduleId);
+      }
+      return [...prev, scheduleId];
+    });
+  };
+
+  const selectAllEditDays = () => {
+    if (!editingSchedule?.allSchedules) return;
+    setEditSelectedDays(editingSchedule.allSchedules.map(s => s.id));
+  };
+
+  const selectWorkEditDays = () => {
+    if (!editingSchedule?.allSchedules) return;
+    const ids = editingSchedule.allSchedules
+      .filter(s => s.day_of_week >= 0 && s.day_of_week <= 4)
+      .map(s => s.id);
+    if (ids.length > 0) setEditSelectedDays(ids);
+  };
+
+  const clearEditDaysSelection = () => {
+    if (!editingSchedule) return;
+    setEditSelectedDays([editingSchedule.id]);
+  };
+
+  // Обновление расписания (один день или несколько выбранных)
   const handleUpdateSchedule = async () => {
-    if (!editingSchedule || !formData.start_time || !formData.end_time) {
+    if (!editingSchedule) {
       setError('Заполните все обязательные поля');
       return;
     }
 
-    // Check room availability if room is selected
-    if (formData.room_id) {
-      const availability = await checkRoomAvailability(
-        formData.room_id,
-        formData.day_of_week,
-        formData.start_time,
-        formData.end_time
-      );
-      
-      if (!availability.is_available) {
-        // Проверяем, не является ли конфликт с текущим расписанием
-        const isSameSchedule = availability.conflicts.some(
-          c => c.doctor_id === formData.doctor_id && c.day_of_week === formData.day_of_week
-        );
-        
-        if (!isSameSchedule) {
-          const conflictInfo = availability.conflicts.map(c => 
-            `${c.doctor_name} (${c.start_time}-${c.end_time})`
-          ).join(', ');
-          setError(`Кабинет занят в это время: ${conflictInfo}`);
-          setTimeout(() => setError(''), 7000);
-          return;
-        }
-      }
+    const idsToUpdate = editSelectedDays.length > 0
+      ? editSelectedDays
+      : [editingSchedule.id];
+
+    const missingTime = idsToUpdate.some((id) => {
+      const times = getEditDayTimes(id);
+      return !times.start_time || !times.end_time;
+    });
+    if (missingTime) {
+      setError('Укажите время начала и окончания для каждого выбранного дня');
+      return;
     }
 
+    setEditSaving(true);
     try {
       const token = localStorage.getItem('token');
-      
-      // Обновляем расписание врача
-      const response = await fetch(`${API}/api/doctors/${formData.doctor_id}/schedule/${editingSchedule.id}`, {
-        method: 'PUT',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          day_of_week: parseInt(formData.day_of_week),
-          start_time: formData.start_time,
-          end_time: formData.end_time
-        })
-      });
+      let updatedCount = 0;
+      let lastError = '';
 
-      if (response.ok) {
-        setSuccess('График обновлен успешно');
+      for (const scheduleId of idsToUpdate) {
+        const times = getEditDayTimes(scheduleId);
+        const target = editingSchedule.allSchedules?.find(s => s.id === scheduleId);
+        const dayOfWeek = target?.day_of_week ?? formData.day_of_week;
+
+        if (formData.room_id) {
+          const availability = await checkRoomAvailability(
+            formData.room_id,
+            dayOfWeek,
+            times.start_time,
+            times.end_time
+          );
+
+          if (!availability.is_available) {
+            const isSameSchedule = availability.conflicts.some(
+              c => c.doctor_id === formData.doctor_id
+            );
+            if (!isSameSchedule) {
+              const conflictInfo = availability.conflicts.map(c =>
+                `${c.doctor_name} (${c.start_time}-${c.end_time})`
+              ).join(', ');
+              lastError = `Кабинет занят: ${conflictInfo}`;
+              continue;
+            }
+          }
+        }
+
+        const response = await fetch(`${API}/api/doctors/${formData.doctor_id}/schedule/${scheduleId}`, {
+          method: 'PUT',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            day_of_week: parseInt(dayOfWeek),
+            start_time: times.start_time,
+            end_time: times.end_time,
+            room_id: formData.room_id || null
+          })
+        });
+
+        if (response.ok) {
+          updatedCount += 1;
+        } else {
+          const errorData = await response.json();
+          lastError = errorData.detail || 'Ошибка при обновлении графика';
+        }
+      }
+
+      if (updatedCount > 0) {
+        setSuccess(updatedCount > 1
+          ? `График обновлён для ${updatedCount} дней`
+          : 'График обновлён успешно');
         fetchAllSchedules();
         setShowEditModal(false);
         setEditingSchedule(null);
+        setEditSelectedDays([]);
+        setEditDayTimes({});
         resetForm();
         setTimeout(() => setSuccess(''), 3000);
       } else {
-        const errorData = await response.json();
-        setError(errorData.detail || 'Ошибка при обновлении графика');
+        setError(lastError || 'Ошибка при обновлении графика');
         setTimeout(() => setError(''), 5000);
       }
     } catch (error) {
       setError('Ошибка соединения');
       console.error('Error updating schedule:', error);
       setTimeout(() => setError(''), 5000);
+    } finally {
+      setEditSaving(false);
     }
   };
 
@@ -535,43 +612,100 @@ const DoctorSchedule = ({ doctors, user, canEdit, rooms = [] }) => {
       doctor_id: '',
       room_id: '',
       selectedDays: [],
-      start_time: '09:00',
-      end_time: '18:00'
+      default_start: '09:00',
+      default_end: '18:00',
+      dayTimes: {}
     });
     setRoomConflicts({});
   };
 
+  const getDayTimes = (dayId, data = weekScheduleData) => {
+    return data.dayTimes?.[dayId] || {
+      start_time: data.default_start || '09:00',
+      end_time: data.default_end || '18:00'
+    };
+  };
+
+  const ensureDayTimes = (days, data) => {
+    const next = { ...(data.dayTimes || {}) };
+    days.forEach((dayId) => {
+      if (!next[dayId]) {
+        next[dayId] = {
+          start_time: data.default_start || '09:00',
+          end_time: data.default_end || '18:00'
+        };
+      }
+    });
+    Object.keys(next).forEach((key) => {
+      if (!days.includes(Number(key))) delete next[key];
+    });
+    return next;
+  };
+
   // Переключение выбора дня недели
-  const toggleDaySelection = (dayId) => {
-    const isSelected = weekScheduleData.selectedDays.includes(dayId);
-    const newDays = isSelected
-      ? weekScheduleData.selectedDays.filter(d => d !== dayId)
-      : [...weekScheduleData.selectedDays, dayId].sort((a, b) => a - b);
-    
-    updateWeekScheduleWithCheck({ selectedDays: newDays });
+  // Обычный клик — выбрать только этот день; Ctrl/Cmd+клик — добавить/убрать из набора
+  const toggleDaySelection = (dayId, event) => {
+    const multi = event?.ctrlKey || event?.metaKey;
+    let newDays;
+    if (!multi) {
+      newDays = [dayId];
+    } else {
+      const isSelected = weekScheduleData.selectedDays.includes(dayId);
+      newDays = isSelected
+        ? weekScheduleData.selectedDays.filter(d => d !== dayId)
+        : [...weekScheduleData.selectedDays, dayId].sort((a, b) => a - b);
+    }
+    updateWeekScheduleWithCheck({
+      selectedDays: newDays,
+      dayTimes: ensureDayTimes(newDays, weekScheduleData)
+    });
   };
 
   // Выбрать все рабочие дни (Пн-Пт)
   const selectWorkDays = () => {
-    updateWeekScheduleWithCheck({ selectedDays: [0, 1, 2, 3, 4] });
+    const days = [0, 1, 2, 3, 4];
+    updateWeekScheduleWithCheck({
+      selectedDays: days,
+      dayTimes: ensureDayTimes(days, weekScheduleData)
+    });
   };
 
   // Выбрать все дни недели
   const selectAllDays = () => {
-    updateWeekScheduleWithCheck({ selectedDays: [0, 1, 2, 3, 4, 5, 6] });
+    const days = [0, 1, 2, 3, 4, 5, 6];
+    updateWeekScheduleWithCheck({
+      selectedDays: days,
+      dayTimes: ensureDayTimes(days, weekScheduleData)
+    });
   };
 
   // Очистить выбор дней
   const clearDaysSelection = () => {
     setWeekScheduleData(prev => ({
       ...prev,
-      selectedDays: []
+      selectedDays: [],
+      dayTimes: {}
     }));
     setRoomConflicts({});
   };
 
+  const updateDayTime = (dayId, field, value) => {
+    const selected = weekScheduleData.selectedDays.includes(dayId)
+      ? weekScheduleData.selectedDays
+      : [...weekScheduleData.selectedDays, dayId].sort((a, b) => a - b);
+    const current = getDayTimes(dayId);
+    const nextTimes = ensureDayTimes(selected, {
+      ...weekScheduleData,
+      dayTimes: {
+        ...(weekScheduleData.dayTimes || {}),
+        [dayId]: { ...current, [field]: value }
+      }
+    });
+    updateWeekScheduleWithCheck({ selectedDays: selected, dayTimes: nextTimes });
+  };
+
   // Проверка занятости кабинета для выбранных дней
-  const checkWeekRoomAvailability = async (roomId, days, startTime, endTime) => {
+  const checkWeekRoomAvailability = async (roomId, days, data) => {
     if (!roomId || days.length === 0) {
       setRoomConflicts({});
       return;
@@ -579,7 +713,8 @@ const DoctorSchedule = ({ doctors, user, canEdit, rooms = [] }) => {
 
     const newConflicts = {};
     for (const dayId of days) {
-      const result = await checkRoomAvailability(roomId, dayId, startTime, endTime);
+      const times = getDayTimes(dayId, data);
+      const result = await checkRoomAvailability(roomId, dayId, times.start_time, times.end_time);
       newConflicts[dayId] = result;
     }
     setRoomConflicts(newConflicts);
@@ -589,10 +724,9 @@ const DoctorSchedule = ({ doctors, user, canEdit, rooms = [] }) => {
   const updateWeekScheduleWithCheck = (updates) => {
     const newData = { ...weekScheduleData, ...updates };
     setWeekScheduleData(newData);
-    
-    // Проверяем кабинет при изменении кабинета, дней или времени
+
     if (newData.room_id && newData.selectedDays.length > 0) {
-      checkWeekRoomAvailability(newData.room_id, newData.selectedDays, newData.start_time, newData.end_time);
+      checkWeekRoomAvailability(newData.room_id, newData.selectedDays, newData);
     } else {
       setRoomConflicts({});
     }
@@ -612,8 +746,12 @@ const DoctorSchedule = ({ doctors, user, canEdit, rooms = [] }) => {
       return;
     }
 
-    if (!weekScheduleData.start_time || !weekScheduleData.end_time) {
-      setError('Укажите время начала и окончания');
+    const missingTime = weekScheduleData.selectedDays.some((dayOfWeek) => {
+      const times = getDayTimes(dayOfWeek);
+      return !times.start_time || !times.end_time;
+    });
+    if (missingTime) {
+      setError('Укажите время начала и окончания для каждого выбранного дня');
       setTimeout(() => setError(''), 3000);
       return;
     }
@@ -626,14 +764,15 @@ const DoctorSchedule = ({ doctors, user, canEdit, rooms = [] }) => {
 
     // Создаём расписание для каждого выбранного дня
     for (const dayOfWeek of weekScheduleData.selectedDays) {
+      const times = getDayTimes(dayOfWeek);
       try {
         // Проверяем доступность кабинета если выбран
         if (weekScheduleData.room_id) {
           const availability = await checkRoomAvailability(
             weekScheduleData.room_id,
             dayOfWeek,
-            weekScheduleData.start_time,
-            weekScheduleData.end_time
+            times.start_time,
+            times.end_time
           );
 
           if (!availability.is_available) {
@@ -659,8 +798,8 @@ const DoctorSchedule = ({ doctors, user, canEdit, rooms = [] }) => {
           body: JSON.stringify({
             doctor_id: weekScheduleData.doctor_id,
             day_of_week: dayOfWeek,
-            start_time: weekScheduleData.start_time,
-            end_time: weekScheduleData.end_time,
+            start_time: times.start_time,
+            end_time: times.end_time,
             room_id: weekScheduleData.room_id || null
           })
         });
@@ -1107,69 +1246,67 @@ const DoctorSchedule = ({ doctors, user, canEdit, rooms = [] }) => {
             </div>
           )}
 
-          {/* Выбор дня для редактирования, если у врача несколько дней */}
-          {editingSchedule?.allSchedules && editingSchedule.allSchedules.length > 1 && (
+          {/* Выбор дней для редактирования */}
+          {editingSchedule?.allSchedules && editingSchedule.allSchedules.length > 0 && (
             <div className="mb-4">
-              <label className="block text-sm font-medium mb-2 dark:text-gray-200">
-                Выберите день для редактирования ({editingSchedule.allSchedules.length} дней):
-              </label>
-              <div className="flex flex-wrap gap-2">
-                {editingSchedule.allSchedules.map((schedule, index) => (
-                  <button
-                    key={schedule.id}
-                    onClick={() => handleSelectScheduleToEdit(index)}
-                    className={`px-3 py-2 rounded-lg text-sm font-medium border transition-colors ${
-                      editingSchedule.currentIndex === index
-                        ? 'bg-blue-600 text-white border-blue-600'
-                        : 'bg-white text-gray-700 border-gray-300 hover:border-blue-400 dark:bg-gray-700 dark:text-gray-200 dark:border-gray-600'
-                    }`}
-                  >
-                    {daysOfWeek[schedule.day_of_week]?.name}
-                    <span className="ml-1 text-xs opacity-75">
-                      ({schedule.start_time}-{schedule.end_time})
-                    </span>
-                  </button>
-                ))}
+              <div className="flex items-center justify-between mb-2">
+                <label className="block text-sm font-medium dark:text-gray-200">
+                  Дни для изменения ({editSelectedDays.length} из {editingSchedule.allSchedules.length})
+                </label>
+                <div className="flex gap-2 text-xs">
+                  <button type="button" onClick={selectAllEditDays} className="text-blue-600 hover:underline dark:text-blue-400">Все дни</button>
+                  <button type="button" onClick={selectWorkEditDays} className="text-blue-600 hover:underline dark:text-blue-400">Пн–Пт</button>
+                  <button type="button" onClick={clearEditDaysSelection} className="text-gray-500 hover:underline">Сбросить</button>
+                </div>
               </div>
+              <div className="space-y-2">
+                {editingSchedule.allSchedules.map((schedule) => {
+                  const selected = editSelectedDays.includes(schedule.id);
+                  const times = getEditDayTimes(schedule.id);
+                  return (
+                    <div
+                      key={schedule.id}
+                      className={`px-3 py-2 rounded-lg border-2 transition-all ${
+                        selected
+                          ? 'bg-blue-50 dark:bg-blue-900/20 border-blue-600'
+                          : 'bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600'
+                      }`}
+                    >
+                      <div className="flex items-center gap-3">
+                        <button
+                          type="button"
+                          onClick={(e) => toggleEditDaySelection(schedule.id, e)}
+                          className={`min-w-[140px] shrink-0 text-left px-3 py-2 rounded-lg text-sm font-medium ${
+                            selected ? 'text-blue-800 dark:text-blue-200' : 'text-gray-700 dark:text-gray-200'
+                          }`}
+                        >
+                          {selected ? '✓ ' : ''}{daysOfWeek[schedule.day_of_week]?.name}
+                        </button>
+                        <div className="flex items-center gap-2">
+                          <input
+                            type="time"
+                            value={times.start_time}
+                            onChange={(e) => updateEditDayTime(schedule.id, 'start_time', e.target.value)}
+                            className={`${inputClasses} py-1`}
+                          />
+                          <span className="text-gray-400">–</span>
+                          <input
+                            type="time"
+                            value={times.end_time}
+                            onChange={(e) => updateEditDayTime(schedule.id, 'end_time', e.target.value)}
+                            className={`${inputClasses} py-1`}
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+              <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
+                Время задаётся прямо у дня. Клик по названию дня выбирает только его; Ctrl+клик — несколько дней. Изменение времени автоматически включает день.
+              </p>
             </div>
           )}
-
-          <div>
-            <label className="block text-sm font-medium mb-1 dark:text-gray-200">День недели *</label>
-            <select
-              value={formData.day_of_week}
-              onChange={(e) => setFormData({ ...formData, day_of_week: parseInt(e.target.value) })}
-              className={selectClasses}
-              required
-            >
-              {daysOfWeek.map(day => (
-                <option key={day.id} value={day.id}>{day.name}</option>
-              ))}
-            </select>
-          </div>
-
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium mb-1 dark:text-gray-200">Время начала *</label>
-              <input
-                type="time"
-                value={formData.start_time}
-                onChange={(e) => setFormData({ ...formData, start_time: e.target.value })}
-                className={inputClasses}
-                required
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium mb-1 dark:text-gray-200">Время окончания *</label>
-              <input
-                type="time"
-                value={formData.end_time}
-                onChange={(e) => setFormData({ ...formData, end_time: e.target.value })}
-                className={inputClasses}
-                required
-              />
-            </div>
-          </div>
 
           <div>
             <label className="block text-sm font-medium mb-1 dark:text-gray-200">Кабинет/Кресло</label>
@@ -1201,8 +1338,9 @@ const DoctorSchedule = ({ doctors, user, canEdit, rooms = [] }) => {
             <button
               onClick={handleUpdateSchedule}
               className={buttonPrimaryClasses}
+              disabled={editSaving || editSelectedDays.length === 0}
             >
-              Сохранить
+              {editSaving ? 'Сохранение...' : (editSelectedDays.length > 1 ? `Сохранить (${editSelectedDays.length} дн.)` : 'Сохранить')}
             </button>
           </div>
         </div>
@@ -1230,28 +1368,61 @@ const DoctorSchedule = ({ doctors, user, canEdit, rooms = [] }) => {
               <button type="button" onClick={selectAllDays} className="px-3 py-1 text-xs bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 rounded-lg border border-gray-300 dark:border-gray-600">Все дни</button>
               <button type="button" onClick={clearDaysSelection} className="px-3 py-1 text-xs bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 rounded-lg border border-gray-300 dark:border-gray-600">Очистить</button>
             </div>
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+            <div className="space-y-2">
               {daysOfWeek.map(day => {
                 const isSelected = weekScheduleData.selectedDays.includes(day.id);
+                const times = getDayTimes(day.id);
+                const conflict = roomConflicts[day.id];
+                const hasConflict = conflict && !conflict.is_available;
                 return (
-                  <button key={day.id} type="button" onClick={() => toggleDaySelection(day.id)}
-                    className={`px-4 py-3 rounded-lg text-sm font-medium border-2 transition-all ${isSelected ? 'bg-blue-600 text-white border-blue-600 shadow-md' : 'bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-200 border-gray-300 dark:border-gray-600 hover:border-blue-400'}`}>
-                    {isSelected && '✓ '}{day.name}
-                  </button>
+                  <div
+                    key={day.id}
+                    className={`px-3 py-2 rounded-lg border-2 transition-all ${
+                      isSelected
+                        ? hasConflict
+                          ? 'bg-red-50 dark:bg-red-900/20 border-red-400'
+                          : 'bg-blue-50 dark:bg-blue-900/20 border-blue-600'
+                        : 'bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600'
+                    }`}
+                  >
+                    <div className="flex items-center gap-3">
+                      <button
+                        type="button"
+                        onClick={(e) => toggleDaySelection(day.id, e)}
+                        className={`min-w-[140px] shrink-0 text-left px-3 py-2 rounded-lg text-sm font-medium ${
+                          isSelected ? 'text-blue-800 dark:text-blue-200' : 'text-gray-700 dark:text-gray-200'
+                        }`}
+                      >
+                        {isSelected ? '✓ ' : ''}{day.name}
+                      </button>
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="time"
+                          value={times.start_time}
+                          onChange={(e) => updateDayTime(day.id, 'start_time', e.target.value)}
+                          className={`${inputClasses} py-1`}
+                        />
+                        <span className="text-gray-400">–</span>
+                        <input
+                          type="time"
+                          value={times.end_time}
+                          onChange={(e) => updateDayTime(day.id, 'end_time', e.target.value)}
+                          className={`${inputClasses} py-1`}
+                        />
+                      </div>
+                    </div>
+                    {hasConflict && (
+                      <p className="mt-1 ml-[152px] text-xs text-red-600 dark:text-red-400">
+                        Кабинет занят: {conflict.conflicts.map(c => `${c.doctor_name} (${c.start_time}–${c.end_time})`).join(', ')}
+                      </p>
+                    )}
+                  </div>
                 );
               })}
             </div>
-          </div>
-
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium mb-1 dark:text-gray-200">Время начала *</label>
-              <input type="time" value={weekScheduleData.start_time} onChange={(e) => updateWeekScheduleWithCheck({ start_time: e.target.value })} className={inputClasses} required />
-            </div>
-            <div>
-              <label className="block text-sm font-medium mb-1 dark:text-gray-200">Время окончания *</label>
-              <input type="time" value={weekScheduleData.end_time} onChange={(e) => updateWeekScheduleWithCheck({ end_time: e.target.value })} className={inputClasses} required />
-            </div>
+            <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
+              Время задаётся прямо у дня. Клик по названию дня выбирает только его; Ctrl+клик — несколько дней. Изменение времени автоматически включает день.
+            </p>
           </div>
 
           <div>
@@ -1262,28 +1433,6 @@ const DoctorSchedule = ({ doctors, user, canEdit, rooms = [] }) => {
             </select>
           </div>
 
-          {/* Предпросмотр с проверкой конфликтов */}
-          {weekScheduleData.selectedDays.length > 0 && (
-            <div className="bg-blue-50 dark:bg-blue-900/30 border border-blue-200 dark:border-blue-700 rounded-lg p-4">
-              <div className="text-sm text-blue-800 dark:text-blue-200"><strong>Предпросмотр:</strong>
-                <div className="mt-2 space-y-1">
-                  {weekScheduleData.selectedDays.map(d => {
-                    const conflict = roomConflicts[d];
-                    const hasConflict = conflict && !conflict.is_available;
-                    return (
-                      <div key={d} className={`flex items-center gap-2 ${hasConflict ? 'text-red-600 dark:text-red-400' : ''}`}>
-                        <span className={`w-2 h-2 rounded-full ${hasConflict ? 'bg-red-500' : 'bg-green-500'}`}></span>
-                        <span>{daysOfWeek[d]?.name}: {weekScheduleData.start_time}-{weekScheduleData.end_time}</span>
-                        {hasConflict && <span className="text-xs">⚠️ Кабинет занят: {conflict.conflicts.map(c => c.doctor_name).join(', ')}</span>}
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* Предупреждение о конфликтах */}
           {Object.values(roomConflicts).some(c => !c.is_available) && (
             <div className="bg-yellow-50 dark:bg-yellow-900/30 border border-yellow-300 dark:border-yellow-700 rounded-lg p-3 text-sm text-yellow-800 dark:text-yellow-200">
               ⚠️ Внимание: кабинет занят в некоторые дни. При сохранении эти дни будут пропущены.

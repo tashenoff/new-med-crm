@@ -19,6 +19,7 @@ from models.appointment import (
 # Import auth models and dependencies
 from models.auth import UserInDB, UserRole
 from dependencies import get_current_active_user, require_role
+from services.patient_status import refresh_patient_appointments_count
 
 # Router
 appointments_router = APIRouter(prefix="/appointments", tags=["Appointments"])
@@ -217,6 +218,9 @@ async def create_appointment(
     appointment_dict = appointment.dict()
     appointment_obj = Appointment(**appointment_dict)
     await db.appointments.insert_one(appointment_obj.dict())
+
+    if appointment_obj.status == AppointmentStatus.COMPLETED:
+        await refresh_patient_appointments_count(db, appointment.patient_id)
     
     # Вычисляем фактическую сумму депозита
     deposit_amount = 0
@@ -668,7 +672,10 @@ async def update_appointment(
     )
     
     updated_appointment = await db.appointments.find_one({"id": appointment_id})
-    
+
+    if "status" in update_dict:
+        await refresh_patient_appointments_count(db, updated_appointment["patient_id"])
+
     # Синхронизация статуса лида в CRM при изменении статуса записи
     if "status" in update_dict:
         try:
@@ -710,6 +717,9 @@ async def update_appointment_status(
 
     updated_appointment = await db.appointments.find_one({"id": appointment_id})
 
+    if "status" in update_dict:
+        await refresh_patient_appointments_count(db, updated_appointment["patient_id"])
+
     # Синхронизация статуса лида в CRM при изменении статуса записи
     if "status" in update_dict:
         try:
@@ -732,7 +742,11 @@ async def delete_appointment(
     current_user: UserInDB = Depends(require_role([UserRole.ADMIN, UserRole.SUPER_ADMIN])),
     db: AsyncIOMotorDatabase = Depends(get_database)
 ):
+    existing = await db.appointments.find_one({"id": appointment_id})
+    if not existing:
+        raise HTTPException(status_code=404, detail="Appointment not found")
     result = await db.appointments.delete_one({"id": appointment_id})
     if result.deleted_count == 0:
         raise HTTPException(status_code=404, detail="Appointment not found")
+    await refresh_patient_appointments_count(db, existing.get("patient_id"))
     return {"message": "Appointment deleted successfully"}

@@ -11,6 +11,7 @@ import logging
 from .auth import get_current_active_user, require_role
 from models.auth import UserInDB, UserRole
 from database import db
+from services.patient_status import matches_returning_filter, count_completed_appointments
 
 # Router
 patients_router = APIRouter(prefix="/patients", tags=["Patients"])
@@ -130,6 +131,7 @@ async def get_patients(
     is_returning: Optional[str] = None,  # "all", "returning", "new"
     date_from: Optional[str] = None,  # Дата начала периода (YYYY-MM-DD)
     date_to: Optional[str] = None,  # Дата окончания периода (YYYY-MM-DD)
+    plan_status: Optional[str] = None,  # "all", "closed", "open"
     current_user: UserInDB = Depends(require_role([UserRole.ADMIN, UserRole.SUPER_ADMIN, UserRole.DOCTOR]))
 ):
     query = {}
@@ -205,12 +207,47 @@ async def get_patients(
             # Проверяем наличие ЗАВЕРШЁННЫХ записей у пациента
             completed_count = await db.appointments.count_documents(appointments_query)
             
-            if is_returning == "returning" and completed_count > 0:
-                filtered_patients.append(patient_data)
-            elif is_returning == "new" and completed_count == 0:
+            if matches_returning_filter(is_returning, completed_count):
                 filtered_patients.append(patient_data)
         
         patients = filtered_patients
+
+    # Фильтрация по закрытым / незакрытым планам лечения
+    # Закрытый = все услуги плана оплачены; незакрытый = есть неоплаченный остаток
+    if plan_status and plan_status != "all":
+        filtered_by_plans = []
+        for patient_data in patients:
+            patient_id = patient_data.get('id') or str(patient_data.get('_id'))
+            if not patient_id:
+                continue
+            plans = await db.treatment_plans.find({"patient_id": patient_id}).to_list(500)
+            has_closed = False
+            has_open = False
+            for plan in plans:
+                services = plan.get("services") or []
+                if not services:
+                    has_open = True
+                    continue
+                total_cost = 0.0
+                total_paid = 0.0
+                for service in services:
+                    price = float(service.get("total_price") or 0)
+                    total_cost += price
+                    # Как в списке пациентов: оплачено только если payment_status == paid
+                    if service.get("payment_status") == "paid":
+                        total_paid += price
+                remaining = total_cost - total_paid
+                if total_cost > 0 and remaining <= 0:
+                    has_closed = True
+                else:
+                    has_open = True
+            if plan_status == "none" and not plans:
+                filtered_by_plans.append(patient_data)
+            elif plan_status == "closed" and has_closed and not has_open:
+                filtered_by_plans.append(patient_data)
+            elif plan_status == "open" and has_open:
+                filtered_by_plans.append(patient_data)
+        patients = filtered_by_plans
 
     # Convert patients with proper data mapping
     result = []
@@ -278,6 +315,9 @@ async def get_patient(
     patient = await db.patients.find_one({"id": patient_id})
     if not patient:
         raise HTTPException(status_code=404, detail="Patient not found")
+    if "_id" in patient:
+        del patient["_id"]
+    patient["appointments_count"] = await count_completed_appointments(db, patient_id)
     return Patient(**patient)
 
 @patients_router.put("/{patient_id}", response_model=Patient)

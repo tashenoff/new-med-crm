@@ -15,6 +15,7 @@ from models.doctor import (
     DoctorSchedule,
     DoctorScheduleCreate,
     DoctorScheduleUpdate,
+    DoctorScheduleBulkUpdate,
     DoctorWithSchedule
 )
 
@@ -296,6 +297,100 @@ async def update_doctor_schedule(
     
     updated_schedule = await db.doctor_schedules.find_one({"id": schedule_id})
     return DoctorSchedule(**updated_schedule)
+
+
+@doctors_router.put("/{doctor_id}/schedule/bulk")
+async def bulk_update_doctor_schedules(
+    doctor_id: str,
+    bulk_update: DoctorScheduleBulkUpdate,
+    current_user: UserInDB = Depends(require_role([UserRole.ADMIN, UserRole.SUPER_ADMIN]))
+):
+    """
+    Bulk update multiple doctor schedule entries at once.
+    Updates time and optionally room assignment for all specified schedule IDs.
+    """
+    if not bulk_update.schedule_ids:
+        raise HTTPException(status_code=400, detail="Не указаны ID расписаний для обновления")
+    
+    if not bulk_update.start_time and not bulk_update.end_time:
+        raise HTTPException(status_code=400, detail="Укажите время начала или окончания")
+    
+    # Validate time format
+    try:
+        if bulk_update.start_time:
+            datetime.strptime(bulk_update.start_time, "%H:%M")
+        if bulk_update.end_time:
+            datetime.strptime(bulk_update.end_time, "%H:%M")
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Неверный формат времени. Используйте HH:MM")
+    
+    updated_count = 0
+    room_updated_count = 0
+    errors = []
+    
+    # Build update dict for doctor_schedules
+    schedule_update_dict = {"updated_at": datetime.utcnow()}
+    if bulk_update.start_time:
+        schedule_update_dict["start_time"] = bulk_update.start_time
+    if bulk_update.end_time:
+        schedule_update_dict["end_time"] = bulk_update.end_time
+    
+    for schedule_id in bulk_update.schedule_ids:
+        try:
+            # Get current schedule to find related room_schedule
+            current_schedule = await db.doctor_schedules.find_one({
+                "id": schedule_id, 
+                "doctor_id": doctor_id
+            })
+            
+            if not current_schedule:
+                errors.append(f"Расписание {schedule_id} не найдено")
+                continue
+            
+            # Update doctor schedule
+            result = await db.doctor_schedules.update_one(
+                {"id": schedule_id, "doctor_id": doctor_id},
+                {"$set": schedule_update_dict}
+            )
+            
+            if result.modified_count > 0:
+                updated_count += 1
+            
+            # Update related room_schedule if exists
+            room_schedule_query = {
+                "doctor_id": doctor_id,
+                "day_of_week": current_schedule["day_of_week"],
+                "start_time": current_schedule["start_time"],
+                "end_time": current_schedule["end_time"],
+                "is_active": True
+            }
+            
+            room_update_dict = {"updated_at": datetime.utcnow()}
+            if bulk_update.start_time:
+                room_update_dict["start_time"] = bulk_update.start_time
+            if bulk_update.end_time:
+                room_update_dict["end_time"] = bulk_update.end_time
+            if bulk_update.room_id:
+                room_update_dict["room_id"] = bulk_update.room_id
+            
+            room_result = await db.room_schedules.update_one(
+                room_schedule_query,
+                {"$set": room_update_dict}
+            )
+            
+            if room_result.modified_count > 0:
+                room_updated_count += 1
+                
+        except Exception as e:
+            errors.append(f"Ошибка обновления {schedule_id}: {str(e)}")
+    
+    return {
+        "updated_count": updated_count,
+        "room_updated_count": room_updated_count,
+        "total_requested": len(bulk_update.schedule_ids),
+        "errors": errors,
+        "message": f"Обновлено {updated_count} из {len(bulk_update.schedule_ids)} записей расписания"
+    }
 
 
 @doctors_router.delete("/{doctor_id}/schedule/{schedule_id}")

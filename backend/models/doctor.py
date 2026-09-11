@@ -207,6 +207,24 @@ class DoctorScheduleUpdate(BaseModel):
         return v
 
 
+class DoctorScheduleBulkUpdate(BaseModel):
+    """Model for bulk updating multiple doctor schedule entries at once"""
+    schedule_ids: List[str]
+    start_time: Optional[str] = None
+    end_time: Optional[str] = None
+    room_id: Optional[str] = None
+    
+    @validator('start_time', 'end_time')
+    def validate_time_format(cls, v):
+        """Validate time format is HH:MM"""
+        if v is not None:
+            try:
+                datetime.strptime(v, "%H:%M")
+            except ValueError:
+                raise ValueError('Time must be in HH:MM format')
+        return v
+
+
 class DoctorWithSchedule(BaseModel):
     """Doctor model with schedule information"""
     id: str

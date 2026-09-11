@@ -480,8 +480,8 @@ const PatientModal = ({
   ${section('Жалобы', nl2br(sheet.complaints))}
   ${section('Анамнез заболевания', nl2br(sheet.anamnesis_morbi || sheet.anamnesis))}
   ${section('Анамнез жизни', nl2br(sheet.anamnesis_vitae))}
-  ${section('Локальный статус', nl2br(sheet.local_status))}
   ${section('Объективный осмотр', nl2br(sheet.examination))}
+  ${section('Локальный статус', nl2br(sheet.local_status))}
   ${icdList ? `<div class="section"><div class="section-title">МКБ-10</div>${icdList}</div>` : ''}
   ${section('Диагноз', nl2br(sheet.diagnosis))}
   ${section('Назначенное лечение', nl2br(sheet.treatment))}

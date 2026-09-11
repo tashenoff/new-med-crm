@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { inputClasses, textareaClasses, buttonSuccessClasses, buttonSecondaryClasses } from '../modals/modalUtils';
-import ServiceAutocomplete from './ServiceAutocomplete';
+import ServiceCheckboxSelector from './ServiceCheckboxSelector';
 
 const ConsultationSheetForm = ({ patientId, onSave, onCancel, editingSheet = null }) => {
   const [doctors, setDoctors] = useState([]);
@@ -137,6 +137,19 @@ const ConsultationSheetForm = ({ patientId, onSave, onCancel, editingSheet = nul
     });
   };
 
+  const alreadyAddedServiceIds = useMemo(
+    () => form.treatment_services.map((s) => s.service_id),
+    [form.treatment_services]
+  );
+
+  const handleAddServices = useCallback((services) => {
+    setServicesError('');
+    setForm((prev) => ({
+      ...prev,
+      treatment_services: [...prev.treatment_services, ...services]
+    }));
+  }, []);
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     
@@ -250,32 +263,6 @@ const ConsultationSheetForm = ({ patientId, onSave, onCancel, editingSheet = nul
         </div>
       )}
 
-      {/* Локальный статус */}
-      {visibleFields.local_status && (
-        <div>
-          <div className="flex justify-between items-center mb-1">
-            <label className="text-sm font-medium text-gray-700">
-              Локальный статус
-            </label>
-            <button
-              type="button"
-              onClick={() => toggleFieldVisibility('local_status')}
-              className="text-gray-400 hover:text-red-600 transition-colors"
-              title="Скрыть поле"
-            >
-              ✕
-            </button>
-          </div>
-          <textarea
-            value={form.local_status}
-            onChange={(e) => setForm({ ...form, local_status: e.target.value })}
-            className={textareaClasses}
-            rows="3"
-            placeholder="Описание локального статуса..."
-          />
-        </div>
-      )}
-
       {/* Объективный осмотр */}
       {visibleFields.examination && (
         <div>
@@ -298,6 +285,32 @@ const ConsultationSheetForm = ({ patientId, onSave, onCancel, editingSheet = nul
             className={textareaClasses}
             rows="3"
             placeholder="Результаты осмотра..."
+          />
+        </div>
+      )}
+
+      {/* Локальный статус */}
+      {visibleFields.local_status && (
+        <div>
+          <div className="flex justify-between items-center mb-1">
+            <label className="text-sm font-medium text-gray-700">
+              Локальный статус
+            </label>
+            <button
+              type="button"
+              onClick={() => toggleFieldVisibility('local_status')}
+              className="text-gray-400 hover:text-red-600 transition-colors"
+              title="Скрыть поле"
+            >
+              ✕
+            </button>
+          </div>
+          <textarea
+            value={form.local_status}
+            onChange={(e) => setForm({ ...form, local_status: e.target.value })}
+            className={textareaClasses}
+            rows="3"
+            placeholder="Описание локального статуса..."
           />
         </div>
       )}
@@ -468,18 +481,12 @@ const ConsultationSheetForm = ({ patientId, onSave, onCancel, editingSheet = nul
           </div>
         )}
 
-        {/* Автодополнение для добавления услуг */}
-        <ServiceAutocomplete
-          onAddService={(service) => {
-            setServicesError(''); // Сбрасываем ошибку при добавлении услуги
-            setForm({
-              ...form,
-              treatment_services: [...form.treatment_services, service]
-            });
-          }}
+        <ServiceCheckboxSelector
+          alreadyAddedIds={alreadyAddedServiceIds}
+          onAddServices={handleAddServices}
         />
         <p className="text-xs text-gray-500 mt-1">
-          Добавьте услуги, которые автоматически создадут план лечения
+          Отметьте галочками услуги — они автоматически создадут план лечения
         </p>
       </div>
 
@@ -598,15 +605,6 @@ const ConsultationSheetForm = ({ patientId, onSave, onCancel, editingSheet = nul
                 + Анамнез жизни
               </button>
             )}
-            {!visibleFields.local_status && (
-              <button
-                type="button"
-                onClick={() => toggleFieldVisibility('local_status')}
-                className="px-3 py-1 bg-blue-100 text-blue-700 rounded hover:bg-blue-200 text-sm"
-              >
-                + Локальный статус
-              </button>
-            )}
             {!visibleFields.examination && (
               <button
                 type="button"
@@ -614,6 +612,15 @@ const ConsultationSheetForm = ({ patientId, onSave, onCancel, editingSheet = nul
                 className="px-3 py-1 bg-blue-100 text-blue-700 rounded hover:bg-blue-200 text-sm"
               >
                 + Объективный осмотр
+              </button>
+            )}
+            {!visibleFields.local_status && (
+              <button
+                type="button"
+                onClick={() => toggleFieldVisibility('local_status')}
+                className="px-3 py-1 bg-blue-100 text-blue-700 rounded hover:bg-blue-200 text-sm"
+              >
+                + Локальный статус
               </button>
             )}
             {!visibleFields.icd10_codes && (
@@ -669,7 +676,8 @@ const ConsultationSheetForm = ({ patientId, onSave, onCancel, editingSheet = nul
       <div className="flex space-x-3 pt-4">
         <button
           type="submit"
-          className={`flex-1 ${buttonSuccessClasses}`}
+          disabled={form.treatment_services.length === 0}
+          className={`flex-1 ${buttonSuccessClasses} ${form.treatment_services.length === 0 ? 'cursor-not-allowed' : ''}`}
           data-guide="create-treatment-plan-btn"
         >
           {editingSheet ? 'Обновить' : 'Создать'}

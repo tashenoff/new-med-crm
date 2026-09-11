@@ -445,6 +445,7 @@ class StaffService:
                 "is_active": staff_doc.get("is_active", True),
                 "created_at": created_at,
                 "has_access": user_doc is not None,
+                "custom_permissions": staff_doc.get("custom_permissions", []),
                 "type": "staff"
             })
         
@@ -475,6 +476,7 @@ class StaffService:
                     "is_active": user_doc.get("is_active", True),
                     "created_at": created_at,
                     "has_access": True,
+                    "custom_permissions": user_doc.get("custom_permissions", []),
                     "type": "staff"
                 })
         

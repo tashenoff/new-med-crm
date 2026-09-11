@@ -27,28 +27,50 @@ const RoomColumn = ({
   onEditAppointment,
   onNewAppointment
 }) => {
-  // Получаем имя врача для текущего дня из расписания кабинета
-  const getDoctorNameForRoom = () => {
-    if (!room?.schedule || !doctors || !currentDate) return null;
+  // Получаем список врачей для текущего дня из расписания кабинета
+  // Каждый врач отображается с временем работы (Василий 9:00-15:00, Николай 15:00-19:00)
+  const getDoctorsForRoom = () => {
+    if (!room?.schedule || !doctors || !currentDate) return [];
     const dayOfWeek = new Date(currentDate).getDay();
     const adjustedDayOfWeek = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
-    const daySchedule = room.schedule.find(s => 
+    
+    // Находим ВСЕ активные расписания на сегодня (а не только первое)
+    const daySchedules = room.schedule.filter(s => 
       s.day_of_week === adjustedDayOfWeek && s.is_active !== false
     );
-    if (!daySchedule) return null;
-    const doctor = doctors.find(d => d.id === daySchedule.doctor_id);
-    return doctor ? doctor.full_name || doctor.name : null;
+    if (daySchedules.length === 0) return [];
+    
+    // Для каждой записи расписания находим врача и формируем строку с временем
+    return daySchedules
+      .map(s => {
+        const doctor = doctors.find(d => d.id === s.doctor_id);
+        if (!doctor) return null;
+        const doctorName = doctor.full_name || doctor.name;
+        return {
+          name: doctorName,
+          startTime: s.start_time,
+          endTime: s.end_time,
+          label: `${doctorName} ${s.start_time}-${s.end_time}`
+        };
+      })
+      .filter(Boolean);
   };
 
-  const doctorName = getDoctorNameForRoom();
+  const doctorsInRoom = getDoctorsForRoom();
 
   return (
     <div className="room-column flex-1 border-r border-gray-200 last:border-r-0">
       {/* Заголовок кабинета */}
-      <div className="room-header bg-blue-50 px-3 py-2 border-b border-gray-200 h-12">
+      <div className="room-header bg-blue-50 px-3 py-2 border-b border-gray-200" style={{ minHeight: '48px' }}>
         <h3 className="font-semibold text-blue-900 text-sm leading-tight">{room.name}</h3>
-        {doctorName && (
-          <p className="text-xs text-blue-600 font-medium leading-tight mt-0.5">{doctorName}</p>
+        {doctorsInRoom.length > 0 ? (
+          doctorsInRoom.map((doc, idx) => (
+            <p key={idx} className="text-xs text-blue-600 font-medium leading-tight mt-0.5">
+              {doc.label}
+            </p>
+          ))
+        ) : (
+          <p className="text-xs text-gray-400 font-medium leading-tight mt-0.5">—</p>
         )}
       </div>
       

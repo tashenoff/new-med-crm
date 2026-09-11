@@ -8,6 +8,9 @@ const PatientsView = ({
   setSearchTerm,
   filterType,
   setFilterType,
+  planStatusFilter = 'all',
+  setPlanStatusFilter,
+
   dateFrom,
   setDateFrom,
   dateTo,
@@ -65,9 +68,6 @@ const PatientsView = ({
     return sourceLabels[patient.source] || patient.source || 'Не указан';
   };
 
-  // Фильтрация теперь происходит на сервере, поэтому просто отображаем полученные данные
-  const filteredPatients = patients;
-
   // Вычисляем статистику оплат для пациента
   const calculatePaymentStats = (patientId) => {
     const plans = patientsTreatmentPlans[patientId] || [];
@@ -102,6 +102,17 @@ const PatientsView = ({
     };
   };
 
+  // Фильтрация по оплате планов — та же логика, что в колонке «оплачено / остаток»
+  const filteredPatients = (patients || []).filter((patient) => {
+    if (!planStatusFilter || planStatusFilter === 'all') return true;
+    const stats = calculatePaymentStats(patient.id);
+    if (planStatusFilter === 'none') return stats.totalServices === 0 && (patientsTreatmentPlans[patient.id] || []).length === 0;
+    const isClosed = stats.totalCost > 0 && stats.remaining <= 0;
+    if (planStatusFilter === 'closed') return isClosed;
+    if (planStatusFilter === 'open') return stats.totalCost > 0 && stats.remaining > 0;
+    return true;
+  });
+
   return (
     <div className="space-y-6">
       <div className={`calendar-container calendar-view-panel rounded-2xl`}>
@@ -127,7 +138,7 @@ const PatientsView = ({
             </div>
 
             {/* Фильтры в одной строке */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
               {/* Фильтр по типу пациента */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
@@ -141,6 +152,23 @@ const PatientsView = ({
                   <option value="all">Все пациенты</option>
                   <option value="returning">Повторные</option>
                   <option value="new">Новые</option>
+                </select>
+              </div>
+
+              {/* Фильтр по планам лечения */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  Планы лечения
+                </label>
+                <select
+                  value={planStatusFilter}
+                  onChange={(e) => setPlanStatusFilter && setPlanStatusFilter(e.target.value)}
+                  className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-blue-500"
+                >
+                  <option value="all">Все планы</option>
+                  <option value="open">Незакрытые</option>
+                  <option value="closed">Закрытые</option>
+                  <option value="none">Без плана лечения</option>
                 </select>
               </div>
 
@@ -172,12 +200,13 @@ const PatientsView = ({
             </div>
 
             {/* Кнопка очистки фильтров */}
-            {(filterType !== 'all' || dateFrom || dateTo || searchTerm) && (
+            {(filterType !== 'all' || planStatusFilter !== 'all' || dateFrom || dateTo || searchTerm) && (
               <div className="flex justify-end">
                 <button
                   onClick={() => {
                     setSearchTerm('');
                     setFilterType('all');
+                    if (setPlanStatusFilter) setPlanStatusFilter('all');
                     setDateFrom('');
                     setDateTo('');
                   }}

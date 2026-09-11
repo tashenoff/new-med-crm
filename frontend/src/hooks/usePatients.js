@@ -20,6 +20,7 @@ export const usePatients = () => {
       if (filters.is_returning) params.append('is_returning', filters.is_returning);
       if (filters.date_from) params.append('date_from', filters.date_from);
       if (filters.date_to) params.append('date_to', filters.date_to);
+      if (filters.plan_status) params.append('plan_status', filters.plan_status);
       
       const url = `${API}/patients${params.toString() ? '?' + params.toString() : ''}`;
       
