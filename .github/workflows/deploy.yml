@@ -1,0 +1,39 @@
+name: Deploy MedCRM to VPS
+
+on:
+  push:
+    branches: [ref-2]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: SSH into MedCRM VPS — pull, build frontend, restart backend
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.MEDCRM_HOST }}
+          username: ${{ secrets.MEDCRM_USER }}
+          key: ${{ secrets.MEDCRM_SSH_KEY }}
+          port: ${{ secrets.MEDCRM_PORT }}
+          script: |
+            set -e
+            cd /opt/medcrm/new-med-crm
+            git fetch origin ref-2 --quiet
+            git pull --ff-only origin ref-2
+            echo "=== deps ==="
+            /opt/medcrm/venv/bin/pip install -q -r backend/requirements.txt || true
+            echo "=== frontend build ==="
+            cd frontend
+            npm run build >/tmp/medcrm_build.log 2>&1
+            tail -5 /tmp/medcrm_build.log
+            if grep -rl 'undefined/api' dist/assets 2>/dev/null; then
+              echo "ERROR: VITE_BACKEND_URL missing (undefined/api in bundle)"; exit 1
+            fi
+            echo "=== restart backend ==="
+            systemctl restart medcrm-backend
+            sleep 3
+            systemctl is-active medcrm-backend
+            systemctl is-enabled medcrm-backend
+            echo "deployed: $(git rev-parse --short HEAD)"
+            curl -sS -o /dev/null -w 'site HTTP %{http_code}\n' https://medcrm.duckdns.org
