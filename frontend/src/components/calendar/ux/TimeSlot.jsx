@@ -16,6 +16,19 @@ import { themeClasses } from '../../../hooks/useTheme';
  * @param {Function} props.onDrop - Обработчик drop
  * @param {Function} props.onEditAppointment - Обработчик редактирования записи
  */
+// Конвертирует hex-цвет (#RRGGBB) в rgba строку
+const hexToRgba = (hex, alpha = 0.15) => {
+  if (!hex || hex.length < 7) return undefined;
+  try {
+    const r = parseInt(hex.slice(1, 3), 16);
+    const g = parseInt(hex.slice(3, 5), 16);
+    const b = parseInt(hex.slice(5, 7), 16);
+    return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+  } catch {
+    return undefined;
+  }
+};
+
 const TimeSlot = ({
   time,
   roomId,
@@ -86,12 +99,15 @@ const TimeSlot = ({
     }
   };
 
+  // Цвет фона на основе цвета врача
+  const doctorColor = availableDoctor?.calendar_color;
+  const slotBgColor = doctorColor ? hexToRgba(doctorColor, 0.12) : undefined;
+
   const slotClassNames = [
     'calendar-timeslot',
     availableDoctor ? 'calendar-timeslot-available' : 'calendar-timeslot-empty',
     isDragOver ? 'calendar-timeslot-dragover' : ''
   ].filter(Boolean).join(' ');
-  const slotTextClass = availableDoctor ? 'calendar-slot-doctor' : 'calendar-slot-empty';
 
   return (
     <div
@@ -100,6 +116,7 @@ const TimeSlot = ({
       onDragOver={handleDragOver}
       onDragLeave={handleDragLeave}
       onDrop={handleDrop}
+      style={slotBgColor ? { backgroundColor: slotBgColor } : undefined}
     >
       {/* Пустой слот - ничего не показываем */}
     </div>

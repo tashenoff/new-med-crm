@@ -30,6 +30,7 @@ const DoctorSchedule = ({ doctors, user, canEdit, rooms = [] }) => {
   const [editingSchedule, setEditingSchedule] = useState(null);
   const [editSelectedDays, setEditSelectedDays] = useState([]);
   const [editDayTimes, setEditDayTimes] = useState({});
+  const [editDayOfWeeks, setEditDayOfWeeks] = useState({});
   const [editSaving, setEditSaving] = useState(false);
   const [formData, setFormData] = useState({
     doctor_id: '',
@@ -433,10 +434,13 @@ const DoctorSchedule = ({ doctors, user, canEdit, rooms = [] }) => {
     // Инициализируем выбор дней: по умолчанию выбран текущий день
     setEditSelectedDays([schedule.id]);
     const timesMap = {};
-    (schedule.allSchedules || []).forEach((s) => {
+    const dayMap = {};
+    (item.schedules || []).forEach((s) => {
       timesMap[s.id] = { start_time: s.start_time, end_time: s.end_time };
+      dayMap[s.id] = s.day_of_week;
     });
     setEditDayTimes(timesMap);
+    setEditDayOfWeeks(dayMap);
     setShowEditModal(true);
   };
 
@@ -450,6 +454,12 @@ const DoctorSchedule = ({ doctors, user, canEdit, rooms = [] }) => {
       const current = prev[scheduleId] || { start_time: '09:00', end_time: '18:00' };
       return { ...prev, [scheduleId]: { ...current, [field]: value } };
     });
+  };
+
+  // Обновление дня недели для конкретной записи расписания
+  const updateEditDayOfWeek = (scheduleId, newDayOfWeek) => {
+    setEditSelectedDays(prev => prev.includes(scheduleId) ? prev : [...prev, scheduleId]);
+    setEditDayOfWeeks(prev => ({ ...prev, [scheduleId]: newDayOfWeek }));
   };
 
   // Переключение выбора дня для массового редактирования
@@ -525,7 +535,7 @@ const DoctorSchedule = ({ doctors, user, canEdit, rooms = [] }) => {
       for (const scheduleId of idsToUpdate) {
         const times = getEditDayTimes(scheduleId);
         const target = editingSchedule.allSchedules?.find(s => s.id === scheduleId);
-        const dayOfWeek = target?.day_of_week ?? formData.day_of_week;
+        const dayOfWeek = (editDayOfWeeks[scheduleId] ?? target?.day_of_week ?? formData.day_of_week);
 
         if (formData.room_id) {
           const availability = await checkRoomAvailability(
@@ -580,6 +590,7 @@ const DoctorSchedule = ({ doctors, user, canEdit, rooms = [] }) => {
         setEditingSchedule(null);
         setEditSelectedDays([]);
         setEditDayTimes({});
+        setEditDayOfWeeks({});
         resetForm();
         setTimeout(() => setSuccess(''), 3000);
       } else {
@@ -1228,6 +1239,9 @@ const DoctorSchedule = ({ doctors, user, canEdit, rooms = [] }) => {
         onClose={() => {
           setShowEditModal(false);
           setEditingSchedule(null);
+          setEditSelectedDays([]);
+          setEditDayTimes({});
+          setEditDayOfWeeks({});
           resetForm();
         }}
         title="Редактировать график"
@@ -1273,15 +1287,30 @@ const DoctorSchedule = ({ doctors, user, canEdit, rooms = [] }) => {
                       }`}
                     >
                       <div className="flex items-center gap-3">
-                        <button
-                          type="button"
-                          onClick={(e) => toggleEditDaySelection(schedule.id, e)}
-                          className={`min-w-[140px] shrink-0 text-left px-3 py-2 rounded-lg text-sm font-medium ${
-                            selected ? 'text-blue-800 dark:text-blue-200' : 'text-gray-700 dark:text-gray-200'
-                          }`}
-                        >
-                          {selected ? '✓ ' : ''}{daysOfWeek[schedule.day_of_week]?.name}
-                        </button>
+                        <div className="flex items-center gap-2 shrink-0">
+                          <input
+                            type="checkbox"
+                            checked={selected}
+                            onChange={() => {
+                              setEditSelectedDays(prev => {
+                                if (prev.includes(schedule.id)) {
+                                  return prev.length > 1 ? prev.filter(id => id !== schedule.id) : prev;
+                                }
+                                return [...prev, schedule.id];
+                              });
+                            }}
+                            className="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 dark:focus:ring-blue-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600"
+                          />
+                          <select
+                            value={editDayOfWeeks[schedule.id] ?? schedule.day_of_week}
+                            onChange={(e) => updateEditDayOfWeek(schedule.id, Number(e.target.value))}
+                            className={`${selectClasses} py-1 w-[145px]`}
+                          >
+                            {daysOfWeek.map(day => (
+                              <option key={day.id} value={day.id}>{day.name}</option>
+                            ))}
+                          </select>
+                        </div>
                         <div className="flex items-center gap-2">
                           <input
                             type="time"
@@ -1329,6 +1358,9 @@ const DoctorSchedule = ({ doctors, user, canEdit, rooms = [] }) => {
               onClick={() => {
                 setShowEditModal(false);
                 setEditingSchedule(null);
+                setEditSelectedDays([]);
+                setEditDayTimes({});
+                setEditDayOfWeeks({});
                 resetForm();
               }}
               className={buttonSecondaryClasses}

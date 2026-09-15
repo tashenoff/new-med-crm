@@ -256,6 +256,17 @@ async def update_doctor_schedule(
         except ValueError:
             raise HTTPException(status_code=400, detail="Invalid end_time format. Use HH:MM")
     
+    # Проверка на дублирование дня недели (если день меняется)
+    if "day_of_week" in update_dict:
+        existing_schedule = await db.doctor_schedules.find_one({
+            "doctor_id": doctor_id,
+            "day_of_week": update_dict["day_of_week"],
+            "is_active": True,
+            "id": {"$ne": schedule_id}
+        })
+        if existing_schedule:
+            raise HTTPException(status_code=400, detail="Schedule already exists for this day")
+    
     # Обновляем doctor_schedules
     result = await db.doctor_schedules.update_one(
         {"id": schedule_id, "doctor_id": doctor_id}, 
