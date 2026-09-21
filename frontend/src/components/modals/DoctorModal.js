@@ -375,18 +375,18 @@ const DoctorModal = ({
                               type="checkbox"
                               checked={isSelected}
                               onChange={() => {
-                                let newSpecialties = [...(doctorForm.specialties || [])];
-                                if (isSelected) {
-                                  newSpecialties = newSpecialties.filter(s => s !== specialty.name);
-                                } else {
-                                  newSpecialties.push(specialty.name);
-                                }
-                                // Также обновляем specialty (первая выбранная)
-                                const primarySpecialty = newSpecialties.length > 0 ? newSpecialties[0] : null;
-                                setDoctorForm({
-                                  ...doctorForm,
-                                  specialties: newSpecialties,
-                                  specialty: primarySpecialty
+                                const toAdd = specialty.name;
+                                setDoctorForm(prev => {
+                                  const current = prev.specialties || [];
+                                  const exists = current.includes(toAdd);
+                                  const newSpecialties = exists
+                                    ? current.filter(s => s !== toAdd)
+                                    : [...current, toAdd];
+                                  return {
+                                    ...prev,
+                                    specialties: newSpecialties,
+                                    specialty: newSpecialties.length > 0 ? newSpecialties[0] : null
+                                  };
                                 });
                               }}
                               className="rounded text-purple-600 focus:ring-purple-500"
@@ -418,14 +418,14 @@ const DoctorModal = ({
                           {spec}
                           <button
                             type="button"
-                            onClick={() => {
-                              const newSpecialties = (doctorForm.specialties || []).filter(s => s !== spec);
-                              setDoctorForm({
-                                ...doctorForm,
+                            onClick={() => setDoctorForm(prev => {
+                              const newSpecialties = (prev.specialties || []).filter(s => s !== spec);
+                              return {
+                                ...prev,
                                 specialties: newSpecialties,
                                 specialty: newSpecialties.length > 0 ? newSpecialties[0] : null
-                              });
-                            }}
+                              };
+                            })}
                             className="ml-1 hover:text-red-500"
                           >
                             ✕
