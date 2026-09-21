@@ -74,3 +74,32 @@ async def test_pay_complex_remaining_marks_all_unpaid(clean_db):
     assert round(svc_row.get("paid_amount", 0), 2) == 5000
     assert updated["payment_status"] == "paid"
     assert updated["paid_amount"] == 5000
+
+
+async def test_pay_complex_component_with_discount_amount(clean_db):
+    from services.service_price_service import ServicePriceService
+    from services.treatment_plan_service import TreatmentPlanService
+
+    a = await clean_db.service_prices.insert_one({"id": "svc-a", "service_name": "Консультация", "service_type": "regular", "price": 2000})
+    b = await clean_db.service_prices.insert_one({"id": "svc-b", "service_name": "УЗИ", "service_type": "regular", "price": 3000})
+    svc = ServicePriceService(clean_db)
+    comp = await svc.create_service_price(
+        ServicePriceCreatePayload(service_name="Чекап Д", price=5000, service_type="complex",
+                                  components=[{"service_id": "svc-a", "quantity": 1, "price": 2000},
+                                              {"service_id": "svc-b", "quantity": 1, "price": 3000}]))
+    line = await svc.build_complex_plan_line(comp.id, quantity=1)
+    now = datetime.utcnow()
+    await clean_db.treatment_plans.insert_one({
+        "id": "plan-disc", "patient_id": "p", "title": "Д", "services": [line],
+        "total_cost": line["total_price"], "paid_amount": 0, "payment_status": "unpaid",
+        "created_at": now, "updated_at": now,
+    })
+    tp = TreatmentPlanService(clean_db)
+    # скидка при оплате: платим 1500 за долю в 2000
+    updated = await tp.pay_complex_component("plan-disc", comp.id, "svc-a", payment_data={"amount": 1500})
+    svc_row = next(s for s in updated["services"] if s.get("service_id") == comp.id)
+    paid_comp = next(c for c in svc_row["components"] if c["service_id"] == "svc-a")
+    assert paid_comp["paid_amount"] == 1500
+    assert round(paid_comp.get("discount_amount", 0), 2) == 500
+    assert round(svc_row.get("paid_amount", 0), 2) == 1500
+    assert updated["paid_amount"] == 1500

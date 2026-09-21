@@ -237,7 +237,15 @@ class TreatmentPlanService:
         share = default * k * (1 - disc / 100)
 
         comp["paid"] = True
-        comp["paid_amount"] = round(share, 2)
+        # Скидка даётся ПРИ оплате: в payment_data может прийти фактическая сумма
+        # (amount) < доли — админ на ресепшн сделал скидку. Тогда платим amount.
+        paid_value = share
+        if payment_data and isinstance(payment_data, dict):
+            amount = payment_data.get("amount")
+            if amount is not None and isinstance(amount, (int, float)) and not isinstance(amount, bool) and 0 <= amount < share:
+                paid_value = float(amount)
+                comp["discount_amount"] = round(share - paid_value, 2)
+        comp["paid_amount"] = round(paid_value, 2)
         if payment_data and isinstance(payment_data, dict):
             if payment_data.get("payment_method_id"):
                 comp["payment_method_id"] = payment_data["payment_method_id"]

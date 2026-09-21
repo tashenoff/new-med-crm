@@ -1092,17 +1092,6 @@ const ServicePrices = ({ user }) => {
                             <button type="button" onClick={() => removeComponent(c.service_id)}
                               className="text-red-500 hover:text-red-700 text-lg leading-none" title="Убрать">×</button>
                           </div>
-                          <label className="block text-[10px] text-gray-500 mt-1">Специалист</label>
-                          <select
-                            value={c.doctor_id || ''}
-                            onChange={(e) => updateComponent(c.service_id, 'doctor_id', e.target.value)}
-                            className="w-full px-2 py-1 border border-gray-300 dark:border-gray-600 rounded text-sm"
-                          >
-                            <option value="">{specialists.length ? 'Выберите специалиста' : 'Нет специалиста'}</option>
-                            {specialists.map((d) => (
-                              <option key={d.id} value={d.id}>{d.full_name}</option>
-                            ))}
-                          </select>
                           <div className="grid grid-cols-3 gap-2 mt-1">
                             <div>
                               <label className="block text-[10px] text-gray-500">Кол-во</label>
@@ -1111,15 +1100,15 @@ const ServicePrices = ({ user }) => {
                                 className="w-full px-2 py-1 border border-gray-300 dark:border-gray-600 rounded text-sm" />
                             </div>
                             <div>
-                              <label className="block text-[10px] text-gray-500">Скидка %</label>
-                              <input type="number" min="0" max="100" step="0.1" value={c.discount || 0}
-                                onChange={(e) => updateComponent(c.service_id, 'discount', e.target.value)}
-                                className="w-full px-2 py-1 border border-gray-300 dark:border-gray-600 rounded text-sm" />
+                              <label className="block text-[10px] text-gray-500">Прайс (за шт)</label>
+                              <div className="w-full px-2 py-1 bg-gray-100 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded text-sm text-right">
+                                {unitPrice.toLocaleString()} ₸
+                              </div>
                             </div>
                             <div>
-                              <label className="block text-[10px] text-gray-500">Прайс → Доля</label>
+                              <label className="block text-[10px] text-gray-500">Доля</label>
                               <div className="w-full px-2 py-1 bg-gray-100 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded text-sm text-right">
-                                {unitPrice.toLocaleString()} → <b>{(sh?.share || 0).toLocaleString()} ₸</b>
+                                {(sh?.share || 0).toLocaleString()} ₸
                               </div>
                             </div>
                           </div>
