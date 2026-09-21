@@ -698,20 +698,6 @@ const ServicePaymentList = ({ plan, onUpdate, onEdit, paymentFilter = 'all', pro
 
               {/* Тело карточки */}
               <div className="p-4">
-                {service.is_complex && (
-                  <div className="bg-blue-50 rounded p-2 mb-2 text-xs text-blue-700">
-                    <div className="font-medium">🧩 Что входит:</div>
-                    <ul className="list-disc pl-3 mt-1 space-y-0.5">
-                      {service.components && service.components.length
-                        ? service.components.map(c => (
-                            <li key={c.service_id || c.service_name}>
-                              {c.service_name}{c.quantity && c.quantity > 1 ? ` ×${c.quantity}` : ''}{c.price ? ` — ${c.price.toLocaleString()} ₸` : ''}
-                            </li>
-                          ))
-                        : <li>—</li>}
-                    </ul>
-                  </div>
-                )}
                 {service.is_complex && ((() => {
                   const shares = complexShares(service);
                   return (

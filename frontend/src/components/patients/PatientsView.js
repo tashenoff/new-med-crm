@@ -81,10 +81,12 @@ const PatientsView = ({
         plan.services.forEach(service => {
           totalServices++;
           totalCost += service.total_price || 0;
-          if (service.payment_status === 'paid') {
-            paidServices++;
-            totalPaid += service.total_price || 0;
-          }
+          // оплачено: обычная услуга — вся цена при 'paid'; комплекс — сумма оплаченных долей
+          const sPaid = (service.payment_status === 'paid')
+            ? (service.total_price || 0)
+            : (service.paid_amount || 0);
+          if (sPaid > 0) paidServices++;
+          totalPaid += sPaid;
         });
       }
     });

@@ -533,7 +533,7 @@ const PatientModal = ({
     const totalAmount = plans.reduce((sum, p) => sum + (p.total_cost || 0), 0);
     const paidAmount = plans.reduce((sum, p) => sum + (p.paid_amount || 0), 0);
     const totalServices = plans.reduce((sum, p) => sum + (p.services?.length || 0), 0);
-    const paidServices = plans.reduce((sum, p) => sum + (p.services?.filter(s => s.payment_status === 'paid').length || 0), 0);
+    const paidServices = plans.reduce((sum, p) => sum + (p.services?.filter(s => s.payment_status === 'paid' || (s.is_complex && (s.paid_amount || 0) > 0)).length || 0), 0);
     const remainingToPay = Math.max(0, totalAmount - paidAmount);
     const paymentProgress = totalAmount > 0 ? Math.round((paidAmount / totalAmount) * 100) : 0;
     
@@ -1623,6 +1623,8 @@ const PatientModal = ({
                       setTreatmentPlans(plans => 
                         plans.map(p => p.id === updatedPlan.id ? updatedPlan : p)
                       );
+                      // после оплаты обновляем планы/статистику в списке пациентов
+                      refreshTreatmentPlans();
                     }}
                   />
                 ))}
