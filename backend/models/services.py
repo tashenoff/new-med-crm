@@ -67,7 +67,8 @@ class ServiceComponent(BaseModel):
     service_id: str
     service_name: Optional[str] = None
     quantity: int = Field(default=1, ge=1)
-    price: Optional[float] = Field(default=None, ge=0)
+    price: Optional[float] = Field(default=None, ge=0)  # прайс-цена (дефолтная)
+    discount: Optional[float] = Field(default=0.0, ge=0)  # индивидуальная скидка на услугу, %
     doctor_id: Optional[str] = None
 
 

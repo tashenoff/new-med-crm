@@ -178,6 +178,49 @@ class ServicePriceService:
             "specialists": specialists,
         }
 
+    async def complex_component_shares(self, complex_id):
+        """Доли услуг комплекса для оплаты.
+
+        k = цена_комплекса / сумма прайс-цен (по количеству).
+        Доля каждой услуги = прайс × кол-во × k × (1 - скидка_услуги/100).
+        Индивидуальная скидка на услугу уменьшает ТОЛЬКО её долю (цена комплекса
+        как метка не меняется). Все значения производны от данных, без хардкода."""
+        doc = await self.db.service_prices.find_one({"id": complex_id})
+        if not doc or doc.get("service_type") != "complex":
+            raise HTTPException(status_code=404, detail="Комплексная услуга не найдена")
+        price = float(doc.get("price", 0) or 0)
+        comps = doc.get("components") or []
+
+        def default_of(c):
+            return (c.get("price", 0) or 0) * (c.get("quantity", 1) or 1)
+
+        sum_default = sum(default_of(c) for c in comps)
+        k = (price / sum_default) if sum_default else 0.0
+
+        out = []
+        for c in comps:
+            qty = c.get("quantity", 1) or 1
+            default = (c.get("price", 0) or 0) * qty
+            disc = (c.get("discount", 0) or 0) or 0
+            share = default * k * (1 - disc / 100)
+            out.append({
+                "service_id": c.get("service_id"),
+                "service_name": c.get("service_name", ""),
+                "quantity": qty,
+                "default_price": round(default, 2),
+                "discount": disc,
+                "share": round(share, 2),
+            })
+        return {
+            "complex_id": doc["id"],
+            "complex_name": doc.get("service_name"),
+            "complex_price": price,
+            "coefficient": k,
+            "sum_default": round(sum_default, 2),
+            "sum_shares": round(sum(x["share"] for x in out), 2),
+            "components": out,
+        }
+
     async def build_complex_plan_line(self, complex_id, quantity=1):
         """Build the SINGLE treatment-plan line for a complex service.
 

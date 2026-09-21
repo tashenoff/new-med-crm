@@ -334,3 +334,40 @@ async def test_salary_complex_distributes_line_discount_to_components(clean_db):
     # d1: 2000*(1-0.25)*0.50 ; d2: 3000*(1-0.25)*0.40
     assert round(sal1, 2) == round(2000 * 0.75 * 0.50, 2)
     assert round(sal2, 2) == round(3000 * 0.75 * 0.40, 2)
+
+
+async def test_complex_component_shares_coefficient_and_discount(clean_db):
+    """Shares for payment: each service gets default(прайс) price + coefficient
+    k (complex/прайс), its own discount reduces ONLY that share. Derived, no hardcode."""
+    from services.service_price_service import ServicePriceService
+
+    a = await _seed_service(clean_db, service_name="Консультация", category="Терапевт", price=3000)
+    b = await _seed_service(clean_db, service_name="УЗИ", category="УЗИ", price=8000)
+    c = await _seed_service(clean_db, service_name="Анализы", category="Лаборатория", price=9000)
+
+    svc = ServicePriceService(clean_db)
+    comp = await svc.create_service_price(
+        await _complex_payload(
+            name="Чекап со скидкой", price=18000,
+            components=[
+                {"service_id": a["id"], "quantity": 1, "price": 3000, "discount": 10},
+                {"service_id": b["id"], "quantity": 1, "price": 8000},
+                {"service_id": c["id"], "quantity": 1, "price": 9000},
+            ],
+        )
+    )
+
+    data = await svc.complex_component_shares(comp.id)
+
+    assert data["complex_price"] == 18000
+    assert data["sum_default"] == 20000
+    assert round(data["coefficient"], 4) == 0.9
+
+    sh = {x["service_id"]: x for x in data["components"]}
+    # a: 3000*0.9*(1-0.10)=2430 ; b: 7200 ; c: 8100 ; сумма=17730 (скидка только на a)
+    assert round(sh[a["id"]]["share"], 2) == 2430
+    assert round(sh[b["id"]]["share"], 2) == 7200
+    assert round(sh[c["id"]]["share"], 2) == 8100
+    assert round(data["sum_shares"], 2) == 17730
+    assert sh[a["id"]]["default_price"] == 3000
+    assert sh[a["id"]]["discount"] == 10

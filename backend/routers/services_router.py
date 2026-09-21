@@ -48,6 +48,16 @@ async def get_service_prices(
     return await service.get_service_prices(category, active_only, search)
 
 
+@services_api_router.get("/service-prices/{price_id}/component-shares")
+async def get_complex_component_shares(
+    price_id: str,
+    current_user: UserInDB = Depends(get_current_active_user),
+    service: ServicePriceService = Depends(get_service_price_service)
+):
+    """Доли услуг комплекса для оплаты (дефолтная цена, коэффициент, доля со скидкой)."""
+    return await service.complex_component_shares(price_id)
+
+
 @services_api_router.get("/service-prices/{price_id}/specialists-availability")
 async def get_complex_specialists_availability(
     price_id: str,
