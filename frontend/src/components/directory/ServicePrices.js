@@ -1075,13 +1075,7 @@ const ServicePrices = ({ user }) => {
               </div>
 
               <div className="mt-3 border border-gray-300 dark:border-gray-600 rounded-lg p-3 bg-gray-50 dark:bg-gray-700">
-                <div className="grid grid-cols-12 gap-2 mb-2 text-xs font-semibold text-gray-700 dark:text-gray-300">
-                  <div className="col-span-4">Услуга</div>
-                  <div className="col-span-1">Кол-во</div>
-                  <div className="col-span-2">Специалист</div>
-                  <div className="col-span-1">Скидка%</div>
-                  <div className="col-span-4">Прайс → Доля</div>
-                </div>
+                <div className="mb-2 text-sm font-semibold text-gray-700 dark:text-gray-300">Состав комплекса</div>
                 {formData.components.length === 0 ? (
                   <p className="text-sm text-gray-500 text-center py-4">Состав пуст. Добавьте услуги поиском выше.</p>
                 ) : (
@@ -1092,32 +1086,42 @@ const ServicePrices = ({ user }) => {
                       const specialists = specialistsFor(c.service_id);
                       const sh = componentShares().items.find(i => i.service_id === c.service_id);
                       return (
-                        <div key={c.service_id} className="grid grid-cols-12 gap-2 items-center bg-white dark:bg-gray-800 p-2 rounded">
-                          <div className="col-span-4 text-sm font-medium text-gray-900 dark:text-white truncate">{c.service_name}</div>
-                          <div className="col-span-1">
-                            <input type="number" min="1" value={c.quantity}
-                              onChange={(e) => updateComponent(c.service_id, 'quantity', e.target.value)}
-                              className="w-full px-1 py-1 border border-gray-300 dark:border-gray-600 rounded text-sm" />
+                        <div key={c.service_id} className="bg-white dark:bg-gray-800 rounded-lg p-3 border border-gray-200 dark:border-gray-600">
+                          <div className="flex items-center justify-between">
+                            <span className="text-sm font-medium text-gray-900 dark:text-white truncate flex-1 min-w-0">{c.service_name}</span>
+                            <button type="button" onClick={() => removeComponent(c.service_id)}
+                              className="text-red-500 hover:text-red-700 text-lg leading-none" title="Убрать">×</button>
                           </div>
-                          <div className="col-span-2">
-                            <select
-                              value={c.doctor_id || ''}
-                              onChange={(e) => updateComponent(c.service_id, 'doctor_id', e.target.value)}
-                              className="w-full px-1 py-1 border border-gray-300 dark:border-gray-600 rounded text-sm"
-                            >
-                              <option value="">{specialists.length ? 'Выберите специалиста' : 'Нет специалиста'}</option>
-                              {specialists.map((d) => (
-                                <option key={d.id} value={d.id}>{d.full_name}</option>
-                              ))}
-                            </select>
-                          </div>
-                          <div className="col-span-1">
-                            <input type="number" min="0" max="100" step="0.1" value={c.discount || 0}
-                              onChange={(e) => updateComponent(c.service_id, 'discount', e.target.value)}
-                              className="w-full px-1 py-1 border border-gray-300 dark:border-gray-600 rounded text-sm" />
-                          </div>
-                          <div className="col-span-4 text-right text-sm text-gray-600 dark:text-gray-400">
-                            {unitPrice.toLocaleString()} ₸ → <b>{(sh?.share || 0).toLocaleString()} ₸</b>
+                          <label className="block text-[10px] text-gray-500 mt-1">Специалист</label>
+                          <select
+                            value={c.doctor_id || ''}
+                            onChange={(e) => updateComponent(c.service_id, 'doctor_id', e.target.value)}
+                            className="w-full px-2 py-1 border border-gray-300 dark:border-gray-600 rounded text-sm"
+                          >
+                            <option value="">{specialists.length ? 'Выберите специалиста' : 'Нет специалиста'}</option>
+                            {specialists.map((d) => (
+                              <option key={d.id} value={d.id}>{d.full_name}</option>
+                            ))}
+                          </select>
+                          <div className="grid grid-cols-3 gap-2 mt-1">
+                            <div>
+                              <label className="block text-[10px] text-gray-500">Кол-во</label>
+                              <input type="number" min="1" value={c.quantity}
+                                onChange={(e) => updateComponent(c.service_id, 'quantity', e.target.value)}
+                                className="w-full px-2 py-1 border border-gray-300 dark:border-gray-600 rounded text-sm" />
+                            </div>
+                            <div>
+                              <label className="block text-[10px] text-gray-500">Скидка %</label>
+                              <input type="number" min="0" max="100" step="0.1" value={c.discount || 0}
+                                onChange={(e) => updateComponent(c.service_id, 'discount', e.target.value)}
+                                className="w-full px-2 py-1 border border-gray-300 dark:border-gray-600 rounded text-sm" />
+                            </div>
+                            <div>
+                              <label className="block text-[10px] text-gray-500">Прайс → Доля</label>
+                              <div className="w-full px-2 py-1 bg-gray-100 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded text-sm text-right">
+                                {unitPrice.toLocaleString()} → <b>{(sh?.share || 0).toLocaleString()} ₸</b>
+                              </div>
+                            </div>
                           </div>
                         </div>
                       );
