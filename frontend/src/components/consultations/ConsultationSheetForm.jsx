@@ -174,14 +174,14 @@ const ConsultationSheetForm = ({ patientId, onSave, onCancel, editingSheet = nul
               doctor_id: slot.doctor_id,
               appointment_date: slot.date,
               appointment_time: slot.start_time,
-              end_time: slot.end_time,
+              end_time: slot.end_time || null,
               service_id: slot.service_id,
               complex_id: svc.service_id,
               complex_name: svc.service_name,
               price: slot.price || null
             })
           }).then((r) => {
-            if (!r.ok) { r.json().then((d) => alert('Не удалось создать запись: ' + (d.detail || r.status))).catch(() => alert('Ошибка создания записи: ' + r.status)); }
+            if (!r.ok) { r.json().then((d) => alert('Не удалось создать запись: ' + (typeof d.detail === 'string' ? d.detail : JSON.stringify(d.detail || r.status)))).catch(() => alert('Ошибка создания записи: ' + r.status)); }
           }).catch((err) => alert('Ошибка создания записи на комплекс: ' + err.message));
         });
       }
