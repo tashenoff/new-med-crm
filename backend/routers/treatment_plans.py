@@ -457,6 +457,18 @@ async def complete_course_session(
     return TreatmentPlan(**updated_plan)
 
 
+@treatment_plans_router.post("/treatment-plans/{plan_id}/complex-services/{service_id}/pay-remaining")
+async def pay_complex_remaining(
+    plan_id: str,
+    service_id: str,
+    payment_data: Optional[dict] = Body(None),
+    current_user: UserInDB = Depends(require_role([UserRole.ADMIN, UserRole.SUPER_ADMIN, UserRole.DOCTOR])),
+    service: TreatmentPlanService = Depends(get_treatment_plan_service),
+):
+    """Оплатить остаток комплексной услуги (все неоплаченные доли)."""
+    return await service.pay_complex_remaining(plan_id, service_id, payment_data)
+
+
 @treatment_plans_router.post("/treatment-plans/{plan_id}/complex-services/{service_id}/components/{component_service_id}/mark-paid")
 async def mark_complex_component_paid(
     plan_id: str,

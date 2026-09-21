@@ -123,6 +123,11 @@ const ServicePaymentList = ({ plan, onUpdate, onEdit, paymentFilter = 'all', pro
     }));
   };
 
+  const openPaymentModalForComplexRemaining = (serviceId) => {
+    setPendingPaymentData({ type: 'complex-remaining', serviceId });
+    setShowPaymentModal(true);
+  };
+
   const openPaymentModalForComponent = (serviceId, componentServiceId) => {
     setPendingPaymentData({ type: 'component', serviceId, componentServiceId });
     setShowPaymentModal(true);
@@ -183,6 +188,19 @@ const ServicePaymentList = ({ plan, onUpdate, onEdit, paymentFilter = 'all', pro
         const updated = await response.json();
         if (onUpdate) onUpdate(updated);
         alert('✅ Услуга комплекса оплачена');
+      } else if (pendingPaymentData.type === 'complex-remaining') {
+        const response = await fetch(
+          `${API}/api/treatment-plans/${plan.id}/complex-services/${pendingPaymentData.serviceId}/pay-remaining`,
+          {
+            method: 'POST',
+            headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+            body: JSON.stringify({ payment_data: paymentData })
+          }
+        );
+        if (!response.ok) throw new Error('Ошибка при оплате остатка: ' + response.status);
+        const updated = await response.json();
+        if (onUpdate) onUpdate(updated);
+        alert('✅ Комплекс оплачен полностью');
       } else if (pendingPaymentData.type === 'remaining') {
         // Оплата остатка - помечаем все неоплаченные услуги
         const unpaidServices = plan.services.filter(s => s.payment_status !== 'paid');
@@ -635,6 +653,13 @@ const ServicePaymentList = ({ plan, onUpdate, onEdit, paymentFilter = 'all', pro
             {filteredServices.map((service, index) => {
               const isPaid = service.payment_status === 'paid';
               const isCourse = service.is_course;
+              // для комплексной услуги — фактические остаток/общая по оплаченным долям
+              const cShares = service.is_complex ? complexShares(service) : [];
+              const cPaid = cShares.reduce((a, x) => a + (x.paid_amount || 0), 0);
+              const cTotal = service.total_price || 0;
+              const cRemaining = Math.max(0, cTotal - cPaid);
+              const cFully = cRemaining <= 0.001;
+              const isPartially = service.is_complex && cPaid > 0 && !cFully;
               const paymentType = service.payment_type || 'single';
               
               // Для курсов с поэтапной оплатой
@@ -810,10 +835,13 @@ const ServicePaymentList = ({ plan, onUpdate, onEdit, paymentFilter = 'all', pro
                     <div className="flex items-center justify-between">
                       <div className="flex items-center space-x-6">
                         <div>
-                          <div className="text-xs text-gray-500 font-medium mb-1">СТОИМОСТЬ</div>
+                          <div className="text-xs text-gray-500 font-medium mb-1">{service.is_complex ? 'ОБЩАЯ СУММА / ОСТАТОК' : 'СТОИМОСТЬ'}</div>
                           <div className="text-2xl font-bold text-gray-900">
-                            {(service.total_price || 0).toLocaleString()} ₸
+                            {cTotal.toLocaleString()} ₸
                           </div>
+                          {service.is_complex && !cFully && (
+                            <div className="text-sm font-semibold text-amber-600">Остаток: {cRemaining.toLocaleString()} ₸</div>
+                          )}
                         </div>
                         
                         {service.quantity_total > 1 && (
@@ -827,12 +855,20 @@ const ServicePaymentList = ({ plan, onUpdate, onEdit, paymentFilter = 'all', pro
                       </div>
                       
                       <div className="text-right">
-                        {isPaid ? (
+                        {isPaid || cFully ? (
                           <div className="inline-flex items-center px-4 py-2 bg-green-100 border-2 border-green-300 text-green-700 rounded-lg font-semibold">
                             <span className="text-lg mr-2">✅</span>
                             <div>
                               <div>Оплачено</div>
-                              <div className="text-xs text-green-500">{(service.total_price || 0).toLocaleString()} ₸</div>
+                              <div className="text-xs text-green-500">{cTotal.toLocaleString()} ₸</div>
+                            </div>
+                          </div>
+                        ) : isPartially ? (
+                          <div className="inline-flex items-center px-4 py-2 bg-amber-100 border-2 border-amber-300 text-amber-700 rounded-lg font-semibold">
+                            <span className="text-lg mr-2">🕐</span>
+                            <div>
+                              <div>Частично</div>
+                              <div className="text-xs text-amber-600">{cPaid.toLocaleString()} / {cTotal.toLocaleString()} ₸</div>
                             </div>
                           </div>
                         ) : (
@@ -840,7 +876,7 @@ const ServicePaymentList = ({ plan, onUpdate, onEdit, paymentFilter = 'all', pro
                             <span className="text-lg mr-2">❌</span>
                             <div>
                               <div>Не оплачено</div>
-                              <div className="text-xs text-red-500">{(service.total_price || 0).toLocaleString()} ₸</div>
+                              <div className="text-xs text-red-500">{cTotal.toLocaleString()} ₸</div>
                             </div>
                           </div>
                         )}
@@ -854,11 +890,13 @@ const ServicePaymentList = ({ plan, onUpdate, onEdit, paymentFilter = 'all', pro
                       </div>
                     )}
 
-                    {/* Кнопка оплаты */}
-                    {!isPaid && (
+                    {/* Кнопка оплаты (для комплекса — «Оплатить всё» за остаток) */}
+                    {!isPaid && !(service.is_complex && cFully) && (
                       <div className="flex justify-end pt-2">
                         <button
-                          onClick={() => markServicePaid(service.service_id)}
+                          onClick={() => service.is_complex
+                            ? openPaymentModalForComplexRemaining(service.service_id)
+                            : markServicePaid(service.service_id)}
                           disabled={loading}
                           className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed font-medium transition-all shadow-md hover:shadow-lg flex items-center space-x-2"
                         >
@@ -867,9 +905,9 @@ const ServicePaymentList = ({ plan, onUpdate, onEdit, paymentFilter = 'all', pro
                           ) : (
                             <>
                               <span>💳</span>
-                              <span>Оплатить</span>
+                              <span>{service.is_complex ? 'Оплатить всё' : 'Оплатить'}</span>
                               <span className="ml-2 px-2 py-0.5 bg-blue-700 rounded text-sm">
-                                {(service.total_price || 0).toLocaleString()} ₸
+                                {(service.is_complex ? cRemaining : service.total_price || 0).toLocaleString()} ₸
                               </span>
                             </>
                           )}

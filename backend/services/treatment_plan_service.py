@@ -275,6 +275,20 @@ class TreatmentPlanService:
         plan.pop("_id", None)
         return plan
 
+    async def pay_complex_remaining(self, plan_id, service_id, payment_data=None):
+        """Оплатить остаток комплексной услуги — все её неоплаченные доли разом."""
+        plan = await self.db.treatment_plans.find_one({"id": plan_id})
+        if not plan:
+            raise HTTPException(status_code=404, detail="Treatment plan not found")
+        service = next((s for s in plan.get("services", []) if s.get("service_id") == service_id), None)
+        if not service or not service.get("is_complex"):
+            raise HTTPException(status_code=404, detail="Комплексная услуга не найдена в плане")
+        unpaid = [c for c in service.get("components", []) if not c.get("paid")]
+        result = plan
+        for comp in unpaid:
+            result = await self.pay_complex_component(plan_id, service_id, comp.get("service_id"), payment_data)
+        return result
+
     async def _sync_with_crm(self, plan: dict):
         """Синхронизация с CRM (внутренний метод)"""
         try:

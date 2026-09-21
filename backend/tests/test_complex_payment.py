@@ -48,3 +48,29 @@ async def test_pay_complex_component_partial_then_full(clean_db):
 
 # helper to build ServicePriceCreate without circular import pain
 from models.services import ServicePriceCreate as ServicePriceCreatePayload
+
+async def test_pay_complex_remaining_marks_all_unpaid(clean_db):
+    from services.service_price_service import ServicePriceService
+    from services.treatment_plan_service import TreatmentPlanService
+
+    a = await clean_db.service_prices.insert_one({"id": "svc-a", "service_name": "Консультация", "service_type": "regular", "price": 2000})
+    b = await clean_db.service_prices.insert_one({"id": "svc-b", "service_name": "УЗИ", "service_type": "regular", "price": 3000})
+    svc = ServicePriceService(clean_db)
+    comp = await svc.create_service_price(
+        ServicePriceCreatePayload(service_name="Чекап Р", price=5000, service_type="complex",
+                                  components=[{"service_id": "svc-a", "quantity": 1, "price": 2000},
+                                              {"service_id": "svc-b", "quantity": 1, "price": 3000}]))
+    line = await svc.build_complex_plan_line(comp.id, quantity=1)
+    now = datetime.utcnow()
+    await clean_db.treatment_plans.insert_one({
+        "id": "plan-rem", "patient_id": "p", "title": "Р", "services": [line],
+        "total_cost": line["total_price"], "paid_amount": 0, "payment_status": "unpaid",
+        "created_at": now, "updated_at": now,
+    })
+    tp = TreatmentPlanService(clean_db)
+    updated = await tp.pay_complex_remaining("plan-rem", comp.id)
+    svc_row = next(s for s in updated["services"] if s.get("service_id") == comp.id)
+    assert all(c.get("paid") for c in svc_row["components"])
+    assert round(svc_row.get("paid_amount", 0), 2) == 5000
+    assert updated["payment_status"] == "paid"
+    assert updated["paid_amount"] == 5000
