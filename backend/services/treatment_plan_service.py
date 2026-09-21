@@ -228,7 +228,9 @@ class TreatmentPlanService:
             raise HTTPException(status_code=404, detail="Услуга комплекса не найдена")
 
         sum_default = sum((c.get("price", 0) or 0) * (c.get("quantity", 1) or 1) for c in comps)
-        complex_price = float(service.get("price", 0) or 0)
+        # цена комплекса: price | price_per_unit | total_price/количество (в плане price может не быть)
+        complex_price = float(service.get("price") or service.get("price_per_unit")
+                              or ((service.get("total_price", 0) or 0) / (service.get("quantity") or 1))) or 0.0
         k = complex_price / sum_default if sum_default else 0.0
         default = (comp.get("price", 0) or 0) * (comp.get("quantity", 1) or 1)
         disc = comp.get("discount", 0) or 0

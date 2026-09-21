@@ -111,8 +111,10 @@ const ServicePaymentList = ({ plan, onUpdate, onEdit, paymentFilter = 'all', pro
   };
 
   const complexShares = (svc) => {
+    // цена комплекса: price | price_per_unit | total_price/количество (в плане price может не быть)
+    const complexPrice = svc.price || svc.price_per_unit || (svc.total_price / (svc.quantity || 1)) || 0;
     const sumDefault = (svc.components || []).reduce((a, c) => a + (c.price || 0) * (c.quantity || 1), 0);
-    const k = sumDefault > 0 ? (svc.price || 0) / sumDefault : 0;
+    const k = sumDefault > 0 ? complexPrice / sumDefault : 0;
     return (svc.components || []).map(c => ({
       ...c,
       share: (c.price || 0) * (c.quantity || 1) * k * (1 - (c.discount || 0) / 100),
@@ -695,7 +697,11 @@ const ServicePaymentList = ({ plan, onUpdate, onEdit, paymentFilter = 'all', pro
                           <div key={c.service_id} className="flex items-center justify-between px-3 py-2 text-sm">
                             <div>
                               <div className="text-gray-900 font-medium">{c.service_name}</div>
-                              <div className="text-xs text-gray-500">доля {(c.share || 0).toLocaleString()} ₸{c.paid ? ' · оплачено' : ''}</div>
+                              <div className="text-xs text-gray-500">
+                                {(c.price || 0).toLocaleString()} ₸ → доля {(c.share || 0).toLocaleString()} ₸
+                                {(c.discount || 0) > 0 ? ` · скидка ${c.discount}%` : ''}
+                                {c.paid ? ' · оплачено' : ''}
+                              </div>
                             </div>
                             {c.paid ? (
                               <span className="text-green-600 text-xs font-medium">✅ {(c.paid_amount || 0).toLocaleString()} ₸</span>
