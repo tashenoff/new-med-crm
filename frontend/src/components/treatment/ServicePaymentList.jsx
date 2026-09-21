@@ -470,15 +470,15 @@ const ServicePaymentList = ({ plan, onUpdate, onEdit, paymentFilter = 'all', pro
           </div>
 
           <div className="mt-4 pt-3 border-t space-y-2">
-            <div className="flex justify-between text-sm text-gray-600">
-              <span>К оплате</span><span className="font-medium text-gray-900">{total.toLocaleString()} ₸</span>
-            </div>
-            {disc > 0.001 && (
-              <div className="flex justify-between text-sm text-green-600">
-                <span>Скидка</span><span>− {disc.toLocaleString()} ₸</span>
+            {(() => (
+              <div key="total" className="flex justify-between text-sm text-gray-600">
+                <span>К оплате</span><span className="font-medium text-gray-900">{total.toLocaleString()} ₸</span>
               </div>
-            )}
-            <div>
+            ))()}
+            <div key="discline" className={`flex justify-between text-sm ${disc > 0.001 ? 'text-green-600' : 'text-gray-400'}`}>
+              <span>Скидка</span><span>− {disc > 0.001 ? disc.toLocaleString() : '0'} ₸</span>
+            </div>
+            <div key="discinput">
               <div className="flex items-center justify-between mb-1">
                 <span className="text-sm text-gray-600">Скидка</span>
                 <div className="flex rounded-lg overflow-hidden border border-gray-300">
@@ -492,7 +492,7 @@ const ServicePaymentList = ({ plan, onUpdate, onEdit, paymentFilter = 'all', pro
                 onChange={(e) => setDiscountInput(e.target.value)}
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm" placeholder={discountType === 'percent' ? 'Процент скидки' : 'Сумма скидки, ₸'} />
             </div>
-            <div className="flex justify-between text-base font-semibold">
+            <div key="final" className="flex justify-between text-base font-semibold">
               <span>Итого к оплате</span><span className="text-blue-600">{finalAmt.toLocaleString()} ₸</span>
             </div>
           </div>
