@@ -271,6 +271,8 @@ class TreatmentPlanService:
         plan["updated_at"] = datetime.utcnow()
 
         await self.db.treatment_plans.update_one({"id": plan_id}, {"$set": plan})
+        # убрать ObjectId, иначе FastAPI не сможет сериализовать ответ
+        plan.pop("_id", None)
         return plan
 
     async def _sync_with_crm(self, plan: dict):
