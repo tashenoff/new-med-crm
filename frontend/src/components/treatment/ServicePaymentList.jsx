@@ -110,6 +110,22 @@ const ServicePaymentList = ({ plan, onUpdate, onEdit, paymentFilter = 'all', pro
     setShowPaymentModal(true);
   };
 
+  const complexShares = (svc) => {
+    const sumDefault = (svc.components || []).reduce((a, c) => a + (c.price || 0) * (c.quantity || 1), 0);
+    const k = sumDefault > 0 ? (svc.price || 0) / sumDefault : 0;
+    return (svc.components || []).map(c => ({
+      ...c,
+      share: (c.price || 0) * (c.quantity || 1) * k * (1 - (c.discount || 0) / 100),
+      paid: c.paid || false,
+      paid_amount: c.paid_amount || 0,
+    }));
+  };
+
+  const openPaymentModalForComponent = (serviceId, componentServiceId) => {
+    setPendingPaymentData({ type: 'component', serviceId, componentServiceId });
+    setShowPaymentModal(true);
+  };
+
   // Открыть модальное окно выбора способа оплаты для оплаты остатка
   const openPaymentModalForRemaining = () => {
     setPendingPaymentData({ type: 'remaining', serviceId: null });
@@ -151,6 +167,20 @@ const ServicePaymentList = ({ plan, onUpdate, onEdit, paymentFilter = 'all', pro
         } else {
           alert('Ошибка при отметке оплаты');
         }
+      } else if (pendingPaymentData.type === 'component') {
+        // Оплата одной услуги (доли) комплекса
+        const response = await fetch(
+          `${API}/api/treatment-plans/${plan.id}/complex-services/${pendingPaymentData.serviceId}/components/${pendingPaymentData.componentServiceId}/mark-paid`,
+          {
+            method: 'POST',
+            headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+            body: JSON.stringify({ payment_data: paymentData })
+          }
+        );
+        if (!response.ok) throw new Error('Ошибка при оплате услуги комплекса: ' + response.status);
+        const updated = await response.json();
+        if (onUpdate) onUpdate(updated);
+        alert('✅ Услуга комплекса оплачена');
       } else if (pendingPaymentData.type === 'remaining') {
         // Оплата остатка - помечаем все неоплаченные услуги
         const unpaidServices = plan.services.filter(s => s.payment_status !== 'paid');
@@ -655,6 +685,30 @@ const ServicePaymentList = ({ plan, onUpdate, onEdit, paymentFilter = 'all', pro
                     </ul>
                   </div>
                 )}
+                {service.is_complex && ((() => {
+                  const shares = complexShares(service);
+                  return (
+                    <div className="mb-2 border border-blue-200 rounded-lg overflow-hidden">
+                      <div className="px-3 py-2 bg-blue-50 text-xs font-semibold text-blue-800">Оплата по услугам комплекса</div>
+                      <div className="divide-y divide-gray-100">
+                        {shares.map(c => (
+                          <div key={c.service_id} className="flex items-center justify-between px-3 py-2 text-sm">
+                            <div>
+                              <div className="text-gray-900 font-medium">{c.service_name}</div>
+                              <div className="text-xs text-gray-500">доля {(c.share || 0).toLocaleString()} ₸{c.paid ? ' · оплачено' : ''}</div>
+                            </div>
+                            {c.paid ? (
+                              <span className="text-green-600 text-xs font-medium">✅ {(c.paid_amount || 0).toLocaleString()} ₸</span>
+                            ) : (
+                              <button type="button" onClick={() => openPaymentModalForComponent(service.service_id, c.service_id)}
+                                className="px-3 py-1 bg-blue-600 text-white rounded-lg text-xs hover:bg-blue-700">Оплатить</button>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  );
+                })())}
                 {isPerSession ? (
                   /* Курс с поэтапной оплатой */
                   <div className="space-y-4">
