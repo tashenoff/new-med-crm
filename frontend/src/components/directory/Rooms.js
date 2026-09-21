@@ -465,17 +465,17 @@ const Rooms = ({ user }) => {
           </div>
 
           <div className="flex justify-end space-x-3 pt-4">
-            <button
-              onClick={() => setShowRoomModal(false)}
-              className={buttonSecondaryClasses}
-            >
-              Отмена
-            </button>
-            <button
-              onClick={handleSaveRoom}
-              className={buttonPrimaryClasses}
-              disabled={!roomForm.name || loading}
-            >
+                      <button
+                        onClick={() => setShowRoomModal(false)}
+                        className={`${buttonSecondaryClasses} h-10 inline-flex items-center justify-center gap-2 px-5`}
+                      >
+                        Отмена
+                      </button>
+                      <button
+                        onClick={handleSaveRoom}
+                        className={`${buttonPrimaryClasses} h-10 inline-flex items-center justify-center gap-2 px-5`}
+                        disabled={!roomForm.name || loading}
+                      >
               {loading ? 'Сохранение...' : 'Сохранить'}
             </button>
           </div>
@@ -552,12 +552,12 @@ const Rooms = ({ user }) => {
 
             <div className="flex justify-end mt-4">
               <button
-                onClick={handleSaveSchedule}
-                className={buttonPrimaryClasses}
-                disabled={!scheduleForm.doctor_id || !scheduleForm.start_time || !scheduleForm.end_time || loading}
-              >
-                {loading ? 'Добавление...' : 'Добавить'}
-              </button>
+                              onClick={handleSaveSchedule}
+                              className={`${buttonPrimaryClasses} h-10 inline-flex items-center justify-center gap-2 px-5`}
+                              disabled={!scheduleForm.doctor_id || !scheduleForm.start_time || !scheduleForm.end_time || loading}
+                            >
+                              {loading ? 'Добавление...' : 'Добавить'}
+                            </button>
             </div>
           </div>
 
@@ -602,11 +602,11 @@ const Rooms = ({ user }) => {
 
           <div className="flex justify-end pt-4">
             <button
-              onClick={() => setShowScheduleModal(false)}
-              className={buttonSecondaryClasses}
-            >
-              Закрыть
-            </button>
+                          onClick={() => setShowScheduleModal(false)}
+                          className={`${buttonSecondaryClasses} h-10 inline-flex items-center justify-center gap-2 px-5`}
+                        >
+                          Закрыть
+                        </button>
           </div>
         </div>
       </Modal>
