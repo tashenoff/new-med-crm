@@ -41,14 +41,40 @@ class ServicePriceService:
             "service_name": service_price.service_name,
             "is_active": True
         })
-        
+
         if existing:
             raise HTTPException(status_code=400, detail="Service with this name already exists")
-        
+
         price_dict = service_price.dict()
+
+        # Complex service ("комплексная услуга"): validate the composition against
+        # the directory, then mark the price as a package.
+        if service_price.service_type == "complex" or service_price.components:
+            await self._validate_components(service_price.components)
+            price_dict["service_type"] = "complex"
+
         price_obj = ServicePrice(**price_dict)
         await self.db.service_prices.insert_one(price_obj.dict())
         return price_obj
+
+    async def _validate_components(self, components, exclude_id=None):
+        """Validate every component of a complex against the directory.
+
+        Raises fastapi.HTTPException(400) if a component is missing, disabled,
+        is itself a complex, or (when exclude_id is given) references the
+        complex being edited.
+        """
+        for comp in components:
+            cid = comp.service_id
+            if exclude_id and cid == exclude_id:
+                raise HTTPException(status_code=400, detail="Комплекс не может включать сам себя")
+            doc = await self.db.service_prices.find_one({"id": cid})
+            if not doc:
+                raise HTTPException(status_code=400, detail="В составе комплекса есть несуществующая услуга")
+            if not doc.get("is_active", True):
+                raise HTTPException(status_code=400, detail="В составе комплекса есть отключённая услуга")
+            if doc.get("service_type") == "complex":
+                raise HTTPException(status_code=400, detail="В составе комплекса не может быть другой комплекс")
     
     async def update_service_price(
         self, 
@@ -58,9 +84,14 @@ class ServicePriceService:
         """Update service price"""
         update_dict = {k: v for k, v in service_price_update.dict().items() if v is not None}
         update_dict["updated_at"] = datetime.utcnow()
-        
+
+        # Complex composition validation on update: components (if provided) must be
+        # resolvable, active, non-complex, and must not reference this very price.
+        if service_price_update.components is not None and service_price_update.components:
+            await self._validate_components(service_price_update.components, exclude_id=price_id)
+
         result = await self.db.service_prices.update_one(
-            {"id": price_id}, 
+            {"id": price_id},
             {"$set": update_dict}
         )
         
