@@ -7,13 +7,15 @@ export const textareaClasses = "w-full px-3 py-2 border border-gray-300 dark:bor
 
 export const labelClasses = "block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1";
 
-export const buttonPrimaryClasses = "bg-blue-600 dark:bg-blue-700 text-white py-2 rounded-lg hover:bg-blue-700 dark:hover:bg-blue-600 disabled:opacity-50";
+export const buttonBaseClasses = "h-10 inline-flex items-center justify-center gap-2 whitespace-nowrap px-4 rounded-lg";
 
-export const buttonSecondaryClasses = "bg-gray-300 dark:bg-gray-600 text-gray-700 dark:text-gray-300 py-2 rounded-lg hover:bg-gray-400 dark:hover:bg-gray-500";
+export const buttonPrimaryClasses = `bg-blue-600 dark:bg-blue-700 text-white ${buttonBaseClasses} hover:bg-blue-700 dark:hover:bg-blue-600 disabled:opacity-50`;
 
-export const buttonSuccessClasses = "bg-green-600 dark:bg-green-700 text-white py-2 rounded-lg hover:bg-green-700 dark:hover:bg-green-600 disabled:opacity-50";
+export const buttonSecondaryClasses = `bg-gray-300 dark:bg-gray-600 text-gray-700 dark:text-gray-300 ${buttonBaseClasses} hover:bg-gray-400 dark:hover:bg-gray-500`;
 
-export const buttonDangerClasses = "bg-red-600 dark:bg-red-700 text-white py-2 rounded-lg hover:bg-red-700 dark:hover:bg-red-600";
+export const buttonSuccessClasses = `bg-green-600 dark:bg-green-700 text-white ${buttonBaseClasses} hover:bg-green-700 dark:hover:bg-green-600 disabled:opacity-50`;
+
+export const buttonDangerClasses = `bg-red-600 dark:bg-red-700 text-white ${buttonBaseClasses} hover:bg-red-700 dark:hover:bg-red-600`;
 
 export const cardClasses = "bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700";
 
