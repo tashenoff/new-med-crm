@@ -219,7 +219,12 @@ class ConsultationService:
                     service["payment_type"] = ts.payment_type
             else:
                 service["is_course"] = False
-            
+
+            # Комплексная услуга: сохраняем состав в строке плана (для зарплаты/печати)
+            service["is_complex"] = bool(getattr(ts, 'is_complex', False))
+            if service["is_complex"]:
+                service["components"] = getattr(ts, 'components', None) or []
+
             services.append(service)
             total_cost += ts.total_price
         
@@ -314,7 +319,12 @@ class ConsultationService:
                     service["payment_type"] = ts.payment_type
             else:
                 service["is_course"] = False
-            
+
+            # Комплексная услуга: сохраняем состав в строке плана (для зарплаты/печати)
+            service["is_complex"] = bool(getattr(ts, 'is_complex', False))
+            if service["is_complex"]:
+                service["components"] = getattr(ts, 'components', None) or []
+
             services.append(service)
             total_cost += ts.total_price
         
