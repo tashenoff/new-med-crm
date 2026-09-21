@@ -191,11 +191,20 @@ class ServicePriceService:
                 "quantity": comp.get("quantity", 1),
                 "doctors": doctors,
             })
+        # "весь комплекс одним специалистом": врачи, умеющие ВСЕ услуги комплекса
+        # (пересечение кандидатов по каждой услуге), с расписанием/занятостью врача.
+        sets = [ {d["doctor_id"] for d in svc.get("doctors") or []} for svc in services ]
+        if services and all(sets) and len(services) > 1:
+            common = set.intersection(*sets)
+        else:
+            common = sets[0] if sets else set()
+        common_doctors = [av for av in (services[0].get("doctors") or []) if av["doctor_id"] in common] if services else []
         return {
             "complex_id": complex_id,
             "complex_name": doc.get("service_name"),
             "date": date_str,
             "services": services,
+            "common_doctors": common_doctors,
         }
 
     async def complex_component_shares(self, complex_id):

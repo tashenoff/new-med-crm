@@ -72,6 +72,8 @@ async def test_complex_specialists_availability_lists_schedule_and_booked(clean_
     avail = await svc.complex_specialists_availability(comp.id, date_str)
 
     assert avail["complex_name"] == "Чекап"
+    # врачи делают разные услуги -> нет общего врача на весь комплекс
+    assert avail["common_doctors"] == []
     # новый контракт: врач выбирается в конс-листе — по каждой услуге список кандидатов
     by_svc = {s["service_id"]: s for s in avail["services"]}
     assert set(by_svc.keys()) == {"svc-a", "svc-b"}
@@ -90,3 +92,29 @@ async def test_complex_specialists_availability_lists_schedule_and_booked(clean_
     assert d2a["has_schedule"] is False
     assert d2a["booked"] == []
     assert d2a["working_days"] == []
+
+async def test_common_doctor_for_whole_complex(clean_db):
+    from models.doctor import Doctor, DoctorSchedule
+    from models.services import ServicePrice, ServicePriceCreate, ServiceComponent
+    from services.service_price_service import ServicePriceService
+
+    # seed: одна услуга, один общий врач (без хардкода — всё из сид-данных)
+    a = ServicePrice(id="svc-1", service_name="Услуга А", price=1000)
+    b = ServicePrice(id="svc-2", service_name="Услуга Б", price=2000)
+    await clean_db.service_prices.insert_many([a.dict(), b.dict()])
+    uni = Doctor(full_name="Универсал Один", services=["svc-1", "svc-2"])
+    await clean_db.doctors.insert_one(uni.dict())
+    cpx = ServicePriceCreate(service_name="Комплекс Два", price=3000, service_type="complex",
+                             components=[
+                                 ServiceComponent(service_id="svc-1", quantity=1),
+                                 ServiceComponent(service_id="svc-2", quantity=1),
+                             ])
+    svc = ServicePriceService(clean_db)
+    created = await svc.create_service_price(cpx)
+    date_str = await _next_monday()
+    # у врача есть расписание на этот день недели
+    await clean_db.doctor_schedules.insert_one(
+        DoctorSchedule(doctor_id=uni.id, day_of_week=date.fromisoformat(date_str).weekday(),
+                       start_time="09:00", end_time="12:00").dict())
+    avail = await svc.complex_specialists_availability(created.id, date_str)
+    assert [d["doctor_id"] for d in avail["common_doctors"]] == [uni.id]
