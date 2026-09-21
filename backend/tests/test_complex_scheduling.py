@@ -70,18 +70,21 @@ async def test_complex_specialists_availability_lists_schedule_and_booked(clean_
     ))
 
     avail = await svc.complex_specialists_availability(comp.id, date_str)
-    by_id = {s["doctor_id"]: s for s in avail["specialists"]}
 
     assert avail["complex_name"] == "Чекап"
-    assert set(by_id.keys()) == {d1.id, d2.id}
+    # новый контракт: врач выбирается в конс-листе — по каждой услуге список кандидатов
+    by_svc = {s["service_id"]: s for s in avail["services"]}
+    assert set(by_svc.keys()) == {"svc-a", "svc-b"}
 
-    d1a = by_id[d1.id]
+    d1a = by_svc["svc-a"]["doctors"][0]
+    assert d1a["doctor_id"] == d1.id
     assert d1a["doctor_name"] == "Терапевт Один"
     assert d1a["has_schedule"] is True
     assert d1a["schedule_start"] == "09:00"
     assert d1a["schedule_end"] == "13:00"
     assert d1a["booked"] == ["09:30"]
 
-    d2a = by_id[d2.id]
+    d2a = by_svc["svc-b"]["doctors"][0]
+    assert d2a["doctor_id"] == d2.id
     assert d2a["has_schedule"] is False
     assert d2a["booked"] == []

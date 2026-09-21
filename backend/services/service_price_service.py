@@ -130,52 +130,65 @@ class ServicePriceService:
             "economy": round(total - package_price, 2),
         }
 
-    async def complex_specialists_availability(self, complex_id, date_str):
-        """Specialists of a complex and their availability for a chosen date.
-
-        Returns, per component specialist (deduped by doctor): doctor info, the
-        schedule window for that weekday (or empty -> manual booking), and
-        already-booked times. Powers the complex booking UI."""
-        doc = await self.db.service_prices.find_one({"id": complex_id})
-        if not doc or doc.get("service_type") != "complex":
-            raise HTTPException(status_code=404, detail="Комплексная услуга не найдена")
+    async def _doctor_availability(self, doctor_id, date_str):
+        """Doctor info + schedule window + booked times for a date."""
+        doctor = await self.db.doctors.find_one({"id": doctor_id})
+        if not doctor:
+            return None
         try:
             day_of_week = datetime.strptime(date_str, "%Y-%m-%d").weekday()
         except ValueError:
-            raise HTTPException(status_code=400, detail="Дата должна быть в формате YYYY-MM-DD")
-
-        specialists = []
-        seen = set()
-        for comp in doc.get("components") or []:
-            doctor_id = comp.get("doctor_id")
-            if not doctor_id or doctor_id in seen:
-                continue
-            seen.add(doctor_id)
-            doctor = await self.db.doctors.find_one({"id": doctor_id})
+            day_of_week = None
+        sch = None
+        if day_of_week is not None:
             sch = await self.db.doctor_schedules.find_one({
                 "doctor_id": doctor_id, "day_of_week": day_of_week, "is_active": True
             })
-            booked = await self.db.appointments.distinct("appointment_time", {
-                "doctor_id": doctor_id,
-                "appointment_date": date_str,
-                "status": {"$nin": ["cancelled", "no_show"]},
-            })
-            specialists.append({
-                "doctor_id": doctor_id,
-                "doctor_name": (doctor or {}).get("full_name", ""),
-                "service_name": comp.get("service_name", ""),
+        booked = await self.db.appointments.distinct("appointment_time", {
+            "doctor_id": doctor_id,
+            "appointment_date": date_str,
+            "status": {"$nin": ["cancelled", "no_show"]},
+        })
+        return {
+            "doctor_id": doctor_id,
+            "doctor_name": doctor.get("full_name", ""),
+            "has_schedule": bool(sch),
+            "schedule_start": (sch or {}).get("start_time"),
+            "schedule_end": (sch or {}).get("end_time"),
+            "booked": booked or [],
+        }
+
+    async def complex_specialists_availability(self, complex_id, date_str):
+        """Candidate doctors per complex service and their availability for a date.
+
+        Doctor is NOT fixed on a complex component: it is chosen in the конс-лист.
+        For each component service this returns every doctor who can perform it
+        (via get_specialists_for_service) plus that doctor's schedule window for
+        the weekday and already-booked times. The receptionist picks a doctor
+        first, then a free time."""
+        doc = await self.db.service_prices.find_one({"id": complex_id})
+        if not doc or doc.get("service_type") != "complex":
+            raise HTTPException(status_code=404, detail="Комплексная услуга не найдена")
+
+        services = []
+        for comp in doc.get("components") or []:
+            candidates = await self.get_specialists_for_service(comp.get("service_id"))
+            doctors = []
+            for cand in candidates:
+                av = await self._doctor_availability(cand["id"], date_str)
+                if av:
+                    doctors.append(av)
+            services.append({
                 "service_id": comp.get("service_id"),
+                "service_name": comp.get("service_name", ""),
                 "quantity": comp.get("quantity", 1),
-                "has_schedule": bool(sch),
-                "schedule_start": (sch or {}).get("start_time"),
-                "schedule_end": (sch or {}).get("end_time"),
-                "booked": booked or [],
+                "doctors": doctors,
             })
         return {
             "complex_id": complex_id,
             "complex_name": doc.get("service_name"),
             "date": date_str,
-            "specialists": specialists,
+            "services": services,
         }
 
     async def complex_component_shares(self, complex_id):

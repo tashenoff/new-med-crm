@@ -11,7 +11,8 @@ const ServiceSelector = ({ onServiceAdd, selectedPatient }) => {
   const [discount, setDiscount] = useState(0);
   const [loading, setLoading] = useState(false);
   const [availByDate, setAvailByDate] = useState({}); // date -> availability(complex)
-  const [selSlots, setSelSlots] = useState({});       // doctor_id -> {date, start, end}
+  const [selSlots, setSelSlots] = useState({});       // "serviceId:doctorId" -> {date, start, end}
+  const [selDoctors, setSelDoctors] = useState({});   // "serviceId" -> doctor_id
 
   const API = import.meta.env.VITE_BACKEND_URL;
 
@@ -82,11 +83,11 @@ const ServiceSelector = ({ onServiceAdd, selectedPatient }) => {
   };
 
   // Специалисты комплекса из самой свежей загруженной доступности (по любой дате)
-  const availabilityRows = () => {
+  const availabilityServices = () => {
     if (!availByDate) return [];
     const all = Object.values(availByDate);
     if (!all.length) return [];
-    return all[all.length - 1].specialists || [];
+    return all[all.length - 1].services || [];
   };
 
   // Свободные 30-минутные слоты в окне расписания минус занятые; [] если расписания нет
@@ -167,15 +168,19 @@ const ServiceSelector = ({ onServiceAdd, selectedPatient }) => {
       const today = new Date().toISOString().slice(0, 10);
       const slots = Object.entries(selSlots)
         .filter(([, sl]) => sl && sl.start)
-        .map(([did, sl]) => {
+        .map(([k, sl]) => {
+          const parts = k.split(':');
+          const svcId = parts[0];
+          const did = parts[1];
           const date = sl.date || today; // дата не менялась явно — берём сегодня
-          const spec = availByDate[date]?.specialists?.find(sp => sp.doctor_id === did);
+          const svc = availByDate[date]?.services?.find(x => x.service_id === svcId);
+          const doc = svc?.doctors?.find(d => d.doctor_id === did);
           const end = sl.end || defaultEndTime(sl.start);
           return {
             doctor_id: did,
-            doctor_name: spec?.doctor_name || '',
-            service_id: spec?.service_id || service.id,
-            service_name: spec?.service_name || service.name,
+            doctor_name: doc?.doctor_name || '',
+            service_id: svcId,
+            service_name: svc?.service_name || service.components?.find(c => c.service_id === svcId)?.service_name || service.name,
             date,
             start_time: sl.start,
             end_time: end,
@@ -198,7 +203,16 @@ const ServiceSelector = ({ onServiceAdd, selectedPatient }) => {
       description: service.description || '',
       // Комплексная услуга: одна строка, состав встроен внутри (для зарплаты/печати)
       ...(service.service_type === 'complex'
-        ? { is_complex: true, components: service.components || [], ...(scheduling ? { scheduling } : {}) }
+        ? {
+            is_complex: true,
+            // штампуем выбранного при добавлении врача в компоненты (для зарплаты/печати)
+            components: (service.components || []).map((c) => {
+              const entry = Object.entries(selSlots).find(([k, sl]) => sl && sl.start && k.startsWith(`${service.id}:${c.service_id}:`));
+              const did = entry ? entry[0].split(':')[2] : null;
+              return did ? { ...c, doctor_id: did } : c;
+            }),
+            ...(scheduling ? { scheduling } : {}),
+          }
         : {})
     };
 
@@ -307,34 +321,34 @@ const ServiceSelector = ({ onServiceAdd, selectedPatient }) => {
               <div className="font-medium text-sm text-gray-800">📅 Расписание специалистов комплекса — по каждой услуге своя дата и время</div>
               {(() => {
                 const today = new Date().toISOString().slice(0, 10);
-                const specSet = new Set();
-                if (selectedServiceData.components) {
-                  // компоненты без doctor_id — пропускаем (нет расписания)
-                }
-                const rows = availabilityRows();
+                const rows = availabilityServices();
                 if (rows.length === 0) return <p className="text-xs text-gray-500 mt-1">Загрузка доступности…</p>;
                 return (
                   <div className="space-y-2 mt-1">
-                    {rows.map((spec) => {
-                      const sl = selSlots[spec.doctor_id] || { date: today, start: '', end: '' };
-                      const specDate = sl.date || today;
-                      const dateAvail = availByDate[specDate];
-                      const specForDate = dateAvail?.specialists?.find(d => d.doctor_id === spec.doctor_id) || null;
-                      const times = specForDate ? freeTimesFor(specForDate) : [];
+                    {rows.map((svc) => {
+                      const doctorId = selDoctors[svc.service_id] || svc.doctors?.[0]?.doctor_id || '';
+                      const key = `${svc.service_id}:${doctorId}`;
+                      const sl = selSlots[key] || { date: today, start: '', end: '' };
+                      const date = sl.date || today;
+                      const dateAvail = availByDate[date];
+                      const svcForDate = dateAvail?.services?.find(x => x.service_id === svc.service_id);
+                      const doc = svcForDate?.doctors?.find(d => d.doctor_id === doctorId) || null;
+                      const times = doc ? freeTimesFor(doc) : [];
                       return (
-                        <div key={spec.doctor_id} className="bg-white border border-gray-200 rounded p-2">
-                          <div className="flex items-center justify-between">
-                            <div className="text-sm font-medium">{spec.doctor_name || 'Без имени'}</div>
-                            {!dateAvail ? (
-                              <span className="text-xs text-gray-400">загрузка дня…</span>
-                            ) : specForDate && specForDate.has_schedule ? (
-                              <span className="text-xs text-green-600">{specForDate.schedule_start}-{specForDate.schedule_end}</span>
-                            ) : (
-                              <span className="text-xs text-amber-600">нет расписания — вручную</span>
-                            )}
-                          </div>
-                          <div className="text-xs text-gray-500">
-                            {spec.service_name}{spec.quantity && spec.quantity > 1 ? ` ×${spec.quantity}` : ''}
+                        <div key={svc.service_id} className="bg-white border border-gray-200 rounded p-2">
+                          <div className="text-sm font-medium">{svc.service_name}{svc.quantity && svc.quantity > 1 ? ` ×${svc.quantity}` : ''}</div>
+                          <div className="flex items-center gap-2 mt-1 flex-wrap">
+                            <label className="text-[10px] text-gray-500">Врач</label>
+                            <select
+                              value={doctorId}
+                              onChange={(e) => { const d = e.target.value; setSelDoctors(prev => ({ ...prev, [svc.service_id]: d })); const kk = `${svc.service_id}:${d}`; setSelSlots(prev => ({ ...prev, [kk]: prev[key] || { date: today, start: '', end: '' } })); }}
+                              className="flex-1 min-w-0 px-1.5 py-1 border border-gray-300 rounded text-sm"
+                            >
+                              <option value="">—</option>
+                              {(svc.doctors || []).map(doc => (
+                                <option key={doc.doctor_id} value={doc.doctor_id}>{doc.doctor_name}{doc.has_schedule ? ` (${doc.schedule_start}-${doc.schedule_end})` : ''}</option>
+                              ))}
+                            </select>
                           </div>
                           <div className="grid grid-cols-3 gap-1.5 mt-1">
                             <label className="text-[10px] text-gray-500">Дата</label>
@@ -342,14 +356,14 @@ const ServiceSelector = ({ onServiceAdd, selectedPatient }) => {
                             <label className="text-[10px] text-gray-500">До</label>
                             <input
                               type="date"
-                              value={specDate}
-                              onChange={(e) => { const d = e.target.value; setSelSlots(prev => ({ ...prev, [spec.doctor_id]: { ...(prev[spec.doctor_id] || {}), date: d } })); ensureAvailability(d); }}
+                              value={date}
+                              onChange={(e) => { const dd = e.target.value; setSelSlots(prev => ({ ...prev, [key]: { ...(prev[key] || {}), date: dd } })); ensureAvailability(dd); }}
                               className="w-full px-1.5 py-1 border border-gray-300 rounded text-sm"
                             />
-                            {specForDate && specForDate.has_schedule ? (
+                            {doc && doc.has_schedule ? (
                               <select
                                 value={sl.start}
-                                onChange={(e) => setSelSlots(prev => ({ ...prev, [spec.doctor_id]: { ...(prev[spec.doctor_id] || {}), start: e.target.value, end: defaultEndTime(e.target.value) } }))}
+                                onChange={(e) => setSelSlots(prev => ({ ...prev, [key]: { ...(prev[key] || {}), start: e.target.value, end: defaultEndTime(e.target.value) } }))}
                                 className="w-full px-1.5 py-1 border border-gray-300 rounded text-sm"
                               >
                                 <option value="">—</option>
@@ -359,17 +373,22 @@ const ServiceSelector = ({ onServiceAdd, selectedPatient }) => {
                               <input
                                 type="time"
                                 value={sl.start}
-                                onChange={(e) => setSelSlots(prev => ({ ...prev, [spec.doctor_id]: { ...(prev[spec.doctor_id] || {}), start: e.target.value, end: defaultEndTime(e.target.value) } }))}
+                                onChange={(e) => setSelSlots(prev => ({ ...prev, [key]: { ...(prev[key] || {}), start: e.target.value, end: defaultEndTime(e.target.value) } }))}
                                 className="w-full px-1.5 py-1 border border-gray-300 rounded text-sm"
                               />
                             )}
                             <input
                               type="time"
                               value={sl.end || defaultEndTime(sl.start)}
-                              onChange={(e) => setSelSlots(prev => ({ ...prev, [spec.doctor_id]: { ...(prev[spec.doctor_id] || {}), end: e.target.value } }))}
+                              onChange={(e) => setSelSlots(prev => ({ ...prev, [key]: { ...(prev[key] || {}), end: e.target.value } }))}
                               className="w-full px-1.5 py-1 border border-gray-300 rounded text-sm"
                             />
                           </div>
+                          {!doc ? (
+                            <div className="text-[10px] text-amber-600 mt-0.5">нет расписания на эту дату — время вручную</div>
+                          ) : doc.has_schedule ? (
+                            <div className="text-[10px] text-green-600 mt-0.5">окно {doc.schedule_start}-{doc.schedule_end}, занято: {doc.booked?.length || 0}</div>
+                          ) : null}
                         </div>
                       );
                     })}
