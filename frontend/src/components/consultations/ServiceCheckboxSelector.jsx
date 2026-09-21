@@ -111,6 +111,9 @@ const ServiceCheckboxSelector = ({ onAddServices, alreadyAddedIds = [], disabled
 
   const selectedList = useMemo(() => Object.values(selected), [selected]);
   const selectedCount = selectedList.length;
+  const [selDate, setSelDate] = useState(() => new Date().toISOString().slice(0, 10));
+  const [availMap, setAvailMap] = useState({});       // complexId -> availability
+  const [selTimes, setSelTimes] = useState({});       // "complexId:doctorId" -> chosen time
   const alreadyAddedKey = Array.isArray(alreadyAddedIds) ? alreadyAddedIds.join(',') : '';
   const alreadyAddedSet = useMemo(
     () => new Set(alreadyAddedKey ? alreadyAddedKey.split(',') : []),
@@ -157,6 +160,44 @@ const ServiceCheckboxSelector = ({ onAddServices, alreadyAddedIds = [], disabled
   const getLineTotal = (cfg) => (cfg.service.price || 0) * getEffectiveCount(cfg);
   const totalPrice = selectedList.reduce((sum, cfg) => sum + getLineTotal(cfg), 0);
 
+  const freeTimesFor = (spec) => {
+    if (!spec.has_schedule || !spec.schedule_start || !spec.schedule_end) return [];
+    const booked = new Set(spec.booked || []);
+    const times = [];
+    let cur = spec.schedule_start;
+    const end = spec.schedule_end;
+    while (cur < end) {
+      if (!booked.has(cur)) times.push(cur);
+      const [hh, mm] = cur.split(':').map(Number);
+      const dt = new Date();
+      dt.setHours(hh, mm + 30, 0, 0);
+      cur = `${String(dt.getHours()).padStart(2, '0')}:${String(dt.getMinutes()).padStart(2, '0')}`;
+    }
+    return times;
+  };
+
+  const fetchComplexAvailability = async (complexId) => {
+    if (!complexId || !selDate) return;
+    try {
+      const token = localStorage.getItem('token');
+      const r = await fetch(`${API}/api/service-prices/${complexId}/specialists-availability?date=${selDate}`, {
+        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' }
+      });
+      if (r.ok) {
+        const data = await r.json();
+        setAvailMap(prev => ({ ...prev, [complexId]: data }));
+      }
+    } catch (e) {
+      console.error('Error fetching availability:', e);
+    }
+  };
+
+  const selectedComplexes = useMemo(() => selectedList.filter(cfg => cfg.service.service_type === 'complex'), [selectedList, selectedCount]);
+
+  useEffect(() => {
+    selectedComplexes.forEach(cfg => fetchComplexAvailability(cfg.service.id));
+  }, [selDate, selectedComplexes.map(c => c.service.id).join(',')]);
+
   const handleAdd = () => {
     if (selectedCount === 0) return;
     const servicesToAdd = selectedList.map((cfg) => {
@@ -184,11 +225,31 @@ const ServiceCheckboxSelector = ({ onAddServices, alreadyAddedIds = [], disabled
           payment_type: cfg.paymentType
         };
       }
+      // Для комплексной услуги — выбранные слоты специалистов
+      let scheduling = null;
+      if (cfg.service.service_type === 'complex') {
+        const avail = availMap[cfg.service.id];
+        const slots = Object.entries(selTimes)
+          .filter(([k, t]) => t && k.startsWith(cfg.service.id + ':'))
+          .map(([k, time]) => {
+            const doctorId = k.split(':')[1];
+            const spec = avail?.specialists?.find(sp => sp.doctor_id === doctorId);
+            return {
+              doctor_id: doctorId,
+              doctor_name: spec?.doctor_name || '',
+              service_id: spec?.service_id || cfg.service.id,
+              service_name: spec?.service_name || cfg.service.service_name,
+              time
+            };
+          });
+        scheduling = { date: selDate, slots };
+      }
       return {
         ...base,
         quantity: cfg.quantity || 1,
         total_price: (cfg.service.price || 0) * (cfg.quantity || 1),
-        is_course: false
+        is_course: false,
+        ...(scheduling ? { scheduling } : {})
       };
     });
     onAddServices(servicesToAdd);
@@ -314,6 +375,59 @@ const ServiceCheckboxSelector = ({ onAddServices, alreadyAddedIds = [], disabled
                               ))
                             : <li>—</li>}
                         </ul>
+                      </div>
+                    )}
+                    {cfg.service.service_type === 'complex' && (
+                      <div className="mt-1 bg-blue-50 border border-blue-200 rounded p-2 text-xs">
+                        <div className="font-medium text-gray-800">📅 Расписание специалистов</div>
+                        <input
+                          type="date"
+                          value={selDate}
+                          onChange={(e) => setSelDate(e.target.value)}
+                          className="w-full px-2 py-1 border border-gray-300 rounded text-sm mt-1"
+                        />
+                        {(() => {
+                          const avail = availMap[cfg.service.id];
+                          if (!avail) return <div className="text-gray-500 mt-1">Загрузка доступности…</div>;
+                          if (!avail.specialists || avail.specialists.length === 0)
+                            return <div className="text-amber-600 mt-1">У специалистов состава нет данных — укажите врача вручную при записи.</div>;
+                          return (
+                            <div className="space-y-1.5 mt-1">
+                              {avail.specialists.map((spec) => {
+                                const key = `${cfg.service.id}:${spec.doctor_id}`;
+                                const times = freeTimesFor(spec);
+                                return (
+                                  <div key={key} className="bg-white border border-gray-200 rounded p-1.5">
+                                    <div className="flex items-center justify-between">
+                                      <div className="font-medium">{spec.doctor_name || 'Без имени'}</div>
+                                      {spec.has_schedule
+                                        ? <span className="text-green-600">{spec.schedule_start}-{spec.schedule_end}</span>
+                                        : <span className="text-amber-600">нет расписания — вручную</span>}
+                                    </div>
+                                    <div className="text-gray-500">{spec.service_name}{spec.quantity && spec.quantity > 1 ? ` ×${spec.quantity}` : ''}</div>
+                                    {spec.has_schedule ? (
+                                      <select
+                                        value={selTimes[key] || ''}
+                                        onChange={(e) => setSelTimes(prev => ({ ...prev, [key]: e.target.value }))}
+                                        className="w-full mt-1 px-2 py-1 border border-gray-300 rounded text-sm"
+                                      >
+                                        <option value="">Выберите время</option>
+                                        {times.map(t => <option key={t} value={t}>{t}</option>)}
+                                      </select>
+                                    ) : (
+                                      <input
+                                        type="time"
+                                        value={selTimes[key] || ''}
+                                        onChange={(e) => setSelTimes(prev => ({ ...prev, [key]: e.target.value }))}
+                                        className="w-full mt-1 px-2 py-1 border border-gray-300 rounded text-sm"
+                                      />
+                                    )}
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          );
+                        })()}
                       </div>
                     )}
                   </div>
