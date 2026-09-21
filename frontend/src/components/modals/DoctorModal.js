@@ -116,10 +116,10 @@ const DoctorModal = ({
       
       if (editingItem.specialty && (doctorForm.specialty !== editingItem.specialty)) {
         console.log('  ✅ Принудительно устанавливаем specialty');
-        setDoctorForm(prev => ({
-          ...prev,
+        setDoctorForm({
+          ...doctorForm,
           specialty: editingItem.specialty
-        }));
+        });
       }
     }
   }, [specialties, editingItem, doctorForm.specialty]);
@@ -375,18 +375,15 @@ const DoctorModal = ({
                               type="checkbox"
                               checked={isSelected}
                               onChange={() => {
-                                const toAdd = specialty.name;
-                                setDoctorForm(prev => {
-                                  const current = prev.specialties || [];
-                                  const exists = current.includes(toAdd);
-                                  const newSpecialties = exists
-                                    ? current.filter(s => s !== toAdd)
-                                    : [...current, toAdd];
-                                  return {
-                                    ...prev,
-                                    specialties: newSpecialties,
-                                    specialty: newSpecialties.length > 0 ? newSpecialties[0] : null
-                                  };
+                                const current = doctorForm.specialties || [];
+                                const exists = current.includes(specialty.name);
+                                const newSpecialties = exists
+                                  ? current.filter(s => s !== specialty.name)
+                                  : [...current, specialty.name];
+                                setDoctorForm({
+                                  ...doctorForm,
+                                  specialties: newSpecialties,
+                                  specialty: newSpecialties.length > 0 ? newSpecialties[0] : null
                                 });
                               }}
                               className="rounded text-purple-600 focus:ring-purple-500"
@@ -418,14 +415,14 @@ const DoctorModal = ({
                           {spec}
                           <button
                             type="button"
-                            onClick={() => setDoctorForm(prev => {
-                              const newSpecialties = (prev.specialties || []).filter(s => s !== spec);
-                              return {
-                                ...prev,
+                            onClick={() => {
+                              const newSpecialties = (doctorForm.specialties || []).filter(s => s !== spec);
+                              setDoctorForm({
+                                ...doctorForm,
                                 specialties: newSpecialties,
                                 specialty: newSpecialties.length > 0 ? newSpecialties[0] : null
-                              };
-                            })}
+                              });
+                            }}
                             className="ml-1 hover:text-red-500"
                           >
                             ✕
