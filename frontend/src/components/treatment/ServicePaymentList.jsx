@@ -625,6 +625,11 @@ const ServicePaymentList = ({ plan, onUpdate, onEdit, paymentFilter = 'all', pro
                 <div className="flex items-center justify-between">
                   <div className="flex items-center space-x-3">
                     <h5 className="font-semibold text-gray-900 text-lg">{service.service_name}</h5>
+                    {service.is_complex && (
+                      <span className="px-3 py-1 bg-blue-100 text-blue-700 rounded-full text-xs font-semibold">
+                        🧩 Комплекс
+                      </span>
+                    )}
                     {isCourse && (
                       <span className="px-3 py-1 bg-purple-100 text-purple-700 rounded-full text-xs font-semibold">
                         🔄 Курс
@@ -636,6 +641,13 @@ const ServicePaymentList = ({ plan, onUpdate, onEdit, paymentFilter = 'all', pro
 
               {/* Тело карточки */}
               <div className="p-4">
+                {service.is_complex && (
+                  <div className="bg-blue-50 rounded p-2 mb-2 text-xs text-blue-700">
+                    🧩 Что входит: {service.components && service.components.length
+                      ? service.components.map(c => `${c.service_name}${(c.quantity || 1) > 1 ? ' ×' + c.quantity : ''}`).join('; ')
+                      : '—'}
+                  </div>
+                )}
                 {isPerSession ? (
                   /* Курс с поэтапной оплатой */
                   <div className="space-y-4">
