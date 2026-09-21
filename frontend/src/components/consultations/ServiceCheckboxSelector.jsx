@@ -164,7 +164,10 @@ const ServiceCheckboxSelector = ({ onAddServices, alreadyAddedIds = [], disabled
         service_id: cfg.service.id,
         service_name: cfg.service.service_name,
         category: cfg.service.category || '',
-        price_per_unit: cfg.service.price || 0
+        price_per_unit: cfg.service.price || 0,
+        ...(cfg.service.service_type === 'complex'
+          ? { is_complex: true, components: cfg.service.components || [] }
+          : {})
       };
       if (cfg.isCourse) {
         const totalProcedures = (cfg.durationDays || 1) * (cfg.frequencyPerDay || 1);
@@ -243,6 +246,13 @@ const ServiceCheckboxSelector = ({ onAddServices, alreadyAddedIds = [], disabled
                       <div className={`font-medium text-gray-900 text-sm truncate ${isAdded ? 'line-through text-gray-400' : ''}`}>
                         {service.service_name}
                       </div>
+                      {service.service_type === 'complex' && (
+                        <div className="text-xs text-purple-600 truncate">
+                          🧩 Комплекс • {service.components && service.components.length
+                            ? service.components.map(c => `${c.service_name}${(c.quantity || 1) > 1 ? ' ×' + c.quantity : ''}`).join('; ')
+                            : 'состав пуст'}
+                        </div>
+                      )}
                       {service.unit && (
                         <div className="text-xs text-gray-500">{formatUnit(service.unit)}</div>
                       )}
@@ -285,6 +295,13 @@ const ServiceCheckboxSelector = ({ onAddServices, alreadyAddedIds = [], disabled
                         ? `${cfg.service.price.toLocaleString()} ₸ × ${count} = ${getLineTotal(cfg).toLocaleString()} ₸`
                         : 'Цена не указана'}
                     </div>
+                    {cfg.service.service_type === 'complex' && (
+                      <div className="text-xs text-purple-600">
+                        🧩 Что входит: {cfg.service.components && cfg.service.components.length
+                          ? cfg.service.components.map(c => `${c.service_name}${(c.quantity || 1) > 1 ? ' ×' + c.quantity : ''}`).join('; ')
+                          : '—'}
+                      </div>
+                    )}
                   </div>
                   <button
                     type="button"

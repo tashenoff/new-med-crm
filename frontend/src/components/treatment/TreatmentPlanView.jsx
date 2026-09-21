@@ -162,6 +162,9 @@ const TreatmentPlanView = ({ plan, onUpdate }) => {
                       <span className="text-blue-600 text-xl">⏳</span>
                     )}
                     <h5 className="font-medium text-gray-900">{service.service_name}</h5>
+                    {service.is_complex && (
+                      <span className="ml-2 px-2 py-0.5 bg-purple-100 text-purple-700 text-xs rounded-full">🧩 Комплекс</span>
+                    )}
                   </div>
                   
                   <div className="mt-2 space-y-1">
@@ -175,6 +178,13 @@ const TreatmentPlanView = ({ plan, onUpdate }) => {
                         {(service.total_price || 0).toLocaleString()} ₸
                       </span>
                     </div>
+                    {service.is_complex && (
+                      <div className="text-xs text-purple-600">
+                        🧩 Что входит: {service.components && service.components.length
+                          ? service.components.map(c => `${c.service_name}${(c.quantity || 1) > 1 ? ' ×' + c.quantity : ''}`).join('; ')
+                          : '—'}
+                      </div>
+                    )}
                     
                     {/* Прогресс-бар для отдельной услуги */}
                     <div className="mt-2">
