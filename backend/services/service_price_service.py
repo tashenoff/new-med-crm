@@ -113,6 +113,35 @@ class ServicePriceService:
         
         return {"message": "Service price deleted successfully"}
     
+    async def get_complex_summary(self, complex_price, components):
+        """Retail sum of a complex's components from LIVE directory prices,
+        plus the economy (sum - package price). Derived from data, not hardcoded."""
+        total = 0.0
+        for comp in components:
+            doc = await self.db.service_prices.find_one({"id": comp.service_id})
+            if not doc:
+                continue
+            unit = doc.get("price", 0) or 0
+            total += float(unit) * comp.quantity
+        package_price = float(complex_price)
+        return {
+            "sum_components": round(total, 2),
+            "complex_price": package_price,
+            "economy": round(total - package_price, 2),
+        }
+
+    async def get_specialists_for_service(self, service_id):
+        """Doctors who list `service_id` among their provided services
+        (used to suggest a specialist for a complex component)."""
+        doctors = await self.db.doctors.find({"is_active": True}).to_list(None)
+        result = []
+        for doc in doctors:
+            services = doc.get("services") or []
+            ids = [s.get("service_id") if isinstance(s, dict) else s for s in services]
+            if service_id in ids:
+                result.append({"id": doc.get("id"), "full_name": doc.get("full_name")})
+        return result
+
     async def get_service_categories(self) -> dict:
         """Get all service categories"""
         categories = await self.db.service_prices.distinct("category", {"is_active": True, "category": {"$ne": None}})

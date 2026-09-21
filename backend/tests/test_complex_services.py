@@ -118,3 +118,50 @@ async def test_complex_requires_name(clean_db):
 
     with pytest.raises(ValidationError):
         ServicePriceCreate(price=20000, category="Чекапы", service_type="complex")
+
+
+async def _seed_doctor(clean_db, full_name, service_ids):
+    from models.doctor import Doctor
+
+    doc = Doctor(full_name=full_name, services=service_ids)
+    await clean_db.doctors.insert_one(doc.dict())
+    return doc
+
+
+async def test_complex_summary_computes_from_live_prices(clean_db):
+    """Sum/economy are DERIVED from the directory prices of the components,
+    never hardcoded."""
+    from services.service_price_service import ServicePriceService
+
+    a = await _seed_service(clean_db, service_name="Консультация первичная", price=1000)
+    b = await _seed_service(clean_db, service_name="Мазок на чистоту", price=500)
+
+    svc = ServicePriceService(clean_db)
+    comp = await svc.create_service_price(
+        await _complex_payload(
+            price=1200,
+            components=[{"service_id": a["id"], "quantity": 2}, {"service_id": b["id"], "quantity": 1}],
+        )
+    )
+
+    summary = await svc.get_complex_summary(comp.price, comp.components)
+
+    expected_sum = a["price"] * 2 + b["price"] * 1
+    assert summary["sum_components"] == expected_sum
+    assert summary["complex_price"] == 1200
+    assert summary["economy"] == expected_sum - summary["complex_price"]
+
+
+async def test_specialist_suggestion_finds_doctors_for_service(clean_db):
+    from services.service_price_service import ServicePriceService
+
+    a = await _seed_service(clean_db)
+    await _seed_doctor(clean_db, full_name="Иван Иванов", service_ids=[a["id"]])
+    await _seed_doctor(clean_db, full_name="Пётр Петров", service_ids=[])
+
+    svc = ServicePriceService(clean_db)
+    found = await svc.get_specialists_for_service(a["id"])
+
+    names = [d["full_name"] for d in found]
+    assert "Иван Иванов" in names
+    assert "Пётр Петров" not in names
