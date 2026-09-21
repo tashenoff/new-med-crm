@@ -1006,34 +1006,6 @@ const ServicePrices = ({ user }) => {
               ))}
             </select>
           </div>
-
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className={labelClasses}>Цена, ₸</label>
-              <input
-                type="number"
-                value={formData.price}
-                onChange={(e) => setFormData(prev => ({ ...prev, price: e.target.value }))}
-                className={inputClasses}
-                placeholder="1500"
-                min="0"
-                step="0.01"
-              />
-            </div>
-
-            <div>
-              <label className={labelClasses}>Скидка</label>
-              <select
-                value={formData.disable_discount ? "no" : "yes"}
-                onChange={(e) => setFormData(prev => ({ ...prev, disable_discount: e.target.value === "no" }))}
-                className={selectClasses}
-              >
-                <option value="yes">Разрешена</option>
-                <option value="no">Запрещена</option>
-              </select>
-            </div>
-          </div>
-
           <div className="mb-3 flex items-center gap-2">
             <input
               id="is-complex"
@@ -1144,6 +1116,35 @@ const ServicePrices = ({ user }) => {
               )}
             </div>
           )}
+
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className={labelClasses}>Цена, ₸</label>
+              <input
+                type="number"
+                value={formData.price}
+                onChange={(e) => setFormData(prev => ({ ...prev, price: e.target.value }))}
+                className={inputClasses}
+                placeholder="1500"
+                min="0"
+                step="0.01"
+              />
+            </div>
+
+            <div>
+              <label className={labelClasses}>Скидка</label>
+              <select
+                value={formData.disable_discount ? "no" : "yes"}
+                onChange={(e) => setFormData(prev => ({ ...prev, disable_discount: e.target.value === "no" }))}
+                className={selectClasses}
+              >
+                <option value="yes">Разрешена</option>
+                <option value="no">Запрещена</option>
+              </select>
+            </div>
+          </div>
+
+
 
           <div>
             <label className={labelClasses}>Описание</label>
