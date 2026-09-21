@@ -404,15 +404,20 @@ const ServiceCheckboxSelector = ({ onAddServices, alreadyAddedIds = [], disabled
                                 const key = `${cid}:${spec.doctor_id}`;
                                 const sl = selSlots[key] || { date: today, start: '', end: '' };
                                 const specDate = sl.date || today;
-                                const specForDate = availByDate[`${cid}:${specDate}`]?.specialists?.find(d => d.doctor_id === spec.doctor_id) || spec;
-                                const times = freeTimesFor(specForDate);
+                                const dateAvail = availByDate[`${cid}:${specDate}`];
+                                const specForDate = dateAvail?.specialists?.find(d => d.doctor_id === spec.doctor_id) || null;
+                                const times = specForDate ? freeTimesFor(specForDate) : [];
                                 return (
                                   <div key={key} className="bg-white border border-gray-200 rounded p-1.5">
                                     <div className="flex items-center justify-between">
                                       <div className="font-medium">{spec.doctor_name || 'Без имени'}</div>
-                                      {spec.has_schedule
-                                        ? <span className="text-green-600">{spec.schedule_start}-{spec.schedule_end}</span>
-                                        : <span className="text-amber-600">нет расписания — вручную</span>}
+                                      {!dateAvail ? (
+                                        <span className="text-gray-400">загрузка дня…</span>
+                                      ) : specForDate && specForDate.has_schedule ? (
+                                        <span className="text-green-600">{specForDate.schedule_start}-{specForDate.schedule_end}</span>
+                                      ) : (
+                                        <span className="text-amber-600">нет расписания — вручную</span>
+                                      )}
                                     </div>
                                     <div className="text-gray-500">{spec.service_name}{spec.quantity && spec.quantity > 1 ? ` ×${spec.quantity}` : ''}</div>
                                     <div className="grid grid-cols-3 gap-1 mt-1">
@@ -425,7 +430,7 @@ const ServiceCheckboxSelector = ({ onAddServices, alreadyAddedIds = [], disabled
                                         onChange={(e) => { const d = e.target.value; setSelSlots(prev => ({ ...prev, [key]: { ...(prev[key] || {}), date: d } })); ensureAvailability(cid, d); }}
                                         className="w-full px-1.5 py-1 border border-gray-300 rounded text-sm"
                                       />
-                                      {specForDate.has_schedule ? (
+                                      {specForDate && specForDate.has_schedule ? (
                                         <select
                                           value={sl.start}
                                           onChange={(e) => setSelSlots(prev => ({ ...prev, [key]: { ...(prev[key] || {}), start: e.target.value, end: defaultEndTime(e.target.value) } }))}

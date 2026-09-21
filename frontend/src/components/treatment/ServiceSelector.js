@@ -315,14 +315,18 @@ const ServiceSelector = ({ onServiceAdd, selectedPatient }) => {
                   <div className="space-y-2 mt-1">
                     {rows.map((spec) => {
                       const sl = selSlots[spec.doctor_id] || { date: today, start: '', end: '' };
-                      const times = freeTimesFor(spec);
                       const specDate = sl.date || today;
+                      const dateAvail = availByDate[specDate];
+                      const specForDate = dateAvail?.specialists?.find(d => d.doctor_id === spec.doctor_id) || null;
+                      const times = specForDate ? freeTimesFor(specForDate) : [];
                       return (
                         <div key={spec.doctor_id} className="bg-white border border-gray-200 rounded p-2">
                           <div className="flex items-center justify-between">
                             <div className="text-sm font-medium">{spec.doctor_name || 'Без имени'}</div>
-                            {spec.has_schedule ? (
-                              <span className="text-xs text-green-600">{spec.schedule_start}-{spec.schedule_end}</span>
+                            {!dateAvail ? (
+                              <span className="text-xs text-gray-400">загрузка дня…</span>
+                            ) : specForDate && specForDate.has_schedule ? (
+                              <span className="text-xs text-green-600">{specForDate.schedule_start}-{specForDate.schedule_end}</span>
                             ) : (
                               <span className="text-xs text-amber-600">нет расписания — вручную</span>
                             )}
@@ -340,7 +344,7 @@ const ServiceSelector = ({ onServiceAdd, selectedPatient }) => {
                               onChange={(e) => { const d = e.target.value; setSelSlots(prev => ({ ...prev, [spec.doctor_id]: { ...(prev[spec.doctor_id] || {}), date: d } })); ensureAvailability(d); }}
                               className="w-full px-1.5 py-1 border border-gray-300 rounded text-sm"
                             />
-                            {spec.has_schedule ? (
+                            {specForDate && specForDate.has_schedule ? (
                               <select
                                 value={sl.start}
                                 onChange={(e) => setSelSlots(prev => ({ ...prev, [spec.doctor_id]: { ...(prev[spec.doctor_id] || {}), start: e.target.value, end: defaultEndTime(e.target.value) } }))}
