@@ -284,17 +284,45 @@ class TreatmentPlanService:
         return plan
 
     async def pay_complex_remaining(self, plan_id, service_id, payment_data=None):
-        """Оплатить остаток комплексной услуги — все её неоплаченные доли разом."""
+        """Оплатить остаток комплексной услуги — все неоплаченные доли разом.
+
+        Если в payment_data приходит amount (фактическая сумма за остаток, меньше
+        остатка долей), разница распределяется РАВНОМЕРНО по всем неоплаченным
+        долям (по ТЗ: скидка на комплекс распределяется равномерно по услугам)."""
         plan = await self.db.treatment_plans.find_one({"id": plan_id})
         if not plan:
             raise HTTPException(status_code=404, detail="Treatment plan not found")
         service = next((s for s in plan.get("services", []) if s.get("service_id") == service_id), None)
         if not service or not service.get("is_complex"):
             raise HTTPException(status_code=404, detail="Комплексная услуга не найдена в плане")
-        unpaid = [c for c in service.get("components", []) if not c.get("paid")]
+
+        comps = service.get("components") or []
+        sum_default = sum((c.get("price", 0) or 0) * (c.get("quantity", 1) or 1) for c in comps)
+        complex_price = float(service.get("price") or service.get("price_per_unit")
+                              or ((service.get("total_price", 0) or 0) / (service.get("quantity") or 1))) or 0.0
+        k = complex_price / sum_default if sum_default else 0.0
+        def _share(c):
+            return (c.get("price", 0) or 0) * (c.get("quantity", 1) or 1) * k * (1 - ((c.get("discount", 0) or 0) / 100))
+
+        unpaid = [c for c in comps if not c.get("paid")]
+        if not unpaid:
+            return plan
+
+        discount_total = 0.0
+        if payment_data and isinstance(payment_data, dict):
+            amount = payment_data.get("amount")
+            if amount is not None and isinstance(amount, (int, float)) and not isinstance(amount, bool) and amount >= 0:
+                shares_total = sum(_share(c) for c in unpaid)
+                if amount < shares_total - 0.001:
+                    discount_total = shares_total - amount
+        discount_per = (discount_total / len(unpaid)) if (unpaid and discount_total > 0) else 0.0
+
         result = plan
         for comp in unpaid:
-            result = await self.pay_complex_component(plan_id, service_id, comp.get("service_id"), payment_data)
+            pd = dict(payment_data) if isinstance(payment_data, dict) else {}
+            if discount_per > 0:
+                pd["amount"] = round(max(0.0, _share(comp) - discount_per), 2)
+            result = await self.pay_complex_component(plan_id, service_id, comp.get("service_id"), pd)
         return result
 
     async def _sync_with_crm(self, plan: dict):

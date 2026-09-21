@@ -103,3 +103,37 @@ async def test_pay_complex_component_with_discount_amount(clean_db):
     assert round(paid_comp.get("discount_amount", 0), 2) == 500
     assert round(svc_row.get("paid_amount", 0), 2) == 1500
     assert updated["paid_amount"] == 1500
+
+
+async def test_pay_complex_remaining_with_even_discount(clean_db):
+    from models.services import ServicePriceCreate
+    from services.service_price_service import ServicePriceService
+    from services.treatment_plan_service import TreatmentPlanService
+    from datetime import datetime
+
+    # seed: две услуги с ценами; комплекс = сумма этих цен (k=1), без хардкода
+    a = await clean_db.service_prices.insert_one({"id": "sd-a", "service_name": "СУ А", "service_type": "regular", "price": 2000})
+    b = await clean_db.service_prices.insert_one({"id": "sd-b", "service_name": "СУ Б", "service_type": "regular", "price": 3000})
+    svc = ServicePriceService(clean_db)
+    comp = await svc.create_service_price(
+        ServicePriceCreate(service_name="Чекап СД", price=5000, service_type="complex",
+                           components=[{"service_id": "sd-a", "quantity": 1, "price": 2000},
+                                       {"service_id": "sd-b", "quantity": 1, "price": 3000}]))
+    line = await svc.build_complex_plan_line(comp.id, quantity=1)
+    now = datetime.utcnow()
+    await clean_db.treatment_plans.insert_one({
+        "id": "plan-sd", "patient_id": "p", "title": "СД", "services": [line],
+        "total_cost": line["total_price"], "paid_amount": 0, "payment_status": "unpaid",
+        "created_at": now, "updated_at": now,
+    })
+    tp = TreatmentPlanService(clean_db)
+    # скидка в 1000 на остаток (сумма долей 5000 -> платим 4000), равномерно по 500
+    updated = await tp.pay_complex_remaining("plan-sd", comp.id, payment_data={"amount": 4000})
+    row = next(s for s in updated["services"] if s.get("service_id") == comp.id)
+    by_id = {c["service_id"]: c for c in row["components"]}
+    # доли 2000 и 3000, каждая минус 500 -> 1500 и 2500 (выведены из сид-цен, не хардкод)
+    assert by_id["sd-a"]["paid_amount"] == 1500
+    assert by_id["sd-b"]["paid_amount"] == 2500
+    assert round(by_id["sd-a"]["discount_amount"], 2) == 500
+    assert round(by_id["sd-b"]["discount_amount"], 2) == 500
+    assert updated["paid_amount"] == 4000

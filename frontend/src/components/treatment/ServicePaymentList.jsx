@@ -16,6 +16,8 @@ const ServicePaymentList = ({ plan, onUpdate, onEdit, paymentFilter = 'all', pro
   // Модальное окно выбора способа оплаты
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [pendingPaymentData, setPendingPaymentData] = useState(null); // { type: 'service' | 'remaining', serviceId: string | null }
+  const [selectedPaymentType, setSelectedPaymentType] = useState(null);
+  const [discountInput, setDiscountInput] = useState('');
 
   // Загрузка способов оплаты
   useEffect(() => {
@@ -139,8 +141,8 @@ const ServicePaymentList = ({ plan, onUpdate, onEdit, paymentFilter = 'all', pro
     setShowPaymentModal(true);
   };
 
-  // Выполнить оплату с выбранным способом оплаты
-  const executePayment = async (paymentType) => {
+  // Выполнить оплату с выбранным способом оплаты и скидкой
+  const executePayment = async (paymentType, discount = 0) => {
     if (!pendingPaymentData) return;
     
     try {
@@ -151,6 +153,10 @@ const ServicePaymentList = ({ plan, onUpdate, onEdit, paymentFilter = 'all', pro
         payment_method_id: paymentType.id,
         payment_method_name: paymentType.name
       } : {};
+      if (discount > 0.001 && pendingPaymentData.type !== 'remaining') {
+        const target = payableTarget();
+        paymentData.amount = Math.max(0, Math.round((target - discount) * 100) / 100 || 0);
+      }
       
       if (pendingPaymentData.type === 'service') {
         // Оплата одной услуги
@@ -202,10 +208,18 @@ const ServicePaymentList = ({ plan, onUpdate, onEdit, paymentFilter = 'all', pro
         if (onUpdate) onUpdate(updated);
         alert('✅ Комплекс оплачен полностью');
       } else if (pendingPaymentData.type === 'remaining') {
-        // Оплата остатка - помечаем все неоплаченные услуги
+        // Оплата остатка - помечаем все неоплаченные услуги;
+        // скидка распределяется равномерно по неоплаченным простым услугам (по ТЗ)
         const unpaidServices = plan.services.filter(s => s.payment_status !== 'paid');
-        
+        const simpleUnpaid = unpaidServices.filter(s => !s.is_complex);
+        const discPer = simpleUnpaid.length && discount > 0.001
+          ? Math.round((discount / simpleUnpaid.length) * 100) / 100 : 0;
+
         for (const service of unpaidServices) {
+          const pd = { ...paymentData };
+          if (discPer > 0.001 && !service.is_complex) {
+            pd.amount = Math.max(0, (service.total_price || 0) - discPer);
+          }
           const response = await fetch(
             `${API}/api/treatment-plans/${plan.id}/services/${service.service_id}/mark-paid`,
             {
@@ -214,7 +228,7 @@ const ServicePaymentList = ({ plan, onUpdate, onEdit, paymentFilter = 'all', pro
                 'Authorization': `Bearer ${token}`,
                 'Content-Type': 'application/json'
               },
-              body: JSON.stringify({ payment_data: paymentData })
+              body: JSON.stringify({ payment_data: pd })
             }
           );
           
@@ -242,6 +256,7 @@ const ServicePaymentList = ({ plan, onUpdate, onEdit, paymentFilter = 'all', pro
     } finally {
       setLoading(false);
       setPendingPaymentData(null);
+      resetPaymentModal();
     }
   };
 
@@ -378,26 +393,48 @@ const ServicePaymentList = ({ plan, onUpdate, onEdit, paymentFilter = 'all', pro
   };
 
   // Компонент модального окна выбора способа оплаты
+  const payableTarget = () => {
+    const pd = pendingPaymentData;
+    if (!pd) return 0;
+    if (pd.type === 'component') {
+      const svc = (plan.services || []).find(x => x.service_id === pd.serviceId);
+      const sh = svc ? complexShares(svc).find(c => c.service_id === pd.componentServiceId) : null;
+      return sh ? sh.share : 0;
+    }
+    if (pd.type === 'complex-remaining') {
+      const svc = (plan.services || []).find(x => x.service_id === pd.serviceId);
+      const shares = svc ? complexShares(svc) : [];
+      const total = shares.reduce((a, c) => a + c.share, 0);
+      const paid = shares.filter(c => c.paid).reduce((a, c) => a + (c.paid_amount || 0), 0);
+      return Math.round((total - paid) * 100) / 100;
+    }
+    if (pd.type === 'service') {
+      const svc = (plan.services || []).find(x => x.service_id === pd.serviceId);
+      return svc ? svc.total_price : 0;
+    }
+    return Math.max(0, (plan.total_cost || 0) - (plan.paid_amount || 0));
+  };
+
+  const resetPaymentModal = () => { setSelectedPaymentType(null); setDiscountInput(''); };
+
   const PaymentMethodModal = () => {
     if (!showPaymentModal) return null;
-    
+    const total = payableTarget();
+    const disc = Math.max(0, Number(discountInput) || 0);
+    const finalAmt = Math.max(0, Math.round((total - disc) * 100) / 100);
+    const close = () => { resetPaymentModal(); setShowPaymentModal(false); };
     return (
-      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50" onClick={() => setShowPaymentModal(false)}>
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50" onClick={close}>
         <div className="bg-white rounded-xl shadow-2xl p-6 w-full max-w-md mx-4" onClick={e => e.stopPropagation()}>
           <div className="flex items-center justify-between mb-4">
             <h3 className="text-lg font-semibold text-gray-900 flex items-center">
               <FaCreditCard className="mr-2 text-blue-500" />
-              Выберите способ оплаты
+              Способ оплаты
             </h3>
-            <button
-              onClick={() => setShowPaymentModal(false)}
-              className="text-gray-400 hover:text-gray-600 text-2xl leading-none"
-            >
-              &times;
-            </button>
+            <button onClick={close} className="text-gray-400 hover:text-gray-600 text-2xl leading-none">&times;</button>
           </div>
-          
-          <div className="space-y-3 max-h-80 overflow-y-auto">
+
+          <div className="space-y-2 max-h-72 overflow-y-auto">
             {loadingPaymentTypes ? (
               <div className="text-center py-8 text-gray-500">
                 <div className="w-8 h-8 border-4 border-blue-200 border-t-blue-600 rounded-full animate-spin mx-auto mb-2"></div>
@@ -410,35 +447,47 @@ const ServicePaymentList = ({ plan, onUpdate, onEdit, paymentFilter = 'all', pro
               </div>
             ) : (
               paymentTypes.map(pt => (
-                <button
+                <label
                   key={pt.id}
-                  onClick={() => executePayment(pt)}
-                  disabled={loading}
-                  className="w-full px-4 py-4 bg-gray-50 hover:bg-blue-50 border border-gray-200 hover:border-blue-300 rounded-lg transition-all text-left flex items-center justify-between group"
+                  className={`flex items-center gap-3 w-full px-3 py-2.5 rounded-lg border cursor-pointer transition-all ${selectedPaymentType && selectedPaymentType.id === pt.id ? 'border-blue-400 bg-blue-50' : 'border-gray-200 bg-gray-50 hover:bg-blue-50'}`}
                 >
-                  <div className="flex items-center space-x-3">
-                    <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 font-bold text-sm">
-                      {pt.name.charAt(0).toUpperCase()}
-                    </div>
-                    <div>
-                      <div className="font-medium text-gray-900">{pt.name}</div>
-                      {pt.description && (
-                        <div className="text-xs text-gray-500">{pt.description}</div>
-                      )}
-                    </div>
+                  <input type="radio" name="paymethod" checked={selectedPaymentType && selectedPaymentType.id === pt.id}
+                    onChange={() => setSelectedPaymentType(pt)} className="accent-blue-600" />
+                  <div className="w-9 h-9 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 font-bold text-sm">
+                    {pt.name.charAt(0).toUpperCase()}
                   </div>
-                  <FaChevronRight className="text-gray-300 group-hover:text-blue-400 transition-colors" />
-                </button>
+                  <div className="flex-1 min-w-0">
+                    <div className="font-medium text-gray-900 text-sm">{pt.name}</div>
+                    {pt.description && <div className="text-xs text-gray-500">{pt.description}</div>}
+                  </div>
+                </label>
               ))
             )}
           </div>
-          
-          <button
-            onClick={() => executePayment(null)}
-            disabled={loading}
-            className="w-full mt-4 px-4 py-3 bg-gray-100 text-gray-600 rounded-lg hover:bg-gray-200 transition-colors text-sm disabled:opacity-50"
-          >
-            {loading ? 'Обработка...' : 'Продолжить без указания способа оплаты'}
+
+          <div className="mt-4 pt-3 border-t space-y-2">
+            <div className="flex justify-between text-sm text-gray-600">
+              <span>К оплате</span><span className="font-medium text-gray-900">{total.toLocaleString()} ₸</span>
+            </div>
+            {disc > 0.001 && (
+              <div className="flex justify-between text-sm text-green-600">
+                <span>Скидка</span><span>− {disc.toLocaleString()} ₸</span>
+              </div>
+            )}
+            <div className="flex items-center gap-2">
+              <label className="text-sm text-gray-600 whitespace-nowrap">Скидка, ₸</label>
+              <input type="number" min="0" step="0.01" value={discountInput}
+                onChange={(e) => setDiscountInput(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm" placeholder="0" />
+            </div>
+            <div className="flex justify-between text-base font-semibold">
+              <span>Итого к оплате</span><span className="text-blue-600">{finalAmt.toLocaleString()} ₸</span>
+            </div>
+          </div>
+
+          <button onClick={() => executePayment(selectedPaymentType, disc)} disabled={loading}
+            className="w-full mt-4 px-4 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 font-medium">
+            {loading ? 'Обработка...' : `Оплатить ${finalAmt.toLocaleString()} ₸`}
           </button>
         </div>
       </div>

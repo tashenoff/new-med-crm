@@ -522,7 +522,16 @@ async def mark_service_paid(
             
             # Установить статус оплаты услуги
             service["payment_status"] = "paid"
-            service_price = service.get("total_price", 0)
+            total_price = service.get("total_price", 0)
+            # скидка при оплате: если передан amount — платим его (меньше цены)
+            svc_amount = total_price
+            if payment_data and isinstance(payment_data, dict):
+                amt = payment_data.get("amount")
+                if amt is not None and isinstance(amt, (int, float)) and not isinstance(amt, bool) and 0 <= amt < total_price:
+                    svc_amount = float(amt)
+                    service["discount_amount"] = round(total_price - svc_amount, 2)
+            service["paid_amount"] = round(svc_amount, 2)
+            service_price = total_price
             
             # Сохранить способ оплаты если передан
             if payment_data and isinstance(payment_data, dict):
@@ -543,7 +552,7 @@ async def mark_service_paid(
     
     # Пересчитать общую сумму оплаченных услуг
     paid_services_total = sum(
-        s.get("total_price", 0)
+        (s.get("paid_amount") if "paid_amount" in s else s.get("total_price", 0))
         for s in plan.get("services", [])
         if s.get("payment_status") == "paid"
     )
