@@ -165,6 +165,10 @@ class DoctorService:
         from bson import ObjectId
         
         update_dict = {k: v for k, v in update_data.dict().items() if v is not None}
+        # Позволяем ЯВНО очистить телефон: фронт шлёт phone:null, чтобы стереть
+        # номер. В противном случае null отфильтровывается и старый номер остаётся.
+        if "phone" in update_data.model_fields_set:
+            update_dict["phone"] = update_data.phone
         update_dict["updated_at"] = datetime.utcnow()
         
         # Нормализуем specialty/specialties для обратной совместимости
