@@ -211,6 +211,66 @@ class TreatmentPlanService:
         logger.info(f"Treatment plan deleted: {plan_id}")
         return {"message": "Treatment plan deleted successfully"}
     
+    async def pay_complex_component(self, plan_id, service_id, component_service_id, payment_data=None):
+        """Отметить оплаченной одну услугу комплекса (долю), пересчитать долю
+        комплекса и статус плана. Доля услуги = прайс×кол-во×k×(1-скидка/100)."""
+        plan = await self.db.treatment_plans.find_one({"id": plan_id})
+        if not plan:
+            raise HTTPException(status_code=404, detail="Treatment plan not found")
+
+        service = next((s for s in plan.get("services", []) if s.get("service_id") == service_id), None)
+        if not service or not service.get("is_complex"):
+            raise HTTPException(status_code=404, detail="Комплексная услуга не найдена в плане")
+
+        comps = service.get("components") or []
+        comp = next((c for c in comps if c.get("service_id") == component_service_id), None)
+        if not comp:
+            raise HTTPException(status_code=404, detail="Услуга комплекса не найдена")
+
+        sum_default = sum((c.get("price", 0) or 0) * (c.get("quantity", 1) or 1) for c in comps)
+        complex_price = float(service.get("price", 0) or 0)
+        k = complex_price / sum_default if sum_default else 0.0
+        default = (comp.get("price", 0) or 0) * (comp.get("quantity", 1) or 1)
+        disc = comp.get("discount", 0) or 0
+        share = default * k * (1 - disc / 100)
+
+        comp["paid"] = True
+        comp["paid_amount"] = round(share, 2)
+        if payment_data and isinstance(payment_data, dict):
+            if payment_data.get("payment_method_id"):
+                comp["payment_method_id"] = payment_data["payment_method_id"]
+            if payment_data.get("payment_method_name"):
+                comp["payment_method_name"] = payment_data["payment_method_name"]
+
+        paid_total = sum((c.get("paid_amount") or 0) for c in comps if c.get("paid"))
+        service["paid_amount"] = round(paid_total, 2)
+        service["payment_status"] = ("paid" if paid_total >= complex_price - 0.001
+                                     else "partially_paid" if paid_total > 0 else "unpaid")
+
+        # Пересчёт общей оплаты по плану (комплексы — по оплаченным долям)
+        total_paid = 0.0
+        for svc in plan.get("services", []):
+            if svc.get("is_complex"):
+                total_paid += svc.get("paid_amount") or 0
+            elif svc.get("payment_status") == "paid":
+                total_paid += svc.get("total_price", 0)
+        plan["paid_amount"] = round(total_paid, 2)
+        plan["total_cost"] = plan.get("total_cost") or sum(
+            (svc.get("total_price") or 0) for svc in plan.get("services", [])
+        )
+        total_cost = plan["total_cost"] or 0
+        if plan["paid_amount"] >= total_cost - 0.001:
+            plan["payment_status"] = "paid"
+            plan["payment_date"] = datetime.utcnow()
+        elif plan["paid_amount"] > 0:
+            plan["payment_status"] = "partially_paid"
+        else:
+            plan["payment_status"] = "unpaid"
+        plan["updated_at"] = datetime.utcnow()
+
+        await self.db.treatment_plans.update_one({"id": plan_id}, {"$set": plan})
+        return plan
+
     async def _sync_with_crm(self, plan: dict):
         """Синхронизация с CRM (внутренний метод)"""
         try:

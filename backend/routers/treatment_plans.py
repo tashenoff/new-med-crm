@@ -457,6 +457,19 @@ async def complete_course_session(
     return TreatmentPlan(**updated_plan)
 
 
+@treatment_plans_router.post("/treatment-plans/{plan_id}/complex-services/{service_id}/components/{component_service_id}/mark-paid")
+async def mark_complex_component_paid(
+    plan_id: str,
+    service_id: str,
+    component_service_id: str,
+    payment_data: Optional[dict] = Body(None),
+    current_user: UserInDB = Depends(require_role([UserRole.ADMIN, UserRole.SUPER_ADMIN, UserRole.DOCTOR])),
+    service: TreatmentPlanService = Depends(get_treatment_plan_service),
+):
+    """Отметить оплаченной одну услугу (долю) комплексной услуги в плане."""
+    return await service.pay_complex_component(plan_id, service_id, component_service_id, payment_data)
+
+
 @treatment_plans_router.post("/treatment-plans/{plan_id}/services/{service_id}/mark-paid")
 async def mark_service_paid(
     plan_id: str,
