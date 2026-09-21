@@ -768,11 +768,14 @@ const ServicePaymentList = ({ plan, onUpdate, onEdit, paymentFilter = 'all', pro
                               <div className="text-xs text-gray-500">
                                 {(c.price || 0).toLocaleString()} ₸ → доля {(c.share || 0).toLocaleString()} ₸
                                 {(c.discount || 0) > 0 ? ` · скидка ${c.discount}%` : ''}
-                                {c.paid ? ' · оплачено' : ''}
+                                {c.paid ? (c.discount_amount > 0 ? ' · оплачено со скидкой' : ' · оплачено') : ''}
                               </div>
                             </div>
                             {c.paid ? (
-                              <span className="text-green-600 text-xs font-medium">✅ {(c.paid_amount || 0).toLocaleString()} ₸</span>
+                              <span className="text-right">
+                                <div className="text-green-600 text-xs font-medium">✅ {(c.paid_amount || 0).toLocaleString()} ₸</div>
+                                {c.discount_amount > 0 && <div className="text-gray-400 text-[10px]">скидка −{(c.discount_amount || 0).toLocaleString()} ₸</div>}
+                              </span>
                             ) : (
                               <button type="button" onClick={() => openPaymentModalForComponent(service.service_id, c.service_id)}
                                 className="px-3 py-1 bg-blue-600 text-white rounded-lg text-xs hover:bg-blue-700">Оплатить</button>
