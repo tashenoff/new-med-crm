@@ -9,9 +9,18 @@ const StaffModal = ({
   editingItem,
   loading,
   errorMessage,
-  onSave
+  onSave,
+  onResetPassword
 }) => {
   const [showPassword, setShowPassword] = useState(false);
+  const [resetPasswordMode, setResetPasswordMode] = useState(false);
+  const [resetPasswordData, setResetPasswordData] = useState({
+    newPassword: '',
+    confirmPassword: ''
+  });
+  const [resetPasswordLoading, setResetPasswordLoading] = useState(false);
+  const [resetPasswordError, setResetPasswordError] = useState('');
+  const [resetPasswordSuccess, setResetPasswordSuccess] = useState('');
 
   // ВАЖНО: Роль "Врач" исключена - врачи создаются только в разделе "Врачи"
   const roleOptions = [
@@ -27,6 +36,50 @@ const StaffModal = ({
 
   // Проверяем, редактируем ли мы врача
   const isEditingDoctor = editingItem && editingItem.type === 'doctor';
+
+  // Обработчик сброса пароля
+  const handleResetPassword = async (e) => {
+    e.preventDefault();
+    setResetPasswordError('');
+    setResetPasswordSuccess('');
+
+    // Валидация
+    if (!resetPasswordData.newPassword || !resetPasswordData.confirmPassword) {
+      setResetPasswordError('Все поля обязательны для заполнения');
+      return;
+    }
+
+    if (resetPasswordData.newPassword !== resetPasswordData.confirmPassword) {
+      setResetPasswordError('Новый пароль и подтверждение не совпадают');
+      return;
+    }
+
+    if (resetPasswordData.newPassword.length < 6) {
+      setResetPasswordError('Пароль должен содержать минимум 6 символов');
+      return;
+    }
+
+    setResetPasswordLoading(true);
+
+    try {
+      const result = await onResetPassword(editingItem.id, resetPasswordData.newPassword);
+      
+      if (result.success) {
+        setResetPasswordSuccess('✅ Пароль успешно сброшен!');
+        setResetPasswordData({ newPassword: '', confirmPassword: '' });
+        setTimeout(() => {
+          setResetPasswordMode(false);
+          setResetPasswordSuccess('');
+        }, 2000);
+      } else {
+        setResetPasswordError(result.error || 'Ошибка при сбросе пароля');
+      }
+    } catch (err) {
+      setResetPasswordError('Ошибка сети. Попробуйте еще раз.');
+    } finally {
+      setResetPasswordLoading(false);
+    }
+  };
 
   return (
     <Modal
@@ -468,6 +521,112 @@ const StaffModal = ({
                 </div>
               </div>
             </div>
+          </div>
+        )}
+
+        {/* Сброс пароля (только при редактировании) */}
+        {editingItem && (
+          <div className="border-t border-gray-200 pt-4 mt-4">
+            {!resetPasswordMode ? (
+              <div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setResetPasswordMode(true);
+                    setResetPasswordError('');
+                    setResetPasswordSuccess('');
+                    setResetPasswordData({ newPassword: '', confirmPassword: '' });
+                  }}
+                  className="px-4 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition-colors text-sm"
+                >
+                  <svg className="w-4 h-4 inline mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" />
+                  </svg>
+                  Сбросить пароль
+                </button>
+                <p className="text-xs text-gray-500 mt-2">
+                  Установите новый пароль для сотрудника без знания текущего
+                </p>
+              </div>
+            ) : (
+              <div className="bg-orange-50 border border-orange-200 rounded-lg p-4">
+                <h4 className="text-sm font-medium text-orange-900 mb-3 flex items-center gap-2">
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" />
+                  </svg>
+                  Сброс пароля: {editingItem.full_name}
+                </h4>
+
+                {resetPasswordError && (
+                  <div className="bg-red-100 border border-red-300 text-red-700 px-3 py-2 rounded mb-3 text-sm">
+                    {resetPasswordError}
+                  </div>
+                )}
+
+                {resetPasswordSuccess && (
+                  <div className="bg-green-100 border border-green-300 text-green-700 px-3 py-2 rounded mb-3 text-sm">
+                    {resetPasswordSuccess}
+                  </div>
+                )}
+
+                <div className="space-y-3">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Новый пароль
+                    </label>
+                    <input
+                      type="password"
+                      value={resetPasswordData.newPassword}
+                      onChange={(e) => setResetPasswordData({ ...resetPasswordData, newPassword: e.target.value })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                      placeholder="Минимум 6 символов"
+                      minLength={6}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Подтверждение пароля
+                    </label>
+                    <input
+                      type="password"
+                      value={resetPasswordData.confirmPassword}
+                      onChange={(e) => setResetPasswordData({ ...resetPasswordData, confirmPassword: e.target.value })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                      placeholder="Повторите новый пароль"
+                    />
+                  </div>
+                  <div className="flex gap-2 pt-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setResetPasswordMode(false);
+                        setResetPasswordError('');
+                        setResetPasswordSuccess('');
+                        setResetPasswordData({ newPassword: '', confirmPassword: '' });
+                      }}
+                      className="px-3 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors text-sm"
+                      disabled={resetPasswordLoading}
+                    >
+                      Отмена
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleResetPassword}
+                      disabled={resetPasswordLoading}
+                      className="px-3 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition-colors text-sm disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1"
+                    >
+                      {resetPasswordLoading && (
+                        <svg className="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                      )}
+                      {resetPasswordLoading ? 'Сброс...' : 'Сбросить пароль'}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         )}
 

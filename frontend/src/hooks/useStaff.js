@@ -319,19 +319,52 @@ export const useStaff = () => {
     }
   }, [API, fetchAllPersonnel]);
 
+  // НОВЫЙ: Сбросить пароль сотрудника (администратором)
+  const resetStaffPassword = useCallback(async (staffId, newPassword) => {
+    setLoading(true);
+    setError(null);
+
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch(`${API}/api/staff/${staffId}/reset-password`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ new_password: newPassword })
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.detail || 'Ошибка при сбросе пароля');
+      }
+
+      const data = await response.json();
+      return { success: true, data: data };
+    } catch (err) {
+      console.error('Error resetting password:', err);
+      setError(err.message);
+      return { success: false, error: err.message };
+    } finally {
+      setLoading(false);
+    }
+  }, [API]);
+
   return {
     staff,
     loading,
     error,
     fetchStaff,
-    fetchAllPersonnel, // НОВЫЙ
+    fetchAllPersonnel,
     fetchStaffMember,
     createStaffMember,
     updateStaffMember,
     deleteStaffMember,
     fetchStaffPermissions,
     fetchRolePermissions,
-    assignAccessToDoctor, // НОВЫЙ
-    revokeDoctorAccess // НОВЫЙ
+    assignAccessToDoctor,
+    revokeDoctorAccess,
+    resetStaffPassword // НОВЫЙ
   };
 };

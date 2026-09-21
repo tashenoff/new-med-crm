@@ -187,23 +187,6 @@ const PatientsPage = ({ user }) => {
       // Проверяем editingItem, _editingItemId ИЛИ наличие id в patientForm (для надёжности)
       const patientId = editingItem?.id || editingItem?._id || patientForm?._editingItemId || patientForm?.id || patientForm?._id;
       
-      // Диагностика для отладки дубликатов
-      const debugInfo = {
-        'editingItem?.id': editingItem?.id,
-        'editingItem?._id': editingItem?._id,
-        'patientForm?._editingItemId': patientForm?._editingItemId,
-        'patientForm?.id': patientForm?.id,
-        'patientForm?._id': patientForm?._id,
-        'patientId (результат)': patientId,
-        'Режим': patientId ? 'ОБНОВЛЕНИЕ' : 'СОЗДАНИЕ'
-      };
-      console.log('🔍 handleSavePatient - Диагностика:', debugInfo);
-      
-      // ВРЕМЕННО: alert для диагностики
-      if (!patientId) {
-        alert('⚠️ ВНИМАНИЕ: patientId не найден! Будет создан дубликат!\n\n' + JSON.stringify(debugInfo, null, 2));
-      }
-      
       if (patientId) {
         // Убираем служебные поля из данных для отправки
         const { id, _id, _editingItemId, ...dataToSend } = patientForm;

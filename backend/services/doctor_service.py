@@ -113,14 +113,14 @@ class DoctorService:
             if "id" in doctor and not isinstance(doctor["id"], str):
                 doctor["id"] = str(doctor["id"])
             
-            # Проверяем и исправляем пустые телефоны
-            if not doctor.get("phone") or len(doctor.get("phone", "").replace("+", "").replace(" ", "").replace("-", "").replace("(", "").replace(")", "")) < 10:
-                doctor["phone"] = "+7 (000) 000-00-00"
+            # Проверяем и исправляем пустые телефоны (только если телефон был, но повреждён)
+            if doctor.get("phone") and len(doctor.get("phone", "").replace("+", "").replace(" ", "").replace("-", "").replace("(", "").replace(")", "")) < 10:
+                doctor["phone"] = None
                 # Обновляем в БД для будущих запросов  
                 if "id" in doctor:
                     await self.db.doctors.update_one(
                         {"id": doctor["id"]},
-                        {"$set": {"phone": "+7 (000) 000-00-00"}}
+                        {"$set": {"phone": None}}
                     )
             
             # Нормализуем specialty/specialties для обратной совместимости
