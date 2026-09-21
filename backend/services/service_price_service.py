@@ -130,6 +130,29 @@ class ServicePriceService:
             "economy": round(total - package_price, 2),
         }
 
+    async def build_complex_plan_line(self, complex_id, quantity=1):
+        """Build the SINGLE treatment-plan line for a complex service.
+
+        The complex lands in a plan as one row (price -> total_price); the
+        composition is embedded inside the line so salary/print/display can use
+        it without re-querying. Rejects non-complex services."""
+        doc = await self.db.service_prices.find_one({"id": complex_id})
+        if not doc or doc.get("service_type") != "complex":
+            raise HTTPException(status_code=400, detail="Комплексная услуга не найдена")
+        qty = quantity or 1
+        price = float(doc.get("price", 0) or 0)
+        components = doc.get("components") or []
+        return {
+            "service_id": doc["id"],
+            "service_name": doc.get("service_name"),
+            "category": doc.get("category"),
+            "price": price,
+            "quantity": qty,
+            "total_price": round(price * qty, 2),
+            "is_complex": True,
+            "components": [dict(c) for c in components],
+        }
+
     async def get_specialists_for_service(self, service_id):
         """Doctors who can perform a service: either list the service among their
         provided services, or match the service's category by specialty.

@@ -193,3 +193,43 @@ async def test_specialist_suggestion_ignores_wrong_specialty(clean_db):
     svc = ServicePriceService(clean_db)
     found = await svc.get_specialists_for_service(service["id"])
     assert found == []
+
+
+async def test_build_complex_plan_line_embeds_components_as_one_row(clean_db):
+    """Complex = ONE plan line with its price; the composition is embedded inside
+    the line (derived from the complex data, no hardcode) so salary/print can use it."""
+    from services.service_price_service import ServicePriceService
+
+    a = await _seed_service(clean_db, service_name="Консультация первичная", price=1000)
+    b = await _seed_service(clean_db, service_name="УЗИ", price=2500)
+    svc = ServicePriceService(clean_db)
+    comp = await svc.create_service_price(
+        await _complex_payload(
+            name="Базовый чекап",
+            price=3000,
+            components=[{"service_id": a["id"], "quantity": 1}, {"service_id": b["id"], "quantity": 1}],
+        )
+    )
+
+    line = await svc.build_complex_plan_line(comp.id, quantity=2)
+
+    assert line["service_id"] == comp.id
+    assert line["service_name"] == "Базовый чекап"
+    assert line["category"] == "Чекапы"
+    assert line["price"] == 3000
+    assert line["quantity"] == 2
+    assert line["total_price"] == 6000
+    assert line["is_complex"] is True
+    # components embedded, derived from the complex
+    assert len(line["components"]) == 2
+    assert {c["service_id"] for c in line["components"]} == {a["id"], b["id"]}
+
+
+async def test_build_complex_plan_line_rejects_regular_service(clean_db):
+    from services.service_price_service import ServicePriceService
+
+    regular = await _seed_service(clean_db)
+    svc = ServicePriceService(clean_db)
+    with pytest.raises(Exception) as exc:
+        await svc.build_complex_plan_line(regular["id"], quantity=1)
+    assert getattr(exc.value, "status_code", 400) == 400
