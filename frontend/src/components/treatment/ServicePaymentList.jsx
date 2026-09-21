@@ -1,6 +1,90 @@
 import React, { useState, useEffect } from 'react';
 import { FaChevronDown, FaChevronRight, FaStethoscope, FaClipboardList, FaNotesMedical, FaUserMd, FaFileMedical, FaCreditCard } from 'react-icons/fa';
 
+const PaymentModal = ({ show, loading, onClose, paymentTypes, loadingPaymentTypes,
+  selectedPaymentType, setSelectedPaymentType, discountInput, setDiscountInput,
+  discountType, setDiscountType, total, onPay }) => {
+  if (!show) return null;
+  const raw = Math.max(0, Number(discountInput) || 0);
+  const disc = discountType === 'percent'
+    ? Math.round((total * raw / 100) * 100) / 100
+    : Math.min(raw, total);
+  const finalAmt = Math.max(0, Math.round((total - disc) * 100) / 100);
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50" onClick={onClose}>
+      <div className="bg-white rounded-xl shadow-2xl p-6 w-full max-w-md mx-4" onClick={e => e.stopPropagation()}>
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-lg font-semibold text-gray-900 flex items-center">
+            <svg className="w-5 h-5 mr-2 text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M7 15h2m4 0h2M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>
+            Способ оплаты
+          </h3>
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 text-2xl leading-none">&times;</button>
+        </div>
+
+        <div className="space-y-2 max-h-72 overflow-y-auto">
+          {loadingPaymentTypes ? (
+            <div className="text-center py-8 text-gray-500">
+              <div className="w-8 h-8 border-4 border-blue-200 border-t-blue-600 rounded-full animate-spin mx-auto mb-2"></div>
+              Загрузка способов оплаты...
+            </div>
+          ) : paymentTypes.length === 0 ? (
+            <div className="text-center py-8 text-gray-500">
+              <p>Нет доступных способов оплаты</p>
+              <p className="text-xs mt-1">Добавьте их в разделе "Тип оплаты" в справочнике</p>
+            </div>
+          ) : (
+            paymentTypes.map(pt => (
+              <label key={pt.id}
+                className={`flex items-center gap-3 w-full px-3 py-2.5 rounded-lg border cursor-pointer transition-all ${selectedPaymentType && selectedPaymentType.id === pt.id ? 'border-blue-400 bg-blue-50' : 'border-gray-200 bg-gray-50 hover:bg-blue-50'}`}>
+                <input type="radio" name="paymethod" checked={selectedPaymentType && selectedPaymentType.id === pt.id}
+                  onChange={() => setSelectedPaymentType(pt)} className="accent-blue-600" />
+                <div className="w-9 h-9 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 font-bold text-sm">
+                  {pt.name.charAt(0).toUpperCase()}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="font-medium text-gray-900 text-sm">{pt.name}</div>
+                  {pt.description && <div className="text-xs text-gray-500">{pt.description}</div>}
+                </div>
+              </label>
+            ))
+          )}
+        </div>
+
+        <div className="mt-4 pt-3 border-t space-y-2">
+          <div key="total" className="flex justify-between text-sm text-gray-600">
+            <span>К оплате</span><span className="font-medium text-gray-900">{total.toLocaleString()} ₸</span>
+          </div>
+          <div key="discline" className={`flex justify-between text-sm ${disc > 0.001 ? 'text-green-600' : 'text-gray-400'}`}>
+            <span>Скидка</span><span>− {disc > 0.001 ? disc.toLocaleString() : '0'} ₸</span>
+          </div>
+          <div key="discinput">
+            <div className="flex items-center justify-between mb-1">
+              <span className="text-sm text-gray-600">Скидка</span>
+              <div className="flex rounded-lg overflow-hidden border border-gray-300">
+                <button type="button" onClick={() => setDiscountType('fixed')}
+                  className={`px-3 py-1.5 text-xs ${discountType === 'fixed' ? 'bg-blue-600 text-white' : 'bg-white text-gray-600'}`}>фикс. ₸</button>
+                <button type="button" onClick={() => setDiscountType('percent')}
+                  className={`px-3 py-1.5 text-xs ${discountType === 'percent' ? 'bg-blue-600 text-white' : 'bg-white text-gray-600'}`}>%</button>
+              </div>
+            </div>
+            <input type="number" min="0" step="0.01" value={discountInput}
+              onChange={(e) => setDiscountInput(e.target.value)}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder={discountType === 'percent' ? 'Процент скидки' : 'Сумма скидки, ₸'} />
+          </div>
+          <div key="final" className="flex justify-between text-base font-semibold">
+            <span>Итого к оплате</span><span className="text-blue-600">{finalAmt.toLocaleString()} ₸</span>
+          </div>
+        </div>
+
+        <button onClick={() => onPay(selectedPaymentType, disc)} disabled={loading}
+          className="w-full mt-4 px-4 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 font-medium">
+          {loading ? 'Обработка...' : `Оплатить ${finalAmt.toLocaleString()} ₸`}
+        </button>
+      </div>
+    </div>
+  );
+};
+
 const ServicePaymentList = ({ plan, onUpdate, onEdit, paymentFilter = 'all', procedureFilter = 'all' }) => {
   const [loading, setLoading] = useState(false);
   const [consultation, setConsultation] = useState(null);
@@ -417,94 +501,6 @@ const ServicePaymentList = ({ plan, onUpdate, onEdit, paymentFilter = 'all', pro
   };
 
   const resetPaymentModal = () => { setSelectedPaymentType(null); setDiscountInput(''); setDiscountType('fixed'); };
-
-  const PaymentMethodModal = () => {
-    if (!showPaymentModal) return null;
-    const total = payableTarget();
-    const raw = Math.max(0, Number(discountInput) || 0);
-    const disc = discountType === 'percent'
-      ? Math.round((total * raw / 100) * 100) / 100
-      : Math.min(raw, total);
-    const finalAmt = Math.max(0, Math.round((total - disc) * 100) / 100);
-    const close = () => { resetPaymentModal(); setShowPaymentModal(false); };
-    return (
-      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50" onClick={close}>
-        <div className="bg-white rounded-xl shadow-2xl p-6 w-full max-w-md mx-4" onClick={e => e.stopPropagation()}>
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="text-lg font-semibold text-gray-900 flex items-center">
-              <FaCreditCard className="mr-2 text-blue-500" />
-              Способ оплаты
-            </h3>
-            <button onClick={close} className="text-gray-400 hover:text-gray-600 text-2xl leading-none">&times;</button>
-          </div>
-
-          <div className="space-y-2 max-h-72 overflow-y-auto">
-            {loadingPaymentTypes ? (
-              <div className="text-center py-8 text-gray-500">
-                <div className="w-8 h-8 border-4 border-blue-200 border-t-blue-600 rounded-full animate-spin mx-auto mb-2"></div>
-                Загрузка способов оплаты...
-              </div>
-            ) : paymentTypes.length === 0 ? (
-              <div className="text-center py-8 text-gray-500">
-                <p>Нет доступных способов оплаты</p>
-                <p className="text-xs mt-1">Добавьте их в разделе "Тип оплаты" в справочнике</p>
-              </div>
-            ) : (
-              paymentTypes.map(pt => (
-                <label
-                  key={pt.id}
-                  className={`flex items-center gap-3 w-full px-3 py-2.5 rounded-lg border cursor-pointer transition-all ${selectedPaymentType && selectedPaymentType.id === pt.id ? 'border-blue-400 bg-blue-50' : 'border-gray-200 bg-gray-50 hover:bg-blue-50'}`}
-                >
-                  <input type="radio" name="paymethod" checked={selectedPaymentType && selectedPaymentType.id === pt.id}
-                    onChange={() => setSelectedPaymentType(pt)} className="accent-blue-600" />
-                  <div className="w-9 h-9 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 font-bold text-sm">
-                    {pt.name.charAt(0).toUpperCase()}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="font-medium text-gray-900 text-sm">{pt.name}</div>
-                    {pt.description && <div className="text-xs text-gray-500">{pt.description}</div>}
-                  </div>
-                </label>
-              ))
-            )}
-          </div>
-
-          <div className="mt-4 pt-3 border-t space-y-2">
-            {(() => (
-              <div key="total" className="flex justify-between text-sm text-gray-600">
-                <span>К оплате</span><span className="font-medium text-gray-900">{total.toLocaleString()} ₸</span>
-              </div>
-            ))()}
-            <div key="discline" className={`flex justify-between text-sm ${disc > 0.001 ? 'text-green-600' : 'text-gray-400'}`}>
-              <span>Скидка</span><span>− {disc > 0.001 ? disc.toLocaleString() : '0'} ₸</span>
-            </div>
-            <div key="discinput">
-              <div className="flex items-center justify-between mb-1">
-                <span className="text-sm text-gray-600">Скидка</span>
-                <div className="flex rounded-lg overflow-hidden border border-gray-300">
-                  <button type="button" onClick={() => setDiscountType('fixed')}
-                    className={`px-3 py-1.5 text-xs ${discountType === 'fixed' ? 'bg-blue-600 text-white' : 'bg-white text-gray-600'}`}>фикс. ₸</button>
-                  <button type="button" onClick={() => setDiscountType('percent')}
-                    className={`px-3 py-1.5 text-xs ${discountType === 'percent' ? 'bg-blue-600 text-white' : 'bg-white text-gray-600'}`}>%</button>
-                </div>
-              </div>
-              <input type="number" min="0" step="0.01" value={discountInput}
-                onChange={(e) => setDiscountInput(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm" placeholder={discountType === 'percent' ? 'Процент скидки' : 'Сумма скидки, ₸'} />
-            </div>
-            <div key="final" className="flex justify-between text-base font-semibold">
-              <span>Итого к оплате</span><span className="text-blue-600">{finalAmt.toLocaleString()} ₸</span>
-            </div>
-          </div>
-
-          <button onClick={() => executePayment(selectedPaymentType, disc)} disabled={loading}
-            className="w-full mt-4 px-4 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 font-medium">
-            {loading ? 'Обработка...' : `Оплатить ${finalAmt.toLocaleString()} ₸`}
-          </button>
-        </div>
-      </div>
-    );
-  };
 
   return (
     <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
@@ -983,7 +979,21 @@ const ServicePaymentList = ({ plan, onUpdate, onEdit, paymentFilter = 'all', pro
           </div>
       
       {/* Модальное окно выбора способа оплаты */}
-      <PaymentMethodModal />
+      <PaymentModal
+        show={showPaymentModal}
+        loading={loading}
+        onClose={() => { resetPaymentModal(); setShowPaymentModal(false); }}
+        paymentTypes={paymentTypes}
+        loadingPaymentTypes={loadingPaymentTypes}
+        selectedPaymentType={selectedPaymentType}
+        setSelectedPaymentType={setSelectedPaymentType}
+        discountInput={discountInput}
+        setDiscountInput={setDiscountInput}
+        discountType={discountType}
+        setDiscountType={setDiscountType}
+        total={payableTarget()}
+        onPay={(pType, d) => executePayment(pType, d)}
+      />
     </div>
   );
 };
