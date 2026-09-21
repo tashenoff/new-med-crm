@@ -203,9 +203,16 @@ const ServiceSelector = ({ onServiceAdd, selectedPatient }) => {
           </h5>
           {selectedServiceData.service_type === 'complex' && (
             <div className="mb-3 p-2 bg-purple-50 rounded text-sm text-purple-700">
-              🧩 Что входит: {selectedServiceData.components && selectedServiceData.components.length
-                ? selectedServiceData.components.map(c => `${c.service_name}${(c.quantity || 1) > 1 ? ' ×' + c.quantity : ''}`).join('; ')
-                : '—'}
+              <div className="font-medium">🧩 Что входит:</div>
+              <ul className="list-disc pl-3 mt-1 space-y-0.5">
+                {selectedServiceData.components && selectedServiceData.components.length
+                  ? selectedServiceData.components.map(c => (
+                      <li key={c.service_id || c.service_name}>
+                        {c.service_name}{c.quantity && c.quantity > 1 ? ` ×${c.quantity}` : ''}{c.price ? ` — ${c.price.toLocaleString()} ₸` : ''}
+                      </li>
+                    ))
+                  : <li>—</li>}
+              </ul>
             </div>
           )}
           

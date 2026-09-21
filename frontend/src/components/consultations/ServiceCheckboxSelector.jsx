@@ -247,10 +247,17 @@ const ServiceCheckboxSelector = ({ onAddServices, alreadyAddedIds = [], disabled
                         {service.service_name}
                       </div>
                       {service.service_type === 'complex' && (
-                        <div className="text-xs text-purple-600 truncate">
-                          🧩 Комплекс • {service.components && service.components.length
-                            ? service.components.map(c => `${c.service_name}${(c.quantity || 1) > 1 ? ' ×' + c.quantity : ''}`).join('; ')
-                            : 'состав пуст'}
+                        <div className="text-xs text-purple-600">
+                          <div>🧩 Комплекс:</div>
+                          <ul className="list-disc pl-3 mt-0.5 space-y-0.5">
+                            {service.components && service.components.length
+                              ? service.components.map(c => (
+                                  <li key={c.service_id || c.service_name}>
+                                    {c.service_name}{c.quantity && c.quantity > 1 ? ` ×${c.quantity}` : ''}{c.price ? ` — ${c.price.toLocaleString()} ₸` : ''}
+                                  </li>
+                                ))
+                              : <li>состав пуст</li>}
+                          </ul>
                         </div>
                       )}
                       {service.unit && (
@@ -297,9 +304,16 @@ const ServiceCheckboxSelector = ({ onAddServices, alreadyAddedIds = [], disabled
                     </div>
                     {cfg.service.service_type === 'complex' && (
                       <div className="text-xs text-purple-600">
-                        🧩 Что входит: {cfg.service.components && cfg.service.components.length
-                          ? cfg.service.components.map(c => `${c.service_name}${(c.quantity || 1) > 1 ? ' ×' + c.quantity : ''}`).join('; ')
-                          : '—'}
+                        <div>🧩 Что входит:</div>
+                        <ul className="list-disc pl-3 mt-0.5 space-y-0.5">
+                          {cfg.service.components && cfg.service.components.length
+                            ? cfg.service.components.map(c => (
+                                <li key={c.service_id || c.service_name}>
+                                  {c.service_name}{c.quantity && c.quantity > 1 ? ` ×${c.quantity}` : ''}{c.price ? ` — ${c.price.toLocaleString()} ₸` : ''}
+                                </li>
+                              ))
+                            : <li>—</li>}
+                        </ul>
                       </div>
                     )}
                   </div>

@@ -180,9 +180,16 @@ const TreatmentPlanView = ({ plan, onUpdate }) => {
                     </div>
                     {service.is_complex && (
                       <div className="text-xs text-purple-600">
-                        🧩 Что входит: {service.components && service.components.length
-                          ? service.components.map(c => `${c.service_name}${(c.quantity || 1) > 1 ? ' ×' + c.quantity : ''}`).join('; ')
-                          : '—'}
+                        <div>🧩 Что входит:</div>
+                        <ul className="list-disc pl-3 mt-0.5 space-y-0.5">
+                          {service.components && service.components.length
+                            ? service.components.map(c => (
+                                <li key={c.service_id || c.service_name}>
+                                  {c.service_name}{c.quantity && c.quantity > 1 ? ` ×${c.quantity}` : ''}{c.price ? ` — ${c.price.toLocaleString()} ₸` : ''}
+                                </li>
+                              ))
+                            : <li>—</li>}
+                        </ul>
                       </div>
                     )}
                     
