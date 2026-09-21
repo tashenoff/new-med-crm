@@ -239,6 +239,7 @@ const ServicePrices = ({ user }) => {
         category: service.category || '',
         quantity: 1,
         price: service.price || 0,
+        discount: 0,
         doctor_id: specialist ? specialist.id : ''
       }]
     }));
@@ -259,6 +260,21 @@ const ServicePrices = ({ user }) => {
   const specialistsFor = (serviceId) => {
     const svc = servicePrices.find(sp => sp.id === serviceId);
     return svc ? doctors.filter(d => doctorProvidesService(d, svc)) : [];
+  };
+
+  // Доли услуг комплекса для оплаты: коэффициент k = цена/сумма прайса,
+  // доля каждой услуги = прайс×кол-во×k×(1-скидка/100). Производно от данных.
+  const componentShares = () => {
+    const packagePrice = parseFloat(formData.price || '0');
+    const items = (formData.components || []).map((c) => {
+      const live = servicePrices.find(sp => sp.id === c.service_id);
+      const defaultUnit = live ? (live.price || 0) : (c.price || 0);
+      return { service_id: c.service_id, default: defaultUnit * (c.quantity || 1), discount: c.discount || 0 };
+    });
+    const sumDefault = items.reduce((a, x) => a + x.default, 0);
+    const coeff = sumDefault > 0 ? packagePrice / sumDefault : 0;
+    const mapped = items.map((x) => ({ ...x, share: x.default * coeff * (1 - (x.discount || 0) / 100) }));
+    return { coefficient: coeff, sumDefault, sumShares: mapped.reduce((a, x) => a + x.share, 0), items: mapped };
   };
 
   // Live retail sum of the composition (from directory prices) + economy vs the package price.
@@ -1060,10 +1076,11 @@ const ServicePrices = ({ user }) => {
 
               <div className="mt-3 border border-gray-300 dark:border-gray-600 rounded-lg p-3 bg-gray-50 dark:bg-gray-700">
                 <div className="grid grid-cols-12 gap-2 mb-2 text-xs font-semibold text-gray-700 dark:text-gray-300">
-                  <div className="col-span-5">Услуга</div>
-                  <div className="col-span-2">Кол-во</div>
-                  <div className="col-span-3">Специалист</div>
-                  <div className="col-span-2"></div>
+                  <div className="col-span-4">Услуга</div>
+                  <div className="col-span-1">Кол-во</div>
+                  <div className="col-span-2">Специалист</div>
+                  <div className="col-span-1">Скидка%</div>
+                  <div className="col-span-4">Прайс → Доля</div>
                 </div>
                 {formData.components.length === 0 ? (
                   <p className="text-sm text-gray-500 text-center py-4">Состав пуст. Добавьте услуги поиском выше.</p>
@@ -1073,28 +1090,34 @@ const ServicePrices = ({ user }) => {
                       const live = servicePrices.find(sp => sp.id === c.service_id);
                       const unitPrice = live ? (live.price || 0) : (c.price || 0);
                       const specialists = specialistsFor(c.service_id);
+                      const sh = componentShares().items.find(i => i.service_id === c.service_id);
                       return (
                         <div key={c.service_id} className="grid grid-cols-12 gap-2 items-center bg-white dark:bg-gray-800 p-2 rounded">
-                          <div className="col-span-5 text-sm font-medium text-gray-900 dark:text-white">{c.service_name}</div>
-                          <div className="col-span-2">
+                          <div className="col-span-4 text-sm font-medium text-gray-900 dark:text-white truncate">{c.service_name}</div>
+                          <div className="col-span-1">
                             <input type="number" min="1" value={c.quantity}
                               onChange={(e) => updateComponent(c.service_id, 'quantity', e.target.value)}
-                              className="w-full px-2 py-1 border border-gray-300 dark:border-gray-600 rounded text-sm" />
+                              className="w-full px-1 py-1 border border-gray-300 dark:border-gray-600 rounded text-sm" />
                           </div>
-                          <div className="col-span-3">
+                          <div className="col-span-2">
                             <select
                               value={c.doctor_id || ''}
                               onChange={(e) => updateComponent(c.service_id, 'doctor_id', e.target.value)}
-                              className="w-full px-2 py-1 border border-gray-300 dark:border-gray-600 rounded text-sm"
+                              className="w-full px-1 py-1 border border-gray-300 dark:border-gray-600 rounded text-sm"
                             >
-                              <option value="">{specialists.length ? 'Выберите специалиста' : 'Нет специалиста (вручную)'}</option>
+                              <option value="">{specialists.length ? 'Выберите специалиста' : 'Нет специалиста'}</option>
                               {specialists.map((d) => (
                                 <option key={d.id} value={d.id}>{d.full_name}</option>
                               ))}
                             </select>
                           </div>
-                          <div className="col-span-2 text-right text-sm text-gray-600 dark:text-gray-400">
-                            {unitPrice.toLocaleString()} ₸
+                          <div className="col-span-1">
+                            <input type="number" min="0" max="100" step="0.1" value={c.discount || 0}
+                              onChange={(e) => updateComponent(c.service_id, 'discount', e.target.value)}
+                              className="w-full px-1 py-1 border border-gray-300 dark:border-gray-600 rounded text-sm" />
+                          </div>
+                          <div className="col-span-4 text-right text-sm text-gray-600 dark:text-gray-400">
+                            {unitPrice.toLocaleString()} ₸ → <b>{(sh?.share || 0).toLocaleString()} ₸</b>
                           </div>
                         </div>
                       );
@@ -1105,12 +1128,16 @@ const ServicePrices = ({ user }) => {
 
               {formData.components.length > 0 && (
                 <div className="mt-2 text-xs text-gray-600 dark:text-gray-300">
-                  {(() => { const s = complexSummary(); return (
-                    <span>
-                      По отдельности: <b>{s.sum.toLocaleString()} ₸</b>
+                  {(() => { const s = complexSummary(); const sh = componentShares(); return (
+                    <div>
+                      <span>По отдельности: <b>{s.sum.toLocaleString()} ₸</b></span>
                       {' '}· Пакетом: <b>{s.packagePrice.toLocaleString()} ₸</b>
                       {' '}· Экономия: <b className={s.economy >= 0 ? 'text-green-600' : 'text-red-600'}>{s.economy.toLocaleString()} ₸</b>
-                    </span>
+                      <div className="mt-1">
+                        Коэффициент комплекса: <b>{sh.coefficient.toFixed(4)}</b>
+                        {' '}· Сумма долей: <b>{sh.sumShares.toLocaleString()} ₸</b>
+                      </div>
+                    </div>
                   ); })()}
                 </div>
               )}
