@@ -152,7 +152,6 @@ async def create_appointment(
     db: AsyncIOMotorDatabase = Depends(get_database)
 ):
 
-    print(f"[APPT-CREATE] {appointment.dict()}")
     # Check if patient exists
     # Пациенты могут иметь поле id, или быть старыми без id (только _id)
     try:
