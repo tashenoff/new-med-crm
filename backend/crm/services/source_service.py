@@ -18,6 +18,23 @@ class SourceService:
         self.db = db
         self.collection = db.crm_sources
         self.leads_collection = db.crm_leads
+
+    @staticmethod
+    def _normalize_source_doc(doc: dict) -> dict:
+        """Нормализует документ источника для совместимости со старой схемой.
+
+        Старые миграции (003) создавали источники БЕЗ поля type и status
+        (вместо этого использовали is_active). Добавляем значения по умолчанию,
+        чтобы Source(**doc) не падал при валидации.
+        """
+        normalized = dict(doc)
+        if "type" not in normalized or not normalized.get("type"):
+            normalized["type"] = SourceType.OTHER
+        if "status" not in normalized or not normalized.get("status"):
+            # Старые источники с is_active=False считаем неактивными
+            is_active = normalized.pop("is_active", True)
+            normalized["status"] = SourceStatus.ACTIVE if is_active else SourceStatus.INACTIVE
+        return normalized
     
     async def create_source(self, source_data: SourceCreate, created_by: Optional[str] = None) -> Source:
         """Создать новый источник"""
@@ -49,7 +66,7 @@ class SourceService:
             # Обновляем статистику перед возвратом
             await self._update_source_statistics(source_id)
             source_data = await self.collection.find_one({"id": source_id})
-            return Source(**source_data)
+            return Source(**self._normalize_source_doc(source_data))
         return None
     
     async def update_source(self, source_id: str, update_data: SourceUpdate) -> Optional[Source]:
@@ -107,7 +124,7 @@ class SourceService:
         for source_data in sources_data:
             await self._update_source_statistics(source_data["id"])
             updated_source_data = await self.collection.find_one({"id": source_data["id"]})
-            sources.append(Source(**updated_source_data))
+            sources.append(Source(**self._normalize_source_doc(updated_source_data)))
         
         return sources
     

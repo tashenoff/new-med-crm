@@ -6,7 +6,7 @@ service categories, specialties, and service pricing.
 """
 
 from pydantic import BaseModel, Field, validator
-from typing import Optional
+from typing import Optional, List
 from datetime import datetime
 import uuid
 
@@ -57,9 +57,25 @@ class SpecialtyUpdate(BaseModel):
     is_active: Optional[bool] = None
 
 
+class ServiceComponent(BaseModel):
+    """A single line inside a complex service ("комплексная услуга").
+
+    References a regular directory service. Everything except `service_id` is
+    derived/denormalised from the referenced price so the complex can be
+    displayed and used for salary without re-querying.
+    """
+    service_id: str
+    service_name: Optional[str] = None
+    quantity: int = Field(default=1, ge=1)
+    price: Optional[float] = Field(default=None, ge=0)  # прайс-цена (дефолтная)
+    discount: Optional[float] = Field(default=0.0, ge=0)  # индивидуальная скидка на услугу, %
+    doctor_id: Optional[str] = None
+
+
 class ServicePrice(BaseModel):
     """Service price directory model"""
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    service_type: str = "regular"  # "regular" | "complex"
     service_name: str
     service_name_kz: Optional[str] = None  # Название на казахском языке
     service_code: Optional[str] = None  # Код услуги
@@ -75,6 +91,7 @@ class ServicePrice(BaseModel):
     require_medical_history: bool = False  # Контроль заполнения истории болезней
     show_in_online_booking: bool = False  # Показывать в "Онлайн записи" и Medflex
     materials: Optional[list] = []  # Материалы для услуги
+    components: Optional[List[ServiceComponent]] = []  # Состав для комплексных услуг
     is_active: bool = True
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)
@@ -89,6 +106,8 @@ class ServicePrice(BaseModel):
 
 class ServicePriceCreate(BaseModel):
     """Model for creating service price"""
+    service_type: str = "regular"  # "regular" | "complex"
+    components: Optional[List[ServiceComponent]] = []  # Состав для комплексных услуг
     service_name: str
     service_name_kz: Optional[str] = None
     service_code: Optional[str] = None
@@ -115,6 +134,8 @@ class ServicePriceCreate(BaseModel):
 
 class ServicePriceUpdate(BaseModel):
     """Model for updating service price"""
+    service_type: Optional[str] = None  # "regular" | "complex"
+    components: Optional[List[ServiceComponent]] = None  # Состав для комплексных услуг
     service_name: Optional[str] = None
     service_name_kz: Optional[str] = None
     service_code: Optional[str] = None

@@ -41,14 +41,40 @@ class ServicePriceService:
             "service_name": service_price.service_name,
             "is_active": True
         })
-        
+
         if existing:
             raise HTTPException(status_code=400, detail="Service with this name already exists")
-        
+
         price_dict = service_price.dict()
+
+        # Complex service ("комплексная услуга"): validate the composition against
+        # the directory, then mark the price as a package.
+        if service_price.service_type == "complex" or service_price.components:
+            await self._validate_components(service_price.components)
+            price_dict["service_type"] = "complex"
+
         price_obj = ServicePrice(**price_dict)
         await self.db.service_prices.insert_one(price_obj.dict())
         return price_obj
+
+    async def _validate_components(self, components, exclude_id=None):
+        """Validate every component of a complex against the directory.
+
+        Raises fastapi.HTTPException(400) if a component is missing, disabled,
+        is itself a complex, or (when exclude_id is given) references the
+        complex being edited.
+        """
+        for comp in components:
+            cid = comp.service_id
+            if exclude_id and cid == exclude_id:
+                raise HTTPException(status_code=400, detail="Комплекс не может включать сам себя")
+            doc = await self.db.service_prices.find_one({"id": cid})
+            if not doc:
+                raise HTTPException(status_code=400, detail="В составе комплекса есть несуществующая услуга")
+            if not doc.get("is_active", True):
+                raise HTTPException(status_code=400, detail="В составе комплекса есть отключённая услуга")
+            if doc.get("service_type") == "complex":
+                raise HTTPException(status_code=400, detail="В составе комплекса не может быть другой комплекс")
     
     async def update_service_price(
         self, 
@@ -58,9 +84,14 @@ class ServicePriceService:
         """Update service price"""
         update_dict = {k: v for k, v in service_price_update.dict().items() if v is not None}
         update_dict["updated_at"] = datetime.utcnow()
-        
+
+        # Complex composition validation on update: components (if provided) must be
+        # resolvable, active, non-complex, and must not reference this very price.
+        if service_price_update.components is not None and service_price_update.components:
+            await self._validate_components(service_price_update.components, exclude_id=price_id)
+
         result = await self.db.service_prices.update_one(
-            {"id": price_id}, 
+            {"id": price_id},
             {"$set": update_dict}
         )
         
@@ -82,6 +113,186 @@ class ServicePriceService:
         
         return {"message": "Service price deleted successfully"}
     
+    async def get_complex_summary(self, complex_price, components):
+        """Retail sum of a complex's components from LIVE directory prices,
+        plus the economy (sum - package price). Derived from data, not hardcoded."""
+        total = 0.0
+        for comp in components:
+            doc = await self.db.service_prices.find_one({"id": comp.service_id})
+            if not doc:
+                continue
+            unit = doc.get("price", 0) or 0
+            total += float(unit) * comp.quantity
+        package_price = float(complex_price)
+        return {
+            "sum_components": round(total, 2),
+            "complex_price": package_price,
+            "economy": round(total - package_price, 2),
+        }
+
+    async def _doctor_availability(self, doctor_id, date_str):
+        """Doctor info + schedule window + booked times for a date."""
+        doctor = await self.db.doctors.find_one({"id": doctor_id})
+        if not doctor:
+            return None
+        try:
+            day_of_week = datetime.strptime(date_str, "%Y-%m-%d").weekday()
+        except ValueError:
+            day_of_week = None
+        sch = None
+        if day_of_week is not None:
+            sch = await self.db.doctor_schedules.find_one({
+                "doctor_id": doctor_id, "day_of_week": day_of_week, "is_active": True
+            })
+        booked = await self.db.appointments.distinct("appointment_time", {
+            "doctor_id": doctor_id,
+            "appointment_date": date_str,
+            "status": {"$nin": ["cancelled", "no_show"]},
+        })
+        # рабочие дни недели врача (из расписания) — для подсказки в календаре
+        wk = ["Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс"]
+        work_days = await self.db.doctor_schedules.distinct("day_of_week", {
+            "doctor_id": doctor_id, "is_active": True,
+        })
+        working_days = [wk[d] for d in sorted(work_days) if isinstance(d, int) and 0 <= d <= 6]
+        return {
+            "doctor_id": doctor_id,
+            "doctor_name": doctor.get("full_name", ""),
+            "has_schedule": bool(sch),
+            "schedule_start": (sch or {}).get("start_time"),
+            "schedule_end": (sch or {}).get("end_time"),
+            "booked": booked or [],
+            "working_days": working_days,
+        }
+
+    async def complex_specialists_availability(self, complex_id, date_str):
+        """Candidate doctors per complex service and their availability for a date.
+
+        Doctor is NOT fixed on a complex component: it is chosen in the конс-лист.
+        For each component service this returns every doctor who can perform it
+        (via get_specialists_for_service) plus that doctor's schedule window for
+        the weekday and already-booked times. The receptionist picks a doctor
+        first, then a free time."""
+        doc = await self.db.service_prices.find_one({"id": complex_id})
+        if not doc or doc.get("service_type") != "complex":
+            raise HTTPException(status_code=404, detail="Комплексная услуга не найдена")
+
+        services = []
+        for comp in doc.get("components") or []:
+            candidates = await self.get_specialists_for_service(comp.get("service_id"))
+            doctors = []
+            for cand in candidates:
+                av = await self._doctor_availability(cand["id"], date_str)
+                if av:
+                    doctors.append(av)
+            services.append({
+                "service_id": comp.get("service_id"),
+                "service_name": comp.get("service_name", ""),
+                "quantity": comp.get("quantity", 1),
+                "doctors": doctors,
+            })
+        # "весь комплекс одним специалистом": врачи, умеющие ВСЕ услуги комплекса
+        # (пересечение кандидатов по каждой услуге), с расписанием/занятостью врача.
+        sets = [ {d["doctor_id"] for d in svc.get("doctors") or []} for svc in services ]
+        if services and all(sets) and len(services) > 1:
+            common = set.intersection(*sets)
+        else:
+            common = sets[0] if sets else set()
+        common_doctors = [av for av in (services[0].get("doctors") or []) if av["doctor_id"] in common] if services else []
+        return {
+            "complex_id": complex_id,
+            "complex_name": doc.get("service_name"),
+            "date": date_str,
+            "services": services,
+            "common_doctors": common_doctors,
+        }
+
+    async def complex_component_shares(self, complex_id):
+        """Доли услуг комплекса для оплаты.
+
+        k = цена_комплекса / сумма прайс-цен (по количеству).
+        Доля каждой услуги = прайс × кол-во × k × (1 - скидка_услуги/100).
+        Индивидуальная скидка на услугу уменьшает ТОЛЬКО её долю (цена комплекса
+        как метка не меняется). Все значения производны от данных, без хардкода."""
+        doc = await self.db.service_prices.find_one({"id": complex_id})
+        if not doc or doc.get("service_type") != "complex":
+            raise HTTPException(status_code=404, detail="Комплексная услуга не найдена")
+        price = float(doc.get("price", 0) or 0)
+        comps = doc.get("components") or []
+
+        def default_of(c):
+            return (c.get("price", 0) or 0) * (c.get("quantity", 1) or 1)
+
+        sum_default = sum(default_of(c) for c in comps)
+        k = (price / sum_default) if sum_default else 0.0
+
+        out = []
+        for c in comps:
+            qty = c.get("quantity", 1) or 1
+            default = (c.get("price", 0) or 0) * qty
+            disc = (c.get("discount", 0) or 0) or 0
+            share = default * k * (1 - disc / 100)
+            out.append({
+                "service_id": c.get("service_id"),
+                "service_name": c.get("service_name", ""),
+                "quantity": qty,
+                "default_price": round(default, 2),
+                "discount": disc,
+                "share": round(share, 2),
+            })
+        return {
+            "complex_id": doc["id"],
+            "complex_name": doc.get("service_name"),
+            "complex_price": price,
+            "coefficient": k,
+            "sum_default": round(sum_default, 2),
+            "sum_shares": round(sum(x["share"] for x in out), 2),
+            "components": out,
+        }
+
+    async def build_complex_plan_line(self, complex_id, quantity=1):
+        """Build the SINGLE treatment-plan line for a complex service.
+
+        The complex lands in a plan as one row (price -> total_price); the
+        composition is embedded inside the line so salary/print/display can use
+        it without re-querying. Rejects non-complex services."""
+        doc = await self.db.service_prices.find_one({"id": complex_id})
+        if not doc or doc.get("service_type") != "complex":
+            raise HTTPException(status_code=400, detail="Комплексная услуга не найдена")
+        qty = quantity or 1
+        price = float(doc.get("price", 0) or 0)
+        components = doc.get("components") or []
+        return {
+            "service_id": doc["id"],
+            "service_name": doc.get("service_name"),
+            "category": doc.get("category"),
+            "price": price,
+            "quantity": qty,
+            "total_price": round(price * qty, 2),
+            "is_complex": True,
+            "components": [dict(c) for c in components],
+        }
+
+    async def get_specialists_for_service(self, service_id):
+        """Doctors who can perform a service: either list the service among their
+        provided services, or match the service's category by specialty.
+        Used to suggest a specialist for a complex component."""
+        service = await self.db.service_prices.find_one({"id": service_id})
+        if not service:
+            return []
+        category = (service.get("category") or "").lower()
+        doctors = await self.db.doctors.find({"is_active": True}).to_list(None)
+        result = []
+        for doc in doctors:
+            services = doc.get("services") or []
+            ids = [s.get("service_id") if isinstance(s, dict) else s for s in services]
+            specs = doc.get("specialties") or ([doc["specialty"]] if doc.get("specialty") else [])
+            by_service = service_id in ids
+            by_specialty = bool(category and any((sp or "").lower() == category for sp in specs))
+            if by_service or by_specialty:
+                result.append({"id": doc.get("id"), "full_name": doc.get("full_name")})
+        return result
+
     async def get_service_categories(self) -> dict:
         """Get all service categories"""
         categories = await self.db.service_prices.distinct("category", {"is_active": True, "category": {"$ne": None}})

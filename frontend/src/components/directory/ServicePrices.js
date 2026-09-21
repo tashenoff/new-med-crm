@@ -36,6 +36,7 @@ const ServicePrices = ({ user }) => {
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(25);
   const [searchQuery, setSearchQuery] = useState('');
+  const [packagesOnly, setPackagesOnly] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState('');
 
   // Modal states
@@ -51,16 +52,22 @@ const ServicePrices = ({ user }) => {
     price: '',
     description: '',
     disable_discount: false,
-    materials: []
+    service_type: 'regular',
+    materials: [],
+    components: []
   });
   const [categoryFormData, setCategoryFormData] = useState({
     name: ''
   });
+  const [doctors, setDoctors] = useState([]);
+  const [componentSearch, setComponentSearch] = useState('');
+  const [expandId, setExpandId] = useState(null);
 
   useEffect(() => {
     fetchServicePrices();
     fetchCategories();
     fetchMaterials();
+    fetchDoctors();
   }, []);
 
   const fetchServicePrices = async () => {
@@ -123,6 +130,21 @@ const ServicePrices = ({ user }) => {
     }
   };
 
+  const fetchDoctors = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch(`${API}/api/doctors`, {
+        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' }
+      });
+      if (response.ok) {
+        const data = await response.json();
+        setDoctors(data);
+      }
+    } catch (error) {
+      console.error('Error fetching doctors:', error);
+    }
+  };
+
   const handleMaterialSearch = (searchValue) => {
     console.log('Поиск материала:', searchValue);
     console.log('Всего материалов в памяти:', materials.length);
@@ -179,6 +201,117 @@ const ServicePrices = ({ user }) => {
     }));
   };
 
+  const regularServices = () => servicePrices.filter(s => s.service_type !== 'complex');
+
+  const doctorProvidesService = (doctor, service) => {
+    const svcs = doctor.services || [];
+    if (svcs.some(s => (typeof s === 'object' ? s.service_id : s) === service.id)) return true;
+    // fallback: врачи подойдут и по специальности, совпадающей с категорией услуги
+    const specs = doctor.specialties || (doctor.specialty ? [doctor.specialty] : []);
+    const cat = (service.category || '').toLowerCase();
+    return specs.some(sp => sp && sp.toLowerCase() === cat);
+  };
+
+  const handleComponentSearch = (value) => {
+    setComponentSearch(value);
+  };
+
+  const filteredComponents = componentSearch
+    ? regularServices().filter(s => (s.service_name || '').toLowerCase().includes(componentSearch.toLowerCase()))
+    : [];
+
+  const addComponent = (service) => {
+    if (service.service_type === 'complex') {
+      setError('Нельзя добавить комплексную услугу в состав другого комплекса');
+      setTimeout(() => setError(''), 3000);
+      return;
+    }
+    if (formData.components.find(c => c.service_id === service.id)) {
+      setError('Эта услуга уже добавлена в состав');
+      setTimeout(() => setError(''), 3000);
+      return;
+    }
+    const specialist = doctors.find(d => doctorProvidesService(d, service));
+    setFormData(prev => ({
+      ...prev,
+      components: [...prev.components, {
+        service_id: service.id,
+        service_name: service.service_name,
+        category: service.category || '',
+        quantity: 1,
+        price: service.price || 0,
+        discount: 0,
+        doctor_id: specialist ? specialist.id : ''
+      }]
+    }));
+    setComponentSearch('');
+  };
+
+  const removeComponent = (serviceId) => {
+    setFormData(prev => ({ ...prev, components: prev.components.filter(c => c.service_id !== serviceId) }));
+  };
+
+  const updateComponent = (serviceId, field, value) => {
+    setFormData(prev => ({
+      ...prev,
+      components: prev.components.map(c => c.service_id === serviceId ? { ...c, [field]: value } : c)
+    }));
+  };
+
+  const specialistsFor = (serviceId) => {
+    const svc = servicePrices.find(sp => sp.id === serviceId);
+    return svc ? doctors.filter(d => doctorProvidesService(d, svc)) : [];
+  };
+
+  // Доли услуг комплекса для оплаты: коэффициент k = цена/сумма прайса,
+  // доля каждой услуги = прайс×кол-во×k×(1-скидка/100). Производно от данных.
+  const componentShares = () => {
+    const packagePrice = parseFloat(formData.price || '0');
+    const items = (formData.components || []).map((c) => {
+      const live = servicePrices.find(sp => sp.id === c.service_id);
+      const defaultUnit = live ? (live.price || 0) : (c.price || 0);
+      return { service_id: c.service_id, default: defaultUnit * (c.quantity || 1), discount: c.discount || 0 };
+    });
+    const sumDefault = items.reduce((a, x) => a + x.default, 0);
+    const coeff = sumDefault > 0 ? packagePrice / sumDefault : 0;
+    const raw = items.map((x) => ({ ...x, raw: x.default * coeff * (1 - (x.discount || 0) / 100) }));
+    // целые доли: остаток на самую дорогую, сумма = round(цена пакета)
+    const floors = raw.map((x) => Math.floor(x.raw));
+    let deficit = Math.round(packagePrice) - floors.reduce((a, b) => a + b, 0);
+    if (raw.length && deficit) {
+      const largest = raw.reduce((bi, x, i, arr) => (x.raw > arr[bi].raw ? i : bi), 0);
+      floors[largest] += deficit;
+    }
+    const mapped = raw.map((x, i) => ({ ...x, share: floors[i] || 0 }));
+    return { coefficient: coeff, sumDefault, sumShares: mapped.reduce((a, x) => a + x.share, 0), items: mapped };
+  };
+
+  // Live retail sum of the composition (from directory prices) + economy vs the package price.
+  const complexSummary = () => {
+    const sum = (formData.components || []).reduce((acc, c) => {
+      const live = servicePrices.find(sp => sp.id === c.service_id);
+      const unit = live ? (live.price || 0) : (c.price || 0);
+      return acc + unit * (c.quantity || 1);
+    }, 0);
+    const packagePrice = parseFloat(formData.price || '0');
+    return { sum, packagePrice, economy: sum - packagePrice };
+  };
+
+  // Specialties available to a service: from the service_categories collection PLUS
+  // the real category values already present in the price list (the collection may
+  // be empty while services carry their categories). Derived from data, deduped.
+  const categoryOptions = () => {
+    const fromCollection = categories.map(c => ({ id: c.id, name: c.name }));
+    const fromServices = [...new Set(servicePrices.map(s => (s.category || '')).filter(Boolean))]
+      .map((name) => ({ id: name, name }));
+    const seen = new Set();
+    const merged = [];
+    for (const o of [...fromCollection, ...fromServices]) {
+      if (!seen.has(o.name)) { seen.add(o.name); merged.push(o); }
+    }
+    return merged;
+  };
+
   const handleCreate = () => {
     setEditingPrice(null);
     setFormData({
@@ -189,7 +322,9 @@ const ServicePrices = ({ user }) => {
       price: '',
       description: '',
       disable_discount: false,
-      materials: []
+      service_type: 'regular',
+      materials: [],
+      components: []
     });
     setMaterialSearch('');
     setFilteredMaterials([]);
@@ -206,7 +341,9 @@ const ServicePrices = ({ user }) => {
       price: price.price || '',
       description: price.description || '',
       disable_discount: price.disable_discount || false,
-      materials: price.materials || []
+      service_type: price.service_type || 'regular',
+      materials: price.materials || [],
+      components: price.components || []
     });
     setShowModal(true);
   };
@@ -536,7 +673,8 @@ const ServicePrices = ({ user }) => {
       price.service_code?.toLowerCase().includes(searchQuery.toLowerCase()) ||
       price.description?.toLowerCase().includes(searchQuery.toLowerCase());
     const matchesCategory = !selectedCategory || price.category === selectedCategory;
-    return matchesSearch && matchesCategory;
+    const matchesPackages = !packagesOnly || price.service_type === 'complex';
+    return matchesSearch && matchesCategory && matchesPackages;
   });
 
   const totalPages = Math.ceil(filteredServices.length / itemsPerPage);
@@ -560,14 +698,14 @@ const ServicePrices = ({ user }) => {
         <PanelHeader
           title="Прайс-лист услуг"
           subtitle="Управление ценами и категориями медицинских услуг"
-          onAction={(user?.role === 'admin' || user?.role === 'super_admin') ? handleCreate : undefined}
+          onAction={(user?.role === 'admin' || user?.role === 'super_admin' || user?.role === 'marketer') ? handleCreate : undefined}
           actionLabel="+ Добавить услугу"
         />
 
         <div className="bg-white dark:bg-gray-800 rounded-b-2xl border border-t-0 border-gray-200 dark:border-gray-700 p-4 space-y-4 shadow-sm">
           
           {/* Category Management Section */}
-          {(user?.role === 'admin' || user?.role === 'super_admin') && (
+          {(user?.role === 'admin' || user?.role === 'super_admin' || user?.role === 'marketer') && (
             <div className="bg-gray-50 dark:bg-gray-700 p-4 rounded-lg">
               <div className="flex items-center justify-between mb-3">
                 <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
@@ -648,11 +786,17 @@ const ServicePrices = ({ user }) => {
             className={selectClasses}
           >
             <option value="">Все категории</option>
-            {categories.map(cat => (
+            {categoryOptions().map(cat => (
               <option key={cat.id} value={cat.name}>{cat.name}</option>
             ))}
           </select>
         </div>
+        <label className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300 cursor-pointer select-none">
+          <input type="checkbox" checked={packagesOnly}
+            onChange={(e) => { setPackagesOnly(e.target.checked); setCurrentPage(1); }}
+            className="accent-blue-600" />
+          Показать только пакеты услуг
+        </label>
         <div className="text-sm text-gray-500 dark:text-gray-400">
           Найдено: {filteredServices.length} из {servicePrices.length}
         </div>
@@ -677,14 +821,26 @@ const ServicePrices = ({ user }) => {
           </thead>
           <tbody>
             {paginatedServices.map((price) => (
+              <>
               <tr key={price.id} className={tableRowClasses}>
-                <td className="px-6 py-4 font-medium">{price.service_name}</td>
+                <td className="px-6 py-4 font-medium">
+                  {price.service_name}
+                  {price.service_type === 'complex' && (
+                    <span className="ml-2 inline-block bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-100 text-xs font-semibold px-2 py-0.5 rounded">Комплекс</span>
+                  )}
+                  {price.service_type === 'complex' && (
+                    <button type="button" onClick={() => setExpandId(expandId === price.id ? null : price.id)}
+                      className="ml-2 text-xs text-blue-600 hover:text-blue-800 dark:text-blue-400" title="Показать состав">
+                      {expandId === price.id ? '▲ скрыть состав' : '▼ что входит'}
+                    </button>
+                  )}
+                </td>
                 <td className="px-6 py-4">{price.category || '-'}</td>
                 <td className="px-6 py-4">{price.price ? `${price.price.toLocaleString()} ₸` : '-'}</td>
                 <td className="px-6 py-4 max-w-xs truncate">{price.description || '-'}</td>
                 <td className="px-6 py-4">
                   <div className="flex space-x-2">
-                    {(user?.role === 'admin' || user?.role === 'super_admin') && (
+                    {(user?.role === 'admin' || user?.role === 'super_admin' || user?.role === 'marketer') && (
                       <>
                         <button
                           onClick={() => handleEdit(price)}
@@ -705,6 +861,18 @@ const ServicePrices = ({ user }) => {
                   </div>
                 </td>
               </tr>
+              {price.service_type === 'complex' && expandId === price.id && (
+                <tr>
+                  <td colSpan="5" className="px-6 py-3 bg-gray-50 dark:bg-gray-700">
+                    <div className="text-xs text-gray-600 dark:text-gray-300">
+                      <b>Что входит:</b> {price.components && price.components.length
+                        ? price.components.map(c => `${c.service_name}${(c.quantity || 1) > 1 ? ' ×' + c.quantity : ''}`).join('; ')
+                        : '—'}
+                    </div>
+                  </td>
+                </tr>
+              )}
+              </>
             ))}
             {paginatedServices.length === 0 && !loading && (
               <tr>
@@ -839,13 +1007,123 @@ const ServicePrices = ({ user }) => {
               className={selectClasses}
             >
               <option value="">Выберите специальность</option>
-              {categories.map((category) => (
+              {categoryOptions().map((category) => (
                 <option key={category.id} value={category.name}>
                   {category.name}
                 </option>
               ))}
             </select>
           </div>
+          <div className="mb-3 flex items-center gap-2">
+            <input
+              id="is-complex"
+              type="checkbox"
+              checked={formData.service_type === 'complex'}
+              onChange={(e) => setFormData(prev => ({ ...prev, service_type: e.target.checked ? 'complex' : 'regular' }))}
+              className="w-4 h-4 accent-blue-600"
+            />
+            <label htmlFor="is-complex" className="text-sm font-medium text-gray-700 dark:text-gray-300">
+              Комплексная услуга (пакет из нескольких услуг прайса)
+            </label>
+          </div>
+
+          {formData.service_type === 'complex' && (
+            <div className="mt-3 border border-blue-300 dark:border-blue-600 rounded-lg p-3 bg-blue-50 dark:bg-blue-950">
+              <div className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">Состав комплекса</div>
+
+              <div className="relative">
+                <input
+                  type="text"
+                  value={componentSearch}
+                  onChange={(e) => handleComponentSearch(e.target.value)}
+                  className={inputClasses}
+                  placeholder="Найдите услугу, чтобы добавить в состав"
+                />
+                {componentSearch && filteredComponents.length > 0 && (
+                  <div className="absolute z-50 w-full mt-1 bg-white dark:bg-gray-800 border-2 border-blue-500 dark:border-blue-400 rounded-lg shadow-xl max-h-60 overflow-y-auto">
+                    <div className="px-3 py-2 bg-blue-50 dark:bg-blue-900 text-xs font-semibold text-blue-900 dark:text-blue-100">
+                      Услуг найдено: {filteredComponents.length}
+                    </div>
+                    {filteredComponents.slice(0, 10).map((service) => (
+                      <div key={service.id} onClick={() => addComponent(service)}
+                        className="px-4 py-2 hover:bg-blue-50 dark:hover:bg-gray-700 cursor-pointer border-b border-gray-200 dark:border-gray-600">
+                        <div className="font-medium text-gray-900 dark:text-white">{service.service_name}</div>
+                        <div className="text-xs text-gray-600 dark:text-gray-400">
+                          {(service.category || 'Без категории')} · {(service.price || 0).toLocaleString()} ₸
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                {componentSearch && filteredComponents.length === 0 && (
+                  <div className="absolute z-50 w-full mt-1 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg shadow-lg p-3">
+                    <p className="text-sm text-gray-500 text-center">Услуги по запросу не найдены</p>
+                  </div>
+                )}
+              </div>
+
+              <div className="mt-3 border border-gray-300 dark:border-gray-600 rounded-lg p-3 bg-gray-50 dark:bg-gray-700">
+                <div className="mb-2 text-sm font-semibold text-gray-700 dark:text-gray-300">Состав комплекса</div>
+                {formData.components.length === 0 ? (
+                  <p className="text-sm text-gray-500 text-center py-4">Состав пуст. Добавьте услуги поиском выше.</p>
+                ) : (
+                  <div className="space-y-2">
+                    {formData.components.map((c) => {
+                      const live = servicePrices.find(sp => sp.id === c.service_id);
+                      const unitPrice = live ? (live.price || 0) : (c.price || 0);
+                      const specialists = specialistsFor(c.service_id);
+                      const sh = componentShares().items.find(i => i.service_id === c.service_id);
+                      return (
+                        <div key={c.service_id} className="bg-white dark:bg-gray-800 rounded-lg p-3 border border-gray-200 dark:border-gray-600">
+                          <div className="flex items-center justify-between">
+                            <span className="text-sm font-medium text-gray-900 dark:text-white truncate flex-1 min-w-0">{c.service_name}</span>
+                            <button type="button" onClick={() => removeComponent(c.service_id)}
+                              className="text-red-500 hover:text-red-700 text-lg leading-none" title="Убрать">×</button>
+                          </div>
+                          <div className="grid grid-cols-3 gap-2 mt-1">
+                            <div>
+                              <label className="block text-[10px] text-gray-500">Кол-во</label>
+                              <input type="number" min="1" value={c.quantity}
+                                onChange={(e) => updateComponent(c.service_id, 'quantity', e.target.value)}
+                                className="w-full px-2 py-1 border border-gray-300 dark:border-gray-600 rounded text-sm" />
+                            </div>
+                            <div>
+                              <label className="block text-[10px] text-gray-500">Прайс (за шт)</label>
+                              <div className="w-full px-2 py-1 bg-gray-100 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded text-sm text-right">
+                                {unitPrice.toLocaleString()} ₸
+                              </div>
+                            </div>
+                            <div>
+                              <label className="block text-[10px] text-gray-500">Доля</label>
+                              <div className="w-full px-2 py-1 bg-gray-100 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded text-sm text-right">
+                                {(sh?.share || 0).toLocaleString()} ₸
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+
+              {formData.components.length > 0 && (
+                <div className="mt-2 text-xs text-gray-600 dark:text-gray-300">
+                  {(() => { const s = complexSummary(); const sh = componentShares(); return (
+                    <div>
+                      <span>По отдельности: <b>{s.sum.toLocaleString()} ₸</b></span>
+                      {' '}· Пакетом: <b>{s.packagePrice.toLocaleString()} ₸</b>
+                      {' '}· Экономия: <b className={s.economy >= 0 ? 'text-green-600' : 'text-red-600'}>{s.economy.toLocaleString()} ₸</b>
+                      <div className="mt-1">
+                        Коэффициент комплекса: <b>{sh.coefficient.toFixed(4)}</b>
+                        {' '}· Сумма долей: <b>{sh.sumShares.toLocaleString()} ₸</b>
+                      </div>
+                    </div>
+                  ); })()}
+                </div>
+              )}
+            </div>
+          )}
 
           <div className="grid grid-cols-2 gap-4">
             <div>
@@ -873,6 +1151,8 @@ const ServicePrices = ({ user }) => {
               </select>
             </div>
           </div>
+
+
 
           <div>
             <label className={labelClasses}>Описание</label>

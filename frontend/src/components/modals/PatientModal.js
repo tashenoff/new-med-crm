@@ -369,14 +369,32 @@ const PatientModal = ({
       .map((c) => `<div class="value">${escapeHtml(c.code)} — ${escapeHtml(c.name)}</div>`)
       .join('');
 
-    const servicesList = (sheet.treatment_services || []).map((s) => (
-      `<tr>
+    const servicesList = (sheet.treatment_services || []).map((s) => {
+      const main = `<tr>
         <td class="txt">${escapeHtml(s.service_name)}</td>
         <td class="num">${Number(s.quantity || 1)}</td>
         <td class="num">${Number(s.price_per_unit || 0).toLocaleString('ru-RU')}</td>
         <td class="num">${Number(s.total_price || 0).toLocaleString('ru-RU')}</td>
-      </tr>`
-    )).join('');
+      </tr>`;
+      // Для комплекса — состав: перечень услуг с ценой, количеством и скидкой
+      let extra = '';
+      if (s.is_complex && s.components && s.components.length) {
+        const comps = s.components.map((c) => {
+          const unit = Number(c.price || 0);
+          const qty = Number(c.quantity || 1);
+          const sum = unit * qty;
+          const disc = (c.discount && c.discount > 0)
+            ? `${Number(c.discount)}%`
+            : (c.discount_amount && c.discount_amount > 0 ? `−${Number(c.discount_amount).toLocaleString('ru-RU')} ₸` : '');
+          return `<div class="comp">
+              <span>− ${escapeHtml(c.service_name)}</span>
+              <span class="comp-meta">×${qty} · ${sum.toLocaleString('ru-RU')} ₸${disc ? `<i> · скидка ${disc}</i>` : ''}</span>
+            </div>`;
+        }).join('');
+        extra = `<tr><td colspan="4"><div class="comp-list">${comps}</div></td></tr>`;
+      }
+      return main + extra;
+    }).join('');
 
     const section = (title, content) => {
       if (!content) return '';
@@ -437,6 +455,10 @@ const PatientModal = ({
     padding-bottom: 2px;
   }
   .value { white-space: normal; line-height: 1.5; margin-bottom: 6px; }
+  .comp-list { padding: 4px 6px; background: #f7f7f7; border: 1px dashed #aaa; }
+  .comp { display: flex; justify-content: space-between; gap: 12px; font-size: 12px; padding: 2px 0; }
+  .comp-meta { color: #333; font-weight: normal; }
+  .comp-meta i { color: #b00; font-style: italic; }
   .services-table { width: 100%; border-collapse: collapse; margin-bottom: 8px; }
   .services-table th, .services-table td {
     border: 1px solid #333;
@@ -533,7 +555,7 @@ const PatientModal = ({
     const totalAmount = plans.reduce((sum, p) => sum + (p.total_cost || 0), 0);
     const paidAmount = plans.reduce((sum, p) => sum + (p.paid_amount || 0), 0);
     const totalServices = plans.reduce((sum, p) => sum + (p.services?.length || 0), 0);
-    const paidServices = plans.reduce((sum, p) => sum + (p.services?.filter(s => s.payment_status === 'paid').length || 0), 0);
+    const paidServices = plans.reduce((sum, p) => sum + (p.services?.filter(s => s.payment_status === 'paid' || (s.is_complex && (s.paid_amount || 0) > 0)).length || 0), 0);
     const remainingToPay = Math.max(0, totalAmount - paidAmount);
     const paymentProgress = totalAmount > 0 ? Math.round((paidAmount / totalAmount) * 100) : 0;
     
@@ -811,7 +833,7 @@ const PatientModal = ({
     <Modal 
       show={show} 
       onClose={onClose}
-      title={editingItem ? 'Редактировать пациента' : 'Новый пациент'}
+      title={editingItem ? 'Карточка пациента' : 'Новый пациент'}
       errorMessage={errorMessage}
     >
 
@@ -1280,6 +1302,32 @@ const PatientModal = ({
                       services: updatedServices,
                       total_cost: totalCost
                     }));
+
+                    // Комплексная услуга: создаём записи к специалистам состава
+                    // на выбранную дату/время (каждая запись связана с компонентом)
+                    if (editingItem && serviceItem.scheduling && serviceItem.scheduling.slots.length > 0) {
+                      const token = localStorage.getItem('token');
+                      const patientId = editingItem.id || editingItem._id;
+                      serviceItem.scheduling.slots.forEach((slot) => {
+                        fetch(`${API}/api/appointments`, {
+                          method: 'POST',
+                          headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+                          body: JSON.stringify({
+                            patient_id: patientId,
+                            doctor_id: slot.doctor_id,
+                            appointment_date: slot.date,
+                            appointment_time: slot.start_time,
+                            end_time: slot.end_time,
+                            service_id: slot.service_id,
+                            complex_id: serviceItem.service_id,
+                            complex_name: serviceItem.service_name,
+                            price: slot.price || null
+                          })
+                        }).then((r) => {
+                          if (!r.ok) { r.json().then((d) => alert('Не удалось создать запись: ' + (d.detail || r.status))).catch(() => alert('Ошибка создания записи: ' + r.status)); }
+                        }).catch((err) => alert('Ошибка создания записи на комплекс: ' + err.message));
+                      });
+                    }
                   }}
                   selectedPatient={editingItem}
                 />
@@ -1597,6 +1645,8 @@ const PatientModal = ({
                       setTreatmentPlans(plans => 
                         plans.map(p => p.id === updatedPlan.id ? updatedPlan : p)
                       );
+                      // после оплаты обновляем планы/статистику в списке пациентов
+                      refreshTreatmentPlans();
                     }}
                   />
                 ))}
@@ -1665,14 +1715,14 @@ const PatientModal = ({
                               </div>
                             </div>
                             <div className="flex items-center space-x-2 flex-shrink-0 ml-2">
-                              <button
+                              <span
                                 onClick={(e) => { e.stopPropagation(); handlePrintConsultation(sheet); }}
                                 className="px-2 py-1 text-gray-700 border border-gray-500 rounded hover:bg-gray-100 text-xs whitespace-nowrap"
                                 title="Печать консультационного листа"
                               >
                                 Печать
-                              </button>
-                              <button
+                              </span>
+                              <span
                                 onClick={(e) => {
                                   e.stopPropagation();
                                   setEditingConsultation(sheet);
@@ -1681,13 +1731,13 @@ const PatientModal = ({
                                 className="px-2 py-1 text-blue-600 border border-blue-600 rounded hover:bg-blue-50 text-xs whitespace-nowrap"
                               >
                                 Редактировать
-                              </button>
-                              <button
+                              </span>
+                              <span
                                 onClick={(e) => { e.stopPropagation(); handleDeleteConsultation(sheet.id); }}
                                 className="px-2 py-1 text-red-600 border border-red-600 rounded hover:bg-red-50 text-xs whitespace-nowrap"
                               >
                                 Удалить
-                              </button>
+                              </span>
                               {isExpanded ? <FaChevronDown className="text-gray-400" /> : <FaChevronDown className="text-gray-400 rotate-180" />}
                             </div>
                           </button>
@@ -1804,12 +1854,41 @@ const PatientModal = ({
                                         </thead>
                                         <tbody>
                                           {sheet.treatment_services.map((service, idx) => (
-                                            <tr key={idx} className="border-b border-gray-200 last:border-b-0">
-                                              <td className="py-1 px-2 text-gray-800">{service.service_name}</td>
-                                              <td className="text-center py-1 px-2 text-gray-800">{service.quantity}</td>
-                                              <td className="text-right py-1 px-2 text-gray-800">{Number(service.price_per_unit).toLocaleString('ru-RU')} ₸</td>
-                                              <td className="text-right py-1 px-2 text-gray-800 font-medium">{Number(service.total_price).toLocaleString('ru-RU')} ₸</td>
-                                            </tr>
+                                            <React.Fragment key={idx}>
+                                              <tr className="border-b border-gray-200 last:border-b-0">
+                                                <td className="py-1 px-2 text-gray-800">
+                                                  {service.service_name}
+                                                  {service.is_complex && <span className="ml-1 text-[10px] bg-purple-100 text-purple-700 px-1 rounded align-middle">Комплекс</span>}
+                                                </td>
+                                                <td className="text-center py-1 px-2 text-gray-800">{service.quantity}</td>
+                                                <td className="text-right py-1 px-2 text-gray-800">{Number(service.price_per_unit).toLocaleString('ru-RU')} ₸</td>
+                                                <td className="text-right py-1 px-2 text-gray-800 font-medium">
+                                                  {Number(service.total_price).toLocaleString('ru-RU')} ₸
+                                                  {service.discount_amount > 0 && (
+                                                    <div className="text-[10px] text-red-500 font-normal">скидка −{Number(service.discount_amount).toLocaleString('ru-RU')} ₸</div>
+                                                  )}
+                                                </td>
+                                              </tr>
+                                              {service.is_complex && service.components && service.components.length > 0 && (
+                                                <tr key={`${idx}-comps`} className="bg-purple-50/40 border-b border-gray-200">
+                                                  <td colSpan={4} className="py-1 px-2">
+                                                    <div className="text-[11px] text-gray-500 mb-0.5">Что входит:</div>
+                                                    {service.components.map((c, ci) => {
+                                                      const unit = Number(c.price || 0);
+                                                      const qty = Number(c.quantity || 1);
+                                                      const sum = unit * qty;
+                                                      const d = c.discount_amount ? `−${Number(c.discount_amount).toLocaleString('ru-RU')} ₸` : (c.discount ? `${Number(c.discount)}%` : '');
+                                                      return (
+                                                        <div key={ci} className="flex justify-between text-xs py-0.5">
+                                                          <span className="text-gray-700">− {c.service_name} ×{qty}</span>
+                                                          <span className="text-gray-600">{sum.toLocaleString('ru-RU')} ₸{d ? <span className="text-red-500"> · скидка {d}</span> : ''}</span>
+                                                        </div>
+                                                      );
+                                                    })}
+                                                  </td>
+                                                </tr>
+                                              )}
+                                            </React.Fragment>
                                           ))}
                                         </tbody>
                                       </table>

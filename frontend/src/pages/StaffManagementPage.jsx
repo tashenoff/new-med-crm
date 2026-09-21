@@ -203,6 +203,11 @@ const StaffManagementPage = ({ user }) => {
     return await staffHook.assignAccessToDoctor(doctorId, email, password);
   };
 
+  // Обработчик сброса пароля
+  const handleResetPassword = async (staffId, newPassword) => {
+    return await staffHook.resetStaffPassword(staffId, newPassword);
+  };
+
   // Проверка прав доступа
   const canManage = user?.role === 'admin' || user?.role === 'super_admin';
 
@@ -254,6 +259,7 @@ const StaffManagementPage = ({ user }) => {
         loading={loading}
         errorMessage={errorMessage}
         onSave={handleSaveStaff}
+        onResetPassword={handleResetPassword}
       />
 
       {/* Doctor Access Modal */}

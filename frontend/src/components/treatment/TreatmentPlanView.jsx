@@ -2,7 +2,25 @@ import React, { useState } from 'react';
 
 const TreatmentPlanView = ({ plan, onUpdate }) => {
   const [loading, setLoading] = useState(false);
+  // Раскрытие списка «Что входит» для комплексных услуг, по индексу услуги
+  const [openComps, setOpenComps] = useState({});
   const API = import.meta.env.VITE_BACKEND_URL;
+
+  const toggleComps = (index) =>
+    setOpenComps(prev => ({ ...prev, [index]: !prev[index] }));
+
+  // Скидка компонента: приоритет у discount_amount, иначе discount
+  const getCompDiscount = (c) => (Number(c.discount_amount) || 0) || (Number(c.discount) || 0);
+
+  // Итоговая скидка по плану: discount_amount сервиса + discount_amount его компонентов
+  const totalPlanDiscount = () =>
+    (plan.services || []).reduce(
+      (sum, s) =>
+        sum +
+        (Number(s.discount_amount) || 0) +
+        (s.components || []).reduce((cs, c) => cs + (Number(c.discount_amount) || 0), 0),
+      0
+    );
 
   const markProcedureCompleted = async (serviceId) => {
     try {
@@ -109,7 +127,7 @@ const TreatmentPlanView = ({ plan, onUpdate }) => {
       </div>
 
       {/* Финансовая информация */}
-      <div className="grid grid-cols-4 gap-4 mb-4 p-3 bg-gray-50 rounded-lg">
+      <div className="grid grid-cols-5 gap-4 mb-4 p-3 bg-gray-50 rounded-lg">
         <div>
           <div className="text-xs text-gray-500">Стоимость плана</div>
           <div className="text-lg font-semibold text-gray-900">
@@ -137,6 +155,13 @@ const TreatmentPlanView = ({ plan, onUpdate }) => {
             {((plan.total_cost || 0) - (plan.paid_amount || 0) - (plan.deposit_amount || 0)).toLocaleString()} ₸
           </div>
         </div>
+        {/* Итоговая скидка по плану: discount_amount сервиса + discount_amount его компонентов */}
+        <div>
+          <div className="text-xs text-gray-500">Скидка</div>
+          <div className="text-lg font-semibold text-red-500">
+            −{totalPlanDiscount().toLocaleString()} ₸
+          </div>
+        </div>
       </div>
 
       {/* Список услуг */}
@@ -162,6 +187,9 @@ const TreatmentPlanView = ({ plan, onUpdate }) => {
                       <span className="text-blue-600 text-xl">⏳</span>
                     )}
                     <h5 className="font-medium text-gray-900">{service.service_name}</h5>
+                    {service.is_complex && (
+                      <span className="ml-2 px-2 py-0.5 bg-purple-100 text-purple-700 text-xs rounded-full">🧩 Комплекс</span>
+                    )}
                   </div>
                   
                   <div className="mt-2 space-y-1">
@@ -175,6 +203,46 @@ const TreatmentPlanView = ({ plan, onUpdate }) => {
                         {(service.total_price || 0).toLocaleString()} ₸
                       </span>
                     </div>
+                    {(Number(service.discount_amount) || 0) > 0 && (
+                      <div className="text-sm text-red-500">
+                        Скидка: −{(Number(service.discount_amount) || 0).toLocaleString()} ₸
+                      </div>
+                    )}
+                    {service.is_complex && (
+                      <button
+                        type="button"
+                        onClick={() => toggleComps(index)}
+                        className="text-xs text-purple-600 flex items-center gap-1 hover:underline focus:outline-none"
+                      >
+                        <svg
+                          className={`w-3 h-3 transform transition-transform ${openComps[index] ? 'rotate-90' : ''}`}
+                          fill="currentColor"
+                          viewBox="0 0 16 16"
+                        >
+                          <path d="M6 3 L14 3 M8 3 L8 11" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+                        </svg>
+                        <span>🧩 Что входит</span>
+                      </button>
+                    )}
+                    {service.is_complex && openComps[index] && (
+                      <div className="text-xs text-purple-600 mt-1">
+                        <ul className="list-disc pl-3 mt-0.5 space-y-0.5">
+                          {service.components && service.components.length
+                            ? service.components.map(c => {
+                                const compDiscount = getCompDiscount(c);
+                                return (
+                                  <li key={c.service_id || c.service_name}>
+                                    {c.service_name}{c.quantity && c.quantity > 1 ? ` ×${c.quantity}` : ''}{c.price ? ` — ${c.price.toLocaleString()} ₸` : ''}
+                                    {compDiscount > 0 && (
+                                      <span className="text-red-500"> — скидка {compDiscount.toLocaleString()} ₸</span>
+                                    )}
+                                  </li>
+                                );
+                              })
+                            : <li>—</li>}
+                        </ul>
+                      </div>
+                    )}
                     
                     {/* Прогресс-бар для отдельной услуги */}
                     <div className="mt-2">
@@ -197,7 +265,7 @@ const TreatmentPlanView = ({ plan, onUpdate }) => {
                 {/* Кнопка отметки */}
                 <div className="ml-4">
                   {canAddMore && (
-<button
+                    <button
                       onClick={() => markProcedureCompleted(service.service_id)}
                       disabled={loading}
                       className="px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed text-sm font-medium transition-colors"

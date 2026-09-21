@@ -412,6 +412,7 @@ class StatisticsService:
                 "completed_plans": completed_plans,
                 "no_show_plans": no_show_plans,
                 "completion_rate": round((completed_plans / total_plans * 100) if total_plans > 0 else 0, 1),
+                "no_show_rate": round((no_show_plans / total_plans * 100) if total_plans > 0 else 0, 1),
                 "total_cost": total_cost,
                 "total_paid": total_paid,
                 "outstanding_amount": max(0, total_cost - total_paid),

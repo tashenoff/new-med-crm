@@ -1,6 +1,90 @@
 import React, { useState, useEffect } from 'react';
 import { FaChevronDown, FaChevronRight, FaStethoscope, FaClipboardList, FaNotesMedical, FaUserMd, FaFileMedical, FaCreditCard } from 'react-icons/fa';
 
+const PaymentModal = ({ show, loading, onClose, paymentTypes, loadingPaymentTypes,
+  selectedPaymentType, setSelectedPaymentType, discountInput, setDiscountInput,
+  discountType, setDiscountType, total, onPay }) => {
+  if (!show) return null;
+  const raw = Math.max(0, Number(discountInput) || 0);
+  const disc = discountType === 'percent'
+    ? Math.round((total * raw / 100) * 100) / 100
+    : Math.min(raw, total);
+  const finalAmt = Math.max(0, Math.round((total - disc) * 100) / 100);
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50" onClick={onClose}>
+      <div className="bg-white rounded-xl shadow-2xl p-6 w-full max-w-md mx-4" onClick={e => e.stopPropagation()}>
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-lg font-semibold text-gray-900 flex items-center">
+            <svg className="w-5 h-5 mr-2 text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M7 15h2m4 0h2M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>
+            Способ оплаты
+          </h3>
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 text-2xl leading-none">&times;</button>
+        </div>
+
+        <div className="space-y-2 max-h-72 overflow-y-auto">
+          {loadingPaymentTypes ? (
+            <div className="text-center py-8 text-gray-500">
+              <div className="w-8 h-8 border-4 border-blue-200 border-t-blue-600 rounded-full animate-spin mx-auto mb-2"></div>
+              Загрузка способов оплаты...
+            </div>
+          ) : paymentTypes.length === 0 ? (
+            <div className="text-center py-8 text-gray-500">
+              <p>Нет доступных способов оплаты</p>
+              <p className="text-xs mt-1">Добавьте их в разделе "Тип оплаты" в справочнике</p>
+            </div>
+          ) : (
+            paymentTypes.map(pt => (
+              <label key={pt.id}
+                className={`flex items-center gap-3 w-full px-3 py-2.5 rounded-lg border cursor-pointer transition-all ${selectedPaymentType && selectedPaymentType.id === pt.id ? 'border-blue-400 bg-blue-50' : 'border-gray-200 bg-gray-50 hover:bg-blue-50'}`}>
+                <input type="radio" name="paymethod" checked={selectedPaymentType && selectedPaymentType.id === pt.id}
+                  onChange={() => setSelectedPaymentType(pt)} className="accent-blue-600" />
+                <div className="w-9 h-9 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 font-bold text-sm">
+                  {pt.name.charAt(0).toUpperCase()}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="font-medium text-gray-900 text-sm">{pt.name}</div>
+                  {pt.description && <div className="text-xs text-gray-500">{pt.description}</div>}
+                </div>
+              </label>
+            ))
+          )}
+        </div>
+
+        <div className="mt-4 pt-3 border-t space-y-2">
+          <div key="total" className="flex justify-between text-sm text-gray-600">
+            <span>К оплате</span><span className="font-medium text-gray-900">{total.toLocaleString()} ₸</span>
+          </div>
+          <div key="discline" className={`flex justify-between text-sm ${disc > 0.001 ? 'text-green-600' : 'text-gray-400'}`}>
+            <span>Скидка</span><span>− {disc > 0.001 ? disc.toLocaleString() : '0'} ₸</span>
+          </div>
+          <div key="discinput">
+            <div className="flex items-center justify-between mb-1">
+              <span className="text-sm text-gray-600">Скидка</span>
+              <div className="flex rounded-lg overflow-hidden border border-gray-300">
+                <button type="button" onClick={() => setDiscountType('fixed')}
+                  className={`px-3 py-1.5 text-xs ${discountType === 'fixed' ? 'bg-blue-600 text-white' : 'bg-white text-gray-600'}`}>фикс. ₸</button>
+                <button type="button" onClick={() => setDiscountType('percent')}
+                  className={`px-3 py-1.5 text-xs ${discountType === 'percent' ? 'bg-blue-600 text-white' : 'bg-white text-gray-600'}`}>%</button>
+              </div>
+            </div>
+            <input type="number" min="0" step="0.01" value={discountInput}
+              onChange={(e) => setDiscountInput(e.target.value)}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder={discountType === 'percent' ? 'Процент скидки' : 'Сумма скидки, ₸'} />
+          </div>
+          <div key="final" className="flex justify-between text-base font-semibold">
+            <span>Итого к оплате</span><span className="text-blue-600">{finalAmt.toLocaleString()} ₸</span>
+          </div>
+        </div>
+
+        <button onClick={() => onPay(selectedPaymentType, disc)} disabled={loading}
+          className="w-full mt-4 px-4 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 font-medium">
+          {loading ? 'Обработка...' : `Оплатить ${finalAmt.toLocaleString()} ₸`}
+        </button>
+      </div>
+    </div>
+  );
+};
+
 const ServicePaymentList = ({ plan, onUpdate, onEdit, paymentFilter = 'all', procedureFilter = 'all' }) => {
   const [loading, setLoading] = useState(false);
   const [consultation, setConsultation] = useState(null);
@@ -16,6 +100,9 @@ const ServicePaymentList = ({ plan, onUpdate, onEdit, paymentFilter = 'all', pro
   // Модальное окно выбора способа оплаты
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [pendingPaymentData, setPendingPaymentData] = useState(null); // { type: 'service' | 'remaining', serviceId: string | null }
+  const [selectedPaymentType, setSelectedPaymentType] = useState(null);
+  const [discountInput, setDiscountInput] = useState('');
+  const [discountType, setDiscountType] = useState('fixed'); // 'fixed' | 'percent'
 
   // Загрузка способов оплаты
   useEffect(() => {
@@ -110,14 +197,46 @@ const ServicePaymentList = ({ plan, onUpdate, onEdit, paymentFilter = 'all', pro
     setShowPaymentModal(true);
   };
 
+  const complexShares = (svc) => {
+    // цена комплекса: price | price_per_unit | total_price/количество (в плане price может не быть)
+    const complexPrice = svc.price || svc.price_per_unit || (svc.total_price / (svc.quantity || 1)) || 0;
+    const sumDefault = (svc.components || []).reduce((a, c) => a + (c.price || 0) * (c.quantity || 1), 0);
+    const k = sumDefault > 0 ? complexPrice / sumDefault : 0;
+    const comps = svc.components || [];
+    const raw = comps.map(c => (c.price || 0) * (c.quantity || 1) * k * (1 - (c.discount || 0) / 100));
+    // целые доли: остаток на самую дорогую, сумма = round(цена пакета)
+    const floors = raw.map(v => Math.floor(v));
+    let deficit = Math.round(complexPrice) - floors.reduce((a, b) => a + b, 0);
+    if (comps.length && deficit) {
+      const largest = raw.reduce((bi, v, i, arr) => (v > arr[bi] ? i : bi), 0);
+      floors[largest] += deficit;
+    }
+    return comps.map((c, i) => ({
+      ...c,
+      share: floors[i] || 0,
+      paid: c.paid || false,
+      paid_amount: c.paid_amount || 0,
+    }));
+  };
+
+  const openPaymentModalForComplexRemaining = (serviceId) => {
+    setPendingPaymentData({ type: 'complex-remaining', serviceId });
+    setShowPaymentModal(true);
+  };
+
+  const openPaymentModalForComponent = (serviceId, componentServiceId) => {
+    setPendingPaymentData({ type: 'component', serviceId, componentServiceId });
+    setShowPaymentModal(true);
+  };
+
   // Открыть модальное окно выбора способа оплаты для оплаты остатка
   const openPaymentModalForRemaining = () => {
     setPendingPaymentData({ type: 'remaining', serviceId: null });
     setShowPaymentModal(true);
   };
 
-  // Выполнить оплату с выбранным способом оплаты
-  const executePayment = async (paymentType) => {
+  // Выполнить оплату с выбранным способом оплаты и скидкой
+  const executePayment = async (paymentType, discount = 0) => {
     if (!pendingPaymentData) return;
     
     try {
@@ -128,6 +247,10 @@ const ServicePaymentList = ({ plan, onUpdate, onEdit, paymentFilter = 'all', pro
         payment_method_id: paymentType.id,
         payment_method_name: paymentType.name
       } : {};
+      if (discount > 0.001 && pendingPaymentData.type !== 'remaining') {
+        const target = payableTarget();
+        paymentData.amount = Math.max(0, Math.round((target - discount) * 100) / 100 || 0);
+      }
       
       if (pendingPaymentData.type === 'service') {
         // Оплата одной услуги
@@ -139,7 +262,7 @@ const ServicePaymentList = ({ plan, onUpdate, onEdit, paymentFilter = 'all', pro
               'Authorization': `Bearer ${token}`,
               'Content-Type': 'application/json'
             },
-            body: JSON.stringify({ payment_data: paymentData })
+            body: JSON.stringify(paymentData)
           }
         );
 
@@ -151,11 +274,46 @@ const ServicePaymentList = ({ plan, onUpdate, onEdit, paymentFilter = 'all', pro
         } else {
           alert('Ошибка при отметке оплаты');
         }
+      } else if (pendingPaymentData.type === 'component') {
+        // Оплата одной услуги (доли) комплекса
+        const response = await fetch(
+          `${API}/api/treatment-plans/${plan.id}/complex-services/${pendingPaymentData.serviceId}/components/${pendingPaymentData.componentServiceId}/mark-paid`,
+          {
+            method: 'POST',
+            headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+            body: JSON.stringify(paymentData)
+          }
+        );
+        if (!response.ok) throw new Error('Ошибка при оплате услуги комплекса: ' + response.status);
+        const updated = await response.json();
+        if (onUpdate) onUpdate(updated);
+        alert('✅ Услуга комплекса оплачена');
+      } else if (pendingPaymentData.type === 'complex-remaining') {
+        const response = await fetch(
+          `${API}/api/treatment-plans/${plan.id}/complex-services/${pendingPaymentData.serviceId}/pay-remaining`,
+          {
+            method: 'POST',
+            headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+            body: JSON.stringify(paymentData)
+          }
+        );
+        if (!response.ok) throw new Error('Ошибка при оплате остатка: ' + response.status);
+        const updated = await response.json();
+        if (onUpdate) onUpdate(updated);
+        alert('✅ Комплекс оплачен полностью');
       } else if (pendingPaymentData.type === 'remaining') {
-        // Оплата остатка - помечаем все неоплаченные услуги
+        // Оплата остатка - помечаем все неоплаченные услуги;
+        // скидка распределяется равномерно по неоплаченным простым услугам (по ТЗ)
         const unpaidServices = plan.services.filter(s => s.payment_status !== 'paid');
-        
+        const simpleUnpaid = unpaidServices.filter(s => !s.is_complex);
+        const discPer = simpleUnpaid.length && discount > 0.001
+          ? Math.round((discount / simpleUnpaid.length) * 100) / 100 : 0;
+
         for (const service of unpaidServices) {
+          const pd = { ...paymentData };
+          if (discPer > 0.001 && !service.is_complex) {
+            pd.amount = Math.max(0, (service.total_price || 0) - discPer);
+          }
           const response = await fetch(
             `${API}/api/treatment-plans/${plan.id}/services/${service.service_id}/mark-paid`,
             {
@@ -164,7 +322,7 @@ const ServicePaymentList = ({ plan, onUpdate, onEdit, paymentFilter = 'all', pro
                 'Authorization': `Bearer ${token}`,
                 'Content-Type': 'application/json'
               },
-              body: JSON.stringify({ payment_data: paymentData })
+              body: JSON.stringify(pd)
             }
           );
           
@@ -192,6 +350,7 @@ const ServicePaymentList = ({ plan, onUpdate, onEdit, paymentFilter = 'all', pro
     } finally {
       setLoading(false);
       setPendingPaymentData(null);
+      resetPaymentModal();
     }
   };
 
@@ -328,72 +487,30 @@ const ServicePaymentList = ({ plan, onUpdate, onEdit, paymentFilter = 'all', pro
   };
 
   // Компонент модального окна выбора способа оплаты
-  const PaymentMethodModal = () => {
-    if (!showPaymentModal) return null;
-    
-    return (
-      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50" onClick={() => setShowPaymentModal(false)}>
-        <div className="bg-white rounded-xl shadow-2xl p-6 w-full max-w-md mx-4" onClick={e => e.stopPropagation()}>
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="text-lg font-semibold text-gray-900 flex items-center">
-              <FaCreditCard className="mr-2 text-blue-500" />
-              Выберите способ оплаты
-            </h3>
-            <button
-              onClick={() => setShowPaymentModal(false)}
-              className="text-gray-400 hover:text-gray-600 text-2xl leading-none"
-            >
-              &times;
-            </button>
-          </div>
-          
-          <div className="space-y-3 max-h-80 overflow-y-auto">
-            {loadingPaymentTypes ? (
-              <div className="text-center py-8 text-gray-500">
-                <div className="w-8 h-8 border-4 border-blue-200 border-t-blue-600 rounded-full animate-spin mx-auto mb-2"></div>
-                Загрузка способов оплаты...
-              </div>
-            ) : paymentTypes.length === 0 ? (
-              <div className="text-center py-8 text-gray-500">
-                <p>Нет доступных способов оплаты</p>
-                <p className="text-xs mt-1">Добавьте их в разделе "Тип оплаты" в справочнике</p>
-              </div>
-            ) : (
-              paymentTypes.map(pt => (
-                <button
-                  key={pt.id}
-                  onClick={() => executePayment(pt)}
-                  disabled={loading}
-                  className="w-full px-4 py-4 bg-gray-50 hover:bg-blue-50 border border-gray-200 hover:border-blue-300 rounded-lg transition-all text-left flex items-center justify-between group"
-                >
-                  <div className="flex items-center space-x-3">
-                    <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 font-bold text-sm">
-                      {pt.name.charAt(0).toUpperCase()}
-                    </div>
-                    <div>
-                      <div className="font-medium text-gray-900">{pt.name}</div>
-                      {pt.description && (
-                        <div className="text-xs text-gray-500">{pt.description}</div>
-                      )}
-                    </div>
-                  </div>
-                  <FaChevronRight className="text-gray-300 group-hover:text-blue-400 transition-colors" />
-                </button>
-              ))
-            )}
-          </div>
-          
-          <button
-            onClick={() => executePayment(null)}
-            disabled={loading}
-            className="w-full mt-4 px-4 py-3 bg-gray-100 text-gray-600 rounded-lg hover:bg-gray-200 transition-colors text-sm disabled:opacity-50"
-          >
-            {loading ? 'Обработка...' : 'Продолжить без указания способа оплаты'}
-          </button>
-        </div>
-      </div>
-    );
+  const payableTarget = () => {
+    const pd = pendingPaymentData;
+    if (!pd) return 0;
+    if (pd.type === 'component') {
+      const svc = (plan.services || []).find(x => x.service_id === pd.serviceId);
+      const sh = svc ? complexShares(svc).find(c => c.service_id === pd.componentServiceId) : null;
+      return sh ? sh.share : 0;
+    }
+    if (pd.type === 'complex-remaining') {
+      const svc = (plan.services || []).find(x => x.service_id === pd.serviceId);
+      const shares = svc ? complexShares(svc) : [];
+      const total = shares.reduce((a, c) => a + c.share, 0);
+      const paid = shares.filter(c => c.paid).reduce((a, c) => a + (c.paid_amount || 0), 0);
+        const disc = shares.reduce((a, c) => a + (c.discount_amount || 0), 0);
+      return Math.round((total - disc - paid) * 100) / 100;
+    }
+    if (pd.type === 'service') {
+      const svc = (plan.services || []).find(x => x.service_id === pd.serviceId);
+      return svc ? svc.total_price : 0;
+    }
+    return Math.max(0, (plan.total_cost || 0) - (plan.paid_amount || 0));
   };
+
+  const resetPaymentModal = () => { setSelectedPaymentType(null); setDiscountInput(''); setDiscountType('fixed'); };
 
   return (
     <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
@@ -603,6 +720,19 @@ const ServicePaymentList = ({ plan, onUpdate, onEdit, paymentFilter = 'all', pro
             {filteredServices.map((service, index) => {
               const isPaid = service.payment_status === 'paid';
               const isCourse = service.is_course;
+              // для комплексной услуги — фактические остаток/общая по оплаченным долям
+              const cShares = service.is_complex ? complexShares(service) : [];
+              const cPaid = cShares.reduce((a, x) => a + (x.paid_amount || 0), 0);
+              const cTotal = service.total_price || 0;
+              // скидка при оплате учитывается: долг = цена − сумма скидок − оплачено
+              const cDisc = cShares.reduce((a, x) => a + (x.discount_amount || 0), 0);
+              const cDue = Math.max(0, cTotal - cDisc);
+              const cRemaining = Math.max(0, cDue - cPaid);
+              const cFully = cRemaining <= 0.001;
+              const isPartially = service.is_complex && cPaid > 0 && !cFully;
+              // показанная сумма оплаты/скидки: для комплекса — из долей, для обычной — из услуги
+              const paidShown = service.is_complex ? cPaid : (service.paid_amount || cTotal);
+              const discShown = service.is_complex ? cDisc : (service.discount_amount || 0);
               const paymentType = service.payment_type || 'single';
               
               // Для курсов с поэтапной оплатой
@@ -625,6 +755,11 @@ const ServicePaymentList = ({ plan, onUpdate, onEdit, paymentFilter = 'all', pro
                 <div className="flex items-center justify-between">
                   <div className="flex items-center space-x-3">
                     <h5 className="font-semibold text-gray-900 text-lg">{service.service_name}</h5>
+                    {service.is_complex && (
+                      <span className="px-3 py-1 bg-blue-100 text-blue-700 rounded-full text-xs font-semibold">
+                        🧩 Комплекс
+                      </span>
+                    )}
                     {isCourse && (
                       <span className="px-3 py-1 bg-purple-100 text-purple-700 rounded-full text-xs font-semibold">
                         🔄 Курс
@@ -636,6 +771,37 @@ const ServicePaymentList = ({ plan, onUpdate, onEdit, paymentFilter = 'all', pro
 
               {/* Тело карточки */}
               <div className="p-4">
+                {service.is_complex && ((() => {
+                  const shares = complexShares(service);
+                  return (
+                    <div className="mb-2 border border-blue-200 rounded-lg overflow-hidden">
+                      <div className="px-3 py-2 bg-blue-50 text-xs font-semibold text-blue-800">Оплата по услугам комплекса</div>
+                      <div className="divide-y divide-gray-100">
+                        {shares.map(c => (
+                          <div key={c.service_id} className="flex items-center justify-between px-3 py-2 text-sm">
+                            <div>
+                              <div className="text-gray-900 font-medium">{c.service_name}</div>
+                              <div className="text-xs text-gray-500">
+                                {(c.price || 0).toLocaleString()} ₸ → доля {(c.share || 0).toLocaleString()} ₸
+                                {(c.discount || 0) > 0 ? ` · скидка ${c.discount}%` : ''}
+                                {c.paid ? (c.discount_amount > 0 ? ' · оплачено со скидкой' : ' · оплачено') : ''}
+                              </div>
+                            </div>
+                            {c.paid ? (
+                              <span className="text-right">
+                                <div className="text-green-600 text-xs font-medium">✅ {(c.paid_amount || 0).toLocaleString()} ₸</div>
+                                {c.discount_amount > 0 && <div className="text-gray-400 text-[10px]">скидка −{(c.discount_amount || 0).toLocaleString()} ₸</div>}
+                              </span>
+                            ) : (
+                              <button type="button" onClick={() => openPaymentModalForComponent(service.service_id, c.service_id)}
+                                className="px-3 py-1 bg-blue-600 text-white rounded-lg text-xs hover:bg-blue-700">Оплатить</button>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  );
+                })())}
                 {isPerSession ? (
                   /* Курс с поэтапной оплатой */
                   <div className="space-y-4">
@@ -731,10 +897,13 @@ const ServicePaymentList = ({ plan, onUpdate, onEdit, paymentFilter = 'all', pro
                     <div className="flex items-center justify-between">
                       <div className="flex items-center space-x-6">
                         <div>
-                          <div className="text-xs text-gray-500 font-medium mb-1">СТОИМОСТЬ</div>
+                          <div className="text-xs text-gray-500 font-medium mb-1">{service.is_complex ? 'ОБЩАЯ СУММА / ОСТАТОК' : 'СТОИМОСТЬ'}</div>
                           <div className="text-2xl font-bold text-gray-900">
-                            {(service.total_price || 0).toLocaleString()} ₸
+                            {cTotal.toLocaleString()} ₸
                           </div>
+                          {service.is_complex && !cFully && (
+                            <div className="text-sm font-semibold text-amber-600">Остаток: {cRemaining.toLocaleString()} ₸</div>
+                          )}
                         </div>
                         
                         {service.quantity_total > 1 && (
@@ -748,12 +917,20 @@ const ServicePaymentList = ({ plan, onUpdate, onEdit, paymentFilter = 'all', pro
                       </div>
                       
                       <div className="text-right">
-                        {isPaid ? (
+                        {isPaid || cFully ? (
                           <div className="inline-flex items-center px-4 py-2 bg-green-100 border-2 border-green-300 text-green-700 rounded-lg font-semibold">
                             <span className="text-lg mr-2">✅</span>
                             <div>
                               <div>Оплачено</div>
-                              <div className="text-xs text-green-500">{(service.total_price || 0).toLocaleString()} ₸</div>
+                              <div className="text-xs text-green-500">{paidShown.toLocaleString()} ₸{discShown > 0 ? ` · скидка ${discShown.toLocaleString()} ₸` : ''}</div>
+                            </div>
+                          </div>
+                        ) : isPartially ? (
+                          <div className="inline-flex items-center px-4 py-2 bg-amber-100 border-2 border-amber-300 text-amber-700 rounded-lg font-semibold">
+                            <span className="text-lg mr-2">🕐</span>
+                            <div>
+                              <div>Частично</div>
+                              <div className="text-xs text-amber-600">{cPaid.toLocaleString()} / {cDue.toLocaleString()} ₸{cDisc > 0 ? ` · скидка ${cDisc.toLocaleString()} ₸` : ''}</div>
                             </div>
                           </div>
                         ) : (
@@ -761,7 +938,7 @@ const ServicePaymentList = ({ plan, onUpdate, onEdit, paymentFilter = 'all', pro
                             <span className="text-lg mr-2">❌</span>
                             <div>
                               <div>Не оплачено</div>
-                              <div className="text-xs text-red-500">{(service.total_price || 0).toLocaleString()} ₸</div>
+                              <div className="text-xs text-red-500">{cTotal.toLocaleString()} ₸</div>
                             </div>
                           </div>
                         )}
@@ -775,11 +952,13 @@ const ServicePaymentList = ({ plan, onUpdate, onEdit, paymentFilter = 'all', pro
                       </div>
                     )}
 
-                    {/* Кнопка оплаты */}
-                    {!isPaid && (
+                    {/* Кнопка оплаты (для комплекса — «Оплатить всё» за остаток) */}
+                    {!isPaid && !(service.is_complex && cFully) && (
                       <div className="flex justify-end pt-2">
                         <button
-                          onClick={() => markServicePaid(service.service_id)}
+                          onClick={() => service.is_complex
+                            ? openPaymentModalForComplexRemaining(service.service_id)
+                            : markServicePaid(service.service_id)}
                           disabled={loading}
                           className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed font-medium transition-all shadow-md hover:shadow-lg flex items-center space-x-2"
                         >
@@ -788,9 +967,9 @@ const ServicePaymentList = ({ plan, onUpdate, onEdit, paymentFilter = 'all', pro
                           ) : (
                             <>
                               <span>💳</span>
-                              <span>Оплатить</span>
+                              <span>{service.is_complex ? 'Оплатить всё' : 'Оплатить'}</span>
                               <span className="ml-2 px-2 py-0.5 bg-blue-700 rounded text-sm">
-                                {(service.total_price || 0).toLocaleString()} ₸
+                                {(service.is_complex ? cRemaining : service.total_price || 0).toLocaleString()} ₸
                               </span>
                             </>
                           )}
@@ -819,7 +998,21 @@ const ServicePaymentList = ({ plan, onUpdate, onEdit, paymentFilter = 'all', pro
           </div>
       
       {/* Модальное окно выбора способа оплаты */}
-      <PaymentMethodModal />
+      <PaymentModal
+        show={showPaymentModal}
+        loading={loading}
+        onClose={() => { resetPaymentModal(); setShowPaymentModal(false); }}
+        paymentTypes={paymentTypes}
+        loadingPaymentTypes={loadingPaymentTypes}
+        selectedPaymentType={selectedPaymentType}
+        setSelectedPaymentType={setSelectedPaymentType}
+        discountInput={discountInput}
+        setDiscountInput={setDiscountInput}
+        discountType={discountType}
+        setDiscountType={setDiscountType}
+        total={payableTarget()}
+        onPay={(pType, d) => executePayment(pType, d)}
+      />
     </div>
   );
 };

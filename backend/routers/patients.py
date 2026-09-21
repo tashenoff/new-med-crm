@@ -26,6 +26,9 @@ class PatientSource(str, Enum):
     REFERRAL = "referral"
     WALK_IN = "walk_in"
     SOCIAL_MEDIA = "social_media"
+    SOCIAL = "social"  # Значения из CRM SourceType (обратная совместимость)
+    ADVERTISING = "advertising"  # Значения из CRM SourceType (обратная совместимость)
+    EMAIL = "email"  # Значения из CRM SourceType (обратная совместимость)
     CRM_CONVERSION = "crm_conversion"
     OTHER = "other"
 
@@ -273,8 +276,8 @@ async def get_patients(
                 last = patient_data.get('last_name', '') or ''
                 patient_data['full_name'] = f"{first} {last}".strip() or patient_data.get('phone', 'Пациент')
             
-            # Normalize source to valid PatientSource enum value (fallback to 'other' for unknown sources like 'email', 'advertising', etc.)
-            valid_sources = {'website', 'phone', 'referral', 'walk_in', 'social_media', 'crm_conversion', 'other'}
+            # Normalize source to valid PatientSource enum value (fallback to 'other' for unknown sources)
+            valid_sources = {'website', 'phone', 'referral', 'walk_in', 'social_media', 'social', 'advertising', 'email', 'crm_conversion', 'other'}
             current_source = patient_data.get('source', 'other')
             if current_source not in valid_sources:
                 patient_data['source'] = 'other'

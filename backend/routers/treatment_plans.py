@@ -457,6 +457,31 @@ async def complete_course_session(
     return TreatmentPlan(**updated_plan)
 
 
+@treatment_plans_router.post("/treatment-plans/{plan_id}/complex-services/{service_id}/pay-remaining")
+async def pay_complex_remaining(
+    plan_id: str,
+    service_id: str,
+    payment_data: Optional[dict] = Body(None),
+    current_user: UserInDB = Depends(require_role([UserRole.ADMIN, UserRole.SUPER_ADMIN, UserRole.DOCTOR])),
+    service: TreatmentPlanService = Depends(get_treatment_plan_service),
+):
+    """Оплатить остаток комплексной услуги (все неоплаченные доли)."""
+    return await service.pay_complex_remaining(plan_id, service_id, payment_data)
+
+
+@treatment_plans_router.post("/treatment-plans/{plan_id}/complex-services/{service_id}/components/{component_service_id}/mark-paid")
+async def mark_complex_component_paid(
+    plan_id: str,
+    service_id: str,
+    component_service_id: str,
+    payment_data: Optional[dict] = Body(None),
+    current_user: UserInDB = Depends(require_role([UserRole.ADMIN, UserRole.SUPER_ADMIN, UserRole.DOCTOR])),
+    service: TreatmentPlanService = Depends(get_treatment_plan_service),
+):
+    """Отметить оплаченной одну услугу (долю) комплексной услуги в плане."""
+    return await service.pay_complex_component(plan_id, service_id, component_service_id, payment_data)
+
+
 @treatment_plans_router.post("/treatment-plans/{plan_id}/services/{service_id}/mark-paid")
 async def mark_service_paid(
     plan_id: str,
@@ -497,7 +522,16 @@ async def mark_service_paid(
             
             # Установить статус оплаты услуги
             service["payment_status"] = "paid"
-            service_price = service.get("total_price", 0)
+            total_price = service.get("total_price", 0)
+            # скидка при оплате: если передан amount — платим его (меньше цены)
+            svc_amount = total_price
+            if payment_data and isinstance(payment_data, dict):
+                amt = payment_data.get("amount")
+                if amt is not None and isinstance(amt, (int, float)) and not isinstance(amt, bool) and 0 <= amt < total_price:
+                    svc_amount = float(amt)
+                    service["discount_amount"] = round(total_price - svc_amount, 2)
+            service["paid_amount"] = round(svc_amount, 2)
+            service_price = total_price
             
             # Сохранить способ оплаты если передан
             if payment_data and isinstance(payment_data, dict):
@@ -518,7 +552,7 @@ async def mark_service_paid(
     
     # Пересчитать общую сумму оплаченных услуг
     paid_services_total = sum(
-        s.get("total_price", 0)
+        (s.get("paid_amount") if "paid_amount" in s else s.get("total_price", 0))
         for s in plan.get("services", [])
         if s.get("payment_status") == "paid"
     )

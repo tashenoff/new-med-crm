@@ -116,10 +116,10 @@ const DoctorModal = ({
       
       if (editingItem.specialty && (doctorForm.specialty !== editingItem.specialty)) {
         console.log('  ✅ Принудительно устанавливаем specialty');
-        setDoctorForm(prev => ({
-          ...prev,
+        setDoctorForm({
+          ...doctorForm,
           specialty: editingItem.specialty
-        }));
+        });
       }
     }
   }, [specialties, editingItem, doctorForm.specialty]);
@@ -375,18 +375,15 @@ const DoctorModal = ({
                               type="checkbox"
                               checked={isSelected}
                               onChange={() => {
-                                let newSpecialties = [...(doctorForm.specialties || [])];
-                                if (isSelected) {
-                                  newSpecialties = newSpecialties.filter(s => s !== specialty.name);
-                                } else {
-                                  newSpecialties.push(specialty.name);
-                                }
-                                // Также обновляем specialty (первая выбранная)
-                                const primarySpecialty = newSpecialties.length > 0 ? newSpecialties[0] : null;
+                                const current = doctorForm.specialties || [];
+                                const exists = current.includes(specialty.name);
+                                const newSpecialties = exists
+                                  ? current.filter(s => s !== specialty.name)
+                                  : [...current, specialty.name];
                                 setDoctorForm({
                                   ...doctorForm,
                                   specialties: newSpecialties,
-                                  specialty: primarySpecialty
+                                  specialty: newSpecialties.length > 0 ? newSpecialties[0] : null
                                 });
                               }}
                               className="rounded text-purple-600 focus:ring-purple-500"

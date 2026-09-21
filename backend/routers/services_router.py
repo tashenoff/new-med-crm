@@ -48,6 +48,27 @@ async def get_service_prices(
     return await service.get_service_prices(category, active_only, search)
 
 
+@services_api_router.get("/service-prices/{price_id}/component-shares")
+async def get_complex_component_shares(
+    price_id: str,
+    current_user: UserInDB = Depends(get_current_active_user),
+    service: ServicePriceService = Depends(get_service_price_service)
+):
+    """Доли услуг комплекса для оплаты (дефолтная цена, коэффициент, доля со скидкой)."""
+    return await service.complex_component_shares(price_id)
+
+
+@services_api_router.get("/service-prices/{price_id}/specialists-availability")
+async def get_complex_specialists_availability(
+    price_id: str,
+    date: str,
+    current_user: UserInDB = Depends(get_current_active_user),
+    service: ServicePriceService = Depends(get_service_price_service)
+):
+    """Специалисты комплексной услуги (из состава) и их доступность на дату."""
+    return await service.complex_specialists_availability(price_id, date)
+
+
 @services_api_router.get("/service-prices/statistics/lab")
 async def get_lab_price_statistics(
     current_user: UserInDB = Depends(get_current_active_user),
@@ -60,7 +81,7 @@ async def get_lab_price_statistics(
 @services_api_router.post("/service-prices", response_model=ServicePrice)
 async def create_service_price(
     service_price: ServicePriceCreate,
-    current_user: UserInDB = Depends(require_role([UserRole.ADMIN, UserRole.SUPER_ADMIN])),
+    current_user: UserInDB = Depends(require_role([UserRole.ADMIN, UserRole.SUPER_ADMIN, UserRole.MARKETER])),
     price_service: ServicePriceService = Depends(get_service_price_service)
 ):
     """Create new service price"""
@@ -71,7 +92,7 @@ async def create_service_price(
 async def update_service_price(
     price_id: str,
     service_price_update: ServicePriceUpdate,
-    current_user: UserInDB = Depends(require_role([UserRole.ADMIN, UserRole.SUPER_ADMIN])),
+    current_user: UserInDB = Depends(require_role([UserRole.ADMIN, UserRole.SUPER_ADMIN, UserRole.MARKETER])),
     service: ServicePriceService = Depends(get_service_price_service)
 ):
     """Update service price"""
@@ -81,7 +102,7 @@ async def update_service_price(
 @services_api_router.delete("/service-prices/{price_id}")
 async def delete_service_price(
     price_id: str,
-    current_user: UserInDB = Depends(require_role([UserRole.ADMIN, UserRole.SUPER_ADMIN])),
+    current_user: UserInDB = Depends(require_role([UserRole.ADMIN, UserRole.SUPER_ADMIN, UserRole.MARKETER])),
     service: ServicePriceService = Depends(get_service_price_service)
 ):
     """Delete (deactivate) service price"""
@@ -117,7 +138,7 @@ async def get_services(
 @services_api_router.post("/services", response_model=Service)
 async def create_service(
     service_data: ServiceCreate,
-    current_user: UserInDB = Depends(require_role([UserRole.ADMIN, UserRole.SUPER_ADMIN]))
+    current_user: UserInDB = Depends(require_role([UserRole.ADMIN, UserRole.SUPER_ADMIN, UserRole.MARKETER]))
 ):
     """Create a new service (admin only)"""
     service_obj = Service(**service_data.dict())
@@ -127,7 +148,7 @@ async def create_service(
 
 @services_api_router.post("/services/initialize")
 async def initialize_default_services(
-    current_user: UserInDB = Depends(require_role([UserRole.ADMIN, UserRole.SUPER_ADMIN]))
+    current_user: UserInDB = Depends(require_role([UserRole.ADMIN, UserRole.SUPER_ADMIN, UserRole.MARKETER]))
 ):
     """Initialize default services (admin only)"""
     existing_count = await db.services.count_documents({})

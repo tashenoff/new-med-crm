@@ -44,13 +44,14 @@ const DoctorSchedule = ({ doctors, user, canEdit, rooms = [] }) => {
   
   // Week schedule state - для выбора нескольких дней
   const [weekScheduleData, setWeekScheduleData] = useState({
-    doctor_id: '',
-    room_id: '',
-    selectedDays: [],
-    default_start: '09:00',
-    default_end: '18:00',
-    dayTimes: {}
-  });
+      doctor_id: '',
+      room_id: '',
+      selectedDays: [],
+      default_start: '09:00',
+      default_end: '18:00',
+      dayTimes: {}
+    });
+    const [applyToAllDays, setApplyToAllDays] = useState(false);
   const [weekScheduleSaving, setWeekScheduleSaving] = useState(false);
   const [roomConflicts, setRoomConflicts] = useState({}); // {dayId: {is_available, conflicts}}
 
@@ -701,19 +702,26 @@ const DoctorSchedule = ({ doctors, user, canEdit, rooms = [] }) => {
   };
 
   const updateDayTime = (dayId, field, value) => {
-    const selected = weekScheduleData.selectedDays.includes(dayId)
-      ? weekScheduleData.selectedDays
-      : [...weekScheduleData.selectedDays, dayId].sort((a, b) => a - b);
-    const current = getDayTimes(dayId);
-    const nextTimes = ensureDayTimes(selected, {
-      ...weekScheduleData,
-      dayTimes: {
-        ...(weekScheduleData.dayTimes || {}),
-        [dayId]: { ...current, [field]: value }
+      const selected = weekScheduleData.selectedDays.includes(dayId)
+        ? weekScheduleData.selectedDays
+        : [...weekScheduleData.selectedDays, dayId].sort((a, b) => a - b);
+      // Режим "одно поле -> все выбранные дни": применяем введённое ко всем выбранным
+      const newTimes = { ...(weekScheduleData.dayTimes || {}) };
+      if (applyToAllDays && selected.length > 1) {
+        selected.forEach((d) => {
+          const t = getDayTimes(d);
+          newTimes[d] = { start_time: t.start_time, end_time: t.end_time, [field]: value };
+        });
+      } else {
+        const current = getDayTimes(dayId);
+        newTimes[dayId] = { ...current, [field]: value };
       }
-    });
-    updateWeekScheduleWithCheck({ selectedDays: selected, dayTimes: nextTimes });
-  };
+      const nextTimes = ensureDayTimes(selected, {
+        ...weekScheduleData,
+        dayTimes: newTimes
+      });
+      updateWeekScheduleWithCheck({ selectedDays: selected, dayTimes: nextTimes });
+    };
 
   // Проверка занятости кабинета для выбранных дней
   const checkWeekRoomAvailability = async (roomId, days, data) => {
@@ -1399,8 +1407,12 @@ const DoctorSchedule = ({ doctors, user, canEdit, rooms = [] }) => {
               <button type="button" onClick={selectWorkDays} className="px-3 py-1 text-xs bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 rounded-lg border border-gray-300 dark:border-gray-600">Пн-Пт</button>
               <button type="button" onClick={selectAllDays} className="px-3 py-1 text-xs bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 rounded-lg border border-gray-300 dark:border-gray-600">Все дни</button>
               <button type="button" onClick={clearDaysSelection} className="px-3 py-1 text-xs bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 rounded-lg border border-gray-300 dark:border-gray-600">Очистить</button>
-            </div>
-            <div className="space-y-2">
+                          </div>
+                          <label className="flex items-center gap-2 mb-2 text-xs text-gray-600 dark:text-gray-300 cursor-pointer select-none">
+                            <input type="checkbox" checked={applyToAllDays} onChange={(e) => setApplyToAllDays(e.target.checked)} className="w-3.5 h-3.5 accent-blue-600" />
+                            Применять введённое время ко всем выбранным дням
+                          </label>
+                          <div className="space-y-2">
               {daysOfWeek.map(day => {
                 const isSelected = weekScheduleData.selectedDays.includes(day.id);
                 const times = getDayTimes(day.id);

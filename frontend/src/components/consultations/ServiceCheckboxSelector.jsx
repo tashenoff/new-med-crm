@@ -111,6 +111,11 @@ const ServiceCheckboxSelector = ({ onAddServices, alreadyAddedIds = [], disabled
 
   const selectedList = useMemo(() => Object.values(selected), [selected]);
   const selectedCount = selectedList.length;
+  const [availByDate, setAvailByDate] = useState({}); // "complexId:date" -> availability
+  const [selSlots, setSelSlots] = useState({});       // "complexId:serviceId:doctorId" -> {date,start,end}
+  const [selDoctors, setSelDoctors] = useState({});   // "complexId:serviceId" -> doctor_id
+  const [oneDoctorOn, setOneDoctorOn] = useState({}); // complexId -> bool: весь комплекс одним врачом
+  const [oneDocSlot, setOneDocSlot] = useState({});   // complexId -> {doctor_id,date,start,end}
   const alreadyAddedKey = Array.isArray(alreadyAddedIds) ? alreadyAddedIds.join(',') : '';
   const alreadyAddedSet = useMemo(
     () => new Set(alreadyAddedKey ? alreadyAddedKey.split(',') : []),
@@ -157,6 +162,66 @@ const ServiceCheckboxSelector = ({ onAddServices, alreadyAddedIds = [], disabled
   const getLineTotal = (cfg) => (cfg.service.price || 0) * getEffectiveCount(cfg);
   const totalPrice = selectedList.reduce((sum, cfg) => sum + getLineTotal(cfg), 0);
 
+  const freeTimesFor = (spec) => {
+    if (!spec.has_schedule || !spec.schedule_start || !spec.schedule_end) return [];
+    const booked = new Set(spec.booked || []);
+    const times = [];
+    let cur = spec.schedule_start;
+    const end = spec.schedule_end;
+    while (cur < end) {
+      if (!booked.has(cur)) times.push(cur);
+      const [hh, mm] = cur.split(':').map(Number);
+      const dt = new Date();
+      dt.setHours(hh, mm + 30, 0, 0);
+      cur = `${String(dt.getHours()).padStart(2, '0')}:${String(dt.getMinutes()).padStart(2, '0')}`;
+    }
+    return times;
+  };
+
+  const ensureAvailability = async (complexId, date) => {
+    if (!complexId || !date) return;
+    const key = `${complexId}:${date}`;
+    if (availByDate[key]) return;
+    try {
+      const token = localStorage.getItem('token');
+      const r = await fetch(`${API}/api/service-prices/${complexId}/specialists-availability?date=${date}`, {
+        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' }
+      });
+      if (r.ok) {
+        const data = await r.json();
+        setAvailByDate(prev => ({ ...prev, [key]: data }));
+      }
+    } catch (e) {
+      console.error('Error fetching availability:', e);
+    }
+  };
+
+  const selectedComplexes = useMemo(() => selectedList.filter(cfg => cfg.service.service_type === 'complex'), [selectedList, selectedCount]);
+
+  useEffect(() => {
+    const today = new Date().toISOString().slice(0, 10);
+    selectedComplexes.forEach(cfg => ensureAvailability(cfg.service.id, today));
+  }, [selectedComplexes.map(c => c.service.id).join(',')]);
+
+  const availAnyDocName = (complexId, doctorId) => {
+    for (const a of Object.values(availByDate)) {
+      if (a.complex_id !== complexId) continue;
+      for (const svc of a.services || []) {
+        const d = (svc.doctors || []).find(x => x.doctor_id === doctorId);
+        if (d) return d.doctor_name || '';
+      }
+    }
+    return '';
+  };
+
+  const defaultEndTime = (start) => {
+    if (!start) return '';
+    const [hh, mm] = start.split(':').map(Number);
+    const dt = new Date();
+    dt.setHours(hh, mm + 30, 0, 0);
+    return `${String(dt.getHours()).padStart(2, '0')}:${String(dt.getMinutes()).padStart(2, '0')}`;
+  };
+
   const handleAdd = () => {
     if (selectedCount === 0) return;
     const servicesToAdd = selectedList.map((cfg) => {
@@ -164,7 +229,23 @@ const ServiceCheckboxSelector = ({ onAddServices, alreadyAddedIds = [], disabled
         service_id: cfg.service.id,
         service_name: cfg.service.service_name,
         category: cfg.service.category || '',
-        price_per_unit: cfg.service.price || 0
+        price_per_unit: cfg.service.price || 0,
+        ...(cfg.service.service_type === 'complex'
+          ? {
+              is_complex: true,
+              // штампуем выбранного в конс-листе врача в компоненты (для зарплаты/печати)
+              components: oneDoctorOn[cfg.service.id]
+                ? (cfg.service.components || []).map((c) => {
+                    const did = oneDocSlot[cfg.service.id]?.doctor_id;
+                    return did && (oneDocSlot[cfg.service.id]?.start) ? { ...c, doctor_id: did } : c;
+                  })
+                : (cfg.service.components || []).map((c) => {
+                    const entry = Object.entries(selSlots).find(([k, sl]) => sl && sl.start && k.startsWith(`${cfg.service.id}:${c.service_id}:`));
+                    const did = entry ? entry[0].split(':')[2] : null;
+                    return did ? { ...c, doctor_id: did } : c;
+                  }),
+            }
+          : {})
       };
       if (cfg.isCourse) {
         const totalProcedures = (cfg.durationDays || 1) * (cfg.frequencyPerDay || 1);
@@ -181,11 +262,53 @@ const ServiceCheckboxSelector = ({ onAddServices, alreadyAddedIds = [], disabled
           payment_type: cfg.paymentType
         };
       }
+      // Для комплексной услуги — выбранные слоты специалистов (у каждого своя дата и окно времени)
+      let scheduling = null;
+      if (cfg.service.service_type === 'complex' && oneDoctorOn[cfg.service.id]) {
+        const today = new Date().toISOString().slice(0, 10);
+        const osc = oneDocSlot[cfg.service.id] || {};
+        const availAny0 = availByDate[`${cfg.service.id}:${osc.date || today}`] || Object.values(availByDate).find(a => a.complex_id === cfg.service.id);
+        const common0 = (availAny0?.common_doctors || []);
+        const docId = osc.doctor_id || common0[0]?.doctor_id || '';
+        const slots = docId && osc.start ? [{
+          doctor_id: docId,
+          doctor_name: availAnyDocName(cfg.service.id, docId),
+          service_id: cfg.service.id,
+          service_name: cfg.service.service_name,
+          date: osc.date || today,
+          start_time: osc.start,
+          end_time: osc.end || defaultEndTime(osc.start),
+        }] : [];
+        scheduling = { slots };
+      } else if (cfg.service.service_type === 'complex') {
+        const today = new Date().toISOString().slice(0, 10);
+        const slots = Object.entries(selSlots)
+          .filter(([k, sl]) => sl && sl.start && k.startsWith(cfg.service.id + ':'))
+          .map(([k, sl]) => {
+            const parts = k.split(':');
+            const svcId = parts[1];
+            const doctorId = parts[2];
+            const date = sl.date || today; // дата не менялась явно — берём сегодня
+            const svc = availByDate[`${cfg.service.id}:${date}`]?.services?.find(x => x.service_id === svcId);
+            const doc = svc?.doctors?.find(d => d.doctor_id === doctorId);
+            return {
+              doctor_id: doctorId,
+              doctor_name: doc?.doctor_name || '',
+              service_id: svcId,
+              service_name: svc?.service_name || cfg.service.components?.find(c => c.service_id === svcId)?.service_name || cfg.service.service_name,
+              date,
+              start_time: sl.start,
+              end_time: sl.end || defaultEndTime(sl.start),
+            };
+          });
+        scheduling = { slots };
+      }
       return {
         ...base,
         quantity: cfg.quantity || 1,
         total_price: (cfg.service.price || 0) * (cfg.quantity || 1),
-        is_course: false
+        is_course: false,
+        ...(scheduling ? { scheduling } : {})
       };
     });
     onAddServices(servicesToAdd);
@@ -243,6 +366,20 @@ const ServiceCheckboxSelector = ({ onAddServices, alreadyAddedIds = [], disabled
                       <div className={`font-medium text-gray-900 text-sm truncate ${isAdded ? 'line-through text-gray-400' : ''}`}>
                         {service.service_name}
                       </div>
+                      {service.service_type === 'complex' && (
+                        <div className="text-xs text-purple-600">
+                          <div>🧩 Комплекс:</div>
+                          <ul className="list-disc pl-3 mt-0.5 space-y-0.5">
+                            {service.components && service.components.length
+                              ? service.components.map(c => (
+                                  <li key={c.service_id || c.service_name}>
+                                    {c.service_name}{c.quantity && c.quantity > 1 ? ` ×${c.quantity}` : ''}{c.price ? ` — ${c.price.toLocaleString()} ₸` : ''}
+                                  </li>
+                                ))
+                              : <li>состав пуст</li>}
+                          </ul>
+                        </div>
+                      )}
                       {service.unit && (
                         <div className="text-xs text-gray-500">{formatUnit(service.unit)}</div>
                       )}
@@ -285,6 +422,166 @@ const ServiceCheckboxSelector = ({ onAddServices, alreadyAddedIds = [], disabled
                         ? `${cfg.service.price.toLocaleString()} ₸ × ${count} = ${getLineTotal(cfg).toLocaleString()} ₸`
                         : 'Цена не указана'}
                     </div>
+                                        {cfg.service.service_type === 'complex' && (
+                      <div className="mt-1 bg-blue-50 border border-blue-200 rounded p-2 text-xs">
+                        <div className="font-medium text-gray-800">📅 Расписание специалистов — по каждой услуге своя дата и время</div>
+                                                <label className="flex items-center gap-1.5 mt-1 cursor-pointer select-none">
+                                                  <input type="checkbox" checked={!!oneDoctorOn[cfg.service.id]}
+                                                    onChange={(e) => setOneDoctorOn(prev => ({ ...prev, [cfg.service.id]: e.target.checked }))}
+                                                    className="accent-blue-600" />
+                                                  <span className="text-[11px] text-gray-600">Весь комплекс одним специалистом (одна запись)</span>
+                                                </label>
+                                                {(() => {
+                          const cid = cfg.service.id;
+                          const today = new Date().toISOString().slice(0, 10);
+                          const availAny = availByDate[`${cid}:${today}`] || Object.values(availByDate).find(a => a.complex_id === cid);
+                          if (!availAny) return <div className="text-gray-500 mt-1">Загрузка доступности…</div>;
+                          const services = availAny.services || [];
+                                                    if (oneDoctorOn[cid]) {
+                                                      const common = availAny.common_doctors || [];
+                                                      if (common.length === 0)
+                                                        return <div className="text-amber-600 mt-1">Нет врача, который делает весь комплекс целиком — выключите режим «одним специалистом».</div>;
+                                                      const os = oneDocSlot[cid] || {};
+                                                      const docId = os.doctor_id || common[0]?.doctor_id || '';
+                                                      const date = os.date || today;
+                                                      const dateAvail = availByDate[`${cid}:${date}`];
+                                                      const doc = (dateAvail?.common_doctors || availAny.common_doctors).find(d => d.doctor_id === docId) || null;
+                                                      const times = doc ? freeTimesFor(doc) : [];
+                                                      return (
+                                                        <div className="space-y-1.5 mt-1 bg-white border border-gray-200 rounded p-1.5">
+                                                          <div className="text-gray-800 font-medium text-xs">{cfg.service.service_name} — весь комплекс</div>
+                                                          <div className="flex items-center gap-2 flex-wrap">
+                                                            <label className="text-[10px] text-gray-500">Врач</label>
+                                                            <select
+                                                              value={docId}
+                                                              onChange={(e) => setOneDocSlot(prev => ({ ...prev, [cid]: { ...(prev[cid] || {}), doctor_id: e.target.value } }))}
+                                                              className="flex-1 min-w-0 px-1.5 py-1 border border-gray-300 rounded text-sm"
+                                                            >
+                                                              <option value="">—</option>
+                                                              {common.map(d => (
+                                                                <option key={d.doctor_id} value={d.doctor_id}>{d.doctor_name}{d.has_schedule ? ` (${d.schedule_start}-${d.schedule_end})` : ''}{d.working_days?.length ? ` · ${d.working_days.join(', ')}` : ''}</option>
+                                                              ))}
+                                                            </select>
+                                                          </div>
+                                                          <div className="grid grid-cols-3 gap-1 mt-1">
+                                                            <label className="text-[10px] text-gray-500">Дата</label>
+                                                            <label className="text-[10px] text-gray-500">С</label>
+                                                            <label className="text-[10px] text-gray-500">До</label>
+                                                            <input
+                                                              type="date"
+                                                              value={date}
+                                                              onChange={(e) => { const dd = e.target.value; setOneDocSlot(prev => ({ ...prev, [cid]: { ...(prev[cid] || {}), date: dd } })); ensureAvailability(cid, dd); }}
+                                                              className="w-full px-1.5 py-1 border border-gray-300 rounded text-sm"
+                                                            />
+                                                            {doc && doc.has_schedule ? (
+                                                              <select
+                                                                value={os.start || ''}
+                                                                onChange={(e) => setOneDocSlot(prev => ({ ...prev, [cid]: { ...(prev[cid] || {}), start: e.target.value, end: defaultEndTime(e.target.value) } }))}
+                                                                className="w-full px-1.5 py-1 border border-gray-300 rounded text-sm"
+                                                              >
+                                                                <option value="">—</option>
+                                                                {times.map(t => <option key={t} value={t}>{t}</option>)}
+                                                              </select>
+                                                            ) : (
+                                                              <input
+                                                                type="time"
+                                                                value={os.start || ''}
+                                                                onChange={(e) => setOneDocSlot(prev => ({ ...prev, [cid]: { ...(prev[cid] || {}), start: e.target.value, end: defaultEndTime(e.target.value) } }))}
+                                                                className="w-full px-1.5 py-1 border border-gray-300 rounded text-sm"
+                                                              />
+                                                            )}
+                                                            <input
+                                                              type="time"
+                                                              value={os.end || defaultEndTime(os.start)}
+                                                              onChange={(e) => setOneDocSlot(prev => ({ ...prev, [cid]: { ...(prev[cid] || {}), end: e.target.value } }))}
+                                                              className="w-full px-1.5 py-1 border border-gray-300 rounded text-sm"
+                                                            />
+                                                          </div>
+                                                          {doc && doc.has_schedule ? (
+                                                            <div className="text-[10px] text-green-600 mt-0.5">окно {doc.schedule_start}-{doc.schedule_end}, занято: {doc.booked?.length || 0}</div>
+                                                          ) : (
+                                                            <div className="text-[10px] text-amber-600 mt-0.5">у врача нет расписания на {date} — выберите время вручную</div>
+                                                          )}
+                                                        </div>
+                                                      );
+                                                    }
+                                                    if (services.length === 0)
+                            return <div className="text-amber-600 mt-1">По услугам комплекса не найдены врачи — укажите врача вручную при записи.</div>;
+                          return (
+                            <div className="space-y-1.5 mt-1">
+                              {services.map((svc) => {
+                                const svcKey = `${cid}:${svc.service_id}`;
+                                const doctorId = selDoctors[svcKey] || svc.doctors?.[0]?.doctor_id || '';
+                                const key = `${svcKey}:${doctorId}`;
+                                const sl = selSlots[key] || { date: today, start: '', end: '' };
+                                const date = sl.date || today;
+                                const dateAvail = availByDate[`${cid}:${date}`];
+                                const svcForDate = dateAvail?.services?.find(x => x.service_id === svc.service_id);
+                                const doc = svcForDate?.doctors?.find(d => d.doctor_id === doctorId) || null;
+                                const times = doc ? freeTimesFor(doc) : [];
+                                return (
+                                  <div key={svc.service_id} className="bg-white border border-gray-200 rounded p-1.5">
+                                    <div className="text-gray-800 font-medium text-xs">{svc.service_name}{svc.quantity && svc.quantity > 1 ? ` ×${svc.quantity}` : ''}</div>
+                                    <div className="flex items-center gap-2 mt-1 flex-wrap">
+                                      <label className="text-[10px] text-gray-500">Врач</label>
+                                      <select
+                                        value={doctorId}
+                                        onChange={(e) => { const d = e.target.value; setSelDoctors(prev => ({ ...prev, [svcKey]: d })); const kk = `${svcKey}:${d}`; setSelSlots(prev => ({ ...prev, [kk]: prev[key] || { date: today, start: '', end: '' } })); }}
+                                        className="flex-1 min-w-0 px-1.5 py-1 border border-gray-300 rounded text-sm"
+                                      >
+                                        <option value="">—</option>
+                                        {(svc.doctors || []).map(doc => (
+                                          <option key={doc.doctor_id} value={doc.doctor_id}>{doc.doctor_name}{doc.has_schedule ? ` (${doc.schedule_start}-${doc.schedule_end})` : ''}{doc.working_days && doc.working_days.length ? ` · работает: ${doc.working_days.join(', ')}` : ''}</option>
+                                        ))}
+                                      </select>
+                                    </div>
+                                    <div className="grid grid-cols-3 gap-1 mt-1">
+                                      <label className="text-[10px] text-gray-500">Дата</label>
+                                      <label className="text-[10px] text-gray-500">С</label>
+                                      <label className="text-[10px] text-gray-500">До</label>
+                                      <input
+                                        type="date"
+                                        value={date}
+                                        onChange={(e) => { const dd = e.target.value; setSelSlots(prev => ({ ...prev, [key]: { ...(prev[key] || {}), date: dd } })); ensureAvailability(cid, dd); }}
+                                        className="w-full px-1.5 py-1 border border-gray-300 rounded text-sm"
+                                      />
+                                      {doc && doc.has_schedule ? (
+                                        <select
+                                          value={sl.start}
+                                          onChange={(e) => setSelSlots(prev => ({ ...prev, [key]: { ...(prev[key] || {}), start: e.target.value, end: defaultEndTime(e.target.value) } }))}
+                                          className="w-full px-1.5 py-1 border border-gray-300 rounded text-sm"
+                                        >
+                                          <option value="">—</option>
+                                          {times.map(t => <option key={t} value={t}>{t}</option>)}
+                                        </select>
+                                      ) : (
+                                        <input
+                                          type="time"
+                                          value={sl.start}
+                                          onChange={(e) => setSelSlots(prev => ({ ...prev, [key]: { ...(prev[key] || {}), start: e.target.value, end: defaultEndTime(e.target.value) } }))}
+                                          className="w-full px-1.5 py-1 border border-gray-300 rounded text-sm"
+                                        />
+                                      )}
+                                      <input
+                                        type="time"
+                                        value={sl.end || defaultEndTime(sl.start)}
+                                        onChange={(e) => setSelSlots(prev => ({ ...prev, [key]: { ...(prev[key] || {}), end: e.target.value } }))}
+                                        className="w-full px-1.5 py-1 border border-gray-300 rounded text-sm"
+                                      />
+                                    </div>
+                                    {doc && doc.has_schedule ? (
+                                                                          <div className="text-[10px] text-green-600 mt-0.5">окно {doc.schedule_start}-{doc.schedule_end}, занято: {doc.booked?.length || 0}</div>
+                                                                        ) : (
+                                                                          <div className="text-[10px] text-amber-600 mt-0.5">у врача нет расписания на {date} — выберите время вручную</div>
+                                                                        )}
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          );
+                        })()}
+                      </div>
+                    )}
                   </div>
                   <button
                     type="button"

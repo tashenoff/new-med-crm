@@ -28,6 +28,10 @@ class TreatmentService(BaseModel):
     sessions: List[dict] = []  # История выполнения [{date, time, completed, performed_by}]
     payment_type: str = "single"  # single (оплата сразу за курс) или per_session (за каждую процедуру)
 
+    # Комплексная услуга: одна строка плана со встроенным составом
+    is_complex: bool = False
+    components: Optional[list] = []
+
 
 class ConsultationSheet(BaseModel):
     """Консультационный лист пациента"""

@@ -7,6 +7,7 @@ API роуты для управления персоналом
 from fastapi import APIRouter, Depends, HTTPException, status
 from typing import List, Optional
 from motor.motor_asyncio import AsyncIOMotorDatabase
+from pydantic import BaseModel
 
 from database import get_database
 from dependencies import get_current_user
@@ -19,6 +20,11 @@ from models.staff import (
     Permission
 )
 from services.staff_service import StaffService
+
+
+class ResetPasswordRequest(BaseModel):
+    """Запрос на сброс пароля сотрудника администратором"""
+    new_password: str
 
 router = APIRouter(prefix="/api/staff", tags=["staff"])
 
@@ -297,6 +303,50 @@ async def assign_access_to_doctor(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Ошибка при назначении доступа: {str(e)}"
+        )
+
+
+@router.post("/{staff_id}/reset-password", status_code=status.HTTP_200_OK)
+async def reset_staff_password(
+    staff_id: str,
+    reset_request: ResetPasswordRequest,
+    current_user: User = Depends(require_staff_permission),
+    staff_service: StaffService = Depends(get_staff_service)
+):
+    """
+    Сбросить пароль сотрудника (администратором)
+    
+    Позволяет администратору установить новый пароль для любого сотрудника
+    без знания текущего пароля.
+    
+    Требует: admin или super_admin роль
+    """
+    # Проверяем, что пароль не короче 6 символов
+    if len(reset_request.new_password) < 6:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Пароль должен содержать минимум 6 символов"
+        )
+    
+    try:
+        success = await staff_service.change_password(staff_id, reset_request.new_password)
+        
+        if not success:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Сотрудник не найден"
+            )
+        
+        return {
+            "success": True,
+            "message": "Пароль успешно сброшен"
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Ошибка при сбросе пароля: {str(e)}"
         )
 
 
