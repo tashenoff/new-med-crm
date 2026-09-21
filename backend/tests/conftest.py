@@ -33,6 +33,7 @@ TOUCHED_COLLECTIONS = [
     "doctors",
     "appointments",
     "treatment_plans",
+    "doctor_schedules",
 ]
 
 

@@ -40,6 +40,9 @@ class Appointment(BaseModel):
     source_id: Optional[str] = None  # ID источника из CRM
     status: AppointmentStatus = AppointmentStatus.UNCONFIRMED
     reason: Optional[str] = None
+    service_id: Optional[str] = None  # Компонент комплекса, на который запись (для комплексов)
+    complex_id: Optional[str] = None  # Родительская комплексная услуга
+    complex_name: Optional[str] = None  # Название комплекса (для отображения)
     notes: Optional[str] = None
     patient_notes: Optional[str] = None  # Notes about the patient (separate from appointment notes)
     created_at: datetime = Field(default_factory=datetime.utcnow)
@@ -87,6 +90,9 @@ class AppointmentCreate(BaseModel):
     appointment_time: str
     end_time: Optional[str] = None
     price: Optional[float] = None
+    service_id: Optional[str] = None  # Компонент комплекса (для комплексов)
+    complex_id: Optional[str] = None
+    complex_name: Optional[str] = None
     deposit_type: Optional[str] = None  # 'percent' или 'fixed'
     deposit: Optional[float] = None  # Deposit amount (предоплата/депозит) - процент или сумма
     payment_type_id: Optional[str] = None  # ID типа оплаты
@@ -189,6 +195,9 @@ class AppointmentWithDetails(BaseModel):
     source_id: Optional[str] = None  # ID источника из CRM
     status: AppointmentStatus
     reason: Optional[str]
+    service_id: Optional[str] = None
+    complex_id: Optional[str] = None
+    complex_name: Optional[str] = None
     notes: Optional[str]
     patient_notes: Optional[str]
     patient_name: str
