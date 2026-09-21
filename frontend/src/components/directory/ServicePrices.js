@@ -1274,16 +1274,16 @@ const ServicePrices = ({ user }) => {
 
           <div className="flex justify-end space-x-3 pt-4">
             <button
-              onClick={() => setShowModal(false)}
-              className={buttonSecondaryClasses}
-            >
-              Отмена
-            </button>
-            <button
-              onClick={handleSave}
-              className={buttonPrimaryClasses}
-              disabled={!formData.service_name || loading}
-            >
+                          onClick={() => setShowModal(false)}
+                          className={`${buttonSecondaryClasses} h-10 inline-flex items-center justify-center gap-2 px-5`}
+                        >
+                          Отмена
+                        </button>
+                        <button
+                          onClick={handleSave}
+                          className={`${buttonPrimaryClasses} h-10 inline-flex items-center justify-center gap-2 px-5`}
+                          disabled={!formData.service_name || loading}
+                        >
               {loading ? 'Сохранение...' : 'Сохранить'}
             </button>
           </div>
@@ -1311,16 +1311,16 @@ const ServicePrices = ({ user }) => {
 
           <div className="flex justify-end space-x-3 pt-4">
             <button
-              onClick={() => setShowCategoryModal(false)}
-              className={buttonSecondaryClasses}
-            >
-              Отмена
-            </button>
-            <button
-              onClick={handleSaveCategory}
-              className={buttonPrimaryClasses}
-              disabled={!categoryFormData.name || loading}
-            >
+                          onClick={() => setShowCategoryModal(false)}
+                          className={`${buttonSecondaryClasses} h-10 inline-flex items-center justify-center gap-2 px-5`}
+                        >
+                          Отмена
+                        </button>
+                        <button
+                          onClick={handleSaveCategory}
+                          className={`${buttonPrimaryClasses} h-10 inline-flex items-center justify-center gap-2 px-5`}
+                          disabled={!categoryFormData.name || loading}
+                        >
               {loading ? 'Сохранение...' : 'Сохранить'}
             </button>
           </div>
