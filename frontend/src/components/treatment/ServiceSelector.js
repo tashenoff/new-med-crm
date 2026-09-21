@@ -10,6 +10,9 @@ const ServiceSelector = ({ onServiceAdd, selectedPatient }) => {
   const [quantity, setQuantity] = useState(1);
   const [discount, setDiscount] = useState(0);
   const [loading, setLoading] = useState(false);
+  const [apptDate, setApptDate] = useState(() => new Date().toISOString().slice(0, 10));
+  const [availability, setAvailability] = useState(null);
+  const [slotTimes, setSlotTimes] = useState({}); // doctor_id -> выбранное время
 
   const API = import.meta.env.VITE_BACKEND_URL;
 
@@ -42,6 +45,46 @@ const ServiceSelector = ({ onServiceAdd, selectedPatient }) => {
     } catch (error) {
       console.error('Error fetching categories:', error);
     }
+  };
+
+  const fetchAvailability = async () => {
+    if (!selectedService || !apptDate) return;
+    try {
+      const token = localStorage.getItem('token');
+      const r = await fetch(`${API}/api/service-prices/${selectedService}/specialists-availability?date=${apptDate}`, {
+        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' }
+      });
+      setAvailability(r.ok ? await r.json() : null);
+    } catch (error) {
+      console.error('Error fetching availability:', error);
+      setAvailability(null);
+    }
+  };
+
+  useEffect(() => {
+    if (selectedServiceData?.service_type === 'complex') {
+      fetchAvailability();
+    } else {
+      setAvailability(null);
+      setSlotTimes({});
+    }
+  }, [selectedService, apptDate]);
+
+  // Свободные 30-минутные слоты в окне расписания минус занятые; [] если расписания нет
+  const freeTimesFor = (spec) => {
+    if (!spec.has_schedule || !spec.schedule_start || !spec.schedule_end) return [];
+    const booked = new Set(spec.booked || []);
+    const times = [];
+    let cur = spec.schedule_start;
+    const end = spec.schedule_end;
+    while (cur < end) {
+      if (!booked.has(cur)) times.push(cur);
+      const [hh, mm] = cur.split(':').map(Number);
+      const dt = new Date();
+      dt.setHours(hh, mm + 30, 0, 0);
+      cur = `${String(dt.getHours()).padStart(2, '0')}:${String(dt.getMinutes()).padStart(2, '0')}`;
+    }
+    return times;
   };
 
   const fetchServices = async (category) => {
@@ -99,6 +142,24 @@ const ServiceSelector = ({ onServiceAdd, selectedPatient }) => {
       return;
     }
 
+    // Для комплекса собираем выбранные слоты специалистов
+    let scheduling = null;
+    if (service.service_type === 'complex' && availability) {
+      const slots = Object.entries(slotTimes)
+        .filter(([, t]) => t)
+        .map(([did, time]) => {
+          const spec = availability.specialists.find(sp => sp.doctor_id === did);
+          return {
+            doctor_id: did,
+            doctor_name: spec?.doctor_name || '',
+            service_id: spec?.service_id || service.id,
+            service_name: spec?.service_name || service.name,
+            time,
+          };
+        });
+      scheduling = { date: apptDate, slots };
+    }
+
     const serviceToAdd = {
       service_id: service.id,
       service_name: service.name,
@@ -113,7 +174,7 @@ const ServiceSelector = ({ onServiceAdd, selectedPatient }) => {
       description: service.description || '',
       // Комплексная услуга: одна строка, состав встроен внутри (для зарплаты/печати)
       ...(service.service_type === 'complex'
-        ? { is_complex: true, components: service.components || [] }
+        ? { is_complex: true, components: service.components || [], ...(scheduling ? { scheduling } : {}) }
         : {})
     };
 
@@ -124,6 +185,7 @@ const ServiceSelector = ({ onServiceAdd, selectedPatient }) => {
     setSelectedTeeth([]);
     setQuantity(1);
     setDiscount(0);
+    setSlotTimes({});
   };
 
   return (
@@ -213,6 +275,62 @@ const ServiceSelector = ({ onServiceAdd, selectedPatient }) => {
                     ))
                   : <li>—</li>}
               </ul>
+            </div>
+          )}
+
+          {selectedServiceData.service_type === 'complex' && (
+            <div className="mb-3 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+              <div className="font-medium text-sm text-gray-800">📅 Расписание специалистов комплекса</div>
+              <label className="block text-xs text-gray-600 mt-1">Дата приёма</label>
+              <input
+                type="date"
+                value={apptDate}
+                onChange={(e) => setApptDate(e.target.value)}
+                className="w-full px-2 py-1 border border-gray-300 rounded text-sm"
+              />
+              {!availability ? (
+                <p className="text-xs text-gray-500 mt-2">Загрузка доступности…</p>
+              ) : availability.specialists.length === 0 ? (
+                <p className="text-xs text-amber-600 mt-2">У специалистов состава нет данных — укажите врача вручную при записи.</p>
+              ) : (
+                <div className="space-y-2 mt-2">
+                  {availability.specialists.map((spec) => {
+                    const times = freeTimesFor(spec);
+                    return (
+                      <div key={spec.doctor_id} className="bg-white border border-gray-200 rounded p-2">
+                        <div className="flex items-center justify-between">
+                          <div className="text-sm font-medium">{spec.doctor_name || 'Без имени'}</div>
+                          {spec.has_schedule ? (
+                            <span className="text-xs text-green-600">{spec.schedule_start}-{spec.schedule_end}</span>
+                          ) : (
+                            <span className="text-xs text-amber-600">нет расписания — вручную</span>
+                          )}
+                        </div>
+                        <div className="text-xs text-gray-500">
+                          {spec.service_name}{spec.quantity && spec.quantity > 1 ? ` ×${spec.quantity}` : ''}
+                        </div>
+                        {spec.has_schedule ? (
+                          <select
+                            value={slotTimes[spec.doctor_id] || ''}
+                            onChange={(e) => setSlotTimes(prev => ({ ...prev, [spec.doctor_id]: e.target.value }))}
+                            className="w-full mt-1 px-2 py-1 border border-gray-300 rounded text-sm"
+                          >
+                            <option value="">Выберите время</option>
+                            {times.map(t => <option key={t} value={t}>{t}</option>)}
+                          </select>
+                        ) : (
+                          <input
+                            type="time"
+                            value={slotTimes[spec.doctor_id] || ''}
+                            onChange={(e) => setSlotTimes(prev => ({ ...prev, [spec.doctor_id]: e.target.value }))}
+                            className="w-full mt-1 px-2 py-1 border border-gray-300 rounded text-sm"
+                          />
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
             </div>
           )}
           

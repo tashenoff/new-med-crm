@@ -1280,6 +1280,29 @@ const PatientModal = ({
                       services: updatedServices,
                       total_cost: totalCost
                     }));
+
+                    // Комплексная услуга: создаём записи к специалистам состава
+                    // на выбранную дату/время (каждая запись связана с компонентом)
+                    if (editingItem && serviceItem.scheduling && serviceItem.scheduling.slots.length > 0) {
+                      const token = localStorage.getItem('token');
+                      const patientId = editingItem.id || editingItem._id;
+                      serviceItem.scheduling.slots.forEach((slot) => {
+                        fetch(`${API}/api/appointments`, {
+                          method: 'POST',
+                          headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+                          body: JSON.stringify({
+                            patient_id: patientId,
+                            doctor_id: slot.doctor_id,
+                            appointment_date: serviceItem.scheduling.date,
+                            appointment_time: slot.time,
+                            service_id: slot.service_id,
+                            complex_id: serviceItem.service_id,
+                            complex_name: serviceItem.service_name,
+                            price: slot.price || null
+                          })
+                        }).catch((err) => console.error('Ошибка создания записи на комплекс:', err));
+                      });
+                    }
                   }}
                   selectedPatient={editingItem}
                 />
