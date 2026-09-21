@@ -388,21 +388,7 @@ const ServiceCheckboxSelector = ({ onAddServices, alreadyAddedIds = [], disabled
                         ? `${cfg.service.price.toLocaleString()} ₸ × ${count} = ${getLineTotal(cfg).toLocaleString()} ₸`
                         : 'Цена не указана'}
                     </div>
-                    {cfg.service.service_type === 'complex' && (
-                      <div className="text-xs text-purple-600">
-                        <div>🧩 Что входит:</div>
-                        <ul className="list-disc pl-3 mt-0.5 space-y-0.5">
-                          {cfg.service.components && cfg.service.components.length
-                            ? cfg.service.components.map(c => (
-                                <li key={c.service_id || c.service_name}>
-                                  {c.service_name}{c.quantity && c.quantity > 1 ? ` ×${c.quantity}` : ''}{c.price ? ` — ${c.price.toLocaleString()} ₸` : ''}
-                                </li>
-                              ))
-                            : <li>—</li>}
-                        </ul>
-                      </div>
-                    )}
-                    {cfg.service.service_type === 'complex' && (
+                                        {cfg.service.service_type === 'complex' && (
                       <div className="mt-1 bg-blue-50 border border-blue-200 rounded p-2 text-xs">
                         <div className="font-medium text-gray-800">📅 Расписание специалистов — по каждой услуге своя дата и время</div>
                         {(() => {

@@ -301,22 +301,7 @@ const ServiceSelector = ({ onServiceAdd, selectedPatient }) => {
               </span>
             )}
           </h5>
-          {selectedServiceData.service_type === 'complex' && (
-            <div className="mb-3 p-2 bg-purple-50 rounded text-sm text-purple-700">
-              <div className="font-medium">🧩 Что входит:</div>
-              <ul className="list-disc pl-3 mt-1 space-y-0.5">
-                {selectedServiceData.components && selectedServiceData.components.length
-                  ? selectedServiceData.components.map(c => (
-                      <li key={c.service_id || c.service_name}>
-                        {c.service_name}{c.quantity && c.quantity > 1 ? ` ×${c.quantity}` : ''}{c.price ? ` — ${c.price.toLocaleString()} ₸` : ''}
-                      </li>
-                    ))
-                  : <li>—</li>}
-              </ul>
-            </div>
-          )}
-
-          {selectedServiceData.service_type === 'complex' && (
+                    {selectedServiceData.service_type === 'complex' && (
             <div className="mb-3 p-3 bg-blue-50 border border-blue-200 rounded-lg">
               <div className="font-medium text-sm text-gray-800">📅 Расписание специалистов комплекса — по каждой услуге своя дата и время</div>
               {(() => {
