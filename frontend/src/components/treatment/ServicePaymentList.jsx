@@ -910,7 +910,7 @@ const ServicePaymentList = ({ plan, onUpdate, onEdit, paymentFilter = 'all', pro
                             <span className="text-lg mr-2">✅</span>
                             <div>
                               <div>Оплачено</div>
-                              <div className="text-xs text-green-500">{cTotal.toLocaleString()} ₸</div>
+                              <div className="text-xs text-green-500">{cPaid.toLocaleString()} ₸{cDisc > 0 ? ` · скидка ${cDisc.toLocaleString()} ₸` : ''}</div>
                             </div>
                           </div>
                         ) : isPartially ? (
@@ -918,7 +918,7 @@ const ServicePaymentList = ({ plan, onUpdate, onEdit, paymentFilter = 'all', pro
                             <span className="text-lg mr-2">🕐</span>
                             <div>
                               <div>Частично</div>
-                              <div className="text-xs text-amber-600">{cPaid.toLocaleString()} / {cTotal.toLocaleString()} ₸</div>
+                              <div className="text-xs text-amber-600">{cPaid.toLocaleString()} / {cDue.toLocaleString()} ₸{cDisc > 0 ? ` · скидка ${cDisc.toLocaleString()} ₸` : ''}</div>
                             </div>
                           </div>
                         ) : (
