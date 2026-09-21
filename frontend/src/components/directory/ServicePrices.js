@@ -36,6 +36,7 @@ const ServicePrices = ({ user }) => {
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(25);
   const [searchQuery, setSearchQuery] = useState('');
+  const [packagesOnly, setPackagesOnly] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState('');
 
   // Modal states
@@ -664,7 +665,8 @@ const ServicePrices = ({ user }) => {
       price.service_code?.toLowerCase().includes(searchQuery.toLowerCase()) ||
       price.description?.toLowerCase().includes(searchQuery.toLowerCase());
     const matchesCategory = !selectedCategory || price.category === selectedCategory;
-    return matchesSearch && matchesCategory;
+    const matchesPackages = !packagesOnly || price.service_type === 'complex';
+    return matchesSearch && matchesCategory && matchesPackages;
   });
 
   const totalPages = Math.ceil(filteredServices.length / itemsPerPage);
@@ -781,6 +783,12 @@ const ServicePrices = ({ user }) => {
             ))}
           </select>
         </div>
+        <label className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300 cursor-pointer select-none">
+          <input type="checkbox" checked={packagesOnly}
+            onChange={(e) => { setPackagesOnly(e.target.checked); setCurrentPage(1); }}
+            className="accent-blue-600" />
+          Показать только пакеты услуг
+        </label>
         <div className="text-sm text-gray-500 dark:text-gray-400">
           Найдено: {filteredServices.length} из {servicePrices.length}
         </div>
