@@ -721,6 +721,9 @@ const ServicePaymentList = ({ plan, onUpdate, onEdit, paymentFilter = 'all', pro
               const cRemaining = Math.max(0, cDue - cPaid);
               const cFully = cRemaining <= 0.001;
               const isPartially = service.is_complex && cPaid > 0 && !cFully;
+              // показанная сумма оплаты/скидки: для комплекса — из долей, для обычной — из услуги
+              const paidShown = service.is_complex ? cPaid : (service.paid_amount || cTotal);
+              const discShown = service.is_complex ? cDisc : (service.discount_amount || 0);
               const paymentType = service.payment_type || 'single';
               
               // Для курсов с поэтапной оплатой
@@ -910,7 +913,7 @@ const ServicePaymentList = ({ plan, onUpdate, onEdit, paymentFilter = 'all', pro
                             <span className="text-lg mr-2">✅</span>
                             <div>
                               <div>Оплачено</div>
-                              <div className="text-xs text-green-500">{cPaid.toLocaleString()} ₸{cDisc > 0 ? ` · скидка ${cDisc.toLocaleString()} ₸` : ''}</div>
+                              <div className="text-xs text-green-500">{paidShown.toLocaleString()} ₸{discShown > 0 ? ` · скидка ${discShown.toLocaleString()} ₸` : ''}</div>
                             </div>
                           </div>
                         ) : isPartially ? (
