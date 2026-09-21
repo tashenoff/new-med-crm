@@ -44,7 +44,15 @@ const PatientModal = ({
       setCurrentPatientId(null);
     }
   }, [editingItem, show]);
-  const [planForm, setPlanForm] = useState({
+
+    // При создании нового пациента (нет editingItem) всегда начинаем с вкладки "Информация",
+    // иначе застрявшая с прошлого открытия вкладка (напр. "Оплата") даёт пустое окно
+    React.useEffect(() => {
+      if (show && !editingItem) {
+        setActiveTab('info');
+      }
+    }, [show, editingItem]);
+    const [planForm, setPlanForm] = useState({
     title: '',
     description: '',
     services: [],
