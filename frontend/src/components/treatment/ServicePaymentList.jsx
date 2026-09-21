@@ -491,7 +491,8 @@ const ServicePaymentList = ({ plan, onUpdate, onEdit, paymentFilter = 'all', pro
       const shares = svc ? complexShares(svc) : [];
       const total = shares.reduce((a, c) => a + c.share, 0);
       const paid = shares.filter(c => c.paid).reduce((a, c) => a + (c.paid_amount || 0), 0);
-      return Math.round((total - paid) * 100) / 100;
+        const disc = shares.reduce((a, c) => a + (c.discount_amount || 0), 0);
+      return Math.round((total - disc - paid) * 100) / 100;
     }
     if (pd.type === 'service') {
       const svc = (plan.services || []).find(x => x.service_id === pd.serviceId);
@@ -714,7 +715,10 @@ const ServicePaymentList = ({ plan, onUpdate, onEdit, paymentFilter = 'all', pro
               const cShares = service.is_complex ? complexShares(service) : [];
               const cPaid = cShares.reduce((a, x) => a + (x.paid_amount || 0), 0);
               const cTotal = service.total_price || 0;
-              const cRemaining = Math.max(0, cTotal - cPaid);
+              // скидка при оплате учитывается: долг = цена − сумма скидок − оплачено
+              const cDisc = cShares.reduce((a, x) => a + (x.discount_amount || 0), 0);
+              const cDue = Math.max(0, cTotal - cDisc);
+              const cRemaining = Math.max(0, cDue - cPaid);
               const cFully = cRemaining <= 0.001;
               const isPartially = service.is_complex && cPaid > 0 && !cFully;
               const paymentType = service.payment_type || 'single';

@@ -253,8 +253,11 @@ class TreatmentPlanService:
                 comp["payment_method_name"] = payment_data["payment_method_name"]
 
         paid_total = sum((c.get("paid_amount") or 0) for c in comps if c.get("paid"))
+        # скидка при оплате учитывается: комплекс "оплачен", когда оплачено + скидка = цена
+        disc_total = sum((c.get("discount_amount") or 0) for c in comps)
         service["paid_amount"] = round(paid_total, 2)
-        service["payment_status"] = ("paid" if paid_total >= complex_price - 0.001
+        service["discount_total"] = round(disc_total, 2)
+        service["payment_status"] = ("paid" if (paid_total + disc_total) >= complex_price - 0.001
                                      else "partially_paid" if paid_total > 0 else "unpaid")
 
         # Пересчёт общей оплаты по плану (комплексы — по оплаченным долям)
