@@ -180,7 +180,9 @@ const ConsultationSheetForm = ({ patientId, onSave, onCancel, editingSheet = nul
               complex_name: svc.service_name,
               price: slot.price || null
             })
-          }).catch((err) => console.error('Ошибка создания записи на комплекс:', err));
+          }).then((r) => {
+            if (!r.ok) { r.json().then((d) => alert('Не удалось создать запись: ' + (d.detail || r.status))).catch(() => alert('Ошибка создания записи: ' + r.status)); }
+          }).catch((err) => alert('Ошибка создания записи на комплекс: ' + err.message));
         });
       }
     });

@@ -151,6 +151,8 @@ async def create_appointment(
     current_user: UserInDB = Depends(get_current_active_user),
     db: AsyncIOMotorDatabase = Depends(get_database)
 ):
+
+    print(f"[APPT-CREATE] {appointment.dict()}")
     # Check if patient exists
     # Пациенты могут иметь поле id, или быть старыми без id (только _id)
     try:
@@ -190,16 +192,21 @@ async def create_appointment(
     if current_user.role == UserRole.PATIENT and current_user.patient_id != appointment.patient_id:
         raise HTTPException(status_code=403, detail="You can only create appointments for yourself")
     
-    # Check doctor's schedule availability
-    is_available, availability_message = await check_doctor_availability(
-        appointment.doctor_id, 
-        appointment.appointment_date, 
-        appointment.appointment_time,
-        db
-    )
-    
-    if not is_available:
-        raise HTTPException(status_code=400, detail=availability_message)
+    # Check doctor's schedule availability.
+    # Для записей из комплексной услуги (complex_id задан) расписание НЕ проверяем:
+    # слот/datetime выбраны вручную администратором (в т.ч. когда у врача нет
+    # расписания) — иначе ручной режим блокировался бы. Конфликт времени всё
+    # равно проверяется ниже.
+    if not appointment.complex_id:
+        is_available, availability_message = await check_doctor_availability(
+            appointment.doctor_id,
+            appointment.appointment_date,
+            appointment.appointment_time,
+            db
+        )
+
+        if not is_available:
+            raise HTTPException(status_code=400, detail=availability_message)
     
     # Check for time conflicts
     print(f"Checking conflicts for doctor {appointment.doctor_id} on {appointment.appointment_date} at {appointment.appointment_time}")

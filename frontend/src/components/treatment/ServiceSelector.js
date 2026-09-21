@@ -164,17 +164,19 @@ const ServiceSelector = ({ onServiceAdd, selectedPatient }) => {
     // Для комплекса собираем выбранные слоты специалистов (у каждого своя дата и окно времени)
     let scheduling = null;
     if (service.service_type === 'complex') {
+      const today = new Date().toISOString().slice(0, 10);
       const slots = Object.entries(selSlots)
-        .filter(([, sl]) => sl && sl.start && sl.date)
+        .filter(([, sl]) => sl && sl.start)
         .map(([did, sl]) => {
-          const spec = availByDate[sl.date]?.specialists?.find(sp => sp.doctor_id === did);
+          const date = sl.date || today; // дата не менялась явно — берём сегодня
+          const spec = availByDate[date]?.specialists?.find(sp => sp.doctor_id === did);
           const end = sl.end || defaultEndTime(sl.start);
           return {
             doctor_id: did,
             doctor_name: spec?.doctor_name || '',
             service_id: spec?.service_id || service.id,
             service_name: spec?.service_name || service.name,
-            date: sl.date,
+            date,
             start_time: sl.start,
             end_time: end,
           };

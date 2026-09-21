@@ -238,17 +238,19 @@ const ServiceCheckboxSelector = ({ onAddServices, alreadyAddedIds = [], disabled
       // Для комплексной услуги — выбранные слоты специалистов (у каждого своя дата и окно времени)
       let scheduling = null;
       if (cfg.service.service_type === 'complex') {
+        const today = new Date().toISOString().slice(0, 10);
         const slots = Object.entries(selSlots)
-          .filter(([k, sl]) => sl && sl.start && sl.date && k.startsWith(cfg.service.id + ':'))
+          .filter(([k, sl]) => sl && sl.start && k.startsWith(cfg.service.id + ':'))
           .map(([k, sl]) => {
             const doctorId = k.split(':')[1];
-            const spec = availByDate[`${cfg.service.id}:${sl.date}`]?.specialists?.find(sp => sp.doctor_id === doctorId);
+            const date = sl.date || today; // дата не менялась явно — берём сегодня
+            const spec = availByDate[`${cfg.service.id}:${date}`]?.specialists?.find(sp => sp.doctor_id === doctorId);
             return {
               doctor_id: doctorId,
               doctor_name: spec?.doctor_name || '',
               service_id: spec?.service_id || cfg.service.id,
               service_name: spec?.service_name || cfg.service.service_name,
-              date: sl.date,
+              date,
               start_time: sl.start,
               end_time: sl.end || defaultEndTime(sl.start),
             };
