@@ -65,7 +65,9 @@ const ServiceSelector = ({ onServiceAdd, selectedPatient }) => {
           category: servicePrice.category,
           price: servicePrice.price,
           unit: servicePrice.unit || 'процедура',
-          description: servicePrice.description || ''
+          description: servicePrice.description || '',
+          service_type: servicePrice.service_type || 'regular',
+          components: servicePrice.components || []
         }));
         
         setServices(transformedServices);
@@ -108,7 +110,11 @@ const ServiceSelector = ({ onServiceAdd, selectedPatient }) => {
       quantity: finalQuantity || 1,
       discount: discount || 0, // Исправляем название поля
       total_price: totalPrice || 0,
-      description: service.description || ''
+      description: service.description || '',
+      // Комплексная услуга: одна строка, состав встроен внутри (для зарплаты/печати)
+      ...(service.service_type === 'complex'
+        ? { is_complex: true, components: service.components || [] }
+        : {})
     };
 
     onServiceAdd(serviceToAdd);
@@ -189,7 +195,19 @@ const ServiceSelector = ({ onServiceAdd, selectedPatient }) => {
                 🦷 по зубам
               </span>
             )}
+            {selectedServiceData.service_type === 'complex' && (
+              <span className="ml-2 px-2 py-1 bg-purple-100 text-purple-700 text-xs rounded-full">
+                🧩 Комплекс
+              </span>
+            )}
           </h5>
+          {selectedServiceData.service_type === 'complex' && (
+            <div className="mb-3 p-2 bg-purple-50 rounded text-sm text-purple-700">
+              🧩 Что входит: {selectedServiceData.components && selectedServiceData.components.length
+                ? selectedServiceData.components.map(c => `${c.service_name}${(c.quantity || 1) > 1 ? ' ×' + c.quantity : ''}`).join('; ')
+                : '—'}
+            </div>
+          )}
           
           {isToothService && (
             <div className="mb-3 p-2 bg-blue-100 rounded text-sm text-blue-700">
