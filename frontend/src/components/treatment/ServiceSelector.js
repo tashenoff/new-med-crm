@@ -10,9 +10,8 @@ const ServiceSelector = ({ onServiceAdd, selectedPatient }) => {
   const [quantity, setQuantity] = useState(1);
   const [discount, setDiscount] = useState(0);
   const [loading, setLoading] = useState(false);
-  const [apptDate, setApptDate] = useState(() => new Date().toISOString().slice(0, 10));
-  const [availability, setAvailability] = useState(null);
-  const [slotTimes, setSlotTimes] = useState({}); // doctor_id -> выбранное время
+  const [availByDate, setAvailByDate] = useState({}); // date -> availability(complex)
+  const [selSlots, setSelSlots] = useState({});       // doctor_id -> {date, start, end}
 
   const API = import.meta.env.VITE_BACKEND_URL;
 
@@ -47,28 +46,48 @@ const ServiceSelector = ({ onServiceAdd, selectedPatient }) => {
     }
   };
 
-  const fetchAvailability = async () => {
-    if (!selectedService || !apptDate) return;
+  const ensureAvailability = async (date) => {
+    if (!selectedService || !date) return null;
+    if (availByDate[date]) return availByDate[date];
     try {
       const token = localStorage.getItem('token');
-      const r = await fetch(`${API}/api/service-prices/${selectedService}/specialists-availability?date=${apptDate}`, {
+      const r = await fetch(`${API}/api/service-prices/${selectedService}/specialists-availability?date=${date}`, {
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' }
       });
-      setAvailability(r.ok ? await r.json() : null);
+      const data = r.ok ? await r.json() : null;
+      if (data) setAvailByDate(prev => ({ ...prev, [date]: data }));
+      return data;
     } catch (error) {
       console.error('Error fetching availability:', error);
-      setAvailability(null);
+      return null;
     }
   };
 
   useEffect(() => {
     if (selectedServiceData?.service_type === 'complex') {
-      fetchAvailability();
+      ensureAvailability(new Date().toISOString().slice(0, 10));
     } else {
-      setAvailability(null);
-      setSlotTimes({});
+      setAvailByDate({});
+      setSelSlots({});
     }
-  }, [selectedService, apptDate]);
+  }, [selectedService]);
+
+  // Конец по умолчанию = начало + 30 минут
+  const defaultEndTime = (start) => {
+    if (!start) return '';
+    const [hh, mm] = start.split(':').map(Number);
+    const dt = new Date();
+    dt.setHours(hh, mm + 30, 0, 0);
+    return `${String(dt.getHours()).padStart(2, '0')}:${String(dt.getMinutes()).padStart(2, '0')}`;
+  };
+
+  // Специалисты комплекса из самой свежей загруженной доступности (по любой дате)
+  const availabilityRows = () => {
+    if (!availByDate) return [];
+    const all = Object.values(availByDate);
+    if (!all.length) return [];
+    return all[all.length - 1].specialists || [];
+  };
 
   // Свободные 30-минутные слоты в окне расписания минус занятые; [] если расписания нет
   const freeTimesFor = (spec) => {
@@ -142,22 +161,25 @@ const ServiceSelector = ({ onServiceAdd, selectedPatient }) => {
       return;
     }
 
-    // Для комплекса собираем выбранные слоты специалистов
+    // Для комплекса собираем выбранные слоты специалистов (у каждого своя дата и окно времени)
     let scheduling = null;
-    if (service.service_type === 'complex' && availability) {
-      const slots = Object.entries(slotTimes)
-        .filter(([, t]) => t)
-        .map(([did, time]) => {
-          const spec = availability.specialists.find(sp => sp.doctor_id === did);
+    if (service.service_type === 'complex') {
+      const slots = Object.entries(selSlots)
+        .filter(([, sl]) => sl && sl.start && sl.date)
+        .map(([did, sl]) => {
+          const spec = availByDate[sl.date]?.specialists?.find(sp => sp.doctor_id === did);
+          const end = sl.end || defaultEndTime(sl.start);
           return {
             doctor_id: did,
             doctor_name: spec?.doctor_name || '',
             service_id: spec?.service_id || service.id,
             service_name: spec?.service_name || service.name,
-            time,
+            date: sl.date,
+            start_time: sl.start,
+            end_time: end,
           };
         });
-      scheduling = { date: apptDate, slots };
+      scheduling = { slots };
     }
 
     const serviceToAdd = {
@@ -280,57 +302,74 @@ const ServiceSelector = ({ onServiceAdd, selectedPatient }) => {
 
           {selectedServiceData.service_type === 'complex' && (
             <div className="mb-3 p-3 bg-blue-50 border border-blue-200 rounded-lg">
-              <div className="font-medium text-sm text-gray-800">📅 Расписание специалистов комплекса</div>
-              <label className="block text-xs text-gray-600 mt-1">Дата приёма</label>
-              <input
-                type="date"
-                value={apptDate}
-                onChange={(e) => setApptDate(e.target.value)}
-                className="w-full px-2 py-1 border border-gray-300 rounded text-sm"
-              />
-              {!availability ? (
-                <p className="text-xs text-gray-500 mt-2">Загрузка доступности…</p>
-              ) : availability.specialists.length === 0 ? (
-                <p className="text-xs text-amber-600 mt-2">У специалистов состава нет данных — укажите врача вручную при записи.</p>
-              ) : (
-                <div className="space-y-2 mt-2">
-                  {availability.specialists.map((spec) => {
-                    const times = freeTimesFor(spec);
-                    return (
-                      <div key={spec.doctor_id} className="bg-white border border-gray-200 rounded p-2">
-                        <div className="flex items-center justify-between">
-                          <div className="text-sm font-medium">{spec.doctor_name || 'Без имени'}</div>
-                          {spec.has_schedule ? (
-                            <span className="text-xs text-green-600">{spec.schedule_start}-{spec.schedule_end}</span>
-                          ) : (
-                            <span className="text-xs text-amber-600">нет расписания — вручную</span>
-                          )}
+              <div className="font-medium text-sm text-gray-800">📅 Расписание специалистов комплекса — по каждой услуге своя дата и время</div>
+              {(() => {
+                const today = new Date().toISOString().slice(0, 10);
+                const specSet = new Set();
+                if (selectedServiceData.components) {
+                  // компоненты без doctor_id — пропускаем (нет расписания)
+                }
+                const rows = availabilityRows();
+                if (rows.length === 0) return <p className="text-xs text-gray-500 mt-1">Загрузка доступности…</p>;
+                return (
+                  <div className="space-y-2 mt-1">
+                    {rows.map((spec) => {
+                      const sl = selSlots[spec.doctor_id] || { date: today, start: '', end: '' };
+                      const times = freeTimesFor(spec);
+                      const specDate = sl.date || today;
+                      return (
+                        <div key={spec.doctor_id} className="bg-white border border-gray-200 rounded p-2">
+                          <div className="flex items-center justify-between">
+                            <div className="text-sm font-medium">{spec.doctor_name || 'Без имени'}</div>
+                            {spec.has_schedule ? (
+                              <span className="text-xs text-green-600">{spec.schedule_start}-{spec.schedule_end}</span>
+                            ) : (
+                              <span className="text-xs text-amber-600">нет расписания — вручную</span>
+                            )}
+                          </div>
+                          <div className="text-xs text-gray-500">
+                            {spec.service_name}{spec.quantity && spec.quantity > 1 ? ` ×${spec.quantity}` : ''}
+                          </div>
+                          <div className="grid grid-cols-3 gap-1.5 mt-1">
+                            <label className="text-[10px] text-gray-500">Дата</label>
+                            <label className="text-[10px] text-gray-500">С</label>
+                            <label className="text-[10px] text-gray-500">До</label>
+                            <input
+                              type="date"
+                              value={specDate}
+                              onChange={(e) => { const d = e.target.value; setSelSlots(prev => ({ ...prev, [spec.doctor_id]: { ...(prev[spec.doctor_id] || {}), date: d } })); ensureAvailability(d); }}
+                              className="w-full px-1.5 py-1 border border-gray-300 rounded text-sm"
+                            />
+                            {spec.has_schedule ? (
+                              <select
+                                value={sl.start}
+                                onChange={(e) => setSelSlots(prev => ({ ...prev, [spec.doctor_id]: { ...(prev[spec.doctor_id] || {}), start: e.target.value, end: defaultEndTime(e.target.value) } }))}
+                                className="w-full px-1.5 py-1 border border-gray-300 rounded text-sm"
+                              >
+                                <option value="">—</option>
+                                {times.map(t => <option key={t} value={t}>{t}</option>)}
+                              </select>
+                            ) : (
+                              <input
+                                type="time"
+                                value={sl.start}
+                                onChange={(e) => setSelSlots(prev => ({ ...prev, [spec.doctor_id]: { ...(prev[spec.doctor_id] || {}), start: e.target.value, end: defaultEndTime(e.target.value) } }))}
+                                className="w-full px-1.5 py-1 border border-gray-300 rounded text-sm"
+                              />
+                            )}
+                            <input
+                              type="time"
+                              value={sl.end || defaultEndTime(sl.start)}
+                              onChange={(e) => setSelSlots(prev => ({ ...prev, [spec.doctor_id]: { ...(prev[spec.doctor_id] || {}), end: e.target.value } }))}
+                              className="w-full px-1.5 py-1 border border-gray-300 rounded text-sm"
+                            />
+                          </div>
                         </div>
-                        <div className="text-xs text-gray-500">
-                          {spec.service_name}{spec.quantity && spec.quantity > 1 ? ` ×${spec.quantity}` : ''}
-                        </div>
-                        {spec.has_schedule ? (
-                          <select
-                            value={slotTimes[spec.doctor_id] || ''}
-                            onChange={(e) => setSlotTimes(prev => ({ ...prev, [spec.doctor_id]: e.target.value }))}
-                            className="w-full mt-1 px-2 py-1 border border-gray-300 rounded text-sm"
-                          >
-                            <option value="">Выберите время</option>
-                            {times.map(t => <option key={t} value={t}>{t}</option>)}
-                          </select>
-                        ) : (
-                          <input
-                            type="time"
-                            value={slotTimes[spec.doctor_id] || ''}
-                            onChange={(e) => setSlotTimes(prev => ({ ...prev, [spec.doctor_id]: e.target.value }))}
-                            className="w-full mt-1 px-2 py-1 border border-gray-300 rounded text-sm"
-                          />
-                        )}
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
+                      );
+                    })}
+                  </div>
+                );
+              })()}
             </div>
           )}
           

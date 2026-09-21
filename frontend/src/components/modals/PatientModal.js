@@ -1293,8 +1293,9 @@ const PatientModal = ({
                           body: JSON.stringify({
                             patient_id: patientId,
                             doctor_id: slot.doctor_id,
-                            appointment_date: serviceItem.scheduling.date,
-                            appointment_time: slot.time,
+                            appointment_date: slot.date,
+                            appointment_time: slot.start_time,
+                            end_time: slot.end_time,
                             service_id: slot.service_id,
                             complex_id: serviceItem.service_id,
                             complex_name: serviceItem.service_name,

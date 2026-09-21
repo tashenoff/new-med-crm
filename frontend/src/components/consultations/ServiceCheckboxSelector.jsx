@@ -111,9 +111,8 @@ const ServiceCheckboxSelector = ({ onAddServices, alreadyAddedIds = [], disabled
 
   const selectedList = useMemo(() => Object.values(selected), [selected]);
   const selectedCount = selectedList.length;
-  const [selDate, setSelDate] = useState(() => new Date().toISOString().slice(0, 10));
-  const [availMap, setAvailMap] = useState({});       // complexId -> availability
-  const [selTimes, setSelTimes] = useState({});       // "complexId:doctorId" -> chosen time
+  const [availByDate, setAvailByDate] = useState({}); // "complexId:date" -> availability
+  const [selSlots, setSelSlots] = useState({});       // "complexId:doctorId" -> {date,start,end}
   const alreadyAddedKey = Array.isArray(alreadyAddedIds) ? alreadyAddedIds.join(',') : '';
   const alreadyAddedSet = useMemo(
     () => new Set(alreadyAddedKey ? alreadyAddedKey.split(',') : []),
@@ -176,16 +175,18 @@ const ServiceCheckboxSelector = ({ onAddServices, alreadyAddedIds = [], disabled
     return times;
   };
 
-  const fetchComplexAvailability = async (complexId) => {
-    if (!complexId || !selDate) return;
+  const ensureAvailability = async (complexId, date) => {
+    if (!complexId || !date) return;
+    const key = `${complexId}:${date}`;
+    if (availByDate[key]) return;
     try {
       const token = localStorage.getItem('token');
-      const r = await fetch(`${API}/api/service-prices/${complexId}/specialists-availability?date=${selDate}`, {
+      const r = await fetch(`${API}/api/service-prices/${complexId}/specialists-availability?date=${date}`, {
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' }
       });
       if (r.ok) {
         const data = await r.json();
-        setAvailMap(prev => ({ ...prev, [complexId]: data }));
+        setAvailByDate(prev => ({ ...prev, [key]: data }));
       }
     } catch (e) {
       console.error('Error fetching availability:', e);
@@ -195,8 +196,17 @@ const ServiceCheckboxSelector = ({ onAddServices, alreadyAddedIds = [], disabled
   const selectedComplexes = useMemo(() => selectedList.filter(cfg => cfg.service.service_type === 'complex'), [selectedList, selectedCount]);
 
   useEffect(() => {
-    selectedComplexes.forEach(cfg => fetchComplexAvailability(cfg.service.id));
-  }, [selDate, selectedComplexes.map(c => c.service.id).join(',')]);
+    const today = new Date().toISOString().slice(0, 10);
+    selectedComplexes.forEach(cfg => ensureAvailability(cfg.service.id, today));
+  }, [selectedComplexes.map(c => c.service.id).join(',')]);
+
+  const defaultEndTime = (start) => {
+    if (!start) return '';
+    const [hh, mm] = start.split(':').map(Number);
+    const dt = new Date();
+    dt.setHours(hh, mm + 30, 0, 0);
+    return `${String(dt.getHours()).padStart(2, '0')}:${String(dt.getMinutes()).padStart(2, '0')}`;
+  };
 
   const handleAdd = () => {
     if (selectedCount === 0) return;
@@ -225,24 +235,25 @@ const ServiceCheckboxSelector = ({ onAddServices, alreadyAddedIds = [], disabled
           payment_type: cfg.paymentType
         };
       }
-      // Для комплексной услуги — выбранные слоты специалистов
+      // Для комплексной услуги — выбранные слоты специалистов (у каждого своя дата и окно времени)
       let scheduling = null;
       if (cfg.service.service_type === 'complex') {
-        const avail = availMap[cfg.service.id];
-        const slots = Object.entries(selTimes)
-          .filter(([k, t]) => t && k.startsWith(cfg.service.id + ':'))
-          .map(([k, time]) => {
+        const slots = Object.entries(selSlots)
+          .filter(([k, sl]) => sl && sl.start && sl.date && k.startsWith(cfg.service.id + ':'))
+          .map(([k, sl]) => {
             const doctorId = k.split(':')[1];
-            const spec = avail?.specialists?.find(sp => sp.doctor_id === doctorId);
+            const spec = availByDate[`${cfg.service.id}:${sl.date}`]?.specialists?.find(sp => sp.doctor_id === doctorId);
             return {
               doctor_id: doctorId,
               doctor_name: spec?.doctor_name || '',
               service_id: spec?.service_id || cfg.service.id,
               service_name: spec?.service_name || cfg.service.service_name,
-              time
+              date: sl.date,
+              start_time: sl.start,
+              end_time: sl.end || defaultEndTime(sl.start),
             };
           });
-        scheduling = { date: selDate, slots };
+        scheduling = { slots };
       }
       return {
         ...base,
@@ -379,23 +390,22 @@ const ServiceCheckboxSelector = ({ onAddServices, alreadyAddedIds = [], disabled
                     )}
                     {cfg.service.service_type === 'complex' && (
                       <div className="mt-1 bg-blue-50 border border-blue-200 rounded p-2 text-xs">
-                        <div className="font-medium text-gray-800">📅 Расписание специалистов</div>
-                        <input
-                          type="date"
-                          value={selDate}
-                          onChange={(e) => setSelDate(e.target.value)}
-                          className="w-full px-2 py-1 border border-gray-300 rounded text-sm mt-1"
-                        />
+                        <div className="font-medium text-gray-800">📅 Расписание специалистов — по каждой услуге своя дата и время</div>
                         {(() => {
-                          const avail = availMap[cfg.service.id];
-                          if (!avail) return <div className="text-gray-500 mt-1">Загрузка доступности…</div>;
-                          if (!avail.specialists || avail.specialists.length === 0)
+                          const cid = cfg.service.id;
+                          const today = new Date().toISOString().slice(0, 10);
+                          const availAny = availByDate[`${cid}:${today}`] || Object.values(availByDate).find(a => a.complex_id === cid);
+                          if (!availAny) return <div className="text-gray-500 mt-1">Загрузка доступности…</div>;
+                          if (!availAny.specialists || availAny.specialists.length === 0)
                             return <div className="text-amber-600 mt-1">У специалистов состава нет данных — укажите врача вручную при записи.</div>;
                           return (
                             <div className="space-y-1.5 mt-1">
-                              {avail.specialists.map((spec) => {
-                                const key = `${cfg.service.id}:${spec.doctor_id}`;
-                                const times = freeTimesFor(spec);
+                              {availAny.specialists.map((spec) => {
+                                const key = `${cid}:${spec.doctor_id}`;
+                                const sl = selSlots[key] || { date: today, start: '', end: '' };
+                                const specDate = sl.date || today;
+                                const specForDate = availByDate[`${cid}:${specDate}`]?.specialists?.find(d => d.doctor_id === spec.doctor_id) || spec;
+                                const times = freeTimesFor(specForDate);
                                 return (
                                   <div key={key} className="bg-white border border-gray-200 rounded p-1.5">
                                     <div className="flex items-center justify-between">
@@ -405,23 +415,40 @@ const ServiceCheckboxSelector = ({ onAddServices, alreadyAddedIds = [], disabled
                                         : <span className="text-amber-600">нет расписания — вручную</span>}
                                     </div>
                                     <div className="text-gray-500">{spec.service_name}{spec.quantity && spec.quantity > 1 ? ` ×${spec.quantity}` : ''}</div>
-                                    {spec.has_schedule ? (
-                                      <select
-                                        value={selTimes[key] || ''}
-                                        onChange={(e) => setSelTimes(prev => ({ ...prev, [key]: e.target.value }))}
-                                        className="w-full mt-1 px-2 py-1 border border-gray-300 rounded text-sm"
-                                      >
-                                        <option value="">Выберите время</option>
-                                        {times.map(t => <option key={t} value={t}>{t}</option>)}
-                                      </select>
-                                    ) : (
+                                    <div className="grid grid-cols-3 gap-1 mt-1">
+                                      <label className="text-[10px] text-gray-500">Дата</label>
+                                      <label className="text-[10px] text-gray-500">С</label>
+                                      <label className="text-[10px] text-gray-500">До</label>
+                                      <input
+                                        type="date"
+                                        value={specDate}
+                                        onChange={(e) => { const d = e.target.value; setSelSlots(prev => ({ ...prev, [key]: { ...(prev[key] || {}), date: d } })); ensureAvailability(cid, d); }}
+                                        className="w-full px-1.5 py-1 border border-gray-300 rounded text-sm"
+                                      />
+                                      {specForDate.has_schedule ? (
+                                        <select
+                                          value={sl.start}
+                                          onChange={(e) => setSelSlots(prev => ({ ...prev, [key]: { ...(prev[key] || {}), start: e.target.value, end: defaultEndTime(e.target.value) } }))}
+                                          className="w-full px-1.5 py-1 border border-gray-300 rounded text-sm"
+                                        >
+                                          <option value="">—</option>
+                                          {times.map(t => <option key={t} value={t}>{t}</option>)}
+                                        </select>
+                                      ) : (
+                                        <input
+                                          type="time"
+                                          value={sl.start}
+                                          onChange={(e) => setSelSlots(prev => ({ ...prev, [key]: { ...(prev[key] || {}), start: e.target.value, end: defaultEndTime(e.target.value) } }))}
+                                          className="w-full px-1.5 py-1 border border-gray-300 rounded text-sm"
+                                        />
+                                      )}
                                       <input
                                         type="time"
-                                        value={selTimes[key] || ''}
-                                        onChange={(e) => setSelTimes(prev => ({ ...prev, [key]: e.target.value }))}
-                                        className="w-full mt-1 px-2 py-1 border border-gray-300 rounded text-sm"
+                                        value={sl.end || defaultEndTime(sl.start)}
+                                        onChange={(e) => setSelSlots(prev => ({ ...prev, [key]: { ...(prev[key] || {}), end: e.target.value } }))}
+                                        className="w-full px-1.5 py-1 border border-gray-300 rounded text-sm"
                                       />
-                                    )}
+                                    </div>
                                   </div>
                                 );
                               })}
