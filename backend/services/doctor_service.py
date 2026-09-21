@@ -51,30 +51,34 @@ class DoctorService:
         doctor_dict = self._normalize_specialties(doctor_dict)
         
         # Проверка на дублирование врача по имени И телефону (оба совпадают)
-        # Это позволяет иметь врачей с одинаковым именем, но разными телефонами
-        existing_doctor = await self.db.doctors.find_one({
-            "full_name": doctor_dict["full_name"],
-            "phone": doctor_dict["phone"],
-            "is_active": True
-        })
-        
-        if existing_doctor:
-            raise HTTPException(
-                status_code=400, 
-                detail=f"Врач '{doctor_dict['full_name']}' с телефоном '{doctor_dict['phone']}' уже существует"
-            )
-        
-        # Дополнительная проверка: если телефон уже используется другим врачом
-        phone_exists = await self.db.doctors.find_one({
-            "phone": doctor_dict["phone"],
-            "is_active": True
-        })
-        
-        if phone_exists and phone_exists["full_name"] != doctor_dict["full_name"]:
-            raise HTTPException(
-                status_code=400, 
-                detail=f"Телефон '{doctor_dict['phone']}' уже используется врачом '{phone_exists['full_name']}'"
-            )
+        # Это позволяет иметь врачей с одинаковым именем, но разными телефонами.
+        # Если телефон не указан (None/пусто) — по телефону не сравниваем,
+        # иначе создание врача без номера падало на первом же враче тоже без номера.
+        phone = doctor_dict.get("phone")
+        if phone:
+            existing_doctor = await self.db.doctors.find_one({
+                "full_name": doctor_dict["full_name"],
+                "phone": phone,
+                "is_active": True
+            })
+
+            if existing_doctor:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Врач '{doctor_dict['full_name']}' с телефоном '{phone}' уже существует"
+                )
+
+            # Дополнительная проверка: если телефон уже используется другим врачом
+            phone_exists = await self.db.doctors.find_one({
+                "phone": phone,
+                "is_active": True
+            })
+
+            if phone_exists and phone_exists["full_name"] != doctor_dict["full_name"]:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Телефон '{phone}' уже используется врачом '{phone_exists['full_name']}'"
+                )
         
         # Автоматическое определение payment_mode при создании
         services = doctor_dict.get("services", [])
@@ -194,8 +198,8 @@ class DoctorService:
             except:
                 pass
         
-        # Проверка на дублирование телефона при обновлении
-        if "phone" in update_dict:
+        # Проверка на дублирование телефона при обновлении (только если телефон указан)
+        if "phone" in update_dict and update_dict["phone"]:
             # Сначала найдём текущего врача, чтобы узнать его полные данные
             current_doctor = await self.db.doctors.find_one({"$or": search_conditions})
             
