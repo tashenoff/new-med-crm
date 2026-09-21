@@ -18,6 +18,7 @@ const ServicePaymentList = ({ plan, onUpdate, onEdit, paymentFilter = 'all', pro
   const [pendingPaymentData, setPendingPaymentData] = useState(null); // { type: 'service' | 'remaining', serviceId: string | null }
   const [selectedPaymentType, setSelectedPaymentType] = useState(null);
   const [discountInput, setDiscountInput] = useState('');
+  const [discountType, setDiscountType] = useState('fixed'); // 'fixed' | 'percent'
 
   // Загрузка способов оплаты
   useEffect(() => {
@@ -415,12 +416,15 @@ const ServicePaymentList = ({ plan, onUpdate, onEdit, paymentFilter = 'all', pro
     return Math.max(0, (plan.total_cost || 0) - (plan.paid_amount || 0));
   };
 
-  const resetPaymentModal = () => { setSelectedPaymentType(null); setDiscountInput(''); };
+  const resetPaymentModal = () => { setSelectedPaymentType(null); setDiscountInput(''); setDiscountType('fixed'); };
 
   const PaymentMethodModal = () => {
     if (!showPaymentModal) return null;
     const total = payableTarget();
-    const disc = Math.max(0, Number(discountInput) || 0);
+    const raw = Math.max(0, Number(discountInput) || 0);
+    const disc = discountType === 'percent'
+      ? Math.round((total * raw / 100) * 100) / 100
+      : Math.min(raw, total);
     const finalAmt = Math.max(0, Math.round((total - disc) * 100) / 100);
     const close = () => { resetPaymentModal(); setShowPaymentModal(false); };
     return (
@@ -475,10 +479,16 @@ const ServicePaymentList = ({ plan, onUpdate, onEdit, paymentFilter = 'all', pro
               </div>
             )}
             <div className="flex items-center gap-2">
-              <label className="text-sm text-gray-600 whitespace-nowrap">Скидка, ₸</label>
+              <span className="text-sm text-gray-600 whitespace-nowrap">Скидка</span>
+              <div className="flex rounded-lg overflow-hidden border border-gray-300">
+                <button type="button" onClick={() => setDiscountType('fixed')}
+                  className={`px-3 py-1.5 text-sm ${discountType === 'fixed' ? 'bg-blue-600 text-white' : 'bg-white text-gray-600'}`}>₸</button>
+                <button type="button" onClick={() => setDiscountType('percent')}
+                  className={`px-3 py-1.5 text-sm ${discountType === 'percent' ? 'bg-blue-600 text-white' : 'bg-white text-gray-600'}`}>%</button>
+              </div>
               <input type="number" min="0" step="0.01" value={discountInput}
                 onChange={(e) => setDiscountInput(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm" placeholder="0" />
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm" placeholder={discountType === 'percent' ? '0 %' : '0 ₸'} />
             </div>
             <div className="flex justify-between text-base font-semibold">
               <span>Итого к оплате</span><span className="text-blue-600">{finalAmt.toLocaleString()} ₸</span>
