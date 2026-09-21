@@ -233,3 +233,104 @@ async def test_build_complex_plan_line_rejects_regular_service(clean_db):
     with pytest.raises(Exception) as exc:
         await svc.build_complex_plan_line(regular["id"], quantity=1)
     assert getattr(exc.value, "status_code", 400) == 400
+
+
+async def test_salary_complex_pays_each_doctor_its_component_share(clean_db):
+    """Doctor earns only from HIS component in the complex, even when the plan
+    is assigned to another (responsible) doctor. Discount distributed evenly to
+    each component is honoured. Nothing hardcoded: derived from seeded data."""
+    from datetime import datetime
+    from models.doctor import Doctor
+    from services.salary_service import SalaryService
+    from services.service_price_service import ServicePriceService
+
+    a = await _seed_service(clean_db, service_name="Консультация терапевта", category="Терапевт", price=2000)
+    b = await _seed_service(clean_db, service_name="УЗИ", category="УЗИ", price=3000)
+
+    d1 = Doctor(full_name="Терапевт", specialty="Терапевт", services=[a["id"]], payment_value=50)
+    d2 = Doctor(full_name="УЗИст", specialty="УЗИ", services=[b["id"]], payment_value=40)
+    await clean_db.doctors.insert_many([d1.dict(), d2.dict()])
+
+    svc = ServicePriceService(clean_db)
+    comp = await svc.create_service_price(
+        await _complex_payload(
+            name="Чекап 2", price=5000,
+            components=[
+                {"service_id": a["id"], "quantity": 1, "doctor_id": d1.id, "price": 2000},
+                {"service_id": b["id"], "quantity": 1, "doctor_id": d2.id, "price": 3000},
+            ],
+        )
+    )
+    line = await svc.build_complex_plan_line(comp.id, quantity=1)
+    assert line["is_complex"] is True
+
+    now = datetime.utcnow()
+    await clean_db.treatment_plans.insert_one({
+        "id": "plan-complex-1",
+        "patient_id": "pat-1",
+        "title": "План комплекс",
+        "services": [line],
+        "total_cost": line["total_price"],
+        "paid_amount": line["total_price"],
+        "payment_status": "paid",
+        "payment_date": now,
+        "created_at": now,
+        "assigned_doctor_id": d1.id,  # plan belongs to d1 (responsible)
+    })
+
+    salary = SalaryService(clean_db)
+    p_from = now.replace(day=1)
+    p_to = now
+
+    rev1, sal1 = await salary._calculate_treatment_plans_salary(d1.dict(), d1.id, p_from, p_to)
+    rev2, sal2 = await salary._calculate_treatment_plans_salary(d2.dict(), d2.id, p_from, p_to)
+
+    # d1: консультация 2000 @50% ; d2: УЗИ 3000 @40%
+    assert rev1 == 2000
+    assert sal1 == 1000
+    assert rev2 == 3000
+    assert sal2 == 1200
+
+
+async def test_salary_complex_distributes_line_discount_to_components(clean_db):
+    """The complex line's discount is applied evenly to each doctor's component."""
+    from datetime import datetime
+    from models.doctor import Doctor
+    from services.salary_service import SalaryService
+    from services.service_price_service import ServicePriceService
+
+    a = await _seed_service(clean_db, service_name="Консультация", category="Терапевт", price=2000)
+    b = await _seed_service(clean_db, service_name="УЗИ", category="УЗИ", price=3000)
+    d1 = Doctor(full_name="Терапевт", specialty="Терапевт", services=[a["id"]], payment_value=50)
+    d2 = Doctor(full_name="УЗИст", specialty="УЗИ", services=[b["id"]], payment_value=40)
+    await clean_db.doctors.insert_many([d1.dict(), d2.dict()])
+
+    svc = ServicePriceService(clean_db)
+    comp = await svc.create_service_price(
+        await _complex_payload(
+            name="Чекап 3", price=4000,
+            components=[
+                {"service_id": a["id"], "quantity": 1, "doctor_id": d1.id, "price": 2000},
+                {"service_id": b["id"], "quantity": 1, "doctor_id": d2.id, "price": 3000},
+            ],
+        )
+    )
+    line = await svc.build_complex_plan_line(comp.id, quantity=1)
+    line["discount"] = 25  # 25% discount on the whole complex
+
+    now = datetime.utcnow()
+    await clean_db.treatment_plans.insert_one({
+        "id": "plan-complex-2", "patient_id": "pat-2", "title": "План комплекс",
+        "services": [line], "total_cost": line["total_price"],
+        "paid_amount": line["total_price"], "payment_status": "paid",
+        "payment_date": now, "created_at": now, "assigned_doctor_id": d1.id,
+    })
+
+    salary = SalaryService(clean_db)
+    p_from, p_to = now.replace(day=1), now
+    _, sal1 = await salary._calculate_treatment_plans_salary(d1.dict(), d1.id, p_from, p_to)
+    _, sal2 = await salary._calculate_treatment_plans_salary(d2.dict(), d2.id, p_from, p_to)
+
+    # d1: 2000*(1-0.25)*0.50 ; d2: 3000*(1-0.25)*0.40
+    assert round(sal1, 2) == round(2000 * 0.75 * 0.50, 2)
+    assert round(sal2, 2) == round(3000 * 0.75 * 0.40, 2)

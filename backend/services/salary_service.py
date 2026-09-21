@@ -178,26 +178,60 @@ class SalaryService:
             }).to_list(None)
             
             for plan in treatment_plans:
-                # ВАЖНО: Проверяем, назначен ли план этому врачу
-                plan_doctor_id = plan.get("assigned_doctor_id") or plan.get("doctor_id")
-                
-                if plan_doctor_id and plan_doctor_id != doctor_id:
-                    continue
-                
-                if not plan_doctor_id:
-                    continue
-                
                 plan_services = plan.get("services", [])
+                plan_doctor_id = plan.get("assigned_doctor_id") or plan.get("doctor_id")
+
+                # Комплексная услуга может включать несколько специалистов: врач
+                # получает вознаграждение за СВОИ компоненты, даже если план
+                # назначен другому (ответственному) врачу.
+                my_complex = [
+                    s for s in plan_services
+                    if s.get("is_complex") and any(
+                        (c.get("doctor_id") == doctor_id)
+                        or ((not c.get("doctor_id")) and c.get("service_id") in service_ids)
+                        for c in (s.get("components") or [])
+                    )
+                ]
+
+                if plan_doctor_id and plan_doctor_id != doctor_id and not my_complex:
+                    continue
+
+                if not plan_doctor_id and not my_complex:
+                    continue
+
                 # Рассчитываем долю врача в плане лечения
                 for service in plan_services:
+                    # --- Комплексная услуга: одна строка, но зарплата по составу ---
+                    if service.get("is_complex") and service.get("components"):
+                        discount = service.get("discount", 0)
+                        for comp in service["components"]:
+                            comp_doctor = comp.get("doctor_id")
+                            comp_sid = comp.get("service_id")
+                            if comp_doctor:
+                                if comp_doctor != doctor_id:
+                                    continue
+                            else:
+                                if not comp_sid or comp_sid not in service_ids:
+                                    continue
+                            comp_qty = comp.get("quantity", 1) or 1
+                            comp_price = (comp.get("price", 0) or 0) * comp_qty
+                            comp_price = comp_price * (1 - discount / 100)  # скидка равномерно
+                            treatment_plans_revenue += comp_price
+                            commission_config = service_commissions.get(comp_sid, {})
+                            if commission_config.get("type") == "fixed":
+                                treatment_plans_salary += commission_config.get("value", 0) * comp_qty
+                            else:
+                                treatment_plans_salary += comp_price * (commission_config.get("value", 0) / 100)
+                        continue
+
                     service_id = service.get("service_id") or service.get("id") or service.get("serviceId")
-                    
+
                     if service_id and service_id in service_ids:
                         service_price = service.get("price", 0) * service.get("quantity", 1)
                         discount = service.get("discount", 0)
                         service_price = service_price * (1 - discount / 100)
                         treatment_plans_revenue += service_price
-                        
+
                         # Рассчитываем комиссию для этой конкретной услуги
                         commission_config = service_commissions.get(service_id, {})
                         if commission_config.get("type") == "fixed":
