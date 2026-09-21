@@ -437,7 +437,7 @@ const ServiceCheckboxSelector = ({ onAddServices, alreadyAddedIds = [], disabled
                                       >
                                         <option value="">—</option>
                                         {(svc.doctors || []).map(doc => (
-                                          <option key={doc.doctor_id} value={doc.doctor_id}>{doc.doctor_name}{doc.has_schedule ? ` (${doc.schedule_start}-${doc.schedule_end})` : ''}</option>
+                                          <option key={doc.doctor_id} value={doc.doctor_id}>{doc.doctor_name}{doc.has_schedule ? ` (${doc.schedule_start}-${doc.schedule_end})` : ''}{doc.working_days && doc.working_days.length ? ` · работает: ${doc.working_days.join(', ')}` : ''}</option>
                                         ))}
                                       </select>
                                     </div>
@@ -475,11 +475,11 @@ const ServiceCheckboxSelector = ({ onAddServices, alreadyAddedIds = [], disabled
                                         className="w-full px-1.5 py-1 border border-gray-300 rounded text-sm"
                                       />
                                     </div>
-                                    {!doc ? (
-                                      <div className="text-[10px] text-amber-600 mt-0.5">нет расписания на эту дату — время вручную</div>
-                                    ) : doc.has_schedule ? (
-                                      <div className="text-[10px] text-green-600 mt-0.5">окно {doc.schedule_start}-{doc.schedule_end}, занято: {doc.booked?.length || 0}</div>
-                                    ) : null}
+                                    {doc && doc.has_schedule ? (
+                                                                          <div className="text-[10px] text-green-600 mt-0.5">окно {doc.schedule_start}-{doc.schedule_end}, занято: {doc.booked?.length || 0}</div>
+                                                                        ) : (
+                                                                          <div className="text-[10px] text-amber-600 mt-0.5">у врача нет расписания на {date} — выберите время вручную</div>
+                                                                        )}
                                   </div>
                                 );
                               })}

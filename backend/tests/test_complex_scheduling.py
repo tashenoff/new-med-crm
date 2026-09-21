@@ -83,8 +83,10 @@ async def test_complex_specialists_availability_lists_schedule_and_booked(clean_
     assert d1a["schedule_start"] == "09:00"
     assert d1a["schedule_end"] == "13:00"
     assert d1a["booked"] == ["09:30"]
+    assert d1a["working_days"] == ["Пн"]
 
     d2a = by_svc["svc-b"]["doctors"][0]
     assert d2a["doctor_id"] == d2.id
     assert d2a["has_schedule"] is False
     assert d2a["booked"] == []
+    assert d2a["working_days"] == []

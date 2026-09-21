@@ -149,6 +149,12 @@ class ServicePriceService:
             "appointment_date": date_str,
             "status": {"$nin": ["cancelled", "no_show"]},
         })
+        # рабочие дни недели врача (из расписания) — для подсказки в календаре
+        wk = ["Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс"]
+        work_days = await self.db.doctor_schedules.distinct("day_of_week", {
+            "doctor_id": doctor_id, "is_active": True,
+        })
+        working_days = [wk[d] for d in sorted(work_days) if isinstance(d, int) and 0 <= d <= 6]
         return {
             "doctor_id": doctor_id,
             "doctor_name": doctor.get("full_name", ""),
@@ -156,6 +162,7 @@ class ServicePriceService:
             "schedule_start": (sch or {}).get("start_time"),
             "schedule_end": (sch or {}).get("end_time"),
             "booked": booked or [],
+            "working_days": working_days,
         }
 
     async def complex_specialists_availability(self, complex_id, date_str):
