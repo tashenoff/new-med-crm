@@ -202,9 +202,13 @@ const ServicePrices = ({ user }) => {
 
   const regularServices = () => servicePrices.filter(s => s.service_type !== 'complex');
 
-  const doctorProvidesService = (doctor, serviceId) => {
+  const doctorProvidesService = (doctor, service) => {
     const svcs = doctor.services || [];
-    return svcs.some(s => (typeof s === 'object' ? s.service_id : s) === serviceId);
+    if (svcs.some(s => (typeof s === 'object' ? s.service_id : s) === service.id)) return true;
+    // fallback: врачи подойдут и по специальности, совпадающей с категорией услуги
+    const specs = doctor.specialties || (doctor.specialty ? [doctor.specialty] : []);
+    const cat = (service.category || '').toLowerCase();
+    return specs.some(sp => sp && sp.toLowerCase() === cat);
   };
 
   const handleComponentSearch = (value) => {
@@ -226,7 +230,7 @@ const ServicePrices = ({ user }) => {
       setTimeout(() => setError(''), 3000);
       return;
     }
-    const specialist = doctors.find(d => doctorProvidesService(d, service.id));
+    const specialist = doctors.find(d => doctorProvidesService(d, service));
     setFormData(prev => ({
       ...prev,
       components: [...prev.components, {
@@ -252,7 +256,10 @@ const ServicePrices = ({ user }) => {
     }));
   };
 
-  const specialistsFor = (serviceId) => doctors.filter(d => doctorProvidesService(d, serviceId));
+  const specialistsFor = (serviceId) => {
+    const svc = servicePrices.find(sp => sp.id === serviceId);
+    return svc ? doctors.filter(d => doctorProvidesService(d, svc)) : [];
+  };
 
   // Live retail sum of the composition (from directory prices) + economy vs the package price.
   const complexSummary = () => {
@@ -263,6 +270,21 @@ const ServicePrices = ({ user }) => {
     }, 0);
     const packagePrice = parseFloat(formData.price || '0');
     return { sum, packagePrice, economy: sum - packagePrice };
+  };
+
+  // Specialties available to a service: from the service_categories collection PLUS
+  // the real category values already present in the price list (the collection may
+  // be empty while services carry their categories). Derived from data, deduped.
+  const categoryOptions = () => {
+    const fromCollection = categories.map(c => ({ id: c.id, name: c.name }));
+    const fromServices = [...new Set(servicePrices.map(s => (s.category || '')).filter(Boolean))]
+      .map((name) => ({ id: name, name }));
+    const seen = new Set();
+    const merged = [];
+    for (const o of [...fromCollection, ...fromServices]) {
+      if (!seen.has(o.name)) { seen.add(o.name); merged.push(o); }
+    }
+    return merged;
   };
 
   const handleCreate = () => {
@@ -738,7 +760,7 @@ const ServicePrices = ({ user }) => {
             className={selectClasses}
           >
             <option value="">Все категории</option>
-            {categories.map(cat => (
+            {categoryOptions().map(cat => (
               <option key={cat.id} value={cat.name}>{cat.name}</option>
             ))}
           </select>
@@ -953,7 +975,7 @@ const ServicePrices = ({ user }) => {
               className={selectClasses}
             >
               <option value="">Выберите специальность</option>
-              {categories.map((category) => (
+              {categoryOptions().map((category) => (
                 <option key={category.id} value={category.name}>
                   {category.name}
                 </option>

@@ -165,3 +165,31 @@ async def test_specialist_suggestion_finds_doctors_for_service(clean_db):
     names = [d["full_name"] for d in found]
     assert "Иван Иванов" in names
     assert "Пётр Петров" not in names
+
+
+async def test_specialist_suggestion_falls_back_to_specialty_match(clean_db):
+    """A doctor with no service linkage is still suggested if their specialty
+    matches the service category (no hardcoded names)."""
+    from models.doctor import Doctor
+    from services.service_price_service import ServicePriceService
+
+    svc = ServicePriceService(clean_db)
+    service = await _seed_service(clean_db, service_name="УЗИ органов малого таза", category="УЗИ")
+
+    # doctor NOT linked to the service, but with matching specialty
+    doc = Doctor(full_name="Доктор УЗИ", specialties=["УЗИ"])
+    await clean_db.doctors.insert_one(doc.dict())
+
+    found = await svc.get_specialists_for_service(service["id"])
+    assert any(d["full_name"] == "Доктор УЗИ" for d in found)
+
+
+async def test_specialist_suggestion_ignores_wrong_specialty(clean_db):
+    from services.service_price_service import ServicePriceService
+
+    service = await _seed_service(clean_db, service_name="ЭКГ", category="Кардиолог")
+    await _seed_doctor(clean_db, full_name="Хирург", service_ids=[])  # no services, specialty empty
+
+    svc = ServicePriceService(clean_db)
+    found = await svc.get_specialists_for_service(service["id"])
+    assert found == []

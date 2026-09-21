@@ -131,14 +131,22 @@ class ServicePriceService:
         }
 
     async def get_specialists_for_service(self, service_id):
-        """Doctors who list `service_id` among their provided services
-        (used to suggest a specialist for a complex component)."""
+        """Doctors who can perform a service: either list the service among their
+        provided services, or match the service's category by specialty.
+        Used to suggest a specialist for a complex component."""
+        service = await self.db.service_prices.find_one({"id": service_id})
+        if not service:
+            return []
+        category = (service.get("category") or "").lower()
         doctors = await self.db.doctors.find({"is_active": True}).to_list(None)
         result = []
         for doc in doctors:
             services = doc.get("services") or []
             ids = [s.get("service_id") if isinstance(s, dict) else s for s in services]
-            if service_id in ids:
+            specs = doc.get("specialties") or ([doc["specialty"]] if doc.get("specialty") else [])
+            by_service = service_id in ids
+            by_specialty = bool(category and any((sp or "").lower() == category for sp in specs))
+            if by_service or by_specialty:
                 result.append({"id": doc.get("id"), "full_name": doc.get("full_name")})
         return result
 
