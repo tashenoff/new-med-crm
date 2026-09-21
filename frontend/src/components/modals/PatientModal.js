@@ -811,7 +811,7 @@ const PatientModal = ({
     <Modal 
       show={show} 
       onClose={onClose}
-      title={editingItem ? 'Редактировать пациента' : 'Новый пациент'}
+      title={editingItem ? 'Карточка пациента' : 'Новый пациент'}
       errorMessage={errorMessage}
     >
 
