@@ -369,14 +369,32 @@ const PatientModal = ({
       .map((c) => `<div class="value">${escapeHtml(c.code)} — ${escapeHtml(c.name)}</div>`)
       .join('');
 
-    const servicesList = (sheet.treatment_services || []).map((s) => (
-      `<tr>
+    const servicesList = (sheet.treatment_services || []).map((s) => {
+      const main = `<tr>
         <td class="txt">${escapeHtml(s.service_name)}</td>
         <td class="num">${Number(s.quantity || 1)}</td>
         <td class="num">${Number(s.price_per_unit || 0).toLocaleString('ru-RU')}</td>
         <td class="num">${Number(s.total_price || 0).toLocaleString('ru-RU')}</td>
-      </tr>`
-    )).join('');
+      </tr>`;
+      // Для комплекса — состав: перечень услуг с ценой, количеством и скидкой
+      let extra = '';
+      if (s.is_complex && s.components && s.components.length) {
+        const comps = s.components.map((c) => {
+          const unit = Number(c.price || 0);
+          const qty = Number(c.quantity || 1);
+          const sum = unit * qty;
+          const disc = (c.discount && c.discount > 0)
+            ? `${Number(c.discount)}%`
+            : (c.discount_amount && c.discount_amount > 0 ? `−${Number(c.discount_amount).toLocaleString('ru-RU')} ₸` : '');
+          return `<div class="comp">
+              <span>− ${escapeHtml(c.service_name)}</span>
+              <span class="comp-meta">×${qty} · ${sum.toLocaleString('ru-RU')} ₸${disc ? `<i> · скидка ${disc}</i>` : ''}</span>
+            </div>`;
+        }).join('');
+        extra = `<tr><td colspan="4"><div class="comp-list">${comps}</div></td></tr>`;
+      }
+      return main + extra;
+    }).join('');
 
     const section = (title, content) => {
       if (!content) return '';
@@ -437,6 +455,10 @@ const PatientModal = ({
     padding-bottom: 2px;
   }
   .value { white-space: normal; line-height: 1.5; margin-bottom: 6px; }
+  .comp-list { padding: 4px 6px; background: #f7f7f7; border: 1px dashed #aaa; }
+  .comp { display: flex; justify-content: space-between; gap: 12px; font-size: 12px; padding: 2px 0; }
+  .comp-meta { color: #333; font-weight: normal; }
+  .comp-meta i { color: #b00; font-style: italic; }
   .services-table { width: 100%; border-collapse: collapse; margin-bottom: 8px; }
   .services-table th, .services-table td {
     border: 1px solid #333;
