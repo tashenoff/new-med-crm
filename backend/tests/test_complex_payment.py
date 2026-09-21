@@ -137,3 +137,39 @@ async def test_pay_complex_remaining_with_even_discount(clean_db):
     assert round(by_id["sd-a"]["discount_amount"], 2) == 500
     assert round(by_id["sd-b"]["discount_amount"], 2) == 500
     assert updated["paid_amount"] == 4000
+
+
+async def test_complex_shares_rounded_whole_number(clean_db):
+    from models.services import ServicePriceCreate
+    from services.service_price_service import ServicePriceService
+    from services.treatment_plan_service import TreatmentPlanService, _round_shares
+    from datetime import datetime
+
+    a = await clean_db.service_prices.insert_one({"id": "sa", "service_name": "УА", "service_type": "regular", "price": 5280})
+    b = await clean_db.service_prices.insert_one({"id": "sb", "service_name": "УБ", "service_type": "regular", "price": 8000})
+    svc = ServicePriceService(clean_db)
+    comp = await svc.create_service_price(
+        ServicePriceCreate(service_name="Пакет К", price=20000, service_type="complex",
+                           components=[{"service_id": "sa", "quantity": 1, "price": 5280},
+                                       {"service_id": "sb", "quantity": 1, "price": 8000}]))
+    line = await svc.build_complex_plan_line(comp.id, quantity=1)
+    now = datetime.utcnow()
+    await clean_db.treatment_plans.insert_one({
+        "id": "plan-round", "patient_id": "p", "title": "R", "services": [line],
+        "total_cost": line["total_price"], "paid_amount": 0, "payment_status": "unpaid",
+        "created_at": now, "updated_at": now,
+    })
+    tp = TreatmentPlanService(clean_db)
+    # доли по формуле без хардкода
+    k = 20000 / (5280 + 8000)
+    rounded = _round_shares([5280 * k, 8000 * k])
+    assert all(x == int(x) and x > 0 for x in rounded), rounded
+    assert sum(rounded) == 20000
+    # оплатить обе доли -> суммы целые и сходятся на цену пакета
+    await tp.pay_complex_component("plan-round", comp.id, "sa")
+    await tp.pay_complex_component("plan-round", comp.id, "sb")
+    saved = await clean_db.treatment_plans.find_one({"id": "plan-round"})
+    row = next(s for s in saved["services"] if s["service_id"] == comp.id)
+    paid = [c["paid_amount"] for c in row["components"] if c["paid"]]
+    assert all(x == int(x) and x > 0 for x in paid), paid
+    assert sum(paid) == 20000

@@ -13,6 +13,19 @@ from models.treatment_plan import TreatmentPlan, TreatmentPlanCreate, TreatmentP
 logger = logging.getLogger(__name__)
 
 
+def _round_shares(raw_shares):
+    """Округлить доли до целых ₸ так, чтобы сумма совпадала с round(сумма raw).
+    Остаток относится на услугу с самой большой долей (без плавающих чисел)."""
+    if not raw_shares:
+        return []
+    floors = [int(x) for x in raw_shares]
+    deficit = int(round(sum(raw_shares))) - sum(floors)
+    if deficit:
+        largest = max(range(len(floors)), key=lambda i: raw_shares[i])
+        floors[largest] += deficit
+    return floors
+
+
 class TreatmentPlanService:
     """Service for treatment plan-related business logic"""
     
@@ -232,9 +245,15 @@ class TreatmentPlanService:
         complex_price = float(service.get("price") or service.get("price_per_unit")
                               or ((service.get("total_price", 0) or 0) / (service.get("quantity") or 1))) or 0.0
         k = complex_price / sum_default if sum_default else 0.0
-        default = (comp.get("price", 0) or 0) * (comp.get("quantity", 1) or 1)
+        # доли всех услуг: целые ₸, остаток на самую дорогую, сумма = round(цена пакета)
+        raw_shares = [
+            (c.get("price", 0) or 0) * (c.get("quantity", 1) or 1) * k * (1 - ((c.get("discount", 0) or 0) / 100))
+            for c in comps
+        ]
+        rounded = _round_shares(raw_shares)
+        idx = next((i for i, c in enumerate(comps) if c.get("service_id") == component_service_id), 0)
+        share = rounded[idx] if rounded else 0
         disc = comp.get("discount", 0) or 0
-        share = default * k * (1 - disc / 100)
 
         comp["paid"] = True
         # Скидка даётся ПРИ оплате: в payment_data может прийти фактическая сумма
@@ -305,7 +324,14 @@ class TreatmentPlanService:
                               or ((service.get("total_price", 0) or 0) / (service.get("quantity") or 1))) or 0.0
         k = complex_price / sum_default if sum_default else 0.0
         def _share(c):
-            return (c.get("price", 0) or 0) * (c.get("quantity", 1) or 1) * k * (1 - ((c.get("discount", 0) or 0) / 100))
+            # целая доля услуги (та же логика, что в pay_complex_component)
+            raw_shares = [
+                (_c.get("price", 0) or 0) * (_c.get("quantity", 1) or 1) * k * (1 - ((_c.get("discount", 0) or 0) / 100))
+                for _c in comps
+            ]
+            rounded = _round_shares(raw_shares)
+            idx = next((i for i, _c in enumerate(comps) if _c.get("service_id") == c.get("service_id")), 0)
+            return rounded[idx] if rounded else 0
 
         unpaid = [c for c in comps if not c.get("paid")]
         if not unpaid:

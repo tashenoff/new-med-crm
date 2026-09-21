@@ -274,7 +274,15 @@ const ServicePrices = ({ user }) => {
     });
     const sumDefault = items.reduce((a, x) => a + x.default, 0);
     const coeff = sumDefault > 0 ? packagePrice / sumDefault : 0;
-    const mapped = items.map((x) => ({ ...x, share: x.default * coeff * (1 - (x.discount || 0) / 100) }));
+    const raw = items.map((x) => ({ ...x, raw: x.default * coeff * (1 - (x.discount || 0) / 100) }));
+    // целые доли: остаток на самую дорогую, сумма = round(цена пакета)
+    const floors = raw.map((x) => Math.floor(x.raw));
+    let deficit = Math.round(packagePrice) - floors.reduce((a, b) => a + b, 0);
+    if (raw.length && deficit) {
+      const largest = raw.reduce((bi, x, i, arr) => (x.raw > arr[bi].raw ? i : bi), 0);
+      floors[largest] += deficit;
+    }
+    const mapped = raw.map((x, i) => ({ ...x, share: floors[i] || 0 }));
     return { coefficient: coeff, sumDefault, sumShares: mapped.reduce((a, x) => a + x.share, 0), items: mapped };
   };
 

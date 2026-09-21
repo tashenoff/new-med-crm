@@ -202,9 +202,18 @@ const ServicePaymentList = ({ plan, onUpdate, onEdit, paymentFilter = 'all', pro
     const complexPrice = svc.price || svc.price_per_unit || (svc.total_price / (svc.quantity || 1)) || 0;
     const sumDefault = (svc.components || []).reduce((a, c) => a + (c.price || 0) * (c.quantity || 1), 0);
     const k = sumDefault > 0 ? complexPrice / sumDefault : 0;
-    return (svc.components || []).map(c => ({
+    const comps = svc.components || [];
+    const raw = comps.map(c => (c.price || 0) * (c.quantity || 1) * k * (1 - (c.discount || 0) / 100));
+    // целые доли: остаток на самую дорогую, сумма = round(цена пакета)
+    const floors = raw.map(v => Math.floor(v));
+    let deficit = Math.round(complexPrice) - floors.reduce((a, b) => a + b, 0);
+    if (comps.length && deficit) {
+      const largest = raw.reduce((bi, v, i, arr) => (v > arr[bi] ? i : bi), 0);
+      floors[largest] += deficit;
+    }
+    return comps.map((c, i) => ({
       ...c,
-      share: (c.price || 0) * (c.quantity || 1) * k * (1 - (c.discount || 0) / 100),
+      share: floors[i] || 0,
       paid: c.paid || false,
       paid_amount: c.paid_amount || 0,
     }));
