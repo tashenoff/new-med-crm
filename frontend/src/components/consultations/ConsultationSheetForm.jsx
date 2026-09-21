@@ -160,6 +160,31 @@ const ConsultationSheetForm = ({ patientId, onSave, onCancel, editingSheet = nul
     }
     
     setServicesError('');
+
+    // Для комплексных услуг: создаём записи к специалистам по выбранным слотам
+    const token = localStorage.getItem('token');
+    form.treatment_services.forEach((svc) => {
+      if (svc.scheduling && svc.scheduling.slots.length > 0) {
+        svc.scheduling.slots.forEach((slot) => {
+          fetch(`${API}/api/appointments`, {
+            method: 'POST',
+            headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              patient_id: form.patient_id,
+              doctor_id: slot.doctor_id,
+              appointment_date: slot.date,
+              appointment_time: slot.start_time,
+              end_time: slot.end_time,
+              service_id: slot.service_id,
+              complex_id: svc.service_id,
+              complex_name: svc.service_name,
+              price: slot.price || null
+            })
+          }).catch((err) => console.error('Ошибка создания записи на комплекс:', err));
+        });
+      }
+    });
+
     onSave(form);
   };
 
