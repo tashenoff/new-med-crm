@@ -253,7 +253,7 @@ const ServicePaymentList = ({ plan, onUpdate, onEdit, paymentFilter = 'all', pro
               'Authorization': `Bearer ${token}`,
               'Content-Type': 'application/json'
             },
-            body: JSON.stringify({ payment_data: paymentData })
+            body: JSON.stringify(paymentData)
           }
         );
 
@@ -272,7 +272,7 @@ const ServicePaymentList = ({ plan, onUpdate, onEdit, paymentFilter = 'all', pro
           {
             method: 'POST',
             headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
-            body: JSON.stringify({ payment_data: paymentData })
+            body: JSON.stringify(paymentData)
           }
         );
         if (!response.ok) throw new Error('Ошибка при оплате услуги комплекса: ' + response.status);
@@ -285,7 +285,7 @@ const ServicePaymentList = ({ plan, onUpdate, onEdit, paymentFilter = 'all', pro
           {
             method: 'POST',
             headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
-            body: JSON.stringify({ payment_data: paymentData })
+            body: JSON.stringify(paymentData)
           }
         );
         if (!response.ok) throw new Error('Ошибка при оплате остатка: ' + response.status);
@@ -313,7 +313,7 @@ const ServicePaymentList = ({ plan, onUpdate, onEdit, paymentFilter = 'all', pro
                 'Authorization': `Bearer ${token}`,
                 'Content-Type': 'application/json'
               },
-              body: JSON.stringify({ payment_data: pd })
+              body: JSON.stringify(pd)
             }
           );
           
