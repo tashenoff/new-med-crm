@@ -478,17 +478,19 @@ const ServicePaymentList = ({ plan, onUpdate, onEdit, paymentFilter = 'all', pro
                 <span>Скидка</span><span>− {disc.toLocaleString()} ₸</span>
               </div>
             )}
-            <div className="flex items-center gap-2">
-              <span className="text-sm text-gray-600 whitespace-nowrap">Скидка</span>
-              <div className="flex rounded-lg overflow-hidden border border-gray-300">
-                <button type="button" onClick={() => setDiscountType('fixed')}
-                  className={`px-3 py-1.5 text-sm ${discountType === 'fixed' ? 'bg-blue-600 text-white' : 'bg-white text-gray-600'}`}>₸</button>
-                <button type="button" onClick={() => setDiscountType('percent')}
-                  className={`px-3 py-1.5 text-sm ${discountType === 'percent' ? 'bg-blue-600 text-white' : 'bg-white text-gray-600'}`}>%</button>
+            <div>
+              <div className="flex items-center justify-between mb-1">
+                <span className="text-sm text-gray-600">Скидка</span>
+                <div className="flex rounded-lg overflow-hidden border border-gray-300">
+                  <button type="button" onClick={() => setDiscountType('fixed')}
+                    className={`px-3 py-1.5 text-xs ${discountType === 'fixed' ? 'bg-blue-600 text-white' : 'bg-white text-gray-600'}`}>фикс. ₸</button>
+                  <button type="button" onClick={() => setDiscountType('percent')}
+                    className={`px-3 py-1.5 text-xs ${discountType === 'percent' ? 'bg-blue-600 text-white' : 'bg-white text-gray-600'}`}>%</button>
+                </div>
               </div>
               <input type="number" min="0" step="0.01" value={discountInput}
                 onChange={(e) => setDiscountInput(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm" placeholder={discountType === 'percent' ? '0 %' : '0 ₸'} />
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm" placeholder={discountType === 'percent' ? 'Процент скидки' : 'Сумма скидки, ₸'} />
             </div>
             <div className="flex justify-between text-base font-semibold">
               <span>Итого к оплате</span><span className="text-blue-600">{finalAmt.toLocaleString()} ₸</span>
