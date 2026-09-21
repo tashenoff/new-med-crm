@@ -266,10 +266,13 @@ const ServiceCheckboxSelector = ({ onAddServices, alreadyAddedIds = [], disabled
       let scheduling = null;
       if (cfg.service.service_type === 'complex' && oneDoctorOn[cfg.service.id]) {
         const today = new Date().toISOString().slice(0, 10);
-        const osc = oneDocSlot[cfg.service.id];
-        const slots = osc && osc.start ? [{
-          doctor_id: osc.doctor_id,
-          doctor_name: availAnyDocName(cfg.service.id, osc.doctor_id),
+        const osc = oneDocSlot[cfg.service.id] || {};
+        const availAny0 = availByDate[`${cfg.service.id}:${osc.date || today}`] || Object.values(availByDate).find(a => a.complex_id === cfg.service.id);
+        const common0 = (availAny0?.common_doctors || []);
+        const docId = osc.doctor_id || common0[0]?.doctor_id || '';
+        const slots = docId && osc.start ? [{
+          doctor_id: docId,
+          doctor_name: availAnyDocName(cfg.service.id, docId),
           service_id: cfg.service.id,
           service_name: cfg.service.service_name,
           date: osc.date || today,
