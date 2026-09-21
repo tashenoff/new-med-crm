@@ -1693,14 +1693,14 @@ const PatientModal = ({
                               </div>
                             </div>
                             <div className="flex items-center space-x-2 flex-shrink-0 ml-2">
-                              <button
+                              <span
                                 onClick={(e) => { e.stopPropagation(); handlePrintConsultation(sheet); }}
                                 className="px-2 py-1 text-gray-700 border border-gray-500 rounded hover:bg-gray-100 text-xs whitespace-nowrap"
                                 title="Печать консультационного листа"
                               >
                                 Печать
-                              </button>
-                              <button
+                              </span>
+                              <span
                                 onClick={(e) => {
                                   e.stopPropagation();
                                   setEditingConsultation(sheet);
@@ -1709,13 +1709,13 @@ const PatientModal = ({
                                 className="px-2 py-1 text-blue-600 border border-blue-600 rounded hover:bg-blue-50 text-xs whitespace-nowrap"
                               >
                                 Редактировать
-                              </button>
-                              <button
+                              </span>
+                              <span
                                 onClick={(e) => { e.stopPropagation(); handleDeleteConsultation(sheet.id); }}
                                 className="px-2 py-1 text-red-600 border border-red-600 rounded hover:bg-red-50 text-xs whitespace-nowrap"
                               >
                                 Удалить
-                              </button>
+                              </span>
                               {isExpanded ? <FaChevronDown className="text-gray-400" /> : <FaChevronDown className="text-gray-400 rotate-180" />}
                             </div>
                           </button>

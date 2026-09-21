@@ -114,6 +114,8 @@ const ServiceCheckboxSelector = ({ onAddServices, alreadyAddedIds = [], disabled
   const [availByDate, setAvailByDate] = useState({}); // "complexId:date" -> availability
   const [selSlots, setSelSlots] = useState({});       // "complexId:serviceId:doctorId" -> {date,start,end}
   const [selDoctors, setSelDoctors] = useState({});   // "complexId:serviceId" -> doctor_id
+  const [oneDoctorOn, setOneDoctorOn] = useState({}); // complexId -> bool: весь комплекс одним врачом
+  const [oneDocSlot, setOneDocSlot] = useState({});   // complexId -> {doctor_id,date,start,end}
   const alreadyAddedKey = Array.isArray(alreadyAddedIds) ? alreadyAddedIds.join(',') : '';
   const alreadyAddedSet = useMemo(
     () => new Set(alreadyAddedKey ? alreadyAddedKey.split(',') : []),
@@ -201,6 +203,17 @@ const ServiceCheckboxSelector = ({ onAddServices, alreadyAddedIds = [], disabled
     selectedComplexes.forEach(cfg => ensureAvailability(cfg.service.id, today));
   }, [selectedComplexes.map(c => c.service.id).join(',')]);
 
+  const availAnyDocName = (complexId, doctorId) => {
+    for (const a of Object.values(availByDate)) {
+      if (a.complex_id !== complexId) continue;
+      for (const svc of a.services || []) {
+        const d = (svc.doctors || []).find(x => x.doctor_id === doctorId);
+        if (d) return d.doctor_name || '';
+      }
+    }
+    return '';
+  };
+
   const defaultEndTime = (start) => {
     if (!start) return '';
     const [hh, mm] = start.split(':').map(Number);
@@ -221,11 +234,16 @@ const ServiceCheckboxSelector = ({ onAddServices, alreadyAddedIds = [], disabled
           ? {
               is_complex: true,
               // штампуем выбранного в конс-листе врача в компоненты (для зарплаты/печати)
-              components: (cfg.service.components || []).map((c) => {
-                const entry = Object.entries(selSlots).find(([k, sl]) => sl && sl.start && k.startsWith(`${cfg.service.id}:${c.service_id}:`));
-                const did = entry ? entry[0].split(':')[2] : null;
-                return did ? { ...c, doctor_id: did } : c;
-              }),
+              components: oneDoctorOn[cfg.service.id]
+                ? (cfg.service.components || []).map((c) => {
+                    const did = oneDocSlot[cfg.service.id]?.doctor_id;
+                    return did && (oneDocSlot[cfg.service.id]?.start) ? { ...c, doctor_id: did } : c;
+                  })
+                : (cfg.service.components || []).map((c) => {
+                    const entry = Object.entries(selSlots).find(([k, sl]) => sl && sl.start && k.startsWith(`${cfg.service.id}:${c.service_id}:`));
+                    const did = entry ? entry[0].split(':')[2] : null;
+                    return did ? { ...c, doctor_id: did } : c;
+                  }),
             }
           : {})
       };
@@ -246,7 +264,20 @@ const ServiceCheckboxSelector = ({ onAddServices, alreadyAddedIds = [], disabled
       }
       // Для комплексной услуги — выбранные слоты специалистов (у каждого своя дата и окно времени)
       let scheduling = null;
-      if (cfg.service.service_type === 'complex') {
+      if (cfg.service.service_type === 'complex' && oneDoctorOn[cfg.service.id]) {
+        const today = new Date().toISOString().slice(0, 10);
+        const osc = oneDocSlot[cfg.service.id];
+        const slots = osc && osc.start ? [{
+          doctor_id: osc.doctor_id,
+          doctor_name: availAnyDocName(cfg.service.id, osc.doctor_id),
+          service_id: cfg.service.id,
+          service_name: cfg.service.service_name,
+          date: osc.date || today,
+          start_time: osc.start,
+          end_time: osc.end || defaultEndTime(osc.start),
+        }] : [];
+        scheduling = { slots };
+      } else if (cfg.service.service_type === 'complex') {
         const today = new Date().toISOString().slice(0, 10);
         const slots = Object.entries(selSlots)
           .filter(([k, sl]) => sl && sl.start && k.startsWith(cfg.service.id + ':'))
