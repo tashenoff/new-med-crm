@@ -48,6 +48,17 @@ async def get_service_prices(
     return await service.get_service_prices(category, active_only, search)
 
 
+@services_api_router.get("/service-prices/{price_id}/specialists-availability")
+async def get_complex_specialists_availability(
+    price_id: str,
+    date: str,
+    current_user: UserInDB = Depends(get_current_active_user),
+    service: ServicePriceService = Depends(get_service_price_service)
+):
+    """Специалисты комплексной услуги (из состава) и их доступность на дату."""
+    return await service.complex_specialists_availability(price_id, date)
+
+
 @services_api_router.get("/service-prices/statistics/lab")
 async def get_lab_price_statistics(
     current_user: UserInDB = Depends(get_current_active_user),
