@@ -1854,12 +1854,41 @@ const PatientModal = ({
                                         </thead>
                                         <tbody>
                                           {sheet.treatment_services.map((service, idx) => (
-                                            <tr key={idx} className="border-b border-gray-200 last:border-b-0">
-                                              <td className="py-1 px-2 text-gray-800">{service.service_name}</td>
-                                              <td className="text-center py-1 px-2 text-gray-800">{service.quantity}</td>
-                                              <td className="text-right py-1 px-2 text-gray-800">{Number(service.price_per_unit).toLocaleString('ru-RU')} ₸</td>
-                                              <td className="text-right py-1 px-2 text-gray-800 font-medium">{Number(service.total_price).toLocaleString('ru-RU')} ₸</td>
-                                            </tr>
+                                            <React.Fragment key={idx}>
+                                              <tr className="border-b border-gray-200 last:border-b-0">
+                                                <td className="py-1 px-2 text-gray-800">
+                                                  {service.service_name}
+                                                  {service.is_complex && <span className="ml-1 text-[10px] bg-purple-100 text-purple-700 px-1 rounded align-middle">Комплекс</span>}
+                                                </td>
+                                                <td className="text-center py-1 px-2 text-gray-800">{service.quantity}</td>
+                                                <td className="text-right py-1 px-2 text-gray-800">{Number(service.price_per_unit).toLocaleString('ru-RU')} ₸</td>
+                                                <td className="text-right py-1 px-2 text-gray-800 font-medium">
+                                                  {Number(service.total_price).toLocaleString('ru-RU')} ₸
+                                                  {service.discount_amount > 0 && (
+                                                    <div className="text-[10px] text-red-500 font-normal">скидка −{Number(service.discount_amount).toLocaleString('ru-RU')} ₸</div>
+                                                  )}
+                                                </td>
+                                              </tr>
+                                              {service.is_complex && service.components && service.components.length > 0 && (
+                                                <tr key={`${idx}-comps`} className="bg-purple-50/40 border-b border-gray-200">
+                                                  <td colSpan={4} className="py-1 px-2">
+                                                    <div className="text-[11px] text-gray-500 mb-0.5">Что входит:</div>
+                                                    {service.components.map((c, ci) => {
+                                                      const unit = Number(c.price || 0);
+                                                      const qty = Number(c.quantity || 1);
+                                                      const sum = unit * qty;
+                                                      const d = c.discount_amount ? `−${Number(c.discount_amount).toLocaleString('ru-RU')} ₸` : (c.discount ? `${Number(c.discount)}%` : '');
+                                                      return (
+                                                        <div key={ci} className="flex justify-between text-xs py-0.5">
+                                                          <span className="text-gray-700">− {c.service_name} ×{qty}</span>
+                                                          <span className="text-gray-600">{sum.toLocaleString('ru-RU')} ₸{d ? <span className="text-red-500"> · скидка {d}</span> : ''}</span>
+                                                        </div>
+                                                      );
+                                                    })}
+                                                  </td>
+                                                </tr>
+                                              )}
+                                            </React.Fragment>
                                           ))}
                                         </tbody>
                                       </table>
