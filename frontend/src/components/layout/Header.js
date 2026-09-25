@@ -34,9 +34,9 @@ const Header = ({ user, onLogout, onToggleSidebar, sidebarOpen, activeSection, s
 
   return (
     <header
-          className="mobile-fixed-header backdrop-blur-xl shadow-sm border-b border-white/40"
-          style={{ backgroundColor: 'rgba(255,255,255,0.14)' }}
-        >
+              className="mobile-fixed-header backdrop-blur-xl shadow-md border-b border-white/10"
+              style={{ backgroundColor: 'rgba(10, 16, 40, 0.82)' }}
+            >
       <div className="px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center py-4">
           <div className="flex items-center space-x-6 w-full">
