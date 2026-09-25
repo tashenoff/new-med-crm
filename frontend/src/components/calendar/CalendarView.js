@@ -185,9 +185,9 @@ const CalendarView = ({
 
   // Рендер grid календаря (переиспользуемый)
   const renderCalendarGrid = () => (
-    <div className={`calendar-grid flex ${themeClasses.border.default} border-b`} style={{ minWidth: 'max-content' }}>
-      {/* Колонка времени — фиксированная (sticky left) */}
-      <div className={`calendar-time-column-sticky w-20 flex-shrink-0 border-r ${themeClasses.border.light} calendar-time-column`}>
+      <div className={`calendar-grid flex ${themeClasses.border.default} border-b`}>
+        {/* Колонка времени — фиксированная (sticky left) */}
+        <div className={`calendar-time-column-sticky w-20 flex-shrink-0 border-r ${themeClasses.border.light} calendar-time-column`}>
 <div className={`h-16 border-b border-l ${themeClasses.border.default} ${themeClasses.bg.secondary} flex items-center justify-center font-semibold ${themeClasses.text.primary} calendar-time-header`}>
           Время
         </div>
