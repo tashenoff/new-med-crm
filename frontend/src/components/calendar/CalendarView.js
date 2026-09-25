@@ -201,12 +201,12 @@ const CalendarView = ({
       {/* Кабинеты */}
             <div className="flex calendar-rooms-wrapper">
               {displayRooms.length === 0 ? (
-          <div className={`flex-1 flex items-center justify-center p-8 ${themeClasses.text.muted} calendar-no-rooms`}>
-            Нет доступных кабинетов
-          </div>
-        ) : (
-          rooms.map((room) => (
-            <TimeGrid
+                <div className={`flex-1 flex items-center justify-center p-8 ${themeClasses.text.muted} calendar-no-rooms`}>
+                  Нет доступных кабинетов
+                </div>
+              ) : (
+                displayRooms.map((room) => (
+                  <TimeGrid
               key={room.id}
               room={room}
               timeSlots={timeSlots}
