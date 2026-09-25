@@ -9,7 +9,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
-      - name: SSH into MedCRM VPS — pull, build frontend, restart backend
+      - name: SSH into MedCRM VPS — pull backend, restart
         uses: appleboy/ssh-action@v1.2.0
         with:
           host: ${{ secrets.MEDCRM_HOST }}
@@ -23,20 +23,14 @@ jobs:
             git pull --ff-only origin ref-2
             echo "=== deps ==="
             /opt/medcrm/venv/bin/pip install -q -r backend/requirements.txt || true
-            echo "=== frontend build ==="
-            cd frontend
-            npm run build >/tmp/medcrm_build.log 2>&1
-            tail -5 /tmp/medcrm_build.log
-            if grep -rl 'undefined/api' dist/assets 2>/dev/null; then
-              echo "ERROR: VITE_BACKEND_URL missing (undefined/api in bundle)"; exit 1
-            fi
             echo "=== restart backend ==="
             systemctl restart medcrm-backend
             sleep 3
             systemctl is-active medcrm-backend
             systemctl is-enabled medcrm-backend
             echo "deployed: $(git rev-parse --short HEAD)"
-            curl -sS -o /dev/null -w 'site HTTP %{http_code}\n' https://medcrm.duckdns.org
+            curl -sS -o /dev/null -w 'api HTTP %{http_code}\n' https://medcrm.duckdns.org/api/doctors
+            curl -sS -o /dev/null -w 'front redirect %{http_code} -> %{redirect_url}\n' https://medcrm.duckdns.org/
 
       - name: Notify Telegram — success
         if: ${{ success() }}
