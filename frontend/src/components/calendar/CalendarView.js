@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import TimeGrid from './ux/TimeGrid';
 import DateNavigation from './ux/DateNavigation';
 import CalendarWidget from './ux/CalendarWidget';
+import { CalendarDaysIcon } from '@heroicons/react/24/outline';
 import { DragDropManager } from './functions/DragDropManager';
 import { themeClasses } from '../../hooks/useTheme';
 import PanelHeader from '../common/PanelHeader';
@@ -286,51 +287,51 @@ const CalendarView = ({
             />
 
             <div className="bg-white dark:bg-gray-800 rounded-b-2xl border border-t-0 border-gray-200 dark:border-gray-700 p-4 space-y-4 shadow-sm">
-              {/* Мобильный тулбар: выбор кабинета + мини-календарь за иконкой */}
-                          {isMobile && (
-                              <div className="flex flex-wrap items-center gap-2 calendar-mobile-toolbar">
-                  <label className="text-xs text-gray-500 dark:text-gray-400">Кабинет:</label>
-                  <select
-                    value={selectedRoomId || ''}
-                    onChange={(e) => setSelectedRoomId(e.target.value)}
-                    className="border border-gray-300 dark:border-gray-600 rounded-lg px-2 py-1.5 text-sm bg-white dark:bg-gray-800"
-                  >
-                    {roomOptions.map(r => (
-                      <option key={r.id} value={r.id}>{r.name}</option>
-                    ))}
-                  </select>
+              {/* Мобильный тулбар: выбор кабинета слева, мини-календарь за иконкой справа */}
+                                        {isMobile && (
+                                            <div className="flex items-center justify-between calendar-mobile-toolbar">
+                                <div className="flex items-center gap-2">
+                                  <label className="text-xs text-gray-500 dark:text-gray-400 whitespace-nowrap">Кабинет:</label>
+                                  <select
+                                    value={selectedRoomId || ''}
+                                    onChange={(e) => setSelectedRoomId(e.target.value)}
+                                    className="border border-gray-300 dark:border-gray-600 rounded-lg px-2 py-1.5 text-sm bg-white dark:bg-gray-800"
+                                  >
+                                    {roomOptions.map(r => (
+                                      <option key={r.id} value={r.id}>{r.name}</option>
+                                    ))}
+                                  </select>
+                                </div>
 
-                  <button
-                    type="button"
-                    onClick={() => setShowMobileCalendar(!showMobileCalendar)}
-                    title="Открыть календарь дат"
-                    aria-label="Открыть календарь дат"
-                    className={`p-2 rounded-lg border ${themeClasses.border.default} ${themeClasses.bg.secondary} flex items-center justify-center`}
-                  >
-                    <svg className="w-5 h-5 text-gray-600 dark:text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4h5v4h5v4h5V4h-5v-4h-5v-4h-5V8m12 8h7v4h7v4h7m0-12h5v4h5v4h5" />
-                    </svg>
-                  </button>
+                                <button
+                                  type="button"
+                                  onClick={() => setShowMobileCalendar(!showMobileCalendar)}
+                                  title="Открыть календарь дат"
+                                  aria-label="Открыть календарь дат"
+                                  className={`p-2 rounded-lg border ${themeClasses.border.default} ${themeClasses.bg.secondary} flex items-center justify-center`}
+                                >
+                                  <CalendarDaysIcon className="w-5 h-5 text-gray-600 dark:text-gray-300" />
+                                </button>
 
-                  {showMobileCalendar && (
-                    <div className="relative z-20">
-                      <CalendarWidget
-                        currentDate={safeCurrentDate}
-                        onDateChange={onDateChange}
-                      />
-                    </div>
-                  )}
-                </div>
-              )}
+                                {showMobileCalendar && (
+                                  <div className="relative z-20">
+                                    <CalendarWidget
+                                      currentDate={safeCurrentDate}
+                                      onDateChange={onDateChange}
+                                    />
+                                  </div>
+                                )}
+                              </div>
+                            )}
 
               {/* Навигация по датам */}
               <DateNavigation
-                currentDate={safeCurrentDate}
-                onDateChange={onDateChange}
-                onNewAppointment={canEdit ? onNewAppointment : null}
-                isFullscreen={isFullscreen}
-                onToggleFullscreen={toggleFullscreen}
-              />
+                              currentDate={safeCurrentDate}
+                              onDateChange={onDateChange}
+                              onNewAppointment={canEdit ? onNewAppointment : null}
+                              isFullscreen={isFullscreen}
+                              onToggleFullscreen={isMobile ? null : toggleFullscreen}
+                            />
 
               {/* Grid календаря */}
               <div className="calendar-main-scroll max-h-[calc(100vh-280px)] overflow-y-auto overflow-x-auto">
