@@ -73,7 +73,9 @@ app.add_middleware(
             "https://app.emergent.sh",
             "https://medicodebase.preview.emergentagent.com",
             "https://*.emergentagent.com",
-            "https://medcrm-front.vercel.app"
+            "https://medcrm-front.vercel.app",
+            "https://www.curai.asia",
+            "https://curai.asia"
         ],
         allow_origin_regex=r"https?://localhost(:\d+)?",  # Разрешаем все localhost порты
         allow_credentials=True,
