@@ -77,14 +77,14 @@ agenthub/agents/youtube/db
 .cache/
 
 # Mobile development
-android-sdk/ -e 
+android-sdk/ 
+
 # Environment files
-*.env
-*.env.*
--e 
-# Environment files
-*.env
-*.env.*
+.env
+.env.*
+.env.local
+.env.production
+.env.development
 
 # Graphify knowledge graph output
 /graphify-out/
