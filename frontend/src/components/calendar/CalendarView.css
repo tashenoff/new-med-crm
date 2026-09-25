@@ -233,13 +233,17 @@
             }
 
             /* Колонка кабинета — «резиновая»: растягивается на всю доступную ширину
-               вместо фиксированных 180px (TimeGrid width/minWidth) */
-            .calendar-grid {
-              min-width: auto !important;
-            }
-            .calendar-room-column {
-              width: auto !important;
-              min-width: 0 !important;
-              flex: 1 1 0 !important;
-            }
+                     вместо фиксированных 180px (TimeGrid width/minWidth) */
+                  .calendar-main-scroll {
+                    overflow-x: hidden !important;
+                  }
+                  .calendar-grid {
+                    width: 100% !important;
+                    min-width: 100% !important;
+                  }
+                  .calendar-room-column {
+                    width: auto !important;
+                    min-width: 0 !important;
+                    flex: 1 1 100% !important;
+                  }
           }
