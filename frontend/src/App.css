@@ -250,14 +250,6 @@ textarea:focus {
   }
 }
 
-/* ==================== Мобильная компактность внешних отступов ==================== */
-/* Убираем большие поля (px-4 py-8 -> ~5px) у main-контента на мобильных экранах */
-@media (max-width: 1023px) {
-  .app-main {
-    padding: 5px !important;
-  }
-}
-
 /* Overlay for mobile */
 .sidebar-overlay {
   position: fixed;
