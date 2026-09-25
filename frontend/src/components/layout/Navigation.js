@@ -407,14 +407,14 @@ const Navigation = ({
 
       {/* HMS Sidebar */}
       <nav
-        className={`
-        fixed left-0 top-0 h-full backdrop-blur-2xl shadow-lg z-50 transform transition-transform duration-300 ease-in-out
-        w-64 border-r border-white/40
-        ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}
-        lg:fixed lg:z-50
-      `}
-        style={{ backgroundColor: 'rgba(255,255,255,0.14)' }}
-      >
+              className={`
+              fixed left-0 top-0 h-full backdrop-blur-2xl shadow-lg z-60 transform transition-transform duration-300 ease-in-out
+              w-64 border-r border-white/40
+              ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}
+              lg:fixed lg:z-60
+            `}
+              style={{ backgroundColor: 'rgba(2, 77, 189, 0.9)' }}
+            >
         <div className="flex flex-col h-full">
           {/* Sidebar Header */}
           <div className="px-6 py-6 border-b border-gray-200 dark:border-gray-700 bg-gradient-to-r from-blue-600 to-purple-600">

@@ -242,7 +242,7 @@ textarea:focus {
 @media (max-width: 1024px) {
   .sidebar-nav {
     position: fixed;
-    z-index: 50;
+    z-index: 60;
   }
   
   .main-content.sidebar-open {
