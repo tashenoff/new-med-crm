@@ -204,6 +204,64 @@
   }
 
   .calendar-date-actions {
-    justify-content: center;
+      justify-content: center;
+    }
   }
-}
+
+  /* ==================== Мобильная адаптация календаря ==================== */
+  /* Тот же порог, что и window.innerWidth < 1024 в CalendarView.js */
+  @media (max-width: 1023px) {
+    /* Компактные пустоты контейнера календаря (~5px вместо p-4 = 16px) */
+    .calendar-view-panel > .bg-white,
+    .calendar-view-panel > .dark\:bg-gray-800 {
+      padding: 5px;
+    }
+    .calendar-view-panel {
+          padding: 5px;
+        }
+        /* space-y-4 (1rem) между детьми контейнера -> 5px на мобиле */
+        .calendar-view-panel > .bg-white > * + * {
+          margin-top: 5px;
+        }
+
+    /* Высота ячеек времени: h-16 (64px) -> 40px */
+    .calendar-timeslot {
+      height: 40px !important;
+    }
+    .calendar-time-label,
+    .calendar-time-header {
+      height: 36px !important;
+    }
+    .calendar-room-header {
+      height: 40px !important;
+    }
+    .calendar-room-name-row,
+    .calendar-room-doctor-row {
+      height: 16px !important;
+    }
+
+    /* Убираем лишние отступы навигации по датам */
+    .calendar-date-nav {
+      padding: 5px;
+      gap: 0.4rem;
+    }
+
+    /* Мобильный тулбар выбора кабинета — компактно */
+    .calendar-mobile-toolbar {
+      gap: 0.4rem;
+      padding: 0;
+    }
+    .calendar-mobile-toolbar select {
+          font-size: 0.85rem;
+          padding: 2px 8px;
+        }
+
+        /* Компактная кнопка "+ Новая запись" и элементы навигации дат */
+        .calendar-new-appointment-btn {
+          padding: 2px 10px;
+          font-size: 0.8rem;
+        }
+        .calendar-date-nav button {
+          padding: 2px 6px;
+        }
+      }

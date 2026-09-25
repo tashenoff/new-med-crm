@@ -287,8 +287,8 @@ const CalendarView = ({
 
             <div className="bg-white dark:bg-gray-800 rounded-b-2xl border border-t-0 border-gray-200 dark:border-gray-700 p-4 space-y-4 shadow-sm">
               {/* Мобильный тулбар: выбор кабинета + мини-календарь за иконкой */}
-              {isMobile && (
-                <div className="flex flex-wrap items-center gap-2">
+                          {isMobile && (
+                              <div className="flex flex-wrap items-center gap-2 calendar-mobile-toolbar">
                   <label className="text-xs text-gray-500 dark:text-gray-400">Кабинет:</label>
                   <select
                     value={selectedRoomId || ''}
