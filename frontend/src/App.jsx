@@ -329,7 +329,7 @@ function ClinicApp() {
             setErrorMessage={setErrorMessage} 
           />
 
-          <main className="flex-1 px-4 sm:px-6 lg:px-8 py-8">
+          <main className="flex-1 px-4 sm:px-6 lg:px-8 py-8 app-main">
             <Routes>
           <Route path="/" element={<CalendarPage user={user} />} />
           <Route path="/calendar" element={<CalendarPage user={user} />} />
