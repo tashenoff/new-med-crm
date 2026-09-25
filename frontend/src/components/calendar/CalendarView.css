@@ -228,7 +228,18 @@
       }
 
       /* Убираем крупную тень-«подложку» белого блока на мобиле */
-      .calendar-container.calendar-view-panel {
-        box-shadow: none;
-      }
-    }
+            .calendar-container.calendar-view-panel {
+              box-shadow: none;
+            }
+
+            /* Колонка кабинета — «резиновая»: растягивается на всю доступную ширину
+               вместо фиксированных 180px (TimeGrid width/minWidth) */
+            .calendar-grid {
+              min-width: auto !important;
+            }
+            .calendar-room-column {
+              width: auto !important;
+              min-width: 0 !important;
+              flex: 1 1 0 !important;
+            }
+          }
