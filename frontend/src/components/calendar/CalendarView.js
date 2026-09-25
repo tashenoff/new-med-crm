@@ -289,7 +289,7 @@ const CalendarView = ({
             <div className="bg-white dark:bg-gray-800 rounded-b-2xl border border-t-0 border-gray-200 dark:border-gray-700 p-4 space-y-4 shadow-sm">
               {/* Мобильный тулбар: выбор кабинета слева, мини-календарь за иконкой справа */}
                                         {isMobile && (
-                                            <div className="flex items-center justify-between calendar-mobile-toolbar">
+                                                                                    <div className="relative flex items-center justify-between calendar-mobile-toolbar">
                                 <div className="flex items-center gap-2">
                                   <label className="text-xs text-gray-500 dark:text-gray-400 whitespace-nowrap">Кабинет:</label>
                                   <select
@@ -314,13 +314,13 @@ const CalendarView = ({
                                 </button>
 
                                 {showMobileCalendar && (
-                                  <div className="relative z-20">
-                                    <CalendarWidget
-                                      currentDate={safeCurrentDate}
-                                      onDateChange={onDateChange}
-                                    />
-                                  </div>
-                                )}
+                                                                  <div className="relative z-20 calendar-widget-popover">
+                                                                    <CalendarWidget
+                                                                      currentDate={safeCurrentDate}
+                                                                      onDateChange={onDateChange}
+                                                                    />
+                                                                  </div>
+                                                                )}
                               </div>
                             )}
 
