@@ -61,25 +61,26 @@ app = FastAPI(lifespan=lifespan, redirect_slashes=False)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
-        "http://localhost:3000", 
-        "http://127.0.0.1:3000", 
-        "http://localhost:3001",
-        "http://localhost:5173",
-        "http://localhost:5174",
-        "http://127.0.0.1:5173",
-        "http://127.0.0.1:5174",
-        "http://172.19.7.60:5173",
-        "http://89.218.15.72:5173",
-        "https://app.emergent.sh",
-        "https://medicodebase.preview.emergentagent.com",
-        "https://*.emergentagent.com"
-    ],
-    allow_origin_regex=r"https?://localhost(:\d+)?",  # Разрешаем все localhost порты
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-    expose_headers=["*"],
-)
+            "http://localhost:3000", 
+            "http://127.0.0.1:3000", 
+            "http://localhost:3001",
+            "http://localhost:5173",
+            "http://localhost:5174",
+            "http://127.0.0.1:5173",
+            "http://127.0.0.1:5174",
+            "http://172.19.7.60:5173",
+            "http://89.218.15.72:5173",
+            "https://app.emergent.sh",
+            "https://medicodebase.preview.emergentagent.com",
+            "https://*.emergentagent.com",
+            "https://medcrm-front.vercel.app"
+        ],
+        allow_origin_regex=r"https?://localhost(:\d+)?",  # Разрешаем все localhost порты
+        allow_credentials=True,
+        allow_methods=["*"],
+        allow_headers=["*"],
+        expose_headers=["*"],
+    )
 
 # Create uploads directory and mount static files
 UPLOAD_DIR = Path("uploads")
