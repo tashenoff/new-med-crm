@@ -238,7 +238,7 @@ textarea:focus {
   margin-left: 16rem; /* 256px / 16 = 16rem */
 }
 
-/* Mobile responsive */
+/*  Mobile responsive */
 @media (max-width: 1024px) {
   .sidebar-nav {
     position: fixed;
@@ -247,6 +247,16 @@ textarea:focus {
   
   .main-content.sidebar-open {
     margin-left: 0;
+  }
+}
+
+/*  Мобильная компактность: убираем «подложку» (полупрозрачная плёнка + белая рамка),
+    которая оборачивает контент и создаёт видимые поля вокруг белого блока календаря */
+@media (max-width: 1023px) {
+  div.bg-white\/10.backdrop-blur-2xl {
+    box-shadow: none;
+    border: none;
+    background: transparent;
   }
 }
 
