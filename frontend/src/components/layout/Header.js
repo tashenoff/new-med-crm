@@ -34,7 +34,7 @@ const Header = ({ user, onLogout, onToggleSidebar, sidebarOpen, activeSection, s
 
   return (
     <header
-          className="fixed top-0 left-0 right-0 backdrop-blur-xl shadow-sm border-b border-white/40 z-50"
+          className="mobile-fixed-header backdrop-blur-xl shadow-sm border-b border-white/40"
           style={{ backgroundColor: 'rgba(255,255,255,0.14)' }}
         >
       <div className="px-4 sm:px-6 lg:px-8">
