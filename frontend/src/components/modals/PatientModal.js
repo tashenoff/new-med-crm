@@ -6,8 +6,9 @@ import ConsultationSheetForm from '../consultations/ConsultationSheetForm';
 import TreatmentPlanView from '../treatment/TreatmentPlanView';
 import ServicePaymentList from '../treatment/ServicePaymentList';
 import AppointmentsSchedule from '../treatment/AppointmentsSchedule';
+import LabAnalysisPicker from '../patients/LabAnalysisPicker';
 import WhatsAppSidebar from '../crm/telephony/WhatsAppSidebar';
-import { FaWhatsapp, FaUser, FaStethoscope, FaFileAlt, FaClipboardList, FaCreditCard, FaCalendarAlt, FaChevronDown, FaChevronRight, FaNotesMedical, FaUserMd, FaFileMedical, FaPuzzlePiece } from 'react-icons/fa';
+import { FaWhatsapp, FaUser, FaStethoscope, FaFileAlt, FaClipboardList, FaCreditCard, FaCalendarAlt, FaChevronDown, FaChevronRight, FaNotesMedical, FaUserMd, FaFileMedical, FaPuzzlePiece, FaFlask } from 'react-icons/fa';
 import { useGlobalRefresh } from '../../hooks/useGlobalRefresh';
 import { usePhoneInput } from '../../hooks/usePhoneInput';
 
@@ -66,6 +67,7 @@ const PatientModal = ({
   });
   const [editingPlan, setEditingPlan] = useState(null);
   const [hasCourseServices, setHasCourseServices] = useState(false);
+  const [successMessage, setSuccessMessage] = useState('');
   const [showWhatsAppHistory, setShowWhatsAppHistory] = useState(false);
   
   // Состояние загрузки страницы пациента (прелоадер при открытии)
@@ -811,19 +813,79 @@ const PatientModal = ({
           body: JSON.stringify(planData)
         });
         if (!r.ok) {
-          const d = await r.json().catch(() => null);
-          alert('Не удалось создать счёт: ' + ((d && d.detail) || r.status));
-        } else {
-          fetchTreatmentPlans();
-          refreshTreatmentPlans();
-        }
-      } catch (err) {
-        console.error('Ошибка создания счёта:', err);
-        alert('Ошибка создания счёта: ' + err.message);
-      }
+                  const d = await r.json().catch(() => null);
+                  alert('Не удалось создать счёт: ' + ((d && d.detail) || r.status));
+                } else {
+                  fetchTreatmentPlans();
+                  refreshTreatmentPlans();
+                  showSuccess('✅ Комплексная услуга добавлена в план лечения');
+                }
+              } catch (err) {
+                console.error('Ошибка создания счёта:', err);
+                alert('Ошибка создания счёта: ' + err.message);
+              }
+            };
+
+    // Добавить лабораторные анализы из вкладки «Анализы»: сразу создаёт счёт (план лечения)
+      // со всеми выбранными анализами и обновляет списки (Планы лечения + Оплата).
+      const showSuccess = (msg) => {
+        setSuccessMessage(msg);
+        setTimeout(() => setSuccessMessage(''), 4000);
+      };
+
+      const handleAddLabAnalyzes = async (items) => {
+    if (!editingItem || !items || items.length === 0) return;
+    const token = localStorage.getItem('token');
+    const patientId = editingItem.id || editingItem._id;
+
+    const services = items.map(a => ({
+      service_id: a.id,
+      service_name: a.service_name,
+      category: a.category || a.laboratory_name || 'Лаборатория',
+      unit: a.unit || 'анализ',
+      unit_price: a.price || 0,
+      price: a.price || 0,
+      quantity: a.quantity || 1,
+      total_price: a.price || 0,
+      laboratory_id: a.laboratory_id,
+      laboratory_name: a.laboratory_name
+    }));
+
+    const planData = {
+      patient_id: patientId,
+      title: `Анализы (${items.length}): ${new Date().toLocaleDateString('ru-RU')}`,
+      description: '',
+      services,
+      total_cost: services.reduce((s, x) => s + (x.total_price || 0), 0),
+      status: 'draft',
+      notes: '',
+      payment_status: 'unpaid',
+      paid_amount: 0,
+      execution_status: 'pending',
+      appointment_ids: []
     };
 
-    const handleSaveTreatmentPlan = async (e) => {
+    try {
+      const r = await fetch(`${API}/api/patients/${patientId}/treatment-plans`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify(planData)
+      });
+      if (!r.ok) {
+              const d = await r.json().catch(() => null);
+              alert('Не удалось создать счёт: ' + ((d && d.detail) || r.status));
+            } else {
+              fetchTreatmentPlans();
+              refreshTreatmentPlans();
+              showSuccess('✅ Анализы добавлены в план лечения');
+            }
+          } catch (err) {
+            console.error('Ошибка создания счёта анализов:', err);
+            alert('Ошибка создания счёта: ' + err.message);
+          }
+        };
+
+  const handleSaveTreatmentPlan = async (e) => {
     e.preventDefault();
     if (!editingItem) return;
 
@@ -1003,6 +1065,15 @@ const PatientModal = ({
                   <span className="flex items-center gap-2">
                     <FaPuzzlePiece className="text-sm" />
                     <span>Комплексные услуги</span>
+                  </span>
+                </button>
+                <button
+                  onClick={() => setActiveTab('analyzes')}
+                  className={tabClasses(activeTab === 'analyzes')}
+                >
+                  <span className="flex items-center gap-2">
+                    <FaFlask className="text-sm" />
+                    <span>Анализы</span>
                   </span>
                 </button>
                 <button
@@ -1715,37 +1786,67 @@ const PatientModal = ({
 
                         <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm">
                           <ServiceSelector
-                            onServiceAdd={handleAddComplexService}
-                            selectedPatient={editingItem}
-                            onlyComplex
-                          />
-                        </div>
+                                                      onServiceAdd={handleAddComplexService}
+                                                      selectedPatient={editingItem}
+                                                      onlyComplex
+                                                    />
+                                                  </div>
 
-                        {treatmentPlans.length > 0 && (
-                          <div className="bg-gray-50 border border-gray-200 rounded-lg p-3">
-                            <h5 className="font-medium mb-2">Счета пациента:</h5>
-                            <div className="space-y-1">
-                              {treatmentPlans.slice().reverse().map((plan) => (
-                                <div key={plan.id || plan._id} className="flex items-center justify-between text-sm bg-white border rounded px-3 py-1.5">
-                                  <span className="truncate pr-2">{plan.title} <span className="text-gray-400">· {plan.services?.length || 0} услуг</span></span>
-                                  <span className="font-medium whitespace-nowrap">{(plan.total_cost || 0).toLocaleString()} ₸</span>
-                                </div>
-                              ))}
-                            </div>
-                          </div>
-                        )}
+                                                                          {successMessage && (
+                                                                            <div className="px-4 py-3 bg-green-50 border border-green-200 rounded-lg text-green-700 text-sm font-medium">
+                                                                              {successMessage}
+                                                                            </div>
+                                                                          )}
 
-                        <div className="flex justify-end pt-4">
-                          <button
-                            type="button"
-                            onClick={onClose}
-                            className="px-6 py-2 bg-gray-300 text-gray-700 rounded-lg hover:bg-gray-400"
-                          >
-                            Закрыть
-                          </button>
-                        </div>
-                        </div>
+                                                                          <div className="flex justify-end pt-4">
+                                                                            <button
+                                                                              type="button"
+                                                                              onClick={onClose}
+                                                                              className="px-6 py-2 bg-gray-300 text-gray-700 rounded-lg hover:bg-gray-400"
+                                                                            >
+                                                                              Закрыть
+                                                                            </button>
+                                                                          </div>
+                        
+                                                </div>
+                                              </div>
+                                          )}
+
+                                          {/* Analyzes Tab - выбор и добавление лабораторных анализов */}
+                  {activeTab === 'analyzes' && editingItem && (
+                    <div className="space-y-4">
+                      <div className="bg-purple-50 p-3 rounded-lg">
+                        <h4 className="font-medium text-purple-800">
+                          Анализы для пациента: {editingItem.full_name}
+                        </h4>
+                        <p className="text-sm text-purple-600 mt-1">
+                          Выберите несколько лабораторных анализов с поиском — они создадут счёт в «Планах лечения» и «Оплате»
+                        </p>
                       </div>
+
+                      <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm">
+                        <LabAnalysisPicker
+                                                  onAdd={handleAddLabAnalyzes}
+                                                  patientName={editingItem.full_name}
+                                                />
+                                              </div>
+
+                                                                    {successMessage && (
+                                                                      <div className="px-4 py-3 bg-green-50 border border-green-200 rounded-lg text-green-700 text-sm font-medium">
+                                                                        {successMessage}
+                                                                      </div>
+                                                                    )}
+
+                                                                    <div className="flex justify-end pt-4">
+                                                                      <button
+                                                                        type="button"
+                                                                        onClick={onClose}
+                                                                        className="px-6 py-2 bg-gray-300 text-gray-700 rounded-lg hover:bg-gray-400"
+                                              >
+                          Закрыть
+                        </button>
+                      </div>
+                    </div>
                   )}
 
                   {/* Payment Tab - поэтапная оплата */}

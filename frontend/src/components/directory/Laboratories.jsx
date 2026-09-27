@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
 import { API_BASE_URL } from '../../api/config';
 
@@ -13,6 +13,9 @@ const Laboratories = ({ user }) => {
   const [editingService, setEditingService] = useState(null);
   const [statistics, setStatistics] = useState(null);
   const [activeTab, setActiveTab] = useState('labs'); // 'labs' или 'report'
+  const [servicePage, setServicePage] = useState(0); // пагинация прайслиста лабы
+  const PAGE_SIZE = 10;
+  const [labServiceSearch, setLabServiceSearch] = useState('');
 
   const [labForm, setLabForm] = useState({
     name: '',
@@ -186,6 +189,41 @@ const Laboratories = ({ user }) => {
     setShowServiceModal(true);
   };
 
+  const fileInputRef = useRef(null);
+  const [importing, setImporting] = useState(false);
+
+  // Загрузка прайса лаборатории из файла (xls/xlsx), как в прайсе услуг
+  const handleImportPrice = async (e) => {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file || !selectedLab) return;
+    const formData = new FormData();
+    formData.append('file', file);
+    try {
+      setImporting(true);
+      const token = localStorage.getItem('token');
+      const res = await axios.post(
+        `${API_BASE_URL}/laboratories/${selectedLab.id}/import-price`,
+        formData,
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      const d = res.data;
+      const msg = `Импорт завершен: создано ${d.parsed.created}, обновлено ${d.parsed.updated}, пропущено ${d.parsed.skipped}`;
+      if (d.errors?.parse?.length) {
+        alert(msg + `\nОшибки парсинга (${d.errors.parse.length}):\n` + d.errors.parse.slice(0, 5).join('\n'));
+      } else {
+        alert(msg);
+      }
+      if (selectedLab) loadLabServices(selectedLab.id);
+      loadData();
+    } catch (err) {
+      const detail = err.response?.data?.detail;
+      alert('Ошибка загрузки прайса: ' + (typeof detail === 'string' ? detail : JSON.stringify(detail) || err.message));
+    } finally {
+      setImporting(false);
+    }
+  };
+
   const handleEditService = (service) => {
     setEditingService(service);
     setServiceForm({
@@ -350,60 +388,124 @@ const Laboratories = ({ user }) => {
                 {selectedLab ? `Прайслист: ${selectedLab.name}` : 'Выберите лабораторию'}
               </h3>
               {selectedLab && (
-                <button
-                  onClick={() => handleAddServiceToLab(selectedLab)}
-                  className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700"
-                >
-                  + Добавить услугу
-                </button>
+                <div className="flex items-center gap-2">
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept=".xls,.xlsx"
+                    onChange={handleImportPrice}
+                    className="hidden"
+                  />
+                  <button
+                    onClick={() => fileInputRef.current?.click()}
+                    disabled={importing}
+                    className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
+                  >
+                    {importing ? 'Загрузка...' : '📥 Загрузить прайс'}
+                  </button>
+                  <button
+                    onClick={() => handleAddServiceToLab(selectedLab)}
+                    className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700"
+                  >
+                    + Добавить услугу
+                  </button>
+                </div>
               )}
             </div>
             
             <div className="p-4">
               {selectedLab ? (
-                <div className="space-y-2">
+                <div className="space-y-3">
+                  {/* Поиск по услуге */}
+                  <input
+                    type="text"
+                    placeholder="🔍 Поиск услуги..."
+                    value={labServiceSearch}
+                    onChange={(e) => { setLabServiceSearch(e.target.value); setServicePage(0); }}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 text-sm"
+                  />
                   {servicePrices.length > 0 ? (
-                    <table className="min-w-full divide-y divide-gray-200">
-                      <thead className="bg-gray-50">
-                        <tr>
-                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Услуга</th>
-                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Категория</th>
-                          <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Цена</th>
-                          <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase">Действия</th>
-                        </tr>
-                      </thead>
-                      <tbody className="bg-white divide-y divide-gray-200">
-                        {servicePrices.map((service) => (
-                          <tr key={service.id} className="hover:bg-gray-50">
-                            <td className="px-4 py-3 text-sm text-gray-900">{service.service_name}</td>
-                            <td className="px-4 py-3 text-sm text-gray-600">{service.category}</td>
-                            <td className="px-4 py-3 text-sm text-right font-semibold text-gray-900">
-                              {formatPrice(service.price)}
-                            </td>
-                            <td className="px-4 py-3 text-center">
-                              <div className="flex justify-center space-x-2">
-                                <button
-                                  onClick={() => handleEditService(service)}
-                                  className="text-blue-600 hover:text-blue-800 p-1"
-                                >
-                                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                                  </svg>
-                                </button>
-                                <button
-                                  onClick={() => handleDeleteService(service.id)}
-                                  className="text-red-600 hover:text-red-800 p-1"
-                                >
-                                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                                  </svg>
-                                </button>
-                              </div>
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
+                    (() => {
+                      const q = labServiceSearch.trim().toLowerCase();
+                      const filtered = q ? servicePrices.filter(s => (s.service_name || '').toLowerCase().includes(q)) : servicePrices;
+                      const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+                      const safePage = Math.min(servicePage, totalPages - 1);
+                      const pageItems = filtered.slice(safePage * PAGE_SIZE, safePage * PAGE_SIZE + PAGE_SIZE);
+                      return (
+                        <>
+                          <div className="text-xs text-gray-500">
+                            Показано {filtered.length === 0 ? 0 : safePage * PAGE_SIZE + 1}–
+                            {Math.min(filtered.length, safePage * PAGE_SIZE + PAGE_SIZE)} из {filtered.length} услуг
+                          </div>
+                          {pageItems.length > 0 ? (
+                            <table className="min-w-full divide-y divide-gray-200">
+                              <thead className="bg-gray-50">
+                                <tr>
+                                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Услуга</th>
+                                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Категория</th>
+                                  <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Цена</th>
+                                  <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase">Действия</th>
+                                </tr>
+                              </thead>
+                              <tbody className="bg-white divide-y divide-gray-200">
+                                {pageItems.map((service) => (
+                                  <tr key={service.id} className="hover:bg-gray-50">
+                                    <td className="px-4 py-3 text-sm text-gray-900">{service.service_name}</td>
+                                    <td className="px-4 py-3 text-sm text-gray-600">{service.category}</td>
+                                    <td className="px-4 py-3 text-sm text-right font-semibold text-gray-900">
+                                      {formatPrice(service.price)}
+                                    </td>
+                                    <td className="px-4 py-3 text-center">
+                                      <div className="flex justify-center space-x-2">
+                                        <button
+                                          onClick={() => handleEditService(service)}
+                                          className="text-blue-600 hover:text-blue-800 p-1"
+                                        >
+                                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                                          </svg>
+                                        </button>
+                                        <button
+                                          onClick={() => handleDeleteService(service.id)}
+                                          className="text-red-600 hover:text-red-800 p-1"
+                                        >
+                                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                          </svg>
+                                        </button>
+                                      </div>
+                                    </td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          ) : (
+                            <div className="text-center py-8 text-gray-500">
+                              Не найдено услуг по запросу
+                            </div>
+                          )}
+                          {filtered.length > PAGE_SIZE && (
+                            <div className="flex items-center justify-between pt-2">
+                              <button
+                                onClick={() => setServicePage(Math.max(0, safePage - 1))}
+                                disabled={safePage === 0}
+                                className="px-3 py-1.5 text-sm border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-40"
+                              >
+                                ← Назад
+                              </button>
+                              <span className="text-xs text-gray-500">Стр. {safePage + 1} / {totalPages}</span>
+                              <button
+                                onClick={() => setServicePage(Math.min(totalPages - 1, safePage + 1))}
+                                disabled={safePage >= totalPages - 1}
+                                className="px-3 py-1.5 text-sm border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-40"
+                              >
+                                Вперед →
+                              </button>
+                            </div>
+                          )}
+                        </>
+                      );
+                    })()
                   ) : (
                     <div className="text-center py-8 text-gray-500">
                       Нет добавленных услуг для этой лаборатории
@@ -617,8 +719,8 @@ const Laboratories = ({ user }) => {
 
       {/* Модальное окно: Услуга */}
       {showServiceModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg shadow-xl max-w-xl w-full mx-4">
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-start sm:items-center justify-center z-50 overflow-y-auto p-4">
+          <div className="bg-white rounded-lg shadow-xl max-w-xl w-full my-auto max-h-[90vh] overflow-y-auto">
             <div className="px-6 py-4 border-b border-gray-200 flex justify-between items-center">
               <h3 className="text-lg font-semibold">
                 {editingService ? 'Редактировать услугу' : 'Новая услуга'}
