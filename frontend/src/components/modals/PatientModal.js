@@ -7,7 +7,7 @@ import TreatmentPlanView from '../treatment/TreatmentPlanView';
 import ServicePaymentList from '../treatment/ServicePaymentList';
 import AppointmentsSchedule from '../treatment/AppointmentsSchedule';
 import WhatsAppSidebar from '../crm/telephony/WhatsAppSidebar';
-import { FaWhatsapp, FaUser, FaStethoscope, FaFileAlt, FaClipboardList, FaCreditCard, FaCalendarAlt, FaChevronDown, FaChevronRight, FaNotesMedical, FaUserMd, FaFileMedical } from 'react-icons/fa';
+import { FaWhatsapp, FaUser, FaStethoscope, FaFileAlt, FaClipboardList, FaCreditCard, FaCalendarAlt, FaChevronDown, FaChevronRight, FaNotesMedical, FaUserMd, FaFileMedical, FaPuzzlePiece } from 'react-icons/fa';
 import { useGlobalRefresh } from '../../hooks/useGlobalRefresh';
 import { usePhoneInput } from '../../hooks/usePhoneInput';
 
@@ -714,7 +714,116 @@ const PatientModal = ({
     }
   };
 
-  const handleSaveTreatmentPlan = async (e) => {
+  // Добавить услугу в план лечения + для комплекса создать записи в календаре
+    // (общий обработчик для вкладок «Планы лечения» и «Комплексные услуги»)
+    const handleAddServiceToPlan = (serviceItem) => {
+      const updatedServices = [...planForm.services, serviceItem];
+      const totalCost = updatedServices.reduce((sum, service) => sum + (service.total_price || 0), 0);
+      setPlanForm(prev => ({
+        ...prev,
+        services: updatedServices,
+        total_cost: totalCost
+      }));
+
+      // Комплексная услуга: создаём записи к специалистам состава
+      // на выбранную дату/время (каждая запись связана с компонентом)
+      if (editingItem && serviceItem.scheduling && serviceItem.scheduling.slots.length > 0) {
+        const token = localStorage.getItem('token');
+        const patientId = editingItem.id || editingItem._id;
+        serviceItem.scheduling.slots.forEach((slot) => {
+          fetch(`${API}/api/appointments`, {
+            method: 'POST',
+            headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              patient_id: patientId,
+              doctor_id: slot.doctor_id,
+              appointment_date: slot.date,
+              appointment_time: slot.start_time,
+              end_time: slot.end_time,
+              service_id: slot.service_id,
+              complex_id: serviceItem.service_id,
+              complex_name: serviceItem.service_name,
+              price: slot.price || null
+            })
+          }).then((r) => {
+            if (!r.ok) { r.json().then((d) => alert('Не удалось создать запись: ' + (d.detail || r.status))).catch(() => alert('Ошибка создания записи: ' + r.status)); }
+          }).catch((err) => alert('Ошибка создания записи на комплекс: ' + err.message));
+        });
+      }
+    };
+
+    // Добавить КОМПЛЕКСНУЮ услугу из вкладки «Комплексные услуги»:
+    // сразу создаёт счёт (план лечения) в БД + записи в календаре + обновляет списки.
+    const handleAddComplexService = async (serviceItem) => {
+      if (!editingItem) return;
+      const token = localStorage.getItem('token');
+      const patientId = editingItem.id || editingItem._id;
+
+      // Сначала создаём записи в календаре (по выбранным слотам специалистов)
+      let appointmentCreated = false;
+      if (serviceItem.scheduling && serviceItem.scheduling.slots.length > 0) {
+        const results = await Promise.all(serviceItem.scheduling.slots.map(async (slot) => {
+          try {
+            const r = await fetch(`${API}/api/appointments`, {
+              method: 'POST',
+              headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                patient_id: patientId,
+                doctor_id: slot.doctor_id,
+                appointment_date: slot.date,
+                appointment_time: slot.start_time,
+                end_time: slot.end_time,
+                service_id: slot.service_id,
+                complex_id: serviceItem.service_id,
+                complex_name: serviceItem.service_name,
+                price: slot.price || null
+              })
+            });
+            if (!r.ok) { const d = await r.json().catch(() => null); throw new Error((d && d.detail) || r.status); }
+            return true;
+          } catch (err) {
+            alert('Не удалось создать запись: ' + err.message);
+            return false;
+          }
+        }));
+        appointmentCreated = results.some(Boolean);
+      }
+
+      // Создаём счёт (план лечения) с этой комплексной услугой одной строкой
+      const planData = {
+        patient_id: patientId,
+        title: `Комплексная услуга: ${serviceItem.service_name}`,
+        description: '',
+        services: [serviceItem],
+        total_cost: serviceItem.total_price || 0,
+        status: 'draft',
+        notes: '',
+        payment_status: 'unpaid',
+        paid_amount: 0,
+        execution_status: 'pending',
+        appointment_ids: []
+      };
+
+      try {
+        const r = await fetch(`${API}/api/patients/${patientId}/treatment-plans`, {
+          method: 'POST',
+          headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify(planData)
+        });
+        if (!r.ok) {
+          const d = await r.json().catch(() => null);
+          alert('Не удалось создать счёт: ' + ((d && d.detail) || r.status));
+        } else {
+          fetchTreatmentPlans();
+          refreshTreatmentPlans();
+        }
+      } catch (err) {
+        console.error('Ошибка создания счёта:', err);
+        alert('Ошибка создания счёта: ' + err.message);
+      }
+    };
+
+    const handleSaveTreatmentPlan = async (e) => {
     e.preventDefault();
     if (!editingItem) return;
 
@@ -885,6 +994,15 @@ const PatientModal = ({
                   <span className="flex items-center gap-2">
                     <FaClipboardList className="text-sm" />
                     <span>Планы лечения</span>
+                  </span>
+                </button>
+                <button
+                  onClick={() => setActiveTab('complex')}
+                  className={tabClasses(activeTab === 'complex')}
+                >
+                  <span className="flex items-center gap-2">
+                    <FaPuzzlePiece className="text-sm" />
+                    <span>Комплексные услуги</span>
                   </span>
                 </button>
                 <button
@@ -1302,41 +1420,7 @@ const PatientModal = ({
               <div className="mb-4">
                 <h5 className="font-medium mb-2">Услуги к оплате:</h5>
                 <ServiceSelector 
-                  onServiceAdd={(serviceItem) => {
-                    const updatedServices = [...planForm.services, serviceItem];
-                    const totalCost = updatedServices.reduce((sum, service) => sum + (service.total_price || 0), 0);
-                    setPlanForm(prev => ({
-                      ...prev,
-                      services: updatedServices,
-                      total_cost: totalCost
-                    }));
-
-                    // Комплексная услуга: создаём записи к специалистам состава
-                    // на выбранную дату/время (каждая запись связана с компонентом)
-                    if (editingItem && serviceItem.scheduling && serviceItem.scheduling.slots.length > 0) {
-                      const token = localStorage.getItem('token');
-                      const patientId = editingItem.id || editingItem._id;
-                      serviceItem.scheduling.slots.forEach((slot) => {
-                        fetch(`${API}/api/appointments`, {
-                          method: 'POST',
-                          headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
-                          body: JSON.stringify({
-                            patient_id: patientId,
-                            doctor_id: slot.doctor_id,
-                            appointment_date: slot.date,
-                            appointment_time: slot.start_time,
-                            end_time: slot.end_time,
-                            service_id: slot.service_id,
-                            complex_id: serviceItem.service_id,
-                            complex_name: serviceItem.service_name,
-                            price: slot.price || null
-                          })
-                        }).then((r) => {
-                          if (!r.ok) { r.json().then((d) => alert('Не удалось создать запись: ' + (d.detail || r.status))).catch(() => alert('Ошибка создания записи: ' + r.status)); }
-                        }).catch((err) => alert('Ошибка создания записи на комплекс: ' + err.message));
-                      });
-                    }
-                  }}
+                  onServiceAdd={handleAddServiceToPlan}
                   selectedPatient={editingItem}
                 />
 
@@ -1614,9 +1698,57 @@ const PatientModal = ({
               </button>
             </div>
           </div>
-        )}
+                  )}
 
-        {/* Payment Tab - поэтапная оплата */}
+                  {/* Complex Services Tab - быстрый выбор комплексной услуги и разброс по календарю */}
+                  {activeTab === 'complex' && editingItem && (
+                    <div className="space-y-4">
+                      <div className="space-y-4">
+                        <div className="bg-purple-50 p-3 rounded-lg">
+                          <h4 className="font-medium text-purple-800">
+                            Комплексные услуги для пациента: {editingItem.full_name}
+                          </h4>
+                          <p className="text-sm text-purple-600 mt-1">
+                            Выберите комплексную услугу, назначьте врача и расписание — записи раскидаются по календарю, счёт создастся сразу в «Планах лечения» и «Оплате»
+                          </p>
+                        </div>
+
+                        <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm">
+                          <ServiceSelector
+                            onServiceAdd={handleAddComplexService}
+                            selectedPatient={editingItem}
+                            onlyComplex
+                          />
+                        </div>
+
+                        {treatmentPlans.length > 0 && (
+                          <div className="bg-gray-50 border border-gray-200 rounded-lg p-3">
+                            <h5 className="font-medium mb-2">Счета пациента:</h5>
+                            <div className="space-y-1">
+                              {treatmentPlans.slice().reverse().map((plan) => (
+                                <div key={plan.id || plan._id} className="flex items-center justify-between text-sm bg-white border rounded px-3 py-1.5">
+                                  <span className="truncate pr-2">{plan.title} <span className="text-gray-400">· {plan.services?.length || 0} услуг</span></span>
+                                  <span className="font-medium whitespace-nowrap">{(plan.total_cost || 0).toLocaleString()} ₸</span>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+
+                        <div className="flex justify-end pt-4">
+                          <button
+                            type="button"
+                            onClick={onClose}
+                            className="px-6 py-2 bg-gray-300 text-gray-700 rounded-lg hover:bg-gray-400"
+                          >
+                            Закрыть
+                          </button>
+                        </div>
+                        </div>
+                      </div>
+                  )}
+
+                  {/* Payment Tab - поэтапная оплата */}
         {activeTab === 'payment' && editingItem && (
           <div className="space-y-4">
             <div className="bg-blue-50 p-3 rounded-lg">

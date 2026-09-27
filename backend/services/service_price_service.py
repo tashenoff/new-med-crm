@@ -19,7 +19,8 @@ class ServicePriceService:
         self, 
         category: Optional[str] = None, 
         active_only: bool = True,
-        search: Optional[str] = None
+        search: Optional[str] = None,
+        service_type: Optional[str] = None
     ) -> List[ServicePrice]:
         """Get all service prices from directory"""
         filters = {}
@@ -27,6 +28,8 @@ class ServicePriceService:
             filters["is_active"] = True
         if category:
             filters["category"] = category
+        if service_type:
+            filters["service_type"] = service_type
         if search:
             # Case-insensitive search in service name
             filters["service_name"] = {"$regex": search, "$options": "i"}

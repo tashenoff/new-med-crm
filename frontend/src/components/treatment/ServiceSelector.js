@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import ToothChart from '../dental/ToothChart';
 
-const ServiceSelector = ({ onServiceAdd, selectedPatient }) => {
+const ServiceSelector = ({ onServiceAdd, selectedPatient, onlyComplex = false }) => {
   const [categories, setCategories] = useState([]);
   const [services, setServices] = useState([]);
   const [selectedCategory, setSelectedCategory] = useState('');
@@ -10,21 +10,57 @@ const ServiceSelector = ({ onServiceAdd, selectedPatient }) => {
   const [quantity, setQuantity] = useState(1);
   const [discount, setDiscount] = useState(0);
   const [loading, setLoading] = useState(false);
-  const [availByDate, setAvailByDate] = useState({}); // date -> availability(complex)
-  const [selSlots, setSelSlots] = useState({});       // "serviceId:doctorId" -> {date, start, end}
-  const [selDoctors, setSelDoctors] = useState({});   // "serviceId" -> doctor_id
+  const [availabilityByDate, setAvailabilityByDate] = useState({}); // date -> availability(complex)
+  const [selSlots, setSelSlots] = useState({});       // service_id -> {date, start, end} (НЕ зависит от врача!)
+  const [selDoctors, setSelDoctors] = useState({});   // service_id -> doctor_id
+  const [selDates, setSelDates] = useState({});       // service_id -> выбранная дата (fiX: держать отдельно)
 
   const API = import.meta.env.VITE_BACKEND_URL;
 
   useEffect(() => {
-    fetchCategories();
-  }, []);
+      if (onlyComplex) {
+        // Режим «только комплексные услуги»: тянем их напрямую, без категорий
+        fetchComplexServices();
+      }
+      fetchCategories();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [onlyComplex]);
 
-  useEffect(() => {
-    if (selectedCategory) {
-      fetchServices(selectedCategory);
-    }
-  }, [selectedCategory]);
+    useEffect(() => {
+      if (!onlyComplex && selectedCategory) {
+        fetchServices(selectedCategory);
+      }
+    }, [selectedCategory]);
+
+    const fetchComplexServices = async () => {
+      try {
+        const token = localStorage.getItem('token');
+        const response = await fetch(`${API}/api/service-prices?service_type=complex`, {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          }
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          const transformedServices = data.map(servicePrice => ({
+            id: servicePrice.id,
+            name: servicePrice.service_name,
+            code: servicePrice.service_code || '',
+            category: servicePrice.category,
+            price: servicePrice.price,
+            unit: servicePrice.unit || 'процедура',
+            description: servicePrice.description || '',
+            service_type: servicePrice.service_type || 'regular',
+            components: servicePrice.components || []
+          }));
+          setServices(transformedServices);
+        }
+      } catch (error) {
+        console.error('Error fetching complex services:', error);
+      }
+    };
 
   const fetchCategories = async () => {
     try {
@@ -49,14 +85,14 @@ const ServiceSelector = ({ onServiceAdd, selectedPatient }) => {
 
   const ensureAvailability = async (date) => {
     if (!selectedService || !date) return null;
-    if (availByDate[date]) return availByDate[date];
+    if (availabilityByDate[date]) return availabilityByDate[date];
     try {
       const token = localStorage.getItem('token');
       const r = await fetch(`${API}/api/service-prices/${selectedService}/specialists-availability?date=${date}`, {
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' }
       });
       const data = r.ok ? await r.json() : null;
-      if (data) setAvailByDate(prev => ({ ...prev, [date]: data }));
+      if (data) setAvailabilityByDate(prev => ({ ...prev, [date]: data }));
       return data;
     } catch (error) {
       console.error('Error fetching availability:', error);
@@ -68,8 +104,9 @@ const ServiceSelector = ({ onServiceAdd, selectedPatient }) => {
     if (selectedServiceData?.service_type === 'complex') {
       ensureAvailability(new Date().toISOString().slice(0, 10));
     } else {
-      setAvailByDate({});
+      setAvailabilityByDate({});
       setSelSlots({});
+      setSelDates({});
     }
   }, [selectedService]);
 
@@ -84,8 +121,8 @@ const ServiceSelector = ({ onServiceAdd, selectedPatient }) => {
 
   // Специалисты комплекса из самой свежей загруженной доступности (по любой дате)
   const availabilityServices = () => {
-    if (!availByDate) return [];
-    const all = Object.values(availByDate);
+    if (!availabilityByDate) return [];
+    const all = Object.values(availabilityByDate);
     if (!all.length) return [];
     return all[all.length - 1].services || [];
   };
@@ -105,6 +142,28 @@ const ServiceSelector = ({ onServiceAdd, selectedPatient }) => {
       cur = `${String(dt.getHours()).padStart(2, '0')}:${String(dt.getMinutes()).padStart(2, '0')}`;
     }
     return times;
+  };
+
+  // Ближайший рабочий день врача (>= today) по его working_days.
+  // Если у врача есть расписание уже сегодня — вернём today.
+  // Показывает «завтра/послезавтра», чтобы дата сама подставлялась на его рабочий день.
+  const nextWorkDate = (doctor, todayISO) => {
+    if (!doctor) return todayISO;
+    const wd = doctor.working_days || []; // ["Пн","Вт",...]
+    if (!wd.length) return todayISO;
+    const dayNames = ['Вс','Пн','Вт','Ср','Чт','Пт','Сб']; // index = JS getDay()
+    const workIdx = new Set(wd.map(n => dayNames.indexOf(n)).filter(i => i >= 0));
+    const base = todayISO ? new Date(todayISO + 'T00:00:00') : new Date();
+    // если сегодня врач работает — оставляем сегодня
+    if (workIdx.has(base.getDay())) return todayISO;
+    for (let i = 1; i <= 14; i++) {
+      const d = new Date(base);
+      d.setDate(base.getDate() + i);
+      if (workIdx.has(d.getDay())) {
+        return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+      }
+    }
+    return todayISO;
   };
 
   const fetchServices = async (category) => {
@@ -162,18 +221,17 @@ const ServiceSelector = ({ onServiceAdd, selectedPatient }) => {
       return;
     }
 
-    // Для комплекса собираем выбранные слоты специалистов (у каждого своя дата и окно времени)
+    // Для комплекса собираем выбранные слоты специалистов (у каждого своя дата и время)
     let scheduling = null;
     if (service.service_type === 'complex') {
       const today = new Date().toISOString().slice(0, 10);
       const slots = Object.entries(selSlots)
         .filter(([, sl]) => sl && sl.start)
         .map(([k, sl]) => {
-          const parts = k.split(':');
-          const svcId = parts[0];
-          const did = parts[1];
-          const date = sl.date || today; // дата не менялась явно — берём сегодня
-          const svc = availByDate[date]?.services?.find(x => x.service_id === svcId);
+          const svcId = k; // ключ = service_id
+          const did = selDoctors[svcId] || '';
+          const date = selDates[svcId] || sl.date || today; // ТОЧНАЯ выбранная дата
+          const svc = availabilityByDate[date]?.services?.find(x => x.service_id === svcId);
           const doc = svc?.doctors?.find(d => d.doctor_id === did);
           const end = sl.end || defaultEndTime(sl.start);
           return {
@@ -207,8 +265,7 @@ const ServiceSelector = ({ onServiceAdd, selectedPatient }) => {
             is_complex: true,
             // штампуем выбранного при добавлении врача в компоненты (для зарплаты/печати)
             components: (service.components || []).map((c) => {
-              const entry = Object.entries(selSlots).find(([k, sl]) => sl && sl.start && k.startsWith(`${service.id}:${c.service_id}:`));
-              const did = entry ? entry[0].split(':')[2] : null;
+              const did = selDoctors[c.service_id];
               return did ? { ...c, doctor_id: did } : c;
             }),
             ...(scheduling ? { scheduling } : {}),
@@ -223,12 +280,15 @@ const ServiceSelector = ({ onServiceAdd, selectedPatient }) => {
     setSelectedTeeth([]);
     setQuantity(1);
     setDiscount(0);
-    setSlotTimes({});
+    setSelSlots({});
+    setSelDates({});
+    setSelDoctors({});
   };
 
   return (
     <div className="space-y-4">
-      <div className="grid grid-cols-2 gap-4">
+      <div className={`${onlyComplex ? '' : 'grid grid-cols-2 gap-4'}`}>
+        {!onlyComplex && (
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">Категория услуг</label>
           <select
@@ -246,16 +306,17 @@ const ServiceSelector = ({ onServiceAdd, selectedPatient }) => {
             ))}
           </select>
         </div>
+        )}
 
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Услуга</label>
+          <label className="block text-sm font-medium text-gray-700 mb-1">{onlyComplex ? 'Комплексная услуга' : 'Услуга'}</label>
           <select
             value={selectedService}
             onChange={(e) => setSelectedService(e.target.value)}
             className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-            disabled={!selectedCategory}
+            disabled={onlyComplex ? false : !selectedCategory}
           >
-            <option value="">Выберите услугу</option>
+            <option value="">{onlyComplex ? 'Выберите комплексную услугу' : 'Выберите услугу'}</option>
             {services.map(service => (
               <option key={service.id} value={service.id}>
                 {service.name} - {service.price} ₸
@@ -266,7 +327,7 @@ const ServiceSelector = ({ onServiceAdd, selectedPatient }) => {
       </div>
 
       {/* Tooth chart for dental services */}
-      {isToothService && (
+      {!onlyComplex && isToothService && (
         <div className="space-y-3">
           <div className="text-sm text-gray-600">
             🦷 Выбор зубов для услуги: <span className="font-medium">{selectedServiceData.name}</span>
@@ -312,10 +373,11 @@ const ServiceSelector = ({ onServiceAdd, selectedPatient }) => {
                   <div className="space-y-2 mt-1">
                     {rows.map((svc) => {
                       const doctorId = selDoctors[svc.service_id] || svc.doctors?.[0]?.doctor_id || '';
-                      const key = `${svc.service_id}:${doctorId}`;
-                      const sl = selSlots[key] || { date: today, start: '', end: '' };
-                      const date = sl.date || today;
-                      const dateAvail = availByDate[date];
+                      const key = svc.service_id; // ключ = service_id (дата НЕ зависит от врача)
+                      const selectedDate = selDates[svc.service_id] || today;
+                      const sl = selSlots[key] || {};
+                      const date = selectedDate;
+                      const dateAvail = availabilityByDate[date];
                       const svcForDate = dateAvail?.services?.find(x => x.service_id === svc.service_id);
                       const doc = svcForDate?.doctors?.find(d => d.doctor_id === doctorId) || null;
                       const times = doc ? freeTimesFor(doc) : [];
@@ -325,10 +387,20 @@ const ServiceSelector = ({ onServiceAdd, selectedPatient }) => {
                           <div className="flex items-center gap-2 mt-1 flex-wrap">
                             <label className="text-[10px] text-gray-500">Врач</label>
                             <select
-                              value={doctorId}
-                              onChange={(e) => { const d = e.target.value; setSelDoctors(prev => ({ ...prev, [svc.service_id]: d })); const kk = `${svc.service_id}:${d}`; setSelSlots(prev => ({ ...prev, [kk]: prev[key] || { date: today, start: '', end: '' } })); }}
-                              className="flex-1 min-w-0 px-1.5 py-1 border border-gray-300 rounded text-sm"
-                            >
+                                                          value={doctorId}
+                                                          onChange={(e) => { const d = e.target.value; setSelDoctors(prev => ({ ...prev, [svc.service_id]: d }));
+                                                            // Авто: если у выбранного врача сегодня нет приёма — подставляем его ближайший рабочий день
+                                                            const today = new Date().toISOString().slice(0, 10);
+                                                            if (d) {
+                                                              const docInfo = (svc.doctors || []).find(x => x.doctor_id === d);
+                                                              const nd = nextWorkDate(docInfo, today);
+                                                              setSelDates(prev => ({ ...prev, [svc.service_id]: nd }));
+                                                              setSelSlots(prev => ({ ...prev, [svc.service_id]: { ...(prev[svc.service_id] || {}), date: nd } }));
+                                                              ensureAvailability(nd);
+                                                            }
+                                                          }}
+                                                          className="flex-1 min-w-0 px-1.5 py-1 border border-gray-300 rounded text-sm"
+                                                        >
                               <option value="">—</option>
                               {(svc.doctors || []).map(doc => (
                                 <option key={doc.doctor_id} value={doc.doctor_id}>{doc.doctor_name}{doc.has_schedule ? ` (${doc.schedule_start}-${doc.schedule_end})` : ''}{doc.working_days && doc.working_days.length ? ` · работает: ${doc.working_days.join(', ')}` : ''}</option>
@@ -342,13 +414,13 @@ const ServiceSelector = ({ onServiceAdd, selectedPatient }) => {
                             <input
                               type="date"
                               value={date}
-                              onChange={(e) => { const dd = e.target.value; setSelSlots(prev => ({ ...prev, [key]: { ...(prev[key] || {}), date: dd } })); ensureAvailability(dd); }}
+                              onChange={(e) => { const dd = e.target.value; setSelDates(prev => ({ ...prev, [svc.service_id]: dd })); setSelSlots(prev => ({ ...prev, [svc.service_id]: { ...(prev[svc.service_id] || {}), date: dd } })); ensureAvailability(dd); }}
                               className="w-full px-1.5 py-1 border border-gray-300 rounded text-sm"
                             />
                             {doc && doc.has_schedule ? (
                               <select
-                                value={sl.start}
-                                onChange={(e) => setSelSlots(prev => ({ ...prev, [key]: { ...(prev[key] || {}), start: e.target.value, end: defaultEndTime(e.target.value) } }))}
+                                value={sl.start || ''}
+                                onChange={(e) => setSelSlots(prev => ({ ...prev, [svc.service_id]: { ...(prev[svc.service_id] || {}), start: e.target.value, end: defaultEndTime(e.target.value) } }))}
                                 className="w-full px-1.5 py-1 border border-gray-300 rounded text-sm"
                               >
                                 <option value="">—</option>
@@ -357,15 +429,15 @@ const ServiceSelector = ({ onServiceAdd, selectedPatient }) => {
                             ) : (
                               <input
                                 type="time"
-                                value={sl.start}
-                                onChange={(e) => setSelSlots(prev => ({ ...prev, [key]: { ...(prev[key] || {}), start: e.target.value, end: defaultEndTime(e.target.value) } }))}
+                                value={sl.start || ''}
+                                onChange={(e) => setSelSlots(prev => ({ ...prev, [svc.service_id]: { ...(prev[svc.service_id] || {}), start: e.target.value, end: defaultEndTime(e.target.value) } }))}
                                 className="w-full px-1.5 py-1 border border-gray-300 rounded text-sm"
                               />
                             )}
                             <input
                               type="time"
-                              value={sl.end || defaultEndTime(sl.start)}
-                              onChange={(e) => setSelSlots(prev => ({ ...prev, [key]: { ...(prev[key] || {}), end: e.target.value } }))}
+                              value={sl.end || defaultEndTime(sl.start) || ''}
+                              onChange={(e) => setSelSlots(prev => ({ ...prev, [svc.service_id]: { ...(prev[svc.service_id] || {}), end: e.target.value } }))}
                               className="w-full px-1.5 py-1 border border-gray-300 rounded text-sm"
                             />
                           </div>
@@ -389,38 +461,42 @@ const ServiceSelector = ({ onServiceAdd, selectedPatient }) => {
             </div>
           )}
           
-          <div className="grid grid-cols-3 gap-4">
-            <div>
-              <label className="block text-sm text-gray-600 mb-1">
-                {isToothService ? 'Количество (зубы)' : 'Количество'}
-              </label>
-              <input
-                type="number"
-                min="1"
-                value={isToothService ? finalQuantity : quantity}
-                onChange={(e) => setQuantity(parseInt(e.target.value) || 1)}
-                disabled={isToothService}
-                className={`w-full px-3 py-2 border border-gray-300 rounded-lg text-sm ${isToothService ? 'bg-gray-100' : ''}`}
-              />
-            </div>
-            <div>
-              <label className="block text-sm text-gray-600 mb-1">Скидка (%)</label>
-              <input
-                type="number"
-                min="0"
-                max="100"
-                value={discount}
-                onChange={(e) => setDiscount(parseFloat(e.target.value) || 0)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
-              />
-            </div>
-            <div>
-              <label className="block text-sm text-gray-600 mb-1">Итого</label>
-              <div className="w-full px-3 py-2 bg-gray-100 border border-gray-300 rounded-lg text-sm font-medium">
-                {(totalPrice || 0).toFixed(0)} ₸
-              </div>
-            </div>
-          </div>
+          <div className={`${onlyComplex ? 'grid grid-cols-1' : 'grid grid-cols-3 gap-4'}`}>
+                      {!onlyComplex && (
+                      <>
+                      <div>
+                        <label className="block text-sm text-gray-600 mb-1">
+                          {isToothService ? 'Количество (зубы)' : 'Количество'}
+                        </label>
+                        <input
+                          type="number"
+                          min="1"
+                          value={isToothService ? finalQuantity : quantity}
+                          onChange={(e) => setQuantity(parseInt(e.target.value) || 1)}
+                          disabled={isToothService}
+                          className={`w-full px-3 py-2 border border-gray-300 rounded-lg text-sm ${isToothService ? 'bg-gray-100' : ''}`}
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm text-gray-600 mb-1">Скидка (%)</label>
+                        <input
+                          type="number"
+                          min="0"
+                          max="100"
+                          value={discount}
+                          onChange={(e) => setDiscount(parseFloat(e.target.value) || 0)}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                        />
+                      </div>
+                      </>
+                      )}
+                      <div>
+                        <label className="block text-sm text-gray-600 mb-1">Итого</label>
+                        <div className="w-full px-3 py-2 bg-gray-100 border border-gray-300 rounded-lg text-sm font-medium">
+                          {(totalPrice || 0).toFixed(0)} ₸
+                        </div>
+                      </div>
+                    </div>
           
           <button
             type="button"

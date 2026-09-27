@@ -41,11 +41,12 @@ async def get_service_prices(
     category: Optional[str] = None,
     active_only: bool = True,
     search: Optional[str] = None,
+    service_type: Optional[str] = None,
     current_user: UserInDB = Depends(get_current_active_user),
     service: ServicePriceService = Depends(get_service_price_service)
 ):
     """Get all service prices from directory"""
-    return await service.get_service_prices(category, active_only, search)
+    return await service.get_service_prices(category, active_only, search, service_type)
 
 
 @services_api_router.get("/service-prices/{price_id}/component-shares")

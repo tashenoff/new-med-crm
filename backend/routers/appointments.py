@@ -222,6 +222,25 @@ async def create_appointment(
         raise HTTPException(status_code=400, detail="Time slot already booked")
     
     appointment_dict = appointment.dict()
+
+    # Резолюция кабинета, если не передан: берём room_schedule врача на этот день недели.
+    # Без этого записи из комплексной услуги (room_id=None) при открытии в календаре
+    # показывают пустой кабинет и врач не находится по расписанию.
+    if not appointment_dict.get("room_id") and appointment_dict.get("doctor_id"):
+        try:
+            appointment_datetime = datetime.strptime(appointment.appointment_date, "%Y-%m-%d")
+        except (TypeError, ValueError):
+            appointment_datetime = None
+        if appointment_datetime is not None:
+            day_of_week = appointment_datetime.weekday()
+            room_sched = await db.room_schedules.find_one({
+                "doctor_id": appointment.doctor_id,
+                "day_of_week": day_of_week,
+                "is_active": True,
+            })
+            if room_sched and room_sched.get("room_id"):
+                appointment_dict["room_id"] = room_sched["room_id"]
+
     appointment_obj = Appointment(**appointment_dict)
     await db.appointments.insert_one(appointment_obj.dict())
 
