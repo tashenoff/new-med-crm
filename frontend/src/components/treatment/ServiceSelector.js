@@ -166,6 +166,20 @@ const ServiceSelector = ({ onServiceAdd, selectedPatient, onlyComplex = false })
     return todayISO;
   };
 
+  // Эффективная дата слота: если юзер выбрал явно — она; иначе автоматически
+    // ближайший рабочий день выставленного врача (решает случай «врач стоит по умолчанию,
+    // а у него сегодня выходной» — дата должна сама перескочить без ручной смены).
+    const effectiveDateFor = (svc) => {
+      const today = new Date().toISOString().slice(0, 10);
+      if (selDates[svc.service_id]) return selDates[svc.service_id];
+      // данные услуги (список врачей) из любой загруженной доступности
+      const anyDate = Object.values(availabilityByDate).find(a => (a?.services || []).some(s => s.service_id === svc.service_id));
+      const liveSvc = (anyDate?.services || []).find(s => s.service_id === svc.service_id) || svc;
+      const doctorId = selDoctors[svc.service_id] || liveSvc.doctors?.[0]?.doctor_id || '';
+      const doctor = (liveSvc.doctors || []).find(x => x.doctor_id === doctorId);
+      return nextWorkDate(doctor, today);
+    };
+
   const fetchServices = async (category) => {
     try {
       const token = localStorage.getItem('token');
@@ -229,9 +243,10 @@ const ServiceSelector = ({ onServiceAdd, selectedPatient, onlyComplex = false })
         .filter(([, sl]) => sl && sl.start)
         .map(([k, sl]) => {
           const svcId = k; // ключ = service_id
-          const did = selDoctors[svcId] || '';
-          const date = selDates[svcId] || sl.date || today; // ТОЧНАЯ выбранная дата
-          const svc = availabilityByDate[date]?.services?.find(x => x.service_id === svcId);
+                    const did = selDoctors[svcId] || '';
+                    const svcMeta = { service_id: svcId, doctors: Object.values(availabilityByDate).find(a => (a?.services || []).some(s => s.service_id === svcId))?.services?.find(s => s.service_id === svcId)?.doctors || [] };
+                    const date = effectiveDateFor(svcMeta); // ТОЧНАЯ выбранная/авто-рабочая дата
+                    const svc = availabilityByDate[date]?.services?.find(x => x.service_id === svcId);
           const doc = svc?.doctors?.find(d => d.doctor_id === did);
           const end = sl.end || defaultEndTime(sl.start);
           return {
@@ -372,11 +387,11 @@ const ServiceSelector = ({ onServiceAdd, selectedPatient, onlyComplex = false })
                 return (
                   <div className="space-y-2 mt-1">
                     {rows.map((svc) => {
-                      const doctorId = selDoctors[svc.service_id] || svc.doctors?.[0]?.doctor_id || '';
-                      const key = svc.service_id; // ключ = service_id (дата НЕ зависит от врача)
-                      const selectedDate = selDates[svc.service_id] || today;
-                      const sl = selSlots[key] || {};
-                      const date = selectedDate;
+                                          const doctorId = selDoctors[svc.service_id] || svc.doctors?.[0]?.doctor_id || '';
+                                          const key = svc.service_id; // ключ = service_id (дата НЕ зависит от врача)
+                                          const selectedDate = effectiveDateFor(svc); // авто-рабочий день, если не выбрана явно
+                                          const sl = selSlots[key] || {};
+                                          const date = selectedDate;
                       const dateAvail = availabilityByDate[date];
                       const svcForDate = dateAvail?.services?.find(x => x.service_id === svc.service_id);
                       const doc = svcForDate?.doctors?.find(d => d.doctor_id === doctorId) || null;
