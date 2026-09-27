@@ -14,6 +14,63 @@ import {
 } from '../../config/calendarConfig';
 import { CONSENT_DOCUMENTS, getRequiredConsents } from '../../config/consentDocuments';
 
+// Сводка оплаты по всем планам лечения (вкладка «Оплата» в календаре — дубль из карточки пациента)
+const PaymentSummary = ({ plans }) => {
+  const totalAmount = plans.reduce((sum, p) => sum + (p.total_cost || 0), 0);
+  const paidAmount = plans.reduce((sum, p) => sum + (p.paid_amount || 0), 0);
+  const totalServices = plans.reduce((sum, p) => sum + (p.services?.length || 0), 0);
+  const paidServices = plans.reduce((sum, p) => sum + (p.services?.filter(s => s.payment_status === 'paid' || (s.is_complex && (s.paid_amount || 0) > 0)).length || 0), 0);
+  const remainingToPay = Math.max(0, totalAmount - paidAmount);
+  const paymentProgress = totalAmount > 0 ? Math.round((paidAmount / totalAmount) * 100) : 0;
+  return (
+    <div className="p-5 bg-white rounded-xl border border-gray-200 shadow-sm">
+      <div className="grid grid-cols-3 gap-4 mb-4">
+        <div className="text-center p-3 bg-gray-50 rounded-lg">
+          <div className="text-xs text-gray-500 uppercase tracking-wide font-medium">Всего к оплате</div>
+          <div className="text-2xl font-bold text-gray-900 mt-1">{totalAmount.toLocaleString()} ₸</div>
+          {totalServices > 0 && <div className="text-xs text-gray-400 mt-1">{totalServices} услуг</div>}
+        </div>
+        <div className="text-center p-3 bg-green-50 rounded-lg border border-green-200">
+          <div className="text-xs text-green-600 uppercase tracking-wide font-medium">✅ Оплачено</div>
+          <div className="text-2xl font-bold text-green-600 mt-1">{paidAmount.toLocaleString()} ₸</div>
+          {paidAmount > 0 && (
+            <div className="text-xs text-green-500 mt-1">{paidServices} из {totalServices} услуг</div>
+          )}
+        </div>
+        <div className={`text-center p-3 rounded-lg border ${remainingToPay > 0 ? 'bg-red-50 border-red-200' : 'bg-green-50 border-green-200'}`}>
+          <div className={`text-xs uppercase tracking-wide font-medium ${remainingToPay > 0 ? 'text-red-600' : 'text-green-600'}`}>К оплате</div>
+          <div className={`text-2xl font-bold mt-1 ${remainingToPay > 0 ? 'text-red-600' : 'text-green-600'}`}>{remainingToPay.toLocaleString()} ₸</div>
+          {remainingToPay > 0 && (
+            <div className="text-xs text-red-500 mt-1">{totalServices - paidServices} услуг не оплачено</div>
+          )}
+        </div>
+      </div>
+      {totalAmount > 0 && (
+        <div className="mb-4">
+          <div className="flex justify-between text-xs text-gray-500 mb-1">
+            <span>Прогресс оплаты</span>
+            <span className="font-semibold">{paymentProgress}%</span>
+          </div>
+          <div className="w-full bg-gray-200 rounded-full h-4 overflow-hidden">
+            <div
+              className={`h-4 rounded-full transition-all duration-500 ${paymentProgress === 100 ? 'bg-gradient-to-r from-green-400 to-green-600' : 'bg-gradient-to-r from-blue-400 to-blue-600'}`}
+              style={{ width: `${paymentProgress}%` }}
+            />
+          </div>
+        </div>
+      )}
+      {remainingToPay === 0 && paidAmount > 0 && (
+        <div className="mt-4 pt-4 border-t border-gray-200 text-center">
+          <div className="inline-flex items-center px-6 py-3 bg-green-100 text-green-700 rounded-lg font-semibold">
+            <span className="text-2xl mr-2">✅</span>
+            <span>Все планы лечения полностью оплачены</span>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
 const AppointmentModal = ({
   show,
   onClose,
@@ -627,13 +684,13 @@ if (timeSchedule) {
   }, [showPatientDropdown]);
 
   useEffect(() => {
-    if (selectedPatient && activeTab === 'documents') {
-      fetchDocuments();
-    }
-    if (selectedPatient && activeTab === 'plans') {
-      fetchTreatmentPlans();
-    }
-  }, [selectedPatient, activeTab]);
+      if (selectedPatient && activeTab === 'documents') {
+        fetchDocuments();
+      }
+      if (selectedPatient && (activeTab === 'plans' || activeTab === 'payment')) {
+        fetchTreatmentPlans();
+      }
+    }, [selectedPatient, activeTab]);
 
   // Автоматическое определение необходимых согласий на основе планов лечения пациента
   useEffect(() => {
@@ -1072,6 +1129,15 @@ const handleCreateNewPatient = async (e) => {
                   }`}
               >
                 План лечения
+              </button>
+              <button
+                onClick={() => setActiveTab('payment')}
+                className={`py-2 px-1 border-b-2 font-medium text-sm ${activeTab === 'payment'
+                    ? 'border-blue-500 text-blue-600'
+                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                  }`}
+              >
+                Оплата
               </button>
             </>
           )}
@@ -2206,6 +2272,60 @@ const handleCreateNewPatient = async (e) => {
           </div>
 
           <div className="flex justify-end">
+            <button
+              type="button"
+              onClick={onClose}
+              className="px-6 py-2 bg-gray-300 text-gray-700 rounded-lg hover:bg-gray-400"
+            >
+              Закрыть
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Payment Tab - поэтапная оплата (дубль из карточки пациента) */}
+      {activeTab === 'payment' && selectedPatient && (
+        <div className="space-y-4">
+          <div className="bg-blue-50 p-3 rounded-lg">
+            <h4 className="font-medium text-blue-800">
+              Оплата услуг для пациента: {selectedPatient.full_name}
+            </h4>
+            <p className="text-sm text-blue-600 mt-1">
+              Здесь можно отметить оплату отдельных услуг. Нажмите кнопку &quot;Оплатить&quot; рядом с услугой.
+            </p>
+          </div>
+
+                    {treatmentPlans.length > 0 && (
+                      <PaymentSummary plans={treatmentPlans} />
+                    )}
+
+          {treatmentPlans.length === 0 ? (
+            <div className="text-center py-8">
+              <p className="text-gray-500 mb-2">Планы лечения не найдены</p>
+              <button
+                onClick={() => setActiveTab('plans')}
+                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+              >
+                Создать план лечения
+              </button>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {treatmentPlans.map((plan) => (
+                <ServicePaymentList
+                  key={plan.id}
+                  plan={plan}
+                  onUpdate={(updatedPlan) => {
+                    setTreatmentPlans(plans =>
+                      plans.map(p => p.id === updatedPlan.id ? updatedPlan : p)
+                    );
+                  }}
+                />
+              ))}
+            </div>
+          )}
+
+          <div className="flex justify-end pt-4">
             <button
               type="button"
               onClick={onClose}
