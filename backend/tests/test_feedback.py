@@ -111,6 +111,23 @@ async def test_no_pending_survey_no_reply(clean_db):
     assert reply["reply"] is None
 
 
+async def test_phone_format_variants_match(clean_db):
+    """Ответ на опрос должен находиться даже если телефон забит/пришёл в другом формате."""
+    from services.feedback_service import FeedbackService
+    svc = FeedbackService(clean_db)
+    # Опрос заведён с телефоном "8 777 123 45 67"
+    await svc.start_survey({**_appt(), "id": "a1"}, "Иван", "8 777 123 45 67", "Доктор")
+
+    # Ответ приходит с "+77771234567" (после нормализации совпадает)
+    reply = await svc.handle_incoming("+77771234567", "9")
+    assert reply["consumed"] is True
+    assert reply["reply"] is not None
+
+    rec = await clean_db.patient_feedback.find_one({"appointment_id": "a1"})
+    assert rec["status"] == "good"
+    assert rec["score"] == 9
+
+
 async def test_ensure_completed_rule_creates_once(clean_db):
     from services.feedback_service import FeedbackService
     svc = FeedbackService(clean_db)

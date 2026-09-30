@@ -61,6 +61,16 @@ class FeedbackService:
 
     # ---------- ЗАПУСК ОПРОСА ----------
 
+    @staticmethod
+    def _norm_phone(phone: str) -> str:
+        """Привести телефон к единому формату +7XXXXXXXXXX (для совпадения разных вводов)."""
+        p = re.sub(r"[^\d+]", "", phone or "")
+        if p.startswith("8") and len(p) == 11:
+            p = "+7" + p[1:]
+        elif not p.startswith("+"):
+            p = "+" + p
+        return p
+
     async def start_survey(self, appointment: dict, patient_name: str, phone: str, doctor_name: str) -> None:
         """Создать активный опрос при завершении приёма (статус pending_score)."""
         settings = await self.get_settings()
@@ -76,6 +86,7 @@ class FeedbackService:
             "patient_id": appointment.get("patient_id"),
             "patient_name": patient_name,
             "patient_phone": phone,
+            "phone_clean": self._norm_phone(phone),
             "appointment_id": appointment.get("id"),
             "doctor_name": doctor_name,
             "score": None,
@@ -95,8 +106,9 @@ class FeedbackService:
         return int(m.group(1))
 
     async def _latest_pending(self, phone: str) -> Optional[dict]:
+        clean = self._norm_phone(phone)
         return await self.feedback_coll.find_one(
-            {"patient_phone": phone, "status": {"$in": [
+            {"phone_clean": clean, "status": {"$in": [
                 FeedbackStatus.PENDING_SCORE.value, FeedbackStatus.PENDING_REASON.value]}},
             sort=[("created_at", -1)],
         )
