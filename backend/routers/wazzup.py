@@ -380,124 +380,120 @@ async def format_phone(
 
 # ========== WEBHOOK (для входящих сообщений) ==========
 
+_WAZZUP_MSG_TYPES = {"text", "image", "video", "audio", "document"}
+
+
+def _extract_incoming_messages(payload: dict) -> list:
+    """Входящие сообщения из вебхука Wazzup.
+
+    v3: {"messages": [{"chatId", "text", "isEcho": false, ...}]}.
+    Старый формат {type: "incomingMessage", message: {...}} поддерживаем тоже.
+    Исходящие эхо (isEcho=true) и статусы пропускаем.
+    """
+    items = []
+    if isinstance(payload.get("messages"), list):
+        items = [m for m in payload["messages"] if isinstance(m, dict) and not m.get("isEcho")]
+    elif payload.get("type") == "incomingMessage" and isinstance(payload.get("message"), dict):
+        items = [payload["message"]]
+    return items
+
+
+async def _process_incoming_message(message_data: dict) -> None:
+    """Сохранить входящее, провести через опрос обратной связи, иначе завести лид."""
+    from database import db as database
+    from crm.services.lead_service import LeadService
+    from crm.schemas.lead_schemas import LeadCreate
+    from crm.models.lead import LeadSource
+    from services.feedback_service import FeedbackService
+    from models.wazzup import SendMessageRequest
+
+    contact_phone = str(message_data.get("chatId", "")).split("@")[0]
+    text = message_data.get("text", "") or ""
+    contact = message_data.get("contact") or {}
+    contact_name = message_data.get("userName", "") or (contact.get("name", "") if isinstance(contact, dict) else "")
+    channel_id = message_data.get("channelId", "")
+    message_id = message_data.get("messageId", "")
+    msg_type = message_data.get("type", "text")
+    if msg_type not in _WAZZUP_MSG_TYPES:
+        msg_type = "text"
+    media_url = message_data.get("contentUri") or message_data.get("mediaUrl")
+
+    print(f"Входящее сообщение от {contact_phone}: {text}")
+
+    try:
+        await wazzup_service.save_message_to_db(
+            message_id=message_id,
+            channel_id=channel_id,
+            phone=contact_phone,
+            message_type=MessageType(msg_type),
+            text=text,
+            direction="incoming",
+            contact_name=contact_name,
+            media_url=media_url,
+            status=MessageStatus.DELIVERED,
+            timestamp=datetime.now(),
+            metadata=message_data,
+        )
+    except Exception as db_error:
+        print(f"Ошибка сохранения в БД: {db_error}")
+
+    lead_service = LeadService(database)
+
+    existing_active_lead = await lead_service.get_active_lead_by_phone(contact_phone)
+
+    await _trigger_auto_ai_analysis(contact_phone, contact_name)
+
+    # Ответ на опрос обратной связи (оценка 1-10 / причина) — лид не создаём.
+    try:
+        result = await FeedbackService(database).handle_incoming(contact_phone, text)
+        if result.get("consumed"):
+            if result.get("reply"):
+                await wazzup_service.send_message(
+                    SendMessageRequest(phone=result["reply"]["phone"], text=result["reply"]["text"])
+                )
+                print(f"Ответ обратной связи отправлен {result['reply']['phone']}")
+            print(f"Сообщение — ответ на опрос обратной связи, лид не создаём ({contact_phone})")
+            return
+    except Exception as fe:
+        print(f"Ошибка обработки обратной связи: {fe}")
+
+    if existing_active_lead:
+        print(f"Активный лид уже существует для {contact_phone}, ID: {existing_active_lead.id}")
+        return
+
+    name_parts = contact_name.split(" ") if contact_name else ["", ""]
+    first_name = name_parts[0] if len(name_parts) > 0 and name_parts[0] else "Клиент"
+    last_name = name_parts[1] if len(name_parts) > 1 else "WhatsApp"
+
+    lead_data = LeadCreate(
+        first_name=first_name,
+        last_name=last_name,
+        phone=contact_phone,
+        source=LeadSource.SOCIAL,
+        description=f"Обращение через WhatsApp: {text[:200]}",
+    )
+    new_lead = await lead_service.create_lead(lead_data, created_by="wazzup_webhook")
+    print(f"Создан новый лид ID: {new_lead.id} для {contact_phone}")
+
+
 @router.post("/webhook/messages")
 async def webhook_incoming_message(
     payload: dict = Body(...)
 ):
+    """Вебхук входящих сообщений Wazzup24.
+
+    v3 присылает {"messages": [...]} и {"statuses": [...]}; при подключении
+    шлёт тестовый POST {test: true} и ждёт 200. Старый формат
+    {type: "incomingMessage"} тоже принимаем.
     """
-    Webhook для обработки входящих сообщений от Wazzup24
-    
-    Этот эндпоинт должен быть настроен в кабинете Wazzup24
-    
-    Логика работы:
-    1. Сохраняет входящее сообщение в MongoDB для истории
-    2. При входящем сообщении проверяем, нет ли активного лида с этим телефоном
-    3. Если нет активного лида - создаем новый лид в статусе "new" (НЕРАЗОБРАННЫЕ)
-    4. Если есть активный лид - не создаем дубликат (это продолжение текущего обращения)
-    """
+    if payload.get("test") is True:
+        return {"status": "ok"}
     try:
-        from database import get_database
-        from crm.services.lead_service import LeadService
-        from crm.schemas.lead_schemas import LeadCreate
-        from crm.models.lead import LeadSource
-        
-        message_type = payload.get("type")
-        
-        if message_type == "incomingMessage":
-            message_data = payload.get("message", {})
-            contact_phone = message_data.get("chatId", "").split("@")[0]
-            text = message_data.get("text", "")
-            contact_name = message_data.get("userName", "")
-            channel_id = message_data.get("channelId", "")
-            message_id = message_data.get("messageId", "")
-            msg_type = message_data.get("type", "text")
-            media_url = message_data.get("mediaUrl")
-            
-            print(f"📨 Входящее сообщение от {contact_phone}: {text}")
-            
-            # Сохраняем входящее сообщение в БД
-            try:
-                await wazzup_service.save_message_to_db(
-                    message_id=message_id,
-                    channel_id=channel_id,
-                    phone=contact_phone,
-                    message_type=MessageType(msg_type),
-                    text=text,
-                    direction="incoming",
-                    contact_name=contact_name,
-                    media_url=media_url,
-                    status=MessageStatus.DELIVERED,
-                    timestamp=datetime.now(),
-                    metadata=payload
-                )
-                print(f"💾 Сообщение сохранено в БД")
-            except Exception as db_error:
-                print(f"Ошибка сохранения в БД: {db_error}")
-            
-            # Получаем базу данных (get_database уже возвращает готовую БД)
-            from database import db as database
-            lead_service = LeadService(database)
-            
-            # Проверяем, нет ли активного лида с этим телефоном
-            existing_active_lead = await lead_service.get_active_lead_by_phone(contact_phone)
-            
-            # Автоматический AI-анализ после каждого сообщения (если включен)
-            await _trigger_auto_ai_analysis(contact_phone, contact_name)
-            
-            # Обработка ответа на опрос обратной связи (оценка 1-10 / причина).
-            # Если сообщение — ответ на опрос, лид НЕ создаём.
-            try:
-                from services.feedback_service import FeedbackService
-                from models.wazzup import SendMessageRequest
-                result = await FeedbackService(database).handle_incoming(contact_phone, text)
-                if result.get("consumed"):
-                    if result.get("reply"):
-                        await wazzup_service.send_message(
-                            SendMessageRequest(phone=result["reply"]["phone"], text=result["reply"]["text"])
-                        )
-                        print(f"↩️ Ответ обратной связи отправлен {result['reply']['phone']}")
-                    print(f"✳️ Сообщение — ответ на опрос обратной связи, лид не создаём ({contact_phone})")
-                    return {"status": "ok", "message": "feedback reply handled"}
-            except Exception as fe:
-                print(f"Ошибка обработки обратной связи: {fe}")
-            
-            if existing_active_lead:
-                # Уже есть активный лид - не создаем дубликат
-                print(f"Активный лид уже существует для {contact_phone}, ID: {existing_active_lead.id}")
-                return {
-                    "status": "ok",
-                    "message": "Active lead already exists",
-                    "lead_id": existing_active_lead.id
-                }
-            
-            # Создаем нового лида
-            # Пытаемся разбить имя на части
-            name_parts = contact_name.split(" ") if contact_name else ["", ""]
-            first_name = name_parts[0] if len(name_parts) > 0 else "Клиент"
-            last_name = name_parts[1] if len(name_parts) > 1 else "WhatsApp"
-            
-            lead_data = LeadCreate(
-                first_name=first_name,
-                last_name=last_name,
-                phone=contact_phone,
-                source=LeadSource.SOCIAL,  # WhatsApp = соц.сети
-                description=f"Обращение через WhatsApp: {text[:200]}"  # Первые 200 символов
-            )
-            
-            new_lead = await lead_service.create_lead(lead_data, created_by="wazzup_webhook")
-            
-            print(f"🆕 Создан новый лид ID: {new_lead.id} для {contact_phone}")
-            
-            return {
-                "status": "ok",
-                "message": "New lead created",
-                "lead_id": new_lead.id
-            }
-        
+        for message_data in _extract_incoming_messages(payload):
+            await _process_incoming_message(message_data)
         return {"status": "ok", "message": "Event processed"}
-        
     except Exception as e:
-        # Не возвращаем ошибку, чтобы Wazzup24 не пытался повторно отправить webhook
+        # Не возвращаем ошибку, чтобы Wazzup24 не слал вебхук повторно
         print(f"Ошибка обработки webhook: {str(e)}")
         import traceback
         traceback.print_exc()
