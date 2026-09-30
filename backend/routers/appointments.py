@@ -144,6 +144,70 @@ async def check_doctor_availability(doctor_id: str, appointment_date: str, appoi
         return False, f"Ошибка при проверке расписания: {str(e)}"
 
 
+async def _send_appointment_notifications(db, existing, updated):
+    """Разослать уведомления по правилам на основе перехода «было -> стало».
+    Срабатывает на: неявку, отмену, завершение (обратная связь) и перенос записи.
+    Срабатывает только при изменении (переходе), чтобы не слать повторно."""
+    try:
+        from services.notification_sender import NotificationSender
+        patient = await db.patients.find_one({"id": (updated or existing).get("patient_id")})
+        if not patient or not patient.get("phone"):
+            return
+        doctor_name = "Врач"
+        doctor = await db.doctors.find_one({"id": (updated or existing).get("doctor_id")})
+        if doctor:
+            doctor_name = doctor.get("full_name", "Врач")
+        cabinet_name = None
+        rid = (updated or existing).get("room_id")
+        if rid:
+            room = await db.rooms.find_one({"id": rid})
+            if room:
+                cabinet_name = room.get("name", "")
+        sender = NotificationSender(db)
+        old_status = existing.get("status")
+        new_status = updated.get("status")
+        base = {
+            "patient_phone": patient.get("phone"),
+            "patient_name": patient.get("full_name") or patient.get("name", "Пациент"),
+            "doctor_name": doctor_name,
+            "appointment_date": updated.get("appointment_date", ""),
+            "appointment_time": updated.get("appointment_time", ""),
+            "cabinet": cabinet_name,
+        }
+        # Статусные переходы (только при реальной смене статуса)
+        if new_status == AppointmentStatus.NO_SHOW.value and old_status != AppointmentStatus.NO_SHOW.value:
+            await sender.send_appointment_no_show_notification(**base)
+        elif new_status == AppointmentStatus.CANCELLED.value and old_status != AppointmentStatus.CANCELLED.value:
+            await sender.send_appointment_cancelled_notification(**base)
+        elif new_status == AppointmentStatus.COMPLETED.value and old_status != AppointmentStatus.COMPLETED.value:
+            await sender.send_appointment_completed_notification(**base)
+            # Запускаем опрос обратной связи (ждём оценку 1-10)
+            try:
+                from services.feedback_service import FeedbackService
+                await FeedbackService(db).start_survey(
+                    appointment=updated,
+                    patient_name=base["patient_name"],
+                    phone=base["patient_phone"],
+                    doctor_name=base["doctor_name"],
+                )
+            except Exception as fe:
+                print(f"Не удалось запустить опрос обратной связи: {fe}")
+        # Перенос: изменилась дата или время
+        if (updated.get("appointment_date") != existing.get("appointment_date")
+                or updated.get("appointment_time") != existing.get("appointment_time")):
+            await sender.send_appointment_rescheduled_notification(
+                old_date=existing.get("appointment_date", ""),
+                old_time=existing.get("appointment_time", ""),
+                **base,
+            )
+    except Exception as e:
+        print(f"Не удалось отправить уведомления: {str(e)}")
+
+
+# Appointment endpoints
+@appointments_router.post("", response_model=Appointment)
+
+
 # Appointment endpoints
 @appointments_router.post("", response_model=Appointment)
 async def create_appointment(
@@ -701,6 +765,9 @@ async def update_appointment(
     if "status" in update_dict:
         await refresh_patient_appointments_count(db, updated_appointment["patient_id"])
 
+    # Автоуведомления по переходу статуса/расписания (неявка, отмена, завершение, перенос)
+    await _send_appointment_notifications(db, existing, updated_appointment)
+
     # Синхронизация статуса лида в CRM при изменении статуса записи
     if "status" in update_dict:
         try:
@@ -744,6 +811,9 @@ async def update_appointment_status(
 
     if "status" in update_dict:
         await refresh_patient_appointments_count(db, updated_appointment["patient_id"])
+
+    # Автоуведомления по переходу статуса/расписания (неявка, отмена, завершение, перенос)
+    await _send_appointment_notifications(db, existing, updated_appointment)
 
     # Синхронизация статуса лида в CRM при изменении статуса записи
     if "status" in update_dict:

@@ -444,6 +444,23 @@ async def webhook_incoming_message(
             # Автоматический AI-анализ после каждого сообщения (если включен)
             await _trigger_auto_ai_analysis(contact_phone, contact_name)
             
+            # Обработка ответа на опрос обратной связи (оценка 1-10 / причина).
+            # Если сообщение — ответ на опрос, лид НЕ создаём.
+            try:
+                from services.feedback_service import FeedbackService
+                from models.wazzup import SendMessageRequest
+                result = await FeedbackService(database).handle_incoming(contact_phone, text)
+                if result.get("consumed"):
+                    if result.get("reply"):
+                        await wazzup_service.send_message(
+                            SendMessageRequest(phone=result["reply"]["phone"], text=result["reply"]["text"])
+                        )
+                        print(f"↩️ Ответ обратной связи отправлен {result['reply']['phone']}")
+                    print(f"✳️ Сообщение — ответ на опрос обратной связи, лид не создаём ({contact_phone})")
+                    return {"status": "ok", "message": "feedback reply handled"}
+            except Exception as fe:
+                print(f"Ошибка обработки обратной связи: {fe}")
+            
             if existing_active_lead:
                 # Уже есть активный лид - не создаем дубликат
                 print(f"Активный лид уже существует для {contact_phone}, ID: {existing_active_lead.id}")

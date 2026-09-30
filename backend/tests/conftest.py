@@ -34,6 +34,11 @@ TOUCHED_COLLECTIONS = [
     "appointments",
     "treatment_plans",
     "doctor_schedules",
+    "notification_rules",
+    "patients",
+    "rooms",
+    "patient_feedback",
+    "feedback_settings",
 ]
 
 

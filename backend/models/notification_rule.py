@@ -9,6 +9,9 @@ class NotificationTrigger(str, Enum):
     APPOINTMENT_CREATED = "appointment_created"  # При создании записи
     APPOINTMENT_REMINDER = "appointment_reminder"  # Напоминание о записи
     APPOINTMENT_CANCELLED = "appointment_cancelled"  # При отмене записи
+    APPOINTMENT_NO_SHOW = "appointment_no_show"  # При неявке на прием
+    APPOINTMENT_RESCHEDULED = "appointment_rescheduled"  # При переносе записи
+    APPOINTMENT_COMPLETED = "appointment_completed"  # При завершении приема (запрос обратной связи)
 
 
 class NotificationMethod(str, Enum):

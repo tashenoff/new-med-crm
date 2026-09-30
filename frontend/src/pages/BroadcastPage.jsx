@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { usePatients } from '../hooks/usePatients';
 import PanelHeader from '../components/common/PanelHeader';
 import { API_BASE_URL } from '../api/config';
+import FeedbackView from '../components/feedback/FeedbackView';
 
 const BroadcastPage = ({ user }) => {
   const [activeTab, setActiveTab] = useState('broadcast'); // 'broadcast' or 'rules'
@@ -17,6 +18,15 @@ const BroadcastPage = ({ user }) => {
   // Rules state
   const [rules, setRules] = useState([]);
   const [loadingRules, setLoadingRules] = useState(false);
+  const [editingRule, setEditingRule] = useState(null); // rule being edited
+  const [editTemplate, setEditTemplate] = useState('');
+  const [showCreateModal, setShowCreateModal] = useState(false);
+  const [newRule, setNewRule] = useState({
+    recipient: 'patient',
+    trigger: 'appointment_created',
+    method: 'wazzup',
+    message_template: ''
+  });
 
   // Загрузка пациентов при монтировании
   useEffect(() => {
@@ -68,8 +78,50 @@ const BroadcastPage = ({ user }) => {
     }
   };
 
+  // Сохранение отредактированного шаблона правила
+  const saveRuleTemplate = async () => {
+    if (!editingRule) return;
+    try {
+      const token = localStorage.getItem('token');
+      const ruleId = editingRule.id || editingRule._id;
+      const response = await fetch(`${API_BASE_URL}/notification-rules/${ruleId}`, {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ message_template: editTemplate })
+      });
+
+      if (response.ok) {
+        setEditingRule(null);
+        loadRules();
+        setSuccessMessage('Шаблон обновлен');
+      } else {
+        setErrorMessage('Ошибка сохранения шаблона');
+      }
+    } catch (error) {
+      setErrorMessage('Ошибка сохранения шаблона');
+    }
+  };
+
+  // Открыть модалку создания правила
+  const openCreateRuleModal = () => {
+    setNewRule({
+      recipient: 'patient',
+      trigger: 'appointment_created',
+      method: 'wazzup',
+      message_template: ''
+    });
+    setShowCreateModal(true);
+  };
+  
   // Создать новое правило
-  const createDefaultRule = async () => {
+  const createRule = async () => {
+    if (!newRule.message_template.trim()) {
+      setErrorMessage('Введите текст сообщения');
+      return;
+    }
     try {
       const token = localStorage.getItem('token');
       const response = await fetch(`${API_BASE_URL}/notification-rules`, {
@@ -80,19 +132,45 @@ const BroadcastPage = ({ user }) => {
         },
         body: JSON.stringify({
           status: true,
-          recipient: 'patient',
-          trigger: 'appointment_created',
-          method: 'wazzup',
-          message_template: '%name%, Ваша запись:\nДата: %date%\nВрач: %doctor%\n\nhttps://2gis.kz/astana/geo/70000001055140151\n\nДоговор публичной оферты - https://clk.li/google\n@ayala.clinic\nhttps://instagram.com/ayala.clinic?igshid=YmMyMTA2M2Y=\n\nРады помогать Вам улучшать здоровье 🙏'
+          recipient: newRule.recipient,
+          trigger: newRule.trigger,
+          method: newRule.method,
+          message_template: newRule.message_template
         })
       });
       
       if (response.ok) {
+        setShowCreateModal(false);
         loadRules();
         setSuccessMessage('Правило создано успешно');
+      } else {
+        setErrorMessage('Ошибка создания правила');
       }
     } catch (error) {
       setErrorMessage('Ошибка создания правила');
+    }
+  };
+  
+  // Удалить правило уведомления
+  const deleteRule = async (ruleId) => {
+    if (!window.confirm('Удалить это правило уведомления?')) return;
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch(`${API_BASE_URL}/notification-rules/${ruleId}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      
+      if (response.ok) {
+        loadRules();
+        setSuccessMessage('Правило удалено');
+      } else {
+        setErrorMessage('Ошибка удаления правила');
+      }
+    } catch (error) {
+      setErrorMessage('Ошибка удаления правила');
     }
   };
 
@@ -240,7 +318,10 @@ const BroadcastPage = ({ user }) => {
     const labels = {
       'appointment_created': 'Создание записи',
       'appointment_reminder': 'Напоминание о записи',
-      'appointment_cancelled': 'Отмена записи'
+      'appointment_cancelled': 'Отмена записи',
+      'appointment_no_show': 'Неявка на приём',
+      'appointment_rescheduled': 'Перенос записи',
+      'appointment_completed': 'Завершение приёма (обратная связь)'
     };
     return labels[trigger] || trigger;
   };
@@ -255,7 +336,7 @@ const BroadcastPage = ({ user }) => {
 
   const getMethodLabel = (method) => {
     const labels = {
-      'wazzup': 'Wazzup: 77778069558'
+      'wazzup': 'Wazzup'
     };
     return labels[method] || method;
   };
@@ -291,6 +372,16 @@ const BroadcastPage = ({ user }) => {
                 }`}
               >
                 ⚙️ Уведомления
+              </button>
+              <button
+                onClick={() => setActiveTab('feedback')}
+                className={`px-4 py-2 text-sm font-medium rounded-t-lg transition-colors ${
+                  activeTab === 'feedback'
+                    ? 'bg-blue-50 text-blue-700 border-b-2 border-blue-600'
+                    : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300'
+                }`}
+              >
+                📊 Фидбек пациентов
               </button>
             </nav>
           </div>
@@ -443,7 +534,7 @@ const BroadcastPage = ({ user }) => {
                 <div className="flex justify-between items-center">
                   <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Правила уведомлений</h3>
                   <button
-                    onClick={createDefaultRule}
+                    onClick={openCreateRuleModal}
                     className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm"
                   >
                     + Добавить уведомление
@@ -459,7 +550,7 @@ const BroadcastPage = ({ user }) => {
                   <div className="text-center py-12 bg-gray-50 dark:bg-gray-700 rounded-lg">
                     <p className="text-gray-500 mb-4">Нет настроенных правил уведомлений</p>
                     <button
-                      onClick={createDefaultRule}
+                      onClick={openCreateRuleModal}
                       className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
                     >
                       Создать первое правило
@@ -493,6 +584,9 @@ const BroadcastPage = ({ user }) => {
                           </th>
                           <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 dark:text-gray-300 uppercase tracking-wider">
                             Услуги
+                          </th>
+                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 dark:text-gray-300 uppercase tracking-wider">
+                            Действия
                           </th>
                         </tr>
                       </thead>
@@ -534,6 +628,22 @@ const BroadcastPage = ({ user }) => {
                             <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">
                               {rule.services ? rule.services.join(', ') : 'Все услуги'}
                             </td>
+                            <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">
+                              <div className="flex space-x-2">
+                                <button
+                                  onClick={() => { setEditingRule(rule); setEditTemplate(rule.message_template || ''); }}
+                                  className="px-3 py-1.5 bg-blue-50 text-blue-700 rounded-lg hover:bg-blue-100 text-sm font-medium"
+                                >
+                                  ✏️ Изменить
+                                </button>
+                                <button
+                                  onClick={() => deleteRule(rule.id || rule._id)}
+                                  className="px-3 py-1.5 bg-red-50 text-red-700 rounded-lg hover:bg-red-100 text-sm font-medium"
+                                >
+                                  🗑️ Удалить
+                                </button>
+                              </div>
+                            </td>
                           </tr>
                         ))}
                       </tbody>
@@ -542,9 +652,122 @@ const BroadcastPage = ({ user }) => {
                 )}
               </div>
             )}
+
+            {/* Контент вкладки "Фидбек пациентов" */}
+            {activeTab === 'feedback' && (
+              <FeedbackView />
+            )}
           </div>
         </div>
       </div>
+
+      {/* Модалка редактирования шаблона уведомления */}
+      {editingRule && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={(e) => { if (e.target === e.currentTarget) setEditingRule(null); }}>
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-2xl p-6">
+            <h3 className="text-lg font-semibold text-gray-900">Редактировать шаблон уведомления</h3>
+            <p className="text-sm text-gray-500 mt-1">
+              {getTriggerLabel(editingRule.trigger)} · {getRecipientLabel(editingRule.recipient)} · {getMethodLabel(editingRule.method)}
+            </p>
+            <textarea
+              value={editTemplate}
+              onChange={(e) => setEditTemplate(e.target.value)}
+              rows={12}
+              className="w-full mt-3 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white whitespace-pre-wrap"
+            />
+            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+              Доступные макросы: %name%, %doctor%, %time%, %date%, %cabinet%
+            </p>
+            <div className="flex justify-end gap-3 mt-4">
+              <button
+                onClick={() => setEditingRule(null)}
+                className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300"
+              >
+                Отмена
+              </button>
+              <button
+                onClick={saveRuleTemplate}
+                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+              >
+                Сохранить
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Модалка создания правила уведомления */}
+      {showCreateModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={(e) => { if (e.target === e.currentTarget) setShowCreateModal(false); }}>
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-2xl p-6 overflow-y-auto max-h-full">
+            <h3 className="text-lg font-semibold text-gray-900">Новое правило уведомления</h3>
+
+            <div className="space-y-4 mt-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Кого уведомляем</label>
+                <select
+                  value={newRule.recipient}
+                  onChange={(e) => setNewRule({ ...newRule, recipient: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                >
+                  <option value="patient">Пациент</option>
+                  <option value="doctor">Врач</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Тип события</label>
+                <select
+                  value={newRule.trigger}
+                  onChange={(e) => setNewRule({ ...newRule, trigger: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                >
+                  <option value="appointment_created">Создание записи</option>
+                  <option value="appointment_reminder">Напоминание о записи</option>
+                  <option value="appointment_cancelled">Отмена записи</option>
+                  <option value="appointment_no_show">Неявка на приём</option>
+                  <option value="appointment_rescheduled">Перенос записи</option>
+                  <option value="appointment_completed">Завершение приёма (обратная связь)</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Метод отправки</label>
+                <select
+                  value={newRule.method}
+                  onChange={(e) => setNewRule({ ...newRule, method: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                >
+                  <option value="wazzup">Wazzup</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Текст сообщения</label>
+                <textarea
+                  value={newRule.message_template}
+                  onChange={(e) => setNewRule({ ...newRule, message_template: e.target.value })}
+                  rows={8}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 whitespace-pre-wrap"
+                  placeholder="%name%, Ваша запись: Дата: %date% Время: %time% Врач: %doctor%"
+                />
+                <p className="text-xs text-gray-500 mt-1">
+                  Макросы: %name%, %doctor%, %time%, %date%, %cabinet%, %bonusTotal%, %paidSumm%, %zhaloba%, %zametki%
+                </p>
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-3 mt-4">
+              <button onClick={() => setShowCreateModal(false)} className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300">
+                Отмена
+              </button>
+              <button onClick={createRule} className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
+                Создать
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
