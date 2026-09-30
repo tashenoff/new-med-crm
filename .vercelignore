@@ -1,0 +1,11 @@
+.pytest_cache
+__pycache__
+*.pyc
+node_modules
+.git
+venv
+uploads_v2
+graphify-out
+*.xls
+*.csv
+data.xml
