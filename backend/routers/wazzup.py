@@ -1,4 +1,7 @@
-from fastapi import APIRouter, HTTPException, Depends, Query, Body
+from fastapi import APIRouter, HTTPException, Depends, Query, Body, File, UploadFile
+import os
+import uuid
+from pathlib import Path
 from typing import List, Optional
 from datetime import datetime
 
@@ -450,6 +453,53 @@ async def update_chat(
 
     updated = await svc.get_chat(phone)
     return updated
+
+
+
+# ========== ЗАГРУЗКА ФАЙЛОВ ДЛЯ ОТПРАВКИ В WHATSAPP ==========
+
+_WAZZUP_MEDIA_EXT = {
+    "image": {".jpg", ".jpeg", ".png", ".gif", ".webp", ".bmp", ".svg"},
+    "video": {".mp4", ".webm", ".mov", ".mkv", ".avi"},
+    "audio": {".mp3", ".wav", ".m4a", ".ogg", ".aac", ".opus"},
+    "document": {".pdf", ".doc", ".docx", ".xls", ".xlsx", ".ppt", ".pptx", ".txt", ".csv", ".zip", ".rar", ".7z", ".rtf"},
+}
+_ALLOWED_WAZZUP_EXT = set().union(*_WAZZUP_MEDIA_EXT.values())
+_MAX_MEDIA_BYTES = 50 * 1024 * 1024
+
+
+@router.post("/media/upload")
+async def upload_wa_media(
+    file: UploadFile = File(...),
+    current_user: User = Depends(get_current_user),
+):
+    """Загрузить файл для отправки пациенту в WhatsApp.
+
+    Файл кладётся в /uploads и возвращается относительный URL, который фронт
+    превращает в абсолютный и передаёт в /wazzup/messages/send-media.
+    media_type определяется по расширению (image/video/audio/document).
+    """
+    ext = os.path.splitext(file.filename or "")[1].lower()
+    if ext not in _ALLOWED_WAZZUP_EXT:
+        raise HTTPException(status_code=400, detail=f"Недопустимый тип файла: {ext or 'без расширения'}")
+    media_type = next((t for t, exts in _WAZZUP_MEDIA_EXT.items() if ext in exts), "document")
+
+    content = await file.read()
+    if not content:
+        raise HTTPException(status_code=400, detail="Пустой файл")
+    if len(content) > _MAX_MEDIA_BYTES:
+        raise HTTPException(status_code=400, detail="Файл слишком большой (лимит 50 МБ)")
+
+    name = f"wazzup_{uuid.uuid4().hex}{ext}"
+    upload_dir = Path("uploads")
+    upload_dir.mkdir(exist_ok=True)
+    (upload_dir / name).write_bytes(content)
+
+    return {
+        "relative_url": f"/uploads/{name}",
+        "media_type": media_type,
+        "filename": file.filename,
+    }
 
 # ========== WEBHOOK (для входящих сообщений) ==========
 
