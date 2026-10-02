@@ -199,16 +199,42 @@ class WazzupService:
             data["channelId"] = channel_id
         
         result = await self._make_request("POST", "messages", data)
-        
+        message_id = result.get("messageId")
+        sent_time = datetime.now()
+
+        # Сохраняем отправленное медиа в БД (история) и обновляем чат-агрегат.
+        try:
+            await self.save_message_to_db(
+                message_id=message_id,
+                channel_id=channel_id,
+                phone=phone,
+                message_type=media_type,
+                text=caption,
+                direction="outgoing",
+                status=MessageStatus.SENT,
+                media_url=media_url,
+                timestamp=sent_time,
+            )
+        except Exception as e:
+            print(f"Не удалось сохранить медиа-сообщение в БД: {e}")
+        try:
+            from services.wazzup_chat_service import WazzupChatService
+            from database import get_database
+            await WazzupChatService(get_database()).upsert_outgoing(
+                phone=phone, text=caption or "📎 Файл", ts=sent_time,
+            )
+        except Exception as e:
+            print(f"Не удалось обновить чат после отправки медиа: {e}")
+
         return WazzupMessage(
-            id=result.get("messageId"),
+            id=message_id,
             channel_id=channel_id,
             contact_phone=phone,
             message_type=media_type,
             media_url=media_url,
             caption=caption,
             status=MessageStatus.SENT,
-            sent_at=datetime.now()
+            sent_at=sent_time
         )
     
     async def get_messages(
