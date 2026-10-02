@@ -184,21 +184,27 @@ class WazzupService:
         channel_id: Optional[str] = None
     ) -> WazzupMessage:
         """Отправить медиа-сообщение (изображение, видео, документ)"""
+        # Медиа шлём через contentUri на /v3/message (как и текст). По докам Wazzup
+        # text и contentUri нельзя слать вместе — поэтому caption в запрос не идёт.
+        phone = await self.format_phone(phone)
+        phone_number = phone.replace("+", "")
+        chat_id = f"{phone_number}@c.us"
+
+        if not channel_id:
+            channels = await self.get_channels()
+            if channels:
+                channel_id = channels[0].id
+            else:
+                raise HTTPException(status_code=500, detail="Нет доступных каналов Wazzup24")
+
         data = {
-            "phone": phone,
-            "message": {
-                "type": media_type.value,
-                "url": media_url
-            }
+            "channelId": channel_id,
+            "chatId": chat_id,
+            "chatType": "whatsapp",
+            "contentUri": media_url,
         }
-        
-        if caption:
-            data["message"]["caption"] = caption
-        
-        if channel_id:
-            data["channelId"] = channel_id
-        
-        result = await self._make_request("POST", "messages", data)
+
+        result = await self._make_request("POST", "message", data)
         message_id = result.get("messageId")
         sent_time = datetime.now()
 
