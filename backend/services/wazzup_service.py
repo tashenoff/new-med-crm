@@ -221,6 +221,7 @@ class WazzupService:
                 status=MessageStatus.SENT,
                 media_url=media_url,
                 timestamp=sent_time,
+                metadata={"filename": (original_filename or media_url.split("?")[0].rsplit("/", 1)[-1] or "")},
             )
         except Exception as e:
             print(f"Не удалось сохранить медиа-сообщение в БД: {e}")

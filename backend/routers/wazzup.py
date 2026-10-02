@@ -543,6 +543,8 @@ async def _process_incoming_message(message_data: dict) -> None:
     if msg_type not in _WAZZUP_MSG_TYPES:
         msg_type = "text"
     media_url = message_data.get("contentUri") or message_data.get("mediaUrl")
+    filename = (message_data.get("fileName") or message_data.get("filename")
+                or (media_url.split("?")[0].rsplit("/", 1)[-1] if media_url else ""))
 
     print(f"Входящее сообщение от {contact_phone}: {text}")
 
@@ -571,7 +573,7 @@ async def _process_incoming_message(message_data: dict) -> None:
             media_url=media_url,
             status=MessageStatus.DELIVERED,
             timestamp=datetime.now(),
-            metadata=message_data,
+            metadata={**message_data, "filename": filename},
         )
     except Exception as db_error:
         print(f"Ошибка сохранения в БД: {db_error}")
