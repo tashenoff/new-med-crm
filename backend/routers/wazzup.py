@@ -11,7 +11,8 @@ from models.wazzup import (
     SendMessageRequest,
     SendTemplateRequest,
     MessageType,
-    MessageStatus
+    MessageStatus,
+    WazzupChatUpdate
 )
 from services.wazzup_service import wazzup_service
 from dependencies import get_current_user
@@ -378,6 +379,78 @@ async def format_phone(
         raise HTTPException(status_code=500, detail=f"Ошибка форматирования: {str(e)}")
 
 
+
+
+# ========== ЧАТЫ (Инбокс) ==========
+
+@router.get("/chats")
+async def list_chats(
+    status: Optional[str] = Query(None, description="Фильтр по статусу (этап воронки лида)"),
+    assigned_manager_id: Optional[str] = Query(None, description="Фильтр по менеджеру"),
+    search: Optional[str] = Query(None, description="Поиск по имени или телефону"),
+    limit: int = Query(100, ge=1, le=500),
+    skip: int = Query(0, ge=0),
+    current_user: User = Depends(get_current_user),
+):
+    from database import get_database
+    from services.wazzup_chat_service import WazzupChatService
+    svc = WazzupChatService(get_database())
+    chats = await svc.list_chats(
+        status=status, assigned_manager_id=assigned_manager_id,
+        search=search, limit=limit, skip=skip,
+    )
+    return {"chats": chats, "total": len(chats)}
+
+
+@router.get("/chats/{phone}")
+async def get_chat(
+    phone: str,
+    current_user: User = Depends(get_current_user),
+):
+    from database import get_database
+    from services.wazzup_chat_service import WazzupChatService
+    svc = WazzupChatService(get_database())
+    chat = await svc.get_chat(phone)
+    if not chat:
+        raise HTTPException(status_code=404, detail="Чат не найден")
+    return chat
+
+
+@router.patch("/chats/{phone}")
+async def update_chat(
+    phone: str,
+    update: WazzupChatUpdate,
+    current_user: User = Depends(get_current_user),
+):
+    from database import get_database
+    from services.wazzup_chat_service import WazzupChatService
+    db = get_database()
+    svc = WazzupChatService(db)
+
+    chat = await svc.get_chat(phone)
+    if not chat:
+        raise HTTPException(status_code=404, detail="Чат не найден")
+
+    changed = update.model_fields_set
+    if "status" in changed and update.status is not None:
+        await svc.set_field(phone, "status", update.status)
+        # Статус чата = статус лида (воронка реюзится): синхронизируем лид.
+        lead_id = chat.get("linked_lead_id")
+        if lead_id:
+            try:
+                from crm.services.lead_service import LeadService
+                from crm.models.lead import LeadStatus
+                await LeadService(db).update_lead_status(lead_id, LeadStatus(update.status))
+            except Exception as e:
+                print(f"Не удалось синхронизировать статус лида {lead_id}: {e}")
+
+    for field in ("assigned_manager_id", "linked_patient_id"):
+        if field in changed and getattr(update, field) is not None:
+            await svc.set_field(phone, field, getattr(update, field))
+
+    updated = await svc.get_chat(phone)
+    return updated
+
 # ========== WEBHOOK (для входящих сообщений) ==========
 
 _WAZZUP_MSG_TYPES = {"text", "image", "video", "audio", "document"}
@@ -420,6 +493,19 @@ async def _process_incoming_message(message_data: dict) -> None:
 
     print(f"Входящее сообщение от {contact_phone}: {text}")
 
+    async def _upsert_chat(lead_id=None, lead_status=None):
+        from services.wazzup_chat_service import WazzupChatService
+        await WazzupChatService(database).upsert_incoming(
+            phone=contact_phone,
+            contact_name=contact_name,
+            text=text,
+            channel_id=channel_id,
+            ts=datetime.now(),
+            linked_lead_id=lead_id,
+            status=lead_status,
+        )
+
+
     try:
         await wazzup_service.save_message_to_db(
             message_id=message_id,
@@ -453,12 +539,17 @@ async def _process_incoming_message(message_data: dict) -> None:
                 )
                 print(f"Ответ обратной связи отправлен {result['reply']['phone']}")
             print(f"Сообщение — ответ на опрос обратной связи, лид не создаём ({contact_phone})")
+            await _upsert_chat(
+                lead_id=(str(existing_active_lead.id) if existing_active_lead else None),
+                lead_status=(existing_active_lead.status if existing_active_lead else None),
+            )
             return
     except Exception as fe:
         print(f"Ошибка обработки обратной связи: {fe}")
 
     if existing_active_lead:
         print(f"Активный лид уже существует для {contact_phone}, ID: {existing_active_lead.id}")
+        await _upsert_chat(str(existing_active_lead.id), existing_active_lead.status)
         return
 
     name_parts = contact_name.split(" ") if contact_name else ["", ""]
@@ -474,6 +565,7 @@ async def _process_incoming_message(message_data: dict) -> None:
     )
     new_lead = await lead_service.create_lead(lead_data, created_by="wazzup_webhook")
     print(f"Создан новый лид ID: {new_lead.id} для {contact_phone}")
+    await _upsert_chat(str(new_lead.id), new_lead.status)
 
 
 @router.post("/webhook/messages")

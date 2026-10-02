@@ -39,6 +39,9 @@ TOUCHED_COLLECTIONS = [
     "rooms",
     "patient_feedback",
     "feedback_settings",
+    "crm_leads",
+    "wazzup_chats",
+    "wazzup_messages",
 ]
 
 

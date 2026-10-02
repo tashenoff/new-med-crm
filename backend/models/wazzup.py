@@ -137,3 +137,9 @@ class WazzupMessageDB(BaseModel):
             ObjectId: str,
             datetime: lambda v: v.isoformat()
         }
+
+class WazzupChatUpdate(BaseModel):
+    """Обновление чата в инбоксе: статус/менеджер/пациент."""
+    status: Optional[str] = None
+    assigned_manager_id: Optional[str] = None
+    linked_patient_id: Optional[str] = None
