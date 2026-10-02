@@ -143,3 +143,60 @@ async def test_inbound_media_saved_to_patient_documents(clean_db, webhook_client
     if os.path.exists(fpath):
         os.remove(fpath)
 
+
+@pytest.fixture
+async def voice_client(clean_db, monkeypatch):
+    """Клиент вебхука с РЕАЛЬНЫМ сохранением сообщений (save_message_to_db не замокан)."""
+    import asyncio
+    from httpx import AsyncClient, ASGITransport
+    import server
+    import routers.wazzup as wazzup_router
+
+    monkeypatch.setattr(wazzup_router, "_trigger_auto_ai_analysis", lambda *a, **k: asyncio.sleep(0))
+    monkeypatch.setattr("database.db", clean_db)
+    transport = ASGITransport(app=server.app)
+    async with AsyncClient(transport=transport, base_url="http://test") as c:
+        yield c
+
+async def test_inbound_voice_ptt_normalized_to_audio_and_localized(clean_db, voice_client, monkeypatch):
+    """Голосовое (ptt) должно сохраниться как audio с локальным (играбельным) URL."""
+    import os
+    import routers.wazzup as wr
+
+    # без пациента — просто проверяем тип и локализацию
+    class FakeResp:
+        status_code = 200
+        content = b"\xff\xfb fake mp3"
+
+    class FakeAC:
+        def __init__(self, *a, **k): pass
+        async def __aenter__(self): return self
+        async def __aexit__(self, *a): return False
+        async def get(self, url): return FakeResp()
+
+    monkeypatch.setattr(wr.httpx, "AsyncClient", FakeAC)
+
+    msg = {
+        "messageId": "m-voice-1",
+        "channelId": "ch1",
+        "chatType": "whatsapp",
+        "chatId": "77770000007",
+        "dateTime": "2026-10-02T10:00:00.000Z",
+        "type": "ptt",
+        "isEcho": False,
+        "contact": {"name": "Говорящий"},
+        "text": "",
+        "contentUri": "https://wazzup.cdn/voice/rec.opus",
+    }
+    r = await voice_client.post("/api/wazzup/webhook/messages", json={"messages": [msg]})
+    assert r.status_code == 200
+
+    rec = await clean_db.wazzup_messages.find_one({"message_id": "m-voice-1"})
+    assert rec is not None, "голосовое должно сохраниться"
+    assert rec["message_type"] == "audio", "тип ptt должен нормализоваться в audio"
+    assert rec["media_url"].startswith("/uploads/"), "голосовое должно быть локализовано для проигрывания"
+
+    fpath = os.path.join("uploads", rec["media_url"].split("/")[-1])
+    if os.path.exists(fpath):
+        os.remove(fpath)
+

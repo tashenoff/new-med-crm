@@ -540,6 +540,9 @@ async def _process_incoming_message(message_data: dict) -> None:
     channel_id = message_data.get("channelId", "")
     message_id = message_data.get("messageId", "")
     msg_type = message_data.get("type", "text")
+    # Голосовые в WhatsApp могут приходить как audio/ptt/voice — сводим к audio.
+    if msg_type in ("audio", "ptt", "voice", "audio_message", "round_play"):
+        msg_type = "audio"
     if msg_type not in _WAZZUP_MSG_TYPES:
         msg_type = "text"
     media_url = message_data.get("contentUri") or message_data.get("mediaUrl")
@@ -578,7 +581,8 @@ async def _process_incoming_message(message_data: dict) -> None:
     except Exception as db_error:
         print(f"Ошибка сохранения в БД: {db_error}")
 
-    # Входящий файл от клиента: дублируем в Документы пациента (если чат→пациент).
+    # Входящее медиа (файл/картинка/видео/голосовое): скачиваем локально в /uploads,
+    # чтобы в переписке можно было проиграть, и дублируем в Документы пациента.
     if msg_type in ("image", "video", "audio", "document") and media_url:
         try:
             import uuid as _uuid
@@ -587,29 +591,47 @@ async def _process_incoming_message(message_data: dict) -> None:
             from services.wazzup_chat_service import WazzupChatService
             from services.document_service import DocumentService
 
-            chat_svc = WazzupChatService(database)
-            chat = await chat_svc.get_chat(contact_phone)
-            pid = chat.get("patient_id") if chat else None
-            if pid:
+            local_name = None
+            # Уже локально (наш клиент положил) — не качаем повторно.
+            if media_url.startswith("/uploads/") or "/uploads/" in media_url.split("?")[0]:
+                local_name = media_url.split("?")[0].rsplit("/", 1)[-1]
+            else:
                 _url = media_url.split("?")[0]
-                _ext = _os.path.splitext(_url)[1][:8] or f".{msg_type}"
+                _ext = _os.path.splitext(_url)[1][:8] or (f".{msg_type}" if msg_type != "audio" else ".mp3")
                 name = f"wazzup_{_uuid.uuid4().hex}{_ext}"
                 async with httpx.AsyncClient(timeout=40) as _ac:
                     _r = await _ac.get(media_url)
                 if _r.status_code == 200 and _r.content:
                     (Path("uploads") / name).write_bytes(_r.content)
+                    local_name = name
+
+            if local_name:
+                # Обновляем media_url сообщения на локальный (для проигрывания в чате).
+                await database.wazzup_messages.update_one(
+                    {"message_id": message_id},
+                    {"$set": {"media_url": f"/uploads/{local_name}"}},
+                )
+                # Имя файла для голосового.
+                disp_name = filename or (local_name if local_name != "" else "")
+                if msg_type == "audio" and not filename:
+                    disp_name = "Голосовое сообщение"
+
+                chat_svc = WazzupChatService(database)
+                chat = await chat_svc.get_chat(contact_phone)
+                pid = chat.get("patient_id") if chat else None
+                if pid:
                     await DocumentService(database, Path("uploads")).add_patient_file(
                         patient_id=pid,
-                        src_filename=name,
-                        original_filename=_url.rsplit("/", 1)[-1] or name,
+                        src_filename=local_name,
+                        original_filename=disp_name,
                         content_type=msg_type,
                         uploaded_by="whatsapp",
                         uploaded_by_name="WhatsApp (клиент)",
                         description="Файл прислан пациентом по WhatsApp",
                     )
-                    print(f"Файл {name} сохранён в документы пациента {pid}")
+                print(f"Входящее медиа {local_name} локализовано (тип {msg_type})")
         except Exception as e:
-            print(f"Не удалось сохранить входящий файл в документы: {e}")
+            print(f"Не удалось локализовать/сохранить входящее медиа: {e}")
 
     lead_service = LeadService(database)
 
