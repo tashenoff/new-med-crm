@@ -154,6 +154,7 @@ const WhatsAppInbox = ({ isOpen, onClose }) => {
         phone: selected.phone,
         media_url: mediaUrl,
         media_type: data.media_type,
+        original_filename: file.name,
       });
       await Promise.all([fetchMessages(selected.phone), fetchChats()]);
     } catch (err) {

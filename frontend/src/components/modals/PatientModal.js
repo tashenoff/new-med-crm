@@ -1344,31 +1344,32 @@ const PatientModal = ({
               ) : (
                 <div className="space-y-2">
                   {documents.map((doc) => (
-                    <div key={doc.id} className="flex items-center justify-between p-3 border rounded-lg">
-                      <div className="flex-1">
-                        <div className="font-medium">{doc.original_filename}</div>
+                    <div key={doc.id} className="flex items-center justify-between p-3 border rounded-lg gap-3">
+                      <div className="flex-1 min-w-0">
+                        <div className="font-medium truncate" title={doc.original_filename}>{doc.original_filename}</div>
                         <div className="text-sm text-gray-500">
                           Загружен {new Date(doc.created_at).toLocaleDateString('ru-RU')} 
                           {' '}пользователем {doc.uploaded_by_name}
                         </div>
                         {doc.description && (
-                          <div className="text-sm text-gray-600">{doc.description}</div>
+                          <div className="text-sm text-gray-600 truncate" title={doc.description}>{doc.description}</div>
                         )}
                         <div className="text-xs text-gray-400">
                           Размер: {(doc.file_size / 1024).toFixed(1)} KB
                         </div>
                       </div>
-                      <div className="flex space-x-2">
+                      <div className="flex space-x-2 flex-shrink-0">
                         <a
                           href={`${API}/api/uploads/${doc.filename}`}
                           download={doc.original_filename}
-                          className="px-3 py-1 text-blue-600 border border-blue-600 rounded hover:bg-blue-50 text-sm"
+                          title={doc.original_filename}
+                          className="px-3 py-1 text-blue-600 border border-blue-600 rounded hover:bg-blue-50 text-sm whitespace-nowrap"
                         >
                           Скачать
                         </a>
                         <button
                           onClick={() => handleDeleteDocument(doc.id)}
-                          className="px-3 py-1 text-red-600 border border-red-600 rounded hover:bg-red-50 text-sm"
+                          className="px-3 py-1 text-red-600 border border-red-600 rounded hover:bg-red-50 text-sm whitespace-nowrap"
                         >
                           Удалить
                         </button>
