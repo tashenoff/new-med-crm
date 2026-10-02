@@ -1,0 +1,359 @@
+import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { createPortal } from 'react-dom';
+import { apiClient, handleApiError } from '../../../api/config';
+import { useModal } from '../../../context/ModalContext';
+
+// Этапы воронки лидов (реюз семантики «сделок» в CRM) — цветовая схема как в FunnelView.
+const FUNNEL_STAGES = [
+  { status: 'new',          label: 'Новые заявки',       badge: 'bg-blue-500' },
+  { status: 'in_progress',  label: 'В работе',           badge: 'bg-indigo-500' },
+  { status: 'contacted',    label: 'Контакт установлен', badge: 'bg-violet-500' },
+  { status: 'qualified',    label: 'Квалифицированы',    badge: 'bg-purple-500' },
+  { status: 'converted',    label: 'Конвертированы',     badge: 'bg-green-500' },
+  { status: 'rejected',     label: 'Отказ',              badge: 'bg-orange-400' },
+  { status: 'lost',         label: 'Потеряны',           badge: 'bg-red-400' },
+];
+
+const stageLabel = (s) => FUNNEL_STAGES.find(x => x.status === s)?.label || 'Без статуса';
+const stageBadge = (s) => FUNNEL_STAGES.find(x => x.status === s)?.badge || 'bg-gray-400';
+
+const contactNameMeta = (c) => c.patient_name || c.contact_name || c.phone || 'Клиент';
+
+const formatTime = (value) => {
+  if (!value) return '';
+  const d = new Date(value);
+  if (isNaN(d)) return '';
+  const today = new Date();
+  if (d.toDateString() === today.toDateString()) {
+    return d.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
+  }
+  return d.toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit' });
+};
+
+const WhatsAppInbox = ({ isOpen, onClose }) => {
+  const { openModal, closeModal } = useModal();
+
+  const [chats, setChats] = useState([]);
+  const [loadingChats, setLoadingChats] = useState(false);
+  const [selected, setSelected] = useState(null); // объект чата
+  const [messages, setMessages] = useState([]);
+  const [loadingMessages, setLoadingMessages] = useState(false);
+  const [newMessage, setNewMessage] = useState('');
+  const [sending, setSending] = useState(false);
+  const [search, setSearch] = useState('');
+  const [error, setError] = useState(null);
+  const [statusDirty, setStatusDirty] = useState(false);
+
+  const listTimer = useRef(null);
+  const msgTimer = useRef(null);
+  const messagesRef = useRef(null);
+
+  const fetchChats = useCallback(async () => {
+    try {
+      setLoadingChats(true);
+      const { data } = await apiClient.get('/wazzup/chats', { params: { search: search || undefined, limit: 200 } });
+      setChats(data.chats || []);
+      setError(null);
+    } catch (err) {
+      setError(handleApiError(err));
+    } finally {
+      setLoadingChats(false);
+    }
+  }, [search]);
+
+  // Поллинг списка чатов (решение: без WebSocket).
+  useEffect(() => {
+    if (!isOpen) return;
+    fetchChats();
+    listTimer.current = setInterval(fetchChats, 5000);
+    return () => clearInterval(listTimer.current);
+  }, [isOpen, fetchChats]);
+
+  const fetchMessages = useCallback(async (phone) => {
+    try {
+      setLoadingMessages(true);
+      const { data } = await apiClient.get(`/wazzup/messages/history/${phone}`, { params: { limit: 100 } });
+      const msgs = (data.messages || []).slice();
+      // API отдаёт историю новые-сверху; в UI нужен хронологический порядок (старые сверху).
+      setMessages(msgs.reverse());
+      setError(null);
+    } catch (err) {
+      setError(handleApiError(err));
+    } finally {
+      setLoadingMessages(false);
+    }
+  }, []);
+
+  const selectChat = async (chat) => {
+    setSelected(chat);
+    await fetchMessages(chat.phone);
+  };
+
+  // Поллинг открытого чата.
+  useEffect(() => {
+    if (!isOpen || !selected) return;
+    fetchMessages(selected.phone);
+    msgTimer.current = setInterval(() => fetchMessages(selected.phone), 5000);
+    return () => clearInterval(msgTimer.current);
+  }, [isOpen, selected, fetchMessages]);
+
+  // При закрытии сбрасываем выбор.
+  useEffect(() => {
+    if (!isOpen) {
+      setSelected(null);
+      setMessages([]);
+      setSearch('');
+    }
+  }, [isOpen]);
+
+  // Автоскролл переписки вниз при новых сообщениях/смене чата.
+  useEffect(() => {
+    const el = messagesRef.current;
+    if (el) el.scrollTop = el.scrollHeight;
+  }, [messages, selected]);
+
+  const sendMessage = async () => {
+    const text = newMessage.trim();
+    if (!text || !selected || sending) return;
+    setSending(true);
+    try {
+      await apiClient.post('/wazzup/messages/send', { phone: selected.phone, text });
+      setNewMessage('');
+      await Promise.all([fetchMessages(selected.phone), fetchChats()]);
+    } catch (err) {
+      setError(handleApiError(err));
+    } finally {
+      setSending(false);
+    }
+  };
+
+  const changeStatus = async (status) => {
+    if (!selected) return;
+    try {
+      await apiClient.patch(`/wazzup/chats/${encodeURIComponent(selected.phone)}`, { status });
+      setSelected({ ...selected, status });
+      setStatusDirty(false);
+      await fetchChats();
+    } catch (err) {
+      setError(handleApiError(err));
+    }
+  };
+
+  // Сохранение записи из модала: создать через /appointments, закрыть, обновить список чатов.
+  const bookAppointment = async (form) => {
+    try {
+      await apiClient.post('/appointments', form);
+      closeModal('appointment');
+      setStatusDirty(true);
+      await fetchChats();
+    } catch (err) {
+      setError(handleApiError(err));
+    }
+  };
+
+  // «Записать» — открыть штатный модал записи. Если чат связан с существующим
+  // пациентом в CRM — модал сразу показывает его (patient_id + patients[]).
+  const handleBook = () => {
+    if (!selected) return;
+    const patients = selected.patient_id
+      ? [{ id: selected.patient_id, full_name: selected.patient_name, phone: selected.patient_phone || selected.phone }]
+      : [];
+    openModal('appointment', {
+      patients,
+      appointmentForm: {
+        patient_id: selected.patient_id || '',
+        patient_name: selected.patient_name || selected.contact_name || '',
+        patient_phone: selected.patient_phone || selected.phone,
+      },
+      // Скрываем форму создания плана в этом контексте, оставляем саму запись.
+      hideAddPlanForm: true,
+      onSave: bookAppointment,
+    });
+  };
+
+  const filteredChats = chats.filter(c =>
+    !search ||
+    (c.contact_name || '').toLowerCase().includes(search.toLowerCase()) ||
+    (c.phone || '').includes(search)
+  );
+
+  if (!isOpen) return null;
+
+  return createPortal(
+    <div
+      className="fixed bottom-0 right-0 top-0 z-[60] flex flex-col bg-white shadow-2xl border-l border-gray-200"
+      style={{ width: 'min(880px, 96vw)' }}
+    >
+      {/* Шапка */}
+      <div className="flex-shrink-0 flex items-center justify-between px-4 py-3 bg-gradient-to-r from-green-500 to-green-600 text-white">
+        <div className="flex items-center gap-2">
+          <span className="text-xl">💬</span>
+          <h3 className="font-semibold">WhatsApp чаты</h3>
+          {loadingChats && <span className="text-xs text-green-100">обновление…</span>}
+        </div>
+        <button onClick={onClose} className="p-1 hover:bg-white/20 rounded-lg" title="Закрыть">
+          ✖️
+        </button>
+      </div>
+
+      {/* Поиск и фильтр */}
+      <div className="flex-shrink-0 px-3 py-2 bg-gray-50 border-b border-gray-200 flex items-center gap-2">
+        <input
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder="Поиск по имени или телефону…"
+          className="flex-1 px-3 py-1.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-green-500 focus:border-transparent"
+        />
+      </div>
+
+      {error && (
+        <div className="flex-shrink-0 mx-3 mt-2 px-3 py-2 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">
+          ⚠️ {error}
+        </div>
+      )}
+
+      <div className="flex-1 min-h-0 flex">
+        {/* Список чатов */}
+        <div className="w-72 flex-shrink-0 border-r border-gray-200 flex flex-col min-h-0">
+          <div className="flex-1 overflow-y-auto">
+            {filteredChats.length === 0 && !loadingChats && (
+              <div className="p-6 text-center text-gray-400 text-sm">
+                Чатов нет
+              </div>
+            )}
+            {filteredChats.map((c) => (
+              <button
+                key={c.phone}
+                onClick={() => selectChat(c)}
+                className={`w-full text-left px-3 py-3 border-b border-gray-100 hover:bg-gray-50 transition-colors ${
+                  selected?.phone === c.phone ? 'bg-green-50' : ''
+                }`}
+              >
+                <div className="flex items-center justify-between">
+                  <span className="font-medium text-sm text-gray-900 truncate">
+                    {contactNameMeta(c)}
+                  </span>
+                  <span className="text-xs text-gray-400 flex-shrink-0 ml-2">{formatTime(c.last_message_time)}</span>
+                </div>
+                <div className="flex items-center justify-between mt-0.5">
+                  <span className="text-xs text-gray-500 truncate">{c.last_message || ''}</span>
+                  {c.unread_count > 0 && (
+                    <span className="ml-2 flex-shrink-0 min-w-[18px] h-[18px] px-1 rounded-full bg-green-500 text-white text-[11px] flex items-center justify-center">
+                      {c.unread_count}
+                    </span>
+                  )}
+                </div>
+                <div className="flex items-center gap-1.5 mt-1.5">
+                  <span className={`w-2 h-2 rounded-full ${stageBadge(c.status)}`} />
+                  <span className="text-[11px] text-gray-500">{stageLabel(c.status)}</span>
+                  {c.linked_lead_id && <span className="text-[10px] text-blue-500 ml-auto">лид</span>}
+                  {c.linked_patient_id && <span className="text-[10px] text-indigo-500 ml-1">пациент</span>}
+                </div>
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Переписка */}
+        <div className="flex-1 min-h-0 flex flex-col">
+          {!selected ? (
+            <div className="flex-1 flex flex-col items-center justify-center text-gray-400">
+              <span className="text-5xl mb-3">💬</span>
+              <p className="text-sm font-medium">Выберите чат слева</p>
+            </div>
+          ) : (
+            <>
+              {/* Шапка чата: статус + запись */}
+              <div className="flex-shrink-0 px-4 py-2.5 bg-gray-50 border-b border-gray-200 flex items-center gap-3 flex-wrap">
+                <div className="min-w-0">
+                  <div className="font-medium text-gray-900 truncate">{contactNameMeta(selected)}</div>
+                  <div className="text-xs text-gray-500">{selected.phone}</div>
+                </div>
+
+                <div className="flex items-center gap-2 ml-auto">
+                  <select
+                    value={selected.status || ''}
+                    onChange={(e) => changeStatus(e.target.value)}
+                    className="px-2 py-1.5 border border-gray-300 rounded-lg text-sm bg-white focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                  >
+                    <option value="">Без статуса</option>
+                    {FUNNEL_STAGES.map(s => (
+                      <option key={s.status} value={s.status}>{s.label}</option>
+                    ))}
+                  </select>
+
+                  <button
+                    onClick={handleBook}
+                    className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-sm rounded-lg font-medium"
+                    title="Назначить запись"
+                  >
+                    📅 Записать
+                  </button>
+                </div>
+              </div>
+
+              {/* Сообщения */}
+              <div ref={messagesRef} className="flex-1 min-h-0 overflow-y-auto p-4 space-y-2 bg-gray-50">
+                {loadingMessages && messages.length === 0 && (
+                  <div className="text-center text-gray-400 text-sm py-10">Загрузка…</div>
+                )}
+                {messages.length === 0 && !loadingMessages && (
+                  <div className="text-center text-gray-400 text-sm py-10">Сообщений пока нет</div>
+                )}
+                {messages.map((m, i) => {
+                  const outgoing = m.metadata?.from_me || m.direction === 'outgoing';
+                  return (
+                    <div key={i} className={`flex ${outgoing ? 'justify-end' : 'justify-start'}`}>
+                      <div className={`max-w-[75%] rounded-lg px-3 py-2 shadow-sm break-words ${
+                        outgoing ? 'bg-green-500 text-white rounded-br-none' : 'bg-white text-gray-900 border border-gray-200 rounded-bl-none'
+                      }`}>
+                        {m.text && <div className="text-sm whitespace-pre-wrap">{m.text}</div>}
+                        {m.media_url && (
+                          <a href={m.media_url} target="_blank" rel="noopener noreferrer"
+                             className={`text-xs underline mt-1 inline-block ${outgoing ? 'text-green-100' : 'text-blue-600'}`}>
+                            📎 Вложение
+                          </a>
+                        )}
+                        <div className={`text-xs mt-1 flex justify-end ${outgoing ? 'text-green-100' : 'text-gray-400'}`}>
+                          {formatTime(m.sent_at)}
+                          {outgoing && <span className="ml-1">{m.status === 'read' ? '✓✓' : m.status === 'delivered' ? '✓✓' : '✓'}</span>}
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* Ввод */}
+              <div className="flex-shrink-0 p-3 bg-white border-t border-gray-200 flex items-end gap-2">
+                <textarea
+                  value={newMessage}
+                  onChange={(e) => setNewMessage(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && !e.shiftKey) {
+                      e.preventDefault();
+                      sendMessage();
+                    }
+                  }}
+                  placeholder="Введите сообщение…"
+                  rows="1"
+                  className="flex-1 px-3 py-2 border border-gray-300 rounded-lg resize-none focus:ring-2 focus:ring-green-500 focus:border-transparent text-sm"
+                />
+                <button
+                  onClick={sendMessage}
+                  disabled={sending || !newMessage.trim()}
+                  className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg font-medium disabled:opacity-50"
+                >
+                  {sending ? '…' : 'Отправить'}
+                </button>
+              </div>
+            </>
+          )}
+        </div>
+      </div>
+    </div>,
+    document.body
+  );
+};
+
+export default WhatsAppInbox;

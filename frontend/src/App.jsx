@@ -6,7 +6,8 @@ import Header from './components/layout/Header';
 import Navigation from './components/layout/Navigation';
 import ErrorMessage from './components/layout/ErrorMessage';
 import InsightsBar from './components/insights/InsightsBar';
-import FloatingInsightBadge from './components/layout/FloatingInsightBadge';
+import WhatsAppFloatingButton from './components/layout/WhatsAppFloatingButton';
+import WhatsAppInbox from './components/crm/telephony/WhatsAppInbox';
 import AIChatSidebar from './components/layout/AIChatSidebar';
 
 // Модальные компоненты перенесены в ModalManager
@@ -136,6 +137,7 @@ function ClinicApp() {
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [activeSection, setActiveSection] = useState('hms');
   const [aiChatSidebarOpen, setAiChatSidebarOpen] = useState(false);
+  const [whatsAppInboxOpen, setWhatsAppInboxOpen] = useState(false);
   const [currentChatBadge, setCurrentChatBadge] = useState(null);
   const [showMaterialForm, setShowMaterialForm] = useState(false);
   const [materialRefreshTrigger, setMaterialRefreshTrigger] = useState(0);
@@ -392,8 +394,9 @@ function ClinicApp() {
           {/* Центр уведомлений */}
           <NotificationCenter />
 
-          {/* Плавающая кнопка чата */}
-          <FloatingInsightBadge onOpenChat={openAiChatSidebar} aiChatSidebarOpen={aiChatSidebarOpen} />
+          {/* Плавающая кнопка WhatsApp-инбокса (ИИ-консультант убран) */}
+          <WhatsAppFloatingButton isOpen={whatsAppInboxOpen} onToggle={() => setWhatsAppInboxOpen(v => !v)} />
+          <WhatsAppInbox isOpen={whatsAppInboxOpen} onClose={() => setWhatsAppInboxOpen(false)} />
 
           {/* AI Chat Sidebar */}
           <AIChatSidebar
