@@ -70,6 +70,7 @@ async def send_media_message(
     media_type: MessageType = Body(..., description="Тип медиа (image, video, document)"),
     caption: Optional[str] = Body(None, description="Подпись к медиа"),
     channel_id: Optional[str] = Body(None, description="ID канала"),
+    original_filename: Optional[str] = Body(None, description="Оригинальное имя файла (для документов пациента)"),
     current_user: User = Depends(get_current_user)
 ):
     """
@@ -81,7 +82,8 @@ async def send_media_message(
             media_url=media_url,
             media_type=media_type,
             caption=caption,
-            channel_id=channel_id
+            channel_id=channel_id,
+            original_filename=original_filename
         )
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Ошибка отправки медиа: {str(e)}")

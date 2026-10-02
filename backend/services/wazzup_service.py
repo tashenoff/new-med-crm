@@ -181,7 +181,8 @@ class WazzupService:
         media_url: str, 
         media_type: MessageType,
         caption: Optional[str] = None,
-        channel_id: Optional[str] = None
+        channel_id: Optional[str] = None,
+        original_filename: Optional[str] = None
     ) -> WazzupMessage:
         """Отправить медиа-сообщение (изображение, видео, документ)"""
         # Медиа шлём через contentUri на /v3/message (как и текст). По докам Wazzup
@@ -246,11 +247,11 @@ class WazzupService:
                     await DocumentService(db, Path("uploads")).add_patient_file(
                         patient_id=pid,
                         src_filename=src,
-                        original_filename=src,
+                        original_filename=original_filename or src,
                         content_type=media_type.value,
                         uploaded_by="whatsapp",
                         uploaded_by_name="WhatsApp-отправка",
-                        description=f"Файл отправлен по WhatsApp: {media_url}",
+                        description="Файл отправлен по WhatsApp",
                     )
         except Exception as e:
             print(f"Не удалось добавить файл в документы пациента: {e}")
