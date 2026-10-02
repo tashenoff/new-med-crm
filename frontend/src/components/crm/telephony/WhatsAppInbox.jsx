@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { createPortal } from 'react-dom';
-import { apiClient, handleApiError } from '../../../api/config';
+import { apiClient, handleApiError, API_BASE_URL } from '../../../api/config';
 import { useModal } from '../../../context/ModalContext';
 
 // Этапы воронки лидов (реюз семантики «сделок» в CRM) — цветовая схема как в FunnelView.
@@ -134,9 +134,21 @@ const WhatsAppInbox = ({ isOpen, onClose }) => {
     if (!file || !selected || uploadingFile) return;
     setUploadingFile(true);
     try {
+      // Загрузка через fetch: браузер сам ставит multipart/form-data с boundary.
+      // axios/apiClient со своим Content-Type: application/json ломал загрузку (422).
       const fd = new FormData();
       fd.append('file', file);
-      const { data } = await apiClient.post('/wazzup/media/upload', fd);
+      const token = localStorage.getItem('token');
+      const resp = await fetch(`${API_BASE_URL}/wazzup/media/upload`, {
+        method: 'POST',
+        headers: token ? { 'Authorization': `Bearer ${token}` } : {},
+        body: fd,
+      });
+      if (!resp.ok) {
+        const body = await resp.json().catch(() => ({}));
+        throw new Error(body.detail || 'Ошибка загрузки файла');
+      }
+      const data = await resp.json();
       const mediaUrl = `${import.meta.env.VITE_BACKEND_URL}${data.relative_url}`;
       await apiClient.post('/wazzup/messages/send-media', {
         phone: selected.phone,
