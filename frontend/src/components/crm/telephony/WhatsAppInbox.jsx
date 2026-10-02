@@ -342,6 +342,7 @@ const WhatsAppInbox = ({ isOpen, onClose }) => {
                 )}
                 {messages.map((m, i) => {
                   const outgoing = m.metadata?.from_me || m.direction === 'outgoing';
+                  const fname = m.metadata?.filename || (m.media_url ? m.media_url.split('?')[0].split('/').pop() : '') || 'Файл';
                   return (
                     <div key={i} className={`flex ${outgoing ? 'justify-end' : 'justify-start'}`}>
                       <div className={`max-w-[75%] rounded-lg px-3 py-2 shadow-sm break-words ${
@@ -350,13 +351,16 @@ const WhatsAppInbox = ({ isOpen, onClose }) => {
                         {m.text && <div className="text-sm whitespace-pre-wrap">{m.text}</div>}
                         {m.media_url && m.message_type === 'image' && (
                           <a href={m.media_url} target="_blank" rel="noopener noreferrer" className="block mt-1">
-                            <img src={m.media_url} alt="Изображение" className="max-w-full max-h-56 rounded-lg border border-gray-200" />
+                            <img src={m.media_url} alt={fname} className="max-w-full max-h-56 rounded-lg border border-gray-200" />
+                            <div className={`text-xs mt-1 truncate max-w-[220px] ${outgoing ? 'text-green-100' : 'text-gray-500'}`} title={fname}>
+                              📎 {fname}
+                            </div>
                           </a>
                         )}
                         {m.media_url && m.message_type !== 'image' && (
                           <a href={m.media_url} target="_blank" rel="noopener noreferrer"
                              className={`text-xs underline mt-1 inline-block ${outgoing ? 'text-green-100' : 'text-blue-600'}`}>
-                            📎 Файл
+                            📎 {fname}
                           </a>
                         )}
                         <div className={`text-xs mt-1 flex justify-end ${outgoing ? 'text-green-100' : 'text-gray-400'}`}>
