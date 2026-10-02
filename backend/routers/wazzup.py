@@ -1,6 +1,7 @@
 from fastapi import APIRouter, HTTPException, Depends, Query, Body, File, UploadFile
 import os
 import uuid
+import httpx
 from pathlib import Path
 from typing import List, Optional
 from datetime import datetime
@@ -572,6 +573,39 @@ async def _process_incoming_message(message_data: dict) -> None:
         )
     except Exception as db_error:
         print(f"Ошибка сохранения в БД: {db_error}")
+
+    # Входящий файл от клиента: дублируем в Документы пациента (если чат→пациент).
+    if msg_type in ("image", "video", "audio", "document") and media_url:
+        try:
+            import uuid as _uuid
+            import os as _os
+            from pathlib import Path
+            from services.wazzup_chat_service import WazzupChatService
+            from services.document_service import DocumentService
+
+            chat_svc = WazzupChatService(database)
+            chat = await chat_svc.get_chat(contact_phone)
+            pid = chat.get("patient_id") if chat else None
+            if pid:
+                _url = media_url.split("?")[0]
+                _ext = _os.path.splitext(_url)[1][:8] or f".{msg_type}"
+                name = f"wazzup_{_uuid.uuid4().hex}{_ext}"
+                async with httpx.AsyncClient(timeout=40) as _ac:
+                    _r = await _ac.get(media_url)
+                if _r.status_code == 200 and _r.content:
+                    (Path("uploads") / name).write_bytes(_r.content)
+                    await DocumentService(database, Path("uploads")).add_patient_file(
+                        patient_id=pid,
+                        src_filename=name,
+                        original_filename=_url.rsplit("/", 1)[-1] or name,
+                        content_type=msg_type,
+                        uploaded_by="whatsapp",
+                        uploaded_by_name="WhatsApp (клиент)",
+                        description="Файл прислан пациентом по WhatsApp",
+                    )
+                    print(f"Файл {name} сохранён в документы пациента {pid}")
+        except Exception as e:
+            print(f"Не удалось сохранить входящий файл в документы: {e}")
 
     lead_service = LeadService(database)
 

@@ -42,6 +42,7 @@ TOUCHED_COLLECTIONS = [
     "crm_leads",
     "wazzup_chats",
     "wazzup_messages",
+    "documents",
 ]
 
 

@@ -86,3 +86,60 @@ async def test_echo_is_ignored_no_chat(clean_db, webhook_client):
         r = await client.post("/api/wazzup/webhook/messages", json={"messages": [_msg("77779999999", "эхо", "m-echo", is_echo=True)]})
     assert r.status_code == 200
     assert await clean_db.wazzup_chats.count_documents({}) == 0
+
+
+async def test_inbound_media_saved_to_patient_documents(clean_db, webhook_client, monkeypatch):
+    """Входящий файл от клиента по WhatsApp сохраняется в документы пациента."""
+    import os
+    from datetime import datetime
+    import routers.wazzup as wr
+
+    await clean_db.patients.insert_one({
+        "id": "p-inc", "full_name": "Клиент", "phone": "87779999999", "iin": "",
+        "revenue": 0.0, "debt": 0.0, "overpayment": 0.0,
+        "appointments_count": 0, "records_count": 0,
+    })
+    await clean_db.wazzup_chats.insert_one({
+        "phone": "+77779999999", "contact_name": "Клиент", "channel_id": "ch1",
+        "last_message": "", "last_message_time": datetime(2026, 10, 2, 9, 0),
+        "unread_count": 0, "status": "new", "linked_patient_id": "p-inc",
+    })
+
+    class FakeResp:
+        status_code = 200
+        content = b"%PDF inbound"
+
+    class FakeAC:
+        def __init__(self, *a, **k): pass
+        async def __aenter__(self): return self
+        async def __aexit__(self, *a): return False
+        async def get(self, url): return FakeResp()
+
+    monkeypatch.setattr(wr.httpx, "AsyncClient", FakeAC)
+
+    msg = {
+        "messageId": "m-in-pdf",
+        "channelId": "ch1",
+        "chatType": "whatsapp",
+        "chatId": "77779999999",
+        "dateTime": "2026-10-02T10:00:00.000Z",
+        "type": "document",
+        "isEcho": False,
+        "contact": {"name": "Клиент"},
+        "text": "",
+        "contentUri": "https://wazzup.cdn/files/analysis.pdf",
+    }
+    async with webhook_client as client:
+        r = await client.post("/api/wazzup/webhook/messages", json={"messages": [msg]})
+    assert r.status_code == 200
+
+    doc = await clean_db.documents.find_one({"patient_id": "p-inc"})
+    assert doc is not None, "входящий файл должен попасть в документы пациента"
+    assert doc["file_type"] == "document"
+    assert doc["uploaded_by_name"] == "WhatsApp (клиент)"
+
+    # чистим скачанный файл
+    fpath = os.path.join("uploads", doc["filename"])
+    if os.path.exists(fpath):
+        os.remove(fpath)
+

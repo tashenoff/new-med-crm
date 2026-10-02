@@ -4,7 +4,7 @@ Document service - business logic for document operations
 from motor.motor_asyncio import AsyncIOMotorDatabase
 from fastapi import HTTPException, UploadFile
 from pathlib import Path
-from typing import List
+from typing import List, Optional
 import shutil
 import uuid
 import os
@@ -85,6 +85,46 @@ class DocumentService:
             logger.error(f"Error uploading document: {e}")
             raise HTTPException(status_code=500, detail="Error uploading document")
     
+    async def add_patient_file(
+        self,
+        patient_id: str,
+        src_filename: str,
+        original_filename: str,
+        content_type: str,
+        uploaded_by: str,
+        uploaded_by_name: str,
+        description: str = None,
+    ) -> Optional[Document]:
+        """Зарегистрировать в документах пациента файл, уже лежащий в upload_dir.
+
+        Используется для WhatsApp: файл уже на диске (наша загрузка или скачанный
+        входящий) — добавляем запись в коллекцию documents без повторного аплоада.
+        Возвращает None, если файла на диске нет или пациент не найден.
+        """
+        file_path = self.upload_dir / src_filename
+        if not file_path.exists():
+            return None
+        try:
+            patient = await self.db.patients.find_one({"id": patient_id})
+            if not patient:
+                return None
+        except Exception:
+            return None
+        document = Document(
+            patient_id=patient_id,
+            filename=src_filename,
+            original_filename=original_filename or src_filename,
+            file_path=str(file_path),
+            file_size=file_path.stat().st_size,
+            file_type=content_type or "application/octet-stream",
+            uploaded_by=uploaded_by,
+            uploaded_by_name=uploaded_by_name,
+            description=description,
+        )
+        await self.db.documents.insert_one(document.dict())
+        logger.info(f"WhatsApp file {src_filename} added to patient {patient_id} documents")
+        return document
+
     async def get_patient_documents(self, patient_id: str) -> List[Document]:
         """Get all documents for a patient"""
         # Check if patient exists (support both new patients with id and old patients with only _id)

@@ -232,6 +232,29 @@ class WazzupService:
         except Exception as e:
             print(f"Не удалось обновить чат после отправки медиа: {e}")
 
+        # Дублируем файл в Документы пациента, если чат связан с пациентом.
+        try:
+            from pathlib import Path
+            from services.document_service import DocumentService
+            from services.wazzup_chat_service import WazzupChatService
+            db = get_database()
+            chat = await WazzupChatService(db).get_chat(phone)
+            pid = chat.get("patient_id") if chat else None
+            if pid:
+                src = media_url.split("?")[0].rsplit("/", 1)[-1] if media_url else ""
+                if src and "." in src:
+                    await DocumentService(db, Path("uploads")).add_patient_file(
+                        patient_id=pid,
+                        src_filename=src,
+                        original_filename=src,
+                        content_type=media_type.value,
+                        uploaded_by="whatsapp",
+                        uploaded_by_name="WhatsApp-отправка",
+                        description=f"Файл отправлен по WhatsApp: {media_url}",
+                    )
+        except Exception as e:
+            print(f"Не удалось добавить файл в документы пациента: {e}")
+
         return WazzupMessage(
             id=message_id,
             channel_id=channel_id,

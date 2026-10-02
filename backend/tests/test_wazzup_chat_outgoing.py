@@ -60,3 +60,39 @@ async def test_send_media_records_history_and_chat(chirp, clean_db):
     assert msg["direction"] == "outgoing"
     assert msg["media_url"] == "http://test/uploads/wazzup_x.pdf"
 
+
+async def test_send_media_adds_to_patient_documents(chirp, clean_db, monkeypatch):
+    """Исходящий файл из чата, связанного с пациентом, попадает в его Документы."""
+    import os
+    from datetime import datetime
+    from models.wazzup import MessageType
+
+    await clean_db.patients.insert_one({
+        "id": "p-doc", "full_name": "Иван", "phone": "87771234567", "iin": "",
+        "revenue": 0.0, "debt": 0.0, "overpayment": 0.0,
+        "appointments_count": 0, "records_count": 0,
+    })
+    await clean_db.wazzup_chats.insert_one({
+        "phone": "+77771234567", "contact_name": "Иван", "channel_id": "ch1",
+        "last_message": "", "last_message_time": datetime(2026, 10, 2, 9, 0),
+        "unread_count": 0, "status": "new", "linked_patient_id": "p-doc",
+    })
+    os.makedirs("uploads", exist_ok=True)
+    open("uploads/wazzup_doc1.pdf", "wb").write(b"%PDF test")
+    try:
+        await chirp.send_media(
+            phone="87771234567",
+            media_url="https://x/uploads/wazzup_doc1.pdf",
+            media_type=MessageType.DOCUMENT,
+            channel_id="ch1",
+        )
+    finally:
+        if os.path.exists("uploads/wazzup_doc1.pdf"):
+            os.remove("uploads/wazzup_doc1.pdf")
+
+    doc = await clean_db.documents.find_one({"patient_id": "p-doc"})
+    assert doc is not None, "файл должен попасть в документы пациента"
+    assert doc["filename"] == "wazzup_doc1.pdf"
+    assert doc["file_type"] == "document"
+    assert doc["uploaded_by_name"] == "WhatsApp-отправка"
+
