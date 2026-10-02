@@ -95,3 +95,35 @@ async def test_patch_assigns_manager(clean_db, auth_client):
     assert r.status_code == 200
     chat = await clean_db.wazzup_chats.find_one({"phone": "+77770000001"})
     assert chat["assigned_manager_id"] == "mgr-9"
+
+
+async def test_get_chat_enriches_existing_patient(clean_db, auth_client):
+    # Существующий пациент в CRM; чат изначально без привязки.
+    await clean_db.patients.insert_one({
+        "id": "pat-uuid-1",
+        "full_name": "Иван Петрович",
+        "phone": "87771234567",
+        "iin": "",
+    })
+    from datetime import datetime
+    await _seed(clean_db, "+77771234567", "Иван", "привет", datetime(2026, 10, 2, 9, 0), "new")
+
+    r = await auth_client.get("/api/wazzup/chats/+77771234567")
+    assert r.status_code == 200
+    data = r.json()
+    # Пациент найден по телефону (разные форматы +7/8) и залинкован
+    assert data["patient_id"] == "pat-uuid-1"
+    assert data["patient_name"] == "Иван Петрович"
+    assert data["patient_phone"] == "87771234567"
+
+    chat = await clean_db.wazzup_chats.find_one({"phone": "+77771234567"})
+    assert chat["linked_patient_id"] == "pat-uuid-1"
+
+
+async def test_get_chat_without_patient_no_id(clean_db, auth_client):
+    from datetime import datetime
+    await _seed(clean_db, "+77779999999", "Новичок", "hi", datetime(2026, 10, 2, 9, 0), "new")
+    r = await auth_client.get("/api/wazzup/chats/+77779999999")
+    assert r.status_code == 200
+    assert r.json()["patient_id"] is None
+

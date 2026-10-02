@@ -121,7 +121,17 @@ class WazzupService:
         except Exception as e:
             # Логируем ошибку, но не прерываем процесс отправки
             print(f"Не удалось сохранить сообщение в БД: {e}")
-        
+
+        # Апдейтим чат-агрегат инбокса (последнее сообщение, сброс непрочитанных).
+        try:
+            from services.wazzup_chat_service import WazzupChatService
+            from database import get_database
+            await WazzupChatService(get_database()).upsert_outgoing(
+                phone=phone, text=request.text, ts=sent_time,
+            )
+        except Exception as e:
+            print(f"Не удалось обновить чат: {e}")
+
         return WazzupMessage(
             id=message_id,
             channel_id=channel_id,

@@ -4,6 +4,7 @@
 Mongo-часть — апсейт чата на входящее/исходящее, список, статусы, привязки.
 Принимает db аргументом для тестируемости (как LeadService).
 """
+import re
 from typing import List, Optional, Dict, Any
 from datetime import datetime
 
@@ -80,6 +81,50 @@ class WazzupChatService:
             update["$set"]["status"] = status
         await self.collection.update_one({"phone": key}, update, upsert=True)
 
+    @staticmethod
+    def _phone_key(phone):
+        """Стабильный ключ для поиска пациента: последние 10 цифр (сглаживает +7/8/7 префиксы)."""
+        digits = re.sub(r"\D", "", phone or "")
+        return digits[-10:] if len(digits) >= 10 else digits
+
+    async def _resolve_patient(self, phone):
+        """Найти существующего пациента по телефону (сравнение по last-10-цифрам)."""
+        key = self._phone_key(phone)
+        if not key:
+            return None
+        cursor = self.db.patients.find({}, {"id": 1, "full_name": 1, "phone": 1})
+        async for pat in cursor:
+            if self._phone_key(pat.get("phone")) == key:
+                return pat
+        return None
+
+    async def _enrich_patient(self, doc):
+        """Привязать к текущему чат-доку пациентa из CRM и вернуть обогащённый doc."""
+        patient = None
+        if doc.get("linked_patient_id"):
+            patient = await self.db.patients.find_one(
+                {"id": doc["linked_patient_id"]}, {"id": 1, "full_name": 1, "phone": 1}
+            )
+        else:
+            patient = await self._resolve_patient(doc["phone"])
+            if patient:
+                await self.collection.update_one(
+                    {"_id": doc["_id"]},
+                    {"$set": {
+                        "linked_patient_id": patient.get("id"),
+                        "patient_name": patient.get("full_name") or "",
+                        "updated_at": datetime.utcnow(),
+                    }},
+                )
+        if patient:
+            doc["patient_id"] = patient.get("id")
+            doc["patient_name"] = patient.get("full_name") or doc.get("contact_name")
+            doc["patient_phone"] = patient.get("phone") or doc.get("phone")
+        else:
+            doc["patient_id"] = None
+            doc["patient_name"] = doc.get("contact_name")
+        return doc
+
     async def list_chats(
         self,
         status: Optional[str] = None,
@@ -103,6 +148,7 @@ class WazzupChatService:
         cursor = self.collection.find(query).sort("last_message_time", -1).skip(skip).limit(limit)
         docs = []
         async for doc in cursor:
+            doc = await self._enrich_patient(doc)
             doc.pop("_id", None)
             docs.append(doc)
         return docs
@@ -111,6 +157,7 @@ class WazzupChatService:
         key = self._norm_phone(phone)
         doc = await self.collection.find_one({"phone": key})
         if doc:
+            doc = await self._enrich_patient(doc)
             doc.pop("_id", None)
         return doc
 
