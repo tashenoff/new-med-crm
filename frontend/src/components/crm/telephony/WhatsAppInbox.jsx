@@ -18,6 +18,7 @@ const stageLabel = (s) => FUNNEL_STAGES.find(x => x.status === s)?.label || 'Б�
 const stageBadge = (s) => FUNNEL_STAGES.find(x => x.status === s)?.badge || 'bg-gray-400';
 
 const contactNameMeta = (c) => c.patient_name || c.contact_name || c.phone || 'Клиент';
+const absMedia = (u) => u && u.startsWith('/') ? `${import.meta.env.VITE_BACKEND_URL}${u}` : u;
 
 const formatTime = (value) => {
   if (!value) return '';
@@ -350,15 +351,23 @@ const WhatsAppInbox = ({ isOpen, onClose }) => {
                       }`}>
                         {m.text && <div className="text-sm whitespace-pre-wrap">{m.text}</div>}
                         {m.media_url && m.message_type === 'image' && (
-                          <a href={m.media_url} target="_blank" rel="noopener noreferrer" className="block mt-1">
-                            <img src={m.media_url} alt={fname} className="max-w-full max-h-56 rounded-lg border border-gray-200" />
+                          <a href={absMedia(m.media_url)} target="_blank" rel="noopener noreferrer" className="block mt-1">
+                            <img src={absMedia(m.media_url)} alt={fname} className="max-w-full max-h-56 rounded-lg border border-gray-200" />
                             <div className={`text-xs mt-1 truncate max-w-[220px] ${outgoing ? 'text-green-100' : 'text-gray-500'}`} title={fname}>
                               📎 {fname}
                             </div>
                           </a>
                         )}
-                        {m.media_url && m.message_type !== 'image' && (
-                          <a href={m.media_url} target="_blank" rel="noopener noreferrer"
+                        {m.media_url && m.message_type === 'audio' && (
+                          <div className="mt-1">
+                            <audio controls src={absMedia(m.media_url)} className="max-w-full h-9" preload="none" />
+                            <div className={`text-xs mt-1 truncate max-w-[220px] ${outgoing ? 'text-green-100' : 'text-gray-500'}`} title={fname}>
+                              🎤 {fname}
+                            </div>
+                          </div>
+                        )}
+                        {m.media_url && m.message_type !== 'image' && m.message_type !== 'audio' && (
+                          <a href={absMedia(m.media_url)} target="_blank" rel="noopener noreferrer"
                              className={`text-xs underline mt-1 inline-block ${outgoing ? 'text-green-100' : 'text-blue-600'}`}>
                             📎 {fname}
                           </a>
