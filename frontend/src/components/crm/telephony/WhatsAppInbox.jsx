@@ -43,10 +43,12 @@ const WhatsAppInbox = ({ isOpen, onClose }) => {
   const [search, setSearch] = useState('');
   const [error, setError] = useState(null);
   const [statusDirty, setStatusDirty] = useState(false);
+  const [uploadingFile, setUploadingFile] = useState(false);
 
   const listTimer = useRef(null);
   const msgTimer = useRef(null);
   const messagesRef = useRef(null);
+  const fileInputRef = useRef(null);
 
   const fetchChats = useCallback(async () => {
     try {
@@ -126,6 +128,31 @@ const WhatsAppInbox = ({ isOpen, onClose }) => {
       setSending(false);
     }
   };
+
+  // Отправка файла пациенту: загрузка в /uploads -> send-media -> обновить переписку.
+  const sendFile = async (file) => {
+    if (!file || !selected || uploadingFile) return;
+    setUploadingFile(true);
+    try {
+      const fd = new FormData();
+      fd.append('file', file);
+      const { data } = await apiClient.post('/wazzup/media/upload', fd);
+      const mediaUrl = `${import.meta.env.VITE_BACKEND_URL}${data.relative_url}`;
+      await apiClient.post('/wazzup/messages/send-media', {
+        phone: selected.phone,
+        media_url: mediaUrl,
+        media_type: data.media_type,
+      });
+      await Promise.all([fetchMessages(selected.phone), fetchChats()]);
+    } catch (err) {
+      setError(handleApiError(err));
+    } finally {
+      setUploadingFile(false);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    }
+  };
+
+  const handleAttachClick = () => fileInputRef.current && fileInputRef.current.click();
 
   const changeStatus = async (status) => {
     if (!selected) return;
@@ -308,10 +335,15 @@ const WhatsAppInbox = ({ isOpen, onClose }) => {
                         outgoing ? 'bg-green-500 text-white rounded-br-none' : 'bg-white text-gray-900 border border-gray-200 rounded-bl-none'
                       }`}>
                         {m.text && <div className="text-sm whitespace-pre-wrap">{m.text}</div>}
-                        {m.media_url && (
+                        {m.media_url && m.message_type === 'image' && (
+                          <a href={m.media_url} target="_blank" rel="noopener noreferrer" className="block mt-1">
+                            <img src={m.media_url} alt="Изображение" className="max-w-full max-h-56 rounded-lg border border-gray-200" />
+                          </a>
+                        )}
+                        {m.media_url && m.message_type !== 'image' && (
                           <a href={m.media_url} target="_blank" rel="noopener noreferrer"
                              className={`text-xs underline mt-1 inline-block ${outgoing ? 'text-green-100' : 'text-blue-600'}`}>
-                            📎 Вложение
+                            📎 Файл
                           </a>
                         )}
                         <div className={`text-xs mt-1 flex justify-end ${outgoing ? 'text-green-100' : 'text-gray-400'}`}>
@@ -326,6 +358,20 @@ const WhatsAppInbox = ({ isOpen, onClose }) => {
 
               {/* Ввод */}
               <div className="flex-shrink-0 p-3 bg-white border-t border-gray-200 flex items-end gap-2">
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  className="hidden"
+                  onChange={(e) => { const f = e.target.files && e.target.files[0]; if (f) sendFile(f); }}
+                />
+                <button
+                  onClick={handleAttachClick}
+                  disabled={uploadingFile || !selected}
+                  title={uploadingFile ? 'Загрузка файла…' : 'Вложить файл'}
+                  className="flex-shrink-0 w-10 h-10 flex items-center justify-center rounded-lg border border-gray-300 text-gray-500 hover:bg-gray-100 disabled:opacity-50 text-lg"
+                >
+                  {uploadingFile ? '…' : '📎'}
+                </button>
                 <textarea
                   value={newMessage}
                   onChange={(e) => setNewMessage(e.target.value)}
