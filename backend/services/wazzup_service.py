@@ -739,6 +739,7 @@ class WazzupService:
                     "from_me": doc.get("direction") == "outgoing",
                     "chat_id": doc.get("chat_id"),
                     "contact_name": doc.get("contact_name"),
+                    "saved_to_patient": bool(doc.get("saved_to_patient", False)),
                     **(doc.get("metadata", {}))
                 }
             )
