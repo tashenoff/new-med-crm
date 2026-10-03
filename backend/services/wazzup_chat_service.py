@@ -132,8 +132,14 @@ class WazzupChatService:
         search: Optional[str] = None,
         limit: int = 100,
         skip: int = 0,
+        include_leads: bool = True,
     ) -> List[Dict[str, Any]]:
-        """Список чатов, новые сверху. Фильтры: статус, менеджер, поиск по имени/телефону."""
+        """Список чатов, новые сверху + (по умолчанию) лиды CRM без чата.
+
+        Каждый элемент — dict чата с полем source ("chat" или "lead"). Лиды,
+        у которых уже есть чат на тот же телефон, пропускаются (дедуп по
+        последним 10 цифрам). Фильтры: статус, менеджер, поиск по имени/телефону.
+        """
         query: Dict[str, Any] = {}
         if status:
             query["status"] = status
@@ -150,8 +156,56 @@ class WazzupChatService:
         async for doc in cursor:
             doc = await self._enrich_patient(doc)
             doc.pop("_id", None)
+            doc["source"] = "chat"
             docs.append(doc)
+
+        if include_leads:
+            leads = await self._leads_without_chat(existing=docs, search=search)
+            if leads:
+                docs.extend(leads)
+                docs.sort(key=lambda d: d.get("last_message_time") or datetime.min, reverse=True)
         return docs
+
+    async def _leads_without_chat(
+        self,
+        existing: List[Dict[str, Any]],
+        search: Optional[str] = None,
+    ) -> List[Dict[str, Any]]:
+        """Активные лиды CRM, у которых нет чата на тот же телефон.
+
+        Возвращает их в формате, совместимом с чатом (source="lead"),
+        чтобы фронт рендерил одной лентой и мог начать переписку.
+        """
+        import re as _re
+
+        chat_keys = {self._phone_key(c.get("phone")) for c in existing}
+        query: Dict[str, Any] = {}
+        if search:
+            rx = _re.compile(_re.escape(search), _re.IGNORECASE)
+            query["$or"] = [{"first_name": rx}, {"last_name": rx}, {"phone": rx}]
+        cursor = self.db.crm_leads.find(query).sort("created_at", -1).limit(500)
+        result = []
+        async for lead in cursor:
+            key = self._phone_key(lead.get("phone"))
+            if not key or key in chat_keys:
+                continue
+            chat_keys.add(key)
+            name = " ".join(filter(None, [lead.get("first_name"), lead.get("last_name"), lead.get("middle_name")])) or (lead.get("name") or "")
+            result.append({
+                "id": lead.get("id"),
+                "phone": self._norm_phone(lead.get("phone")),
+                "contact_name": name,
+                "patient_name": name,
+                "last_message": "",
+                "last_message_time": lead.get("created_at"),
+                "unread_count": 0,
+                "status": lead.get("status"),
+                "source": "lead",
+                "linked_lead_id": lead.get("id"),
+                "linked_patient_id": None,
+                "patient_id": None,
+            })
+        return result
 
     async def get_chat(self, phone: str) -> Optional[Dict[str, Any]]:
         key = self._norm_phone(phone)

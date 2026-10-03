@@ -396,6 +396,7 @@ async def list_chats(
     search: Optional[str] = Query(None, description="Поиск по имени или телефону"),
     limit: int = Query(100, ge=1, le=500),
     skip: int = Query(0, ge=0),
+    include_leads: bool = Query(True, description="Включать лиды CRM без чата"),
     current_user: User = Depends(get_current_user),
 ):
     from database import get_database
@@ -404,6 +405,7 @@ async def list_chats(
     chats = await svc.list_chats(
         status=status, assigned_manager_id=assigned_manager_id,
         search=search, limit=limit, skip=skip,
+        include_leads=include_leads,
     )
     return {"chats": chats, "total": len(chats)}
 
