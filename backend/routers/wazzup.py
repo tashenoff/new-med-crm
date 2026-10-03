@@ -619,7 +619,9 @@ async def _process_incoming_message(message_data: dict) -> None:
                 chat_svc = WazzupChatService(database)
                 chat = await chat_svc.get_chat(contact_phone)
                 pid = chat.get("patient_id") if chat else None
-                if pid:
+                # Голосовые НЕ попадают в Документы пациента (решение alex) —
+                # только скачиваются локально для проигрывания в переписке.
+                if pid and msg_type != "audio":
                     await DocumentService(database, Path("uploads")).add_patient_file(
                         patient_id=pid,
                         src_filename=local_name,
