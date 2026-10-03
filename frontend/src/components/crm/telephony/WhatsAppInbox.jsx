@@ -374,6 +374,22 @@ const WhatsAppInbox = ({ isOpen, onClose }) => {
     });
   };
 
+  const openPatientCard = () => {
+    if (!selected?.patient_id) return;
+    openModal('patient', {
+      editingItem: {
+        id: selected.patient_id,
+        full_name: selected.patient_name || selected.contact_name || '',
+        phone: selected.patient_phone || selected.phone,
+      },
+      patientForm: {
+        id: selected.patient_id,
+        full_name: selected.patient_name || selected.contact_name || '',
+        phone: selected.patient_phone || selected.phone,
+      },
+    });
+  };
+
   const chatIsLead = (c) => c.source === 'lead' || (c.linked_lead_id && !c.patient_id && !c.linked_patient_id);
   const chatIsPatient = (c) => !!c.patient_id || !!c.linked_patient_id;
   const chatIsPlain = (c) => !chatIsLead(c) && !chatIsPatient(c);
@@ -499,6 +515,16 @@ const WhatsAppInbox = ({ isOpen, onClose }) => {
                   <div className="font-medium text-gray-900 truncate">{contactNameMeta(selected)}</div>
                   <div className="text-xs text-gray-500">{selected.phone}</div>
                 </div>
+
+                {selected.patient_id && (
+                  <button
+                    onClick={openPatientCard}
+                    className="px-3 py-1.5 border border-gray-300 hover:bg-white bg-white text-gray-700 text-sm rounded-lg font-medium"
+                    title="Открыть карточку пациента"
+                  >
+                    👤 Карточка пациента
+                  </button>
+                )}
 
                 <div className="flex items-center gap-2 ml-auto">
                   <select
