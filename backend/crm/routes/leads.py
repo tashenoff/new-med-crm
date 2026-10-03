@@ -637,7 +637,28 @@ async def schedule_appointment_from_lead(
         
         # Обновляем статус лида
         await lead_service.update_lead_status(lead_id, LeadStatus.CONTACTED, "Запись на прием создана")
-        
+
+        # Отправка автоматического уведомления о создании записи (как в create_appointment).
+        try:
+            from services.notification_sender import NotificationSender
+            _ns = NotificationSender(db)
+            _notif_patient = await patients_collection.find_one({"id": patient_id})
+            _doc = await db.doctors.find_one({"id": new_appointment.get("doctor_id")})
+            _rm = None
+            if new_appointment.get("room_id"):
+                _r = await db.rooms.find_one({"id": new_appointment.get("room_id")})
+                _rm = _r.get("name", "") if _r else None
+            await _ns.send_appointment_created_notification(
+                patient_phone=(_notif_patient or {}).get("phone") or lead.phone,
+                patient_name=(_notif_patient or {}).get("full_name") or f"{lead.first_name or ''} {lead.last_name or ''}".strip() or 'Пациент',
+                doctor_name=_doc.get("full_name", "Врач") if _doc else "Врач",
+                appointment_date=appointment_date.strftime('%Y-%m-%d'),
+                appointment_time=new_appointment.get("appointment_time", "10:00"),
+                cabinet=_rm,
+            )
+        except Exception as _ne:
+            print(f"Не удалось отправить уведомление о создании записи: {_ne}")
+
         return {
             "message": "Прием успешно назначен",
             "patient_id": patient_id,
