@@ -42,6 +42,7 @@ const WhatsAppInbox = ({ isOpen, onClose }) => {
   const [newMessage, setNewMessage] = useState('');
   const [sending, setSending] = useState(false);
   const [search, setSearch] = useState('');
+  const [typeFilter, setTypeFilter] = useState('all'); // all | chat | lead | patient
   const [error, setError] = useState(null);
   const [statusDirty, setStatusDirty] = useState(false);
   const [uploadingFile, setUploadingFile] = useState(false);
@@ -350,11 +351,18 @@ const WhatsAppInbox = ({ isOpen, onClose }) => {
     });
   };
 
-  const filteredChats = chats.filter(c =>
-    !search ||
-    (c.contact_name || '').toLowerCase().includes(search.toLowerCase()) ||
-    (c.phone || '').includes(search)
-  );
+  const chatIsLead = (c) => c.source === 'lead' || (c.linked_lead_id && !c.patient_id && !c.linked_patient_id);
+  const chatIsPatient = (c) => !!c.patient_id || !!c.linked_patient_id;
+  const chatIsPlain = (c) => !chatIsLead(c) && !chatIsPatient(c);
+
+  const filteredChats = chats.filter(c => {
+    if (typeFilter === 'lead' && !chatIsLead(c)) return false;
+    if (typeFilter === 'patient' && !chatIsPatient(c)) return false;
+    if (typeFilter === 'chat' && !chatIsPlain(c)) return false;
+    return !search ||
+      (c.contact_name || '').toLowerCase().includes(search.toLowerCase()) ||
+      (c.phone || '').includes(search);
+  });
 
   if (!isOpen) return null;
 
@@ -376,13 +384,33 @@ const WhatsAppInbox = ({ isOpen, onClose }) => {
       </div>
 
       {/* Поиск и фильтр */}
-      <div className="flex-shrink-0 px-3 py-2 bg-gray-50 border-b border-gray-200 flex items-center gap-2">
+      <div className="flex-shrink-0 px-3 py-2 bg-gray-50 border-b border-gray-200">
         <input
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           placeholder="Поиск по имени или телефону…"
-          className="flex-1 px-3 py-1.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-green-500 focus:border-transparent"
+          className="w-full px-3 py-1.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-green-500 focus:border-transparent"
         />
+        <div className="flex items-center gap-1 mt-2">
+          {[
+            { key: 'all', label: 'Все' },
+            { key: 'chat', label: 'Чаты' },
+            { key: 'lead', label: 'Лиды' },
+            { key: 'patient', label: 'Пациенты' },
+          ].map((f) => (
+            <button
+              key={f.key}
+              onClick={() => setTypeFilter(f.key)}
+              className={`px-2.5 py-1 rounded-full text-xs font-medium transition-colors ${
+                typeFilter === f.key
+                  ? 'bg-green-600 text-white'
+                  : 'bg-white text-gray-600 border border-gray-300 hover:bg-gray-100'
+              }`}
+            >
+              {f.label}
+            </button>
+          ))}
+        </div>
       </div>
 
       {error && (
