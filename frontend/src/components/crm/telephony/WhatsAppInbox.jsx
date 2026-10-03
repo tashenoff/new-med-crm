@@ -257,8 +257,74 @@ const WhatsAppInbox = ({ isOpen, onClose }) => {
 
   // «Записать» — открыть штатный модал записи. Если чат связан с существующим
   // пациентом в CRM — модал сразу показывает его (patient_id + patients[]).
+  // Если это лид без пациента — переиспользуем механизм CRM «Сделки»:
+  // /api/crm/leads/{id}/schedule-appointment создаст пациента, запись и пометит лид.
   const handleBook = () => {
     if (!selected) return;
+    const isLead = selected.source === 'lead' && selected.linked_lead_id && !selected.patient_id;
+
+    // Лид без пациента: переиспользуем конвертацию из раздела «Сделки».
+    if (isLead) {
+      const lead = selected;
+      openModal('appointment', {
+        appointmentForm: {
+          patient_id: '',
+          doctor_id: '',
+          appointment_date: new Date().toISOString().split('T')[0],
+          appointment_time: '10:00',
+          end_time: '10:30',
+          room_id: '',
+          status: 'confirmed',
+          reason: 'Консультация',
+          notes: `Запись из WhatsApp. Лид: ${selected.patient_name || selected.contact_name || ''}${selected.phone ? `, тел: ${selected.phone}` : ''}`,
+          patient_notes: '',
+          price: 0,
+          deposit_type: '',
+          deposit: 0,
+          source: lead.source || 'phone',
+          source_id: lead.source_id || '',
+          lead_first_name: (selected.patient_name || selected.contact_name || '').split(' ')[0] || '',
+          lead_last_name: (selected.patient_name || selected.contact_name || '').split(' ')[1] || '',
+          lead_middle_name: '',
+          lead_phone: selected.phone,
+          lead_email: selected.email || '',
+          lead_source: lead.source || 'phone',
+          lead_source_id: lead.source_id || '',
+          showNewPatientForm: true,
+        },
+        doctors: [],
+        patients: [],
+        editingItem: null,
+        loading: false,
+        errorMessage: null,
+        hideCreatePatientButton: true,
+        onSave: async (appointmentData) => {
+          try {
+            const res = await apiClient.post(`/crm/leads/${selected.linked_lead_id}/schedule-appointment`, {
+              doctor_id: appointmentData.doctor_id,
+              appointment_date: appointmentData.appointment_date,
+              appointment_time: appointmentData.appointment_time,
+              end_time: appointmentData.end_time,
+              room_id: appointmentData.room_id,
+              service: appointmentData.reason || 'Консультация',
+              notes: `Запись из WhatsApp. Заявка: ${selected.patient_name || selected.contact_name || ''}`,
+              price: appointmentData.price || 0,
+              deposit: appointmentData.deposit || null,
+              deposit_type: appointmentData.deposit_type || null,
+            });
+            closeModal('appointment');
+            setStatusDirty(true);
+            await fetchChats();
+            return res.data;
+          } catch (err) {
+            setError(handleApiError(err));
+            throw err;
+          }
+        },
+      });
+      return;
+    }
+
     const patients = selected.patient_id
       ? [{ id: selected.patient_id, full_name: selected.patient_name, phone: selected.patient_phone || selected.phone }]
       : [];
@@ -268,6 +334,7 @@ const WhatsAppInbox = ({ isOpen, onClose }) => {
         patient_id: selected.patient_id || '',
         patient_name: selected.patient_name || selected.contact_name || '',
         patient_phone: selected.patient_phone || selected.phone,
+        appointment_date: new Date().toISOString().split('T')[0],
       },
       // Скрываем форму создания плана в этом контексте, оставляем саму запись.
       hideAddPlanForm: true,
@@ -340,7 +407,7 @@ const WhatsAppInbox = ({ isOpen, onClose }) => {
                   <span className="text-xs text-gray-400 flex-shrink-0 ml-2">{formatTime(c.last_message_time)}</span>
                 </div>
                 <div className="flex items-center justify-between mt-0.5">
-                  <span className="text-xs text-gray-500 truncate">{c.last_message || ''}</span>
+                  <span className="text-xs text-gray-500 truncate">{c.source === 'lead' && !c.last_message ? 'Начать переписку — нажмите' : (c.last_message || '')}</span>
                   {c.unread_count > 0 && (
                     <span className="ml-2 flex-shrink-0 min-w-[18px] h-[18px] px-1 rounded-full bg-green-500 text-white text-[11px] flex items-center justify-center">
                       {c.unread_count}
@@ -350,7 +417,7 @@ const WhatsAppInbox = ({ isOpen, onClose }) => {
                 <div className="flex items-center gap-1.5 mt-1.5">
                   <span className={`w-2 h-2 rounded-full ${stageBadge(c.status)}`} />
                   <span className="text-[11px] text-gray-500">{stageLabel(c.status)}</span>
-                  {c.linked_lead_id && <span className="text-[10px] text-blue-500 ml-auto">лид</span>}
+                  {c.linked_lead_id && <span className="text-[10px] text-blue-500 ml-auto">{c.source === 'lead' ? 'лид (CRM)' : 'лид'}</span>}
                   {c.linked_patient_id && <span className="text-[10px] text-indigo-500 ml-1">пациент</span>}
                 </div>
               </button>
