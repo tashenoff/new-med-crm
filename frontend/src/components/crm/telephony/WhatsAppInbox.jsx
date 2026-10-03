@@ -45,11 +45,15 @@ const WhatsAppInbox = ({ isOpen, onClose }) => {
   const [error, setError] = useState(null);
   const [statusDirty, setStatusDirty] = useState(false);
   const [uploadingFile, setUploadingFile] = useState(false);
+  const [attachMenuOpen, setAttachMenuOpen] = useState(false);
+  const [patientDocs, setPatientDocs] = useState([]);
+  const [loadingDocs, setLoadingDocs] = useState(false);
 
   const listTimer = useRef(null);
   const msgTimer = useRef(null);
   const messagesRef = useRef(null);
   const fileInputRef = useRef(null);
+  const attachMenuRef = useRef(null);
 
   const fetchChats = useCallback(async () => {
     try {
@@ -167,6 +171,65 @@ const WhatsAppInbox = ({ isOpen, onClose }) => {
   };
 
   const handleAttachClick = () => fileInputRef.current && fileInputRef.current.click();
+
+  // Загрузить список документов пациента из его карточки (для отправки без повторной загрузки).
+  const loadPatientDocs = async () => {
+    if (!selected?.patient_id) return;
+    setLoadingDocs(true);
+    try {
+      const { data } = await apiClient.get(`/patients/${selected.patient_id}/documents`);
+      setPatientDocs(data || []);
+      setAttachMenuOpen(true);
+      setError(null);
+    } catch (err) {
+      setError(handleApiError(err));
+    } finally {
+      setLoadingDocs(false);
+    }
+  };
+
+  // Отправить уже загруженный документ из карточки клиента (media_url уже есть, повторно не грузим).
+  const sendExistingDoc = async (doc) => {
+    if (!selected || uploadingFile) return;
+    setUploadingFile(true);
+    setAttachMenuOpen(false);
+    try {
+      const mediaUrl = `${import.meta.env.VITE_BACKEND_URL}/uploads/${doc.filename}`;
+      await apiClient.post('/wazzup/messages/send-media', {
+        phone: selected.phone,
+        media_url: mediaUrl,
+        media_type: doc.file_type || 'document',
+        original_filename: doc.original_filename || doc.filename,
+      });
+      await Promise.all([fetchMessages(selected.phone), fetchChats()]);
+    } catch (err) {
+      setError(handleApiError(err));
+    } finally {
+      setUploadingFile(false);
+    }
+  };
+
+  // Закрыть попап при клике вне его.
+  useEffect(() => {
+    if (!attachMenuOpen) return;
+    const onClickOutside = (e) => {
+      if (attachMenuRef.current && !attachMenuRef.current.contains(e.target)) {
+        setAttachMenuOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', onClickOutside);
+    return () => document.removeEventListener('mousedown', onClickOutside);
+  }, [attachMenuOpen]);
+
+  const toggleAttachMenu = () => {
+    if (selected?.patient_id) {
+      setAttachMenuOpen((v) => !v);
+      if (!attachMenuOpen) loadPatientDocs();
+    } else {
+      handleAttachClick();
+    }
+  };
+
 
   const changeStatus = async (status) => {
     if (!selected) return;
@@ -387,14 +450,69 @@ const WhatsAppInbox = ({ isOpen, onClose }) => {
                   className="hidden"
                   onChange={(e) => { const f = e.target.files && e.target.files[0]; if (f) sendFile(f); }}
                 />
-                <button
-                  onClick={handleAttachClick}
-                  disabled={uploadingFile || !selected}
-                  title={uploadingFile ? 'Загрузка файла…' : 'Вложить файл'}
-                  className="flex-shrink-0 w-10 h-10 flex items-center justify-center rounded-lg border border-gray-300 text-gray-500 hover:bg-gray-100 disabled:opacity-50 text-lg"
-                >
-                  {uploadingFile ? '…' : '📎'}
-                </button>
+                <div className="relative flex-shrink-0">
+                  <button
+                    onClick={toggleAttachMenu}
+                    disabled={uploadingFile || !selected}
+                    title={uploadingFile ? 'Загрузка файла…' : 'Вложить файл'}
+                    className="w-10 h-10 flex items-center justify-center rounded-lg border border-gray-300 text-gray-500 hover:bg-gray-100 disabled:opacity-50 text-lg"
+                  >
+                    {uploadingFile ? '…' : '📎'}
+                  </button>
+
+                  {attachMenuOpen && (
+                    <div
+                      ref={attachMenuRef}
+                      className="absolute bottom-12 left-0 w-72 bg-white border border-gray-200 rounded-lg shadow-xl z-50 overflow-hidden"
+                    >
+                      <div className="px-3 py-2 text-xs font-semibold text-gray-500 border-b border-gray-100">
+                        Вложить файл
+                      </div>
+
+                      <div className="px-3 py-2 text-xs font-medium text-gray-600 flex items-center gap-2">
+                        <span>📁</span> Из документов клиента
+                      </div>
+
+                      {loadingDocs && patientDocs.length === 0 && (
+                        <div className="px-4 py-2 text-xs text-gray-400">Загрузка документов…</div>
+                      )}
+
+                      {!loadingDocs && patientDocs.length > 0 && (
+                        <div className="max-h-48 overflow-y-auto border-t border-gray-100">
+                          {patientDocs.map((doc) => (
+                            <button
+                              key={doc.id || doc.filename}
+                              onClick={() => sendExistingDoc(doc)}
+                              disabled={uploadingFile}
+                              className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50 flex items-center gap-2 border-b border-gray-50"
+                              title={doc.original_filename || doc.filename}
+                            >
+                              <span className="flex-shrink-0">📄</span>
+                              <span className="flex-1 truncate">{doc.original_filename || doc.filename}</span>
+                            </button>
+                          ))}
+                        </div>
+                      )}
+
+                      {!loadingDocs && patientDocs.length === 0 && (
+                        <div className="px-3 py-2 text-xs text-gray-400 border-t border-gray-100">
+                          Нет документов в карточке клиента
+                        </div>
+                      )}
+
+                      <button
+                        onClick={() => { setAttachMenuOpen(false); handleAttachClick(); }}
+                        className="w-full text-left px-3 py-2.5 text-sm hover:bg-gray-50 flex items-center gap-2 border-t border-gray-100"
+                      >
+                        <span>💻</span>
+                        <span>
+                          С компьютера
+                          <span className="block text-xs text-gray-400 font-normal">выбрать и загрузить новый файл</span>
+                        </span>
+                      </button>
+                    </div>
+                  )}
+                </div>
                 <textarea
                   value={newMessage}
                   onChange={(e) => setNewMessage(e.target.value)}
