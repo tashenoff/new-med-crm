@@ -590,8 +590,6 @@ async def _process_incoming_message(message_data: dict) -> None:
             import uuid as _uuid
             import os as _os
             from pathlib import Path
-            from services.wazzup_chat_service import WazzupChatService
-            from services.document_service import DocumentService
 
             local_name = None
             # Уже локально (наш клиент положил) — не качаем повторно.
@@ -613,26 +611,6 @@ async def _process_incoming_message(message_data: dict) -> None:
                     {"message_id": message_id},
                     {"$set": {"media_url": f"/uploads/{local_name}"}},
                 )
-                # Имя файла для голосового.
-                disp_name = filename or (local_name if local_name != "" else "")
-                if msg_type == "audio" and not filename:
-                    disp_name = "Голосовое сообщение"
-
-                chat_svc = WazzupChatService(database)
-                chat = await chat_svc.get_chat(contact_phone)
-                pid = chat.get("patient_id") if chat else None
-                # Голосовые НЕ попадают в Документы пациента (решение alex) —
-                # только скачиваются локально для проигрывания в переписке.
-                if pid and msg_type != "audio":
-                    await DocumentService(database, Path("uploads")).add_patient_file(
-                        patient_id=pid,
-                        src_filename=local_name,
-                        original_filename=disp_name,
-                        content_type=msg_type,
-                        uploaded_by="whatsapp",
-                        uploaded_by_name="WhatsApp (клиент)",
-                        description="Файл прислан пациентом по WhatsApp",
-                    )
                 print(f"Входящее медиа {local_name} локализовано (тип {msg_type})")
         except Exception as e:
             print(f"Не удалось локализовать/сохранить входящее медиа: {e}")
@@ -820,6 +798,66 @@ async def get_message_history(
             status_code=500, 
             detail=f"Ошибка получения истории: {str(e)}"
         )
+
+
+@router.post("/messages/{message_id}/save-to-patient")
+async def save_media_to_patient(
+    message_id: str,
+    current_user: User = Depends(get_current_user),
+):
+    """Сохранить входящее медиа-сообщение в Документы пациента (по клику менеджера).
+
+    Медиа НЕ сохраняется автоматически (решение alex): входящий файл локализуется
+    для проигрывания в переписке, а в карточку переносится только по этому вызову.
+    Находит пациента по номеру телефона чата и кладёт файл в раздел «Документы».
+    """
+    from pathlib import Path
+    from database import get_database
+    from services.wazzup_chat_service import WazzupChatService
+    from services.document_service import DocumentService
+
+    db = get_database()
+    msg = await db.wazzup_messages.find_one({"message_id": message_id})
+    if not msg:
+        raise HTTPException(status_code=404, detail="Сообщение не найдено")
+    if msg.get("direction") != "incoming" or not msg.get("media_url"):
+        raise HTTPException(status_code=400, detail="Только входящее медиа можно сохранить")
+
+    phone = msg.get("phone") or (msg.get("chat_id") or "").split("@")[0]
+    chat = await WazzupChatService(db).get_chat(phone)
+    pid = chat.get("patient_id") if chat else None
+    if not pid:
+        raise HTTPException(status_code=400, detail="К этому чату не привязан пациент")
+
+    local_url = msg.get("media_url") or ""
+    fname = local_url.split("?")[0].rsplit("/", 1)[-1]
+    if not fname:
+        raise HTTPException(status_code=400, detail="У сообщения нет файла")
+
+    meta = msg.get("metadata") or {}
+    orig = meta.get("filename") or fname
+    # Голосовому даём читаемое имя, если его нет.
+    if msg.get("message_type") == "audio" and not meta.get("filename"):
+        orig = "Голосовое сообщение"
+
+    doc = await DocumentService(db, Path("uploads")).add_patient_file(
+        patient_id=pid,
+        src_filename=fname,
+        original_filename=orig,
+        content_type=msg.get("message_type") or "document",
+        uploaded_by=str(current_user.id) if current_user and getattr(current_user, "id", None) else "manager",
+        uploaded_by_name="Менеджер (WhatsApp)",
+        description="Сохранено менеджером из WhatsApp-переписки",
+    )
+    if not doc:
+        raise HTTPException(status_code=404, detail="Файл не найден или пациент отсутствует")
+
+    # Пометка, что файл уже сохранён (фронт скрывает/меняет иконку).
+    await db.wazzup_messages.update_one(
+        {"message_id": message_id},
+        {"$set": {"saved_to_patient": True}},
+    )
+    return {"saved": True, "document_id": doc.id, "patient_id": pid}
 
 
 @router.get("/health")
