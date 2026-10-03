@@ -361,9 +361,6 @@ const WhatsAppInbox = ({ isOpen, onClose }) => {
                         {m.media_url && m.message_type === 'audio' && (
                           <div className="mt-1">
                             <audio controls src={absMedia(m.media_url)} className="max-w-full h-9" preload="none" />
-                            <div className={`text-xs mt-1 truncate max-w-[220px] ${outgoing ? 'text-green-100' : 'text-gray-500'}`} title={fname}>
-                              🎤 {fname}
-                            </div>
                           </div>
                         )}
                         {m.media_url && m.message_type !== 'image' && m.message_type !== 'audio' && (
