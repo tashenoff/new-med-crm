@@ -49,6 +49,7 @@ const WhatsAppInbox = ({ isOpen, onClose }) => {
   const [attachMenuOpen, setAttachMenuOpen] = useState(false);
   const [patientDocs, setPatientDocs] = useState([]);
   const [loadingDocs, setLoadingDocs] = useState(false);
+  const [sysNotes, setSysNotes] = useState([]);
 
   const listTimer = useRef(null);
   const msgTimer = useRef(null);
@@ -94,6 +95,7 @@ const WhatsAppInbox = ({ isOpen, onClose }) => {
 
   const selectChat = async (chat) => {
     setSelected(chat);
+    setSysNotes([]);
     await fetchMessages(chat.phone);
   };
 
@@ -111,6 +113,7 @@ const WhatsAppInbox = ({ isOpen, onClose }) => {
       setSelected(null);
       setMessages([]);
       setSearch('');
+      setSysNotes([]);
     }
   }, [isOpen]);
 
@@ -168,6 +171,26 @@ const WhatsAppInbox = ({ isOpen, onClose }) => {
     } finally {
       setUploadingFile(false);
       if (fileInputRef.current) fileInputRef.current.value = '';
+    }
+  };
+
+  // Сохранить входящее медиа в Документы пациента (по клику «💾»).
+  const saveMediaToPatient = async (m) => {
+    if (!m?.id || uploadingFile) return;
+    setUploadingFile(true);
+    try {
+      await apiClient.post(`/wazzup/messages/${m.id}/save-to-patient`);
+      // Помечаем сообщение сохранённым локально.
+      setMessages(prev =>
+        prev.map(x => (x.id === m.id ? { ...x, metadata: { ...x.metadata, saved_to_patient: true } } : x))
+      );
+      // Служебное уведомление — в отдельном списке, чтобы поллинг его не стирал.
+      setSysNotes(prev => [...prev, { id: `sys-saved-${m.id}-${Date.now()}`, text: '💾 Документ сохранён в карточке пациента' }]);
+      setError(null);
+    } catch (err) {
+      setError(handleApiError(err));
+    } finally {
+      setUploadingFile(false);
     }
   };
 
@@ -508,6 +531,16 @@ const WhatsAppInbox = ({ isOpen, onClose }) => {
                   <div className="text-center text-gray-400 text-sm py-10">Сообщений пока нет</div>
                 )}
                 {messages.map((m, i) => {
+                  // Служебное сообщение (системная запись в переписку менеджера).
+                  if (m.system) {
+                    return (
+                      <div key={i} className="flex justify-center">
+                        <span className="text-[11px] text-gray-400 bg-gray-100 px-2 py-0.5 rounded-full my-0.5">
+                          {m.text}
+                        </span>
+                      </div>
+                    );
+                  }
                   const outgoing = m.metadata?.from_me || m.direction === 'outgoing';
                   const fname = m.metadata?.filename || (m.media_url ? m.media_url.split('?')[0].split('/').pop() : '') || 'Файл';
                   return (
@@ -535,6 +568,26 @@ const WhatsAppInbox = ({ isOpen, onClose }) => {
                             📎 {fname}
                           </a>
                         )}
+
+                        {/* Сохранение входящего медиа в карточку пациента (по клику). */}
+                        {m.media_url && !outgoing && !m.metadata?.saved_to_patient && (
+                          <button
+                            onClick={() => saveMediaToPatient(m)}
+                            disabled={uploadingFile}
+                            title="Сохранить документ в карточке пациента"
+                            className={`mt-1 text-xs flex items-center gap-1 rounded px-1.5 py-0.5 border border-gray-300 hover:bg-gray-50 ${
+                              outgoing ? 'text-green-100' : 'text-gray-600'
+                            }`}
+                          >
+                            <span>💾</span> Сохранить в карточке
+                          </button>
+                        )}
+                        {m.media_url && !outgoing && m.metadata?.saved_to_patient && (
+                          <div className="mt-1 text-[11px] text-green-600 flex items-center gap-1">
+                            <span>✓</span> Сохранено в карточке
+                          </div>
+                        )}
+
                         <div className={`text-xs mt-1 flex justify-end ${outgoing ? 'text-green-100' : 'text-gray-400'}`}>
                           {formatTime(m.sent_at)}
                           {outgoing && <span className="ml-1">{m.status === 'read' ? '✓✓' : m.status === 'delivered' ? '✓✓' : '✓'}</span>}
@@ -543,6 +596,13 @@ const WhatsAppInbox = ({ isOpen, onClose }) => {
                     </div>
                   );
                 })}
+                {sysNotes.map((n) => (
+                  <div key={n.id} className="flex justify-center">
+                    <span className="text-[11px] text-gray-400 bg-gray-100 px-2 py-0.5 rounded-full my-0.5">
+                      {n.text}
+                    </span>
+                  </div>
+                ))}
               </div>
 
               {/* Ввод */}
