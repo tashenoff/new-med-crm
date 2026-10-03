@@ -259,13 +259,21 @@ const WhatsAppInbox = ({ isOpen, onClose }) => {
   // пациентом в CRM — модал сразу показывает его (patient_id + patients[]).
   // Если это лид без пациента — переиспользуем механизм CRM «Сделки»:
   // /api/crm/leads/{id}/schedule-appointment создаст пациента, запись и пометит лид.
-  const handleBook = () => {
+  const handleBook = async () => {
     if (!selected) return;
-    const isLead = selected.source === 'lead' && selected.linked_lead_id && !selected.patient_id;
+    const isLead = selected.linked_lead_id && !selected.patient_id;
 
     // Лид без пациента: переиспользуем конвертацию из раздела «Сделки».
     if (isLead) {
       const lead = selected;
+      // Подгружаем врачей, иначе модал не предложит врача при выборе кабинета.
+      let doctorsList = [];
+      try {
+        const { data } = await apiClient.get('/doctors');
+        doctorsList = Array.isArray(data) ? data : (data?.doctors || []);
+      } catch (e) {
+        console.warn('Не удалось загрузить врачей:', e);
+      }
       openModal('appointment', {
         appointmentForm: {
           patient_id: '',
@@ -292,7 +300,7 @@ const WhatsAppInbox = ({ isOpen, onClose }) => {
           lead_source_id: lead.source_id || '',
           showNewPatientForm: true,
         },
-        doctors: [],
+        doctors: doctorsList,
         patients: [],
         editingItem: null,
         loading: false,
