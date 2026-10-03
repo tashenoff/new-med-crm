@@ -92,13 +92,16 @@ async def test_voice_variants_not_saved_to_patient_documents(doc_probe, media_ty
 
 @pytest.mark.parametrize(
     "media_type,uri",
-    [("image", "/uploads/i.png"), ("video", "/uploads/v.mp4"), ("document", "/uploads/doc.pdf")],
+    [("image", "/uploads/i.png"), ("video", "/uploads/v.mp4"),
+     ("document", "/uploads/doc.pdf"), ("audio", "/uploads/v.opus")],
 )
-async def test_non_voice_media_saved_to_patient_documents(doc_probe, media_type, uri):
-    """image/video/document по-прежнему попадают в документы пациента."""
+async def test_media_not_auto_saved_to_patient_documents(doc_probe, media_type, uri):
+    """Любое входящее медиа НЕ попадает в документы автоматически (ручное сохранение).
+
+    Решение alex (2026-10): файл локализуется для проигрывания, но менеджер
+    сохраняет его в карточку пациента по клику (POST /save-to-patient).
+    """
     async with doc_probe as client:
         r = await _post_media(client, media_type, uri)
     assert r.status_code == 200
-    assert len(client.calls) == 1, f"ожидался 1 вызов add_patient_file для {media_type}, получено {len(client.calls)}"
-    assert client.calls[0]["patient_id"] == "p1"
-    assert client.calls[0]["content_type"] == media_type
+    assert client.calls == [], f"add_patient_file не должен вызываться для {media_type}, вызван: {client.calls}"
