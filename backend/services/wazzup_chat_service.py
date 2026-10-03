@@ -98,6 +98,19 @@ class WazzupChatService:
                 return pat
         return None
 
+    async def _resolve_lead(self, phone):
+        """Найти активный лид CRM по телефону (последние 10 цифр)."""
+        key = self._phone_key(phone)
+        if not key:
+            return None
+        cursor = self.db.crm_leads.find({}, {"id": 1, "first_name": 1, "last_name": 1,
+                                              "middle_name": 1, "phone": 1, "status": 1,
+                                              "converted_to_client_id": 1})
+        async for lead in cursor:
+            if self._phone_key(lead.get("phone")) == key and not lead.get("converted_to_client_id"):
+                return lead
+        return None
+
     async def _enrich_patient(self, doc):
         """Привязать к текущему чат-доку пациентa из CRM и вернуть обогащённый doc."""
         patient = None
@@ -123,6 +136,18 @@ class WazzupChatService:
         else:
             doc["patient_id"] = None
             doc["patient_name"] = doc.get("contact_name")
+
+        # Лид: если у чата нет пациента, но есть активный лид на этот телефон —
+        # помечаем чат как лид (source=lead + linked_lead_id), чтобы запись шла
+        # через конвертацию из «Сделок», а не требовала существующего пациента.
+        if not doc.get("patient_id") and not doc.get("linked_lead_id"):
+            lead = await self._resolve_lead(doc["phone"])
+            if lead:
+                doc["source"] = "lead"
+                doc["linked_lead_id"] = lead.get("id")
+                doc["status"] = doc.get("status") or lead.get("status")
+                doc["lead_name"] = " ".join(filter(None, [
+                    lead.get("first_name"), lead.get("last_name"), lead.get("middle_name")]))
         return doc
 
     async def list_chats(
@@ -156,7 +181,8 @@ class WazzupChatService:
         async for doc in cursor:
             doc = await self._enrich_patient(doc)
             doc.pop("_id", None)
-            doc["source"] = "chat"
+            if not doc.get("source"):
+                doc["source"] = "chat"
             docs.append(doc)
 
         if include_leads:
@@ -187,6 +213,10 @@ class WazzupChatService:
         result = []
         async for lead in cursor:
             key = self._phone_key(lead.get("phone"))
+            # Уже конвертированный лид (есть пациент) не показываем как «новый лид» —
+            # он уже привязан к пациенту и отображается по patient_id.
+            if lead.get("converted_to_client_id"):
+                continue
             if not key or key in chat_keys:
                 continue
             chat_keys.add(key)
