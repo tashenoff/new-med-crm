@@ -570,7 +570,7 @@ const WhatsAppInbox = ({ isOpen, onClose }) => {
                         )}
 
                         {/* Сохранение входящего медиа в карточку пациента (по клику). */}
-                        {m.media_url && !outgoing && !m.metadata?.saved_to_patient && (
+                        {m.media_url && !outgoing && m.message_type !== 'audio' && !m.metadata?.saved_to_patient && (
                           <button
                             onClick={() => saveMediaToPatient(m)}
                             disabled={uploadingFile}
@@ -582,7 +582,7 @@ const WhatsAppInbox = ({ isOpen, onClose }) => {
                             <span>💾</span> Сохранить в карточке
                           </button>
                         )}
-                        {m.media_url && !outgoing && m.metadata?.saved_to_patient && (
+                        {m.media_url && !outgoing && m.message_type !== 'audio' && m.metadata?.saved_to_patient && (
                           <div className="mt-1 text-[11px] text-green-600 flex items-center gap-1">
                             <span>✓</span> Сохранено в карточке
                           </div>
