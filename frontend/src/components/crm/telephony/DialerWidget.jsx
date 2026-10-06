@@ -128,7 +128,7 @@ const DialerWidget = ({ isOpen, onClose, initialPhone = "" }) => {
         "square",
         "ru",
         true,
-        "{right:\'8px\',bottom:\'140px\'}"
+        "{left: 8px,bottom: 90px}"
       );
 
       setWidgetReady(true);
