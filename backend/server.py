@@ -73,7 +73,9 @@ app.add_middleware(
             "https://app.emergent.sh",
             "https://medicodebase.preview.emergentagent.com",
             "https://*.emergentagent.com",
-            "https://medcrm-front.vercel.app"
+            "https://medcrm-front.vercel.app",
+            "https://www.curai.asia",
+            "https://curai.asia"
         ],
         allow_origin_regex=r"https?://localhost(:\d+)?",  # Разрешаем все localhost порты
         allow_credentials=True,
@@ -109,13 +111,14 @@ from routers.inventory import inventory_router
 from routers.loyalty import loyalty_router
 from routers.consultations import router as consultations_router
 from routers.wazzup import router as wazzup_router
+from routers.telephony import router as telephony_router
 from routers.notification_rules import router as notification_rules_router
+from routers.feedback import router as feedback_router
 from routers.laboratories import laboratories_router
 from routers.staff import router as staff_router
 from routers.settings import router as settings_router
 from routers.service_quality import router as service_quality_router
 from routers.price_import import price_import_router
-from routers.telephony import router as telephony_router
 
 # Include all API routers with /api prefix
 app.include_router(auth_router, prefix="/api")
@@ -134,13 +137,14 @@ app.include_router(inventory_router, prefix="/api")
 app.include_router(loyalty_router, prefix="/api")
 app.include_router(consultations_router)
 app.include_router(wazzup_router)
+app.include_router(telephony_router)
 app.include_router(notification_rules_router)
+app.include_router(feedback_router)
 app.include_router(laboratories_router)
 app.include_router(staff_router)
 app.include_router(settings_router)
 app.include_router(service_quality_router)
 app.include_router(price_import_router, prefix="/api")
-app.include_router(telephony_router)
 
 # Include the CRM router
 from crm import crm_router
@@ -197,4 +201,3 @@ if __name__ == "__main__":
         reload=True,
         log_level="info"
     )
-
