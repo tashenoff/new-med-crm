@@ -106,7 +106,7 @@ const TelephonySection = () => {
       </div>
 
       {/* Статистика */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <div className="bg-gradient-to-br from-blue-500 to-blue-600 rounded-lg shadow-md p-6 text-white">
           <div className="flex items-center justify-between">
             <div>
@@ -143,17 +143,20 @@ const TelephonySection = () => {
           </div>
         </div>
 
-        <div className="bg-gradient-to-br from-purple-500 to-purple-600 rounded-lg shadow-md p-6 text-white">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-purple-100 text-sm">Конверсия</p>
-              <p className="text-3xl font-bold mt-1">{stats.conversionRate}</p>
-            </div>
-            <div className="w-12 h-12 bg-white/20 rounded-full flex items-center justify-center">
-              <span className="text-2xl">📈</span>
+        {/* Плитка Конверсия временно скрыта */}
+        {false && (
+          <div className="bg-gradient-to-br from-purple-500 to-purple-600 rounded-lg shadow-md p-6 text-white">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-purple-100 text-sm">Конверсия</p>
+                <p className="text-3xl font-bold mt-1">{stats.conversionRate}</p>
+              </div>
+              <div className="w-12 h-12 bg-white/20 rounded-full flex items-center justify-center">
+                <span className="text-2xl">📈</span>
+              </div>
             </div>
           </div>
-        </div>
+        )}
       </div>
 
       {/* Табы */}
