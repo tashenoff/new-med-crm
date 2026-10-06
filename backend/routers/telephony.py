@@ -372,7 +372,7 @@ async def get_calls(
         normalized = _normalize_phone(phone)
         query["normalized_phone"] = normalized
 
-    cursor = db.telephony_calls.find(query).sort("created_at", -1).skip(offset).limit(limit)
+    cursor = db.telephony_calls.find(query, {"_id": 0}).sort("created_at", -1).skip(offset).limit(limit)
     calls = await cursor.to_list(length=limit)
 
     return calls
@@ -389,7 +389,7 @@ async def get_calls_by_phone(
     normalized = _normalize_phone(phone)
 
     cursor = db.telephony_calls.find(
-        {"normalized_phone": normalized}
+        {"normalized_phone": normalized}, {"_id": 0}
     ).sort("created_at", -1).limit(limit)
     calls = await cursor.to_list(length=limit)
 

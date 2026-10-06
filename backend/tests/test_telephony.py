@@ -474,3 +474,61 @@ def test_telephony_service_lazy_validation():
         if saved_secret:
             os.environ["ZADARMA_SECRET"] = saved_secret
 
+
+
+# ---------------------------------------------------------------------------
+# Тест: история звонков не падает 500, если _id — настоящий ObjectId
+# ---------------------------------------------------------------------------
+
+@pytest.fixture
+def auth_client(clean_db, monkeypatch):
+    from httpx import AsyncClient, ASGITransport
+    from dependencies import get_current_user
+    import server
+
+    class _FakeUser:
+        id = "u1"
+        full_name = "Test Admin"
+        role = "admin"
+        is_active = True
+        email = "admin@test.ru"
+
+    monkeypatch.setattr("database.db", clean_db)
+    server.app.dependency_overrides[get_current_user] = lambda: _FakeUser()
+    try:
+        transport = ASGITransport(app=server.app)
+        yield AsyncClient(transport=transport, base_url="http://test")
+    finally:
+        server.app.dependency_overrides.pop(get_current_user, None)
+
+
+async def test_get_calls_with_real_objectid(clean_db, auth_client):
+    """Регрессия: GET /api/telephony/calls должен отдавать звонки с ObjectId _id без 500."""
+    from bson import ObjectId
+    from datetime import datetime, timezone
+
+    doc = {
+        "_id": ObjectId("6ac4ed3c9d8f1d915cc67642"),
+        "phone_number": "+79991234567",
+        "normalized_phone": "9991234567",
+        "direction": "inbound",
+        "status": "answered",
+        "disposition": "answered",
+        "duration": 42,
+        "recording_url": "https://example.com/rec.mp3",
+        "created_at": datetime(2026, 1, 1, 12, 0, 0, tzinfo=timezone.utc),
+        "updated_at": datetime(2026, 1, 1, 12, 0, 42, tzinfo=timezone.utc),
+        "pbx_call_id": "regression-call-001",
+    }
+    await clean_db.telephony_calls.insert_one(doc)
+
+    client = auth_client
+    r = await client.get("/api/telephony/calls")
+    assert r.status_code == 200, f"Ожидали 200, получили {r.status_code}: {r.text}"
+
+    data = r.json()
+    assert isinstance(data, list)
+    assert len(data) >= 1
+    found = [c for c in data if c.get("pbx_call_id") == "regression-call-001"]
+    assert len(found) == 1, "Звонок с ObjectId _id должен присутствовать в ответе"
+    assert found[0]["phone_number"] == "+79991234567"
