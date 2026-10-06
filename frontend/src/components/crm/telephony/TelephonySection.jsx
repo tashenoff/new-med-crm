@@ -1,6 +1,10 @@
 ﻿import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { apiClient, handleApiError } from '../../../api/config';
 
+// Медиа/записи приходят относительным путём (/uploads/...) — на фронте это другой домен,
+// поэтому превращаем в абсолютный адрес бэкенда.
+const absMedia = (u) => (u && u.startsWith('/') ? `${import.meta.env.VITE_BACKEND_URL}${u}` : u);
+
 const TelephonySection = () => {
   const [activeTab, setActiveTab] = useState('calls');
   const [calls, setCalls] = useState([]);
@@ -60,7 +64,7 @@ const TelephonySection = () => {
       Направление: directionLabel(c.direction),
       Статус: statusLabel(c.status, c.disposition),
       Длительность: formatDuration(Number(c.duration) || 0),
-      Запись: c.recording_url || ''
+      Запись: absMedia(c.recording_url) || ''
     }));
 
     if (rows.length === 0) return;
@@ -324,7 +328,7 @@ const TelephonySection = () => {
                             </td>
                             <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                               {call.recording_url ? (
-                                <audio controls src={call.recording_url} className="h-8 w-48" />
+                                <audio controls src={absMedia(call.recording_url)} className="h-8 w-48" />
                               ) : (
                                 '—'
                               )}
