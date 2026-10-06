@@ -1,4 +1,4 @@
-﻿import { apiClient, handleApiError } from './config';
+import { apiClient, handleApiError } from './config';
 
 export const telephonyApi = {
   /**

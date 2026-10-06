@@ -1,4 +1,4 @@
-﻿import React from 'react';
+import React from 'react';
 import { createPortal } from 'react-dom';
 
 // Плавающая кнопка телефонии, открывающая виджет набора номера.

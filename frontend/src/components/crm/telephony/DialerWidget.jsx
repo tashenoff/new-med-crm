@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { telephonyApi, handleApiError } from '../../../api/telephony';
 import { useAuth } from '../../../context/AuthContext';
