@@ -2,6 +2,14 @@ import { apiClient, handleApiError } from './config';
 
 export const telephonyApi = {
   /**
+   * Получить WebRTC-ключ для виджета Zadarma.
+   */
+  getWebrtcKey: async () => {
+    const { data } = await apiClient.get('/telephony/webrtc-key');
+    return data;
+  },
+
+  /**
    * Инициировать click-to-call звонок.
    * @param {string} phone
    * @param {string} [sip='100']
