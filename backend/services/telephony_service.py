@@ -1,5 +1,7 @@
 import os
 
+import time
+
 import hashlib
 
 import hmac
@@ -25,6 +27,7 @@ from fastapi import HTTPException
 # Константы API Zadarma
 
 ZADARMA_API_BASE = "https://api.zadarma.com"
+_webrtc_key_cache: dict = {}
 
 
 
@@ -434,7 +437,30 @@ class TelephonyService:
 
 # Единственный экземпляр сервиса (как wazzup_service)
 
+    async def get_webrtc_key(self) -> tuple:
+        """Ключ для WebRTC-виджета Задармы (живёт 72ч). Кэшируется в памяти."""
+        global _webrtc_key_cache
+        now = time.time()
+        if _webrtc_key_cache and _webrtc_key_cache.get('expires_at', 0) > now:
+            return _webrtc_key_cache['key'], int(_webrtc_key_cache['expires_at'] - now)
+        self._ensure_credentials()
+        method_path = '/v1/webrtc/get_key/'
+        url = f"{ZADARMA_API_BASE}{method_path}"
+        params = {'sip': self._sip_internal if self._sip_internal else '596634-100'}
+        headers = self._make_auth_header(method_path, params)
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            response = await client.get(url, params=params, headers=headers)
+            response.raise_for_status()
+            data = response.json()
+        key = data.get('key')
+        if not key:
+            raise HTTPException(status_code=502, detail=f"Zadarma не вернул webrtc-ключ: {data}")
+        expires_at = int(now) + 72 * 3600
+        _webrtc_key_cache = {'key': key, 'expires_at': expires_at}
+        return key, int(expires_at - now)
+
 telephony_service = TelephonyService()
+
 
 
 
