@@ -121,21 +121,30 @@ async def webhook_events(request: Request):
     """
     db = get_database()
 
-    # Пытаемся получить параметры (и из query, и из body)
-    if request.method == "GET":
-        params = dict(request.query_params)
-    else:
-        try:
-            body = await request.json()
-            params = body if isinstance(body, dict) else {}
-        except Exception:
-            params = dict(request.query_params)
+    # Собираем параметры по приоритету: query -> form -> json
+    params = dict(request.query_params)
+
+    if request.method != "GET":
+        content_type = request.headers.get("content-type", "")
+        if "application/x-www-form-urlencoded" in content_type:
+            try:
+                form = await request.form()
+                params.update({k: v for k, v in form.items()})
+            except Exception as e:
+                logger.warning("Ошибка разбора form-encoded: %s", e)
+        elif "application/json" in content_type:
+            try:
+                body = await request.json()
+                if isinstance(body, dict):
+                    params.update(body)
+            except Exception as e:
+                logger.warning("Ошибка разбора JSON body: %s", e)
 
     # Логируем сырой payload
     logger.info("Zadarma webhook received: %s", params)
 
     # --- Обработка zd_echo ---
-    echo = params.get("zd_echo") or request.query_params.get("zd_echo")
+    echo = params.get("zd_echo")
     if echo is not None:
         logger.info("Zadarma echo probe: returning %s", echo)
         return Response(content=str(echo), media_type="text/plain")

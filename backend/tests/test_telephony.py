@@ -175,6 +175,45 @@ async def test_zd_echo_get_with_params(webhook_client):
 # Тест: разбор payload вебхука → документ в telephony_calls
 # ---------------------------------------------------------------------------
 
+async def test_zd_echo_form_encoded_returns_value(webhook_client):
+    """Zadarma присылает zd_echo в form-encoded теле — возвращаем plain text."""
+    client = webhook_client
+    r = await client.post(
+        "/api/telephony/webhook/events",
+        data={"zd_echo": "form_echo_123"},
+    )
+
+    assert r.status_code == 200
+    assert r.text == "form_echo_123"
+
+
+async def test_webhook_notify_start_form_encoded_creates_call_record(clean_db, webhook_client):
+    """Событие NOTIFY_START в form-encoded теле создаёт запись звонка в БД."""
+    payload = {
+        "event": "NOTIFY_START",
+        "caller_id": "+77771234567",
+        "call_id": "test-form-1",
+        "internal": "100",
+        "pbx_call_id": "test-form-1",
+    }
+
+    client = webhook_client
+    r = await client.post(
+        "/api/telephony/webhook/events",
+        data=payload,
+    )
+
+    assert r.status_code == 200
+    assert r.json() == {"status": "ok"}
+
+    call = await clean_db.telephony_calls.find_one({"pbx_call_id": "test-form-1"})
+    assert call is not None
+    assert call["phone_number"] == "+77771234567"
+    assert call["normalized_phone"] == "7771234567"
+    assert call["direction"] == "inbound"
+    assert call["status"] == "missed"
+
+
 async def test_webhook_notify_start_creates_call_record(clean_db, webhook_client):
     """Событие NOTIFY_START создаёт запись звонка в БД."""
     payload = {
