@@ -644,8 +644,6 @@ async def test_webhook_notify_record_downloads_local_file(clean_db, webhook_clie
 
         "pbx_call_id": "call-004",
 
-        "caller_id": "79991234567",
-
         "call_id_with_rec": "1791290685.152014",
 
     }
@@ -767,8 +765,6 @@ async def test_webhook_notify_record_download_falls_back_to_remote_link(clean_db
         "event": "NOTIFY_RECORD",
 
         "pbx_call_id": "call-005",
-
-        "caller_id": "79991234567",
 
         "call_id_with_rec": "1791290685.152015",
 

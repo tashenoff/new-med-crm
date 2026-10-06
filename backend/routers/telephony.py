@@ -410,6 +410,61 @@ async def webhook_events(request: Request):
         logger.warning("Zadarma webhook: ни zd_echo, ни event не найдены. Payload: %s", params)
 
         return {"status": "ok"}
+
+    # ------------------------------------------------------------------
+    # NOTIFY_RECORD приходит БЕЗ номера телефона: ссылку на запись надо
+    # запрашивать отдельным методом, а привязку делать по pbx_call_id.
+    # Поэтому это событие обрабатываем ДО проверки телефона.
+    # ------------------------------------------------------------------
+    if event == "NOTIFY_RECORD":
+        rec_pbx_call_id = params.get("pbx_call_id", "")
+        call_id_with_rec = params.get("call_id_with_rec", "") or params.get("call_id", "")
+        recording_url = params.get("recording_url", "") or params.get("recording", "") or None
+
+        if call_id_with_rec and not recording_url:
+            local_url, remote_url = await _download_call_record(call_id_with_rec)
+            recording_url = local_url or remote_url
+
+        existing_call = None
+        if rec_pbx_call_id:
+            existing_call = await db.telephony_calls.find_one({"pbx_call_id": rec_pbx_call_id})
+
+        if existing_call:
+            rec_update = {"is_recorded": True, "updated_at": datetime.utcnow()}
+            if recording_url:
+                rec_update["recording_url"] = recording_url
+            if not existing_call.get("contact_name"):
+                contact_name = await _resolve_contact_name(db, existing_call)
+                if contact_name:
+                    rec_update["contact_name"] = contact_name
+            await db.telephony_calls.update_one(
+                {"_id": existing_call["_id"]},
+                {"$set": rec_update},
+            )
+            logger.info("Звонок %s: привязана запись %s", rec_pbx_call_id, recording_url)
+        else:
+            # Звонка ещё нет — сохраняем отдельным документом, чтобы не потерять запись
+            await db.telephony_calls.insert_one({
+                "phone_number": "",
+                "normalized_phone": "",
+                "direction": CallDirection.INBOUND.value,
+                "status": CallStatus.ANSWERED.value,
+                "disposition": Disposition.ANSWERED.value,
+                "pbx_call_id": rec_pbx_call_id,
+                "call_id": call_id_with_rec,
+                "is_recorded": True,
+                "duration": 0,
+                "recording_url": recording_url,
+                "created_at": datetime.utcnow(),
+                "updated_at": datetime.utcnow(),
+                "raw_payload": params,
+            })
+            logger.warning(
+                "NOTIFY_RECORD: звонок %s не найден, запись сохранена отдельно",
+                rec_pbx_call_id,
+            )
+        return {"status": "ok"}
+
 
 
 
