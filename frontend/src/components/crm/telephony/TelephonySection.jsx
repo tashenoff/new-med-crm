@@ -92,19 +92,20 @@ const TelephonySection = () => {
   return (
     <div className="space-y-6">
       {/* Заголовок */}
-      <div className="flex justify-between items-center">
-        <div>
-          <h2 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
-            📞 API Телефонии
-          </h2>
-          <p className="text-gray-600 mt-1">Интеграция с телефонией для отслеживания звонков</p>
+      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
+        <div className="flex justify-between items-center">
+          <div>
+            <h2 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
+              📞 API Телефонии
+            </h2>
+            <p className="text-gray-600 mt-1">Интеграция с телефонией для отслеживания звонков</p>
+          </div>
+          <button className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2">
+            <span>⚙️</span>
+            Настройки API
+          </button>
         </div>
-        <button className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2">
-          <span>⚙️</span>
-          Настройки API
-        </button>
       </div>
-
       {/* Статистика */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <div className="bg-gradient-to-br from-blue-500 to-blue-600 rounded-lg shadow-md p-6 text-white">
