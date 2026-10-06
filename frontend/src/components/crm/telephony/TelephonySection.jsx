@@ -1,15 +1,93 @@
-import React, { useState } from 'react';
+﻿import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import { apiClient, handleApiError } from '../../../api/config';
 
 const TelephonySection = () => {
   const [activeTab, setActiveTab] = useState('calls');
+  const [calls, setCalls] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+  const [filter, setFilter] = useState('all'); // all | inbound | outbound | missed
 
-  const calls = [];
-  const stats = {
-    totalCalls: 0,
-    missedCalls: 0,
-    averageDuration: '0:00',
-    conversionRate: '0%'
-  };
+  // Загрузка журнала звонков.
+  const fetchCalls = useCallback(async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      const { data } = await apiClient.get('/telephony/calls', { params: { limit: 200 } });
+      setCalls(Array.isArray(data) ? data : []);
+    } catch (err) {
+      setError(handleApiError(err));
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchCalls();
+  }, [fetchCalls]);
+
+  // Фильтрация по типу звонка.
+  const filteredCalls = useMemo(() => {
+    if (filter === 'all') return calls;
+    if (filter === 'missed') {
+      return calls.filter(c => c.status === 'missed' || c.disposition === 'missed' || c.disposition === 'no answer');
+    }
+    return calls.filter(c => c.direction === filter);
+  }, [calls, filter]);
+
+  // Статистика из загруженных данных.
+  const stats = useMemo(() => {
+    const total = calls.length;
+    const missed = calls.filter(c => c.status === 'missed' || c.disposition === 'missed' || c.disposition === 'no answer').length;
+    const answered = calls.filter(c => c.status === 'answered' || c.disposition === 'answered').length;
+    const totalDuration = calls.reduce((sum, c) => sum + (Number(c.duration) || 0), 0);
+    const avgDuration = total > 0 ? Math.round(totalDuration / total) : 0;
+    const conversionRate = total > 0 ? Math.round((answered / total) * 100) : 0;
+
+    return {
+      totalCalls: total,
+      missedCalls: missed,
+      averageDuration: formatDuration(avgDuration),
+      conversionRate: `${conversionRate}%`
+    };
+  }, [calls]);
+
+  // Экспорт в CSV ("Excel").
+  const exportToCsv = useCallback(() => {
+    const rows = filteredCalls.map(c => ({
+      Дата: formatDateTime(c.created_at),
+      Номер: c.phone_number || c.normalized_phone || '',
+      Направление: directionLabel(c.direction),
+      Статус: statusLabel(c.status, c.disposition),
+      Длительность: formatDuration(Number(c.duration) || 0),
+      Запись: c.recording_url || ''
+    }));
+
+    if (rows.length === 0) return;
+
+    const headers = Object.keys(rows[0]);
+    const escape = (val) => {
+      const str = String(val ?? '');
+      if (str.includes(';') || str.includes('"') || str.includes('\n')) {
+        return `"${str.replace(/"/g, '""')}"`;
+      }
+      return str;
+    };
+    const csv = [
+      headers.join(';'),
+      ...rows.map(row => headers.map(h => escape(row[h])).join(';'))
+    ].join('\n');
+
+    const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `telephony_calls_${new Date().toISOString().slice(0, 10)}.csv`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  }, [filteredCalls]);
 
   return (
     <div className="space-y-6">
@@ -126,107 +204,127 @@ const TelephonySection = () => {
                   className="w-64 border border-gray-300 rounded-md px-3 py-2 text-sm"
                 />
                 <div className="flex gap-2">
-                  <select className="border border-gray-300 rounded-md px-3 py-2 text-sm">
-                    <option>Все типы звонков</option>
-                    <option>Входящие</option>
-                    <option>Исходящие</option>
-                    <option>Пропущенные</option>
+                  <select
+                    value={filter}
+                    onChange={(e) => setFilter(e.target.value)}
+                    className="border border-gray-300 rounded-md px-3 py-2 text-sm"
+                  >
+                    <option value="all">Все типы звонков</option>
+                    <option value="inbound">Входящие</option>
+                    <option value="outbound">Исходящие</option>
+                    <option value="missed">Пропущенные</option>
                   </select>
-                  <button className="bg-green-600 text-white px-4 py-2 rounded-md text-sm hover:bg-green-700">
+                  <button
+                    onClick={exportToCsv}
+                    className="bg-green-600 text-white px-4 py-2 rounded-md text-sm hover:bg-green-700"
+                  >
                     Экспорт в Excel
                   </button>
                 </div>
               </div>
 
+              {/* Состояние загрузки */}
+              {loading && (
+                <div className="text-center py-8 text-gray-500">
+                  <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mb-2"></div>
+                  <p>Загрузка журнала звонков...</p>
+                </div>
+              )}
+
+              {/* Состояние ошибки */}
+              {!loading && error && (
+                <div className="text-center py-8 text-red-600">
+                  <p className="mb-3">{error}</p>
+                  <button
+                    onClick={fetchCalls}
+                    className="bg-blue-600 text-white px-4 py-2 rounded-md text-sm hover:bg-blue-700"
+                  >
+                    Повторить
+                  </button>
+                </div>
+              )}
+
               {/* Список звонков */}
-              <div className="overflow-x-auto">
-                <table className="min-w-full divide-y divide-gray-200">
-                  <thead className="bg-gray-50">
-                    <tr>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Время
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Номер телефона
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Клиент
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Тип
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Статус
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Длительность
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Действия
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody className="bg-white divide-y divide-gray-200">
-                    {calls.length === 0 ? (
+              {!loading && !error && (
+                <div className="overflow-x-auto">
+                  <table className="min-w-full divide-y divide-gray-200">
+                    <thead className="bg-gray-50">
                       <tr>
-                        <td colSpan="7" className="px-6 py-8 text-center text-gray-500">
-                          <div className="flex flex-col items-center">
-                            <span className="text-4xl mb-2">📞</span>
-                            <p>Нет данных о звонках</p>
-                            <p className="text-sm text-gray-400 mt-1">Звонки будут отображаться после подключения API телефонии</p>
-                          </div>
-                        </td>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Время
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Номер телефона
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Направление
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Статус
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Длительность
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Запись
+                        </th>
                       </tr>
-                    ) : (
-                      calls.map((call) => (
-                        <tr key={call.id} className="hover:bg-gray-50">
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                            {call.date}
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <div className="text-sm font-medium text-gray-900">{call.phone}</div>
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <div className="text-sm text-gray-900">{call.clientName}</div>
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                              call.type === 'incoming' 
-                                ? 'bg-blue-100 text-blue-800' 
-                                : 'bg-green-100 text-green-800'
-                            }`}>
-                              {call.type === 'incoming' ? '📥 Входящий' : '📤 Исходящий'}
-                            </span>
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                              call.status === 'completed' 
-                                ? 'bg-green-100 text-green-800' 
-                                : 'bg-red-100 text-red-800'
-                            }`}>
-                              {call.status === 'completed' ? '✅ Завершен' : '❌ Пропущен'}
-                            </span>
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                            {call.duration}
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm space-x-2">
-                            <button className="text-blue-600 hover:text-blue-900" title="Прослушать запись">
-                              🎧
-                            </button>
-                            <button className="text-green-600 hover:text-green-900" title="Перезвонить">
-                              📞
-                            </button>
-                            <button className="text-purple-600 hover:text-purple-900" title="Создать задачу">
-                              ✏️
-                            </button>
+                    </thead>
+                    <tbody className="bg-white divide-y divide-gray-200">
+                      {filteredCalls.length === 0 ? (
+                        <tr>
+                          <td colSpan="6" className="px-6 py-8 text-center text-gray-500">
+                            <div className="flex flex-col items-center">
+                              <span className="text-4xl mb-2">📞</span>
+                              <p>Нет данных о звонках</p>
+                              <p className="text-sm text-gray-400 mt-1">Звонки будут отображаться после подключения API телефонии</p>
+                            </div>
                           </td>
                         </tr>
-                      ))
-                    )}
-                  </tbody>
-                </table>
-              </div>
+                      ) : (
+                        filteredCalls.map((call, index) => (
+                          <tr key={call.id || index} className="hover:bg-gray-50">
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                              {formatDateTime(call.created_at)}
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap">
+                              <div className="text-sm font-medium text-gray-900">{call.phone_number || call.normalized_phone || '—'}</div>
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap">
+                              <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                                call.direction === 'inbound'
+                                  ? 'bg-blue-100 text-blue-800'
+                                  : 'bg-green-100 text-green-800'
+                              }`}>
+                                {directionLabel(call.direction)}
+                              </span>
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap">
+                              <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                                call.status === 'answered' || call.disposition === 'answered'
+                                  ? 'bg-green-100 text-green-800'
+                                  : 'bg-red-100 text-red-800'
+                              }`}>
+                                {statusLabel(call.status, call.disposition)}
+                              </span>
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                              {formatDuration(Number(call.duration) || 0)}
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                              {call.recording_url ? (
+                                <audio controls src={call.recording_url} className="h-8 w-48" />
+                              ) : (
+                                '—'
+                              )}
+                            </td>
+                          </tr>
+                        ))
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              )}
             </div>
           )}
 
@@ -402,6 +500,50 @@ const TelephonySection = () => {
       </div>
     </div>
   );
+};
+
+// Форматирование даты и времени.
+const formatDateTime = (value) => {
+  if (!value) return '—';
+  const d = new Date(value);
+  if (isNaN(d)) return '—';
+  return d.toLocaleString('ru-RU', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit'
+  });
+};
+
+// Форматирование длительности в мм:сс.
+const formatDuration = (seconds) => {
+  const s = Math.max(0, Math.round(Number(seconds) || 0));
+  const m = Math.floor(s / 60);
+  const rem = s % 60;
+  return `${m}:${String(rem).padStart(2, '0')}`;
+};
+
+// Отображение направления.
+const directionLabel = (direction) => {
+  if (direction === 'inbound') return '📥 Входящий';
+  if (direction === 'outbound') return '📤 Исходящий';
+  return '—';
+};
+
+// Отображение статуса с учётом disposition.
+const statusLabel = (status, disposition) => {
+  const s = disposition || status || '';
+  const map = {
+    answered: '✅ Отвечен',
+    missed: '❌ Пропущен',
+    rejected: '❌ Отклонён',
+    busy: '⏳ Занят',
+    failed: '⚠️ Ошибка',
+    'no answer': '❌ Нет ответа',
+    cancel: '❌ Отменён'
+  };
+  return map[s] || s || '—';
 };
 
 export default TelephonySection;
