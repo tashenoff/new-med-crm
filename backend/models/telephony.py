@@ -31,6 +31,7 @@ class TelephonyCall(BaseModel):
     client_id: Optional[str] = None  # ID лида или пациента
     patient_id: Optional[str] = None  # ID пациента, если найден
     lead_id: Optional[str] = None    # ID лида, если создан
+    contact_name: Optional[str] = None  # Имя пациента или лида, подтянутое по номеру
     phone_number: str
     direction: CallDirection
     status: CallStatus

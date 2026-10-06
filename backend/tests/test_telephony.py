@@ -532,3 +532,95 @@ async def test_get_calls_with_real_objectid(clean_db, auth_client):
     found = [c for c in data if c.get("pbx_call_id") == "regression-call-001"]
     assert len(found) == 1, "Звонок с ObjectId _id должен присутствовать в ответе"
     assert found[0]["phone_number"] == "+79991234567"
+
+
+# ---------------------------------------------------------------------------
+# Тесты: contact_name подтягивается из пациента или лида
+# ---------------------------------------------------------------------------
+
+async def test_get_calls_contact_name_from_patient(clean_db, auth_client):
+    """Пациент с телефоном + звонок с этим номером → contact_name = ФИО пациента."""
+    from datetime import datetime, timezone
+
+    await clean_db.patients.insert_one({
+        "id": "patient-contact-001",
+        "full_name": "Анна Сергеевна Волкова",
+        "phone": "+7 (900) 111-22-33",
+    })
+
+    await clean_db.telephony_calls.insert_one({
+        "phone_number": "+79001112233",
+        "normalized_phone": "9001112233",
+        "direction": "inbound",
+        "status": "missed",
+        "duration": 0,
+        "created_at": datetime(2026, 1, 1, 10, 0, 0, tzinfo=timezone.utc),
+        "updated_at": datetime(2026, 1, 1, 10, 0, 0, tzinfo=timezone.utc),
+        "pbx_call_id": "contact-patient-001",
+    })
+
+    client = auth_client
+    r = await client.get("/api/telephony/calls")
+    assert r.status_code == 200
+
+    found = [c for c in r.json() if c.get("pbx_call_id") == "contact-patient-001"]
+    assert len(found) == 1
+    assert found[0]["contact_name"] == "Анна Сергеевна Волкова"
+
+
+async def test_get_calls_contact_name_empty_for_unknown_number(clean_db, auth_client):
+    """Звонок с неизвестным номером → contact_name пустой."""
+    from datetime import datetime, timezone
+
+    await clean_db.telephony_calls.insert_one({
+        "phone_number": "+79002223344",
+        "normalized_phone": "9002223344",
+        "direction": "inbound",
+        "status": "missed",
+        "duration": 0,
+        "created_at": datetime(2026, 1, 1, 10, 0, 0, tzinfo=timezone.utc),
+        "updated_at": datetime(2026, 1, 1, 10, 0, 0, tzinfo=timezone.utc),
+        "pbx_call_id": "contact-unknown-001",
+    })
+
+    client = auth_client
+    r = await client.get("/api/telephony/calls")
+    assert r.status_code == 200
+
+    found = [c for c in r.json() if c.get("pbx_call_id") == "contact-unknown-001"]
+    assert len(found) == 1
+    assert found[0]["contact_name"] in (None, "")
+
+
+async def test_get_calls_contact_name_from_lead(clean_db, auth_client):
+    """Активный лид по номеру без пациента → contact_name = имя лида."""
+    from datetime import datetime, timezone
+
+    await clean_db.crm_leads.insert_one({
+        "id": "lead-contact-001",
+        "first_name": "Дмитрий",
+        "last_name": "Орлов",
+        "phone": "+79003334455",
+        "source": "phone",
+        "status": "new",
+        "is_active": True,
+    })
+
+    await clean_db.telephony_calls.insert_one({
+        "phone_number": "+79003334455",
+        "normalized_phone": "9003334455",
+        "direction": "inbound",
+        "status": "missed",
+        "duration": 0,
+        "created_at": datetime(2026, 1, 1, 10, 0, 0, tzinfo=timezone.utc),
+        "updated_at": datetime(2026, 1, 1, 10, 0, 0, tzinfo=timezone.utc),
+        "pbx_call_id": "contact-lead-001",
+    })
+
+    client = auth_client
+    r = await client.get("/api/telephony/calls")
+    assert r.status_code == 200
+
+    found = [c for c in r.json() if c.get("pbx_call_id") == "contact-lead-001"]
+    assert len(found) == 1
+    assert found[0]["contact_name"] == "Дмитрий Орлов"
