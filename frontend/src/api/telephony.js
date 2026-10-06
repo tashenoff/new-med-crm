@@ -38,11 +38,11 @@ export const telephonyApi = {
    * @param {number} [options.limit=50]
    */
   getCallsByPhone: async (phone, { limit = 50 } = {}) => {
-    const { data } = await apiClient.get(/telephony/calls/, {
-      params: { limit },
-    });
-    return data;
-  },
+      const { data } = await apiClient.get(`/telephony/calls/${encodeURIComponent(phone)}`, {
+        params: { limit },
+      });
+      return data;
+    },
 
   healthCheck: async () => {
     const { data } = await apiClient.get('/telephony/health');

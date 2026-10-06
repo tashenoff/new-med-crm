@@ -145,7 +145,7 @@ const DialerWidget = ({ isOpen, onClose, initialPhone = '' }) => {
           <button
             key={t.key}
             onClick={() => setTab(t.key)}
-            className={lex-1 px-3 py-2.5 text-sm font-medium transition-colors }
+            className={`flex-1 px-3 py-2.5 text-sm font-medium transition-colors ${t.key === tab ? 'border-b-2 border-blue-500 text-blue-600 dark:text-white font-semibold' : 'text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white'}`}
           >
             {t.label}
           </button>
@@ -155,7 +155,7 @@ const DialerWidget = ({ isOpen, onClose, initialPhone = '' }) => {
       {/* Статус */}
       {status && (
         <div
-          className={lex-shrink-0 mx-3 mt-2 px-3 py-2 rounded-lg text-sm }
+          className={`flex-shrink-0 mx-3 mt-2 px-3 py-2 rounded-lg text-sm ${status.type === 'success' ? 'bg-green-50 text-green-700 dark:bg-green-900/30 dark:text-green-300' : 'bg-red-50 text-red-700 dark:bg-red-900/30 dark:text-red-300'}`}
         >
           {status.type === 'success' ? '✅' : '⚠️'} {status.message}
         </div>
