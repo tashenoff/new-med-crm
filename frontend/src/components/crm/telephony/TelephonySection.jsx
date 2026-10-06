@@ -288,7 +288,14 @@ const TelephonySection = () => {
                               {formatDateTime(call.created_at)}
                             </td>
                             <td className="px-6 py-4 whitespace-nowrap">
-                              <div className="text-sm font-medium text-gray-900">{call.phone_number || call.normalized_phone || '—'}</div>
+                              {call.contact_name ? (
+                                <div>
+                                  <div className="text-sm font-medium text-gray-900">{call.contact_name}</div>
+                                  <div className="text-xs text-gray-500">{call.phone_number || call.normalized_phone || '—'}</div>
+                                </div>
+                              ) : (
+                                <div className="text-sm font-medium text-gray-900">{call.phone_number || call.normalized_phone || '—'}</div>
+                              )}
                             </td>
                             <td className="px-6 py-4 whitespace-nowrap">
                               <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
