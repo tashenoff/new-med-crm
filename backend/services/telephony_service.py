@@ -1,4 +1,4 @@
-﻿import os
+import os
 
 import hashlib
 
@@ -316,25 +316,19 @@ class TelephonyService:
 
 
 
-        data = {
-
-            "from": self._caller_id,
-
-            "to": phone,
-
-        }
-
+        # Замечание: у Zadarma метод /request/callback/ работает через GET-параметры
+        # (см. официальную PHP-обёртку user-api-v1: requestCallback -> request('request/callback', ...) == GET).
+        # POST/неверный формат отдают 400 Wrong parameters.
+        # Формат номера — только цифры, без '+' (PHP filterNumber).
+        from re import sub as _sub
+        clean_from = _sub(r'\D', '', self._caller_id)
+        clean_to = _sub(r'\D', '', phone)
+        params = {"from": clean_from, "to": clean_to}
         if sip:
-
-            data["sip"] = sip
-
+            params["sip"] = _sub(r'\D', '', sip)
         elif self._sip_internal:
-
-            data["sip"] = self._sip_internal
-
-
-
-        return await self._api_request("POST", "request/callback", data=data)
+            params["sip"] = _sub(r'\D', '', self._sip_internal)
+        return await self._api_request("GET", "request/callback", params=params)
 
 
 
