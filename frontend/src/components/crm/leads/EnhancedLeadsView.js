@@ -19,6 +19,8 @@ import LeadHistory from './LeadHistoryTimeline';
 import { historyStatusLabel } from '../../../utils/leadHistory';
 import { firstTouchDateRange, matchesFirstTouchDate } from '../../../utils/firstTouchDateFilter';
 import FirstTouchDateFilter from './FirstTouchDateFilter';
+import { useKanbanColumns } from '../../../hooks/useKanbanColumns';
+import { cardColumnId, canMoveCard, manualColumn } from '../../../utils/kanbanColumns';
 import { inputClasses, selectClasses, labelClasses, buttonPrimaryClasses, buttonSecondaryClasses } from '../../modals/modalUtils';
 
 const fetchHistoryCalls = async ({ phone, limit, offset }) => {
@@ -69,12 +71,7 @@ const EnhancedLeadsView = ({ user }) => {
     description: '',
     services_interested: []
   });
-  const [newColumn, setNewColumn] = useState({
-    title: '',
-    status: '',
-    color: 'bg-gray-500',
-    bgColor: 'bg-gray-50 dark:bg-gray-800'
-  });
+  const [newColumnName, setNewColumnName] = useState('');
 
   // Состояния для модального окна HMS данных
   const [showHmsDataModal, setShowHmsDataModal] = useState(false);
@@ -98,7 +95,6 @@ const EnhancedLeadsView = ({ user }) => {
     error,
     fetchLeads,
     createLead,
-    updateLeadStatus,
     convertLead,
     deleteLead,
     fetchAvailableManagers,
@@ -106,6 +102,15 @@ const EnhancedLeadsView = ({ user }) => {
     clearError,
     checkPatientByPhone
   } = useCrm({ kanban: true });
+
+  const columnConfig = useKanbanColumns(fetchLeads);
+  const kanbanColumns = columnConfig.columns;
+
+  useEffect(() => {
+    if (!columnConfig.loading && statusFilter !== 'all' && !kanbanColumns.some(column => column.id === statusFilter)) {
+      setStatusFilter('all');
+    }
+  }, [kanbanColumns, columnConfig.loading, statusFilter]);
 
   // Состояния для проверки пациента по телефону
   const [foundPatient, setFoundPatient] = useState(null);
@@ -307,7 +312,7 @@ const EnhancedLeadsView = ({ user }) => {
     let filtered = leads.filter(lead => matchesFirstTouchDate(lead, dateRange));
     
     if (statusFilter !== 'all') {
-      filtered = filtered.filter(lead => lead.status === statusFilter);
+      filtered = filtered.filter(lead => cardColumnId(lead) === statusFilter);
     }
     
     if (searchTerm) {
@@ -321,14 +326,6 @@ const EnhancedLeadsView = ({ user }) => {
     }
     
     setFilteredLeads(filtered);
-  };
-
-  const handleStatusChange = async (leadId, newStatus) => {
-    try {
-      await updateLeadStatus(leadId, newStatus);
-    } catch (error) {
-      console.error('Error updating lead status:', error);
-    }
   };
 
   const handleConvertToClient = async (lead) => {
@@ -547,41 +544,36 @@ const EnhancedLeadsView = ({ user }) => {
 
   // Функции управления колонками
   const handleEditColumn = (column) => {
+    if (column.is_system) return;
     setEditingColumn(column);
-    setNewColumn({
-      title: column.title,
-      status: column.status,
-      color: column.color,
-      bgColor: column.bgColor
-    });
+    setNewColumnName(column.name);
     setShowColumnModal(true);
   };
 
   const handleCreateNewColumn = () => {
     setEditingColumn(null);
-    setNewColumn({
-      title: '',
-      status: '',
-      color: 'bg-gray-500',
-      bgColor: 'bg-gray-50 dark:bg-gray-800'
-    });
+    setNewColumnName('');
     setShowColumnModal(true);
   };
 
-  const handleSaveColumn = () => {
-    // В будущем здесь будет API вызов для сохранения колонки
-    console.log('Saving column:', newColumn, 'editing:', editingColumn);
-    alert(editingColumn ? 'Колонка обновлена!' : 'Новая колонка создана!');
-    setShowColumnModal(false);
-    setEditingColumn(null);
+  const handleSaveColumn = async event => {
+    event.preventDefault();
+    const name = newColumnName.trim();
+    if (!name || columnConfig.busy) return;
+    const path = editingColumn ? `/kanban/columns/${encodeURIComponent(editingColumn.id)}` : '/kanban/columns';
+    if (await columnConfig.mutate(path, editingColumn ? 'PATCH' : 'POST', { name })) {
+      setShowColumnModal(false);
+      setEditingColumn(null);
+    }
   };
 
-  const handleDeleteColumn = (columnId) => {
-    if (confirm('Вы уверены, что хотите удалить эту колонку?')) {
-      // В будущем здесь будет API вызов для удаления колонки
-      console.log('Deleting column:', columnId);
-      alert('Колонка удалена!');
-    }
+  const handleReorderColumn = (column, direction) => {
+    const columnIds = kanbanColumns.map(item => item.id);
+    const index = columnIds.indexOf(column.id);
+    const destination = index + direction;
+    if (index < 0 || destination < 0 || destination >= columnIds.length) return;
+    [columnIds[index], columnIds[destination]] = [columnIds[destination], columnIds[index]];
+    columnConfig.mutate('/kanban/columns/order', 'PUT', { column_ids: columnIds });
   };
 
   const TaskList = ({ leadId }) => {
@@ -647,69 +639,8 @@ const EnhancedLeadsView = ({ user }) => {
     );
   };
 
-  // Канбан колонки с конфигурацией как в AmoCRM
-  const kanbanColumns = [
-    {
-      id: 'new',
-      title: 'НЕРАЗОБРАННЫЕ',
-      status: 'new',
-      color: 'bg-gray-500',
-      bgColor: 'bg-gray-50 dark:bg-gray-800'
-    },
-    {
-      id: 'contacted',
-      title: 'ЗАПИСАН НА ПРИЕМ',
-      status: 'contacted', 
-      color: 'bg-blue-500',
-      bgColor: 'bg-blue-50 dark:bg-blue-900/20'
-    },
-    {
-      id: 'in_progress',
-      title: 'ЗАПИСЬ ПОДТВЕРЖДЕНА',
-      status: 'in_progress',
-      color: 'bg-yellow-500', 
-      bgColor: 'bg-yellow-50 dark:bg-yellow-900/20'
-    },
-    {
-      id: 'converted',
-      title: 'ПАЦИЕНТ ПРИШЁЛ',
-      status: 'converted',
-      color: 'bg-purple-500',
-      bgColor: 'bg-purple-50 dark:bg-purple-900/20'
-    },
-    {
-      id: 'closed',
-      title: 'ОПЛАЧЕНО',
-      status: 'closed',
-      color: 'bg-green-500',
-      bgColor: 'bg-green-50 dark:bg-green-900/20'
-    },
-    {
-      id: 'rejected',
-      title: 'ОТКЛОНЕНО',
-      status: 'rejected',
-      color: 'bg-red-500',
-      bgColor: 'bg-red-50 dark:bg-red-900/20'
-    },
-    {
-      id: 'qualified',
-      title: 'КВАЛИФИЦИРОВАН',
-      status: 'qualified',
-      color: 'bg-indigo-500',
-      bgColor: 'bg-indigo-50 dark:bg-indigo-900/20'
-    },
-    {
-      id: 'lost',
-      title: 'ПОТЕРЯН',
-      status: 'lost',
-      color: 'bg-gray-500',
-      bgColor: 'bg-gray-50 dark:bg-gray-900/20'
-    }
-  ];
-
-  // Группировка заявок по статусам
   const groupedLeads = kanbanColumns.reduce((acc, column) => {
-    acc[column.status] = filteredLeads.filter(lead => lead.status === column.status);
+    acc[column.id] = filteredLeads.filter(lead => cardColumnId(lead) === column.id);
     return acc;
   }, {});
 
@@ -914,7 +845,8 @@ const EnhancedLeadsView = ({ user }) => {
     return (
       <div
         key={lead.id}
-        draggable
+        data-lead-id={lead.id}
+        draggable={!columnConfig.busy && !columnConfig.loading && lead.status === 'new' && manualColumn(kanbanColumns.find(column => column.id === cardColumnId(lead)))}
         onDragStart={(e) => handleDragStart(e, lead)}
         onClick={() => handleShowLeadHmsData(lead)}
         className={cn(
@@ -1107,27 +1039,27 @@ const EnhancedLeadsView = ({ user }) => {
     );
   };
 
-  // Drag & Drop handlers
-  const handleDragStart = (e, lead) => {
-    e.dataTransfer.setData('text/plain', JSON.stringify({
-      leadId: lead.id,
-      currentStatus: lead.status
-    }));
+  const handleDragStart = (event, lead) => {
+    const source = kanbanColumns.find(column => column.id === cardColumnId(lead));
+    if (columnConfig.busy || columnConfig.loading || lead.status !== 'new' || !manualColumn(source)) {
+      event.preventDefault();
+      return;
+    }
+    event.dataTransfer.effectAllowed = 'move';
+    event.dataTransfer.setData('text/plain', JSON.stringify({ leadId: lead.id }));
   };
 
-  const handleDragOver = (e) => {
-    e.preventDefault();
-  };
-
-  const handleDrop = async (e, newStatus) => {
-    e.preventDefault();
+  const handleDrop = async (event, destination) => {
+    event.preventDefault();
+    if (columnConfig.busy || columnConfig.loading || !manualColumn(destination)) return;
     try {
-      const data = JSON.parse(e.dataTransfer.getData('text/plain'));
-      if (data.currentStatus !== newStatus) {
-        await handleStatusChange(data.leadId, newStatus);
+      const data = JSON.parse(event.dataTransfer.getData('text/plain'));
+      const lead = leads.find(item => item.id === data.leadId);
+      if (lead && canMoveCard(lead, destination, kanbanColumns)) {
+        await columnConfig.mutate(`/leads/${encodeURIComponent(lead.id)}/kanban-column`, 'PATCH', { column_id: destination.id });
       }
-    } catch (error) {
-      console.error('Error dropping lead:', error);
+    } catch {
+      return;
     }
   };
 
@@ -1182,27 +1114,67 @@ const EnhancedLeadsView = ({ user }) => {
 
           <FirstTouchDateFilter value={dateFilter} onChange={setDateFilter} />
 
-          {/* Kanban Board */}
-          <div className="flex overflow-x-auto h-screen">
-        {kanbanColumns.map((column) => {
-          const stats = getColumnStats(column.status);
-          const columnLeads = groupedLeads[column.status] || [];
+      {/* Kanban Board */}
+      <section aria-label="Колонки Канбан" className="min-w-0">
+        <div className="flex flex-wrap items-center justify-between gap-3 mb-3">
+          <p className={cn("text-sm", themeClasses.text.muted)}>Общие колонки для всех сотрудников клиники</p>
+          <select aria-label="Статус на доске" value={statusFilter} onChange={event => setStatusFilter(event.target.value)}
+            className={cn(selectClasses, "w-full sm:w-auto")}>
+            <option value="all">Все статусы</option>
+            {kanbanColumns.map(column => <option key={column.id} value={column.id}>{column.name}</option>)}
+          </select>
+          <button type="button" onClick={handleCreateNewColumn} disabled={columnConfig.loading || columnConfig.busy}
+            className={cn(buttonSecondaryClasses, "inline-flex items-center gap-2 text-sm disabled:opacity-50")}>
+            <Plus className="w-4 h-4" /> Добавить колонку
+          </button>
+        </div>
+        {columnConfig.loading && <p role="status" className={themeClasses.text.secondary}>Загрузка колонок…</p>}
+        {columnConfig.busy && <p role="status" className={themeClasses.text.secondary}>Сохранение изменений…</p>}
+        {columnConfig.error && <div role="alert" className="mb-3 p-3 rounded-lg bg-red-50 text-red-800 dark:bg-red-900/30 dark:text-red-200">
+          {columnConfig.error}
+          <button type="button" onClick={columnConfig.reload} disabled={columnConfig.busy} className="ml-3 underline">Обновить колонки</button>
+        </div>}
+        {columnConfig.notice && <p role="status" className={themeClasses.text.secondary}>{columnConfig.notice}</p>}
+      <div className="flex overflow-x-auto items-stretch pb-3" tabIndex={0} aria-label="Доска сделок">
+        {kanbanColumns.map((column, index) => {
+          const stats = getColumnStats(column.id);
+          const columnLeads = groupedLeads[column.id] || [];
+          const background = column.is_system
+            ? { new: 'bg-gray-50 dark:bg-gray-800', contacted: 'bg-blue-50 dark:bg-blue-900/20',
+                in_progress: 'bg-yellow-50 dark:bg-yellow-900/20', converted: 'bg-purple-50 dark:bg-purple-900/20',
+                closed: 'bg-green-50 dark:bg-green-900/20' }[column.id]
+            : 'bg-slate-50 dark:bg-slate-900/30';
           
           return (
             <div 
               key={column.id}
-              className="flex-shrink-0 w-80 h-full"
-              onDragOver={handleDragOver}
-              onDrop={(e) => handleDrop(e, column.status)}
+              data-column-id={column.id}
+              className="flex-shrink-0 w-72 sm:w-80 flex flex-col"
+              onDragOver={event => {
+                if (!columnConfig.busy && !columnConfig.loading && manualColumn(column)) {
+                  event.preventDefault();
+                  event.dataTransfer.dropEffect = 'move';
+                }
+              }}
+              onDrop={(event) => handleDrop(event, column)}
             >
               {/* Column Header */}
-              <div className={cn("p-4 border-r border-b", column.bgColor, themeClasses.border.default)}>
-                <div className="flex items-center justify-between mb-2">
-                  <h3 className={cn("font-medium", themeClasses.text.primary)}>
-                    {column.title}
+              <div className={cn("p-4 border-r border-b min-h-40", background, themeClasses.border.default)}>
+                <div className="mb-2">
+                  <h3 className={cn("font-medium break-words", themeClasses.text.primary)}>
+                    {column.name}
                   </h3>
-                  <div className="flex items-center space-x-1">
+                  <div className="flex flex-wrap items-center gap-1 my-2">
+                    {column.is_system && <span className="text-xs px-2 py-1 rounded bg-white/70 dark:bg-gray-700">Системная</span>}
+                    <button type="button" aria-label={`Переместить «${column.name}» влево`} disabled={index === 0 || columnConfig.busy || columnConfig.loading}
+                      onClick={() => handleReorderColumn(column, -1)} className="p-1 rounded hover:bg-white/50 dark:hover:bg-gray-600 disabled:opacity-30">←</button>
+                    <button type="button" aria-label={`Переместить «${column.name}» вправо`} disabled={index === kanbanColumns.length - 1 || columnConfig.busy || columnConfig.loading}
+                      onClick={() => handleReorderColumn(column, 1)} className="p-1 rounded hover:bg-white/50 dark:hover:bg-gray-600 disabled:opacity-30">→</button>
+                    {!column.is_system && <>
                     <button 
+                      type="button"
+                      aria-label={`Переименовать «${column.name}»`}
+                      disabled={columnConfig.busy || columnConfig.loading}
                       onClick={() => handleEditColumn(column)}
                       className="p-1 hover:bg-white/50 dark:hover:bg-gray-600 rounded"
                       title="Редактировать колонку"
@@ -1210,15 +1182,16 @@ const EnhancedLeadsView = ({ user }) => {
                       <Edit className="w-3 h-3" />
                     </button>
                     <button 
-                      onClick={() => handleDeleteColumn(column.id)}
+                      type="button"
+                      aria-label={`Удалить «${column.name}»`}
+                      disabled={columnConfig.busy || columnConfig.loading}
+                      onClick={() => columnConfig.remove(column)}
                       className="p-1 hover:bg-white/50 dark:hover:bg-gray-600 rounded"
                       title="Удалить колонку"
                     >
                       <Trash2 className="w-3 h-3" />
                     </button>
-                    <button className="p-1 hover:bg-white/50 dark:hover:bg-gray-600 rounded">
-                      <Plus className="w-4 h-4" />
-                    </button>
+                    </>}
                   </div>
                 </div>
                 
@@ -1227,12 +1200,13 @@ const EnhancedLeadsView = ({ user }) => {
                 </div>
                 
                 <div className={cn("text-sm", themeClasses.text.muted)}>
-                  {stats.count} {stats.count === 1 ? 'сделка' : stats.count < 5 ? 'сделки' : 'сделок'}
+                  Карточек: {stats.count}
                 </div>
+                {!manualColumn(column) && <p className={cn("text-xs mt-1", themeClasses.text.muted)}>Обновляется автоматически</p>}
               </div>
 
               {/* Column Content */}
-              <div className={cn("p-4 overflow-y-auto border-r", column.bgColor, themeClasses.border.default)} style={{ height: 'calc(100vh - 140px)' }}>
+              <div className={cn("p-4 overflow-y-auto border-r flex-1", background, themeClasses.border.default)} style={{ maxHeight: '70vh', minHeight: '16rem' }}>
                 {columnLeads.length === 0 ? (
                   <div className="text-center py-8">
                     <p className={cn("text-sm", themeClasses.text.muted)}>Пусто</p>
@@ -1245,22 +1219,8 @@ const EnhancedLeadsView = ({ user }) => {
           );
         })}
         
-        {/* Add New Column Button */}
-        <div className="flex-shrink-0 w-80 h-full flex items-start justify-center pt-8">
-          <button
-            onClick={handleCreateNewColumn}
-            className={cn(
-              "w-64 p-6 border-2 border-dashed rounded-lg transition-colors",
-              "hover:border-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20",
-              themeClasses.border.default,
-              themeClasses.text.muted
-            )}
-          >
-            <Plus className="w-8 h-8 mx-auto mb-2" />
-            <p className="text-sm font-medium">Добавить колонку</p>
-          </button>
-        </div>
       </div>
+      </section>
 
       {/* Create Lead Modal */}
       <Modal 
@@ -1556,111 +1516,48 @@ const EnhancedLeadsView = ({ user }) => {
       {/* Column Edit Modal */}
       <Modal 
         show={showColumnModal} 
-        onClose={() => setShowColumnModal(false)}
-        title={editingColumn ? "Редактировать колонку" : "Новая колонка"}
+        onClose={() => { if (!columnConfig.busy) setShowColumnModal(false); }}
+        title={editingColumn ? "Переименовать колонку" : "Новая колонка"}
         size="max-w-md"
       >
-        <div className="space-y-4">
+        <form onSubmit={handleSaveColumn} className="space-y-4">
+          <p className={cn("text-sm", themeClasses.text.muted)}>Изменения видны всем сотрудникам клиники.</p>
           <div>
-            <label className={labelClasses}>Название колонки *</label>
+            <label htmlFor="kanban-column-name" className={labelClasses}>Название колонки *</label>
             <input
+              id="kanban-column-name"
               type="text"
-              value={newColumn.title}
-              onChange={(e) => setNewColumn({...newColumn, title: e.target.value})}
+              value={newColumnName}
+              onChange={(e) => setNewColumnName(e.target.value)}
+              maxLength={100}
+              required
+              autoFocus
+              disabled={columnConfig.busy}
               className={inputClasses}
               placeholder="Введите название колонки"
             />
           </div>
           
-          <div>
-            <label className={labelClasses}>Статус (идентификатор) *</label>
-            <input
-              type="text"
-              value={newColumn.status}
-              onChange={(e) => setNewColumn({...newColumn, status: e.target.value})}
-              className={inputClasses}
-              placeholder="например: new_status"
-              disabled={editingColumn} // Нельзя менять статус у существующей колонки
-            />
-            {editingColumn && (
-              <p className={cn("text-xs mt-1", themeClasses.text.muted)}>
-                Статус нельзя изменить у существующей колонки
-              </p>
-            )}
-          </div>
-
-          <div>
-            <label className={labelClasses}>Цвет колонки</label>
-            <div className="grid grid-cols-6 gap-2 mt-2">
-              {[
-                'bg-gray-500',
-                'bg-blue-500', 
-                'bg-green-500',
-                'bg-yellow-500',
-                'bg-red-500',
-                'bg-purple-500',
-                'bg-pink-500',
-                'bg-indigo-500',
-                'bg-teal-500',
-                'bg-orange-500',
-                'bg-emerald-500',
-                'bg-cyan-500'
-              ].map((color) => (
-                <button
-                  key={color}
-                  onClick={() => setNewColumn({
-                    ...newColumn, 
-                    color: color,
-                    bgColor: color.replace('500', '50') + ' dark:' + color.replace('500', '900/20')
-                  })}
-                  className={cn(
-                    "w-8 h-8 rounded-full border-2",
-                    color,
-                    newColumn.color === color ? "border-gray-800 dark:border-white" : "border-gray-300"
-                  )}
-                />
-              ))}
-            </div>
-          </div>
-
-          <div className="bg-gray-50 dark:bg-gray-800 p-3 rounded-lg">
-            <h4 className={cn("text-sm font-medium mb-2", themeClasses.text.primary)}>Предварительный просмотр</h4>
-            <div className={cn("p-3 rounded border", newColumn.bgColor, themeClasses.border.default)}>
-              <div className="flex items-center justify-between mb-2">
-                <h3 className={cn("font-medium", themeClasses.text.primary)}>
-                  {newColumn.title || 'Название колонки'}
-                </h3>
-                <div className="flex items-center space-x-1">
-                  <Edit className="w-3 h-3" />
-                  <Trash2 className="w-3 h-3" />
-                  <Plus className="w-4 h-4" />
-                </div>
-              </div>
-              <div className={cn("text-xl font-bold mb-1", themeClasses.text.primary)}>
-                0 ₸
-              </div>
-              <div className={cn("text-sm", themeClasses.text.muted)}>
-                0 сделок
-              </div>
-            </div>
-          </div>
-        </div>
+          {columnConfig.error && <p role="alert" className="text-red-600 dark:text-red-300">{columnConfig.error}</p>}
         
         <div className="flex justify-end gap-3 mt-6">
           <button
+            type="button"
+            disabled={columnConfig.busy}
             onClick={() => setShowColumnModal(false)}
             className="px-4 py-2 text-gray-600 hover:text-gray-800 transition-colors"
           >
             Отмена
           </button>
           <button
-            onClick={handleSaveColumn}
-            disabled={!newColumn.title || !newColumn.status}
+            type="submit"
+            disabled={columnConfig.busy || !newColumnName.trim()}
             className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors"
           >
-            {editingColumn ? 'Обновить' : 'Создать'}
+            {columnConfig.busy ? 'Сохранение…' : editingColumn ? 'Сохранить' : 'Создать'}
           </button>
         </div>
+        </form>
       </Modal>
 
       {/* HMS Data Modal */}

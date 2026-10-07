@@ -45,6 +45,42 @@ is set. The filter combines with the existing search and requires no backend cal
 `npm test` covers the date logic and rendered Kanban interactions, alongside the
 existing card lifecycle and history regression tests.
 
+## Shared Kanban columns
+
+Column configuration is shared by all clinic staff and loaded from
+`GET /api/crm/kanban/columns` (an array of `id`, `name`, `is_system`,
+`manual_move_allowed`, and `affected_count`). Only the five core system columns
+appear: `new`, `contacted`, `in_progress`, `converted`, and `closed`. Legacy
+`rejected`, `qualified`, and `lost` data and inquiry history are not changed.
+
+The compact column control creates custom columns with `POST` and `{ name }`.
+Custom headers provide rename (`PATCH /api/crm/kanban/columns/{id}` with
+`{ name }`) and delete (`DELETE` at the same path). Left/right controls reorder
+both system and custom columns with `PUT /api/crm/kanban/columns/order` and
+`{ column_ids }`, containing every configured ID exactly once. System columns
+cannot be renamed or deleted. The board scrolls horizontally on narrow screens
+and retains light/dark themes.
+
+Manual cards keep base `status: new`; their canonical first-touch
+`kanban_column_id` determines custom membership. Only Unparsed/custom sources
+and destinations allow drag/drop, using
+`PATCH /api/crm/leads/{lead_id}/kanban-column` with `{ column_id }`. Event-driven
+system cards cannot be dragged or receive manual drops. Column/status, date,
+and search filters compose without modifying linked inquiries.
+
+Before deletion, the frontend fetches columns again and confirms the backend's
+current `affected_count`, independent of board filters, explaining that cards
+return to Unparsed. The DELETE result's actual count is shown afterwards: another
+staff member can change assignments between confirmation and deletion. All
+successful mutations refresh columns and canonical leads. Controls are locked
+while mutations are in flight; API failures provide feedback and retry.
+
+Integration requires the matching backend API and canonical lead field. Shared
+changes are not pushed live to other open sessions: reload the board to obtain
+external changes, and refresh/retry if a concurrent reorder invalidates the ID
+list. The existing CRM lead-loading hook handles lead-fetch errors separately.
+Tests mock the exact API contract; they do not contact a backend or database.
+
 ### `npm run build`
 
 Runs the project's Vite production build and writes the optimized output to `dist`.
