@@ -339,6 +339,9 @@ async def create_appointment(
             })
             
             if lead:
+                from crm.services.lead_service import LeadService
+                lead = await LeadService(db).canonical_document(lead["id"])
+            if lead and lead.get("status") not in ("rejected", "qualified", "lost"):
                 # Обновляем существующий лид с данными о записи
                 update_data = {
                     "converted_to_appointment_id": appointment_obj.id,
@@ -352,10 +355,10 @@ async def create_appointment(
                 
                 await db.crm_leads.update_one(
                     {"id": lead["id"]},
-                    {"$set": update_data}
+                    {"$set": update_data, "$unset": {"kanban_column_id": ""}}
                 )
                 print(f"Лид {lead['id']} обновлен - статус 'Записан на приём', депозит {deposit_amount}_tng")
-            else:
+            elif not lead:
                 # Создаём новый лид для пациента записанного через календарь
                 lead_id = str(uuid.uuid4())
                 

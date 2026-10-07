@@ -53,6 +53,12 @@ class LeadService:
     async def get_kanban_groups(self):
         documents = await self.collection.find({}).to_list(length=None)
         return group_lead_touches(documents)
+
+    async def canonical_document(self, lead_id):
+        for group in await self.get_kanban_groups():
+            if any(touch.get("id") == lead_id for touch in group):
+                return group[0]
+        return None
     
     async def get_active_lead_by_phone(self, phone: str) -> Optional[Lead]:
         """Получить активного лида по номеру телефона
@@ -76,10 +82,17 @@ class LeadService:
         """Обновить лида"""
         update_dict = {k: v for k, v in update_data.dict().items() if v is not None}
         update_dict["updated_at"] = datetime.utcnow()
+        update = {"$set": update_dict}
+        if "status" in update_dict:
+            canonical = await self.canonical_document(lead_id)
+            if canonical is None:
+                return None
+            lead_id = canonical["id"]
+            update["$unset"] = {"kanban_column_id": ""}
         
         result = await self.collection.update_one(
             {"id": lead_id},
-            {"$set": update_dict}
+            update
         )
         
         if result.modified_count > 0:
@@ -148,6 +161,10 @@ class LeadService:
         updated_by: Optional[str] = None
     ) -> Optional[Lead]:
         """Обновить статус лида"""
+        canonical = await self.canonical_document(lead_id)
+        if canonical is None:
+            return None
+        lead_id = canonical["id"]
         update_data = {
             "status": status,
             "updated_at": datetime.utcnow()
@@ -164,7 +181,7 @@ class LeadService:
         
         result = await self.collection.update_one(
             {"id": lead_id},
-            {"$set": update_data}
+            {"$set": update_data, "$unset": {"kanban_column_id": ""}}
         )
         
         if result.modified_count > 0:
@@ -207,6 +224,10 @@ class LeadService:
         appointment_id: Optional[str] = None
     ) -> Optional[Lead]:
         """Конвертировать лида в клиента"""
+        canonical = await self.canonical_document(lead_id)
+        if canonical is None:
+            return None
+        lead_id = canonical["id"]
         lead = await self.get_lead_by_id(lead_id)
         if not lead or not lead.can_convert_to_client():
             return None
@@ -222,7 +243,7 @@ class LeadService:
         
         result = await self.collection.update_one(
             {"id": lead_id},
-            {"$set": update_data}
+            {"$set": update_data, "$unset": {"kanban_column_id": ""}}
         )
         
         if result.modified_count > 0:
@@ -429,23 +450,27 @@ class LeadService:
             print(f"Лид не найден для пациента {patient_id}")
             return None
         
+        lead = await self.canonical_document(lead["id"])
+        if not lead:
+            return None
+
         # Определяем новый статус на основе статуса записи
         new_status = None
         status_note = ""
         
         if appointment_status == "confirmed":
             # Запись подтверждена -> in_progress
-            if lead.get("status") in [LeadStatus.NEW.value, LeadStatus.CONTACTED.value]:
+            if lead.get("status") in [LeadStatus.NEW.value, LeadStatus.CONTACTED.value, LeadStatus.IN_PROGRESS.value]:
                 new_status = LeadStatus.IN_PROGRESS.value
                 status_note = "Запись на прием подтверждена"
         
         elif appointment_status in ["arrived", "in_progress", "completed"]:
             # Пациент пришел -> converted
-            if lead.get("status") in [LeadStatus.NEW.value, LeadStatus.CONTACTED.value, LeadStatus.IN_PROGRESS.value]:
+            if lead.get("status") in [LeadStatus.NEW.value, LeadStatus.CONTACTED.value, LeadStatus.IN_PROGRESS.value, LeadStatus.CONVERTED.value]:
                 new_status = LeadStatus.CONVERTED.value
                 status_note = f"Пациент на приеме (статус: {appointment_status})"
         
-        if new_status and new_status != lead.get("status"):
+        if new_status and (new_status != lead.get("status") or lead.get("kanban_column_id")):
             update_data = {
                 "status": new_status,
                 "updated_at": datetime.utcnow()
@@ -459,7 +484,7 @@ class LeadService:
             
             result = await self.collection.update_one(
                 {"id": lead["id"]},
-                {"$set": update_data}
+                {"$set": update_data, "$unset": {"kanban_column_id": ""}}
             )
             
             if result.modified_count > 0:
@@ -544,6 +569,10 @@ class LeadService:
             print(f"Активный лид не найден для пациента {patient_id}")
             return None
         
+        lead = await self.canonical_document(lead["id"])
+        if not lead or lead.get("status") in ("rejected", "qualified", "lost"):
+            return None
+
         # Обновляем статус на CLOSED (ОПЛАЧЕНО)
         update_data = {
             "status": LeadStatus.CLOSED.value,
@@ -559,7 +588,7 @@ class LeadService:
         
         result = await self.collection.update_one(
             {"id": lead["id"]},
-            {"$set": update_data}
+            {"$set": update_data, "$unset": {"kanban_column_id": ""}}
         )
         
         if result.modified_count > 0:
@@ -579,4 +608,3 @@ class LeadService:
         if lead_data:
             return Lead(**lead_data)
         return None
-

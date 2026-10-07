@@ -2,6 +2,7 @@
 
 from fastapi import APIRouter
 from .leads import leads_router
+from .kanban import kanban_router
 from .clients import clients_router
 from .deals import deals_router
 from .managers import managers_router
@@ -16,6 +17,7 @@ crm_router = APIRouter(tags=["CRM"])
 
 # Подключаем роутеры модулей
 crm_router.include_router(leads_router)
+crm_router.include_router(kanban_router)
 crm_router.include_router(clients_router)
 crm_router.include_router(deals_router)
 crm_router.include_router(managers_router)
@@ -26,4 +28,3 @@ crm_router.include_router(tasks_router)
 crm_router.include_router(task_statuses_router)
 
 __all__ = ["crm_router"]
-

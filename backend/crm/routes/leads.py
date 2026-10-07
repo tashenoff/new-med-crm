@@ -7,6 +7,7 @@ from typing import List, Optional
 from motor.motor_asyncio import AsyncIOMotorDatabase
 
 from ..services.lead_service import LeadService
+from ..services.kanban_service import KanbanService
 from ..schemas.lead_schemas import (
     LeadCreate, LeadUpdate, LeadResponse, 
     LeadStatusUpdate, LeadAssignment, LeadConversion,
@@ -182,6 +183,7 @@ async def get_kanban_leads(db: AsyncIOMotorDatabase = Depends(get_database)):
             inquiries.append(LeadResponse(**lead.dict(), full_name=lead.full_name))
         responses.append(KanbanLeadResponse(
             **response.dict(), linked_inquiries=inquiries, identity_patient_id=identity_patient_id,
+            kanban_column_id=touches[0].get("kanban_column_id") if canonical.status == LeadStatus.NEW else None,
             **call_history(calls)
         ))
     return responses
@@ -278,12 +280,20 @@ async def update_lead(
     """Обновить лида"""
     try:
         lead_service = LeadService(db)
+        if update_data.status is not None:
+            if update_data.status != LeadStatus.NEW:
+                raise HTTPException(400, "Manual status updates must target Unparsed; use system events for other stages")
+            movement = await KanbanService(db).move(lead_id, "new")
+            lead_id = movement["lead_id"]
+            update_data = update_data.copy(update={"status": None})
         lead = await lead_service.update_lead(lead_id, update_data)
         
         if not lead:
             raise HTTPException(status_code=404, detail="Лид не найден")
         
         return await lead_to_response(lead, db)
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
@@ -311,17 +321,23 @@ async def update_lead_status(
 ):
     """Обновить статус лида"""
     try:
+        if status_data.status != LeadStatus.NEW:
+            raise HTTPException(400, "Manual status updates must target Unparsed; use system events for other stages")
+        movement = await KanbanService(db).move(lead_id, "new")
+        lead_id = movement["lead_id"]
         lead_service = LeadService(db)
-        lead = await lead_service.update_lead_status(
-            lead_id, 
-            status_data.status, 
-            status_data.notes
-        )
+        lead = await lead_service.get_lead_by_id(lead_id)
+        if lead and status_data.notes:
+            lead = await lead_service.update_lead(lead_id, LeadUpdate(
+                notes=f"{lead.notes or ''}\n{status_data.notes}".strip()
+            ))
         
         if not lead:
             raise HTTPException(status_code=404, detail="Лид не найден")
         
         return await lead_to_response(lead, db)
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
