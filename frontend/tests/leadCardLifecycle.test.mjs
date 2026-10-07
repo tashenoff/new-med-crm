@@ -420,17 +420,98 @@ test('rename error retains dialog and original column, and allows retry', async 
   assert.equal(view.dom.window.document.querySelector('.modal-wrapper'), null);
 });
 
-test('system and custom columns reorder together with every configured ID exactly once', async context => {
+test('column reorder arrows are hidden by default without affecting custom rename or delete', async context => {
   const view = await mountView(context, [], { columns: [customColumn, ...systemColumns()] });
+  assert.equal(view.container.querySelectorAll('button[aria-label^="Переместить «"]').length, 0);
+  assert.ok(buttonWithLabel(view, 'Редактировать колонки'));
+  assert.ok(buttonWithLabel(view, 'Переименовать «Перезвонить»'));
+  assert.ok(buttonWithLabel(view, 'Удалить «Перезвонить»'));
+  assert.equal(view.apiRequests.filter(request => request.method === 'PUT').length, 0);
+});
+
+test('column edit mode toggles custom arrows and explanatory text without changing order', async context => {
+  const view = await mountView(context, [], { columns: [customColumn, ...systemColumns()] });
+  const originalIds = columnIds(view);
+  await clickButton(view, 'Редактировать колонки');
+  assert.ok(buttonWithLabel(view, 'Готово'));
+  assert.equal(view.container.querySelectorAll('button[aria-label^="Переместить «"]').length, 2);
+  assert.match(view.container.textContent, /Перемещать можно только пользовательские колонки/);
+  await clickButton(view, 'Готово');
+  assert.ok(buttonWithLabel(view, 'Редактировать колонки'));
+  assert.equal(view.container.querySelectorAll('button[aria-label^="Переместить «"]').length, 0);
+  assert.doesNotMatch(view.container.textContent, /Перемещать можно только пользовательские колонки/);
+  assert.deepEqual(columnIds(view), originalIds);
+  assert.equal(view.apiRequests.filter(request => request.method === 'PUT').length, 0);
+});
+
+test('system columns never expose reorder controls even in column edit mode', async context => {
+  const view = await mountView(context, [], { columns: [...systemColumns(), customColumn] });
+  await clickButton(view, 'Редактировать колонки');
+  for (const column of systemColumns()) {
+    const header = view.container.querySelector(`[data-column-id="${column.id}"]`);
+    assert.equal(header.querySelectorAll('button[aria-label^="Переместить «"]').length, 0);
+  }
+  assert.equal(buttonWithLabel(view, 'Переместить «Перезвонить» вправо').disabled, true);
+});
+
+test('custom columns move one adjacent position around systems preserving every system ID relative order', async context => {
+  const systems = systemColumns();
+  const secondCustom = { ...customColumn, id: 'custom_second', name: 'Ожидание' };
+  const view = await mountView(context, [], { columns: [customColumn, ...systems, secondCustom] });
+  await clickButton(view, 'Редактировать колонки');
   assert.equal(buttonWithLabel(view, 'Переместить «Перезвонить» влево').disabled, true);
-  assert.equal(buttonWithLabel(view, 'Переместить «Оплачено» вправо').disabled, true);
-  await clickButton(view, 'Переместить «Неразобранные» влево');
-  assert.deepEqual(columnIds(view), ['new', customColumn.id, 'contacted', 'in_progress', 'converted', 'closed']);
+  assert.equal(buttonWithLabel(view, 'Переместить «Ожидание» вправо').disabled, true);
   await clickButton(view, 'Переместить «Перезвонить» вправо');
+  assert.deepEqual(columnIds(view), ['new', customColumn.id, 'contacted', 'in_progress', 'converted', 'closed', secondCustom.id]);
+  await clickButton(view, 'Переместить «Перезвонить» вправо');
+  assert.deepEqual(columnIds(view), ['new', 'contacted', customColumn.id, 'in_progress', 'converted', 'closed', secondCustom.id]);
+  await clickButton(view, 'Переместить «Перезвонить» влево');
+  assert.deepEqual(columnIds(view), ['new', customColumn.id, 'contacted', 'in_progress', 'converted', 'closed', secondCustom.id]);
+  await clickButton(view, 'Переместить «Ожидание» влево');
+  assert.deepEqual(columnIds(view), ['new', customColumn.id, 'contacted', 'in_progress', 'converted', secondCustom.id, 'closed']);
   const updates = view.apiRequests.filter(request => request.method === 'PUT');
-  assert.deepEqual(updates[1].body, { column_ids: ['new', 'contacted', customColumn.id, 'in_progress', 'converted', 'closed'] });
-  assert.equal(new Set(updates[1].body.column_ids).size, 6);
-  assert.equal(view.scheduled.filter(args => args[0] === 'refresh-leads').length, 2);
+  assert.equal(updates.length, 4);
+  for (const update of updates) {
+    assert.equal(update.path, '/api/crm/kanban/columns/order');
+    assert.deepEqual(Object.keys(update.body), ['column_ids']);
+    assert.equal(new Set(update.body.column_ids).size, 7);
+    assert.deepEqual(update.body.column_ids.filter(id => systems.some(column => column.id === id)), systems.map(column => column.id));
+  }
+  assert.equal(view.scheduled.filter(args => args[0] === 'refresh-leads').length, 4);
+});
+
+test('column edit mode is disabled during initial column loading', async context => {
+  let resolveLoad;
+  const view = await mountView(context, [], {
+    apiFetch: request => request.method === 'GET' ? new Promise(resolve => { resolveLoad = resolve; }) : undefined
+  });
+  assert.equal(buttonWithLabel(view, 'Редактировать колонки').disabled, true);
+  await clickButton(view, 'Редактировать колонки');
+  assert.equal(view.container.querySelectorAll('button[aria-label^="Переместить «"]').length, 0);
+  await act(async () => resolveLoad({ ok: true, json: async () => [...systemColumns(), customColumn] }));
+  assert.equal(buttonWithLabel(view, 'Редактировать колонки').disabled, false);
+});
+
+test('column edit mode and reorder controls are disabled throughout a pending mutation', async context => {
+  let resolveOrder;
+  const view = await mountView(context, [], {
+    columns: [customColumn, ...systemColumns()],
+    apiFetch: request => request.method === 'PUT' ? new Promise(resolve => { resolveOrder = resolve; }) : undefined
+  });
+  await clickButton(view, 'Редактировать колонки');
+  await clickButton(view, 'Переместить «Перезвонить» вправо');
+  assert.equal(buttonWithLabel(view, 'Готово').disabled, true);
+  for (const button of view.container.querySelectorAll('button[aria-label^="Переместить «"]')) {
+    assert.equal(button.disabled, true);
+  }
+  await clickButton(view, 'Готово');
+  await clickButton(view, 'Переместить «Перезвонить» вправо');
+  assert.equal(view.apiRequests.filter(request => request.method === 'PUT').length, 1);
+  const order = view.apiRequests.find(request => request.method === 'PUT').body.column_ids;
+  view.columnState.columns = order.map(id => view.columnState.columns.find(column => column.id === id));
+  await act(async () => resolveOrder({ ok: true, json: async () => view.columnState.columns }));
+  assert.equal(buttonWithLabel(view, 'Готово').disabled, false);
+  assert.equal(buttonWithLabel(view, 'Переместить «Перезвонить» вправо').disabled, false);
 });
 
 test('delete confirms freshly fetched backend affected_count, supports cancel and reports actual result', async context => {

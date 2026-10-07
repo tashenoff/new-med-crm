@@ -43,6 +43,7 @@ const EnhancedLeadsView = ({ user }) => {
   const [showTaskModal, setShowTaskModal] = useState(false);
   const [showColumnModal, setShowColumnModal] = useState(false);
   const [editingColumn, setEditingColumn] = useState(null);
+  const [columnEditMode, setColumnEditMode] = useState(false);
   const [leadTasks, setLeadTasks] = useState({});
   const [doctors, setDoctors] = useState([]);
   const [patients, setPatients] = useState([]);
@@ -568,6 +569,9 @@ const EnhancedLeadsView = ({ user }) => {
   };
 
   const handleReorderColumn = (column, direction) => {
+    if (!columnEditMode || columnConfig.loading || columnConfig.busy || column.is_system || ![-1, 1].includes(direction)) return;
+    const current = kanbanColumns.find(item => item.id === column.id);
+    if (!current || current.is_system) return;
     const columnIds = kanbanColumns.map(item => item.id);
     const index = columnIds.indexOf(column.id);
     const destination = index + direction;
@@ -1123,11 +1127,18 @@ const EnhancedLeadsView = ({ user }) => {
             <option value="all">Все статусы</option>
             {kanbanColumns.map(column => <option key={column.id} value={column.id}>{column.name}</option>)}
           </select>
+          <button type="button" aria-pressed={columnEditMode}
+            onClick={() => { if (!columnConfig.loading && !columnConfig.busy) setColumnEditMode(value => !value); }}
+            disabled={columnConfig.loading || columnConfig.busy}
+            className={cn(buttonSecondaryClasses, "text-sm disabled:opacity-50")}>
+            {columnEditMode ? 'Готово' : 'Редактировать колонки'}
+          </button>
           <button type="button" onClick={handleCreateNewColumn} disabled={columnConfig.loading || columnConfig.busy}
             className={cn(buttonSecondaryClasses, "inline-flex items-center gap-2 text-sm disabled:opacity-50")}>
             <Plus className="w-4 h-4" /> Добавить колонку
           </button>
         </div>
+        {columnEditMode && <p className={cn("text-sm mb-3", themeClasses.text.muted)}>Перемещать можно только пользовательские колонки. Системные колонки сохраняют свой относительный порядок.</p>}
         {columnConfig.loading && <p role="status" className={themeClasses.text.secondary}>Загрузка колонок…</p>}
         {columnConfig.busy && <p role="status" className={themeClasses.text.secondary}>Сохранение изменений…</p>}
         {columnConfig.error && <div role="alert" className="mb-3 p-3 rounded-lg bg-red-50 text-red-800 dark:bg-red-900/30 dark:text-red-200">
@@ -1166,10 +1177,12 @@ const EnhancedLeadsView = ({ user }) => {
                   </h3>
                   <div className="flex flex-wrap items-center gap-1 my-2">
                     {column.is_system && <span className="text-xs px-2 py-1 rounded bg-white/70 dark:bg-gray-700">Системная</span>}
+                    {columnEditMode && !column.is_system && <>
                     <button type="button" aria-label={`Переместить «${column.name}» влево`} disabled={index === 0 || columnConfig.busy || columnConfig.loading}
                       onClick={() => handleReorderColumn(column, -1)} className="p-1 rounded hover:bg-white/50 dark:hover:bg-gray-600 disabled:opacity-30">←</button>
                     <button type="button" aria-label={`Переместить «${column.name}» вправо`} disabled={index === kanbanColumns.length - 1 || columnConfig.busy || columnConfig.loading}
                       onClick={() => handleReorderColumn(column, 1)} className="p-1 rounded hover:bg-white/50 dark:hover:bg-gray-600 disabled:opacity-30">→</button>
+                    </>}
                     {!column.is_system && <>
                     <button 
                       type="button"
