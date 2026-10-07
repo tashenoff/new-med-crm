@@ -242,6 +242,10 @@ const EnhancedLeadsView = ({ user }) => {
     }
   };
 
+  useEffect(() => {
+    filteredLeads.forEach(lead => loadLeadTasks(lead.id));
+  }, [filteredLeads]);
+
   // Функция для получения задач (используем API)
   const fetchLeadTasks = async (leadId) => {
     const response = await fetch(
@@ -892,7 +896,7 @@ const EnhancedLeadsView = ({ user }) => {
   };
 
   // Компонент карточки заявки для канбана
-  const LeadCard = ({ lead, onDragStart }) => {
+  const renderLeadCard = (lead) => {
     const leadAmount = getLeadAmount(lead);
     const depositAmount = lead.deposit_amount || 0;
     const extraDeposit = lead.extra_deposit || 0;
@@ -903,15 +907,11 @@ const EnhancedLeadsView = ({ user }) => {
     const tasks = leadTasks[lead.id] || [];
     const urgentTasks = tasks.filter(t => t.status !== 'completed' && t.priority === 'high').length;
 
-    // Загружаем задачи при монтировании карточки
-    useEffect(() => {
-      loadLeadTasks(lead.id);
-    }, [lead.id]);
-
     return (
       <div
+        key={lead.id}
         draggable
-        onDragStart={(e) => onDragStart(e, lead)}
+        onDragStart={(e) => handleDragStart(e, lead)}
         onClick={() => handleShowLeadHmsData(lead)}
         className={cn(
           "bg-white dark:bg-gray-800 rounded-lg p-4 mb-3 border border-gray-200 dark:border-gray-600",
@@ -1232,13 +1232,7 @@ const EnhancedLeadsView = ({ user }) => {
                     <p className={cn("text-sm", themeClasses.text.muted)}>Пусто</p>
                   </div>
                 ) : (
-                  columnLeads.map((lead) => (
-                    <LeadCard
-                      key={lead.id}
-                      lead={lead}
-                      onDragStart={handleDragStart}
-                    />
-                  ))
+                  columnLeads.map(renderLeadCard)
                 )}
               </div>
             </div>
