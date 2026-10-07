@@ -14,7 +14,20 @@ import Modal from '../../modals/Modal';
 import PanelHeader from '../../common/PanelHeader';
 import WhatsAppSidebar from '../telephony/WhatsAppSidebar';
 import { normalizeIdentityPhone } from '../../../utils/leadIdentity';
+import { loadLeadHmsData } from '../../../utils/leadHmsData';
+import LeadHistory from './LeadHistoryTimeline';
+import { historyStatusLabel } from '../../../utils/leadHistory';
 import { inputClasses, selectClasses, labelClasses, buttonPrimaryClasses, buttonSecondaryClasses } from '../../modals/modalUtils';
+
+const fetchHistoryCalls = async ({ phone, limit, offset }) => {
+  const API = import.meta.env.VITE_BACKEND_URL || 'https://medicodebase.preview.emergentagent.com';
+  const query = new URLSearchParams({ phone, limit, offset });
+  const response = await fetch(`${API}/api/telephony/calls?${query}`, {
+    headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
+  });
+  if (!response.ok) throw new Error('Не удалось загрузить звонки');
+  return response.json();
+};
 
 const EnhancedLeadsView = ({ user }) => {
   const [filteredLeads, setFilteredLeads] = useState([]);
@@ -338,41 +351,7 @@ const EnhancedLeadsView = ({ user }) => {
       const API = import.meta.env.VITE_BACKEND_URL || 'https://medicodebase.preview.emergentagent.com';
       const token = localStorage.getItem('token');
 
-      let patientId = lead.identity_patient_id || lead.converted_to_client_id || lead.patient_id;
-
-      // Если нет converted_to_client_id, ищем пациента по телефону
-      if (!patientId && lead.phone) {
-        const searchPhone = normalizeIdentityPhone(lead.phone);
-        const matches = searchPhone ? patients.filter(p => normalizeIdentityPhone(p.phone) === searchPhone) : [];
-        const foundPatient = matches.length === 1 ? matches[0] : null;
-        
-        if (foundPatient) {
-          patientId = foundPatient.id;
-        }
-      }
-
-      if (patientId) {
-        // Получаем данные HMS по patient_id
-        const [appointmentsRes, plansRes] = await Promise.all([
-          fetch(`${API}/api/appointments?patient_id=${patientId}`, {
-            headers: { 'Authorization': `Bearer ${token}` }
-          }),
-          fetch(`${API}/api/patients/${patientId}/treatment-plans`, {
-            headers: { 'Authorization': `Bearer ${token}` }
-          })
-        ]);
-
-        const appointmentsData = appointmentsRes.ok ? await appointmentsRes.json() : [];
-        const plansData = plansRes.ok ? await plansRes.json() : [];
-
-        setHmsData({
-          appointments: Array.isArray(appointmentsData) ? appointmentsData : [],
-          treatmentPlans: Array.isArray(plansData) ? plansData : []
-        });
-      } else {
-        // Пациент не найден - показываем пустые данные
-        setHmsData({ appointments: [], treatmentPlans: [] });
-      }
+      setHmsData(await loadLeadHmsData(lead, patients, API, token));
     } catch (error) {
       console.error('Error loading HMS data for lead:', error);
       setHmsData({ appointments: [], treatmentPlans: [] });
@@ -1698,21 +1677,7 @@ const EnhancedLeadsView = ({ user }) => {
           </div>
         ) : (
           <div className="space-y-6">
-            <section>
-              <h3 className="text-lg font-semibold mb-4">История обращений и каналов</h3>
-              <p className="text-sm mb-3">На доске показано первое обращение. Последующие обращения связаны с ним и сохранены отдельно.</p>
-              {[selectedLeadForHms, ...(selectedLeadForHms?.linked_inquiries || [])].filter(Boolean).map((touch, index) => (
-                <div key={touch.id} className={cn('border rounded-lg p-3 mb-2', themeClasses.border.default)}>
-                  <div className="font-medium">{index === 0 ? 'Первое обращение' : 'Связанное обращение'} · {touch.full_name}</div>
-                  <div className="text-sm">{new Date(touch.created_at).toLocaleString('ru-RU')} · {leadSources[touch.source] || touch.source} · {leadStatuses[touch.status]?.label || touch.status}</div>
-                  <div className="text-sm">{touch.phone} {touch.email || ''}</div>
-                  <div className="text-xs">ID: {touch.id}{touch.source_id ? ` · ID источника: ${touch.source_id}` : ''}</div>
-                  {touch.description && <p className="text-sm whitespace-pre-wrap">{touch.description}</p>}
-                  {touch.notes && <p className="text-sm whitespace-pre-wrap">{touch.notes}</p>}
-                  {touch.converted_to_appointment_id && <div className="text-sm">Запись: {touch.converted_to_appointment_id}</div>}
-                </div>
-              ))}
-            </section>
+            <LeadHistory lead={selectedLeadForHms} fetchCalls={fetchHistoryCalls} />
             <div>
               <h3 className="text-lg font-semibold mb-4">📋 Планы лечения</h3>
               {hmsData.treatmentPlans.length > 0 ? (
@@ -1728,9 +1693,9 @@ const EnhancedLeadsView = ({ user }) => {
                   <tbody className="divide-y divide-gray-200">
                     {hmsData.treatmentPlans.map((plan, i) => (
                       <tr key={plan.id || i}>
-                        <td className="px-4 py-3 text-sm"><div className="font-medium">{plan.title || `План ${i+1}`}</div>{plan.assigned_doctor && <div className="text-xs text-gray-500">Назначен врачом {plan.assigned_doctor}</div>}</td>
-                        <td className="px-4 py-3"><span className={`px-2 py-1 text-xs rounded-full ${plan.status === 'approved' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'}`}>{plan.status === 'approved' ? 'Утвержден' : plan.status || '-'}</span></td>
-                        <td className="px-4 py-3"><span className={`px-2 py-1 text-xs rounded-full ${plan.payment_status === 'paid' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>{plan.payment_status === 'paid' ? 'Оплачен' : 'Не оплачен'}</span></td>
+                        <td className="px-4 py-3 text-sm"><div className="font-medium">{plan.title || `План ${i+1}`}</div>{plan.doctor_name && <div className="text-xs text-gray-500">Врач: {plan.doctor_name}</div>}</td>
+                        <td className="px-4 py-3"><span className={`px-2 py-1 text-xs rounded-full ${plan.status === 'approved' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'}`}>{historyStatusLabel('plan', plan.status)}</span></td>
+                        <td className="px-4 py-3"><span className={`px-2 py-1 text-xs rounded-full ${plan.payment_status === 'paid' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>{historyStatusLabel('payment', plan.payment_status)}</span></td>
                         <td className="px-4 py-3 text-sm">{plan.total_cost?.toLocaleString() || 0} ₸</td>
                         <td className="px-4 py-3 text-sm">{plan.paid_amount?.toLocaleString() || 0} ₸</td>
                         <td className="px-4 py-3 text-sm text-gray-500">{plan.created_at ? new Date(plan.created_at).toLocaleDateString('ru-RU') : '-'}</td>
@@ -1755,7 +1720,7 @@ const EnhancedLeadsView = ({ user }) => {
                       <tr key={a.id || i}>
                         <td className="px-4 py-3 text-sm">{a.appointment_date ? new Date(a.appointment_date).toLocaleDateString('ru-RU') + ', ' + (a.appointment_time || a.start_time || '') : '-'}</td>
                         <td className="px-4 py-3 text-sm">{a.doctor_name || 'Не указан'}</td>
-                        <td className="px-4 py-3"><span className={`px-2 py-1 text-xs rounded-full ${a.status === 'completed' ? 'bg-green-100 text-green-800' : a.status === 'confirmed' ? 'bg-blue-100 text-blue-800' : 'bg-yellow-100 text-yellow-800'}`}>{a.status === 'completed' ? 'Завершен' : a.status === 'confirmed' ? 'Подтвержден' : 'Запланирован'}</span></td>
+                        <td className="px-4 py-3"><span className={`px-2 py-1 text-xs rounded-full ${a.status === 'completed' ? 'bg-green-100 text-green-800' : a.status === 'confirmed' ? 'bg-blue-100 text-blue-800' : 'bg-yellow-100 text-yellow-800'}`}>{historyStatusLabel('appointment', a.status)}</span></td>
                         <td className="px-4 py-3 text-sm text-gray-500">{a.notes || 'Нет заметок'}</td>
                       </tr>
                     ))}

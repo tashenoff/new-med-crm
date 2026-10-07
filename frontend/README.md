@@ -16,8 +16,17 @@ You may also see any lint errors in the console.
 
 ### `npm test`
 
-Launches the test runner in the interactive watch mode.\
-See the section about [running tests](https://facebook.github.io/create-react-app/docs/running-tests) for more information.
+Runs the frontend regression tests with Node.js 22 or later (`node --test`).
+The lead-history tests render the React timeline and cover Russian labels, closed
+technical details, empty/error states, and pagination of real backend call records.
+They use the existing React and esbuild dependencies without contacting the backend.
+
+The history call count uses `/api/telephony/calls` filtered by the unique phone
+numbers of the primary and linked inquiries (the backend matches the last ten
+digits). It reads all pages of up to 500 records, including missed calls, rather
+than using `contact_attempts` or the number of inquiries. Missing numbers and API
+failures are displayed separately from a successful count of zero. This is phone
+history, not a lead-ID-specific count; the existing backend model is unchanged.
 
 ### `npm run build`
 
