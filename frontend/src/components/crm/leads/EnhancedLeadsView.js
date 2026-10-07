@@ -17,6 +17,8 @@ import { normalizeIdentityPhone } from '../../../utils/leadIdentity';
 import { loadLeadHmsData } from '../../../utils/leadHmsData';
 import LeadHistory from './LeadHistoryTimeline';
 import { historyStatusLabel } from '../../../utils/leadHistory';
+import { firstTouchDateRange, matchesFirstTouchDate } from '../../../utils/firstTouchDateFilter';
+import FirstTouchDateFilter from './FirstTouchDateFilter';
 import { inputClasses, selectClasses, labelClasses, buttonPrimaryClasses, buttonSecondaryClasses } from '../../modals/modalUtils';
 
 const fetchHistoryCalls = async ({ phone, limit, offset }) => {
@@ -33,6 +35,7 @@ const EnhancedLeadsView = ({ user }) => {
   const [filteredLeads, setFilteredLeads] = useState([]);
   const [statusFilter, setStatusFilter] = useState('all');
   const [searchTerm, setSearchTerm] = useState('');
+  const [dateFilter, setDateFilter] = useState({ preset: 'all', from: '', to: '' });
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [selectedLead, setSelectedLead] = useState(null);
   const [showTaskModal, setShowTaskModal] = useState(false);
@@ -297,10 +300,11 @@ const EnhancedLeadsView = ({ user }) => {
 
   useEffect(() => {
     filterLeads();
-  }, [leads, statusFilter, searchTerm]);
+  }, [leads, statusFilter, searchTerm, dateFilter]);
 
   const filterLeads = () => {
-    let filtered = leads;
+    const dateRange = firstTouchDateRange(dateFilter.preset, dateFilter);
+    let filtered = leads.filter(lead => matchesFirstTouchDate(lead, dateRange));
     
     if (statusFilter !== 'all') {
       filtered = filtered.filter(lead => lead.status === statusFilter);
@@ -1147,8 +1151,8 @@ const EnhancedLeadsView = ({ user }) => {
 
         <div className="bg-white dark:bg-gray-800 rounded-b-2xl border border-t-0 border-gray-200 dark:border-gray-700 p-4 space-y-4 shadow-sm">
           {/* Controls */}
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-2">
+          <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+            <div className="flex flex-wrap items-center gap-2">
               <button className="bg-green-600 text-white px-4 py-2 text-sm rounded-lg hover:bg-green-700 transition-colors">
                 создать
               </button>
@@ -1161,20 +1165,22 @@ const EnhancedLeadsView = ({ user }) => {
               <span className={cn("text-sm px-2", themeClasses.text.muted)}>+ поиск</span>
             </div>
 
-            <div className="flex items-center space-x-4">
+            <div className="flex min-w-0 items-center">
               {/* Search */}
-              <div className="relative">
+              <div className="relative w-full lg:w-64">
                 <Search className="w-4 h-4 absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
                 <input
                   type="text"
                   placeholder="Поиск..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  className={cn("pl-9 pr-4 py-2 text-sm rounded-lg w-64", themeClasses.input.default)}
+                  className={cn("pl-9 pr-4 py-2 text-sm rounded-lg w-full", themeClasses.input.default)}
                 />
               </div>
             </div>
           </div>
+
+          <FirstTouchDateFilter value={dateFilter} onChange={setDateFilter} />
 
           {/* Kanban Board */}
           <div className="flex overflow-x-auto h-screen">

@@ -3,9 +3,17 @@ import { createRequire } from 'node:module';
 import test from 'node:test';
 import { fileURLToPath } from 'node:url';
 import React, { act } from 'react';
-import { createRoot } from 'react-dom/client';
 import { build } from 'esbuild';
 import { JSDOM } from 'jsdom';
+import { localDateKey } from '../src/utils/firstTouchDateFilter.js';
+
+const bootstrapDom = new JSDOM('<!doctype html><html><body></body></html>');
+globalThis.window = bootstrapDom.window;
+globalThis.document = bootstrapDom.window.document;
+const { createRoot } = await import('react-dom/client');
+delete globalThis.window;
+delete globalThis.document;
+bootstrapDom.window.close();
 
 const compiled = await build({
   stdin: {
@@ -52,7 +60,7 @@ const lead = {
   status: 'new', source: 'website', created_at: '2026-01-01T00:00:00Z'
 };
 
-async function mountView(context) {
+async function mountView(context, leads = [lead]) {
   const dom = new JSDOM('<div id="root"></div>', { url: 'https://crm.test' });
   const saved = new Map();
   for (const [key, value] of Object.entries({
@@ -69,7 +77,7 @@ async function mountView(context) {
   const noop = async () => {};
   globalThis.cardFixture = {
     crm: {
-      leads: [lead], managers: [], sources: [], loading: false,
+      leads, managers: [], sources: [], loading: false,
       fetchLeads: noop, fetchAvailableManagers: noop, fetchSources: noop,
       clearError: noop, updateLeadStatus: async (...args) => scheduled.push(args)
     },
@@ -105,6 +113,103 @@ async function mountView(context) {
   };
   return { container, dom, requests, pendingTasks, scheduled, mouse, settleTasks };
 }
+
+const dateAt = (offset, end = false) => {
+  const date = new Date();
+  date.setDate(date.getDate() + offset);
+  date.setHours(end ? 23 : 0, end ? 59 : 0, end ? 59 : 0, end ? 999 : 0);
+  return date.toISOString();
+};
+
+const dateFixture = () => [
+  ['today-start', dateAt(0)], ['today-end', dateAt(0, true)],
+  ['yesterday-start', dateAt(-1)], ['yesterday-end', dateAt(-1, true)],
+  ['day6', dateAt(-6)], ['day7', dateAt(-7, true)],
+  ['day29', dateAt(-29)], ['day30', dateAt(-30, true)],
+  ['future', dateAt(1)], ['missing', undefined], ['invalid', 'invalid']
+].map(([id, created_at]) => ({ ...lead, id, full_name: id, created_at }));
+
+const visibleCards = container => [...container.querySelectorAll('[draggable="true"]')]
+  .map(card => card.querySelector('h4').textContent.trim()).sort();
+
+async function changeControl(view, label, value) {
+  const control = view.container.querySelector(`[aria-label="${label}"]`);
+  const prototype = control.tagName === 'SELECT' ? view.dom.window.HTMLSelectElement.prototype : view.dom.window.HTMLInputElement.prototype;
+  await act(async () => {
+    Object.getOwnPropertyDescriptor(prototype, 'value').set.call(control, value);
+    control.dispatchEvent(new view.dom.window.Event('input', { bubbles: true }));
+    control.dispatchEvent(new view.dom.window.Event('change', { bubbles: true }));
+  });
+}
+
+test('Kanban defaults to all dates, including missing/invalid dates, and reset restores all cards', async context => {
+  const leads = dateFixture();
+  const view = await mountView(context, leads);
+  const select = view.container.querySelector('[aria-label="Период первого касания"]');
+  assert.equal(select.value, 'all');
+  assert.deepEqual([...select.options].map(option => option.textContent), ['Все даты', 'Сегодня', 'Вчера', '7 дней', '30 дней', 'Диапазон дат']);
+  assert.deepEqual(visibleCards(view.container), leads.map(item => item.full_name).sort());
+  await changeControl(view, 'Период первого касания', 'today');
+  assert.deepEqual(visibleCards(view.container), ['today-end', 'today-start']);
+  await changeControl(view, 'Период первого касания', 'all');
+  assert.deepEqual(visibleCards(view.container), leads.map(item => item.full_name).sort());
+});
+
+test('Kanban presets include local boundary days and exclude older, future and undated cards', async context => {
+  const view = await mountView(context, dateFixture());
+  const expected = {
+    today: ['today-start', 'today-end'],
+    yesterday: ['yesterday-start', 'yesterday-end'],
+    '7days': ['today-start', 'today-end', 'yesterday-start', 'yesterday-end', 'day6'],
+    '30days': ['today-start', 'today-end', 'yesterday-start', 'yesterday-end', 'day6', 'day7', 'day29']
+  };
+  for (const [preset, names] of Object.entries(expected)) {
+    await changeControl(view, 'Период первого касания', preset);
+    assert.deepEqual(visibleCards(view.container), names.sort());
+  }
+});
+
+test('Kanban custom date inputs filter inclusively, allow open bounds and explain reversed ranges', async context => {
+  const view = await mountView(context, dateFixture());
+  await changeControl(view, 'Период первого касания', 'custom');
+  const today = localDateKey(new Date());
+  const yesterday = localDateKey(new Date(dateAt(-1)));
+  await changeControl(view, 'Первое касание: с', yesterday);
+  assert.deepEqual(visibleCards(view.container), ['future', 'today-end', 'today-start', 'yesterday-end', 'yesterday-start']);
+  await changeControl(view, 'Первое касание: по', today);
+  assert.deepEqual(visibleCards(view.container), ['today-end', 'today-start', 'yesterday-end', 'yesterday-start']);
+  await changeControl(view, 'Первое касание: с', today);
+  await changeControl(view, 'Первое касание: по', yesterday);
+  assert.deepEqual(visibleCards(view.container), []);
+  assert.match(view.container.querySelector('[role="alert"]').textContent, /должна быть не позже/);
+  assert.equal(view.container.querySelector('[aria-label="Первое касание: с"]').getAttribute('aria-invalid'), 'true');
+  await changeControl(view, 'Первое касание: с', '');
+  assert.equal(view.container.querySelector('[role="alert"]'), null);
+  assert.deepEqual(visibleCards(view.container), ['day29', 'day30', 'day6', 'day7', 'yesterday-end', 'yesterday-start']);
+});
+
+test('Kanban date filter uses canonical first touch, preserves linked inquiries and combines with search', async context => {
+  const linked = { ...lead, id: 'linked', full_name: 'Linked Search', source: 'telegram', created_at: dateAt(-30) };
+  const current = { ...lead, full_name: 'Canonical Today', created_at: dateAt(0), linked_inquiries: [linked] };
+  const old = { ...lead, id: 'canonical-old', full_name: 'Canonical Old', created_at: dateAt(-30), linked_inquiries: [{ ...linked, created_at: dateAt(0) }] };
+  const snapshot = JSON.stringify([current, old]);
+  const view = await mountView(context, [current, old]);
+  await changeControl(view, 'Период первого касания', 'today');
+  assert.deepEqual(visibleCards(view.container), ['Canonical Today']);
+  const search = view.container.querySelector('[placeholder="Поиск..."]');
+  await act(async () => {
+    Object.getOwnPropertyDescriptor(view.dom.window.HTMLInputElement.prototype, 'value').set.call(search, 'Linked Search');
+    search.dispatchEvent(new view.dom.window.Event('input', { bubbles: true }));
+  });
+  assert.deepEqual(visibleCards(view.container), ['Canonical Today']);
+  assert.match(view.container.querySelector('[draggable="true"]').textContent, /Связанных обращений: 1/);
+  await act(async () => {
+    Object.getOwnPropertyDescriptor(view.dom.window.HTMLInputElement.prototype, 'value').set.call(search, 'No Such Patient');
+    search.dispatchEvent(new view.dom.window.Event('input', { bubbles: true }));
+  });
+  assert.deepEqual(visibleCards(view.container), []);
+  assert.equal(JSON.stringify([current, old]), snapshot);
+});
 
 test('first card click survives task loading between press and release and opens history', async context => {
   const { container, dom, mouse, settleTasks, requests, pendingTasks } = await mountView(context);

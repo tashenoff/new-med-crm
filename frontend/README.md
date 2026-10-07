@@ -28,15 +28,26 @@ than using `contact_attempts` or the number of inquiries. Missing numbers and AP
 failures are displayed separately from a successful count of zero. This is phone
 history, not a lead-ID-specific count; the existing backend model is unchanged.
 
+## Kanban first-touch date filter
+
+The board defaults to **Все даты**. **Сегодня**, **Вчера**, **7 дней** and
+**30 дней** filter only the canonical Kanban card's `created_at`; linked inquiries
+and card history are unchanged. The 7/30-day presets include today and the previous
+6/29 calendar days, excluding future days. Boundaries include the entire day in
+the user's local timezone, including daylight-saving transitions.
+
+**Диапазон дат** provides native date inputs (**С** / **По**) with inclusive
+boundaries. Either boundary can be left empty; both empty means no restriction.
+Reversed bounds show a validation message and no cards. Missing/invalid first-touch
+dates remain visible without a restriction and are excluded whenever a boundary
+is set. The filter combines with the existing search and requires no backend calls.
+
+`npm test` covers the date logic and rendered Kanban interactions, alongside the
+existing card lifecycle and history regression tests.
+
 ### `npm run build`
 
-Builds the app for production to the `build` folder.\
-It correctly bundles React in production mode and optimizes the build for the best performance.
-
-The build is minified and the filenames include the hashes.\
-Your app is ready to be deployed!
-
-See the section about [deployment](https://facebook.github.io/create-react-app/docs/deployment) for more information.
+Runs the project's Vite production build and writes the optimized output to `dist`.
 
 ### `npm run eject`
 
