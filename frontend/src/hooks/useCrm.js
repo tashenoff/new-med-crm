@@ -56,6 +56,14 @@ export const useCrm = ({ kanban = false } = {}) => {
     }
   }, [crmApi.leads, kanban]);
 
+  const applyLeadKanbanMove = useCallback((id, result) => {
+    setLeads(current => current.map(lead => lead.id === id ? {
+      ...lead,
+      kanban_column_id: result.column_id === 'new' ? null : result.column_id,
+      status: result.status ?? lead.status
+    } : lead));
+  }, []);
+
   const createLead = useCallback(async (leadData) => {
     try {
       const newLead = await crmApi.leads.create(leadData);
@@ -558,6 +566,7 @@ export const useCrm = ({ kanban = false } = {}) => {
     
     // Методы для лидов
     fetchLeads,
+    applyLeadKanbanMove,
     createLead,
     updateLead,
     updateLeadStatus,

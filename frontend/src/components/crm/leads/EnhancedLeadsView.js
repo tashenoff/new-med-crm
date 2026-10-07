@@ -91,6 +91,7 @@ const EnhancedLeadsView = ({ user }) => {
     loading,
     error,
     fetchLeads,
+    applyLeadKanbanMove,
     createLead,
     convertLead,
     deleteLead,
@@ -100,7 +101,7 @@ const EnhancedLeadsView = ({ user }) => {
     checkPatientByPhone
   } = useCrm({ kanban: true });
 
-  const columnConfig = useKanbanColumns(fetchLeads);
+  const columnConfig = useKanbanColumns(fetchLeads, applyLeadKanbanMove);
   const kanbanColumns = columnConfig.columns;
 
   // Состояния для проверки пациента по телефону
@@ -1045,7 +1046,7 @@ const EnhancedLeadsView = ({ user }) => {
       const data = JSON.parse(event.dataTransfer.getData('text/plain'));
       const lead = leads.find(item => item.id === data.leadId);
       if (lead && canMoveCard(lead, destination, kanbanColumns)) {
-        await columnConfig.mutate(`/leads/${encodeURIComponent(lead.id)}/kanban-column`, 'PATCH', { column_id: destination.id });
+        await columnConfig.moveCard(lead, destination);
       }
     } catch {
       return;

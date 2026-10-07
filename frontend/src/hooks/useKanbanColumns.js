@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { configuredColumns, kanbanRequest } from '../utils/kanbanColumns';
+import { cardColumnId, configuredColumns, kanbanRequest } from '../utils/kanbanColumns';
 
-export function useKanbanColumns(fetchLeads) {
+export function useKanbanColumns(fetchLeads, applyLeadKanbanMove) {
   const [columns, setColumns] = useState([]);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
@@ -59,6 +59,25 @@ export function useKanbanColumns(fetchLeads) {
     await Promise.all([loadColumns(), fetchLeads()]);
   });
 
+  const moveCard = (lead, destination) => run(async () => {
+    const result = await kanbanRequest(`/leads/${encodeURIComponent(lead.id)}/kanban-column`, 'PATCH', {
+      column_id: destination.id
+    });
+    applyLeadKanbanMove(lead.id, result);
+    const sourceId = cardColumnId(lead);
+    const targetId = cardColumnId({
+      ...lead, status: result.status ?? lead.status,
+      kanban_column_id: result.column_id === 'new' ? null : result.column_id
+    });
+    if (sourceId !== targetId) {
+      setColumns(current => current.map(column => {
+        if (column.id === sourceId) return { ...column, affected_count: Math.max(0, (column.affected_count ?? 0) - 1) };
+        if (column.id === targetId) return { ...column, affected_count: (column.affected_count ?? 0) + 1 };
+        return column;
+      }));
+    }
+  });
+
   const remove = column => run(async () => {
     const current = (await loadColumns()).find(item => item.id === column.id);
     if (!current || current.is_system) throw new Error('Колонка больше недоступна. Обновите доску.');
@@ -68,5 +87,5 @@ export function useKanbanColumns(fetchLeads) {
     await Promise.all([loadColumns(), fetchLeads()]);
   });
 
-  return { columns, loading, busy, error, notice, reload, mutate, remove };
+  return { columns, loading, busy, error, notice, reload, mutate, moveCard, remove };
 }

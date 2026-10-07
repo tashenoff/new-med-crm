@@ -34,12 +34,38 @@ const compiled = await build({
   plugins: [{
     name: 'test-contexts',
     setup(builder) {
-      builder.onResolve({ filter: /\/useCrm$|\/ModalContext$|\/WhatsAppSidebar$/ }, args => ({
+      builder.onResolve({ filter: /\/useCrm$|\/useCrmApi$|\/ModalContext$|\/WhatsAppSidebar$/ }, args => ({
         path: args.path, namespace: 'test-contexts'
       }));
       builder.onLoad({ filter: /.*/, namespace: 'test-contexts' }, args => ({
+        resolveDir: fileURLToPath(new URL('..', import.meta.url)),
         contents: args.path.endsWith('/useCrm')
-          ? 'export const useCrm = () => globalThis.cardFixture.crm;'
+          ? `import React from 'react';
+             import { useCrm as useRealCrm } from './src/hooks/useCrm.js';
+             export const useCrm = options => {
+               const fixture = globalThis.cardFixture;
+               if (fixture.realCrm) {
+                 const crm = useRealCrm(options);
+                 fixture.crm = crm;
+                 fixture.loadingStates.push({ loading: crm.loading, leads: crm.dataLoading.leads });
+                 return crm;
+               }
+               const [leads, setLeads] = React.useState(fixture.crm.leads);
+               fixture.crm.leads = leads;
+               fixture.crm.applyLeadKanbanMove = (id, result) => setLeads(current => current.map(lead =>
+                 lead.id === id ? { ...lead, kanban_column_id: result.column_id === 'new' ? null : result.column_id,
+                   status: result.status ?? lead.status } : lead));
+               return fixture.crm;
+             };`
+          : args.path.endsWith('/useCrmApi')
+            ? `import React from 'react'; export const useCrmApi = () => {
+                const [loading, setLoading] = React.useState(false);
+                globalThis.cardFixture.setApiLoading = value => {
+                  globalThis.cardFixture.apiLoadingTransitions.push(value);
+                  setLoading(value);
+                };
+                return { ...globalThis.cardFixture.api, loading };
+              };`
           : args.path.endsWith('/ModalContext')
             ? 'export const useModal = () => globalThis.cardFixture.modals;'
             : `import React from 'react'; export default props => props.isOpen
@@ -79,11 +105,15 @@ async function mountView(context, leads = [lead], options = {}) {
   const requests = [];
   const apiRequests = [];
   const columnState = { columns: structuredClone(options.columns || systemColumns()) };
+  const backendLeads = structuredClone(leads);
   const pendingTasks = [];
   const scheduled = [];
   let initialLeadsFetched = false;
   const noop = async () => {};
   globalThis.cardFixture = {
+    realCrm: options.realCrm,
+    loadingStates: [],
+    apiLoadingTransitions: [],
     crm: {
       leads, managers: [], sources: [], loading: false,
       fetchLeads: async () => {
@@ -97,6 +127,21 @@ async function mountView(context, leads = [lead], options = {}) {
       clearError: noop, updateLeadStatus: async (...args) => scheduled.push(args)
     },
     modals: { openModal: (...args) => scheduled.push(args), closeModal: noop }
+  };
+  let leadReads = 0;
+  const getKanban = async () => {
+    leadReads += 1;
+    if (leadReads > 2) scheduled.push(['refresh-leads']);
+    globalThis.cardFixture.setApiLoading(true);
+    await Promise.resolve();
+    globalThis.cardFixture.setApiLoading(false);
+    return structuredClone(backendLeads);
+  };
+  globalThis.cardFixture.api = {
+    leads: { getKanban, getStatistics: noop },
+    clients: { getAll: async () => [] }, deals: { getAll: async () => [] },
+    managers: { getAll: async () => [], getAvailable: async () => [] },
+    sources: { getAll: async () => [] }, clearError: noop
   };
   dom.window.localStorage.setItem('token', 'clinic-token');
   globalThis.fetch = async (url, init = {}) => {
@@ -116,7 +161,7 @@ async function mountView(context, leads = [lead], options = {}) {
         result = columnState.columns;
       } else if (request.method === 'PATCH' && path.endsWith('/kanban-column')) {
         const id = path.split('/').at(-2);
-        const canonical = globalThis.cardFixture.crm.leads.find(item => item.id === id);
+        const canonical = backendLeads.find(item => item.id === id);
         canonical.kanban_column_id = request.body.column_id === 'new' ? null : request.body.column_id;
         result = { lead_id: id, column_id: request.body.column_id, status: canonical.status };
       } else if (request.method === 'PATCH') {
@@ -158,7 +203,8 @@ async function mountView(context, leads = [lead], options = {}) {
       }
     });
   };
-  return { container, dom, requests, apiRequests, columnState, pendingTasks, scheduled, mouse, settleTasks };
+  return { container, dom, requests, apiRequests, columnState, pendingTasks, scheduled, mouse, settleTasks,
+    fixture: globalThis.cardFixture, backendLeads };
 }
 
 const dateAt = (offset, end = false) => {
@@ -561,7 +607,9 @@ test('manual movement only permits new/custom sources and destinations, preserve
   const manual = { ...lead, id: 'manual', linked_inquiries: [linked] };
   const automated = { ...lead, id: 'automated', status: 'contacted' };
   const secondCustom = { ...customColumn, id: 'custom_second', name: 'Ожидание' };
-  const view = await mountView(context, [manual, automated], { columns: [...systemColumns(), customColumn, secondCustom] });
+  const view = await mountView(context, [manual, automated], {
+    realCrm: true, columns: [...systemColumns(), customColumn, secondCustom]
+  });
   for (const destination of ['contacted', 'in_progress', 'converted', 'closed', 'new']) {
     await dropCard(view, manual.id, destination);
   }
@@ -579,7 +627,8 @@ test('manual movement only permits new/custom sources and destinations, preserve
   assert.equal(manual.status, 'new');
   assert.equal(linked.status, 'qualified');
   assert.equal(automated.status, 'contacted');
-  assert.equal(view.scheduled.filter(args => args[0] === 'refresh-leads').length, 3);
+  assert.equal(view.fixture.crm.leads.find(item => item.id === manual.id).kanban_column_id, null);
+  assert.equal(view.scheduled.filter(args => args[0] === 'refresh-leads').length, 0);
 });
 
 test('text search filters system and custom columns regardless of creation date', async context => {
@@ -621,7 +670,7 @@ test('delete failure preserves column and cards; successful delete preserves tex
   assert.equal(view.container.querySelector('[data-lead-id]').closest('[data-column-id]').dataset.columnId, 'new');
 });
 
-test('movement in flight locks management and duplicate drops until refresh completes', async context => {
+test('movement in flight locks management and duplicate drops until PATCH completes', async context => {
   let resolveMove;
   const manual = { ...lead };
   const view = await mountView(context, [manual], { columns: [...systemColumns(), customColumn],
@@ -633,8 +682,73 @@ test('movement in flight locks management and duplicate drops until refresh comp
   assert.equal(view.container.querySelector('[data-lead-id]').draggable, false);
   await dropCard(view, manual.id, customColumn.id, JSON.stringify({ leadId: manual.id }));
   assert.equal(view.apiRequests.filter(request => request.method === 'PATCH').length, 1);
-  manual.kanban_column_id = customColumn.id;
   await act(async () => resolveMove({ ok: true, json: async () => ({ lead_id: manual.id, column_id: customColumn.id, status: 'new' }) }));
   assert.equal(buttonWithLabel(view, 'Добавить колонку').disabled, false);
+  assert.equal(view.container.querySelector('[data-lead-id]').closest('[data-column-id]').dataset.columnId, customColumn.id);
+});
+
+test('successful card drag updates real CRM state without lead refresh, page loading or navigation', async context => {
+  let resolveMove;
+  const manual = { ...lead, linked_inquiries: [{ id: 'inquiry', status: 'qualified' }] };
+  const untouched = { ...lead, id: 'untouched', full_name: 'Untouched Patient' };
+  const view = await mountView(context, [manual, untouched], {
+    realCrm: true, columns: [...systemColumns(), customColumn],
+    apiFetch: request => request.path.endsWith('/kanban-column')
+      ? new Promise(resolve => { resolveMove = resolve; }) : undefined
+  });
+  await changeControl(view, 'Поиск...', 'Patient');
+  view.fixture.loadingStates.length = 0;
+  view.fixture.apiLoadingTransitions.length = 0;
+  const untouchedState = view.fixture.crm.leads.find(item => item.id === untouched.id);
+  const url = view.dom.window.location.href;
+  const board = view.container.querySelector('[data-column-id="new"]');
+  const position = () => view.container.querySelector(`[data-lead-id="${manual.id}"]`).closest('[data-column-id]').dataset.columnId;
+  await dropCard(view, manual.id, customColumn.id);
+  assert.equal(position(), 'new', 'Do not move before PATCH succeeds');
+  await dropCard(view, manual.id, customColumn.id, JSON.stringify({ leadId: manual.id }));
+  assert.equal(view.apiRequests.filter(request => request.method === 'PATCH').length, 1);
+  view.backendLeads[0].kanban_column_id = customColumn.id;
+  await act(async () => resolveMove({ ok: true, json: async () => ({
+    lead_id: manual.id, column_id: customColumn.id, status: 'new'
+  }) }));
+  assert.equal(position(), customColumn.id);
+  assert.equal(view.scheduled.filter(args => args[0] === 'refresh-leads').length, 0);
+  assert.ok(view.fixture.loadingStates.length > 0);
+  assert.ok(view.fixture.loadingStates.every(state => !state.loading && !state.leads));
+  assert.deepEqual(view.fixture.apiLoadingTransitions, []);
+  assert.equal(view.container.querySelector('.animate-spin'), null);
+  assert.equal(view.container.querySelector('[data-column-id="new"]'), board);
+  assert.equal(view.dom.window.location.href, url);
+  assert.equal(view.container.querySelector('[placeholder="Поиск..."]').value, 'Patient');
+  assert.equal(view.fixture.crm.leads.find(item => item.id === untouched.id), untouchedState);
+  assert.equal(view.fixture.crm.leads[0].status, 'new');
+  assert.deepEqual(view.fixture.crm.leads[0].linked_inquiries, manual.linked_inquiries);
+  assert.equal(manual.kanban_column_id, undefined, 'Input records are not mutated');
+  assert.equal(view.apiRequests.filter(request => request.method === 'GET').length, 1);
+  await act(async () => view.fixture.crm.fetchLeads());
+  assert.equal(position(), customColumn.id, 'Later canonical refresh retains persisted membership');
+});
+
+test('failed card PATCH preserves real CRM state and board, displays error and permits retry', async context => {
+  let fail = true;
+  const view = await mountView(context, [{ ...lead }], {
+    realCrm: true, columns: [...systemColumns(), customColumn],
+    apiFetch: request => request.path.endsWith('/kanban-column') && fail
+      ? { ok: false, json: async () => ({ detail: 'Перемещение недоступно' }) } : undefined
+  });
+  view.fixture.loadingStates.length = 0;
+  view.fixture.apiLoadingTransitions.length = 0;
+  const before = view.fixture.crm.leads;
+  await dropCard(view, lead.id, customColumn.id);
+  assert.equal(view.fixture.crm.leads, before);
+  assert.equal(view.container.querySelector('[data-lead-id]').closest('[data-column-id]').dataset.columnId, 'new');
+  assert.match(view.container.querySelector('[role="alert"]').textContent, /Перемещение недоступно/);
+  assert.equal(buttonWithLabel(view, 'Добавить колонку').disabled, false);
+  assert.equal(view.scheduled.filter(args => args[0] === 'refresh-leads').length, 0);
+  assert.ok(view.fixture.loadingStates.every(state => !state.loading && !state.leads));
+  assert.deepEqual(view.fixture.apiLoadingTransitions, []);
+  fail = false;
+  await dropCard(view, lead.id, customColumn.id);
+  assert.equal(view.container.querySelector('[role="alert"]'), null);
   assert.equal(view.container.querySelector('[data-lead-id]').closest('[data-column-id]').dataset.columnId, customColumn.id);
 });
