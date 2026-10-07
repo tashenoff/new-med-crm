@@ -8,8 +8,6 @@ import ErrorMessage from './components/layout/ErrorMessage';
 import InsightsBar from './components/insights/InsightsBar';
 import WhatsAppFloatingButton from './components/layout/WhatsAppFloatingButton';
 import WhatsAppInbox from './components/crm/telephony/WhatsAppInbox';
-import PhoneFloatingButton from './components/layout/PhoneFloatingButton';
-import { showZadarmaWidget } from './components/crm/telephony/zadarmaWidget';
 import AIChatSidebar from './components/layout/AIChatSidebar';
 
 // Модальные компоненты перенесены в ModalManager
@@ -140,7 +138,6 @@ function ClinicApp() {
   const [activeSection, setActiveSection] = useState('hms');
   const [aiChatSidebarOpen, setAiChatSidebarOpen] = useState(false);
   const [whatsAppInboxOpen, setWhatsAppInboxOpen] = useState(false);
-  const [dialerOpen, setDialerOpen] = useState(false);
   const [currentChatBadge, setCurrentChatBadge] = useState(null);
   const [showMaterialForm, setShowMaterialForm] = useState(false);
   const [materialRefreshTrigger, setMaterialRefreshTrigger] = useState(0);
@@ -400,14 +397,6 @@ function ClinicApp() {
           {/* Плавающая кнопка WhatsApp-инбокса (ИИ-консультант убран) */}
           <WhatsAppFloatingButton isOpen={whatsAppInboxOpen} onToggle={() => setWhatsAppInboxOpen(v => !v)} />
           <WhatsAppInbox isOpen={whatsAppInboxOpen} onClose={() => setWhatsAppInboxOpen(false)} />
-
-          {/* Плавающая кнопка телефонии — открывает напрямую WebRTC-софтфон Zadarma */}
-          <PhoneFloatingButton isOpen={dialerOpen} onToggle={() => {
-            if (!dialerOpen) {
-              showZadarmaWidget().catch((e) => console.error('Zadarma widget error:', e));
-            }
-            setDialerOpen(v => !v);
-          }} />
 
           {/* AI Chat Sidebar */}
           <AIChatSidebar
