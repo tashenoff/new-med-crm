@@ -104,6 +104,7 @@ class LeadResponse(BaseModel):
     services_interested: List[str]
     preferred_contact_time: Optional[str]
     converted_to_client_id: Optional[str]
+    patient_id: Optional[str] = None
     converted_to_appointment_id: Optional[str]
     created_at: datetime
     updated_at: datetime
@@ -121,6 +122,11 @@ class LeadResponse(BaseModel):
 
     class Config:
         from_attributes = True
+
+
+class KanbanLeadResponse(LeadResponse):
+    linked_inquiries: List[LeadResponse] = Field(default_factory=list)
+    identity_patient_id: Optional[str] = None
 
 
 class LeadStatusUpdate(BaseModel):

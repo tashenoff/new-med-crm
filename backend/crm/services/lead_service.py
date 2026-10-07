@@ -11,6 +11,7 @@ from ..models.lead import Lead, LeadStatus, LeadSource, LeadPriority
 from ..schemas.lead_schemas import LeadCreate, LeadUpdate, LeadSearchFilters
 from ..models.task import Task, TaskType, TaskPriority, TaskStatus
 from ..schemas.task_schemas import TaskCreate
+from .lead_identity import group_lead_touches
 
 
 class LeadService:
@@ -48,6 +49,10 @@ class LeadService:
         if lead_data:
             return Lead(**lead_data)
         return None
+
+    async def get_kanban_groups(self):
+        documents = await self.collection.find({}).to_list(length=None)
+        return group_lead_touches(documents)
     
     async def get_active_lead_by_phone(self, phone: str) -> Optional[Lead]:
         """Получить активного лида по номеру телефона

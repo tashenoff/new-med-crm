@@ -10,16 +10,17 @@ from ..services.lead_service import LeadService
 from ..schemas.lead_schemas import (
     LeadCreate, LeadUpdate, LeadResponse, 
     LeadStatusUpdate, LeadAssignment, LeadConversion,
-    LeadSearchFilters, LeadStatistics
+    LeadSearchFilters, LeadStatistics, KanbanLeadResponse
 )
-from ..models.lead import LeadStatus, LeadSource, LeadPriority
+from ..models.lead import Lead, LeadStatus, LeadSource, LeadPriority
+from ..services.lead_identity import normalize_identity_phone, patient_link
 
 from ..dependencies import get_database
 
 leads_router = APIRouter(prefix="/leads", tags=["Leads"])
 
 
-async def lead_to_response(lead, db: AsyncIOMotorDatabase) -> LeadResponse:
+async def lead_to_response(lead, db: AsyncIOMotorDatabase, strict_identity: bool = False) -> LeadResponse:
     """Конвертирует модель Lead в LeadResponse с получением суммы плана лечения"""
     lead_dict = lead.dict()
     lead_dict["full_name"] = lead.full_name
@@ -29,12 +30,21 @@ async def lead_to_response(lead, db: AsyncIOMotorDatabase) -> LeadResponse:
     lead_dict["patient_debt"] = None  # Долг пациента если депозит < стоимости
     
     # Получаем сумму из планов лечения
-    patient_id = None
+    patient_id = patient_link(lead_dict)
     
     # Сначала пробуем по converted_to_client_id
-    if lead.converted_to_client_id:
-        patient_id = lead.converted_to_client_id
-    else:
+    if not patient_id and strict_identity:
+        phone = normalize_identity_phone(lead.phone)
+        if phone:
+            phone_digits = list(phone)
+            if len(phone) == 11 and phone.startswith("7"):
+                phone_digits[0] = "[78]"
+            pattern = r"^\s*\+?[\s().-]*" + r"[\s().-]*".join(phone_digits) + r"[\s().-]*$"
+            patients = await db.patients.find({"phone": {"$regex": pattern}}).to_list(None)
+            matches = [patient for patient in patients if normalize_identity_phone(patient.get("phone")) == phone]
+            if len(matches) == 1:
+                patient_id = matches[0].get("id")
+    elif not patient_id:
         # Если нет converted_to_client_id, ищем пациента по телефону
         if lead.phone:
             # Нормализуем телефон для поиска
@@ -152,6 +162,26 @@ async def get_leads(
         return responses
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
+
+
+@leads_router.get("/kanban", response_model=List[KanbanLeadResponse])
+async def get_kanban_leads(db: AsyncIOMotorDatabase = Depends(get_database)):
+    groups = await LeadService(db).get_kanban_groups()
+    responses = []
+    for touches in groups:
+        canonical = Lead(**{**touches[0], "phone": touches[0].get("phone") or ""})
+        identity_patient_id = next((patient_link(touch) for touch in touches if patient_link(touch)), None)
+        enrichment_lead = canonical.copy(update={"converted_to_client_id": identity_patient_id}) if identity_patient_id else canonical
+        response = await lead_to_response(enrichment_lead, db, strict_identity=True)
+        response.converted_to_client_id = canonical.converted_to_client_id
+        inquiries = []
+        for touch in touches[1:]:
+            lead = Lead(**{**touch, "phone": touch.get("phone") or ""})
+            inquiries.append(LeadResponse(**lead.dict(), full_name=lead.full_name))
+        responses.append(KanbanLeadResponse(
+            **response.dict(), linked_inquiries=inquiries, identity_patient_id=identity_patient_id
+        ))
+    return responses
 
 
 @leads_router.get("/check-phone/{phone}")

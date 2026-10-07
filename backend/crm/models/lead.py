@@ -80,6 +80,7 @@ class Lead(BaseModel):
     
     # Интеграция с HMS
     converted_to_client_id: Optional[str] = Field(None, description="ID клиента после конвертации")
+    patient_id: Optional[str] = None
     converted_to_appointment_id: Optional[str] = Field(None, description="ID записи после конвертации")
     
     # Депозит из записи
@@ -108,7 +109,7 @@ class Lead(BaseModel):
         parts = [self.last_name, self.first_name]
         if self.middle_name:
             parts.append(self.middle_name)
-        return " ".join(parts)
+        return " ".join(part for part in parts if part)
     
     def can_convert_to_client(self) -> bool:
         """Проверка возможности конвертации в клиента"""
