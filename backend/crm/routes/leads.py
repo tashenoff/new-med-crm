@@ -14,6 +14,7 @@ from ..schemas.lead_schemas import (
 )
 from ..models.lead import Lead, LeadStatus, LeadSource, LeadPriority
 from ..services.lead_identity import normalize_identity_phone, patient_link
+from ..services.lead_calls import call_history, load_group_calls, resolve_group_patients
 
 from ..dependencies import get_database
 
@@ -167,10 +168,11 @@ async def get_leads(
 @leads_router.get("/kanban", response_model=List[KanbanLeadResponse])
 async def get_kanban_leads(db: AsyncIOMotorDatabase = Depends(get_database)):
     groups = await LeadService(db).get_kanban_groups()
+    identities = await resolve_group_patients(db, groups)
+    calls_by_group = await load_group_calls(db, groups, identities)
     responses = []
-    for touches in groups:
+    for touches, calls, identity_patient_id in zip(groups, calls_by_group, identities):
         canonical = Lead(**{**touches[0], "phone": touches[0].get("phone") or ""})
-        identity_patient_id = next((patient_link(touch) for touch in touches if patient_link(touch)), None)
         enrichment_lead = canonical.copy(update={"converted_to_client_id": identity_patient_id}) if identity_patient_id else canonical
         response = await lead_to_response(enrichment_lead, db, strict_identity=True)
         response.converted_to_client_id = canonical.converted_to_client_id
@@ -179,7 +181,8 @@ async def get_kanban_leads(db: AsyncIOMotorDatabase = Depends(get_database)):
             lead = Lead(**{**touch, "phone": touch.get("phone") or ""})
             inquiries.append(LeadResponse(**lead.dict(), full_name=lead.full_name))
         responses.append(KanbanLeadResponse(
-            **response.dict(), linked_inquiries=inquiries, identity_patient_id=identity_patient_id
+            **response.dict(), linked_inquiries=inquiries, identity_patient_id=identity_patient_id,
+            **call_history(calls)
         ))
     return responses
 

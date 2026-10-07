@@ -75,7 +75,9 @@ async def test_board_groups_before_pagination_and_preserves_history(monkeypatch)
     original = deepcopy(documents)
     collection = Mock()
     collection.find.return_value.to_list = AsyncMock(return_value=documents)
-    db = SimpleNamespace(crm_leads=collection)
+    calls = Mock()
+    calls.find.return_value.to_list = AsyncMock(return_value=[])
+    db = SimpleNamespace(crm_leads=collection, telephony_calls=calls)
 
     async def response(lead, database, strict_identity=False):
         assert strict_identity
@@ -89,6 +91,8 @@ async def test_board_groups_before_pagination_and_preserves_history(monkeypatch)
     assert canonical.status == LeadStatus.QUALIFIED
     assert canonical.converted_to_client_id is None
     assert canonical.identity_patient_id == "patient-a"
+    assert canonical.call_count == 0
+    assert canonical.call_timeline == []
     assert len(canonical.linked_inquiries) == 105
     assert canonical.linked_inquiries[0].notes == "Inquiry 0"
     assert canonical.linked_inquiries[0].patient_id == "patient-a"

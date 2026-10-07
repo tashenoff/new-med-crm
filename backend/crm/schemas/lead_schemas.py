@@ -124,9 +124,23 @@ class LeadResponse(BaseModel):
         from_attributes = True
 
 
+class LeadCallResponse(BaseModel):
+    id: str
+    phone_number: str = ""
+    direction: Optional[str] = None
+    status: Optional[str] = None
+    disposition: Optional[str] = None
+    duration: int = 0
+    created_at: Optional[datetime] = None
+    notes: Optional[str] = None
+
+
 class KanbanLeadResponse(LeadResponse):
     linked_inquiries: List[LeadResponse] = Field(default_factory=list)
     identity_patient_id: Optional[str] = None
+    call_count: int = 0
+    call_timeline: List[LeadCallResponse] = Field(default_factory=list)
+    call_timeline_truncated: bool = False
 
 
 class LeadStatusUpdate(BaseModel):
@@ -172,4 +186,3 @@ class LeadStatistics(BaseModel):
     avg_conversion_time: Optional[float] = None  # в днях
     by_source: Dict[str, int] = {}
     by_manager: Dict[str, int] = {}
-
