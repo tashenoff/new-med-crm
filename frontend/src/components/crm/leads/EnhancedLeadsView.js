@@ -17,8 +17,6 @@ import { normalizeIdentityPhone } from '../../../utils/leadIdentity';
 import { loadLeadHmsData } from '../../../utils/leadHmsData';
 import LeadHistory from './LeadHistoryTimeline';
 import { historyStatusLabel } from '../../../utils/leadHistory';
-import { firstTouchDateRange, matchesFirstTouchDate } from '../../../utils/firstTouchDateFilter';
-import FirstTouchDateFilter from './FirstTouchDateFilter';
 import { useKanbanColumns } from '../../../hooks/useKanbanColumns';
 import { cardColumnId, canMoveCard, manualColumn } from '../../../utils/kanbanColumns';
 import { inputClasses, selectClasses, labelClasses, buttonPrimaryClasses, buttonSecondaryClasses } from '../../modals/modalUtils';
@@ -35,9 +33,7 @@ const fetchHistoryCalls = async ({ phone, limit, offset }) => {
 
 const EnhancedLeadsView = ({ user }) => {
   const [filteredLeads, setFilteredLeads] = useState([]);
-  const [statusFilter, setStatusFilter] = useState('all');
   const [searchTerm, setSearchTerm] = useState('');
-  const [dateFilter, setDateFilter] = useState({ preset: 'all', from: '', to: '' });
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [selectedLead, setSelectedLead] = useState(null);
   const [showTaskModal, setShowTaskModal] = useState(false);
@@ -106,12 +102,6 @@ const EnhancedLeadsView = ({ user }) => {
 
   const columnConfig = useKanbanColumns(fetchLeads);
   const kanbanColumns = columnConfig.columns;
-
-  useEffect(() => {
-    if (!columnConfig.loading && statusFilter !== 'all' && !kanbanColumns.some(column => column.id === statusFilter)) {
-      setStatusFilter('all');
-    }
-  }, [kanbanColumns, columnConfig.loading, statusFilter]);
 
   // Состояния для проверки пациента по телефону
   const [foundPatient, setFoundPatient] = useState(null);
@@ -306,15 +296,10 @@ const EnhancedLeadsView = ({ user }) => {
 
   useEffect(() => {
     filterLeads();
-  }, [leads, statusFilter, searchTerm, dateFilter]);
+  }, [leads, searchTerm]);
 
   const filterLeads = () => {
-    const dateRange = firstTouchDateRange(dateFilter.preset, dateFilter);
-    let filtered = leads.filter(lead => matchesFirstTouchDate(lead, dateRange));
-    
-    if (statusFilter !== 'all') {
-      filtered = filtered.filter(lead => cardColumnId(lead) === statusFilter);
-    }
+    let filtered = leads;
     
     if (searchTerm) {
       filtered = filtered.filter(lead => [lead, ...(lead.linked_inquiries || [])].some(touch =>
@@ -1089,16 +1074,16 @@ const EnhancedLeadsView = ({ user }) => {
           {/* Controls */}
           <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
             <div className="flex flex-wrap items-center gap-2">
-              <button className="bg-green-600 text-white px-4 py-2 text-sm rounded-lg hover:bg-green-700 transition-colors">
-                создать
+              <button type="button" aria-pressed={columnEditMode}
+                onClick={() => { if (!columnConfig.loading && !columnConfig.busy) setColumnEditMode(value => !value); }}
+                disabled={columnConfig.loading || columnConfig.busy}
+                className={cn(buttonSecondaryClasses, "text-sm disabled:opacity-50")}>
+                {columnEditMode ? 'Готово' : 'Редактировать колонки'}
               </button>
-              <button className={cn("px-4 py-2 text-sm rounded-lg border", themeClasses.border.default, themeClasses.text.secondary)}>
-                общие
+              <button type="button" onClick={handleCreateNewColumn} disabled={columnConfig.loading || columnConfig.busy}
+                className={cn(buttonSecondaryClasses, "inline-flex items-center gap-2 text-sm disabled:opacity-50")}>
+                <Plus className="w-4 h-4" /> Добавить колонку
               </button>
-              <button className={cn("px-4 py-2 text-sm rounded-lg border", themeClasses.border.default, themeClasses.text.secondary)}>
-                сделки в работе
-              </button>
-              <span className={cn("text-sm px-2", themeClasses.text.muted)}>+ поиск</span>
             </div>
 
             <div className="flex min-w-0 items-center">
@@ -1116,28 +1101,9 @@ const EnhancedLeadsView = ({ user }) => {
             </div>
           </div>
 
-          <FirstTouchDateFilter value={dateFilter} onChange={setDateFilter} />
-
       {/* Kanban Board */}
       <section aria-label="Колонки Канбан" className="min-w-0">
-        <div className="flex flex-wrap items-center justify-between gap-3 mb-3">
-          <p className={cn("text-sm", themeClasses.text.muted)}>Общие колонки для всех сотрудников клиники</p>
-          <select aria-label="Статус на доске" value={statusFilter} onChange={event => setStatusFilter(event.target.value)}
-            className={cn(selectClasses, "w-full sm:w-auto")}>
-            <option value="all">Все статусы</option>
-            {kanbanColumns.map(column => <option key={column.id} value={column.id}>{column.name}</option>)}
-          </select>
-          <button type="button" aria-pressed={columnEditMode}
-            onClick={() => { if (!columnConfig.loading && !columnConfig.busy) setColumnEditMode(value => !value); }}
-            disabled={columnConfig.loading || columnConfig.busy}
-            className={cn(buttonSecondaryClasses, "text-sm disabled:opacity-50")}>
-            {columnEditMode ? 'Готово' : 'Редактировать колонки'}
-          </button>
-          <button type="button" onClick={handleCreateNewColumn} disabled={columnConfig.loading || columnConfig.busy}
-            className={cn(buttonSecondaryClasses, "inline-flex items-center gap-2 text-sm disabled:opacity-50")}>
-            <Plus className="w-4 h-4" /> Добавить колонку
-          </button>
-        </div>
+        <p className={cn("text-sm mb-3", themeClasses.text.muted)}>Общие колонки для всех сотрудников клиники</p>
         {columnEditMode && <p className={cn("text-sm mb-3", themeClasses.text.muted)}>Перемещать можно только пользовательские колонки. Системные колонки сохраняют свой относительный порядок.</p>}
         {columnConfig.loading && <p role="status" className={themeClasses.text.secondary}>Загрузка колонок…</p>}
         {columnConfig.busy && <p role="status" className={themeClasses.text.secondary}>Сохранение изменений…</p>}
