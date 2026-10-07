@@ -2,10 +2,12 @@ from copy import deepcopy
 from datetime import datetime, timedelta
 from types import SimpleNamespace
 from unittest.mock import AsyncMock
+import asyncio
 import re
 import sys
 
 import pytest
+from bson import BSON
 from fastapi import HTTPException
 from pydantic import ValidationError
 from pymongo.errors import OperationFailure
@@ -38,6 +40,11 @@ class Collection:
     def __init__(self, documents=None):
         self.documents = deepcopy(documents or [])
         self.fail_update = False
+        self.write_concern = None
+
+    def with_options(self, write_concern):
+        self.write_concern = write_concern
+        return self
 
     def find(self, query, **kwargs):
         return SimpleNamespace(to_list=AsyncMock(return_value=deepcopy([
@@ -65,30 +72,12 @@ class Collection:
         return SimpleNamespace(matched_count=1, modified_count=1)
 
 
-class Session:
-    def __init__(self, database):
-        self.database = database
-
-    async def __aenter__(self):
-        return self
-
-    async def __aexit__(self, *args):
-        pass
-
-    async def with_transaction(self, callback, **kwargs):
-        saved = {name: deepcopy(collection.documents) for name, collection in self.database.collections.items()}
-        try:
-            return await callback(self)
-        except Exception:
-            for name, documents in saved.items():
-                self.database.collections[name].documents = documents
-            raise
-
-
 def database(*documents):
     result = SimpleNamespace(system_settings=Collection(), crm_leads=Collection(list(documents)))
     result.collections = {'system_settings': result.system_settings, 'crm_leads': result.crm_leads}
-    result.client = SimpleNamespace(start_session=AsyncMock(side_effect=lambda: Session(result)))
+    result.client = SimpleNamespace(start_session=AsyncMock(
+        side_effect=OperationFailure('transactions not supported', code=20),
+    ))
     return result
 
 
@@ -106,6 +95,14 @@ async def test_shared_defaults_persist_once_and_exclude_legacy_statuses():
     assert await KanbanService(db).columns() == first
     assert len(db.system_settings.documents) == 1
     assert db.system_settings.documents[0]['_id'] == SETTINGS_ID
+
+
+def test_recovery_writes_require_journaled_acknowledgement():
+    db = database()
+    KanbanService(db)
+    for collection in db.collections.values():
+        assert collection.write_concern is not None
+        assert collection.write_concern.document == {'w': 'majority', 'j': True}
 
 
 async def test_custom_create_rename_and_order_are_shared():
@@ -213,16 +210,22 @@ async def test_delete_reports_card_count_and_atomically_returns_canonical_cards_
     assert all('kanban_column_id' not in doc for doc in db.crm_leads.documents)
 
 
-async def test_delete_rolls_back_configuration_and_cards_on_failure():
+async def test_delete_keeps_column_visible_and_recovers_after_write_failure():
     db = database(touch('first'))
     service = KanbanService(db)
     custom = await service.create('Callback')
     await service.move('first', custom['id'])
-    original = deepcopy([db.system_settings.documents, db.crm_leads.documents])
+    db.client.start_session.side_effect = OperationFailure('transactions not supported', code=20)
     db.crm_leads.fail_update = True
     with pytest.raises(RuntimeError):
         await service.delete(custom['id'])
-    assert [db.system_settings.documents, db.crm_leads.documents] == original
+    assert any(column['id'] == custom['id'] for column in
+               db.system_settings.documents[0]['custom_columns'])
+    assert db.crm_leads.documents[0]['kanban_column_id'] == custom['id']
+    db.crm_leads.fail_update = False
+    assert await KanbanService(db).delete(custom['id']) == {'id': custom['id'], 'affected_count': 1}
+    assert 'kanban_column_id' not in db.crm_leads.documents[0]
+    assert await KanbanService(db).delete(custom['id']) == {'id': custom['id'], 'affected_count': 1}
 
 
 @pytest.mark.parametrize('status', [LeadStatus.CONTACTED, LeadStatus.IN_PROGRESS, LeadStatus.CONVERTED, LeadStatus.CLOSED])
@@ -277,16 +280,225 @@ async def test_concurrent_config_change_retries_without_losing_other_columns():
     assert [column['name'] for column in (await service.columns())[-2:]] == ['Other staff column', 'My column']
 
 
-async def test_transaction_support_error_is_explicit_and_does_not_mutate_cards():
+async def test_standalone_move_and_delete_succeed_without_sessions():
     db = database(touch('first'))
     service = KanbanService(db)
     custom = await service.create('Callback')
     db.client.start_session.side_effect = OperationFailure('transactions not supported', code=20)
-    original = deepcopy([db.system_settings.documents, db.crm_leads.documents])
-    with pytest.raises(HTTPException) as error:
+    assert await service.move('first', custom['id']) == {
+        'lead_id': 'first', 'column_id': custom['id'], 'status': 'new',
+    }
+    assert db.crm_leads.documents[0]['kanban_column_id'] == custom['id']
+    assert await service.delete(custom['id']) == {'id': custom['id'], 'affected_count': 1}
+    assert 'kanban_column_id' not in db.crm_leads.documents[0]
+    db.client.start_session.assert_not_awaited()
+
+
+async def test_standalone_move_recovers_after_write_failure_on_fresh_service():
+    db = database(touch('first'), touch('history', 1))
+    service = KanbanService(db)
+    custom = await service.create('Callback')
+    db.client.start_session.side_effect = OperationFailure('transactions not supported', code=20)
+    history = deepcopy(db.crm_leads.documents[1])
+    db.crm_leads.fail_update = True
+    with pytest.raises(RuntimeError, match='injected write failure'):
+        await service.move('history', custom['id'])
+    assert 'kanban_column_id' not in db.crm_leads.documents[0]
+    db.crm_leads.fail_update = False
+    assert (await KanbanService(db).move('history', custom['id']))['lead_id'] == 'first'
+    assert db.crm_leads.documents[0]['kanban_column_id'] == custom['id']
+    assert db.crm_leads.documents[1] == history
+
+
+@pytest.mark.parametrize('kind', ['move', 'delete'])
+async def test_lost_lead_write_acknowledgement_is_recovered_exactly_once(kind):
+    db = database(touch('first'), touch('history', 1), touch('other', phone=None))
+    service = KanbanService(db)
+    custom = await service.create('Callback')
+    if kind == 'delete':
         await service.move('first', custom['id'])
-    assert error.value.status_code == 503
-    assert [db.system_settings.documents, db.crm_leads.documents] == original
+        await service.move('other', custom['id'])
+    history = deepcopy(db.crm_leads.documents[1])
+    db.client.start_session.side_effect = OperationFailure('transactions not supported', code=20)
+    original_update = db.crm_leads.update_one
+    failed = False
+
+    async def lose_ack(query, update, **kwargs):
+        nonlocal failed
+        result = await original_update(query, update, **kwargs)
+        if not failed:
+            failed = True
+            raise RuntimeError('lost write acknowledgement')
+        return result
+
+    db.crm_leads.update_one = lose_ack
+    with pytest.raises(RuntimeError, match='lost write acknowledgement'):
+        if kind == 'move':
+            await service.move('history', custom['id'])
+        else:
+            await service.delete(custom['id'])
+    stored_ids = {column['id'] for column in db.system_settings.documents[0]['custom_columns']}
+    assert custom['id'] in stored_ids
+    assert all(doc.get('kanban_column_id') in stored_ids | {None} for doc in db.crm_leads.documents)
+    columns = await KanbanService(db).columns()
+    if kind == 'move':
+        assert next(column for column in columns if column['id'] == custom['id'])['affected_count'] == 1
+    else:
+        assert custom['id'] not in {column['id'] for column in columns}
+        assert await KanbanService(db).delete(custom['id']) == {'id': custom['id'], 'affected_count': 2}
+        assert all('kanban_column_id' not in doc for doc in db.crm_leads.documents)
+    assert db.crm_leads.documents[1] == history
+    db.client.start_session.assert_not_awaited()
+
+
+@pytest.mark.parametrize('stage', ['reservation', 'receipt', 'finalization'])
+@pytest.mark.parametrize('after_write', [False, True])
+async def test_delete_recovers_settings_write_failures(stage, after_write):
+    db = database(touch('first'))
+    service = KanbanService(db)
+    custom = await service.create('Callback')
+    await service.move('first', custom['id'])
+    original_update = db.system_settings.update_one
+    failed = False
+
+    async def fail_once(query, update, **kwargs):
+        nonlocal failed
+        selected = (
+            stage == 'reservation' and 'pending_operation' in update.get('$set', {})
+            or stage == 'receipt' and query['_id'].startswith('crm_kanban_delete_')
+            or stage == 'finalization' and 'pending_operation' in update.get('$unset', {})
+        )
+        if selected and not failed:
+            failed = True
+            if after_write:
+                await original_update(query, update, **kwargs)
+            raise RuntimeError('settings write failure')
+        return await original_update(query, update, **kwargs)
+
+    db.system_settings.update_one = fail_once
+    with pytest.raises(RuntimeError, match='settings write failure'):
+        await service.delete(custom['id'])
+    assert await KanbanService(db).delete(custom['id']) == {'id': custom['id'], 'affected_count': 1}
+    assert 'kanban_column_id' not in db.crm_leads.documents[0]
+    assert custom['id'] not in {column['id'] for column in await service.columns()}
+
+
+@pytest.mark.parametrize('abort', [False, True])
+async def test_delayed_move_worker_cannot_assign_to_deleted_column(abort):
+    db = database(touch('first'))
+    service = KanbanService(db)
+    custom = await service.create('Callback')
+    original_update = db.crm_leads.update_one
+    paused = asyncio.Event()
+    resume = asyncio.Event()
+    delayed = False
+
+    async def delay_first_move(query, update, **kwargs):
+        nonlocal delayed
+        if not delayed and update.get('$set', {}).get('kanban_column_id') == custom['id']:
+            delayed = True
+            paused.set()
+            await resume.wait()
+        return await original_update(query, update, **kwargs)
+
+    db.crm_leads.update_one = delay_first_move
+    moving = asyncio.create_task(service.move('first', custom['id']))
+    try:
+        await asyncio.wait_for(paused.wait(), timeout=2)
+        if abort:
+            await LeadService(db).update_lead_status('first', LeadStatus.CONTACTED)
+        assert (await KanbanService(db).delete(custom['id']))['affected_count'] == (0 if abort else 1)
+        if abort:
+            await LeadService(db).update_lead_status('first', LeadStatus.NEW)
+        resume.set()
+        if abort:
+            with pytest.raises(HTTPException) as error:
+                await moving
+            assert error.value.status_code == 409
+        else:
+            assert (await moving)['column_id'] == custom['id']
+        assert 'kanban_column_id' not in db.crm_leads.documents[0]
+        assert {column['id'] for column in await service.columns()} == set(SYSTEM_COLUMNS)
+    finally:
+        resume.set()
+        if not moving.done():
+            moving.cancel()
+            await asyncio.gather(moving, return_exceptions=True)
+
+
+async def test_delete_counts_only_actual_returns_when_status_event_wins():
+    db = database(touch('first'), touch('history', 1))
+    service = KanbanService(db)
+    custom = await service.create('Callback')
+    await service.move('first', custom['id'])
+    original_update = db.crm_leads.update_one
+    history = deepcopy(db.crm_leads.documents[1])
+    event_fired = False
+
+    async def status_event_first(query, update, **kwargs):
+        nonlocal event_fired
+        if not event_fired and query.get('kanban_column_id') == custom['id']:
+            event_fired = True
+            await LeadService(db).update_lead_status('history', LeadStatus.CONTACTED)
+        return await original_update(query, update, **kwargs)
+
+    db.crm_leads.update_one = status_event_first
+    assert await service.delete(custom['id']) == {'id': custom['id'], 'affected_count': 0}
+    assert db.crm_leads.documents[0]['status'] == 'contacted'
+    assert 'kanban_column_id' not in db.crm_leads.documents[0]
+    assert db.crm_leads.documents[1] == history
+
+
+async def test_operation_finalization_handles_mongodb_datetime_precision():
+    db = database(touch('first'))
+    service = KanbanService(db)
+    custom = await service.create('Callback')
+    original_update = db.system_settings.update_one
+
+    async def bson_update(query, update, **kwargs):
+        return await original_update(query, BSON.encode(update).decode(), **kwargs)
+
+    db.system_settings.update_one = bson_update
+    await service.move('first', custom['id'])
+    assert 'pending_operation' not in db.system_settings.documents[0]
+    assert await service.delete(custom['id']) == {'id': custom['id'], 'affected_count': 1}
+    assert 'pending_operation' not in db.system_settings.documents[0]
+
+
+async def test_concurrent_moves_delete_and_config_edit_never_leave_deleted_assignments():
+    db = database(*(touch(f'lead-{index}', phone=None) for index in range(12)))
+    service = KanbanService(db)
+    custom = await service.create('Callback')
+    await service.move('lead-0', custom['id'])
+    for collection in db.collections.values():
+        original_update = collection.update_one
+        original_find_one = collection.find_one
+
+        async def yielding_update(*args, original=original_update, **kwargs):
+            await asyncio.sleep(0)
+            return await original(*args, **kwargs)
+
+        async def yielding_find_one(*args, original=original_find_one, **kwargs):
+            await asyncio.sleep(0)
+            return await original(*args, **kwargs)
+
+        collection.update_one = yielding_update
+        collection.find_one = yielding_find_one
+
+    outcomes = await asyncio.gather(
+        *(KanbanService(db).move(f'lead-{index}', custom['id']) for index in range(12)),
+        KanbanService(db).delete(custom['id']), KanbanService(db).create('Other staff column'),
+        return_exceptions=True,
+    )
+    assert all(not isinstance(outcome, Exception) or isinstance(outcome, HTTPException) for outcome in outcomes)
+    result = await KanbanService(db).delete(custom['id'])
+    columns = await KanbanService(db).columns()
+    assert custom['id'] not in {column['id'] for column in columns}
+    assert all('kanban_column_id' not in doc for doc in db.crm_leads.documents)
+    receipt_id = 'crm_kanban_delete_' + custom['id']
+    assert result['affected_count'] == sum(doc.get('_kanban_operation') == receipt_id
+                                         for doc in db.crm_leads.documents)
+    assert sum(column['affected_count'] for column in columns) == 12
 
 
 @pytest.mark.parametrize('event, expected', [('confirmed', 'in_progress'), ('arrived', 'converted'),

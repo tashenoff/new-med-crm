@@ -3,8 +3,7 @@ from uuid import uuid4
 
 from fastapi import HTTPException
 from pydantic import ValidationError
-from pymongo.errors import DuplicateKeyError, OperationFailure
-from pymongo.read_concern import ReadConcern
+from pymongo.errors import DuplicateKeyError
 from pymongo.write_concern import WriteConcern
 
 from ..schemas.kanban_schemas import ColumnName
@@ -54,7 +53,9 @@ def normalized_columns(document):
 class KanbanService:
     def __init__(self, db):
         self.db = db
-        self.settings = db.system_settings
+        write_concern = WriteConcern('majority', j=True)
+        self.settings = db.system_settings.with_options(write_concern=write_concern)
+        self.leads = db.crm_leads.with_options(write_concern=write_concern)
 
     async def ensure_settings(self):
         try:
@@ -71,11 +72,11 @@ class KanbanService:
         return await self.settings.find_one({'_id': SETTINGS_ID}, session=session)
 
     async def groups(self, session=None):
-        return group_lead_touches(await self.db.crm_leads.find({}, session=session).to_list(length=None))
+        return group_lead_touches(await self.leads.find({}, session=session).to_list(length=None))
 
     async def columns(self):
         await self.ensure_settings()
-        columns = normalized_columns(await self.configuration())
+        columns = normalized_columns(await self.ready_configuration())
         return await self.with_counts(columns)
 
     async def with_counts(self, columns):
@@ -109,7 +110,7 @@ class KanbanService:
 
     async def save(self, document, columns, session=None):
         result = await self.settings.update_one(
-            {'_id': SETTINGS_ID, 'revision': document.get('revision')},
+            {'_id': SETTINGS_ID, 'revision': document.get('revision'), 'pending_operation': None},
             {'$set': {'custom_columns': [dict(id=column['id'], name=column['name'])
                                          for column in columns if not column['is_system']],
                       'order': [column['id'] for column in columns]}, '$inc': {'revision': 1}},
@@ -120,7 +121,7 @@ class KanbanService:
     async def mutate(self, operation):
         await self.ensure_settings()
         for attempt in range(5):
-            document = await self.configuration()
+            document = await self.ready_configuration()
             columns = normalized_columns(document)
             result = operation(columns)
             if await self.save(document, columns):
@@ -157,28 +158,102 @@ class KanbanService:
 
         return await self.with_counts(await self.mutate(operation))
 
-    async def transaction(self, callback):
-        await self.ensure_settings()
-        try:
-            async with await self.db.client.start_session() as session:
-                return await session.with_transaction(
-                    callback, read_concern=ReadConcern('snapshot'), write_concern=WriteConcern('majority'),
+    async def ready_configuration(self):
+        for attempt in range(5):
+            document = await self.configuration()
+            if not document.get('pending_operation'):
+                return document
+            await self.recover(document)
+        raise HTTPException(409, 'Columns changed concurrently; reload and retry')
+
+    async def reserve(self, document, operation):
+        result = await self.settings.update_one(
+            {'_id': SETTINGS_ID, 'revision': document.get('revision'), 'pending_operation': None},
+            {'$set': {'pending_operation': operation}, '$inc': {'revision': 1}},
+        )
+        return result.matched_count == 1
+
+    async def recover(self, document):
+        operation = document['pending_operation']
+        receipt = await self.settings.find_one({'_id': operation['id']})
+        if receipt is None:
+            if operation['kind'] == 'move':
+                query = operation['source']
+                update = {'$set': {'updated_at': operation['updated_at'],
+                                   '_kanban_operation': operation['id']}}
+                if operation['column_id'] == 'new':
+                    update['$unset'] = {'kanban_column_id': ''}
+                else:
+                    update['$set']['kanban_column_id'] = operation['column_id']
+                result = await self.leads.update_one(query, update)
+                if result.matched_count == 0:
+                    await self.leads.update_one(
+                        {'id': query['id'], '_kanban_operation': query['_kanban_operation']},
+                        {'$set': {'_kanban_operation': operation['id'] + '_cancelled'}},
+                    )
+                lead = await self.leads.find_one({'id': query['id']})
+                applied = result.matched_count == 1 or (lead and lead.get('_kanban_operation') == operation['id'])
+                if applied:
+                    outcome = {'result': dict(lead_id=query['id'], column_id=operation['column_id'], status='new')}
+                else:
+                    outcome = {'error': 'Lead changed concurrently; reload and retry'}
+            else:
+                for attempt in range(5):
+                    candidates = [group[0] for group in await self.groups()
+                                  if group[0].get('status') == 'new'
+                                  and group[0].get('kanban_column_id') == operation['column_id']]
+                    if not candidates:
+                        break
+                    for canonical in candidates:
+                        await self.leads.update_one(
+                            {'id': canonical['id'], 'status': 'new',
+                             'kanban_column_id': operation['column_id'],
+                             '_kanban_operation': canonical.get('_kanban_operation')},
+                            {'$set': {'updated_at': operation['updated_at'],
+                                      '_kanban_operation': operation['id']},
+                             '$unset': {'kanban_column_id': ''}},
+                        )
+                else:
+                    raise HTTPException(409, 'Leads changed concurrently; retry deletion')
+                applied = await self.leads.find({'_kanban_operation': operation['id']}).to_list(length=None)
+                outcome = {'result': dict(id=operation['column_id'], affected_count=len(applied))}
+            try:
+                await self.settings.update_one(
+                    {'_id': operation['id']}, {'$setOnInsert': {'outcome': outcome}}, upsert=True,
                 )
-        except OperationFailure as error:
-            if error.code in (20, 303):
-                raise HTTPException(503, 'Kanban move/delete requires MongoDB transaction support (replica set or mongos)') from error
-            raise
+            except DuplicateKeyError:
+                if await self.settings.find_one({'_id': operation['id']}) is None:
+                    raise
+            receipt = await self.settings.find_one({'_id': operation['id']})
+
+        current = await self.configuration()
+        pending = current.get('pending_operation')
+        if pending and pending['id'] == operation['id']:
+            update = {'$unset': {'pending_operation': ''}, '$inc': {'revision': 1}}
+            if operation['kind'] == 'delete':
+                columns = [column for column in normalized_columns(current)
+                           if column['id'] != operation['column_id']]
+                update['$set'] = {
+                    'custom_columns': [dict(id=column['id'], name=column['name'])
+                                       for column in columns if not column['is_system']],
+                    'order': [column['id'] for column in columns],
+                }
+            await self.settings.update_one(
+                {'_id': SETTINGS_ID, 'revision': current.get('revision'), 'pending_operation': pending}, update,
+            )
+        return receipt['outcome']
 
     async def move(self, lead_id, identifier):
-        async def operation(session):
-            document = await self.configuration(session)
+        await self.ensure_settings()
+        for attempt in range(5):
+            document = await self.ready_configuration()
             columns = normalized_columns(document)
             target = next((column for column in columns if column['id'] == identifier), None)
             if target is None:
                 raise HTTPException(404, 'Kanban column not found')
             if not target['manual_move_allowed']:
                 raise HTTPException(400, 'System destination is event-driven')
-            group = next((group for group in await self.groups(session)
+            group = next((group for group in await self.groups()
                           if any(touch.get('id') == lead_id for touch in group)), None)
             if group is None:
                 raise HTTPException(404, 'Lead not found')
@@ -187,39 +262,32 @@ class KanbanService:
             movable_ids = {column['id'] for column in columns if column['manual_move_allowed']}
             if canonical.get('status') != 'new' or current not in movable_ids:
                 raise HTTPException(400, 'Only Unparsed/custom cards can move manually')
-            if not await self.save(document, columns, session):
-                raise HTTPException(409, 'Columns changed concurrently; reload and retry')
-            update = {'$set': {'updated_at': datetime.utcnow()}}
-            if identifier == 'new':
-                update['$unset'] = {'kanban_column_id': ''}
-            else:
-                update['$set']['kanban_column_id'] = identifier
-            await self.db.crm_leads.update_one({'id': canonical['id']}, update, session=session)
-            return dict(lead_id=canonical['id'], column_id=identifier, status='new')
-
-        return await self.transaction(operation)
+            operation = dict(id='crm_kanban_move_' + str(uuid4()), kind='move', column_id=identifier,
+                             updated_at=datetime.utcnow(),
+                             source={'id': canonical['id'], 'status': 'new',
+                                     'kanban_column_id': canonical.get('kanban_column_id'),
+                                     '_kanban_operation': canonical.get('_kanban_operation')})
+            if await self.reserve(document, operation):
+                outcome = await self.recover({'pending_operation': operation})
+                if 'error' in outcome:
+                    raise HTTPException(409, outcome['error'])
+                return outcome['result']
+        raise HTTPException(409, 'Columns changed concurrently; reload and retry')
 
     async def delete(self, identifier):
         if identifier in SYSTEM_COLUMNS:
             raise HTTPException(400, 'System columns cannot be renamed or deleted')
 
-        async def operation(session):
-            document = await self.configuration(session)
+        await self.ensure_settings()
+        receipt_id = 'crm_kanban_delete_' + identifier
+        for attempt in range(5):
+            document = await self.ready_configuration()
+            receipt = await self.settings.find_one({'_id': receipt_id})
+            if receipt is not None:
+                return receipt['outcome']['result']
             columns = normalized_columns(document)
-            column = self.custom_column(columns, identifier)
-            columns.remove(column)
-            if not await self.save(document, columns, session):
-                raise HTTPException(409, 'Columns changed concurrently; reload and retry')
-            affected_count = 0
-            for group in await self.groups(session):
-                canonical = group[0]
-                if canonical.get('status') == 'new' and canonical.get('kanban_column_id') == identifier:
-                    await self.db.crm_leads.update_one(
-                        {'id': canonical['id']},
-                        {'$set': {'status': 'new', 'updated_at': datetime.utcnow()},
-                         '$unset': {'kanban_column_id': ''}}, session=session,
-                    )
-                    affected_count += 1
-            return dict(id=identifier, affected_count=affected_count)
-
-        return await self.transaction(operation)
+            self.custom_column(columns, identifier)
+            operation = dict(id=receipt_id, kind='delete', column_id=identifier, updated_at=datetime.utcnow())
+            if await self.reserve(document, operation):
+                return (await self.recover({'pending_operation': operation}))['result']
+        raise HTTPException(409, 'Columns changed concurrently; reload and retry')
