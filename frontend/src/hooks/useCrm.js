@@ -5,7 +5,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useCrmApi } from './useCrmApi';
 
-export const useCrm = () => {
+export const useCrm = ({ kanban = false } = {}) => {
   // Состояния для данных
   const [leads, setLeads] = useState([]);
   const [clients, setClients] = useState([]);
@@ -47,57 +47,66 @@ export const useCrm = () => {
   const fetchLeads = useCallback(async (filters = {}) => {
     setDataLoading(prev => ({ ...prev, leads: true }));
     try {
-      const data = await crmApi.leads.getAll(filters);
+      const data = kanban ? await crmApi.leads.getKanban() : await crmApi.leads.getAll(filters);
       setLeads(data);
     } catch (error) {
       console.error('Error fetching leads:', error);
     } finally {
       setDataLoading(prev => ({ ...prev, leads: false }));
     }
-  }, [crmApi.leads]);
+  }, [crmApi.leads, kanban]);
 
   const createLead = useCallback(async (leadData) => {
     try {
       const newLead = await crmApi.leads.create(leadData);
-      setLeads(prev => [newLead, ...prev]);
+      if (kanban) await fetchLeads();
+      else setLeads(prev => [newLead, ...prev]);
       return newLead;
     } catch (error) {
       console.error('Error creating lead:', error);
       throw error;
     }
-  }, [crmApi.leads]);
+  }, [crmApi.leads, kanban, fetchLeads]);
 
   const updateLead = useCallback(async (id, updateData) => {
     try {
       const updatedLead = await crmApi.leads.update(id, updateData);
-      setLeads(prev => prev.map(lead => 
-        lead.id === id ? updatedLead : lead
-      ));
       if (selectedLead?.id === id) {
         setSelectedLead(updatedLead);
       }
+      if (kanban) {
+        await fetchLeads();
+        return updatedLead;
+      }
+      setLeads(prev => prev.map(lead =>
+        lead.id === id ? updatedLead : lead
+      ));
       return updatedLead;
     } catch (error) {
       console.error('Error updating lead:', error);
       throw error;
     }
-  }, [crmApi.leads, selectedLead]);
+  }, [crmApi.leads, selectedLead, kanban, fetchLeads]);
 
   const updateLeadStatus = useCallback(async (id, status, notes = null) => {
     try {
       const updatedLead = await crmApi.leads.updateStatus(id, status, notes);
-      setLeads(prev => prev.map(lead => 
-        lead.id === id ? updatedLead : lead
-      ));
       if (selectedLead?.id === id) {
         setSelectedLead(updatedLead);
       }
+      if (kanban) {
+        await fetchLeads();
+        return updatedLead;
+      }
+      setLeads(prev => prev.map(lead =>
+        lead.id === id ? updatedLead : lead
+      ));
       return updatedLead;
     } catch (error) {
       console.error('Error updating lead status:', error);
       throw error;
     }
-  }, [crmApi.leads, selectedLead]);
+  }, [crmApi.leads, selectedLead, kanban, fetchLeads]);
 
   const convertLead = useCallback(async (id, conversionData) => {
     try {
@@ -118,7 +127,8 @@ export const useCrm = () => {
   const deleteLead = useCallback(async (id) => {
     try {
       await crmApi.leads.delete(id);
-      setLeads(prev => prev.filter(lead => lead.id !== id));
+      if (kanban) await fetchLeads();
+      else setLeads(prev => prev.filter(lead => lead.id !== id));
       if (selectedLead?.id === id) {
         setSelectedLead(null);
       }
@@ -126,7 +136,7 @@ export const useCrm = () => {
       console.error('Error deleting lead:', error);
       throw error;
     }
-  }, [crmApi.leads, selectedLead]);
+  }, [crmApi.leads, selectedLead, kanban, fetchLeads]);
 
   const fetchLeadsStatistics = useCallback(async () => {
     try {
@@ -464,7 +474,7 @@ export const useCrm = () => {
       try {
         // Используем crmApi напрямую вместо функций из useCallback
         const [leadsData, clientsData, dealsData, managersData, sourcesData] = await Promise.all([
-          crmApi.leads.getAll(),
+          kanban ? crmApi.leads.getKanban() : crmApi.leads.getAll(),
           crmApi.clients.getAll(),
           crmApi.deals.getAll(),
           crmApi.managers.getAll(),
@@ -595,4 +605,3 @@ export const useCrm = () => {
     fetchDashboardData,
   };
 };
-

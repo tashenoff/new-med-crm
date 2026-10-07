@@ -95,6 +95,10 @@ export const useCrmApi = () => {
       return await apiCall('GET', url);
     }, [apiCall]),
 
+    getKanban: useCallback(async () => {
+      return await apiCall('GET', '/leads/kanban');
+    }, [apiCall]),
+
     // Получить лида по ID
     getById: useCallback(async (id) => {
       return await apiCall('GET', `/leads/${id}`);

@@ -13,6 +13,7 @@ import { useModal } from '../../../context/ModalContext';
 import Modal from '../../modals/Modal';
 import PanelHeader from '../../common/PanelHeader';
 import WhatsAppSidebar from '../telephony/WhatsAppSidebar';
+import { normalizeIdentityPhone } from '../../../utils/leadIdentity';
 import { inputClasses, selectClasses, labelClasses, buttonPrimaryClasses, buttonSecondaryClasses } from '../../modals/modalUtils';
 
 const EnhancedLeadsView = ({ user }) => {
@@ -88,7 +89,7 @@ const EnhancedLeadsView = ({ user }) => {
     fetchSources,
     clearError,
     checkPatientByPhone
-  } = useCrm();
+  } = useCrm({ kanban: true });
 
   // Состояния для проверки пациента по телефону
   const [foundPatient, setFoundPatient] = useState(null);
@@ -133,6 +134,18 @@ const EnhancedLeadsView = ({ user }) => {
       color: 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900 dark:text-emerald-200', 
       icon: <DollarSign className="w-4 h-4" />,
       badge: 'bg-emerald-600'
+    },
+    qualified: {
+      label: 'Квалифицирован',
+      color: 'bg-indigo-100 text-indigo-800',
+      icon: <UserCheck className="w-4 h-4" />,
+      badge: 'bg-indigo-500'
+    },
+    lost: {
+      label: 'Потерян',
+      color: 'bg-gray-100 text-gray-800',
+      icon: <AlertCircle className="w-4 h-4" />,
+      badge: 'bg-gray-500'
     }
   };
 
@@ -277,12 +290,13 @@ const EnhancedLeadsView = ({ user }) => {
     }
     
     if (searchTerm) {
-      filtered = filtered.filter(lead => 
-        lead.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        lead.phone?.includes(searchTerm) ||
-        lead.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        (lead.first_name + ' ' + lead.last_name).toLowerCase().includes(searchTerm.toLowerCase())
-      );
+      filtered = filtered.filter(lead => [lead, ...(lead.linked_inquiries || [])].some(touch =>
+        touch.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        touch.full_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        touch.phone?.includes(searchTerm) ||
+        touch.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (touch.first_name + ' ' + (touch.last_name || '')).toLowerCase().includes(searchTerm.toLowerCase())
+      ));
     }
     
     setFilteredLeads(filtered);
@@ -324,18 +338,13 @@ const EnhancedLeadsView = ({ user }) => {
       const API = import.meta.env.VITE_BACKEND_URL || 'https://medicodebase.preview.emergentagent.com';
       const token = localStorage.getItem('token');
 
-      let patientId = lead.converted_to_client_id;
+      let patientId = lead.identity_patient_id || lead.converted_to_client_id || lead.patient_id;
 
       // Если нет converted_to_client_id, ищем пациента по телефону
       if (!patientId && lead.phone) {
-        const phoneDigits = lead.phone.replace(/\D/g, '');
-        const searchPhone = phoneDigits.length > 10 ? phoneDigits.slice(-10) : phoneDigits;
-        
-        // Ищем среди пациентов
-        const foundPatient = patients.find(p => {
-          const pPhone = (p.phone || '').replace(/\D/g, '');
-          return pPhone.endsWith(searchPhone) || searchPhone.endsWith(pPhone.slice(-10));
-        });
+        const searchPhone = normalizeIdentityPhone(lead.phone);
+        const matches = searchPhone ? patients.filter(p => normalizeIdentityPhone(p.phone) === searchPhone) : [];
+        const foundPatient = matches.length === 1 ? matches[0] : null;
         
         if (foundPatient) {
           patientId = foundPatient.id;
@@ -694,6 +703,20 @@ const EnhancedLeadsView = ({ user }) => {
       status: 'rejected',
       color: 'bg-red-500',
       bgColor: 'bg-red-50 dark:bg-red-900/20'
+    },
+    {
+      id: 'qualified',
+      title: 'КВАЛИФИЦИРОВАН',
+      status: 'qualified',
+      color: 'bg-indigo-500',
+      bgColor: 'bg-indigo-50 dark:bg-indigo-900/20'
+    },
+    {
+      id: 'lost',
+      title: 'ПОТЕРЯН',
+      status: 'lost',
+      color: 'bg-gray-500',
+      bgColor: 'bg-gray-50 dark:bg-gray-900/20'
     }
   ];
 
@@ -926,6 +949,11 @@ const EnhancedLeadsView = ({ user }) => {
             <p className={cn("text-xs mt-1", themeClasses.text.muted)}>
               {leadSources[lead.source] || 'Источник'}
             </p>
+            {lead.linked_inquiries?.length > 0 && (
+              <p className="text-xs mt-1 text-blue-600 dark:text-blue-400">
+                Связанных обращений: {lead.linked_inquiries.length} · {[...new Set(lead.linked_inquiries.map(touch => leadSources[touch.source] || touch.source))].join(', ')}
+              </p>
+            )}
           </div>
           <div className="flex items-center space-x-1 ml-2">
             {urgentTasks > 0 && (
@@ -1660,7 +1688,7 @@ const EnhancedLeadsView = ({ user }) => {
       <Modal
         show={showHmsDataModal}
         onClose={() => { setShowHmsDataModal(false); setSelectedLeadForHms(null); setHmsData({ appointments: [], treatmentPlans: [] }); }}
-        title={selectedLeadForHms ? `Данные HMS - ${selectedLeadForHms.first_name} ${selectedLeadForHms.last_name}` : 'Данные HMS'}
+        title={selectedLeadForHms ? `История и данные - ${selectedLeadForHms.full_name}` : 'История и данные'}
         size="max-w-4xl"
       >
         {loadingHmsData ? (
@@ -1670,6 +1698,21 @@ const EnhancedLeadsView = ({ user }) => {
           </div>
         ) : (
           <div className="space-y-6">
+            <section>
+              <h3 className="text-lg font-semibold mb-4">История обращений и каналов</h3>
+              <p className="text-sm mb-3">На доске показано первое обращение. Последующие обращения связаны с ним и сохранены отдельно.</p>
+              {[selectedLeadForHms, ...(selectedLeadForHms?.linked_inquiries || [])].filter(Boolean).map((touch, index) => (
+                <div key={touch.id} className={cn('border rounded-lg p-3 mb-2', themeClasses.border.default)}>
+                  <div className="font-medium">{index === 0 ? 'Первое обращение' : 'Связанное обращение'} · {touch.full_name}</div>
+                  <div className="text-sm">{new Date(touch.created_at).toLocaleString('ru-RU')} · {leadSources[touch.source] || touch.source} · {leadStatuses[touch.status]?.label || touch.status}</div>
+                  <div className="text-sm">{touch.phone} {touch.email || ''}</div>
+                  <div className="text-xs">ID: {touch.id}{touch.source_id ? ` · ID источника: ${touch.source_id}` : ''}</div>
+                  {touch.description && <p className="text-sm whitespace-pre-wrap">{touch.description}</p>}
+                  {touch.notes && <p className="text-sm whitespace-pre-wrap">{touch.notes}</p>}
+                  {touch.converted_to_appointment_id && <div className="text-sm">Запись: {touch.converted_to_appointment_id}</div>}
+                </div>
+              ))}
+            </section>
             <div>
               <h3 className="text-lg font-semibold mb-4">📋 Планы лечения</h3>
               {hmsData.treatmentPlans.length > 0 ? (
