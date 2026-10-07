@@ -12,6 +12,7 @@ from .auth import get_current_active_user, require_role
 from models.auth import UserInDB, UserRole
 from database import db
 from services.patient_status import matches_returning_filter, count_completed_appointments
+from services.patient_crm_sync import sync_crm_names_from_patient, parse_full_name
 
 # Router
 patients_router = APIRouter(prefix="/patients", tags=["Patients"])
@@ -331,7 +332,14 @@ async def update_patient(
 ):
     update_dict = {k: v for k, v in patient_update.dict().items() if v is not None}
     update_dict["updated_at"] = datetime.utcnow()
-    
+
+    full_name = update_dict.get("full_name")
+    if full_name is not None:
+        last_name, first_name, middle_name = parse_full_name(full_name)
+        update_dict["first_name"] = first_name
+        update_dict["last_name"] = last_name
+        update_dict["middle_name"] = middle_name
+
     result = await db.patients.update_one(
         {"id": patient_id}, 
         {"$set": update_dict}
@@ -341,6 +349,13 @@ async def update_patient(
         raise HTTPException(status_code=404, detail="Patient not found")
     
     updated_patient = await db.patients.find_one({"id": patient_id})
+
+    if full_name is not None:
+        try:
+            await sync_crm_names_from_patient(db, patient_id, full_name)
+        except Exception as exc:
+            logger.exception("CRM name sync failed for patient %s: %s", patient_id, exc)
+
     return Patient(**updated_patient)
 
 @patients_router.delete("/{patient_id}")
