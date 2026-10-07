@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect, useCallback, useRef } from "react";
+﻿import React, { useState, useEffect, useCallback } from "react";
 import { createPortal } from "react-dom";
 import { telephonyApi, handleApiError } from "../../../api/telephony";
 import { useAuth } from "../../../context/AuthContext";
@@ -49,34 +49,13 @@ const normalizePhoneInput = (value) => {
   return value.replace(/[^\d\s+\-()]/g, "");
 };
 
-const ZADARMA_WIDGET_BASE = "https://my.zadarma.com/webphoneWebRTCWidget/v8/js";
-const ZADARMA_WIDGET_VERSION = "23";
-const SIP_LOGIN = "596634-100";
-
-const loadScript = (src) =>
-  new Promise((resolve, reject) => {
-    if (document.querySelector(`script[src="${src}"]`)) {
-      resolve();
-      return;
-    }
-    const script = document.createElement("script");
-    script.src = src;
-    script.async = true;
-    script.onload = () => resolve();
-    script.onerror = () => reject(new Error(`Не удалось загрузить ${src}`));
-    document.body.appendChild(script);
-  });
-
 const DialerWidget = ({ isOpen, onClose, initialPhone = "" }) => {
   const { user } = useAuth();
   const [tab, setTab] = useState("dial");
   const [phone, setPhone] = useState(initialPhone);
   const [status, setStatus] = useState(null);
-  const [calling, setCalling] = useState(false);
-  const [widgetReady, setWidgetReady] = useState(false);
   const [calls, setCalls] = useState([]);
   const [loadingCalls, setLoadingCalls] = useState(false);
-  const initPromiseRef = useRef(null);
 
   const loadCalls = useCallback(async () => {
     if (!user?.id) return;
@@ -104,97 +83,17 @@ const DialerWidget = ({ isOpen, onClose, initialPhone = "" }) => {
     setPhone((prev) => prev || initialPhone || "");
   }, [initialPhone]);
 
-  const initWidget = async () => {
-    if (widgetReady) return;
-    if (initPromiseRef.current) return initPromiseRef.current;
-
-    initPromiseRef.current = (async () => {
-      const { key } = await telephonyApi.getWebrtcKey();
-
-      await loadScript(
-        `${ZADARMA_WIDGET_BASE}/loader-phone-lib.js?v=${ZADARMA_WIDGET_VERSION}`
-      );
-      await loadScript(
-        `${ZADARMA_WIDGET_BASE}/loader-phone-fn.js?v=${ZADARMA_WIDGET_VERSION}`
-      );
-
-      if (typeof window.zadarmaWidgetFn !== "function") {
-        throw new Error("Виджет Zadarma не загрузился");
-      }
-
-      window.zadarmaWidgetFn(
-        key,
-        SIP_LOGIN,
-        "square",
-        "ru",
-        true,
-        "{left: 8px,bottom: 90px}"
-      );
-
-      setWidgetReady(true);
-    })();
-
-    try {
-      await initPromiseRef.current;
-    } finally {
-      initPromiseRef.current = null;
-    }
-  };
-
-  const trySetWidgetNumber = (number) => {
-    // Виджет рендерится внутри iframe; публичного API набора номера нет.
-    // Пробуем найти input внутри iframe и вставить номер.
-    try {
-      const iframes = document.querySelectorAll("iframe");
-      for (const iframe of iframes) {
-        const doc = iframe.contentDocument || iframe.contentWindow?.document;
-        if (!doc) continue;
-        const input =
-          doc.querySelector("input[type=tel]") ||
-          doc.querySelector("input[type=text]") ||
-          doc.querySelector("input[placeholder*=\'номер\' i]") ||
-          doc.querySelector("input");
-        if (input) {
-          input.focus();
-          input.value = number;
-          input.dispatchEvent(new Event("input", { bubbles: true }));
-          input.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter" }));
-          return true;
-        }
-      }
-    } catch (e) {
-      // cross-origin iframe — игнорируем
-    }
-    return false;
-  };
-
-  const handleCall = async () => {
+  const handleCall = () => {
     const cleaned = phone.replace(/\s+/g, "").trim();
     if (!cleaned) {
       setStatus({ type: "error", message: "Введите номер телефона" });
       return;
     }
-    setCalling(true);
-    setStatus(null);
-    try {
-      await initWidget();
-      const dialed = trySetWidgetNumber(cleaned);
-      if (dialed) {
-        setStatus({ type: "success", message: "Набираем в виджете Zadarma" });
-      } else {
-        setStatus({
-          type: "success",
-          message: "Виджет Zadarma готов. Нажмите вызов в виджете или наберите номер вручную.",
-        });
-      }
-      if (tab === "history") {
-        loadCalls();
-      }
-    } catch (err) {
-      setStatus({ type: "error", message: handleApiError(err) });
-    } finally {
-      setCalling(false);
-    }
+
+    setStatus({
+      type: "error",
+      message: "Браузерный звонок временно отключён. Используйте внешний телефон/софтфон.",
+    });
   };
 
   const handleHistoryClick = (number) => {
@@ -271,7 +170,6 @@ const DialerWidget = ({ isOpen, onClose, initialPhone = "" }) => {
                 onChange={(e) => setPhone(normalizePhoneInput(e.target.value))}
                 onKeyDown={handleKeyDown}
                 placeholder="+7..."
-                disabled={calling}
                 className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               />
             </div>
@@ -279,28 +177,21 @@ const DialerWidget = ({ isOpen, onClose, initialPhone = "" }) => {
             <div className="flex gap-2">
               <button
                 onClick={handleCall}
-                disabled={calling}
                 className="flex-1 px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white rounded-lg font-medium flex items-center justify-center gap-2"
               >
                 <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
                   <path d="M6.62 10.79c1.44 2.83 3.76 5.14 6.59 6.59l2.2-2.2c.27-.27.67-.36 1.02-.24 1.12.37 2.33.57 3.57.57.55 0 1 .45 1 1V20c0 .55-.45 1-1 1-9.39 0-17-7.61-17-17 0-.55.45-1 1-1h3.5c.55 0 1 .45 1 1 0 1.25.2 2.45.57 3.57.11.35.03.74-.25 1.02l-2.2 2.2z" />
                 </svg>
-                {calling ? "Готовим виджет…" : "Позвонить"}
+                "Позвонить"
               </button>
               <button
                 onClick={() => { setPhone(""); setStatus(null); }}
-                disabled={calling}
                 className="px-4 py-2 border border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-200 rounded-lg font-medium"
               >
                 Сбросить
               </button>
             </div>
 
-            {widgetReady && (
-              <p className="text-xs text-gray-500 dark:text-gray-400">
-                Виджет Zadarma активен в правом нижнем углу. Разрешите доступ к микрофону при первом звонке.
-              </p>
-            )}
           </div>
         ) : (
           <div className="space-y-3">

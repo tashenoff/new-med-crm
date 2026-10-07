@@ -8,6 +8,8 @@ import ErrorMessage from './components/layout/ErrorMessage';
 import InsightsBar from './components/insights/InsightsBar';
 import WhatsAppFloatingButton from './components/layout/WhatsAppFloatingButton';
 import WhatsAppInbox from './components/crm/telephony/WhatsAppInbox';
+import PhoneFloatingButton from './components/layout/PhoneFloatingButton';
+import DialerWidget from './components/crm/telephony/DialerWidget';
 import AIChatSidebar from './components/layout/AIChatSidebar';
 
 // Модальные компоненты перенесены в ModalManager
@@ -137,6 +139,7 @@ function ClinicApp() {
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [activeSection, setActiveSection] = useState('hms');
   const [aiChatSidebarOpen, setAiChatSidebarOpen] = useState(false);
+  const [dialerOpen, setDialerOpen] = useState(false);
   const [whatsAppInboxOpen, setWhatsAppInboxOpen] = useState(false);
   const [currentChatBadge, setCurrentChatBadge] = useState(null);
   const [showMaterialForm, setShowMaterialForm] = useState(false);
@@ -397,6 +400,10 @@ function ClinicApp() {
           {/* Плавающая кнопка WhatsApp-инбокса (ИИ-консультант убран) */}
           <WhatsAppFloatingButton isOpen={whatsAppInboxOpen} onToggle={() => setWhatsAppInboxOpen(v => !v)} />
           <WhatsAppInbox isOpen={whatsAppInboxOpen} onClose={() => setWhatsAppInboxOpen(false)} />
+
+          {/* Плавающая кнопка телефонии — открывает панель телефонии */}
+          <PhoneFloatingButton isOpen={dialerOpen} onToggle={() => setDialerOpen(v => !v)} />
+          <DialerWidget isOpen={dialerOpen} onClose={() => setDialerOpen(false)} />
 
           {/* AI Chat Sidebar */}
           <AIChatSidebar
