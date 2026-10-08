@@ -19,6 +19,8 @@ import LeadHistory from './LeadHistoryTimeline';
 import { historyStatusLabel } from '../../../utils/leadHistory';
 import { useKanbanColumns } from '../../../hooks/useKanbanColumns';
 import { cardColumnId, canMoveCard, manualColumn } from '../../../utils/kanbanColumns';
+import FirstTouchDateFilter from './FirstTouchDateFilter';
+import { firstTouchDateRange, matchesFirstTouchDate } from '../../../utils/firstTouchDateFilter';
 import { inputClasses, selectClasses, labelClasses, buttonPrimaryClasses, buttonSecondaryClasses } from '../../modals/modalUtils';
 
 const fetchHistoryCalls = async ({ phone, limit, offset }) => {
@@ -34,6 +36,7 @@ const fetchHistoryCalls = async ({ phone, limit, offset }) => {
 const EnhancedLeadsView = ({ user }) => {
   const [filteredLeads, setFilteredLeads] = useState([]);
   const [searchTerm, setSearchTerm] = useState('');
+  const [dateFilter, setDateFilter] = useState({ preset: 'all', from: '', to: '' });
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [selectedLead, setSelectedLead] = useState(null);
   const [showTaskModal, setShowTaskModal] = useState(false);
@@ -297,10 +300,11 @@ const EnhancedLeadsView = ({ user }) => {
 
   useEffect(() => {
     filterLeads();
-  }, [leads, searchTerm]);
+  }, [leads, searchTerm, dateFilter]);
 
   const filterLeads = () => {
-    let filtered = leads;
+    const dateRange = firstTouchDateRange(dateFilter.preset, dateFilter);
+    let filtered = leads.filter(lead => matchesFirstTouchDate(lead, dateRange));
     
     if (searchTerm) {
       filtered = filtered.filter(lead => [lead, ...(lead.linked_inquiries || [])].some(touch =>
@@ -1073,8 +1077,11 @@ const EnhancedLeadsView = ({ user }) => {
 
         <div className="bg-white dark:bg-gray-800 rounded-b-2xl border border-t-0 border-gray-200 dark:border-gray-700 p-4 space-y-4 shadow-sm">
           {/* Controls */}
-          <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-            <div className="flex flex-wrap items-center gap-2">
+          <div className="flex flex-col gap-3 lg:flex-row lg:flex-wrap lg:items-end lg:justify-between">
+            <div className="flex min-w-0 flex-1 flex-wrap items-end gap-2">
+              <div className="w-full min-w-0 sm:w-auto">
+                <FirstTouchDateFilter value={dateFilter} onChange={setDateFilter} />
+              </div>
               <button type="button" aria-pressed={columnEditMode}
                 onClick={() => { if (!columnConfig.loading && !columnConfig.busy) setColumnEditMode(value => !value); }}
                 disabled={columnConfig.loading || columnConfig.busy}

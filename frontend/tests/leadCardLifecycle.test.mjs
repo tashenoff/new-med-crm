@@ -227,6 +227,7 @@ const visibleCards = container => [...container.querySelectorAll('[draggable="tr
 
 async function changeControl(view, label, value) {
   const control = view.container.querySelector(`[aria-label="${label}"], [placeholder="${label}"]`);
+  assert.ok(control, `${label} control must exist`);
   const prototype = control.tagName === 'SELECT' ? view.dom.window.HTMLSelectElement.prototype : view.dom.window.HTMLInputElement.prototype;
   await act(async () => {
     Object.getOwnPropertyDescriptor(prototype, 'value').set.call(control, value);
@@ -247,23 +248,67 @@ test('Kanban removes the status dropdown and its options', async context => {
   const view = await mountView(context);
   assert.ok(!view.container.querySelector('[aria-label="Статус на доске"]'));
   assert.doesNotMatch(view.container.textContent, /Все статусы/);
-  assert.equal(view.container.querySelectorAll('select option').length, 0);
+  for (const id of Object.keys(SYSTEM_COLUMN_NAMES)) {
+    assert.equal(view.container.querySelector(`select option[value="${id}"]`), null);
+  }
 });
 
-test('Kanban removes first-touch date controls without hiding dated or undated cards', async context => {
+test('Kanban first-touch presets filter cards and default to all dates', async context => {
   const leads = dateFixture();
   const view = await mountView(context, leads);
-  assert.ok(!view.container.querySelector('[aria-label="Период первого касания"]'));
-  assert.ok(!view.container.querySelector('input[type="date"], [aria-label^="Первое касание:"]'));
-  assert.doesNotMatch(view.container.textContent, /Первое касание|Все даты|Диапазон дат/);
+  const preset = view.container.querySelector('[aria-label="Период первого касания"]');
+  assert.ok(preset, 'First-touch date preset control must exist');
+  assert.equal(preset.value, 'all');
+  assert.deepEqual([...preset.options].map(option => option.value), ['all', 'today', 'yesterday', '7days', '30days', 'custom']);
+  assert.equal(view.container.querySelector('input[type="date"]'), null);
   assert.equal(view.container.querySelectorAll('[placeholder="Поиск..."]').length, 1);
   assert.deepEqual(visibleCards(view.container), leads.map(item => item.full_name).sort());
+  const expected = {
+    today: ['today-end', 'today-start'],
+    yesterday: ['yesterday-end', 'yesterday-start'],
+    '7days': ['day6', 'today-end', 'today-start', 'yesterday-end', 'yesterday-start'],
+    '30days': ['day29', 'day6', 'day7', 'today-end', 'today-start', 'yesterday-end', 'yesterday-start'],
+    all: leads.map(item => item.full_name).sort()
+  };
+  for (const [value, cards] of Object.entries(expected)) {
+    await changeControl(view, 'Период первого касания', value);
+    assert.deepEqual(visibleCards(view.container), cards, value);
+  }
 });
 
-test('column controls appear once beside search, outside the board, in either edit mode', async context => {
+test('Kanban custom first-touch dates include boundaries and support open and invalid ranges', async context => {
+  const leads = dateFixture();
+  const view = await mountView(context, leads);
+  const dayKey = offset => {
+    const date = new Date(dateAt(offset));
+    return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+  };
+  await changeControl(view, 'Период первого касания', 'custom');
+  assert.deepEqual(visibleCards(view.container), leads.map(item => item.full_name).sort());
+  await changeControl(view, 'Первое касание: с', dayKey(-7));
+  await changeControl(view, 'Первое касание: по', dayKey(-1));
+  assert.deepEqual(visibleCards(view.container), ['day6', 'day7', 'yesterday-end', 'yesterday-start']);
+  await changeControl(view, 'Поиск...', 'day7');
+  assert.deepEqual(visibleCards(view.container), ['day7']);
+  await changeControl(view, 'Первое касание: с', dayKey(-6));
+  assert.deepEqual(visibleCards(view.container), []);
+  await changeControl(view, 'Поиск...', '');
+  await changeControl(view, 'Первое касание: с', dayKey(0));
+  assert.deepEqual(visibleCards(view.container), []);
+  assert.equal(view.container.querySelector('[aria-label="Первое касание: с"]').getAttribute('aria-invalid'), 'true');
+  assert.match(view.container.querySelector('[role="alert"]').textContent, /должна быть не позже/);
+  await changeControl(view, 'Первое касание: с', '');
+  assert.deepEqual(visibleCards(view.container), ['day29', 'day30', 'day6', 'day7', 'yesterday-end', 'yesterday-start']);
+  await changeControl(view, 'Первое касание: по', '');
+  await changeControl(view, 'Первое касание: с', dayKey(0));
+  assert.deepEqual(visibleCards(view.container), ['future', 'today-end', 'today-start']);
+});
+
+test('date filter precedes edit and add column controls beside search in either edit mode', async context => {
   const view = await mountView(context, [], { columns: [customColumn, ...systemColumns()] });
   const search = view.container.querySelector('[placeholder="Поиск..."]');
   const board = view.container.querySelector('[aria-label="Колонки Канбан"]');
+  assert.ok(search, 'Search remains present in the toolbar');
   for (const editing of [false, true, false]) {
     const editLabel = editing ? 'Готово' : 'Редактировать колонки';
     for (const label of [editLabel, 'Добавить колонку']) {
@@ -272,13 +317,25 @@ test('column controls appear once beside search, outside the board, in either ed
       assert.equal(board.contains(buttons[0]), false, 'Controls belong in the main controls row, not the board header');
       assert.equal(buttons[0].parentElement.parentElement.contains(search), true, 'Controls share a row with search');
     }
-    assert.equal(buttonWithLabel(view, editLabel).getAttribute('aria-pressed'), String(editing));
+    const editButton = buttonWithLabel(view, editLabel);
+    const addButton = buttonWithLabel(view, 'Добавить колонку');
+    for (const preset of ['all', 'custom']) {
+      await changeControl(view, 'Период первого касания', preset);
+      const dateFilter = view.container.querySelector('[aria-label="Период первого касания"]');
+      assert.equal(editButton.parentElement.contains(dateFilter), true, 'Date filter shares the column controls group');
+      assert.ok(dateFilter.compareDocumentPosition(editButton) & view.dom.window.Node.DOCUMENT_POSITION_FOLLOWING,
+        'Date filter must precede edit columns in DOM order');
+      assert.ok(editButton.compareDocumentPosition(addButton) & view.dom.window.Node.DOCUMENT_POSITION_FOLLOWING,
+        'Edit columns must precede add column in DOM order');
+      assert.equal(editButton.parentElement.parentElement.contains(search), true, 'Search remains in the same toolbar');
+    }
+    assert.equal(editButton.getAttribute('aria-pressed'), String(editing));
     assert.equal(buttonWithLabel(view, editing ? 'Редактировать колонки' : 'Готово'), undefined);
     await clickButton(view, editLabel);
   }
 });
 
-test('Kanban text search matches linked inquiries across dates without mutating leads', async context => {
+test('Kanban date filter uses only canonical first touch and composes with linked-inquiry search', async context => {
   const linked = { ...lead, id: 'linked', full_name: 'Linked Search', source: 'telegram', created_at: dateAt(-30) };
   const current = { ...lead, full_name: 'Canonical Today', created_at: dateAt(0), linked_inquiries: [linked] };
   const old = { ...lead, id: 'canonical-old', full_name: 'Canonical Old', created_at: dateAt(-30), linked_inquiries: [{ ...linked, created_at: dateAt(0) }] };
@@ -292,12 +349,19 @@ test('Kanban text search matches linked inquiries across dates without mutating 
   });
   assert.deepEqual(visibleCards(view.container), ['Canonical Old', 'Canonical Today']);
   assert.match(view.container.querySelector('[draggable="true"]').textContent, /Связанных обращений: 1/);
+  await changeControl(view, 'Период первого касания', 'today');
+  assert.deepEqual(visibleCards(view.container), ['Canonical Today']);
+  await changeControl(view, 'Период первого касания', 'all');
+  assert.deepEqual(visibleCards(view.container), ['Canonical Old', 'Canonical Today']);
+  await changeControl(view, 'Период первого касания', 'today');
   await act(async () => {
     Object.getOwnPropertyDescriptor(view.dom.window.HTMLInputElement.prototype, 'value').set.call(search, 'No Such Patient');
     search.dispatchEvent(new view.dom.window.Event('input', { bubbles: true }));
   });
   assert.deepEqual(visibleCards(view.container), []);
   await changeControl(view, 'Поиск...', '');
+  assert.deepEqual(visibleCards(view.container), ['Canonical Today']);
+  await changeControl(view, 'Период первого касания', 'all');
   assert.deepEqual(visibleCards(view.container), ['Canonical Old', 'Canonical Today']);
   assert.equal(JSON.stringify([current, old]), snapshot);
 });
