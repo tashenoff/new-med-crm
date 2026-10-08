@@ -2,12 +2,15 @@ import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { inputClasses, textareaClasses, buttonSuccessClasses, buttonSecondaryClasses } from '../modals/modalUtils';
 import ServiceCheckboxSelector from './ServiceCheckboxSelector';
 
-const ConsultationSheetForm = ({ patientId, onSave, onCancel, editingSheet = null }) => {
+const ConsultationSheetForm = ({ patientId, onSave, onSaved, onCancel, editingSheet = null }) => {
   const [doctors, setDoctors] = useState([]);
   const [icd10Query, setIcd10Query] = useState('');
   const [icd10Results, setIcd10Results] = useState([]);
   const [showIcd10Dropdown, setShowIcd10Dropdown] = useState(false);
   const [servicesError, setServicesError] = useState('');
+  const [submitError, setSubmitError] = useState('');
+  const [saving, setSaving] = useState(false);
+  const [persisted, setPersisted] = useState(false);
   const [visibleFields, setVisibleFields] = useState({
     complaints: true,
     anamnesis_morbi: true,
@@ -152,6 +155,7 @@ const ConsultationSheetForm = ({ patientId, onSave, onCancel, editingSheet = nul
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (saving || persisted) return;
     
     // Валидация: услуги обязательны
     if (form.treatment_services.length === 0) {
@@ -161,12 +165,18 @@ const ConsultationSheetForm = ({ patientId, onSave, onCancel, editingSheet = nul
     
     setServicesError('');
 
-    // Для комплексных услуг: создаём записи к специалистам по выбранным слотам
-    const token = localStorage.getItem('token');
-    form.treatment_services.forEach((svc) => {
-      if (svc.scheduling && svc.scheduling.slots.length > 0) {
-        svc.scheduling.slots.forEach((slot) => {
-          fetch(`${API}/api/appointments`, {
+    setSubmitError('');
+    setSaving(true);
+    let planSaved = false;
+    try {
+      const saved = await onSave(form);
+      if (saved === false) throw new Error('Не удалось сохранить консультацию и план лечения');
+      planSaved = true;
+      setPersisted(true);
+      const token = localStorage.getItem('token');
+      for (const svc of form.treatment_services) {
+        for (const slot of svc.scheduling?.slots || []) {
+          const response = await fetch(`${API}/api/appointments`, {
             method: 'POST',
             headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -180,18 +190,26 @@ const ConsultationSheetForm = ({ patientId, onSave, onCancel, editingSheet = nul
               complex_name: svc.service_name,
               price: slot.price || null
             })
-          }).then((r) => {
-            if (!r.ok) { r.json().then((d) => alert('Не удалось создать запись: ' + (typeof d.detail === 'string' ? d.detail : JSON.stringify(d.detail || r.status)))).catch(() => alert('Ошибка создания записи: ' + r.status)); }
-          }).catch((err) => alert('Ошибка создания записи на комплекс: ' + err.message));
-        });
+          });
+          if (!response.ok) {
+            const data = await response.json().catch(() => null);
+            throw new Error(typeof data?.detail === 'string' ? data.detail : JSON.stringify(data?.detail || response.status));
+          }
+        }
       }
-    });
-
-    onSave(form);
+      await onSaved?.();
+    } catch (error) {
+      setSubmitError((planSaved
+        ? 'Консультация и план сохранены, но создание записей не завершено. Проверьте календарь перед повторной записью. '
+        : 'Не удалось сохранить консультацию и план лечения. ') + error.message);
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
+      {submitError && <div role="alert" className="text-red-600 text-sm">{submitError}</div>}
       {/* Врач */}
       <div>
         <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -703,7 +721,7 @@ const ConsultationSheetForm = ({ patientId, onSave, onCancel, editingSheet = nul
       <div className="flex space-x-3 pt-4">
         <button
           type="submit"
-          disabled={form.treatment_services.length === 0}
+          disabled={saving || persisted || form.treatment_services.length === 0}
           className={`flex-1 ${buttonSuccessClasses} ${form.treatment_services.length === 0 ? 'cursor-not-allowed' : ''}`}
           data-guide="create-treatment-plan-btn"
         >

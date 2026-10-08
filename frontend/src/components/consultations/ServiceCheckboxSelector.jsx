@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo, useRef, memo } from 'react';
 import { inputClasses } from '../modals/modalUtils';
+import { nextWorkDate, autofillSlot, isBookableSlot, freeTimesFor, hasScheduleWindow } from '../../utils/scheduling';
 
 const PAGE_SIZE = 40;
 
@@ -112,7 +113,7 @@ const ServiceCheckboxSelector = ({ onAddServices, alreadyAddedIds = [], disabled
   const selectedList = useMemo(() => Object.values(selected), [selected]);
   const selectedCount = selectedList.length;
   const [availByDate, setAvailByDate] = useState({}); // "complexId:date" -> availability
-  const [selSlots, setSelSlots] = useState({});       // "complexId:serviceId:doctorId" -> {date,start,end}
+  const [selSlots, setSelSlots] = useState({});
   const [selDoctors, setSelDoctors] = useState({});   // "complexId:serviceId" -> doctor_id
   const [oneDoctorOn, setOneDoctorOn] = useState({}); // complexId -> bool: весь комплекс одним врачом
   const [oneDocSlot, setOneDocSlot] = useState({});   // complexId -> {doctor_id,date,start,end}
@@ -162,22 +163,6 @@ const ServiceCheckboxSelector = ({ onAddServices, alreadyAddedIds = [], disabled
   const getLineTotal = (cfg) => (cfg.service.price || 0) * getEffectiveCount(cfg);
   const totalPrice = selectedList.reduce((sum, cfg) => sum + getLineTotal(cfg), 0);
 
-  const freeTimesFor = (spec) => {
-    if (!spec.has_schedule || !spec.schedule_start || !spec.schedule_end) return [];
-    const booked = new Set(spec.booked || []);
-    const times = [];
-    let cur = spec.schedule_start;
-    const end = spec.schedule_end;
-    while (cur < end) {
-      if (!booked.has(cur)) times.push(cur);
-      const [hh, mm] = cur.split(':').map(Number);
-      const dt = new Date();
-      dt.setHours(hh, mm + 30, 0, 0);
-      cur = `${String(dt.getHours()).padStart(2, '0')}:${String(dt.getMinutes()).padStart(2, '0')}`;
-    }
-    return times;
-  };
-
   const ensureAvailability = async (complexId, date) => {
     if (!complexId || !date) return;
     const key = `${complexId}:${date}`;
@@ -189,7 +174,7 @@ const ServiceCheckboxSelector = ({ onAddServices, alreadyAddedIds = [], disabled
       });
       if (r.ok) {
         const data = await r.json();
-        setAvailByDate(prev => ({ ...prev, [key]: data }));
+        if (data) setAvailByDate(prev => ({ ...prev, [key]: data }));
       }
     } catch (e) {
       console.error('Error fetching availability:', e);
@@ -222,8 +207,78 @@ const ServiceCheckboxSelector = ({ onAddServices, alreadyAddedIds = [], disabled
     return `${String(dt.getHours()).padStart(2, '0')}:${String(dt.getMinutes()).padStart(2, '0')}`;
   };
 
+  useEffect(() => {
+    const today = new Date().toISOString().slice(0, 10);
+    const updateSlots = (previous, common) => {
+      const requested = new Set();
+      let updated = previous;
+      selectedComplexes.filter(cfg => !!oneDoctorOn[cfg.service.id] === common).forEach(cfg => {
+        const cid = cfg.service.id;
+        const available = availByDate[`${cid}:${today}`] || Object.values(availByDate).find(data => data.complex_id === cid);
+        const rows = common ? [{ service_id: cid, doctors: available?.common_doctors || [] }] : available?.services || [];
+        rows.forEach(svc => {
+          const key = common ? cid : `${cid}:${svc.service_id}`;
+          const slot = previous[key];
+          const doctorId = common ? slot?.doctor_id ?? svc.doctors?.[0]?.doctor_id ?? ''
+            : selDoctors[key] ?? svc.doctors?.[0]?.doctor_id ?? '';
+          const date = slot?.date || nextWorkDate(svc.doctors?.find(doc => doc.doctor_id === doctorId), today);
+          const dateAvailable = availByDate[`${cid}:${date}`];
+          if (!dateAvailable) {
+            const requestKey = `${cid}:${date}`;
+            if (!requested.has(requestKey)) {
+              requested.add(requestKey);
+              ensureAvailability(cid, date);
+            }
+            return;
+          }
+          const doctors = common ? dateAvailable.common_doctors : dateAvailable.services?.find(service => service.service_id === svc.service_id)?.doctors;
+          const doctor = doctors?.find(doc => doc.doctor_id === doctorId);
+          if (!doctor) return;
+          const next = autofillSlot(slot, doctor, date, freeTimesFor(doctor), defaultEndTime);
+          if (next !== slot) updated = { ...updated, [key]: next };
+        });
+      });
+      return updated;
+    };
+    const slots = updateSlots(selSlots, false);
+    const commonSlots = updateSlots(oneDocSlot, true);
+    if (slots !== selSlots) setSelSlots(slots);
+    if (commonSlots !== oneDocSlot) setOneDocSlot(commonSlots);
+  }, [availByDate, selectedComplexes, selDoctors, selSlots, oneDocSlot, oneDoctorOn]);
+
+  const schedulingBlocked = selectedComplexes.some(cfg => {
+    const cid = cfg.service.id;
+    const today = new Date().toISOString().slice(0, 10);
+    const available = availByDate[`${cid}:${today}`] || Object.values(availByDate).find(data => data.complex_id === cid);
+    if (!available) return true;
+    if (!oneDoctorOn[cid]) {
+      if (!available.services?.length || (cfg.service.components || []).some(component => !available.services.some(row => row.service_id === component.service_id))) return true;
+      return (available?.services || []).some(svc => {
+        if (!svc.doctors?.length) return true;
+        const key = `${cid}:${svc.service_id}`;
+        const doctorId = selDoctors[key] ?? svc.doctors?.[0]?.doctor_id ?? '';
+        if (!doctorId) return false;
+        const date = selSlots[key]?.date || nextWorkDate(svc.doctors?.find(doc => doc.doctor_id === doctorId), today);
+        const doc = availByDate[`${cid}:${date}`]?.services?.find(service => service.service_id === svc.service_id)
+          ?.doctors?.find(doc => doc.doctor_id === doctorId);
+        if (!hasScheduleWindow(doc)) return true;
+        const slot = selSlots[key];
+        return !!slot?.start && (slot.date !== date || !isBookableSlot(doc, slot, freeTimesFor(doc), defaultEndTime));
+      });
+    }
+    const common = available?.common_doctors || [];
+    if (!common.length) return true;
+    const slot = oneDocSlot[cid] || {};
+    const doctorId = slot.doctor_id ?? common[0]?.doctor_id ?? '';
+    if (!doctorId) return false;
+    const date = slot.date || nextWorkDate(common.find(doc => doc.doctor_id === doctorId), today);
+    const doc = availByDate[`${cid}:${date}`]?.common_doctors?.find(doctor => doctor.doctor_id === doctorId);
+    if (!hasScheduleWindow(doc)) return true;
+    return !!slot.start && (slot.date !== date || !isBookableSlot(doc, slot, freeTimesFor(doc), defaultEndTime));
+  });
+
   const handleAdd = () => {
-    if (selectedCount === 0) return;
+    if (selectedCount === 0 || schedulingBlocked) return;
     const servicesToAdd = selectedList.map((cfg) => {
       const base = {
         service_id: cfg.service.id,
@@ -236,12 +291,12 @@ const ServiceCheckboxSelector = ({ onAddServices, alreadyAddedIds = [], disabled
               // штампуем выбранного в конс-листе врача в компоненты (для зарплаты/печати)
               components: oneDoctorOn[cfg.service.id]
                 ? (cfg.service.components || []).map((c) => {
-                    const did = oneDocSlot[cfg.service.id]?.doctor_id;
+                    const did = oneDocSlot[cfg.service.id]?.doctor_id ?? Object.values(availByDate).find(a => a.complex_id === cfg.service.id)?.common_doctors?.[0]?.doctor_id;
                     return did && (oneDocSlot[cfg.service.id]?.start) ? { ...c, doctor_id: did } : c;
                   })
                 : (cfg.service.components || []).map((c) => {
-                    const entry = Object.entries(selSlots).find(([k, sl]) => sl && sl.start && k.startsWith(`${cfg.service.id}:${c.service_id}:`));
-                    const did = entry ? entry[0].split(':')[2] : null;
+                    const entry = selSlots[`${cfg.service.id}:${c.service_id}`];
+                    const did = entry?.start ? entry.doctor_id : null;
                     return did ? { ...c, doctor_id: did } : c;
                   }),
             }
@@ -267,9 +322,9 @@ const ServiceCheckboxSelector = ({ onAddServices, alreadyAddedIds = [], disabled
       if (cfg.service.service_type === 'complex' && oneDoctorOn[cfg.service.id]) {
         const today = new Date().toISOString().slice(0, 10);
         const osc = oneDocSlot[cfg.service.id] || {};
-        const availAny0 = availByDate[`${cfg.service.id}:${osc.date || today}`] || Object.values(availByDate).find(a => a.complex_id === cfg.service.id);
+        const availAny0 = availByDate[`${cfg.service.id}:${osc.date || today}`];
         const common0 = (availAny0?.common_doctors || []);
-        const docId = osc.doctor_id || common0[0]?.doctor_id || '';
+        const docId = osc.doctor_id ?? common0[0]?.doctor_id ?? '';
         const slots = docId && osc.start ? [{
           doctor_id: docId,
           doctor_name: availAnyDocName(cfg.service.id, docId),
@@ -283,11 +338,11 @@ const ServiceCheckboxSelector = ({ onAddServices, alreadyAddedIds = [], disabled
       } else if (cfg.service.service_type === 'complex') {
         const today = new Date().toISOString().slice(0, 10);
         const slots = Object.entries(selSlots)
-          .filter(([k, sl]) => sl && sl.start && k.startsWith(cfg.service.id + ':'))
+          .filter(([k, sl]) => sl && sl.start && sl.doctor_id && k.startsWith(cfg.service.id + ':'))
           .map(([k, sl]) => {
             const parts = k.split(':');
             const svcId = parts[1];
-            const doctorId = parts[2];
+            const doctorId = sl.doctor_id;
             const date = sl.date || today; // дата не менялась явно — берём сегодня
             const svc = availByDate[`${cfg.service.id}:${date}`]?.services?.find(x => x.service_id === svcId);
             const doc = svc?.doctors?.find(d => d.doctor_id === doctorId);
@@ -442,10 +497,10 @@ const ServiceCheckboxSelector = ({ onAddServices, alreadyAddedIds = [], disabled
                                                       if (common.length === 0)
                                                         return <div className="text-amber-600 mt-1">Нет врача, который делает весь комплекс целиком — выключите режим «одним специалистом».</div>;
                                                       const os = oneDocSlot[cid] || {};
-                                                      const docId = os.doctor_id || common[0]?.doctor_id || '';
-                                                      const date = os.date || today;
+                                                      const docId = os.doctor_id ?? common[0]?.doctor_id ?? '';
+                                                      const date = os.date || nextWorkDate(common.find(doc => doc.doctor_id === docId), today);
                                                       const dateAvail = availByDate[`${cid}:${date}`];
-                                                      const doc = (dateAvail?.common_doctors || availAny.common_doctors).find(d => d.doctor_id === docId) || null;
+                                                      const doc = dateAvail?.common_doctors?.find(d => d.doctor_id === docId) || null;
                                                       const times = doc ? freeTimesFor(doc) : [];
                                                       return (
                                                         <div className="space-y-1.5 mt-1 bg-white border border-gray-200 rounded p-1.5">
@@ -454,7 +509,7 @@ const ServiceCheckboxSelector = ({ onAddServices, alreadyAddedIds = [], disabled
                                                             <label className="text-[10px] text-gray-500">Врач</label>
                                                             <select
                                                               value={docId}
-                                                              onChange={(e) => setOneDocSlot(prev => ({ ...prev, [cid]: { ...(prev[cid] || {}), doctor_id: e.target.value } }))}
+                                                              onChange={(e) => setOneDocSlot(prev => ({ ...prev, [cid]: { doctor_id: e.target.value, date: nextWorkDate(common.find(doc => doc.doctor_id === e.target.value), today), start: '', end: '' } }))}
                                                               className="flex-1 min-w-0 px-1.5 py-1 border border-gray-300 rounded text-sm"
                                                             >
                                                               <option value="">—</option>
@@ -470,13 +525,13 @@ const ServiceCheckboxSelector = ({ onAddServices, alreadyAddedIds = [], disabled
                                                             <input
                                                               type="date"
                                                               value={date}
-                                                              onChange={(e) => { const dd = e.target.value; setOneDocSlot(prev => ({ ...prev, [cid]: { ...(prev[cid] || {}), date: dd } })); ensureAvailability(cid, dd); }}
+                                                              onChange={(e) => { const dd = e.target.value; setOneDocSlot(prev => ({ ...prev, [cid]: { doctor_id: docId, date: dd, start: '', end: '' } })); ensureAvailability(cid, dd); }}
                                                               className="w-full px-1.5 py-1 border border-gray-300 rounded text-sm"
                                                             />
                                                             {doc && doc.has_schedule ? (
                                                               <select
                                                                 value={os.start || ''}
-                                                                onChange={(e) => setOneDocSlot(prev => ({ ...prev, [cid]: { ...(prev[cid] || {}), start: e.target.value, end: defaultEndTime(e.target.value) } }))}
+                                                                onChange={(e) => setOneDocSlot(prev => ({ ...prev, [cid]: { ...(prev[cid] || {}), doctor_id: docId, start: e.target.value, end: defaultEndTime(e.target.value) } }))}
                                                                 className="w-full px-1.5 py-1 border border-gray-300 rounded text-sm"
                                                               >
                                                                 <option value="">—</option>
@@ -485,22 +540,28 @@ const ServiceCheckboxSelector = ({ onAddServices, alreadyAddedIds = [], disabled
                                                             ) : (
                                                               <input
                                                                 type="time"
+                                                                disabled
                                                                 value={os.start || ''}
-                                                                onChange={(e) => setOneDocSlot(prev => ({ ...prev, [cid]: { ...(prev[cid] || {}), start: e.target.value, end: defaultEndTime(e.target.value) } }))}
+                                                                onChange={(e) => setOneDocSlot(prev => ({ ...prev, [cid]: { ...(prev[cid] || {}), doctor_id: docId, start: e.target.value, end: defaultEndTime(e.target.value) } }))}
                                                                 className="w-full px-1.5 py-1 border border-gray-300 rounded text-sm"
                                                               />
                                                             )}
                                                             <input
                                                               type="time"
+                                                              disabled
                                                               value={os.end || defaultEndTime(os.start)}
                                                               onChange={(e) => setOneDocSlot(prev => ({ ...prev, [cid]: { ...(prev[cid] || {}), end: e.target.value } }))}
                                                               className="w-full px-1.5 py-1 border border-gray-300 rounded text-sm"
                                                             />
                                                           </div>
-                                                          {doc && doc.has_schedule ? (
+                                                          {!dateAvail ? (
+                                                            <div className="text-[10px] text-amber-600 mt-0.5">Загрузка доступности… Время пока недоступно.</div>
+                                                          ) : !doc ? (
+                                                            <div className="text-[10px] text-amber-600 mt-0.5">Выбранный врач недоступен на {date}.</div>
+                                                          ) : doc.has_schedule ? (
                                                             <div className="text-[10px] text-green-600 mt-0.5">окно {doc.schedule_start}-{doc.schedule_end}, занято: {doc.booked?.length || 0}</div>
                                                           ) : (
-                                                            <div className="text-[10px] text-amber-600 mt-0.5">у врача нет расписания на {date} — выберите время вручную</div>
+                                                            <div className="text-[10px] text-amber-600 mt-0.5">у врача нет расписания на {date} — выберите другого врача или дату</div>
                                                           )}
                                                         </div>
                                                       );
@@ -511,10 +572,10 @@ const ServiceCheckboxSelector = ({ onAddServices, alreadyAddedIds = [], disabled
                             <div className="space-y-1.5 mt-1">
                               {services.map((svc) => {
                                 const svcKey = `${cid}:${svc.service_id}`;
-                                const doctorId = selDoctors[svcKey] || svc.doctors?.[0]?.doctor_id || '';
-                                const key = `${svcKey}:${doctorId}`;
-                                const sl = selSlots[key] || { date: today, start: '', end: '' };
-                                const date = sl.date || today;
+                                const doctorId = selDoctors[svcKey] ?? svc.doctors?.[0]?.doctor_id ?? '';
+                                const key = svcKey;
+                                const sl = selSlots[key] || {};
+                                const date = sl.date || nextWorkDate(svc.doctors?.find(doc => doc.doctor_id === doctorId), today);
                                 const dateAvail = availByDate[`${cid}:${date}`];
                                 const svcForDate = dateAvail?.services?.find(x => x.service_id === svc.service_id);
                                 const doc = svcForDate?.doctors?.find(d => d.doctor_id === doctorId) || null;
@@ -526,7 +587,7 @@ const ServiceCheckboxSelector = ({ onAddServices, alreadyAddedIds = [], disabled
                                       <label className="text-[10px] text-gray-500">Врач</label>
                                       <select
                                         value={doctorId}
-                                        onChange={(e) => { const d = e.target.value; setSelDoctors(prev => ({ ...prev, [svcKey]: d })); const kk = `${svcKey}:${d}`; setSelSlots(prev => ({ ...prev, [kk]: prev[key] || { date: today, start: '', end: '' } })); }}
+                                        onChange={(e) => { const d = e.target.value; setSelDoctors(prev => ({ ...prev, [svcKey]: d })); setSelSlots(prev => ({ ...prev, [key]: { date: nextWorkDate(svc.doctors?.find(doc => doc.doctor_id === d), today), doctor_id: d, start: '', end: '' } })); }}
                                         className="flex-1 min-w-0 px-1.5 py-1 border border-gray-300 rounded text-sm"
                                       >
                                         <option value="">—</option>
@@ -542,13 +603,13 @@ const ServiceCheckboxSelector = ({ onAddServices, alreadyAddedIds = [], disabled
                                       <input
                                         type="date"
                                         value={date}
-                                        onChange={(e) => { const dd = e.target.value; setSelSlots(prev => ({ ...prev, [key]: { ...(prev[key] || {}), date: dd } })); ensureAvailability(cid, dd); }}
+                                        onChange={(e) => { const dd = e.target.value; setSelSlots(prev => ({ ...prev, [key]: { doctor_id: doctorId, date: dd, start: '', end: '' } })); ensureAvailability(cid, dd); }}
                                         className="w-full px-1.5 py-1 border border-gray-300 rounded text-sm"
                                       />
                                       {doc && doc.has_schedule ? (
                                         <select
-                                          value={sl.start}
-                                          onChange={(e) => setSelSlots(prev => ({ ...prev, [key]: { ...(prev[key] || {}), start: e.target.value, end: defaultEndTime(e.target.value) } }))}
+                                          value={sl.start || ''}
+                                          onChange={(e) => setSelSlots(prev => ({ ...prev, [key]: { ...(prev[key] || {}), doctor_id: doctorId, start: e.target.value, end: defaultEndTime(e.target.value) } }))}
                                           className="w-full px-1.5 py-1 border border-gray-300 rounded text-sm"
                                         >
                                           <option value="">—</option>
@@ -557,22 +618,28 @@ const ServiceCheckboxSelector = ({ onAddServices, alreadyAddedIds = [], disabled
                                       ) : (
                                         <input
                                           type="time"
-                                          value={sl.start}
-                                          onChange={(e) => setSelSlots(prev => ({ ...prev, [key]: { ...(prev[key] || {}), start: e.target.value, end: defaultEndTime(e.target.value) } }))}
+                                          value={sl.start || ''}
+                                          disabled
+                                          onChange={(e) => setSelSlots(prev => ({ ...prev, [key]: { ...(prev[key] || {}), doctor_id: doctorId, start: e.target.value, end: defaultEndTime(e.target.value) } }))}
                                           className="w-full px-1.5 py-1 border border-gray-300 rounded text-sm"
                                         />
                                       )}
                                       <input
                                         type="time"
                                         value={sl.end || defaultEndTime(sl.start)}
+                                        disabled
                                         onChange={(e) => setSelSlots(prev => ({ ...prev, [key]: { ...(prev[key] || {}), end: e.target.value } }))}
                                         className="w-full px-1.5 py-1 border border-gray-300 rounded text-sm"
                                       />
                                     </div>
-                                    {doc && doc.has_schedule ? (
+                                    {!dateAvail ? (
+                                      <div className="text-[10px] text-amber-600 mt-0.5">Загрузка доступности… Время пока недоступно.</div>
+                                    ) : !doc ? (
+                                      <div className="text-[10px] text-amber-600 mt-0.5">Выбранный врач недоступен на {date}.</div>
+                                    ) : doc.has_schedule ? (
                                                                           <div className="text-[10px] text-green-600 mt-0.5">окно {doc.schedule_start}-{doc.schedule_end}, занято: {doc.booked?.length || 0}</div>
                                                                         ) : (
-                                                                          <div className="text-[10px] text-amber-600 mt-0.5">у врача нет расписания на {date} — выберите время вручную</div>
+                                                                          <div className="text-[10px] text-amber-600 mt-0.5">у врача нет расписания на {date} — выберите другого врача или дату</div>
                                                                         )}
                                   </div>
                                 );
@@ -672,7 +739,7 @@ const ServiceCheckboxSelector = ({ onAddServices, alreadyAddedIds = [], disabled
             <button
               type="button"
               onClick={handleAdd}
-              disabled={disabled}
+              disabled={disabled || schedulingBlocked}
               className="bg-green-600 hover:bg-green-700 text-white font-medium py-2 px-4 rounded-lg disabled:opacity-50"
             >
               Добавить {selectedCount}
@@ -709,5 +776,3 @@ function formatUnit(unit) {
 }
 
 export default memo(ServiceCheckboxSelector);
-
-

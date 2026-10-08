@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import ToothChart from '../dental/ToothChart';
+import { nextWorkDate, autofillSlot, isBookableSlot, freeTimesFor, hasScheduleWindow } from '../../utils/scheduling';
 
 const ServiceSelector = ({ onServiceAdd, selectedPatient, onlyComplex = false }) => {
   const [categories, setCategories] = useState([]);
@@ -14,6 +15,7 @@ const ServiceSelector = ({ onServiceAdd, selectedPatient, onlyComplex = false })
   const [selSlots, setSelSlots] = useState({});       // service_id -> {date, start, end} (НЕ зависит от врача!)
   const [selDoctors, setSelDoctors] = useState({});   // service_id -> doctor_id
   const [selDates, setSelDates] = useState({});       // service_id -> выбранная дата (fiX: держать отдельно)
+  const [oneDoctor, setOneDoctor] = useState(false);
 
   const API = import.meta.env.VITE_BACKEND_URL;
 
@@ -83,9 +85,9 @@ const ServiceSelector = ({ onServiceAdd, selectedPatient, onlyComplex = false })
     }
   };
 
-  const ensureAvailability = async (date) => {
+  const ensureAvailability = async (date, reload = false) => {
     if (!selectedService || !date) return null;
-    if (availabilityByDate[date]) return availabilityByDate[date];
+    if (!reload && availabilityByDate[date]) return availabilityByDate[date];
     try {
       const token = localStorage.getItem('token');
       const r = await fetch(`${API}/api/service-prices/${selectedService}/specialists-availability?date=${date}`, {
@@ -101,12 +103,13 @@ const ServiceSelector = ({ onServiceAdd, selectedPatient, onlyComplex = false })
   };
 
   useEffect(() => {
+    setAvailabilityByDate({});
+    setSelSlots({});
+    setSelDates({});
+    setSelDoctors({});
+    setOneDoctor(false);
     if (selectedServiceData?.service_type === 'complex') {
-      ensureAvailability(new Date().toISOString().slice(0, 10));
-    } else {
-      setAvailabilityByDate({});
-      setSelSlots({});
-      setSelDates({});
+      ensureAvailability(new Date().toISOString().slice(0, 10), true);
     }
   }, [selectedService]);
 
@@ -119,52 +122,19 @@ const ServiceSelector = ({ onServiceAdd, selectedPatient, onlyComplex = false })
     return `${String(dt.getHours()).padStart(2, '0')}:${String(dt.getMinutes()).padStart(2, '0')}`;
   };
 
-  // Специалисты комплекса из самой свежей загруженной доступности (по любой дате)
   const availabilityServices = () => {
     if (!availabilityByDate) return [];
     const all = Object.values(availabilityByDate);
     if (!all.length) return [];
-    return all[all.length - 1].services || [];
+    const availability = all[0];
+    return oneDoctor
+      ? [{ service_id: selectedService, service_name: selectedServiceData.name, doctors: availability.common_doctors || [] }]
+      : availability.services || [];
   };
 
-  // Свободные 30-минутные слоты в окне расписания минус занятые; [] если расписания нет
-  const freeTimesFor = (spec) => {
-    if (!spec.has_schedule || !spec.schedule_start || !spec.schedule_end) return [];
-    const booked = new Set(spec.booked || []);
-    const times = [];
-    let cur = spec.schedule_start;
-    const end = spec.schedule_end;
-    while (cur < end) {
-      if (!booked.has(cur)) times.push(cur);
-      const [hh, mm] = cur.split(':').map(Number);
-      const dt = new Date();
-      dt.setHours(hh, mm + 30, 0, 0);
-      cur = `${String(dt.getHours()).padStart(2, '0')}:${String(dt.getMinutes()).padStart(2, '0')}`;
-    }
-    return times;
-  };
-
-  // Ближайший рабочий день врача (>= today) по его working_days.
-  // Если у врача есть расписание уже сегодня — вернём today.
-  // Показывает «завтра/послезавтра», чтобы дата сама подставлялась на его рабочий день.
-  const nextWorkDate = (doctor, todayISO) => {
-    if (!doctor) return todayISO;
-    const wd = doctor.working_days || []; // ["Пн","Вт",...]
-    if (!wd.length) return todayISO;
-    const dayNames = ['Вс','Пн','Вт','Ср','Чт','Пт','Сб']; // index = JS getDay()
-    const workIdx = new Set(wd.map(n => dayNames.indexOf(n)).filter(i => i >= 0));
-    const base = todayISO ? new Date(todayISO + 'T00:00:00') : new Date();
-    // если сегодня врач работает — оставляем сегодня
-    if (workIdx.has(base.getDay())) return todayISO;
-    for (let i = 1; i <= 14; i++) {
-      const d = new Date(base);
-      d.setDate(base.getDate() + i);
-      if (workIdx.has(d.getDay())) {
-        return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
-      }
-    }
-    return todayISO;
-  };
+  const serviceForDate = (availability, serviceId) => oneDoctor
+    ? { service_id: selectedService, service_name: selectedServiceData.name, doctors: availability?.common_doctors || [] }
+    : availability?.services?.find(service => service.service_id === serviceId);
 
   // Эффективная дата слота: если юзер выбрал явно — она; иначе автоматически
     // ближайший рабочий день выставленного врача (решает случай «врач стоит по умолчанию,
@@ -173,9 +143,9 @@ const ServiceSelector = ({ onServiceAdd, selectedPatient, onlyComplex = false })
       const today = new Date().toISOString().slice(0, 10);
       if (selDates[svc.service_id]) return selDates[svc.service_id];
       // данные услуги (список врачей) из любой загруженной доступности
-      const anyDate = Object.values(availabilityByDate).find(a => (a?.services || []).some(s => s.service_id === svc.service_id));
-      const liveSvc = (anyDate?.services || []).find(s => s.service_id === svc.service_id) || svc;
-      const doctorId = selDoctors[svc.service_id] || liveSvc.doctors?.[0]?.doctor_id || '';
+      const anyDate = Object.values(availabilityByDate).find(a => oneDoctor || (a?.services || []).some(s => s.service_id === svc.service_id));
+      const liveSvc = serviceForDate(anyDate, svc.service_id) || svc;
+      const doctorId = selDoctors[svc.service_id] ?? liveSvc.doctors?.[0]?.doctor_id ?? '';
       const doctor = (liveSvc.doctors || []).find(x => x.doctor_id === doctorId);
       return nextWorkDate(doctor, today);
     };
@@ -214,6 +184,26 @@ const ServiceSelector = ({ onServiceAdd, selectedPatient, onlyComplex = false })
   };
 
   const selectedServiceData = services.find(s => s.id === selectedService);
+  useEffect(() => {
+    if (selectedServiceData?.service_type !== 'complex') return;
+    const rows = availabilityServices();
+    const dates = new Set(rows.map(svc => effectiveDateFor(svc)));
+    dates.forEach(date => {
+      if (!availabilityByDate[date]) ensureAvailability(date);
+    });
+    setSelSlots(previous => {
+      let updated = previous;
+      rows.forEach(svc => {
+        const date = effectiveDateFor(svc);
+        const doctorId = selDoctors[svc.service_id] ?? svc.doctors?.[0]?.doctor_id ?? '';
+        const doctor = serviceForDate(availabilityByDate[date], svc.service_id)?.doctors?.find(doc => doc.doctor_id === doctorId);
+        if (!doctor) return;
+        const slot = autofillSlot(previous[svc.service_id], doctor, date, freeTimesFor(doctor), defaultEndTime);
+        if (slot !== previous[svc.service_id]) updated = { ...updated, [svc.service_id]: slot };
+      });
+      return updated;
+    });
+  }, [selectedService, availabilityByDate, selDoctors, selDates, oneDoctor]);
   const isToothService = selectedServiceData?.unit === 'зуб';
   const finalQuantity = isToothService ? selectedTeeth.length : quantity;
   
@@ -223,8 +213,24 @@ const ServiceSelector = ({ onServiceAdd, selectedPatient, onlyComplex = false })
   const safeDiscount = discount || 0;
   const totalPrice = basePrice * safeQuantity * (1 - safeDiscount / 100);
 
+  const schedulingBlocked = selectedServiceData?.service_type === 'complex' && (() => {
+    const rows = availabilityServices();
+    if (!rows.length || (oneDoctor && !rows[0].doctors.length)) return true;
+    if (!oneDoctor && selectedServiceData.components.some(component => !rows.some(row => row.service_id === component.service_id))) return true;
+    return rows.some(svc => {
+      if (!svc.doctors?.length) return true;
+      const doctorId = selDoctors[svc.service_id] ?? svc.doctors?.[0]?.doctor_id ?? '';
+      if (!doctorId) return false;
+      const date = effectiveDateFor(svc);
+      const doc = serviceForDate(availabilityByDate[date], svc.service_id)?.doctors?.find(doctor => doctor.doctor_id === doctorId);
+      if (!hasScheduleWindow(doc)) return true;
+      const slot = selSlots[svc.service_id];
+      return !!slot?.start && (slot.date !== date || !isBookableSlot(doc, slot, freeTimesFor(doc), defaultEndTime));
+    });
+  })();
+
   const handleAddService = () => {
-    if (!selectedService) return;
+    if (!selectedService || schedulingBlocked) return;
     
     const service = services.find(s => s.id === selectedService);
     if (!service) return;
@@ -238,15 +244,14 @@ const ServiceSelector = ({ onServiceAdd, selectedPatient, onlyComplex = false })
     // Для комплекса собираем выбранные слоты специалистов (у каждого своя дата и время)
     let scheduling = null;
     if (service.service_type === 'complex') {
-      const today = new Date().toISOString().slice(0, 10);
       const slots = Object.entries(selSlots)
-        .filter(([, sl]) => sl && sl.start)
+        .filter(([key, sl]) => sl && sl.start && availabilityServices().some(svc => svc.service_id === key))
         .map(([k, sl]) => {
           const svcId = k; // ключ = service_id
-                    const did = selDoctors[svcId] || '';
-                    const svcMeta = { service_id: svcId, doctors: Object.values(availabilityByDate).find(a => (a?.services || []).some(s => s.service_id === svcId))?.services?.find(s => s.service_id === svcId)?.doctors || [] };
+                    const svcMeta = availabilityServices().find(svc => svc.service_id === svcId);
+                    const did = selDoctors[svcId] ?? svcMeta?.doctors?.[0]?.doctor_id ?? '';
                     const date = effectiveDateFor(svcMeta); // ТОЧНАЯ выбранная/авто-рабочая дата
-                    const svc = availabilityByDate[date]?.services?.find(x => x.service_id === svcId);
+                    const svc = serviceForDate(availabilityByDate[date], svcId);
           const doc = svc?.doctors?.find(d => d.doctor_id === did);
           const end = sl.end || defaultEndTime(sl.start);
           return {
@@ -258,7 +263,7 @@ const ServiceSelector = ({ onServiceAdd, selectedPatient, onlyComplex = false })
             start_time: sl.start,
             end_time: end,
           };
-        });
+        }).filter(slot => slot.doctor_id);
       scheduling = { slots };
     }
 
@@ -280,7 +285,8 @@ const ServiceSelector = ({ onServiceAdd, selectedPatient, onlyComplex = false })
             is_complex: true,
             // штампуем выбранного при добавлении врача в компоненты (для зарплаты/печати)
             components: (service.components || []).map((c) => {
-              const did = selDoctors[c.service_id];
+              const key = oneDoctor ? service.id : c.service_id;
+              const did = selDoctors[key] ?? availabilityServices().find(svc => svc.service_id === key)?.doctors?.[0]?.doctor_id;
               return did ? { ...c, doctor_id: did } : c;
             }),
             ...(scheduling ? { scheduling } : {}),
@@ -380,20 +386,30 @@ const ServiceSelector = ({ onServiceAdd, selectedPatient, onlyComplex = false })
                     {selectedServiceData.service_type === 'complex' && (
             <div className="mb-3 p-3 bg-blue-50 border border-blue-200 rounded-lg">
               <div className="font-medium text-sm text-gray-800">📅 Расписание специалистов комплекса — по каждой услуге своя дата и время</div>
+              <label className="flex items-center gap-2 text-sm mt-2">
+                <input type="checkbox" checked={oneDoctor} onChange={(event) => {
+                  setOneDoctor(event.target.checked);
+                  setSelSlots({});
+                  setSelDoctors({});
+                  setSelDates({});
+                }} />
+                Весь комплекс одним специалистом
+              </label>
               {(() => {
                 const today = new Date().toISOString().slice(0, 10);
                 const rows = availabilityServices();
                 if (rows.length === 0) return <p className="text-xs text-gray-500 mt-1">Загрузка доступности…</p>;
+                if (oneDoctor && !rows[0].doctors.length) return <p className="text-xs text-amber-600 mt-1">Нет врача, который делает весь комплекс целиком.</p>;
                 return (
                   <div className="space-y-2 mt-1">
                     {rows.map((svc) => {
-                                          const doctorId = selDoctors[svc.service_id] || svc.doctors?.[0]?.doctor_id || '';
+                                          const doctorId = selDoctors[svc.service_id] ?? svc.doctors?.[0]?.doctor_id ?? '';
                                           const key = svc.service_id; // ключ = service_id (дата НЕ зависит от врача)
                                           const selectedDate = effectiveDateFor(svc); // авто-рабочий день, если не выбрана явно
                                           const sl = selSlots[key] || {};
                                           const date = selectedDate;
                       const dateAvail = availabilityByDate[date];
-                      const svcForDate = dateAvail?.services?.find(x => x.service_id === svc.service_id);
+                      const svcForDate = serviceForDate(dateAvail, svc.service_id);
                       const doc = svcForDate?.doctors?.find(d => d.doctor_id === doctorId) || null;
                       const times = doc ? freeTimesFor(doc) : [];
                       return (
@@ -404,13 +420,14 @@ const ServiceSelector = ({ onServiceAdd, selectedPatient, onlyComplex = false })
                             <select
                                                           value={doctorId}
                                                           onChange={(e) => { const d = e.target.value; setSelDoctors(prev => ({ ...prev, [svc.service_id]: d }));
+                                                            setSelSlots(prev => ({ ...prev, [svc.service_id]: { start: '', end: '' } }));
                                                             // Авто: если у выбранного врача сегодня нет приёма — подставляем его ближайший рабочий день
                                                             const today = new Date().toISOString().slice(0, 10);
                                                             if (d) {
                                                               const docInfo = (svc.doctors || []).find(x => x.doctor_id === d);
                                                               const nd = nextWorkDate(docInfo, today);
                                                               setSelDates(prev => ({ ...prev, [svc.service_id]: nd }));
-                                                              setSelSlots(prev => ({ ...prev, [svc.service_id]: { ...(prev[svc.service_id] || {}), date: nd } }));
+                                                              setSelSlots(prev => ({ ...prev, [svc.service_id]: { date: nd, start: '', end: '' } }));
                                                               ensureAvailability(nd);
                                                             }
                                                           }}
@@ -429,7 +446,7 @@ const ServiceSelector = ({ onServiceAdd, selectedPatient, onlyComplex = false })
                             <input
                               type="date"
                               value={date}
-                              onChange={(e) => { const dd = e.target.value; setSelDates(prev => ({ ...prev, [svc.service_id]: dd })); setSelSlots(prev => ({ ...prev, [svc.service_id]: { ...(prev[svc.service_id] || {}), date: dd } })); ensureAvailability(dd); }}
+                              onChange={(e) => { const dd = e.target.value; setSelDates(prev => ({ ...prev, [svc.service_id]: dd })); setSelSlots(prev => ({ ...prev, [svc.service_id]: { date: dd, start: '', end: '' } })); ensureAvailability(dd); }}
                               className="w-full px-1.5 py-1 border border-gray-300 rounded text-sm"
                             />
                             {doc && doc.has_schedule ? (
@@ -444,6 +461,7 @@ const ServiceSelector = ({ onServiceAdd, selectedPatient, onlyComplex = false })
                             ) : (
                               <input
                                 type="time"
+                                disabled
                                 value={sl.start || ''}
                                 onChange={(e) => setSelSlots(prev => ({ ...prev, [svc.service_id]: { ...(prev[svc.service_id] || {}), start: e.target.value, end: defaultEndTime(e.target.value) } }))}
                                 className="w-full px-1.5 py-1 border border-gray-300 rounded text-sm"
@@ -451,15 +469,20 @@ const ServiceSelector = ({ onServiceAdd, selectedPatient, onlyComplex = false })
                             )}
                             <input
                               type="time"
+                              disabled
                               value={sl.end || defaultEndTime(sl.start) || ''}
                               onChange={(e) => setSelSlots(prev => ({ ...prev, [svc.service_id]: { ...(prev[svc.service_id] || {}), end: e.target.value } }))}
                               className="w-full px-1.5 py-1 border border-gray-300 rounded text-sm"
                             />
                           </div>
-                          {doc && doc.has_schedule ? (
+                          {!dateAvail ? (
+                            <div className="text-[10px] text-amber-600 mt-0.5">Загрузка доступности… Время пока недоступно.</div>
+                          ) : !doc ? (
+                            <div className="text-[10px] text-amber-600 mt-0.5">Выбранный врач недоступен на {date}.</div>
+                          ) : doc.has_schedule ? (
                             <div className="text-[10px] text-green-600 mt-0.5">окно {doc.schedule_start}-{doc.schedule_end}, занято: {doc.booked?.length || 0}</div>
                           ) : (
-                            <div className="text-[10px] text-amber-600 mt-0.5">у врача нет расписания на {date} — выберите время вручную</div>
+                            <div className="text-[10px] text-amber-600 mt-0.5">у врача нет расписания на {date} — выберите другого врача или дату</div>
                           )}
                         </div>
                       );
@@ -516,6 +539,7 @@ const ServiceSelector = ({ onServiceAdd, selectedPatient, onlyComplex = false })
           <button
             type="button"
             onClick={handleAddService}
+            disabled={schedulingBlocked}
             className="mt-3 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
           >
             Добавить в план

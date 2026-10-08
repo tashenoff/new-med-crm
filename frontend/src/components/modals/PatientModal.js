@@ -317,19 +317,22 @@ const PatientModal = ({
         body: JSON.stringify(formData)
       });
 
-      if (response.ok) {
-        setShowConsultationForm(false);
-        setEditingConsultation(null);
-        fetchConsultationSheets();
-        // Обновляем локальные планы лечения
-        fetchTreatmentPlans();
-        // Триггерим глобальное обновление для страницы пациентов
-        console.log('🔄 Консультация сохранена, обновляем планы лечения на странице пациентов');
-        refreshTreatmentPlans();
+      if (!response.ok) {
+        const data = await response.json().catch(() => null);
+        throw new Error(typeof data?.detail === 'string' ? data.detail : JSON.stringify(data?.detail || response.status));
       }
     } catch (error) {
       console.error('Error saving consultation sheet:', error);
+      throw error;
     }
+  };
+
+  const handleConsultationSaved = () => {
+    setShowConsultationForm(false);
+    setEditingConsultation(null);
+    fetchConsultationSheets();
+    fetchTreatmentPlans();
+    refreshTreatmentPlans();
   };
 
   const handleDeleteConsultation = async (sheetId) => {
@@ -2193,6 +2196,7 @@ const PatientModal = ({
                   patientId={editingItem.id}
                   editingSheet={editingConsultation}
                   onSave={handleSaveConsultation}
+                  onSaved={handleConsultationSaved}
                   onCancel={() => {
                     setShowConsultationForm(false);
                     setEditingConsultation(null);
