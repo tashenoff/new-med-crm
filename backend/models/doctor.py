@@ -5,11 +5,13 @@ This module contains all Pydantic models related to doctors,
 doctor schedules, and payment management.
 """
 
-from pydantic import BaseModel, Field, validator
-from typing import List, Optional
+from pydantic import BaseModel, Field, validator, model_validator
+from typing import List, Optional, Literal
 from datetime import datetime
 from enum import Enum
 import uuid
+
+from compensation import validate_compensation
 
 
 class PaymentType(str, Enum):
@@ -54,6 +56,8 @@ class Doctor(BaseModel):
     consultation_payment_type: Optional[PaymentType] = PaymentType.PERCENTAGE  # Тип оплаты за консультации
     consultation_payment_value: Optional[float] = 0.0  # Значение оплаты за консультации
     consultation_currency: Optional[str] = "KZT"  # Валюта для фиксированной оплаты за консультации
+    consultation_compensation_mode: Optional[Literal["none", "inherit", "separate"]] = None
+    consultation_hybrid_percentage_value: Optional[float] = 0.0
     # Услуги, которые может оказывать врач (для расчета зарплаты с планов лечения)
     services: Optional[List] = []  # Список ID услуг или объектов с настройками комиссий
     payment_mode: Optional[str] = "general"  # Режим оплаты: "general" или "individual"
@@ -64,7 +68,20 @@ class Doctor(BaseModel):
     updated_at: datetime = Field(default_factory=datetime.utcnow)
 
 
-class DoctorCreate(BaseModel):
+class CompensationWriteModel(BaseModel):
+    @model_validator(mode="before")
+    @classmethod
+    def validate_compensation_settings(cls, values):
+        if isinstance(values, dict):
+            settings = dict(values)
+            if cls.__name__ == "DoctorCreate":
+                settings.setdefault("payment_type", "percentage")
+                settings.setdefault("consultation_payment_type", "percentage" if settings.get("consultation_compensation_mode") != "separate" else None)
+            validate_compensation(settings, require_mode=cls.__name__ == "DoctorCreate")
+        return values
+
+
+class DoctorCreate(CompensationWriteModel):
     """Model for creating a new doctor"""
     full_name: str
     specialty: Optional[str] = None  # Keep for backward compatibility
@@ -100,12 +117,13 @@ class DoctorCreate(BaseModel):
     # Дополнительные поля для гибридного типа оплаты за консультации
     consultation_hybrid_fixed_amount: Optional[float] = 0.0
     consultation_hybrid_percentage_value: Optional[float] = 0.0
+    consultation_compensation_mode: Literal["none", "inherit", "separate"]
     # Услуги врача
     services: Optional[List] = []
     payment_mode: Optional[str] = "general"
 
 
-class DoctorUpdate(BaseModel):
+class DoctorUpdate(CompensationWriteModel):
     """Model for updating doctor information"""
     full_name: Optional[str] = None
     specialty: Optional[str] = None  # Keep for backward compatibility
@@ -141,6 +159,7 @@ class DoctorUpdate(BaseModel):
     # Дополнительные поля для гибридного типа оплаты за консультации
     consultation_hybrid_fixed_amount: Optional[float] = None
     consultation_hybrid_percentage_value: Optional[float] = None
+    consultation_compensation_mode: Optional[Literal["none", "inherit", "separate"]] = None
     # Услуги врача
     services: Optional[List] = None
     payment_mode: Optional[str] = None
@@ -225,7 +244,7 @@ class DoctorScheduleBulkUpdate(BaseModel):
         return v
 
 
-class DoctorWithSchedule(BaseModel):
+class DoctorWithSchedule(Doctor):
     """Doctor model with schedule information"""
     id: str
     full_name: str

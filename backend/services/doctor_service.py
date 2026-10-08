@@ -7,6 +7,7 @@ from datetime import datetime
 from typing import List, Optional
 
 from models.doctor import Doctor, DoctorCreate, DoctorUpdate, DoctorSchedule, DoctorWithSchedule
+from compensation import COMPENSATION_FIELDS, validate_compensation
 
 
 class DoctorService:
@@ -92,7 +93,8 @@ class DoctorService:
                     break
         
         # Устанавливаем payment_mode на основе структуры данных
-        doctor_dict["payment_mode"] = "individual" if has_individual_commissions else "general"
+        if "payment_mode" not in doctor_data.model_fields_set:
+            doctor_dict["payment_mode"] = "individual" if has_individual_commissions else "general"
         
         doctor_obj = Doctor(**doctor_dict)
         await self.db.doctors.insert_one(doctor_obj.dict())
@@ -218,7 +220,7 @@ class DoctorService:
                     )
         
         # Автоматическое определение payment_mode на основе структуры services
-        if "services" in update_dict and update_dict["services"] is not None:
+        if "services" in update_dict and update_dict["services"] is not None and "payment_mode" not in update_data.model_fields_set:
             services = update_dict["services"]
             
             # Проверяем, есть ли индивидуальные комиссии
@@ -232,6 +234,18 @@ class DoctorService:
             # Устанавливаем payment_mode на основе структуры данных
             update_dict["payment_mode"] = "individual" if has_individual_commissions else "general"
         
+        if COMPENSATION_FIELDS.intersection(update_dict):
+            current_doctor = await self.db.doctors.find_one({"$or": search_conditions})
+            if not current_doctor:
+                raise HTTPException(status_code=404, detail="Doctor not found")
+            effective = {key: value for key, value in current_doctor.items()
+                         if key in COMPENSATION_FIELDS and value is not None}
+            effective.update({key: value for key, value in update_dict.items() if key in COMPENSATION_FIELDS})
+            try:
+                validate_compensation(effective, require_mode=True)
+            except ValueError as error:
+                raise HTTPException(status_code=422, detail=str(error)) from error
+
         # Обновляем врача по всем возможным форматам ID
         result = await self.db.doctors.update_one(
             {"$or": search_conditions}, 
@@ -341,19 +355,12 @@ class DoctorService:
             # Нормализуем specialty/specialties для обратной совместимости
             doctor = self._normalize_specialties(doctor)
             
-            doctor_with_schedule = DoctorWithSchedule(
-                id=doctor["id"],
-                full_name=doctor["full_name"],
-                specialty=doctor.get("specialty"),
-                specialties=doctor.get("specialties", []),
-                phone=doctor.get("phone"),
-                calendar_color=doctor["calendar_color"],
-                is_active=doctor["is_active"],
-                user_id=doctor.get("user_id"),
-                created_at=doctor["created_at"],
-                updated_at=doctor["updated_at"],
-                schedule=[DoctorSchedule(**s) for s in day_schedules]
-            )
+            doctor_with_schedule = DoctorWithSchedule(**{
+                **doctor,
+                "phone": doctor.get("phone"),
+                "user_id": doctor.get("user_id"),
+                "schedule": [DoctorSchedule(**schedule) for schedule in day_schedules],
+            })
             available_doctors.append(doctor_with_schedule)
         
         return available_doctors

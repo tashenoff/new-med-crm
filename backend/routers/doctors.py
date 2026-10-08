@@ -80,7 +80,13 @@ async def get_doctor_salary_report(
     service: SalaryService = Depends(get_salary_service)
 ):
     """Get doctor salary report with detailed commission calculations"""
-    return await service.get_doctor_salary_report(date_from, date_to)
+    report = await service.get_doctor_salary_report(date_from, date_to)
+    if not report["compensation_complete"]:
+        raise HTTPException(status_code=409, detail={
+            "message": "Compensation report is incomplete; accounting data/settings must be resolved before payroll.",
+            "accounting_blockers": report["accounting_blockers"],
+        })
+    return report
 
 
 @doctors_router.get("/available/{appointment_date}", response_model=List[DoctorWithSchedule])

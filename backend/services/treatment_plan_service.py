@@ -12,6 +12,9 @@ from math import isfinite
 
 from models.treatment_plan import TreatmentPlan, TreatmentPlanCreate, TreatmentPlanUpdate
 from services.service_price_service import validate_component_snapshot
+from services.accounting_ledger_service import (
+    assign_ledger_identities, preserve_ledger_identities, reject_ledger_writer, advance_balance,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -124,6 +127,7 @@ class TreatmentPlanService:
                 if plan_data.payment_status != "unpaid" or plan_data.paid_amount:
                     raise HTTPException(status_code=400, detail="Use complex component payment endpoints")
                 await self._prepare_new_complex_row(row)
+        assign_ledger_identities(services)
         treatment_plan = TreatmentPlan(
             patient_id=patient_id,
             title=plan_data.title,
@@ -189,6 +193,7 @@ class TreatmentPlanService:
             plan_dict['extra_deposit'] = extra_deposit
             # deposit_balance - остаток депозита (если не установлен, равен total_deposit)
             plan_dict['deposit_balance'] = plan.get('deposit_balance', total_deposit)
+            plan_dict['advance_balance_kzt'] = float(advance_balance(plan.get('accounting_events', []), plan['id']))
             plans.append(plan_dict)
         
         return plans
@@ -234,6 +239,7 @@ class TreatmentPlanService:
         plan_dict['extra_deposit'] = extra_deposit
         # deposit_balance - остаток депозита (если не установлен, равен total_deposit)
         plan_dict['deposit_balance'] = treatment_plan.get('deposit_balance', total_deposit)
+        plan_dict['advance_balance_kzt'] = float(advance_balance(treatment_plan.get('accounting_events', []), plan_id))
         
         return plan_dict
     
@@ -248,12 +254,14 @@ class TreatmentPlanService:
             raise HTTPException(status_code=404, detail="Treatment plan not found")
         
         # Update treatment plan
+        reject_ledger_writer(treatment_plan)
         update_dict = update_data.dict(exclude_unset=True)
         if any(row.get("is_complex") for row in treatment_plan.get("services", [])):
             if any(key in update_dict and update_dict[key] != treatment_plan.get(key)
                    for key in ("payment_status", "paid_amount", "payment_date")):
                 raise HTTPException(status_code=400, detail="Use complex component payment endpoints")
         if "services" in update_dict:
+            preserve_ledger_identities(treatment_plan.get("services", []), update_dict["services"])
             payment_fields = ("payment_status", "paid", "paid_amount", "discount_amount",
                               "discount_total", "paid_from_deposit", "payment_method_id", "payment_method_name")
             for previous in treatment_plan.get("services", []):
@@ -288,7 +296,8 @@ class TreatmentPlanService:
                     await self._prepare_new_complex_row(row)
         if update_dict:
             update_dict["updated_at"] = datetime.utcnow()
-            query = {"id": plan_id, "services": treatment_plan.get("services")}
+            query = {"id": plan_id, "services": treatment_plan.get("services"),
+                     "accounting_events.0": {"$exists": False}}
             if {"payment_status", "paid_amount", "payment_date", "services", "total_cost"}.intersection(update_dict):
                 result = await self.persist_payment_update(query, update_dict)
             else:
@@ -308,7 +317,10 @@ class TreatmentPlanService:
             raise HTTPException(status_code=404, detail="Treatment plan not found")
         
         # Delete from database
-        await self.db.treatment_plans.delete_one({"id": plan_id})
+        reject_ledger_writer(treatment_plan)
+        result = await self.db.treatment_plans.delete_one({"id": plan_id, "accounting_events.0": {"$exists": False}})
+        if not result.deleted_count:
+            raise HTTPException(409, "Concurrent ledger write; plan deletion is locked")
         
         logger.info(f"Treatment plan deleted: {plan_id}")
         return {"message": "Treatment plan deleted successfully"}
@@ -320,7 +332,9 @@ class TreatmentPlanService:
         plan = await self.db.treatment_plans.find_one({"id": plan_id})
         if not plan:
             raise HTTPException(status_code=404, detail="Treatment plan not found")
-
+        reject_ledger_writer(plan)
+        if any(row.get("service_id") == service_id and row.get("service_row_id") for row in plan.get("services", [])):
+            raise HTTPException(422, "Prospective complex payments require individual stable component ledger commands")
         snapshot = {key: deepcopy(plan.get(key)) for key in
                     ("services", "paid_amount", "total_cost", "deposit_balance", "updated_at")}
         service = next((s for s in plan.get("services", []) if s.get("service_id") == service_id), None)
@@ -400,6 +414,7 @@ class TreatmentPlanService:
         plan["updated_at"] = datetime.utcnow()
 
         plan.pop("_id", None)
+        plan.pop("accounting_events", None)
         result = await self.persist_payment_update({"id": plan_id, **snapshot}, plan)
         if not result.matched_count:
             if attempt >= 7:
@@ -413,6 +428,16 @@ class TreatmentPlanService:
 
     async def persist_payment_update(self, query: dict, fields: dict):
         """Synchronize CRM only after a successful treatment-plan write."""
+        try:
+            plan = await self.db.treatment_plans.find_one({"id": query["id"]})
+        except Exception:
+            logger.warning("Payment guard read failed; atomic no-events condition remains mandatory", exc_info=True)
+            plan = None
+        if plan:
+            reject_ledger_writer(plan)
+        if "accounting_events" in fields:
+            raise HTTPException(409, "Generic writers cannot replace accounting_events")
+        query = {**query, "accounting_events.0": {"$exists": False}}
         result = await self.db.treatment_plans.update_one(query, {"$set": fields})
         if result.matched_count:
             await self.sync_persisted_payment(query["id"])

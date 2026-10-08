@@ -1,12 +1,25 @@
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ConfigDict, field_validator
 from typing import List, Optional
 from datetime import datetime
 import uuid
 
 
+def validate_no_nested_events(value):
+    if isinstance(value, dict):
+        if "accounting_events" in value:
+            raise ValueError("accounting_events is server-owned; use ledger commands")
+        for child in value.values():
+            validate_no_nested_events(child)
+    elif isinstance(value, list):
+        for child in value:
+            validate_no_nested_events(child)
+    return value
+
+
 class TreatmentPlan(BaseModel):
     """Treatment plan model for patients"""
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    accounting_events: List[dict] = Field(default_factory=list)
     patient_id: str
     title: str
     description: Optional[str] = None
@@ -36,6 +49,12 @@ class TreatmentPlan(BaseModel):
 
 class TreatmentPlanCreate(BaseModel):
     """Schema for creating treatment plan"""
+    model_config = ConfigDict(extra="forbid")
+
+    @field_validator("services")
+    @classmethod
+    def reject_nested_events(cls, value):
+        return validate_no_nested_events(value)
     patient_id: Optional[str] = None  # Made optional since it's provided in URL path
     title: str
     description: Optional[str] = None
@@ -58,6 +77,12 @@ class TreatmentPlanCreate(BaseModel):
 
 class TreatmentPlanUpdate(BaseModel):
     """Schema for updating treatment plan"""
+    model_config = ConfigDict(extra="forbid")
+
+    @field_validator("services")
+    @classmethod
+    def reject_nested_events(cls, value):
+        return validate_no_nested_events(value)
     title: Optional[str] = None
     assigned_doctor_id: Optional[str] = None  # ID врача, которому назначен план
     description: Optional[str] = None

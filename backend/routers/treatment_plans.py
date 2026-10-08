@@ -17,6 +17,10 @@ from database import db
 # Import services
 from services.treatment_plan_service import TreatmentPlanService
 from services.statistics_service import StatisticsService
+from services.accounting_ledger_service import (
+    AccountingLedgerService, reject_ledger_writer, frontend_receipt, stable_row, plan_result,
+    completion_command,
+)
 
 # Router
 treatment_plans_router = APIRouter(tags=["Treatment Plans"])
@@ -30,9 +34,59 @@ def get_statistics_service():
     return StatisticsService(db)
 
 
+@treatment_plans_router.post("/treatment-plans/{plan_id}/service-rows/{service_row_id}/receipts")
+async def record_service_receipt(
+    plan_id: str,
+    service_row_id: str,
+    command: dict = Body(...),
+    current_user: UserInDB = Depends(require_role([UserRole.ADMIN, UserRole.SUPER_ADMIN, UserRole.DOCTOR])),
+):
+    body = dict(command)
+    if "service_row_id" in body and body.pop("service_row_id") != service_row_id:
+        raise HTTPException(422, "Conflicting service_row_id")
+    result = await AccountingLedgerService(db).record_ordinary_service(
+        plan_id, service_row_id, "service_receipt", frontend_receipt(body), current_user.id)
+    return plan_result(await db.treatment_plans.find_one({"id": plan_id}), result)
+
+
+@treatment_plans_router.post("/treatment-plans/{plan_id}/service-rows/{service_row_id}/occurrences/{occurrence_id}/complete")
+async def record_service_completion(
+    plan_id: str,
+    service_row_id: str,
+    occurrence_id: str,
+    command: dict = Body(...),
+    current_user: UserInDB = Depends(require_role([UserRole.ADMIN, UserRole.SUPER_ADMIN, UserRole.DOCTOR])),
+):
+    plan = await db.treatment_plans.find_one({"id": plan_id})
+    if not plan:
+        raise HTTPException(404, "Treatment plan not found")
+    command, occurrence_id = completion_command(plan, service_row_id, occurrence_id, command)
+    result = await AccountingLedgerService(db).record_ordinary_service(
+        plan_id, service_row_id, "service_completion", command, current_user.id, occurrence_id)
+    return plan_result(await db.treatment_plans.find_one({"id": plan_id}), result)
+
+
 # ============================================================================
 # Treatment Plan Statistics Endpoints (MUST be before parameterized routes!)
 # ============================================================================
+
+
+@treatment_plans_router.post("/treatment-plans/{plan_id}/service-rows/{service_row_id}/components/{component_id}/occurrences/{occurrence_id}/complete")
+async def record_component_completion(
+    plan_id: str,
+    service_row_id: str,
+    component_id: str,
+    occurrence_id: str,
+    command: dict = Body(...),
+    current_user: UserInDB = Depends(require_role([UserRole.ADMIN, UserRole.SUPER_ADMIN, UserRole.DOCTOR])),
+):
+    body = dict(command)
+    for field, expected in (("service_row_id", service_row_id), ("component_id", component_id), ("occurrence_id", occurrence_id)):
+        if field in body and body.pop(field) != expected:
+            raise HTTPException(422, f"Conflicting {field}")
+    result = await AccountingLedgerService(db).record_ordinary_service(
+        plan_id, service_row_id, "component_completion", body, current_user.id, occurrence_id, component_id)
+    return plan_result(await db.treatment_plans.find_one({"id": plan_id}), result)
 
 @treatment_plans_router.get("/treatment-plans/statistics")
 async def get_treatment_plan_statistics(
@@ -333,12 +387,29 @@ async def mark_service_procedure_completed(
     plan_id: str,
     service_id: str,
     current_user: UserInDB = Depends(require_role([UserRole.ADMIN, UserRole.SUPER_ADMIN, UserRole.DOCTOR])),
+    command: Optional[dict] = Body(None),
 ):
     """Отметить выполнение одной процедуры услуги"""
     # Получить план лечения
     plan = await db.treatment_plans.find_one({"id": plan_id})
     if not plan:
         raise HTTPException(status_code=404, detail="Treatment plan not found")
+    if isinstance(command, dict):
+        body = dict(command)
+        if "session_id" in body:
+            return await AccountingLedgerService(db).complete_session(plan_id, service_id, body, current_user.id)
+        row_id = stable_row(plan, service_id, body.get("service_row_id"))
+        if "component_id" in body:
+            return await record_component_completion(plan_id, row_id, body.get("component_id"),
+                                                     body.get("occurrence_id"), body, current_user)
+        occurrence_id = body.get("occurrence_id")
+        body, occurrence_id = completion_command(plan, row_id, occurrence_id, body)
+        result = await AccountingLedgerService(db).record_ordinary_service(
+            plan_id, row_id, "service_completion", body, current_user.id, occurrence_id)
+        return plan_result(await db.treatment_plans.find_one({"id": plan_id}), result)
+    reject_ledger_writer(plan)
+    if any(row.get("service_id") == service_id and row.get("service_row_id") for row in plan.get("services", [])):
+        raise HTTPException(422, "Prospective completion requires operation_id and stable occurrence_id")
     
     # Найти услугу в плане
     service_found = False
@@ -379,8 +450,8 @@ async def mark_service_procedure_completed(
             plan["started_at"] = datetime.utcnow()
     
     # Сохранить изменения
-    await db.treatment_plans.update_one(
-        {"id": plan_id},
+    result = await db.treatment_plans.update_one(
+        {"id": plan_id, "accounting_events.0": {"$exists": False}},
         {"$set": {
             "services": plan["services"],
             "execution_status": plan["execution_status"],
@@ -389,6 +460,8 @@ async def mark_service_procedure_completed(
             "updated_at": datetime.utcnow()
         }}
     )
+    if not result.matched_count:
+        raise HTTPException(409, "Concurrent ledger write; retry using a ledger completion command")
     
     # Вернуть обновленный план
     updated_plan = await db.treatment_plans.find_one({"id": plan_id})
@@ -407,6 +480,11 @@ async def complete_course_session(
     plan = await db.treatment_plans.find_one({"id": plan_id})
     if not plan:
         raise HTTPException(status_code=404, detail="Plan not found")
+    if session_data.get("operation_id") or session_data.get("session_id"):
+        return await AccountingLedgerService(db).complete_session(plan_id, service_id, session_data, current_user.id)
+    reject_ledger_writer(plan)
+    if any(row.get("service_id") == service_id and row.get("service_row_id") for row in plan.get("services", [])):
+        raise HTTPException(422, "Prospective course completion requires stable session_id and operation_id")
     
     # Найти услугу
     service_found = False
@@ -434,13 +512,15 @@ async def complete_course_session(
         raise HTTPException(status_code=404, detail="Course service not found")
     
     # Сохранить изменения
-    await db.treatment_plans.update_one(
-        {"id": plan_id},
+    result = await db.treatment_plans.update_one(
+        {"id": plan_id, "accounting_events.0": {"$exists": False}},
         {"$set": {
             "services": plan["services"],
             "updated_at": datetime.utcnow()
         }}
     )
+    if not result.matched_count:
+        raise HTTPException(409, "Concurrent ledger write; retry with a stable session ledger completion command")
     
     # Вернуть обновленный план
     updated_plan = await db.treatment_plans.find_one({"id": plan_id})
@@ -469,6 +549,9 @@ async def mark_complex_component_paid(
     service: TreatmentPlanService = Depends(get_treatment_plan_service),
 ):
     """Отметить оплаченной одну услугу (долю) комплексной услуги в плане."""
+    if isinstance(payment_data, dict) and payment_data.get("operation_id"):
+        return await AccountingLedgerService(db).record_component_receipt(
+            plan_id, service_id, component_service_id, payment_data, current_user.id)
     return await service.pay_complex_component(plan_id, service_id, component_service_id, payment_data)
 
 
@@ -485,6 +568,15 @@ async def mark_service_paid(
     if not plan:
         raise HTTPException(status_code=404, detail="Treatment plan not found")
 
+    if isinstance(payment_data, dict) and "operation_id" in payment_data:
+        command = dict(payment_data)
+        row_id = stable_row(plan, service_id, command.pop("service_row_id", None))
+        result = await AccountingLedgerService(db).record_ordinary_service(
+            plan_id, row_id, "service_receipt", frontend_receipt(command), current_user.id)
+        return plan_result(await db.treatment_plans.find_one({"id": plan_id}), result)
+    reject_ledger_writer(plan)
+    if any(row.get("service_id") == service_id and row.get("service_row_id") for row in plan.get("services", [])):
+        raise HTTPException(422, "Prospective service receipts require operation_id UUID, service_row_id, actual amount_kzt, total discount_amount_kzt, payment_source and payment_method")
     from copy import deepcopy
     snapshot = {key: deepcopy(plan.get(key)) for key in ("services", "deposit_balance", "updated_at")}
     
@@ -594,14 +686,17 @@ class AddDepositPayment(BaseModel):
 @treatment_plans_router.post("/treatment-plans/{plan_id}/add-deposit")
 async def add_deposit_to_plan(
     plan_id: str,
-    payment: AddDepositPayment,
+    payment: dict = Body(...),
     current_user: UserInDB = Depends(get_current_active_user)
 ):
     """Add a deposit payment to cover the debt in treatment plan"""
     # Get the plan
+    if isinstance(payment, dict):
+        return await AccountingLedgerService(db).record_plan_advance(plan_id, payment, current_user.id)
     plan = await db.treatment_plans.find_one({"id": plan_id})
     if not plan:
         raise HTTPException(status_code=404, detail="Treatment plan not found")
+    reject_ledger_writer(plan)
     
     patient_id = plan.get("patient_id")
     
@@ -663,18 +758,29 @@ async def add_deposit_to_plan(
     }
 
 
-@treatment_plans_router.post("/treatment-plans/{plan_id}/services/{service_id}/sessions/{session_index}/mark-paid")
+@treatment_plans_router.post("/treatment-plans/{plan_id}/services/{service_id}/sessions/{session_id}/mark-paid")
 async def mark_session_paid(
     plan_id: str,
     service_id: str,
-    session_index: int,
+    session_id: str,
     current_user: UserInDB = Depends(require_role([UserRole.ADMIN, UserRole.SUPER_ADMIN, UserRole.DOCTOR])),
+    command: Optional[dict] = Body(None),
 ):
     """Отметить одну сессию курсовой услуги как оплаченную"""
     # Получить план лечения
     plan = await db.treatment_plans.find_one({"id": plan_id})
     if not plan:
         raise HTTPException(status_code=404, detail="Treatment plan not found")
+    if isinstance(command, dict):
+        return await AccountingLedgerService(db).record_session(
+            plan_id, service_id, session_id, command, current_user.id)
+    reject_ledger_writer(plan)
+    if any(row.get("service_id") == service_id and row.get("service_row_id") for row in plan.get("services", [])):
+        raise HTTPException(422, "Prospective sessions require stable session_id and receipt command")
+    try:
+        session_index = int(session_id)
+    except (ValueError, TypeError):
+        raise HTTPException(422, "Legacy session path requires an integer index") from None
 
     from copy import deepcopy
     snapshot = {key: deepcopy(plan.get(key)) for key in ("services", "deposit_balance", "updated_at")}

@@ -6,6 +6,7 @@ from bson import ObjectId
 from fastapi import HTTPException
 from models.consultation import ConsultationSheet, ConsultationSheetCreate, ConsultationSheetUpdate, ICD10Code
 from database import get_database
+from services.accounting_ledger_service import assign_ledger_identities, reject_ledger_writer
 
 
 class ConsultationService:
@@ -141,6 +142,9 @@ class ConsultationService:
         existing_sheet = await self.get_consultation_sheet(sheet_id)
         if not existing_sheet:
             return None
+        linked_plan = await self.db.treatment_plans.find_one({"consultation_sheet_id": sheet_id})
+        if linked_plan:
+            reject_ledger_writer(linked_plan)
         
         update_data = {k: v for k, v in data.dict().items() if v is not None}
         
@@ -172,6 +176,9 @@ class ConsultationService:
     
     async def delete_consultation_sheet(self, sheet_id: str) -> bool:
         """Удалить консультационный лист"""
+        linked_plan = await self.db.treatment_plans.find_one({"consultation_sheet_id": sheet_id})
+        if linked_plan:
+            reject_ledger_writer(linked_plan)
         result = await self.collection.delete_one({"id": sheet_id})
         return result.deleted_count > 0
     
@@ -259,6 +266,7 @@ class ConsultationService:
         
         # Сохранить в базу
         plan_dict = treatment_plan.dict()
+        assign_ledger_identities(plan_dict["services"])
         await self.db.treatment_plans.insert_one(plan_dict)
     
     async def _update_treatment_plan_from_consultation(
@@ -274,6 +282,8 @@ class ConsultationService:
         existing_plan = await self.db.treatment_plans.find_one({
             "consultation_sheet_id": consultation.id
         })
+        if existing_plan:
+            reject_ledger_writer(existing_plan)
         if existing_plan:
             incoming_ids = {service.service_id for service in consultation.treatment_services}
             for previous in existing_plan.get("services", []):
@@ -347,6 +357,7 @@ class ConsultationService:
             # Обновляем существующий план лечения
             result = await self.db.treatment_plans.update_one(
                 {"id": existing_plan["id"], "services": existing_plan.get("services"),
+                 "accounting_events.0": {"$exists": False},
                  "updated_at": existing_plan.get("updated_at")},
                 {"$set": {
                     "services": services,
@@ -387,6 +398,7 @@ class ConsultationService:
             )
             
             plan_dict = treatment_plan.dict()
+            assign_ledger_identities(plan_dict["services"])
             await self.db.treatment_plans.insert_one(plan_dict)
 
 
