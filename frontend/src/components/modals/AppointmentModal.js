@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { appointmentPayment } from '../../utils/accountingLedger';
 import SignatureCanvas from 'react-signature-canvas';
 import Modal from './Modal';
 import { inputClasses, selectClasses, textareaClasses, buttonPrimaryClasses, buttonSecondaryClasses, buttonSuccessClasses, cardHeaderClasses, tabClasses } from './modalUtils';
@@ -89,6 +90,12 @@ const AppointmentModal = ({
 }) => {
 // Используем локальное состояние для формы, чтобы изменения работали корректно
   const [appointmentForm, setLocalAppointmentForm] = useState(initialAppointmentForm);
+  const [receiptDraft, setReceiptDraft] = useState({});
+  const receiptOperation = useRef(null);
+  useEffect(() => {
+    setReceiptDraft({});
+    receiptOperation.current = null;
+  }, [show, editingItem?.id, editingItem?._id]);
   
   // Ref для актуальной формы (избегаем устаревших данных в async-замыканиях)
   const appointmentFormRef = useRef(initialAppointmentForm);
@@ -1012,6 +1019,18 @@ const handleCreateNewPatient = async (e) => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (submitting) return;
+    let payload;
+    try {
+      const base = { ...appointmentForm };
+      for (const field of ['deposit', 'deposit_type', 'payment_purpose', 'actual_amount_kzt', 'payment_method', 'operation_id']) delete base[field];
+      payload = appointmentPayment({ ...base, ...receiptDraft });
+      if (payload.actual_amount_kzt || payload.status === 'completed') {
+        const fingerprint = JSON.stringify(payload);
+        if (receiptOperation.current?.fingerprint !== fingerprint) receiptOperation.current = { fingerprint, id: crypto.randomUUID() };
+        payload.operation_id = receiptOperation.current.id;
+      }
+    } catch (error) { alert(error.message); return; }
     setSubmitting(true);
 
 // Минимальная длительность сеанса — 30 минут
@@ -1021,6 +1040,7 @@ const handleCreateNewPatient = async (e) => {
     );
     if (!durationCheck.valid) {
       alert(durationCheck.message);
+      setSubmitting(false);
       return;
     }
 
@@ -1082,7 +1102,7 @@ const handleCreateNewPatient = async (e) => {
     // Передаём управление родительскому обработчику
     // Передаём данные формы, а не event
     try {
-      await onSave(appointmentForm);
+      await onSave(payload);
     } finally {
       setSubmitting(false);
     }
@@ -1571,75 +1591,40 @@ const handleCreateNewPatient = async (e) => {
               return (
                 <div className={`border-2 rounded-lg p-4 ${isDepositLocked ? 'border-orange-300 bg-orange-50' : 'border-blue-200 bg-blue-50'}`}>
                   <h4 className="font-medium text-blue-900 mb-3">
-                    💰 Депозит (предоплата)
-                    {isDepositLocked && <span className="ml-2 text-orange-600 text-sm font-normal">🔒 Заблокировано</span>}
+                    💰 Новый платеж
                   </h4>
                   
                   {isDepositLocked && (
                     <div className="mb-3 p-2 bg-orange-100 border border-orange-300 rounded-lg">
                       <p className="text-sm text-orange-700">
-                        ⚠️ Депозит уже внесён и применён к плану лечения. Изменение депозита невозможно.
+                        Исторический депозит: {Number(editingItem.deposit).toLocaleString('ru-RU')} ₸. Его назначение не определяется автоматически; повторно этот платеж не отправляется.
                       </p>
                     </div>
                   )}
                   
-                  <div className="grid grid-cols-3 gap-4">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Тип депозита</label>
-                      <select
-                        value={appointmentForm.deposit_type || ''}
-                        onChange={(e) => {
-                          const newType = e.target.value;
-                          setAppointmentForm({ 
-                            ...appointmentForm, 
-                            deposit_type: newType, 
-                            deposit: '' 
-                          });
-                        }}
-                        className={`${selectClasses} ${isDepositLocked ? 'bg-gray-100 cursor-not-allowed' : ''}`}
-                        disabled={isDepositLocked}
-                      >
-                        <option value="">Без депозита</option>
-                        <option value="fixed">Фиксированная сумма</option>
+                  <div className="space-y-3">
+                    <label className="block text-sm font-medium">Назначение платежа
+                      <select aria-label="Назначение платежа" value={receiptDraft.payment_purpose || ''} onChange={event => setReceiptDraft(event.target.value ? { ...receiptDraft, payment_purpose: event.target.value } : {})} className={selectClasses} disabled={submitting}>
+                        <option value="">Нет нового платежа</option>
+                        <option value="consultation">Оплата консультации</option>
+                        <option value="plan_advance">Аванс на план лечения (не начисляется врачу)</option>
                       </select>
-                    </div>
-
-                    {appointmentForm.deposit_type && (
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                          {appointmentForm.deposit_type === 'percent' ? 'Процент (%)' : 'Сумма (₸)'}
-                        </label>
-                        <input
-                          type="number"
-                          step={appointmentForm.deposit_type === 'percent' ? '1' : '0.01'}
-                          min="0"
-                          max={appointmentForm.deposit_type === 'percent' ? '100' : undefined}
-                          placeholder={appointmentForm.deposit_type === 'percent' ? '0-100' : '0'}
-                          value={appointmentForm.deposit || ''}
-                          onChange={(e) => setAppointmentForm({ ...appointmentForm, deposit: e.target.value })}
-                          className={`${inputClasses} ${isDepositLocked ? 'bg-gray-100 cursor-not-allowed' : ''}`}
-                          disabled={isDepositLocked}
-                        />
-                      </div>
-                    )}
-
-                    {appointmentForm.deposit_type && appointmentForm.deposit && (
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Сумма депозита</label>
-                        <div className={`px-3 py-2 border rounded-lg font-bold ${isDepositLocked ? 'bg-orange-100 border-orange-300 text-orange-800' : 'bg-green-100 border-green-300 text-green-800'}`}>
-                          {appointmentForm.deposit_type === 'percent' && appointmentForm.price
-                            ? `${((parseFloat(appointmentForm.price) * parseFloat(appointmentForm.deposit)) / 100).toFixed(2)} ₸`
-                            : appointmentForm.deposit_type === 'fixed'
-                              ? `${parseFloat(appointmentForm.deposit || 0).toFixed(2)} ₸`
-                              : '0 ₸'}
-                        </div>
-                      </div>
-                    )}
+                    </label>
+                    {receiptDraft.payment_purpose && <>
+                      <label className="block text-sm font-medium">Фактически получено, ₸
+                        <input aria-label="Фактически получено, ₸" type="number" min="0.01" step="0.01" required value={receiptDraft.actual_amount_kzt || ''} onChange={event => setReceiptDraft({ ...receiptDraft, actual_amount_kzt: event.target.value })} className={inputClasses} disabled={submitting} />
+                      </label>
+                      <label className="block text-sm font-medium">Способ оплаты
+                        <select aria-label="Способ оплаты" required value={receiptDraft.payment_method || ''} onChange={event => setReceiptDraft({ ...receiptDraft, payment_method: event.target.value })} className={selectClasses} disabled={submitting}>
+                          <option value="">Выберите способ оплаты</option>
+                          <option value="cash">Наличные</option>
+                          <option value="card">Карта</option>
+                          <option value="transfer">Перевод</option>
+                        </select>
+                      </label>
+                    </>}
+                    <p className="text-xs text-gray-600">Назначение обязательно для нового платежа. Старый депозит не считается оплатой консультации. Аванс учитывается только после явного распределения сервером на услугу / компонент.</p>
                   </div>
-
-                  {appointmentForm.deposit_type === 'percent' && !appointmentForm.price && (
-                    <p className="text-sm text-orange-600 mt-2">⚠️ Укажите цену записи для расчета депозита</p>
-                  )}
                 </div>
               );
             })()}

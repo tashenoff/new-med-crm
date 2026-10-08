@@ -1,4 +1,5 @@
 import { apiClient, handleApiError, cleanAppointmentData } from './config';
+import { appointmentPayment, ledgerCommands } from '../utils/accountingLedger';
 
 // API для работы с записями
 export const appointmentsApi = {
@@ -26,9 +27,11 @@ export const appointmentsApi = {
   create: async (appointmentData) => {
     try {
       console.log('🚀 Исходные данные записи:', appointmentData);
-      const cleanData = cleanAppointmentData(appointmentData);
+      const cleanData = cleanAppointmentData(appointmentPayment(appointmentData));
       console.log('✨ Очищенные данные записи:', cleanData);
-      const response = await apiClient.post('/appointments', cleanData);
+      const response = cleanData.actual_amount_kzt || cleanData.status === 'completed'
+        ? await ledgerCommands.run('appointment:create', cleanData, body => apiClient.post('/appointments', body))
+        : await apiClient.post('/appointments', cleanData);
       return { success: true, data: response.data };
     } catch (error) {
       console.error('❌ Ошибка создания записи:', error);
@@ -39,8 +42,10 @@ export const appointmentsApi = {
   // Обновить запись
   update: async (id, appointmentData) => {
     try {
-      const cleanData = cleanAppointmentData(appointmentData);
-      const response = await apiClient.put(`/appointments/${id}`, cleanData);
+      const cleanData = cleanAppointmentData(appointmentPayment(appointmentData));
+      const response = cleanData.actual_amount_kzt || cleanData.status === 'completed'
+        ? await ledgerCommands.run(`appointment:update:${id}`, cleanData, body => apiClient.put(`/appointments/${id}`, body))
+        : await apiClient.put(`/appointments/${id}`, cleanData);
       return { success: true, data: response.data };
     } catch (error) {
       return { success: false, error: handleApiError(error) };
@@ -60,7 +65,9 @@ export const appointmentsApi = {
   // Обновить статус записи
   updateStatus: async (id, status) => {
     try {
-      const response = await apiClient.patch(`/appointments/${id}/status`, { status });
+      const response = status === 'completed'
+        ? await ledgerCommands.run(`appointment:status:${id}`, { status }, body => apiClient.patch(`/appointments/${id}/status`, body))
+        : await apiClient.patch(`/appointments/${id}/status`, { status });
       return { success: true, data: response.data };
     } catch (error) {
       return { success: false, error: handleApiError(error) };

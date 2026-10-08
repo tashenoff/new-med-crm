@@ -1,12 +1,13 @@
 import { useState, useCallback } from 'react';
 import axios from 'axios';
+import { appointmentPayment, ledgerCommands } from '../utils/accountingLedger';
 
 const BACKEND_URL = import.meta.env.VITE_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
 
 // Вспомогательная функция для очистки данных записи
 const cleanAppointmentData = (appointmentData) => {
-  const cleanData = { ...appointmentData };
+  const cleanData = appointmentPayment(appointmentData);
   delete cleanData.chair_number; // Удалено поле chair_number
   
   // Конвертируем price в число если оно не пустое
@@ -73,7 +74,9 @@ export const useAppointments = () => {
     try {
       const cleanData = cleanAppointmentData(appointmentData);
       
-      const response = await axios.post(`${API}/appointments`, cleanData);
+      const response = cleanData.actual_amount_kzt || cleanData.status === 'completed'
+        ? await ledgerCommands.run('appointment:create', cleanData, body => axios.post(`${API}/appointments`, body))
+        : await axios.post(`${API}/appointments`, cleanData);
       
       // Обновляем локальный список
       setAppointments(prev => [...prev, response.data]);
@@ -106,7 +109,9 @@ export const useAppointments = () => {
   const updateAppointment = useCallback(async (id, appointmentData) => {
     try {
       const cleanData = cleanAppointmentData(appointmentData);
-      const response = await axios.put(`${API}/appointments/${id}`, cleanData);
+      const response = cleanData.actual_amount_kzt || cleanData.status === 'completed'
+        ? await ledgerCommands.run(`appointment:update:${id}`, cleanData, body => axios.put(`${API}/appointments/${id}`, body))
+        : await axios.put(`${API}/appointments/${id}`, cleanData);
       
       // НЕ обновляем локальное состояние - пусть вызывающий код делает fetchAppointments()
       
@@ -137,7 +142,9 @@ export const useAppointments = () => {
   // Обновить статус записи
   const updateAppointmentStatus = useCallback(async (id, status) => {
     try {
-      const response = await axios.patch(`${API}/appointments/${id}/status`, { status });
+      const response = status === 'completed'
+        ? await ledgerCommands.run(`appointment:status:${id}`, { status }, body => axios.patch(`${API}/appointments/${id}/status`, body))
+        : await axios.patch(`${API}/appointments/${id}/status`, { status });
       
       // Обновляем локальный список
       setAppointments(prev => 

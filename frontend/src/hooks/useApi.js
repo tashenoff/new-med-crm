@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import axios from 'axios';
+import { appointmentPayment, ledgerCommands } from '../utils/accountingLedger';
 
 const BACKEND_URL = import.meta.env.VITE_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
@@ -12,7 +13,7 @@ export const useApi = () => {
   const createAppointment = async (appointmentData) => {
     try {
       // Очищаем данные от пустых строк и приводим к правильным типам
-      const cleanData = { ...appointmentData };
+      const cleanData = appointmentPayment(appointmentData);
       
       // Преобразуем price в число или null
       if (cleanData.price === '' || cleanData.price === null || cleanData.price === undefined) {
@@ -33,9 +34,11 @@ export const useApi = () => {
       });
       
       console.log('Creating appointment with cleaned data:', cleanData);
-      const response = await axios.post(`${BACKEND_URL}/api/appointments`, cleanData, {
+      const send = body => axios.post(`${BACKEND_URL}/api/appointments`, body, {
         headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
       });
+      const response = cleanData.actual_amount_kzt || cleanData.status === 'completed'
+        ? await ledgerCommands.run('appointment:create', cleanData, send) : await send(cleanData);
       return response.data;
     } catch (error) {
       console.error('Error creating appointment:', error);
@@ -50,7 +53,7 @@ export const useApi = () => {
       // Очищаем данные от пустых строк и приводим к правильным типам
       const cleanData = {};
       
-      Object.entries(appointmentData).forEach(([key, value]) => {
+      Object.entries(appointmentPayment(appointmentData)).forEach(([key, value]) => {
         if (value !== null && value !== undefined && value !== '') {
           // Для цены преобразуем в правильный тип
           if (key === 'price') {
@@ -66,9 +69,11 @@ export const useApi = () => {
 
       console.log('Отправляем данные для обновления записи:', cleanData);
       
-      const response = await axios.put(`${BACKEND_URL}/api/appointments/${appointmentId}`, cleanData, {
+      const send = body => axios.put(`${BACKEND_URL}/api/appointments/${appointmentId}`, body, {
         headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
       });
+      const response = cleanData.actual_amount_kzt || cleanData.status === 'completed'
+        ? await ledgerCommands.run(`appointment:update:${appointmentId}`, cleanData, send) : await send(cleanData);
       return response.data;
     } catch (error) {
       console.error('Error updating appointment:', error);

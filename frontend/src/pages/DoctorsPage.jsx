@@ -4,6 +4,7 @@ import { useGlobalRefresh } from '../hooks/useGlobalRefresh';
 import { useModal } from '../context/ModalContext';
 import DoctorsView from '../components/doctors/DoctorsView';
 import DoctorCashbackWidget from '../components/loyalty/DoctorCashbackWidget';
+import { initializeDoctorForm, buildDoctorPayload } from '../utils/doctorCompensation';
 
 const DoctorsPage = ({ user }) => {
   // Data hook
@@ -42,17 +43,7 @@ const DoctorsPage = ({ user }) => {
   // Обработчики врачей
   const handleAddDoctor = () => {
     openModal('doctor', {
-      doctorForm: {
-        full_name: '',
-        specialty: null,
-        specialties: [],
-        phone: '',
-        calendar_color: '#3B82F6',
-        payment_type: 'percentage',
-        payment_value: 0,
-        currency: 'KZT',
-        services: []
-      },
+      doctorForm: initializeDoctorForm(),
       setDoctorForm: (form) => updateModalProps('doctor', { doctorForm: form }),
       editingItem: null,
       loading,
@@ -63,17 +54,7 @@ const DoctorsPage = ({ user }) => {
 
   const handleEditDoctor = (doctor) => {
     openModal('doctor', {
-      doctorForm: {
-        full_name: doctor.full_name || '',
-        specialty: doctor.specialty || null,
-        specialties: doctor.specialties || [],
-        phone: doctor.phone || '',
-        calendar_color: doctor.calendar_color || '#3B82F6',
-        payment_type: doctor.payment_type || 'percentage',
-        payment_value: doctor.payment_value || 0,
-        currency: doctor.currency || 'KZT',
-        services: doctor.services || []
-      },
+      doctorForm: initializeDoctorForm(doctor),
       setDoctorForm: (form) => updateModalProps('doctor', { doctorForm: form }),
       editingItem: doctor,
       loading,
@@ -90,19 +71,7 @@ const DoctorsPage = ({ user }) => {
 
     try {
       // Очищаем данные от лишних полей, которых нет в API
-      const cleanDoctorData = {
-        full_name: doctorForm?.full_name?.trim() || '',
-        specialty: doctorForm?.specialty || null,
-        specialties: doctorForm?.specialties || [],
-        phone: doctorForm.phone || null,
-        calendar_color: doctorForm.calendar_color || '#3B82F6',
-        payment_type: doctorForm.payment_type || 'percentage',
-        payment_value: (doctorForm.payment_value && doctorForm.payment_value !== '') ? parseFloat(doctorForm.payment_value) : 0.0,
-        currency: doctorForm.currency || 'KZT',
-        services: doctorForm.services || [],
-        payment_mode: doctorForm.payment_mode || 'general',
-        hybrid_percentage_value: doctorForm.payment_type === 'hybrid' ? doctorForm.hybrid_percentage_value : undefined,
-      };
+      const cleanDoctorData = buildDoctorPayload(doctorForm);
       
       let result;
       if (editingItem) {

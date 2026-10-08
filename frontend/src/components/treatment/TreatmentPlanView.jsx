@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { ledgerCommands, ledgerFetch, requireSessionId } from '../../utils/accountingLedger';
 
 const TreatmentPlanView = ({ plan, onUpdate }) => {
   const [loading, setLoading] = useState(false);
@@ -23,29 +24,20 @@ const TreatmentPlanView = ({ plan, onUpdate }) => {
     );
 
   const markProcedureCompleted = async (serviceId) => {
+    if (loading) return;
     try {
       setLoading(true);
-      const token = localStorage.getItem('token');
-      const response = await fetch(
-        `${API}/api/treatment-plans/${plan.id}/services/${serviceId}/mark-completed`,
-        {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json'
-          }
-        }
-      );
-
-      if (response.ok) {
-        const updatedPlan = await response.json();
-        if (onUpdate) {
-          onUpdate(updatedPlan);
-        }
-      }
+      const service = plan.services.find(item => item.service_id === serviceId);
+      const nextOccurrence = (service?.occurrences || []).find(item => !item.completed);
+      const occurrence_id = nextOccurrence?.occurrence_id || nextOccurrence?.id || ledgerCommands.occurrence(`${plan.id}:${serviceId}:${service?.quantity_completed || 0}`);
+      const payload = service?.is_course
+        ? { session_id: requireSessionId((service.sessions || []).find(session => !session.completed)) }
+        : { occurrence_id };
+      const updatedPlan = await ledgerFetch(`${API}/api/treatment-plans/${plan.id}/services/${serviceId}/mark-completed`, payload);
+      if (onUpdate) onUpdate(updatedPlan.plan || updatedPlan);
     } catch (error) {
       console.error('Error marking procedure completed:', error);
-      alert('Ошибка при отметке процедуры');
+      alert('Ошибка при отметке процедуры: ' + error.message);
     } finally {
       setLoading(false);
     }

@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import Modal from './Modal';
 import { inputClasses, selectClasses, labelClasses, buttonPrimaryClasses, buttonSecondaryClasses } from './modalUtils';
+import { initializeDoctorForm, initializeDoctorServices, buildDoctorPayload } from '../../utils/doctorCompensation';
 
 const DoctorModal = ({ 
   show, 
@@ -17,112 +18,23 @@ const DoctorModal = ({
   const [selectedServices, setSelectedServices] = useState([]);
   const [serviceCommissions, setServiceCommissions] = useState({}); // Объект {serviceId: {type: 'percentage', value: 0, currency: 'KZT'}}
   const [paymentMode, setPaymentMode] = useState('general'); // 'general' или 'individual'
+  const [validationError, setValidationError] = useState(null);
   
   const API = import.meta.env.VITE_BACKEND_URL;
 
   useEffect(() => {
     if (show) {
-      console.log('🏥 МОДАЛЬНОЕ ОКНО ВРАЧА ОТКРЫТО:');
-      console.log('  - editingItem:', editingItem);
-      console.log('  - doctorForm:', doctorForm);
-      console.log('  - Это редактирование?', !!editingItem);
-      
-      // Сначала инициализируем форму данными врача (если редактирование)
-      if (editingItem) {
-        console.log('🔄 ИНИЦИАЛИЗАЦИЯ ФОРМЫ ДАННЫМИ ВРАЧА:');
-        console.log('  - specialty:', editingItem.specialty);
-        console.log('  - payment_type:', editingItem.payment_type);
-        console.log('  - payment_value:', editingItem.payment_value);
-        console.log('  - hybrid_percentage_value:', editingItem.hybrid_percentage_value);
-        
-        const initialForm = {
-          full_name: editingItem.full_name || '',
-          specialty: editingItem.specialty || null,
-          specialties: editingItem.specialties || [],
-          phone: editingItem.phone || '',
-          calendar_color: editingItem.calendar_color || '#3B82F6',
-          payment_type: editingItem.payment_type || 'percentage',
-          payment_value: editingItem.payment_value || 0,
-          hybrid_percentage_value: editingItem.hybrid_percentage_value || 0,
-          currency: editingItem.currency || 'KZT',
-          services: editingItem.services || [],
-          payment_mode: editingItem.payment_mode || 'general'
-        };
-
-        // Если нет specialties, но есть specialty - конвертируем
-        if (!initialForm.specialties || initialForm.specialties.length === 0) {
-          if (editingItem.specialty) {
-            initialForm.specialties = [editingItem.specialty];
-          }
-        }
-        // Если нет specialty, но есть specialties - берём первый
-        if (!initialForm.specialty && initialForm.specialties && initialForm.specialties.length > 0) {
-          initialForm.specialty = initialForm.specialties[0];
-        }
-        
-        console.log('  ✅ Инициализируем форму:', initialForm);
-        setDoctorForm(initialForm);
-      }
-      
+      const initialForm = initializeDoctorForm(editingItem || doctorForm);
+      const { selected, commissions } = initializeDoctorServices(initialForm);
+      setDoctorForm(initialForm);
+      setSelectedServices(selected);
+      setServiceCommissions(commissions);
+      setPaymentMode(initialForm.payment_mode);
+      setValidationError(null);
       fetchSpecialties();
       fetchServices();
-      // Загружаем существующие услуги врача при редактировании
-      if (editingItem && editingItem.services) {
-        if (Array.isArray(editingItem.services) && editingItem.services.length > 0) {
-          // Проверяем формат данных - если это массив объектов или массив строк
-          if (typeof editingItem.services[0] === 'object') {
-            // Новый формат: массив объектов с настройками комиссий (индивидуальный режим)
-            const serviceIds = editingItem.services.map(s => s.service_id || s.id);
-            const commissions = {};
-            editingItem.services.forEach(s => {
-              const id = s.service_id || s.id;
-              commissions[id] = {
-                type: s.commission_type || 'percentage',
-                value: s.commission_value || 0,
-                currency: s.commission_currency || 'KZT'
-              };
-            });
-            setSelectedServices(serviceIds);
-            setServiceCommissions(commissions);
-            setPaymentMode('individual');
-          } else {
-            // Старый формат: массив строк (ID услуг) - общий режим
-            setSelectedServices([...editingItem.services]);
-            setServiceCommissions({});
-            setPaymentMode('general');
-          }
-        }
-      } else {
-        setSelectedServices([]);
-        setServiceCommissions({});
-        setPaymentMode('general');
-      }
-
     }
   }, [show, editingItem]);
-
-  // Дополнительный useEffect для переинициализации формы после загрузки специальностей
-  useEffect(() => {
-    if (editingItem && specialties.length > 0) {
-      console.log('🔄 ПЕРЕИНИЦИАЛИЗАЦИЯ ПОСЛЕ ЗАГРУЗКИ СПЕЦИАЛЬНОСТЕЙ:');
-      console.log('  - specialties загружены:', specialties.length);
-      console.log('  - editingItem.specialty:', editingItem.specialty);
-      console.log('  - doctorForm.specialty текущий:', doctorForm.specialty);
-      console.log('  - specialties список:', specialties.map(s => s.name));
-      
-      // Проверяем, есть ли специальность врача в списке загруженных специальностей
-      const specialtyExists = specialties.some(s => s.name === editingItem.specialty);
-      console.log('  - specialty exists in list:', specialtyExists);
-      
-      if (editingItem.specialty && (doctorForm.specialty !== editingItem.specialty)) {
-        console.log('  ✅ Принудительно устанавливаем specialty');
-        setDoctorForm({
-          ...doctorForm,
-          specialty: editingItem.specialty
-        });
-      }
-    }
-  }, [specialties, editingItem, doctorForm.specialty]);
 
   const fetchSpecialties = async () => {
     try {
@@ -271,67 +183,25 @@ const DoctorModal = ({
     >
         
         <form onSubmit={(e) => {
-          console.log('🔍 DoctorModal form onSubmit вызван, onSave:', typeof onSave);
-          console.log('🔍 DoctorModal передает doctorForm:', doctorForm);
-          console.log('📋 ОТПРАВКА ДАННЫХ ВРАЧА:');
-          console.log('  - Режим комиссий (paymentMode):', paymentMode);
-          console.log('  - Выбранные услуги (selectedServices):', selectedServices);
-          console.log('  - Настройки комиссий (serviceCommissions):', serviceCommissions);
-          
-          // Объединяем данные формы с выбранными услугами
-          let servicesData;
-          
-          if (paymentMode === 'individual') {
-            console.log('  ✅ Используется ИНДИВИДУАЛЬНЫЙ режим');
-            // Индивидуальный режим: массив объектов с настройками комиссий
-            servicesData = selectedServices.map(serviceId => ({
-              service_id: serviceId,
-              commission_type: serviceCommissions[serviceId]?.type || 'percentage',
-              commission_value: serviceCommissions[serviceId]?.value || 0,
-              commission_currency: serviceCommissions[serviceId]?.currency || 'KZT'
-            }));
-            console.log('  - Данные услуг (объекты с комиссиями):', servicesData);
-          } else {
-            console.log('  ✅ Используется ОБЩИЙ режим');
-            // Общий режим: простой массив ID услуг
-            servicesData = selectedServices;
-            console.log('  - Данные услуг (простые ID):', servicesData);
+          e.preventDefault();
+          const servicesData = paymentMode === 'individual' ? selectedServices.map(serviceId => ({
+            service_id: serviceId,
+            commission_type: serviceCommissions[serviceId]?.type || 'percentage',
+            commission_value: serviceCommissions[serviceId]?.value ?? 0,
+            commission_currency: serviceCommissions[serviceId]?.currency || 'KZT'
+          })) : selectedServices;
+          try {
+            const payload = buildDoctorPayload({ ...doctorForm, services: servicesData, payment_mode: paymentMode });
+            setValidationError(null);
+            onSave(e, { ...payload, editingItem });
+          } catch (error) {
+            setValidationError(error.message);
           }
-          
-          const formDataWithServices = {
-            ...doctorForm,
-            services: servicesData,
-            payment_mode: paymentMode, // Добавляем информацию о режиме оплаты
-            editingItem: editingItem
-          };
-          
-          console.log('🚀 ФИНАЛЬНЫЕ ДАННЫЕ ДЛЯ ОТПРАВКИ НА СЕРВЕР:');
-          console.log('  - payment_mode:', formDataWithServices.payment_mode);
-          console.log('  - payment_type:', formDataWithServices.payment_type);
-          console.log('  - payment_value:', formDataWithServices.payment_value);
-          console.log('  - hybrid_percentage_value:', formDataWithServices.hybrid_percentage_value);
-          console.log('  - services:', formDataWithServices.services);
-          console.log('  - Полные данные:', JSON.stringify(formDataWithServices, null, 2));
-          
-          // КРИТИЧЕСКАЯ ПРОВЕРКА ГИБРИДНЫХ ПОЛЕЙ
-          if (formDataWithServices.payment_type === 'hybrid') {
-            console.log('🔍 ПРОВЕРКА ГИБРИДНЫХ ПОЛЕЙ ПЕРЕД ОТПРАВКОЙ:');
-            console.log('  ✅ payment_type = hybrid');
-            console.log('  💰 payment_value =', formDataWithServices.payment_value);
-            console.log('  📊 hybrid_percentage_value =', formDataWithServices.hybrid_percentage_value);
-            
-            if (!formDataWithServices.hybrid_percentage_value || formDataWithServices.hybrid_percentage_value === 0) {
-              console.log('  ❌ КРИТИЧЕСКАЯ ОШИБКА: hybrid_percentage_value равен 0 или отсутствует!');
-              console.log('  📋 doctorForm на момент отправки:', doctorForm);
-              alert('ОШИБКА: Процентная часть гибридной оплаты не указана! Проверьте поле "Процент от выручки".');
-              return; // Прерываем отправку
-            } else {
-              console.log('  ✅ Гибридные поля заполнены корректно');
-            }
-          }
-          
-          onSave(e, formDataWithServices);
         }} className="space-y-6">
+          {validationError && <p role="alert" className="text-red-600">{validationError}</p>}
+          {((doctorForm.currency && doctorForm.currency !== 'KZT') || Object.values(serviceCommissions).some(commission => commission.currency !== 'KZT')) && (
+            <p role="alert" className="text-red-600">В записи есть иностранная валюта ({doctorForm.currency !== 'KZT' ? doctorForm.currency : Object.values(serviceCommissions).filter(commission => commission.currency !== 'KZT').map(commission => commission.currency).join(', ')}). Значения не конвертированы. Сохранение требует явного согласования значений в KZT.</p>
+          )}
           
           {/* Две колонки: Основная информация и Услуги врача */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -611,14 +481,14 @@ const DoctorModal = ({
                                     </div>
                                     <div>
                                       <label className="block text-gray-700 dark:text-gray-300 mb-1">
-                                        {serviceCommissions[service.id]?.type === 'percentage' ? 'Процент' : 'Сумма'}
+                                        {serviceCommissions[service.id]?.type === 'percentage' ? 'Процент' : 'Сумма (KZT за завершённую услугу)'}
                                       </label>
                                       <div className="flex">
                                         <input
                                           type="number"
                                           min="0"
                                           max={serviceCommissions[service.id]?.type === 'percentage' ? '100' : undefined}
-                                          step={serviceCommissions[service.id]?.type === 'percentage' ? '0.1' : '1'}
+                                          step="any"
                                           value={serviceCommissions[service.id]?.value || 0}
                                           onChange={(e) => handleCommissionChange(service.id, 'value', parseFloat(e.target.value) || 0)}
                                           className="flex-1 px-2 py-1 text-xs border border-gray-300 dark:border-gray-600 rounded-l bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
@@ -627,16 +497,7 @@ const DoctorModal = ({
                                         {serviceCommissions[service.id]?.type === 'percentage' ? (
                                           <span className="px-2 py-1 text-xs bg-gray-200 dark:bg-gray-600 border border-l-0 border-gray-300 dark:border-gray-600 rounded-r text-gray-600 dark:text-gray-300">%</span>
                                         ) : (
-                                          <select
-                                            value={serviceCommissions[service.id]?.currency || 'KZT'}
-                                            onChange={(e) => handleCommissionChange(service.id, 'currency', e.target.value)}
-                                            className="px-2 py-1 text-xs border border-l-0 border-gray-300 dark:border-gray-600 rounded-r bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                                          >
-                                            <option value="KZT">₸</option>
-                                            <option value="USD">$</option>
-                                            <option value="EUR">€</option>
-                                            <option value="RUB">₽</option>
-                                          </select>
+                                          <span className="px-2 py-1 text-xs">{serviceCommissions[service.id]?.currency || 'KZT'}</span>
                                         )}
                                       </div>
                                     </div>
@@ -686,11 +547,10 @@ const DoctorModal = ({
             </div>
           </div>
           
-          {/* Настройки оплаты - внизу на всю ширину (только в общем режиме) */}
-          {paymentMode === 'general' && (
+          <fieldset disabled={paymentMode === 'individual' && doctorForm.consultation_compensation_mode !== 'inherit'}>
           <div className="bg-orange-50 dark:bg-orange-900/20 p-4 rounded-lg border border-orange-200 dark:border-orange-800">
             <h3 className="flex items-center text-sm font-medium text-orange-800 dark:text-orange-200 mb-4">
-              <span className="mr-2">💰</span> Настройки оплаты
+              <span className="mr-2">💰</span> Основная схема оплаты
             </h3>
             
             <div className="space-y-4">
@@ -698,6 +558,8 @@ const DoctorModal = ({
                 <div>
                   <label className={labelClasses}>Тип оплаты</label>
                   <select
+                    name="payment_type"
+                    aria-label="Тип основной оплаты"
                     value={doctorForm.payment_type || 'percentage'}
                   onChange={(e) => {
                     const newPaymentType = e.target.value;
@@ -724,15 +586,16 @@ const DoctorModal = ({
 
                 <div>
                   <label className={labelClasses}>
-                    {doctorForm.payment_type === 'percentage' ? 'Процент (%)' :
-                     doctorForm.payment_type === 'hybrid' ? 'Фиксированная сумма' : 'Сумма'}
+                    {doctorForm.payment_type === 'percentage' ? 'Процент (%)' : 'Фиксированная сумма (KZT за завершённую услугу/приём)'}
                   </label>
                   <div className="flex">
                     <input
+                      name="payment_value"
+                      aria-label="Значение основной оплаты"
                       type="number"
                       min="0"
                       max={doctorForm.payment_type === 'percentage' ? '100' : undefined}
-                      step={doctorForm.payment_type === 'percentage' ? '0.1' : '1'}
+                      step="any"
                       value={doctorForm.payment_value ?? ''}
                       onChange={(e) => {
                         const val = e.target.value;
@@ -744,26 +607,17 @@ const DoctorModal = ({
                     {doctorForm.payment_type === 'percentage' ? (
                       <span className="px-3 py-2 bg-gray-100 dark:bg-gray-600 border border-l-0 border-gray-300 dark:border-gray-600 rounded-r-lg text-gray-600 dark:text-gray-300">%</span>
                     ) : (
-                      <select
-                        value={doctorForm.currency || 'KZT'}
-                        onChange={(e) => setDoctorForm({...doctorForm, currency: e.target.value})}
-                        className="px-3 py-2 border border-l-0 border-gray-300 dark:border-gray-600 rounded-r-lg focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                      >
-                        <option value="KZT">₸</option>
-                        <option value="USD">$</option>
-                        <option value="EUR">€</option>
-                        <option value="RUB">₽</option>
-                      </select>
+                      <span className="px-3 py-2">{doctorForm.currency || 'KZT'}</span>
                     )}
                   </div>
                   {doctorForm.payment_type === 'percentage' && (
                     <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Укажите процент от общей выручки врача</p>
                   )}
                   {doctorForm.payment_type === 'fixed' && (
-                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Фиксированная оплата за период работы</p>
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">KZT за каждую завершённую услугу/приём, не за отчётный период</p>
                   )}
                   {doctorForm.payment_type === 'hybrid' && (
-                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Фиксированная часть гибридной оплаты</p>
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Фиксированная часть KZT за каждую завершённую услугу/приём плюс процент от выручки; 0% допустим</p>
                   )}
                 </div>
               </div>
@@ -774,10 +628,12 @@ const DoctorModal = ({
                     <label className={labelClasses}>Процент от выручки</label>
                     <div className="flex">
                       <input
+                        name="hybrid_percentage_value"
+                        aria-label="Процентная часть основной гибридной оплаты"
                         type="number"
                         min="0"
                         max="100"
-                        step="0.1"
+                        step="any"
                         value={doctorForm.hybrid_percentage_value ?? ''}
                         onChange={(e) => {
                           const val = e.target.value;
@@ -802,9 +658,68 @@ const DoctorModal = ({
               )}
             </div>
           </div>
-          )}
+          </fieldset>
 
-          
+          <section className="space-y-4 rounded-lg border border-orange-200 p-4">
+            <h3 className={labelClasses}>Оплата консультаций</h3>
+            <label htmlFor="consultation_compensation_mode" className={labelClasses}>Режим оплаты консультаций (обязательно)</label>
+            <select
+              id="consultation_compensation_mode"
+              name="consultation_compensation_mode"
+              required
+              value={doctorForm.consultation_compensation_mode || ''}
+              onChange={event => setDoctorForm({ ...doctorForm, consultation_compensation_mode: event.target.value })}
+              className={selectClasses}
+            >
+              <option value="">Выберите режим</option>
+              <option value="none">Без оплаты</option>
+              <option value="inherit">Основная схема оплаты</option>
+              <option value="separate">Отдельная схема оплаты</option>
+            </select>
+            {doctorForm.consultation_compensation_mode === 'none' && <p>Консультации не оплачиваются.</p>}
+            {doctorForm.consultation_compensation_mode === 'inherit' && <p>Консультации оплачиваются по основной схеме, даже при индивидуальных комиссиях услуг плана.</p>}
+            {doctorForm.consultation_compensation_mode === 'separate' && (
+              <div className="space-y-4">
+                <label htmlFor="consultation_payment_type" className={labelClasses}>Тип оплаты консультаций</label>
+                <select
+                  id="consultation_payment_type"
+                  name="consultation_payment_type"
+                  value={doctorForm.consultation_payment_type || 'percentage'}
+                  onChange={event => setDoctorForm({ ...doctorForm, consultation_payment_type: event.target.value, consultation_payment_value: 0, consultation_hybrid_percentage_value: 0 })}
+                  className={selectClasses}
+                >
+                  <option value="percentage">Процент от выручки</option>
+                  <option value="fixed">Фиксированная оплата (KZT)</option>
+                  <option value="hybrid">Гибридная оплата (KZT + %)</option>
+                </select>
+                <label htmlFor="consultation_payment_value" className={labelClasses}>
+                  {doctorForm.consultation_payment_type === 'percentage' ? 'Процент консультаций (0–100%)' : 'KZT за каждую завершённую консультацию'}
+                </label>
+                <input
+                  id="consultation_payment_value"
+                  name="consultation_payment_value"
+                  type="number" min="0" max={doctorForm.consultation_payment_type === 'percentage' ? '100' : undefined} step="any"
+                  value={doctorForm.consultation_payment_value ?? 0}
+                  onChange={event => setDoctorForm({ ...doctorForm, consultation_payment_value: event.target.value })}
+                  className={inputClasses}
+                />
+                {doctorForm.consultation_payment_type === 'hybrid' && (
+                  <div>
+                    <label htmlFor="consultation_hybrid_percentage_value" className={labelClasses}>Процентная часть консультаций (0–100%, 0% допустим)</label>
+                    <input
+                      id="consultation_hybrid_percentage_value"
+                      name="consultation_hybrid_percentage_value"
+                      type="number" min="0" max="100" step="any"
+                      value={doctorForm.consultation_hybrid_percentage_value ?? 0}
+                      onChange={event => setDoctorForm({ ...doctorForm, consultation_hybrid_percentage_value: event.target.value })}
+                      className={inputClasses}
+                    />
+                  </div>
+                )}
+              </div>
+            )}
+          </section>
+
           <div className="flex space-x-3">
             <button
               type="submit"

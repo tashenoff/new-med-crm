@@ -1,8 +1,20 @@
 import React, { useState, useEffect } from 'react';
+import { formatCompensation, formatConsultationCompensation } from '../../../utils/doctorCompensation';
+
+const formatReportDetail = (value) => {
+  if (value == null) return '';
+  if (Array.isArray(value)) return value.map(formatReportDetail).filter(Boolean).join('; ');
+  if (typeof value === 'object') {
+    return Object.entries(value).map(([key, detail]) => `${key}: ${formatReportDetail(detail)}`).join('; ');
+  }
+  return String(value);
+};
 
 const SalariesView = ({ user }) => {
   const [salaryData, setSalaryData] = useState([]);
-  const [summary, setSummary] = useState({});
+  const [summary, setSummary] = useState(null);
+  const [reportError, setReportError] = useState('');
+  const [accountingBlockers, setAccountingBlockers] = useState([]);
   const [loading, setLoading] = useState(false);
   const [dateFrom, setDateFrom] = useState(() => {
     const date = new Date();
@@ -16,6 +28,10 @@ const SalariesView = ({ user }) => {
 
   const fetchSalaryData = async () => {
     setLoading(true);
+    setSalaryData([]);
+    setSummary(null);
+    setReportError('');
+    setAccountingBlockers([]);
     try {
       const token = localStorage.getItem('token');
       const response = await fetch(`${API}/api/doctors/salary-report?date_from=${dateFrom}&date_to=${dateTo}`, {
@@ -25,15 +41,40 @@ const SalariesView = ({ user }) => {
         }
       });
 
-      if (response.ok) {
-        const data = await response.json();
-        setSalaryData(data.salary_data);
-        setSummary(data.summary);
-      } else {
-        console.error('Error fetching salary data');
+      let data;
+      try {
+        data = await response.json();
+      } catch {
+        setReportError(`Не удалось загрузить отчёт${response.ok ? '' : ` (HTTP ${response.status})`}: сервер вернул некорректный JSON. Повторите загрузку.`);
+        return;
       }
-    } catch (error) {
-      console.error('Error:', error);
+
+      const blockers = data?.detail?.accounting_blockers ?? data?.accounting_blockers;
+      setAccountingBlockers(Array.isArray(blockers) ? blockers : blockers == null ? [] : [blockers]);
+
+      if (!response.ok) {
+        const detail = data?.detail && typeof data.detail === 'object' && !Array.isArray(data.detail)
+          ? Object.fromEntries(Object.entries(data.detail).filter(([key]) => key !== 'accounting_blockers'))
+          : data?.detail;
+        const explanation = response.status === 409
+          ? 'Расчёт зарплаты заблокирован: необходимо устранить проблемы учёта.'
+          : 'Не удалось загрузить отчёт по зарплате.';
+        setReportError(`${explanation} HTTP ${response.status}. ${formatReportDetail(detail)} Повторите загрузку после устранения ошибки.`);
+        return;
+      }
+
+      if (!Array.isArray(data?.salary_data) || !data.salary_data.every(row => row && typeof row === 'object' && !Array.isArray(row)) || !data.summary || typeof data.summary !== 'object' || Array.isArray(data.summary)) {
+        setReportError('Не удалось загрузить отчёт: сервер вернул некорректные данные расчёта. Повторите загрузку.');
+        return;
+      }
+
+      setSalaryData(data.salary_data);
+      setSummary(data.summary);
+      if (data.compensation_complete === false || (Array.isArray(blockers) ? blockers.length > 0 : blockers != null)) {
+        setReportError('Расчёт зарплаты неполный: необходимо устранить проблемы учёта и обновить отчёт.');
+      }
+    } catch {
+      setReportError('Не удалось загрузить отчёт по зарплате. Проверьте соединение и повторите загрузку.');
     } finally {
       setLoading(false);
     }
@@ -44,15 +85,15 @@ const SalariesView = ({ user }) => {
   }, [dateFrom, dateTo]);
 
   const getPaymentTypeLabel = (type) => {
-    return type === 'fixed' ? 'Фиксированная' : 'Процентная';
+    return type === 'hybrid' ? 'Гибридная' : type === 'fixed' ? 'Фиксированная' : type === 'percentage' ? 'Процентная' : 'Не указан';
   };
 
   const getPaymentTypeIcon = (type) => {
-    return type === 'fixed' ? '💰' : '📊';
+    return type === 'hybrid' ? '🔗' : type === 'fixed' ? '💰' : '📊';
   };
 
   const formatCurrency = (amount) => {
-    return `${amount.toLocaleString('ru-RU')} ₸`;
+    return `${Number(amount ?? 0).toLocaleString('ru-RU')} KZT`;
   };
 
   return (
@@ -98,6 +139,17 @@ const SalariesView = ({ user }) => {
           </div>
         </div>
       </div>
+
+      {(reportError || accountingBlockers.length > 0) && (
+        <div role="alert" className="rounded-lg border border-red-300 bg-red-50 p-4 text-red-800 dark:border-red-700 dark:bg-red-900/20 dark:text-red-200">
+          <p>{reportError}</p>
+          {accountingBlockers.length > 0 && (
+            <ul className="mt-2 list-disc space-y-1 pl-5">
+              {accountingBlockers.map((blocker, index) => <li key={index}>{formatReportDetail(blocker)}</li>)}
+            </ul>
+          )}
+        </div>
+      )}
 
       {/* Summary Cards */}
       {summary && (
@@ -216,10 +268,9 @@ const SalariesView = ({ user }) => {
                       </span>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">
-                      {doctor.payment_type === 'fixed' 
-                        ? formatCurrency(doctor.payment_value)
-                        : `${doctor.payment_value}%`
-                      }
+                      <div>{doctor.payment_mode === 'individual' ? 'Услуги плана: индивидуальные комиссии' : formatCompensation(doctor.payment_type, doctor.payment_value, doctor.hybrid_percentage_value, doctor.currency || 'KZT')}</div>
+                      {doctor.payment_mode === 'individual' && <div className="text-xs text-gray-500">Основная схема: {formatCompensation(doctor.payment_type, doctor.payment_value, doctor.hybrid_percentage_value, doctor.currency || 'KZT')}</div>}
+                      <div className="text-xs text-gray-500">{formatConsultationCompensation(doctor)}</div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">
                       <div>
@@ -250,6 +301,7 @@ const SalariesView = ({ user }) => {
                           </span>
                         )}
                       </div>
+
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <span className="text-lg font-bold text-green-600 dark:text-green-400">

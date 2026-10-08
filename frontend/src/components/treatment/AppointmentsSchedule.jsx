@@ -1,10 +1,14 @@
 import React, { useState, useEffect } from 'react';
+import { ledgerFetch, positiveKzt, requireSessionId } from '../../utils/accountingLedger';
 
 const AppointmentsSchedule = ({ patientId }) => {
   const [appointments, setAppointments] = useState([]);
   const [currentDate, setCurrentDate] = useState(new Date());
   const [loading, setLoading] = useState(false);
   const [showAll, setShowAll] = useState(true);
+  const [sessionPayment, setSessionPayment] = useState(null);
+  const [sessionAmount, setSessionAmount] = useState('');
+  const [commandLoading, setCommandLoading] = useState(false);
 
   const API = import.meta.env.VITE_BACKEND_URL;
 
@@ -87,53 +91,34 @@ const AppointmentsSchedule = ({ patientId }) => {
   };
 
   // Отметить процедуру как выполненную
-  const markProcedureComplete = async (service, date) => {
+  const markProcedureComplete = async (service, session) => {
+    if (commandLoading || session.completed) return;
     try {
-      const token = localStorage.getItem('token');
-      const response = await fetch(`${API}/api/treatment-plans/${service.planId}/service/${service.service_id}/complete`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          date: date.toISOString(),
-          time: new Date().toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })
-        })
-      });
-      
-      if (response.ok) {
-        // Обновить данные
-        fetchAppointments();
-      }
+      const session_id = requireSessionId(session);
+      setCommandLoading(true);
+      await ledgerFetch(`${API}/api/treatment-plans/${service.planId}/service/${service.service_id}/complete`, { session_id, date: session.date });
+      await fetchAppointments();
     } catch (error) {
-      console.error('Error marking procedure complete:', error);
-    }
+      alert('Ошибка при завершении сеанса: ' + error.message);
+    } finally { setCommandLoading(false); }
   };
 
   // Отметить оплату сессии для курсов с поэтапной оплатой
-  const markSessionPaid = async (service, date, sessionIndex) => {
+  const markSessionPaid = async () => {
+    if (!sessionPayment || commandLoading) return;
     try {
-      const token = localStorage.getItem('token');
-      const response = await fetch(
-        `${API}/api/treatment-plans/${service.planId}/services/${service.service_id}/sessions/${sessionIndex}/mark-paid`,
-        {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json'
-          }
-        }
-      );
-      
-      if (response.ok) {
-        // Обновить данные
-        fetchAppointments();
-      }
+      const { service, session, operation_id } = sessionPayment;
+      const session_id = requireSessionId(session);
+      const maximum = Number(session.amount_due_kzt ?? session.price ?? service.session_price ?? service.price_per_unit ?? 0) - Number(session.paid_amount || 0);
+      const amount_kzt = positiveKzt(sessionAmount, maximum);
+      setCommandLoading(true);
+      await ledgerFetch(`${API}/api/treatment-plans/${service.planId}/services/${service.service_id}/sessions/${session_id}/mark-paid`, { session_id, amount_kzt, operation_id });
+      setSessionPayment(null);
+      setSessionAmount('');
+      await fetchAppointments();
     } catch (error) {
-      console.error('Error marking session paid:', error);
-      alert('Ошибка при отметке оплаты');
-    }
+      alert('Ошибка при оплате сеанса: ' + error.message);
+    } finally { setCommandLoading(false); }
   };
 
   const formatDate = (date) => {
@@ -263,8 +248,7 @@ const AppointmentsSchedule = ({ patientId }) => {
                         procedures.length > 0 ? 'bg-yellow-100 hover:bg-yellow-200' : 
                         'hover:bg-blue-50'
                       }`}
-                      onClick={() => markProcedureComplete(service, date)}
-                      title={hasCompleted ? 'Выполнено' : 'Нажмите для отметки'}
+                      title={hasCompleted ? 'Выполнено' : 'Выберите конкретный сеанс'}
                     >
                       {procedures.length > 0 ? (
                         <div>
@@ -274,6 +258,19 @@ const AppointmentsSchedule = ({ patientId }) => {
                           <div className="text-xs text-gray-600">
                             {completedCount}/{expectedCount}
                           </div>
+                          {procedures.map((session, sessionIndex) => (
+                            <div key={session.session_id || session.id || sessionIndex} className="mt-2 space-y-1">
+                              <div className="text-xs">Сеанс {sessionIndex + 1}</div>
+                              {!session.completed && <button type="button" disabled={commandLoading} className="block text-xs text-blue-700" onClick={() => markProcedureComplete(service, session)}>Завершить сеанс</button>}
+                              {!session.paid && !session.is_paid && session.payment_status !== 'paid' && <button type="button" disabled={commandLoading} className="block text-xs text-green-700" onClick={() => {
+                                try {
+                                  requireSessionId(session);
+                                  setSessionPayment({ service, session, operation_id: crypto.randomUUID() });
+                                  setSessionAmount('');
+                                } catch (error) { alert(error.message); }
+                              }}>Оплатить сеанс</button>}
+                            </div>
+                          ))}
                         </div>
                       ) : (
                         <div className="text-gray-300">−</div>
@@ -287,6 +284,13 @@ const AppointmentsSchedule = ({ patientId }) => {
         </table>
       </div>
 
+      {sessionPayment && <div role="dialog" aria-label="Оплата сеанса" className="p-4 border rounded bg-white">
+        <label className="block">Фактически получено за сеанс, ₸
+          <input aria-label="Фактически получено за сеанс, ₸" type="number" min="0.01" step="0.01" required value={sessionAmount} disabled={commandLoading} onChange={event => setSessionAmount(event.target.value)} className="border rounded p-2" />
+        </label>
+        <button type="button" disabled={commandLoading} onClick={markSessionPaid} className="p-2 text-green-700">Подтвердить оплату</button>
+        <button type="button" disabled={commandLoading} onClick={() => setSessionPayment(null)} className="p-2">Отмена</button>
+      </div>}
       {/* Легенда */}
       <div className="flex items-center justify-center space-x-6 text-sm text-gray-600">
         <div className="flex items-center space-x-2">
