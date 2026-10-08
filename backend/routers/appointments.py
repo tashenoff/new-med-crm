@@ -93,6 +93,20 @@ async def apply_deposit_to_treatment_plans(patient_id: str, deposit_amount: floa
             appointment_ids = plan.get("appointment_ids", [])
             if appointment_id not in appointment_ids:
                 appointment_ids.append(appointment_id)
+
+            if any(service.get("is_complex") for service in plan.get("services", [])):
+                balance = plan.get("deposit_balance")
+                if balance is None:
+                    balance = current_deposit
+                await db.treatment_plans.update_one(
+                    {"id": plan["id"], "services": plan.get("services"),
+                     "deposit_balance": plan.get("deposit_balance")},
+                    {"$set": {"deposit_amount": new_deposit_amount,
+                              "deposit_balance": balance + deposit_to_apply,
+                              "appointment_ids": appointment_ids,
+                              "updated_at": datetime.utcnow()}}
+                )
+                continue
             
             await db.treatment_plans.update_one(
                 {"id": plan["id"]},

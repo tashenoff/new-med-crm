@@ -21,6 +21,26 @@ from dotenv import load_dotenv  # noqa: E402
 # override already-set env vars, so DB_NAME stays medcrm_test.
 load_dotenv()
 
+from pymongo.uri_parser import parse_uri
+
+try:
+    test_uri = parse_uri(os.environ.get("MONGO_URL", "mongodb://localhost:27017/?authSource=admin"))
+    if test_uri["nodelist"] != [("localhost", 27017)] or test_uri["options"].get("replicaset"):
+        raise ValueError()
+except Exception:
+    raise RuntimeError("Unsafe test database endpoint; tests require localhost:27017") from None
+
+
+def _assert_test_database():
+    if os.environ.get("DB_NAME") != "medcrm_test":
+        raise RuntimeError("Unsafe test database name")
+    try:
+        uri = parse_uri(os.environ.get("MONGO_URL", "mongodb://localhost:27017/?authSource=admin"))
+        if uri["nodelist"] != [("localhost", 27017)] or uri["options"].get("replicaset"):
+            raise ValueError()
+    except Exception:
+        raise RuntimeError("Unsafe test database endpoint") from None
+
 from pymongo import MongoClient  # noqa: E402
 
 from motor.motor_asyncio import AsyncIOMotorClient  # noqa: E402
@@ -48,6 +68,7 @@ TOUCHED_COLLECTIONS = [
 
 
 def _drop_touched_collections():
+    _assert_test_database()
     mongo_url = os.environ.get("MONGO_URL", "mongodb://localhost:27017/?authSource=admin")
     dbname = os.environ["DB_NAME"]
     sync = MongoClient(mongo_url, serverSelectionTimeoutMS=4000)

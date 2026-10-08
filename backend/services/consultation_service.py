@@ -3,6 +3,7 @@ from datetime import datetime
 import json
 import os
 from bson import ObjectId
+from fastapi import HTTPException
 from models.consultation import ConsultationSheet, ConsultationSheetCreate, ConsultationSheetUpdate, ICD10Code
 from database import get_database
 
@@ -223,7 +224,9 @@ class ConsultationService:
             # Комплексная услуга: сохраняем состав в строке плана (для зарплаты/печати)
             service["is_complex"] = bool(getattr(ts, 'is_complex', False))
             if service["is_complex"]:
+                from services.treatment_plan_service import TreatmentPlanService
                 service["components"] = getattr(ts, 'components', None) or []
+                await TreatmentPlanService(self.db)._prepare_new_complex_row(service)
 
             services.append(service)
             total_cost += ts.total_price
@@ -268,13 +271,15 @@ class ConsultationService:
         from datetime import datetime
         import uuid
         
-        # Ищем существующий план лечения для этого пациента, созданный из консультации
-        # Ищем по дате консультации и пациенту
         existing_plan = await self.db.treatment_plans.find_one({
-            "patient_id": consultation.patient_id,
-            "assigned_doctor_id": consultation.doctor_id,
-            "title": f"План лечения от {consultation.consultation_date.strftime('%d.%m.%Y')}"
+            "consultation_sheet_id": consultation.id
         })
+        if existing_plan:
+            incoming_ids = {service.service_id for service in consultation.treatment_services}
+            for previous in existing_plan.get("services", []):
+                if (previous.get("is_complex") and previous.get("service_id") not in incoming_ids
+                        and any(component.get("paid") for component in previous.get("components", []))):
+                    raise HTTPException(status_code=400, detail="Cannot remove paid complex service")
         
         # Подготовить услуги для плана лечения
         services = []
@@ -325,13 +330,24 @@ class ConsultationService:
             if service["is_complex"]:
                 service["components"] = getattr(ts, 'components', None) or []
 
+            if existing_plan:
+                previous = next((row for row in existing_plan.get("services", [])
+                                 if row.get("service_id") == ts.service_id), None)
+                if previous and previous.get("is_complex"):
+                    service = {**service, **previous}
+
+            if service.get("is_complex") and not (existing_plan and previous and previous.get("is_complex")):
+                from services.treatment_plan_service import TreatmentPlanService
+                await TreatmentPlanService(self.db)._prepare_new_complex_row(service)
+
             services.append(service)
-            total_cost += ts.total_price
+            total_cost += service["total_price"]
         
         if existing_plan:
             # Обновляем существующий план лечения
-            await self.db.treatment_plans.update_one(
-                {"id": existing_plan["id"]},
+            result = await self.db.treatment_plans.update_one(
+                {"id": existing_plan["id"], "services": existing_plan.get("services"),
+                 "updated_at": existing_plan.get("updated_at")},
                 {"$set": {
                     "services": services,
                     "total_cost": total_cost,
@@ -339,6 +355,8 @@ class ConsultationService:
                     "updated_at": datetime.utcnow()
                 }}
             )
+            if not result.matched_count:
+                raise HTTPException(status_code=409, detail="Concurrent plan update; retry consultation edit")
         else:
             # Создаём новый план лечения
             from models.treatment_plan import TreatmentPlan

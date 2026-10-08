@@ -7,8 +7,11 @@ from datetime import datetime
 from typing import List
 import logging
 from bson import ObjectId
+from copy import deepcopy
+from math import isfinite
 
 from models.treatment_plan import TreatmentPlan, TreatmentPlanCreate, TreatmentPlanUpdate
+from services.service_price_service import validate_component_snapshot
 
 logger = logging.getLogger(__name__)
 
@@ -26,11 +29,57 @@ def _round_shares(raw_shares):
     return floors
 
 
+def recalculate_plan_payment(plan):
+    paid_total = 0.0
+    for row in plan.get("services", []):
+        if row.get("is_complex"):
+            paid_total += sum((comp.get("paid_amount") or 0)
+                              for comp in row.get("components", []) if comp.get("paid"))
+        elif row.get("payment_type") == "per_session" and row.get("sessions"):
+            for session in row["sessions"]:
+                if session.get("paid"):
+                    paid_total += session.get("paid_amount", row.get("price_per_unit", 0)) or 0
+        elif row.get("payment_status") in ("paid", "partially_paid"):
+            paid_total += row.get("paid_amount", row.get("total_price", 0)) or 0
+    plan["paid_amount"] = round(paid_total, 2)
+    total_cost = plan.get("total_cost") or sum(row.get("total_price", 0) or 0
+                                              for row in plan.get("services", []))
+    plan["total_cost"] = total_cost
+    if paid_total >= total_cost - 0.001:
+        plan["payment_status"] = "paid"
+        plan["payment_date"] = plan.get("payment_date") or datetime.utcnow()
+    else:
+        plan["payment_status"] = "partially_paid" if paid_total > 0 else "unpaid"
+        plan["payment_date"] = None
+
+
+def _allocate_receipt(shares, amount):
+    balances = [int(round(share * 100)) for share in shares]
+    discount = sum(balances) - int(round(amount * 100))
+    while discount > 0:
+        active = [index for index, balance in enumerate(balances) if balance > 0]
+        quotient, remainder = divmod(discount, len(active))
+        for position, index in enumerate(active):
+            deduction = min(balances[index], quotient + (position < remainder))
+            balances[index] -= deduction
+            discount -= deduction
+    return [balance / 100 for balance in balances]
+
+
 class TreatmentPlanService:
     """Service for treatment plan-related business logic"""
     
     def __init__(self, db: AsyncIOMotorDatabase):
         self.db = db
+
+    async def _prepare_new_complex_row(self, row):
+        from services.service_price_service import ServicePriceService
+        for item in [row, *(row.get("components") or [])]:
+            if (item.get("paid") or item.get("payment_status") not in (None, "unpaid")
+                    or any(item.get(key) for key in ("paid_amount", "paid_from_deposit", "discount_amount", "discount_total"))):
+                raise HTTPException(status_code=400, detail="Use complex component payment endpoints")
+        row["components"] = await ServicePriceService(self.db)._validate_components(
+            row.get("components") or [], exclude_id=row.get("service_id"))
     
     async def create_treatment_plan(
         self,
@@ -69,11 +118,17 @@ class TreatmentPlanService:
                 doctor_name = doctor.get("full_name", "Неизвестный врач")
         
         # Create treatment plan record
+        services = deepcopy(plan_data.services)
+        for row in services:
+            if row.get("is_complex"):
+                if plan_data.payment_status != "unpaid" or plan_data.paid_amount:
+                    raise HTTPException(status_code=400, detail="Use complex component payment endpoints")
+                await self._prepare_new_complex_row(row)
         treatment_plan = TreatmentPlan(
             patient_id=patient_id,
             title=plan_data.title,
             description=plan_data.description,
-            services=plan_data.services,
+            services=services,
             total_cost=plan_data.total_cost,
             status=plan_data.status,
             created_by=created_by,
@@ -192,12 +247,51 @@ class TreatmentPlanService:
         
         # Update treatment plan
         update_dict = update_data.dict(exclude_unset=True)
+        if any(row.get("is_complex") for row in treatment_plan.get("services", [])):
+            if any(key in update_dict and update_dict[key] != treatment_plan.get(key)
+                   for key in ("payment_status", "paid_amount", "payment_date")):
+                raise HTTPException(status_code=400, detail="Use complex component payment endpoints")
+        if "services" in update_dict:
+            payment_fields = ("payment_status", "paid", "paid_amount", "discount_amount",
+                              "discount_total", "paid_from_deposit", "payment_method_id", "payment_method_name")
+            for previous in treatment_plan.get("services", []):
+                if not previous.get("is_complex"):
+                    continue
+                current = next((row for row in update_dict["services"]
+                                if row.get("service_id") == previous.get("service_id")), None)
+                settled = any(component.get("paid") for component in previous.get("components", []))
+                if current is None and not settled:
+                    continue
+                if current is None or not current.get("is_complex"):
+                    raise HTTPException(status_code=400, detail="Cannot remove paid complex service")
+                previous_components = {component["service_id"]: component for component in previous.get("components", [])}
+                current_components = {component["service_id"]: component for component in current.get("components", [])}
+                if any(previous.get(key) != current.get(key) for key in payment_fields):
+                    raise HTTPException(status_code=400, detail="Cannot edit complex payment state")
+                for identity, component in previous_components.items():
+                    updated = current_components.get(identity, {})
+                    if any(component.get(key) != updated.get(key) for key in payment_fields):
+                        raise HTTPException(status_code=400, detail="Cannot edit complex component receipts")
+                if settled and (previous_components.keys() != current_components.keys() or any(
+                        component.get(key) != current_components.get(identity, {}).get(key)
+                        for identity, component in previous_components.items()
+                        for key in ("price", "quantity", "discount")) or any(
+                        previous.get(key) != current.get(key) for key in
+                        ("price", "price_per_unit", "quantity", "quantity_total", "total_price"))):
+                    raise HTTPException(status_code=400, detail="Cannot reprice paid complex service")
+            existing_complex_ids = {row.get("service_id") for row in treatment_plan.get("services", [])
+                                    if row.get("is_complex")}
+            for row in update_dict["services"]:
+                if row.get("is_complex") and row.get("service_id") not in existing_complex_ids:
+                    await self._prepare_new_complex_row(row)
         if update_dict:
             update_dict["updated_at"] = datetime.utcnow()
-            await self.db.treatment_plans.update_one(
-                {"id": plan_id},
+            result = await self.db.treatment_plans.update_one(
+                {"id": plan_id, "services": treatment_plan.get("services")},
                 {"$set": update_dict}
             )
+            if not result.matched_count:
+                raise HTTPException(status_code=409, detail="Concurrent plan update; retry edit")
         
         # Return updated treatment plan
         updated_plan = await self.db.treatment_plans.find_one({"id": plan_id})
@@ -225,134 +319,102 @@ class TreatmentPlanService:
         return {"message": "Treatment plan deleted successfully"}
     
     async def pay_complex_component(self, plan_id, service_id, component_service_id, payment_data=None):
-        """Отметить оплаченной одну услугу комплекса (долю), пересчитать долю
-        комплекса и статус плана. Доля услуги = прайс×кол-во×k×(1-скидка/100)."""
+        return await self._pay_complex(plan_id, service_id, component_service_id, payment_data)
+
+    async def _pay_complex(self, plan_id, service_id, component_service_id, payment_data=None, attempt=0):
         plan = await self.db.treatment_plans.find_one({"id": plan_id})
         if not plan:
             raise HTTPException(status_code=404, detail="Treatment plan not found")
 
+        snapshot = {key: deepcopy(plan.get(key)) for key in
+                    ("services", "paid_amount", "total_cost", "deposit_balance", "updated_at")}
         service = next((s for s in plan.get("services", []) if s.get("service_id") == service_id), None)
         if not service or not service.get("is_complex"):
             raise HTTPException(status_code=404, detail="Комплексная услуга не найдена в плане")
 
         comps = service.get("components") or []
-        comp = next((c for c in comps if c.get("service_id") == component_service_id), None)
-        if not comp:
-            raise HTTPException(status_code=404, detail="Услуга комплекса не найдена")
+        validate_component_snapshot(comps)
+        if component_service_id is None:
+            targets = [index for index, component in enumerate(comps) if not component.get("paid")]
+        else:
+            index = next((index for index, component in enumerate(comps)
+                          if component.get("service_id") == component_service_id), None)
+            if index is None:
+                raise HTTPException(status_code=404, detail="Услуга комплекса не найдена")
+            targets = [] if comps[index].get("paid") else [index]
+        if not targets:
+            plan.pop("_id", None)
+            return plan
 
         sum_default = sum((c.get("price", 0) or 0) * (c.get("quantity", 1) or 1) for c in comps)
-        # цена комплекса: price | price_per_unit | total_price/количество (в плане price может не быть)
-        complex_price = float(service.get("price") or service.get("price_per_unit")
-                              or ((service.get("total_price", 0) or 0) / (service.get("quantity") or 1))) or 0.0
+        complex_price = float(service.get("total_price") or
+                              (service.get("price") or service.get("price_per_unit") or 0) *
+                              (service.get("quantity") or service.get("quantity_total") or 1))
         k = complex_price / sum_default if sum_default else 0.0
-        # доли всех услуг: целые ₸, остаток на самую дорогую, сумма = round(цена пакета)
+        share_scale = 1 if complex_price.is_integer() else 100
         raw_shares = [
             (c.get("price", 0) or 0) * (c.get("quantity", 1) or 1) * k * (1 - ((c.get("discount", 0) or 0) / 100))
             for c in comps
         ]
-        rounded = _round_shares(raw_shares)
-        idx = next((i for i, c in enumerate(comps) if c.get("service_id") == component_service_id), 0)
-        share = rounded[idx] if rounded else 0
-        disc = comp.get("discount", 0) or 0
+        rounded = [share / share_scale for share in _round_shares([
+            share * share_scale for share in raw_shares])]
+        nominal_shares = [share / share_scale for share in _round_shares([
+            (component.get("price", 0) or 0) * (component.get("quantity", 1) or 1) * k * share_scale
+            for component in comps
+        ])]
 
-        comp["paid"] = True
-        # Скидка даётся ПРИ оплате: в payment_data может прийти фактическая сумма
-        # (amount) < доли — админ на ресепшн сделал скидку. Тогда платим amount.
-        paid_value = share
+        shares = [min(rounded[index], nominal_shares[index]) for index in targets]
+        received = sum(shares)
         if payment_data and isinstance(payment_data, dict):
             amount = payment_data.get("amount")
-            if amount is not None and isinstance(amount, (int, float)) and not isinstance(amount, bool) and 0 <= amount < share:
-                paid_value = float(amount)
-                comp["discount_amount"] = round(share - paid_value, 2)
-        comp["paid_amount"] = round(paid_value, 2)
-        if payment_data and isinstance(payment_data, dict):
-            if payment_data.get("payment_method_id"):
-                comp["payment_method_id"] = payment_data["payment_method_id"]
-            if payment_data.get("payment_method_name"):
-                comp["payment_method_name"] = payment_data["payment_method_name"]
-
+            if amount is not None:
+                if (not isinstance(amount, (int, float)) or isinstance(amount, bool)
+                        or not isfinite(amount) or amount < 0 or amount > received):
+                    raise HTTPException(status_code=400, detail="Invalid payment amount for remaining shares")
+                received = amount
+        allocations = _allocate_receipt(shares, received)
+        deposit_balance = plan.get("deposit_balance")
+        if deposit_balance is None:
+            appointments = await self.db.appointments.find({
+                "patient_id": plan.get("patient_id"), "deposit": {"$gt": 0}
+            }).to_list(None)
+            deposit_balance = sum(appointment.get("deposit", 0) or 0 for appointment in appointments)
+            deposit_balance += plan.get("extra_deposit", 0) or 0
+        for index, paid_value in zip(targets, allocations):
+            comp = comps[index]
+            comp["paid"] = True
+            comp["paid_amount"] = paid_value
+            comp["discount_amount"] = round(nominal_shares[index] - paid_value, 2)
+            comp["paid_from_deposit"] = round(min(max(0, deposit_balance), paid_value), 2)
+            deposit_balance = round(deposit_balance - comp["paid_from_deposit"], 2)
+            if isinstance(payment_data, dict):
+                for key in ("payment_method_id", "payment_method_name"):
+                    if payment_data.get(key):
+                        comp[key] = payment_data[key]
+        plan["deposit_balance"] = deposit_balance
+        service["paid_from_deposit"] = round(sum(component.get("paid_from_deposit", 0) or 0
+                                                for component in comps), 2)
         paid_total = sum((c.get("paid_amount") or 0) for c in comps if c.get("paid"))
-        # скидка при оплате учитывается: комплекс "оплачен", когда оплачено + скидка = цена
-        disc_total = sum((c.get("discount_amount") or 0) for c in comps)
+        disc_total = sum((c.get("discount_amount") or 0) for c in comps if c.get("paid"))
         service["paid_amount"] = round(paid_total, 2)
         service["discount_total"] = round(disc_total, 2)
         service["payment_status"] = ("paid" if (paid_total + disc_total) >= complex_price - 0.001
                                      else "partially_paid" if paid_total > 0 else "unpaid")
 
-        # Пересчёт общей оплаты по плану (комплексы — по оплаченным долям)
-        total_paid = 0.0
-        for svc in plan.get("services", []):
-            if svc.get("is_complex"):
-                total_paid += svc.get("paid_amount") or 0
-            elif svc.get("payment_status") == "paid":
-                total_paid += svc.get("total_price", 0)
-        plan["paid_amount"] = round(total_paid, 2)
-        plan["total_cost"] = plan.get("total_cost") or sum(
-            (svc.get("total_price") or 0) for svc in plan.get("services", [])
-        )
-        total_cost = plan["total_cost"] or 0
-        if plan["paid_amount"] >= total_cost - 0.001:
-            plan["payment_status"] = "paid"
-            plan["payment_date"] = datetime.utcnow()
-        elif plan["paid_amount"] > 0:
-            plan["payment_status"] = "partially_paid"
-        else:
-            plan["payment_status"] = "unpaid"
+        recalculate_plan_payment(plan)
         plan["updated_at"] = datetime.utcnow()
 
-        await self.db.treatment_plans.update_one({"id": plan_id}, {"$set": plan})
-        # убрать ObjectId, иначе FastAPI не сможет сериализовать ответ
         plan.pop("_id", None)
+        result = await self.db.treatment_plans.update_one({"id": plan_id, **snapshot}, {"$set": plan})
+        if not result.matched_count:
+            if attempt >= 7:
+                raise HTTPException(status_code=409, detail="Concurrent plan update; retry payment")
+            return await self._pay_complex(
+                plan_id, service_id, component_service_id, payment_data, attempt + 1)
         return plan
 
     async def pay_complex_remaining(self, plan_id, service_id, payment_data=None):
-        """Оплатить остаток комплексной услуги — все неоплаченные доли разом.
-
-        Если в payment_data приходит amount (фактическая сумма за остаток, меньше
-        остатка долей), разница распределяется РАВНОМЕРНО по всем неоплаченным
-        долям (по ТЗ: скидка на комплекс распределяется равномерно по услугам)."""
-        plan = await self.db.treatment_plans.find_one({"id": plan_id})
-        if not plan:
-            raise HTTPException(status_code=404, detail="Treatment plan not found")
-        service = next((s for s in plan.get("services", []) if s.get("service_id") == service_id), None)
-        if not service or not service.get("is_complex"):
-            raise HTTPException(status_code=404, detail="Комплексная услуга не найдена в плане")
-
-        comps = service.get("components") or []
-        sum_default = sum((c.get("price", 0) or 0) * (c.get("quantity", 1) or 1) for c in comps)
-        complex_price = float(service.get("price") or service.get("price_per_unit")
-                              or ((service.get("total_price", 0) or 0) / (service.get("quantity") or 1))) or 0.0
-        k = complex_price / sum_default if sum_default else 0.0
-        def _share(c):
-            # целая доля услуги (та же логика, что в pay_complex_component)
-            raw_shares = [
-                (_c.get("price", 0) or 0) * (_c.get("quantity", 1) or 1) * k * (1 - ((_c.get("discount", 0) or 0) / 100))
-                for _c in comps
-            ]
-            rounded = _round_shares(raw_shares)
-            idx = next((i for i, _c in enumerate(comps) if _c.get("service_id") == c.get("service_id")), 0)
-            return rounded[idx] if rounded else 0
-
-        unpaid = [c for c in comps if not c.get("paid")]
-        if not unpaid:
-            return plan
-
-        discount_total = 0.0
-        if payment_data and isinstance(payment_data, dict):
-            amount = payment_data.get("amount")
-            if amount is not None and isinstance(amount, (int, float)) and not isinstance(amount, bool) and amount >= 0:
-                shares_total = sum(_share(c) for c in unpaid)
-                if amount < shares_total - 0.001:
-                    discount_total = shares_total - amount
-        discount_per = (discount_total / len(unpaid)) if (unpaid and discount_total > 0) else 0.0
-
-        result = plan
-        for comp in unpaid:
-            pd = dict(payment_data) if isinstance(payment_data, dict) else {}
-            if discount_per > 0:
-                pd["amount"] = round(max(0.0, _share(comp) - discount_per), 2)
-            result = await self.pay_complex_component(plan_id, service_id, comp.get("service_id"), pd)
-        return result
+        return await self._pay_complex(plan_id, service_id, None, payment_data)
 
     async def _sync_with_crm(self, plan: dict):
         """Синхронизация с CRM (внутренний метод)"""

@@ -494,6 +494,9 @@ async def mark_service_paid(
     plan = await db.treatment_plans.find_one({"id": plan_id})
     if not plan:
         raise HTTPException(status_code=404, detail="Treatment plan not found")
+
+    from copy import deepcopy
+    snapshot = {key: deepcopy(plan.get(key)) for key in ("services", "deposit_balance", "updated_at")}
     
     old_payment_status = plan.get("payment_status", "unpaid")
     patient_id = plan.get("patient_id")
@@ -521,6 +524,8 @@ async def mark_service_paid(
             service_found = True
             
             # Установить статус оплаты услуги
+            if service.get("is_complex"):
+                raise HTTPException(status_code=400, detail="Use complex component payment endpoints")
             service["payment_status"] = "paid"
             total_price = service.get("total_price", 0)
             # скидка при оплате: если передан amount — платим его (меньше цены)
@@ -550,29 +555,12 @@ async def mark_service_paid(
     if not service_found:
         raise HTTPException(status_code=404, detail="Service not found in treatment plan")
     
-    # Пересчитать общую сумму оплаченных услуг
-    paid_services_total = sum(
-        (s.get("paid_amount") if "paid_amount" in s else s.get("total_price", 0))
-        for s in plan.get("services", [])
-        if s.get("payment_status") == "paid"
-    )
-    
-    # Обновить общий статус оплаты плана
-    total_cost = plan.get("total_cost", 0)
-    if paid_services_total >= total_cost:
-        plan["payment_status"] = "paid"
-        plan["paid_amount"] = paid_services_total
-        plan["payment_date"] = datetime.utcnow()
-    elif paid_services_total > 0:
-        plan["payment_status"] = "partially_paid"
-        plan["paid_amount"] = paid_services_total
-    else:
-        plan["payment_status"] = "unpaid"
-        plan["paid_amount"] = 0
+    from services.treatment_plan_service import recalculate_plan_payment
+    recalculate_plan_payment(plan)
     
     # Сохранить изменения с обновленным балансом депозита
-    await db.treatment_plans.update_one(
-        {"id": plan_id},
+    result = await db.treatment_plans.update_one(
+        {"id": plan_id, **snapshot},
         {"$set": {
             "services": plan["services"],
             "payment_status": plan["payment_status"],
@@ -582,6 +570,8 @@ async def mark_service_paid(
             "updated_at": datetime.utcnow()
         }}
     )
+    if not result.matched_count:
+        raise HTTPException(status_code=409, detail="Concurrent plan update; retry payment")
     
     # Синхронизация статуса лида в CRM при изменении статуса оплаты на "paid"
     if plan["payment_status"] == "paid" and old_payment_status != "paid":
@@ -703,6 +693,9 @@ async def mark_session_paid(
     plan = await db.treatment_plans.find_one({"id": plan_id})
     if not plan:
         raise HTTPException(status_code=404, detail="Treatment plan not found")
+
+    from copy import deepcopy
+    snapshot = {key: deepcopy(plan.get(key)) for key in ("services", "deposit_balance", "updated_at")}
     
     old_payment_status = plan.get("payment_status", "unpaid")
     patient_id = plan.get("patient_id")
@@ -714,6 +707,8 @@ async def mark_session_paid(
             service_found = True
             
             # Проверить, что это курс с поэтапной оплатой
+            if service.get("is_complex"):
+                raise HTTPException(status_code=400, detail="Use complex component payment endpoints")
             if not service.get("is_course") or service.get("payment_type") != "per_session":
                 raise HTTPException(status_code=400, detail="Service is not a per-session course")
             
@@ -748,34 +743,12 @@ async def mark_session_paid(
     if not service_found:
         raise HTTPException(status_code=404, detail="Service not found in treatment plan")
     
-    # Пересчитать оплату
-    total_paid_amount = 0
-    for svc in plan.get("services", []):
-        if svc.get("payment_type") == "per_session" and svc.get("sessions"):
-            # Для поэтапной оплаты считаем оплаченные сессии
-            paid_sessions_count = len([s for s in svc["sessions"] if s.get("paid")])
-            session_price = svc.get("price_per_unit", 0)
-            total_paid_amount += paid_sessions_count * session_price
-        elif svc.get("payment_status") == "paid":
-            # Для единовременной оплаты
-            total_paid_amount += svc.get("total_price", 0)
-    
-    # Обновить общий статус оплаты плана
-    total_cost = plan.get("total_cost", 0)
-    if total_paid_amount >= total_cost:
-        plan["payment_status"] = "paid"
-        plan["paid_amount"] = total_paid_amount
-        plan["payment_date"] = datetime.utcnow()
-    elif total_paid_amount > 0:
-        plan["payment_status"] = "partially_paid"
-        plan["paid_amount"] = total_paid_amount
-    else:
-        plan["payment_status"] = "unpaid"
-        plan["paid_amount"] = 0
+    from services.treatment_plan_service import recalculate_plan_payment
+    recalculate_plan_payment(plan)
     
     # Сохранить изменения
-    await db.treatment_plans.update_one(
-        {"id": plan_id},
+    result = await db.treatment_plans.update_one(
+        {"id": plan_id, **snapshot},
         {"$set": {
             "services": plan["services"],
             "payment_status": plan["payment_status"],
@@ -784,6 +757,8 @@ async def mark_session_paid(
             "updated_at": datetime.utcnow()
         }}
     )
+    if not result.matched_count:
+        raise HTTPException(status_code=409, detail="Concurrent plan update; retry payment")
     
     # Синхронизация статуса лида в CRM при изменении статуса оплаты на "paid"
     if plan["payment_status"] == "paid" and old_payment_status != "paid":

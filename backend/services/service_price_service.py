@@ -5,8 +5,31 @@ from motor.motor_asyncio import AsyncIOMotorDatabase
 from fastapi import HTTPException
 from datetime import datetime
 from typing import List, Optional
+from math import isfinite
 
 from models.services import ServicePrice, ServicePriceCreate, ServicePriceUpdate
+
+
+def validate_component_snapshot(components):
+    try:
+        identities = [component.get("service_id") for component in components]
+        if not identities or not all(identities) or len(set(identities)) != len(identities):
+            raise ValueError()
+        total_weight = 0
+        for component in components:
+            price = component.get("price")
+            quantity = component.get("quantity", 1)
+            discount = component.get("discount", 0) or 0
+            for value in (price, quantity, discount):
+                if not isinstance(value, (int, float)) or isinstance(value, bool) or not isfinite(value):
+                    raise ValueError()
+            if price < 0 or quantity < 1 or int(quantity) != quantity or not 0 <= discount <= 100:
+                raise ValueError()
+            total_weight += price * quantity
+        if total_weight <= 0:
+            raise ValueError()
+    except (TypeError, ValueError, AttributeError):
+        raise HTTPException(status_code=400, detail="Invalid complex component price or identity") from None
 
 
 class ServicePriceService:
@@ -53,7 +76,7 @@ class ServicePriceService:
         # Complex service ("комплексная услуга"): validate the composition against
         # the directory, then mark the price as a package.
         if service_price.service_type == "complex" or service_price.components:
-            await self._validate_components(service_price.components)
+            price_dict["components"] = await self._validate_components(service_price.components)
             price_dict["service_type"] = "complex"
 
         price_obj = ServicePrice(**price_dict)
@@ -67,8 +90,10 @@ class ServicePriceService:
         is itself a complex, or (when exclude_id is given) references the
         complex being edited.
         """
+        hydrated = []
         for comp in components:
-            cid = comp.service_id
+            details = dict(comp) if isinstance(comp, dict) else comp.dict()
+            cid = details.get("service_id")
             if exclude_id and cid == exclude_id:
                 raise HTTPException(status_code=400, detail="Комплекс не может включать сам себя")
             doc = await self.db.service_prices.find_one({"id": cid})
@@ -78,6 +103,11 @@ class ServicePriceService:
                 raise HTTPException(status_code=400, detail="В составе комплекса есть отключённая услуга")
             if doc.get("service_type") == "complex":
                 raise HTTPException(status_code=400, detail="В составе комплекса не может быть другой комплекс")
+            details["price"] = doc.get("price", 0) or 0
+            details["service_name"] = doc.get("service_name")
+            hydrated.append(details)
+        validate_component_snapshot(hydrated)
+        return hydrated
     
     async def update_service_price(
         self, 
@@ -88,10 +118,17 @@ class ServicePriceService:
         update_dict = {k: v for k, v in service_price_update.dict().items() if v is not None}
         update_dict["updated_at"] = datetime.utcnow()
 
+        existing = await self.db.service_prices.find_one({"id": price_id})
+        if not existing:
+            raise HTTPException(status_code=404, detail="Service price not found")
+
         # Complex composition validation on update: components (if provided) must be
         # resolvable, active, non-complex, and must not reference this very price.
-        if service_price_update.components is not None and service_price_update.components:
-            await self._validate_components(service_price_update.components, exclude_id=price_id)
+        effective_type = update_dict.get("service_type", existing.get("service_type"))
+        if (service_price_update.components is not None and
+                (service_price_update.components or effective_type == "complex")) or service_price_update.service_type == "complex":
+            update_dict["components"] = await self._validate_components(
+                update_dict.get("components", existing.get("components")) or [], exclude_id=price_id)
 
         result = await self.db.service_prices.update_one(
             {"id": price_id},
@@ -264,7 +301,7 @@ class ServicePriceService:
             raise HTTPException(status_code=400, detail="Комплексная услуга не найдена")
         qty = quantity or 1
         price = float(doc.get("price", 0) or 0)
-        components = doc.get("components") or []
+        components = await self._validate_components(doc.get("components") or [], exclude_id=complex_id)
         return {
             "service_id": doc["id"],
             "service_name": doc.get("service_name"),
