@@ -20,6 +20,7 @@ from models.appointment import (
 from models.auth import UserInDB, UserRole
 from dependencies import get_current_active_user, require_role
 from services.patient_status import refresh_patient_appointments_count
+from services.treatment_plan_service import TreatmentPlanService
 
 # Router
 appointments_router = APIRouter(prefix="/appointments", tags=["Appointments"])
@@ -98,24 +99,24 @@ async def apply_deposit_to_treatment_plans(patient_id: str, deposit_amount: floa
                 balance = plan.get("deposit_balance")
                 if balance is None:
                     balance = current_deposit
-                await db.treatment_plans.update_one(
+                await TreatmentPlanService(db).persist_payment_update(
                     {"id": plan["id"], "services": plan.get("services"),
                      "deposit_balance": plan.get("deposit_balance")},
-                    {"$set": {"deposit_amount": new_deposit_amount,
-                              "deposit_balance": balance + deposit_to_apply,
-                              "appointment_ids": appointment_ids,
-                              "updated_at": datetime.utcnow()}}
+                    {"deposit_amount": new_deposit_amount,
+                     "deposit_balance": balance + deposit_to_apply,
+                     "appointment_ids": appointment_ids,
+                     "updated_at": datetime.utcnow()}
                 )
                 continue
             
-            await db.treatment_plans.update_one(
+            await TreatmentPlanService(db).persist_payment_update(
                 {"id": plan["id"]},
-                {"$set": {
+                {
                     "deposit_amount": new_deposit_amount,
                     "payment_status": new_payment_status,
                     "appointment_ids": appointment_ids,
                     "updated_at": datetime.utcnow()
-                }}
+                }
             )
             
             print(f"Депозит {deposit_to_apply}_tng применен к плану лечения {plan['id']} пациента {patient_id}")

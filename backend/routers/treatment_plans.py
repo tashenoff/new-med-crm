@@ -236,16 +236,6 @@ async def update_treatment_plan(
             logger = logging.getLogger(__name__)
             logger.error(f"Failed to process loyalty rewards: {str(e)}")
         
-        # Синхронизация статуса лида в CRM при оплате плана лечения
-        try:
-            from crm.services.lead_service import LeadService
-            lead_service = LeadService(db)
-            await lead_service.sync_lead_from_payment_status(
-                patient_id=updated_plan.patient_id
-            )
-        except Exception as e:
-            print(f"Не удалось синхронизировать статус лида после оплаты: {str(e)}")
-    
     return updated_plan
 
 
@@ -498,7 +488,6 @@ async def mark_service_paid(
     from copy import deepcopy
     snapshot = {key: deepcopy(plan.get(key)) for key in ("services", "deposit_balance", "updated_at")}
     
-    old_payment_status = plan.get("payment_status", "unpaid")
     patient_id = plan.get("patient_id")
     
     # Получить текущий депозит пациента
@@ -559,28 +548,19 @@ async def mark_service_paid(
     recalculate_plan_payment(plan)
     
     # Сохранить изменения с обновленным балансом депозита
-    result = await db.treatment_plans.update_one(
+    result = await TreatmentPlanService(db).persist_payment_update(
         {"id": plan_id, **snapshot},
-        {"$set": {
+        {
             "services": plan["services"],
             "payment_status": plan["payment_status"],
             "paid_amount": plan["paid_amount"],
             "payment_date": plan.get("payment_date"),
             "deposit_balance": deposit_balance,
             "updated_at": datetime.utcnow()
-        }}
+        }
     )
     if not result.matched_count:
         raise HTTPException(status_code=409, detail="Concurrent plan update; retry payment")
-    
-    # Синхронизация статуса лида в CRM при изменении статуса оплаты на "paid"
-    if plan["payment_status"] == "paid" and old_payment_status != "paid":
-        try:
-            from crm.services.lead_service import LeadService
-            lead_service = LeadService(db)
-            await lead_service.sync_lead_from_payment_status(patient_id=patient_id)
-        except Exception as e:
-            print(f"Не удалось синхронизировать статус лида после оплаты: {str(e)}")
     
     # Вернуть обновленный план с deposit_amount и deposit_balance
     updated_plan = await db.treatment_plans.find_one({"id": plan_id})
@@ -641,13 +621,15 @@ async def add_deposit_to_plan(
     new_extra_deposit = extra_deposit + payment.amount
     
     # Update the plan with the new extra deposit
-    await db.treatment_plans.update_one(
+    result = await TreatmentPlanService(db).persist_payment_update(
         {"id": plan_id},
-        {"$set": {
+        {
             "extra_deposit": new_extra_deposit,
             "updated_at": datetime.utcnow()
-        }}
+        }
     )
+    if not result.matched_count:
+        raise HTTPException(status_code=409, detail="Concurrent plan update; retry payment")
     
     # Log the payment
     payment_log = {
@@ -697,7 +679,6 @@ async def mark_session_paid(
     from copy import deepcopy
     snapshot = {key: deepcopy(plan.get(key)) for key in ("services", "deposit_balance", "updated_at")}
     
-    old_payment_status = plan.get("payment_status", "unpaid")
     patient_id = plan.get("patient_id")
     
     # Найти услугу в плане
@@ -747,27 +728,18 @@ async def mark_session_paid(
     recalculate_plan_payment(plan)
     
     # Сохранить изменения
-    result = await db.treatment_plans.update_one(
+    result = await TreatmentPlanService(db).persist_payment_update(
         {"id": plan_id, **snapshot},
-        {"$set": {
+        {
             "services": plan["services"],
             "payment_status": plan["payment_status"],
             "paid_amount": plan["paid_amount"],
             "payment_date": plan.get("payment_date"),
             "updated_at": datetime.utcnow()
-        }}
+        }
     )
     if not result.matched_count:
         raise HTTPException(status_code=409, detail="Concurrent plan update; retry payment")
-    
-    # Синхронизация статуса лида в CRM при изменении статуса оплаты на "paid"
-    if plan["payment_status"] == "paid" and old_payment_status != "paid":
-        try:
-            from crm.services.lead_service import LeadService
-            lead_service = LeadService(db)
-            await lead_service.sync_lead_from_payment_status(patient_id=patient_id)
-        except Exception as e:
-            print(f"Не удалось синхронизировать статус лида после оплаты сессии: {str(e)}")
     
     # Вернуть обновленный план с deposit_amount и deposit_balance
     updated_plan = await db.treatment_plans.find_one({"id": plan_id})

@@ -148,6 +148,8 @@ class TreatmentPlanService:
         
         # Insert to database
         await self.db.treatment_plans.insert_one(treatment_plan.dict())
+        if treatment_plan.payment_status != "unpaid" or treatment_plan.paid_amount:
+            await self.sync_persisted_payment(treatment_plan.id)
         
         logger.info(f"Treatment plan created: {treatment_plan.title} for patient {patient_id}")
         return treatment_plan
@@ -286,23 +288,16 @@ class TreatmentPlanService:
                     await self._prepare_new_complex_row(row)
         if update_dict:
             update_dict["updated_at"] = datetime.utcnow()
-            result = await self.db.treatment_plans.update_one(
-                {"id": plan_id, "services": treatment_plan.get("services")},
-                {"$set": update_dict}
-            )
+            query = {"id": plan_id, "services": treatment_plan.get("services")}
+            if {"payment_status", "paid_amount", "payment_date", "services", "total_cost"}.intersection(update_dict):
+                result = await self.persist_payment_update(query, update_dict)
+            else:
+                result = await self.db.treatment_plans.update_one(query, {"$set": update_dict})
             if not result.matched_count:
                 raise HTTPException(status_code=409, detail="Concurrent plan update; retry edit")
         
         # Return updated treatment plan
         updated_plan = await self.db.treatment_plans.find_one({"id": plan_id})
-        
-        # Автоматическая синхронизация с CRM при изменении статуса оплаты
-        if "payment_status" in update_dict or "paid_amount" in update_dict:
-            try:
-                await self._sync_with_crm(updated_plan)
-            except Exception as e:
-                logger.error(f"Ошибка синхронизации с CRM для плана {plan_id}: {str(e)}")
-                # Не прерываем выполнение, только логируем ошибку
         
         return TreatmentPlan(**updated_plan)
     
@@ -405,7 +400,7 @@ class TreatmentPlanService:
         plan["updated_at"] = datetime.utcnow()
 
         plan.pop("_id", None)
-        result = await self.db.treatment_plans.update_one({"id": plan_id, **snapshot}, {"$set": plan})
+        result = await self.persist_payment_update({"id": plan_id, **snapshot}, plan)
         if not result.matched_count:
             if attempt >= 7:
                 raise HTTPException(status_code=409, detail="Concurrent plan update; retry payment")
@@ -416,10 +411,25 @@ class TreatmentPlanService:
     async def pay_complex_remaining(self, plan_id, service_id, payment_data=None):
         return await self._pay_complex(plan_id, service_id, None, payment_data)
 
-    async def _sync_with_crm(self, plan: dict):
-        """Синхронизация с CRM (внутренний метод)"""
+    async def persist_payment_update(self, query: dict, fields: dict):
+        """Synchronize CRM only after a successful treatment-plan write."""
+        result = await self.db.treatment_plans.update_one(query, {"$set": fields})
+        if result.matched_count:
+            await self.sync_persisted_payment(query["id"])
+        return result
+
+    async def sync_persisted_payment(self, plan_id: str):
+        """Read persisted payment state before invoking the shared CRM hook."""
         try:
-            # Динамический импорт чтобы избежать циклических зависимостей
+            plan = await self.db.treatment_plans.find_one({"id": plan_id})
+            if plan:
+                await self._sync_with_crm(plan)
+        except Exception:
+            logger.exception("Post-payment CRM synchronization failed for plan %s", plan_id)
+
+    async def _sync_with_crm(self, plan: dict):
+        """Synchronize deal accounting and the patient's canonical CRM card."""
+        try:
             from crm.services.integration_service import IntegrationService
             integration_service = IntegrationService(self.db)
             
@@ -429,11 +439,16 @@ class TreatmentPlanService:
                 payment_status=plan["payment_status"],
                 paid_amount=plan.get("paid_amount", 0.0),
                 total_cost=plan.get("total_cost", 0.0),
-                plan_title=plan["title"]
+                plan_title=plan.get("title", "")
             )
             
             logger.info(f"Автоматическая синхронизация с CRM для плана {plan['id']} выполнена")
             
-        except Exception as e:
-            # Пробрасываем ошибку выше для обработки
-            raise e
+        except Exception:
+            logger.exception("CRM deal synchronization failed for plan %s", plan["id"])
+
+        try:
+            from crm.services.lead_service import LeadService
+            await LeadService(self.db).sync_lead_from_payment_status(patient_id=plan["patient_id"])
+        except Exception:
+            logger.exception("CRM card synchronization failed for plan %s", plan["id"])

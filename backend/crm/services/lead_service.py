@@ -11,7 +11,7 @@ from ..models.lead import Lead, LeadStatus, LeadSource, LeadPriority
 from ..schemas.lead_schemas import LeadCreate, LeadUpdate, LeadSearchFilters
 from ..models.task import Task, TaskType, TaskPriority, TaskStatus
 from ..schemas.task_schemas import TaskCreate
-from .lead_identity import group_lead_touches
+from .lead_identity import group_lead_touches, patient_link
 
 
 class LeadService:
@@ -503,9 +503,6 @@ class LeadService:
         Логика:
         - Если ВСЕ планы лечения пациента полностью оплачены -> closed (ОПЛАЧЕНО)
         """
-        lead = None
-        patient_phone = None
-        
         # Проверяем все планы лечения этого пациента
         treatment_plans = await self.db.treatment_plans.find({
             "patient_id": patient_id
@@ -527,50 +524,18 @@ class LeadService:
             print(f"Не все планы лечения оплачены для пациента {patient_id}")
             return None
         
-        # Способ 1: Находим лида через CRM клиента
         client = await self.db.crm_clients.find_one({"hms_patient_id": patient_id})
-        
-        if client:
-            lead = await self.collection.find_one({
-                "$or": [
-                    {"converted_to_client_id": client.get("id")},
-                    {"phone": {"$regex": client.get("phone", "NOMATCH").replace("+", "").replace(" ", "").replace("-", "")}}
-                ],
-                "status": {"$nin": [LeadStatus.CLOSED.value, LeadStatus.REJECTED.value, LeadStatus.LOST.value]}
-            })
-            patient_phone = client.get("phone")
-        
-        # Способ 2: Поиск напрямую через пациента HMS
-        if not lead:
-            print(f"CRM клиент не найден, ищем пациента напрямую для {patient_id}")
-            patient = await self.db.patients.find_one({"id": patient_id})
-            
-            if patient and patient.get("phone"):
-                patient_phone = patient["phone"]
-                clean_phone = patient_phone.replace("+", "").replace(" ", "").replace("-", "").replace("(", "").replace(")", "")
-                
-                # Сначала ищем ТОЧНОЕ совпадение телефона
-                lead = await self.collection.find_one({
-                    "phone": clean_phone,
-                    "status": {"$nin": [LeadStatus.CLOSED.value, LeadStatus.REJECTED.value, LeadStatus.LOST.value]}
-                })
-                
-                if not lead:
-                    # Если не нашли точное, ищем по regex
-                    lead = await self.collection.find_one({
-                        "phone": {"$regex": clean_phone},
-                        "status": {"$nin": [LeadStatus.CLOSED.value, LeadStatus.REJECTED.value, LeadStatus.LOST.value]}
-                    })
-                
-                if lead:
-                    print(f"Найден лид по телефону пациента: {patient_phone}")
-        
-        if not lead:
-            print(f"Активный лид не найден для пациента {patient_id}")
+        identities = {patient_id}
+        if client and client.get("id"):
+            identities.add(client["id"])
+        groups = [group for group in await self.get_kanban_groups()
+                  if any(patient_link(touch) in identities for touch in group)]
+        if len(groups) != 1:
+            print(f"Однозначная CRM-карточка не найдена для пациента {patient_id}")
             return None
-        
-        lead = await self.canonical_document(lead["id"])
-        if not lead or lead.get("status") in ("rejected", "qualified", "lost"):
+
+        lead = groups[0][0]
+        if lead.get("status") in ("closed", "rejected", "qualified", "lost"):
             return None
 
         # Обновляем статус на CLOSED (ОПЛАЧЕНО)
