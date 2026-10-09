@@ -120,6 +120,62 @@ test('consultation-sheet service without deposit sends a valid ledger receipt', 
   assert.match(request.body.operation_id, /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i);
 });
 
+test('no-deposit ledger complex component payment sends the official receipt and unwraps the plan', async context => {
+  const component = { service_id: 'component-consultation', component_id: 'component-row-consultation',
+    service_name: 'Консультация', doctor_id: 'doctor-consultation', price: 100000, quantity: 1, paid: false };
+  const service = { service_id: 'complex-consultations', service_row_id: 'row-complex-consultations',
+    service_name: 'Комплекс консультаций', is_complex: true, price: 80000, total_price: 80000, quantity: 1,
+    paid_amount: 0, discount_amount: 0, payment_status: 'unpaid', components: [component,
+      { service_id: 'component-review', component_id: 'component-row-review', service_name: 'Осмотр',
+        doctor_id: 'doctor-review', price: 60000, quantity: 1, paid: false }] };
+  const plan = { ...makePlan('complex-no-deposit'), total_cost: service.total_price, deposit_amount: 0,
+    accounting_events: [], services: [service] };
+  const method = { id: 'kaspi', name: 'Kaspi' };
+  const componentShare = service.price * component.price / service.components.reduce((sum, item) => sum + item.price, 0);
+  const discountAmount = 0;
+  const receiptAmount = componentShare - discountAmount;
+  const path = `/api/treatment-plans/${plan.id}/complex-services/${service.service_id}/components/${component.service_id}/mark-paid`;
+  const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+  const responsePlan = { ...plan, paid_amount: receiptAmount,
+    accounting_events: [{ kind: 'component_receipt', amount_kzt: receiptAmount }],
+    services: [{ ...service, paid_amount: receiptAmount, components: [
+      { ...component, paid: true, paid_amount: receiptAmount }, service.components[1]] }] };
+  const updated = [];
+  const ui = await mount(context, ServicePaymentList, { plan, onUpdate: value => updated.push(value) }, (url, body) => {
+    if (url.endsWith('/api/payment-types') && !body) return [method];
+    const valid = url.endsWith(path) && uuid.test(body?.operation_id)
+      && body.service_row_id === service.service_row_id && body.component_id === component.component_id
+      && body.amount_kzt === receiptAmount && body.discount_amount_kzt === discountAmount
+      && body.payment_source === 'cash' && body.payment_method === method.id
+      && body.payment_method_id === method.id && body.payment_method_name === method.name;
+    return valid ? { event: responsePlan.accounting_events[0], plan: responsePlan }
+      : { ok: false, data: { detail: 'HTTP 422: official component receipt fields required' } };
+  });
+  await ui.click(ui.container.querySelector('button'));
+  await ui.click([...ui.container.querySelectorAll('button')].find(element => element.textContent.trim() === 'Оплатить'));
+  const radio = ui.container.querySelector('input[type="radio"]');
+  assert.equal(radio?.checked, false, 'payment method must be explicitly selected');
+  await ui.click(radio);
+  assert.equal(radio.checked, true);
+  await ui.click([...ui.container.querySelectorAll('button')].filter(element => element.textContent.includes('Оплатить')).at(-1));
+  const writes = ui.requests.filter(request => request.options.method === 'POST');
+  assert.equal(writes.length, 1);
+  const request = writes[0];
+  assert.ok(request.url.endsWith(path));
+  assert.match(request.body.operation_id || '', uuid, 'component receipt requires a UUID operation_id');
+  assert.equal(request.body.service_row_id, service.service_row_id);
+  assert.equal(request.body.component_id, component.component_id);
+  assert.equal(componentShare, 50000);
+  assert.equal(request.body.amount_kzt, receiptAmount);
+  assert.equal(request.body.discount_amount_kzt, discountAmount);
+  assert.equal(request.body.payment_source, 'cash');
+  assert.equal(request.body.payment_method, method.id);
+  assert.equal(request.body.payment_method_id, method.id);
+  assert.equal(request.body.payment_method_name, method.name);
+  assert.equal(ui.alerts.length, 0, 'server should accept the official component receipt');
+  assert.deepEqual(updated, [responsePlan], 'onUpdate must receive response.plan || response, not the envelope');
+});
+
 test('ledger receipt requires payment method selection before final payment', async context => {
   const plan = { ...makePlan('method-required'), deposit_amount: 0, accounting_events: [],
     services: [{ service_id: 'service', service_row_id: 'row', service_name: 'Service',

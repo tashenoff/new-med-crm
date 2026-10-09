@@ -298,18 +298,41 @@ const ServicePaymentList = ({ plan, onUpdate, onEdit, paymentFilter = 'all', pro
         }
       } else if (pendingPaymentData.type === 'component') {
         // Оплата одной услуги (доли) комплекса
-        const response = await fetch(
-          `${API}/api/treatment-plans/${plan.id}/complex-services/${pendingPaymentData.serviceId}/components/${pendingPaymentData.componentServiceId}/mark-paid`,
-          {
-            method: 'POST',
-            headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
-            body: JSON.stringify(paymentData)
-          }
-        );
-        if (!response.ok) throw new Error('Ошибка при оплате услуги комплекса: ' + response.status);
-        const updated = await response.json();
-        if (onUpdate) onUpdate(updated);
-        alert('✅ Услуга комплекса оплачена');
+        const service = (plan.services || []).find(s => s.service_id === pendingPaymentData.serviceId);
+        const component = (service?.components || []).find(c => c.service_id === pendingPaymentData.componentServiceId);
+        const hasPatientDeposit = (plan.accounting_events || []).some(event => event.kind === 'patient_deposit_received');
+        if (service?.service_row_id && !component?.component_id) {
+          throw new Error('Missing stable component_id for ledger component payment. Refresh the plan.');
+        }
+        if (service?.service_row_id && !hasPatientDeposit) {
+          const updated = await ledgerFetch(
+            `${API}/api/treatment-plans/${plan.id}/complex-services/${pendingPaymentData.serviceId}/components/${pendingPaymentData.componentServiceId}/mark-paid`,
+            {
+              service_row_id: service.service_row_id,
+              component_id: component.component_id,
+              amount_kzt: Math.max(0, Math.round((payableTarget() - discount) * 100) / 100),
+              discount_amount_kzt: Math.round(((Number(component.discount_amount) || 0) + discount) * 100) / 100,
+              payment_source: 'cash',
+              payment_method: paymentType.id || paymentType.name,
+              payment_method_id: paymentType.id,
+              payment_method_name: paymentType.name
+            }
+          );
+          if (onUpdate) onUpdate(updated.plan || updated);
+        } else {
+          const response = await fetch(
+            `${API}/api/treatment-plans/${plan.id}/complex-services/${pendingPaymentData.serviceId}/components/${pendingPaymentData.componentServiceId}/mark-paid`,
+            {
+              method: 'POST',
+              headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+              body: JSON.stringify(paymentData)
+            }
+          );
+          if (!response.ok) throw new Error('Ошибка при оплате услуги комплекса: ' + response.status);
+          const updated = await response.json();
+          if (onUpdate) onUpdate(updated.plan || updated);
+          alert('✅ Услуга комплекса оплачена');
+        }
       } else if (pendingPaymentData.type === 'complex-remaining') {
         const response = await fetch(
           `${API}/api/treatment-plans/${plan.id}/complex-services/${pendingPaymentData.serviceId}/pay-remaining`,
