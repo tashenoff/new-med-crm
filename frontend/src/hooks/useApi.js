@@ -37,7 +37,7 @@ export const useApi = () => {
       const send = body => axios.post(`${BACKEND_URL}/api/appointments`, body, {
         headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
       });
-      const response = cleanData.actual_amount_kzt || cleanData.status === 'completed'
+      const response = cleanData.status === 'completed'
         ? await ledgerCommands.run('appointment:create', cleanData, send) : await send(cleanData);
       return response.data;
     } catch (error) {
@@ -72,7 +72,7 @@ export const useApi = () => {
       const send = body => axios.put(`${BACKEND_URL}/api/appointments/${appointmentId}`, body, {
         headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
       });
-      const response = cleanData.actual_amount_kzt || cleanData.status === 'completed'
+      const response = cleanData.status === 'completed'
         ? await ledgerCommands.run(`appointment:update:${appointmentId}`, cleanData, send) : await send(cleanData);
       return response.data;
     } catch (error) {

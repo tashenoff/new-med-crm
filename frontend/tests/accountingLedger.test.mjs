@@ -2,19 +2,22 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { appointmentPayment, servicePayment, positiveKzt, createLedgerCommands, requireSessionId } from '../src/utils/accountingLedger.js';
 
-test('appointment receipts require purpose, actual KZT and payment method; deposits are not consultation defaults', () => {
-  assert.throws(() => appointmentPayment({ deposit: 5000 }), /назначение/i);
-  for (const payment_purpose of ['consultation', 'plan_advance']) {
-    const payload = appointmentPayment({ payment_purpose, actual_amount_kzt: '2500', payment_method: 'cash', deposit: 9000 });
-    assert.equal(payload.actual_amount_kzt, 2500);
-    assert.equal(payload.payment_purpose, payment_purpose);
-    assert.equal(payload.payment_method, 'cash');
-    assert.equal(payload.deposit, undefined);
-  }
-  assert.throws(() => appointmentPayment({ payment_purpose: 'consultation', actual_amount_kzt: 1 }), /способ/i);
-  assert.throws(() => appointmentPayment({ payment_purpose: 'consultation', actual_amount_kzt: 101, payment_method: 'cash', price: 100 }));
-  assert.equal(appointmentPayment({ payment_purpose: 'plan_advance', actual_amount_kzt: 101, payment_method: 'cash', price: 100 }).actual_amount_kzt, 101);
-});
+const receiptFields = ['payment_purpose', 'actual_amount_kzt', 'funding_source', 'advance_amount', 'advance_amount_kzt', 'plan_advance', 'plan_advance_amount', 'plan_id', 'treatment_plan_id'];
+
+for (const [label, depositFields] of [
+  ['omitted deposit', {}], ['no deposit', { deposit: '', deposit_type: '' }],
+  ['fixed deposit', { deposit: '2500.50', deposit_type: 'fixed' }],
+  ['percentage deposit', { deposit: '25', deposit_type: 'percent' }],
+]) {
+  test(`appointmentPayment accepts ${label} without purpose or method and preserves deposit payload`, () => {
+    const input = { patient_id: 'patient', price: 10000, ...depositFields };
+    const original = structuredClone(input);
+    const payload = appointmentPayment(input);
+    assert.deepEqual(payload, original);
+    assert.deepEqual(input, original, 'input is not mutated');
+    for (const field of receiptFields) assert.equal(Object.hasOwn(payload, field), false, `${field} must not be emitted`);
+  });
+}
 
 test('positive finite KZT, amount bounds, discounts and funding choice are validated', () => {
   for (const value of ['', 0, -1, Infinity, NaN, 'bad']) assert.throws(() => positiveKzt(value));

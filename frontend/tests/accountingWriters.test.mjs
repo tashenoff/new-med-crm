@@ -158,20 +158,6 @@ test('course schedule offers explicit session payment and completion with stable
   assert.ok(writes[1].body.operation_id);
 });
 
-test('appointment form and both API writers use ledger validation and completion commands', async () => {
-  const source = await readFile(new URL('../src/components/modals/AppointmentModal.js', import.meta.url), 'utf8');
-  assert.match(source, /Назначение платежа/);
-  assert.match(source, /value="consultation"/);
-  assert.match(source, /value="plan_advance"/);
-  assert.match(source, /appointmentPayment\(/);
-  for (const path of ['../src/hooks/useAppointments.js', '../src/api/appointments.js', '../src/hooks/useApi.js']) {
-    const writer = await readFile(new URL(path, import.meta.url), 'utf8');
-    assert.match(writer, /appointmentPayment\(/);
-    assert.match(writer, /ledgerCommands.run/);
-    assert.match(writer, /status === 'completed'/);
-  }
-});
-
 test('course completion in procedure view selects a concrete session, not an anonymous occurrence', async context => {
   const plan = makePlan('course-procedure');
   plan.services[0].is_course = true;
@@ -183,71 +169,94 @@ test('course completion in procedure view selects a concrete session, not an ano
   assert.ok(write.body.operation_id);
 });
 
-test('both appointment APIs send validated purposes and retry completion without duplicate requests', async context => {
-  const requests = [];
-  let fail = true;
-  const send = async (url, body) => { requests.push({ url, body }); if (fail) throw new Error('retry'); return { data: { id: 'appointment' } }; };
-  const client = { post: send, put: send, patch: send, interceptors: { request: { use() {} }, response: { use() {} } } };
-  globalThis.ledgerAxios = { ...client, create: () => client };
-  context.after(() => { delete globalThis.ledgerAxios; });
-  const { useAppointments } = await compile('../src/hooks/useAppointments.js', true);
-  const { appointmentsApi } = await compile('../src/api/appointments.js', true);
-  const useApi = await compile('../src/hooks/useApi.js', true);
-  let hook;
-  let legacyHook;
-  function Fixture() { hook = useAppointments(); legacyHook = useApi(); return null; }
-  await mount(context, Fixture, {});
-  for (const payment_purpose of ['consultation', 'plan_advance']) {
-    fail = false;
-    const result = await act(async () => hook.createAppointment({ payment_purpose, actual_amount_kzt: '500', payment_method: 'cash', patient_id: payment_purpose }));
-    assert.equal(result.success, true);
-    const body = requests.at(-1).body;
-    assert.equal(body.actual_amount_kzt, 500);
-    assert.equal(body.payment_purpose, payment_purpose);
-    assert.ok(body.operation_id);
+const receiptFields = ['payment_purpose', 'actual_amount_kzt', 'funding_source', 'advance_amount', 'advance_amount_kzt', 'plan_advance', 'plan_advance_amount', 'plan_id', 'treatment_plan_id'];
+const assertDepositPayload = (payload, deposit, deposit_type) => {
+  assert.equal(payload.deposit, deposit);
+  assert.equal(payload.deposit_type, deposit_type);
+  for (const field of receiptFields) assert.equal(Object.hasOwn(payload, field), false, `${field} must not be emitted`);
+};
+
+for (const writer of ['useAppointments', 'appointmentsApi', 'useApi']) {
+  for (const action of ['create', 'update']) {
+    for (const [deposit_type, deposit] of [['fixed', 500.5], ['percent', 25]]) {
+      test(`${writer} ${action} preserves ${deposit_type} deposit without purpose or method`, async context => {
+        const requests = [];
+        const send = async (url, body) => { requests.push({ url, body }); return { data: { id: 'appointment' } }; };
+        const client = { post: send, put: send, interceptors: { request: { use() {} }, response: { use() {} } } };
+        globalThis.ledgerAxios = { ...client, create: () => client };
+        context.after(() => { delete globalThis.ledgerAxios; });
+        let api;
+        if (writer === 'appointmentsApi') {
+          api = (await compile('../src/api/appointments.js', true)).appointmentsApi;
+        } else {
+          const module = await compile(writer === 'useApi' ? '../src/hooks/useApi.js' : '../src/hooks/useAppointments.js', true);
+          const useHook = writer === 'useApi' ? module : module.useAppointments;
+          function Fixture() { api = useHook(); return null; }
+          await mount(context, Fixture, {});
+        }
+        const input = { patient_id: 'patient', price: 10000, deposit, deposit_type };
+        let result;
+        await act(async () => {
+          result = writer === 'appointmentsApi'
+            ? await (action === 'create' ? api.create(input) : api.update('appointment', input))
+            : await (action === 'create' ? api.createAppointment(input) : api.updateAppointment('appointment', input));
+        });
+        if (writer !== 'useApi') assert.equal(result.success, true, result.error);
+        assert.equal(requests.length, 1, 'deposit submits exactly one API request');
+        assert.ok(requests[0].url.endsWith(action === 'create' ? '/appointments' : '/appointments/appointment'));
+        assertDepositPayload(requests[0].body, deposit, deposit_type);
+      });
+    }
   }
-  const before = requests.length;
-  await act(async () => hook.createAppointment({ deposit: 500 }));
-  assert.equal(requests.length, before);
-  for (const [index, updateStatus] of [hook.updateAppointmentStatus, appointmentsApi.updateStatus].entries()) {
-    fail = true;
-    const id = `status-${index}`;
-    await act(async () => updateStatus(id, 'completed'));
-    fail = false;
-    await act(async () => Promise.all([updateStatus(id, 'completed'), updateStatus(id, 'completed')]));
-    const writes = requests.filter(request => request.url.includes(id));
-    assert.equal(writes.length, 2);
-    assert.deepEqual(writes[0].body, writes[1].body);
-    assert.ok(writes[0].body.operation_id);
+}
+
+const modalForm = { patient_id: 'patient', doctor_id: 'doctor', appointment_date: '2026-10-08', appointment_time: '10:00', end_time: '10:30', price: 10000 };
+async function depositModal(context, depositFields) {
+  const saved = [];
+  const ui = await mount(context, AppointmentModal, { show: true, editingItem: { id: 'modal-appointment' },
+    appointmentForm: { ...modalForm, ...depositFields }, patients: [{ id: 'patient', full_name: 'Пациент' }],
+    doctors: [], appointments: [], onSave: payload => saved.push(payload) });
+  ui.container = document.body;
+  return { ...ui, saved, submit: async () => act(async () => ui.container.querySelector('form').dispatchEvent(new window.Event('submit', { bubbles: true, cancelable: true }))) };
+}
+
+test('AppointmentModal contains no new receipt or payment-purpose UI', async context => {
+  const ui = await depositModal(context, { deposit: '', deposit_type: '' });
+  for (const text of ['Новый платеж', 'Назначение платежа', 'Оплата консультации', 'Аванс на план лечения']) {
+    assert.equal(ui.container.textContent.includes(text), false, `forbidden UI: ${text}`);
   }
-  fail = false;
-  await act(async () => legacyHook.createAppointment({ payment_purpose: 'plan_advance', actual_amount_kzt: '900', payment_method: 'card' }));
-  assert.equal(requests.at(-1).body.actual_amount_kzt, 900);
-  assert.ok(requests.at(-1).body.operation_id);
 });
 
-test('appointment modal purpose is a required explicit receipt choice and historical deposits are not resubmitted', async context => {
-  const saved = [];
-  const form = { patient_id: 'patient', doctor_id: 'doctor', appointment_date: '2026-10-08', appointment_time: '10:00', end_time: '10:30', deposit: 500 };
-  const ui = await mount(context, AppointmentModal, { show: true, editingItem: { id: 'modal-appointment', deposit: 500 }, appointmentForm: form,
-    patients: [{ id: 'patient', full_name: 'Пациент' }], doctors: [], appointments: [], onSave: payload => saved.push(payload) });
-  ui.container = document.body;
-  const submit = async () => act(async () => ui.container.querySelector('form').dispatchEvent(new window.Event('submit', { bubbles: true, cancelable: true })));
-  await submit();
-  assert.equal(saved.length, 1);
-  assert.equal(saved[0].deposit, undefined);
-  assert.equal(saved[0].payment_purpose, undefined);
-  await ui.change(ui.container.querySelector('[aria-label="Назначение платежа"]'), 'plan_advance');
-  await submit();
-  assert.equal(saved.length, 1);
-  await ui.change(ui.container.querySelector('[aria-label="Фактически получено, ₸"]'), '400');
-  await ui.change(ui.container.querySelector('[aria-label="Способ оплаты"]'), 'cash');
-  await submit();
-  await submit();
-  assert.equal(saved[1].payment_purpose, 'plan_advance');
-  assert.equal(saved[1].actual_amount_kzt, 400);
-  assert.equal(saved[1].operation_id, saved[2].operation_id);
+test('AppointmentModal renders no-deposit and established fixed deposit controls and submits chosen amount', async context => {
+  const ui = await depositModal(context, { deposit: '', deposit_type: '' });
+  const type = [...ui.container.querySelectorAll('select')].find(element => [...element.options].some(option => option.textContent === 'Без депозита'));
+  assert.ok(type, 'old no-deposit selector exists');
+  assert.equal(type.value, '');
+  assert.ok([...type.options].some(option => option.value === 'fixed' && option.textContent === 'Фиксированная сумма'));
+  await ui.submit();
+  assert.equal(ui.saved.length, 1);
+  assertDepositPayload(ui.saved[0], '', '');
+  await ui.change(type, 'fixed');
+  const amount = ui.container.querySelector('input[type="number"][step="0.01"][placeholder="0"]');
+  await ui.change(amount, '1250.50');
+  await ui.submit();
+  assert.equal(ui.saved.length, 2);
+  assertDepositPayload(ui.saved[1], '1250.50', 'fixed');
 });
+
+for (const [deposit_type, deposit] of [['fixed', '500.50'], ['percent', '25']]) {
+  test(`AppointmentModal renders and submits existing ${deposit_type} deposit unchanged`, async context => {
+    const ui = await depositModal(context, { deposit, deposit_type });
+    const amount = ui.container.querySelector(deposit_type === 'percent'
+      ? 'input[type="number"][step="1"][max="100"][placeholder="0-100"]'
+      : 'input[type="number"][step="0.01"][placeholder="0"]');
+    assert.ok(amount, `${deposit_type} deposit amount control exists`);
+    assert.equal(amount.value, deposit);
+    await ui.submit();
+    assert.equal(ui.saved.length, 1);
+    assertDepositPayload(ui.saved[0], deposit, deposit_type);
+  });
+}
 
 test('complex payments retain component and remaining endpoints without allocation writers', async context => {
   const plan = makePlan('complex-batch');

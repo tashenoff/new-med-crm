@@ -29,7 +29,7 @@ export const appointmentsApi = {
       console.log('🚀 Исходные данные записи:', appointmentData);
       const cleanData = cleanAppointmentData(appointmentPayment(appointmentData));
       console.log('✨ Очищенные данные записи:', cleanData);
-      const response = cleanData.actual_amount_kzt || cleanData.status === 'completed'
+      const response = cleanData.status === 'completed'
         ? await ledgerCommands.run('appointment:create', cleanData, body => apiClient.post('/appointments', body))
         : await apiClient.post('/appointments', cleanData);
       return { success: true, data: response.data };
@@ -43,7 +43,7 @@ export const appointmentsApi = {
   update: async (id, appointmentData) => {
     try {
       const cleanData = cleanAppointmentData(appointmentPayment(appointmentData));
-      const response = cleanData.actual_amount_kzt || cleanData.status === 'completed'
+      const response = cleanData.status === 'completed'
         ? await ledgerCommands.run(`appointment:update:${id}`, cleanData, body => apiClient.put(`/appointments/${id}`, body))
         : await apiClient.put(`/appointments/${id}`, cleanData);
       return { success: true, data: response.data };

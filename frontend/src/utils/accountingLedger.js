@@ -7,14 +7,11 @@ export function positiveKzt(value, maximum = Number.MAX_SAFE_INTEGER) {
 }
 
 export function appointmentPayment(data) {
-  const hasReceipt = data.actual_amount_kzt !== undefined && data.actual_amount_kzt !== '';
-  if (!hasReceipt && !data.deposit && !data.payment_purpose) return { ...data };
-  if (!['consultation', 'plan_advance'].includes(data.payment_purpose)) throw new Error('Выберите назначение платежа: консультация или аванс плана');
-  if (!data.payment_method) throw new Error('Выберите способ оплаты');
-  const maximum = data.payment_purpose === 'consultation' && Number(data.price) > 0 ? Number(data.price) : Number.MAX_SAFE_INTEGER;
-  const result = { ...data, actual_amount_kzt: positiveKzt(data.actual_amount_kzt, maximum) };
-  delete result.deposit;
-  delete result.deposit_type;
+  const result = { ...data };
+  // Booking deposits retain their amount mode and do not create receipts or advances.
+  for (const field of ['payment_purpose', 'actual_amount_kzt', 'funding_source', 'advance_amount', 'advance_amount_kzt', 'plan_advance', 'plan_advance_amount', 'plan_id', 'treatment_plan_id']) {
+    delete result[field];
+  }
   return result;
 }
 

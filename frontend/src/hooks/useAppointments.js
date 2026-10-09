@@ -74,7 +74,7 @@ export const useAppointments = () => {
     try {
       const cleanData = cleanAppointmentData(appointmentData);
       
-      const response = cleanData.actual_amount_kzt || cleanData.status === 'completed'
+      const response = cleanData.status === 'completed'
         ? await ledgerCommands.run('appointment:create', cleanData, body => axios.post(`${API}/appointments`, body))
         : await axios.post(`${API}/appointments`, cleanData);
       
@@ -109,7 +109,7 @@ export const useAppointments = () => {
   const updateAppointment = useCallback(async (id, appointmentData) => {
     try {
       const cleanData = cleanAppointmentData(appointmentData);
-      const response = cleanData.actual_amount_kzt || cleanData.status === 'completed'
+      const response = cleanData.status === 'completed'
         ? await ledgerCommands.run(`appointment:update:${id}`, cleanData, body => axios.put(`${API}/appointments/${id}`, body))
         : await axios.put(`${API}/appointments/${id}`, cleanData);
       

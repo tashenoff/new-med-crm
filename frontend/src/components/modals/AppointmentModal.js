@@ -90,10 +90,8 @@ const AppointmentModal = ({
 }) => {
 // Используем локальное состояние для формы, чтобы изменения работали корректно
   const [appointmentForm, setLocalAppointmentForm] = useState(initialAppointmentForm);
-  const [receiptDraft, setReceiptDraft] = useState({});
   const receiptOperation = useRef(null);
   useEffect(() => {
-    setReceiptDraft({});
     receiptOperation.current = null;
   }, [show, editingItem?.id, editingItem?._id]);
   
@@ -1023,9 +1021,9 @@ const handleCreateNewPatient = async (e) => {
     let payload;
     try {
       const base = { ...appointmentForm };
-      for (const field of ['deposit', 'deposit_type', 'payment_purpose', 'actual_amount_kzt', 'payment_method', 'operation_id']) delete base[field];
-      payload = appointmentPayment({ ...base, ...receiptDraft });
-      if (payload.actual_amount_kzt || payload.status === 'completed') {
+      delete base.operation_id;
+      payload = appointmentPayment(base);
+      if (payload.status === 'completed') {
         const fingerprint = JSON.stringify(payload);
         if (receiptOperation.current?.fingerprint !== fingerprint) receiptOperation.current = { fingerprint, id: crypto.randomUUID() };
         payload.operation_id = receiptOperation.current.id;
@@ -1582,52 +1580,30 @@ const handleCreateNewPatient = async (e) => {
             </div>
 
             {/* Секция депозита */}
-            {(() => {
-              // Проверяем, заблокирован ли депозит (при редактировании записи с уже внесённым депозитом)
-              const isDepositLocked = editingItem && 
-                editingItem.deposit && 
-                parseFloat(editingItem.deposit) > 0;
-              
-              return (
-                <div className={`border-2 rounded-lg p-4 ${isDepositLocked ? 'border-orange-300 bg-orange-50' : 'border-blue-200 bg-blue-50'}`}>
-                  <h4 className="font-medium text-blue-900 mb-3">
-                    💰 Новый платеж
-                  </h4>
-                  
-                  {isDepositLocked && (
-                    <div className="mb-3 p-2 bg-orange-100 border border-orange-300 rounded-lg">
-                      <p className="text-sm text-orange-700">
-                        Исторический депозит: {Number(editingItem.deposit).toLocaleString('ru-RU')} ₸. Его назначение не определяется автоматически; повторно этот платеж не отправляется.
-                      </p>
-                    </div>
-                  )}
-                  
-                  <div className="space-y-3">
-                    <label className="block text-sm font-medium">Назначение платежа
-                      <select aria-label="Назначение платежа" value={receiptDraft.payment_purpose || ''} onChange={event => setReceiptDraft(event.target.value ? { ...receiptDraft, payment_purpose: event.target.value } : {})} className={selectClasses} disabled={submitting}>
-                        <option value="">Нет нового платежа</option>
-                        <option value="consultation">Оплата консультации</option>
-                        <option value="plan_advance">Аванс на план лечения (не начисляется врачу)</option>
-                      </select>
-                    </label>
-                    {receiptDraft.payment_purpose && <>
-                      <label className="block text-sm font-medium">Фактически получено, ₸
-                        <input aria-label="Фактически получено, ₸" type="number" min="0.01" step="0.01" required value={receiptDraft.actual_amount_kzt || ''} onChange={event => setReceiptDraft({ ...receiptDraft, actual_amount_kzt: event.target.value })} className={inputClasses} disabled={submitting} />
-                      </label>
-                      <label className="block text-sm font-medium">Способ оплаты
-                        <select aria-label="Способ оплаты" required value={receiptDraft.payment_method || ''} onChange={event => setReceiptDraft({ ...receiptDraft, payment_method: event.target.value })} className={selectClasses} disabled={submitting}>
-                          <option value="">Выберите способ оплаты</option>
-                          <option value="cash">Наличные</option>
-                          <option value="card">Карта</option>
-                          <option value="transfer">Перевод</option>
-                        </select>
-                      </label>
-                    </>}
-                    <p className="text-xs text-gray-600">Назначение обязательно для нового платежа. Старый депозит не считается оплатой консультации. Аванс учитывается только после явного распределения сервером на услугу / компонент.</p>
-                  </div>
-                </div>
-              );
-            })()}
+            <div className="border-2 rounded-lg p-4 border-blue-200 bg-blue-50">
+              <h4 className="font-medium text-blue-900 mb-3">Депозит</h4>
+              <label className="block text-sm font-medium">Депозит
+                <select value={appointmentForm.deposit_type || ''}
+                  onChange={event => setAppointmentForm({ ...appointmentForm, deposit_type: event.target.value, deposit: '' })}
+                  className={selectClasses} disabled={submitting}>
+                  <option value="">Без депозита</option>
+                  <option value="fixed">Фиксированная сумма</option>
+                  <option value="percent">Процент от стоимости</option>
+                </select>
+              </label>
+              {appointmentForm.deposit_type && (
+                <label className="block text-sm font-medium mt-3">
+                  {appointmentForm.deposit_type === 'percent' ? 'Депозит, %' : 'Депозит, \u20b8'}
+                  <input type="number" min="0"
+                    max={appointmentForm.deposit_type === 'percent' ? '100' : undefined}
+                    step={appointmentForm.deposit_type === 'percent' ? '1' : '0.01'}
+                    placeholder={appointmentForm.deposit_type === 'percent' ? '0-100' : '0'}
+                    value={appointmentForm.deposit ?? ''}
+                    onChange={event => setAppointmentForm({ ...appointmentForm, deposit: event.target.value })}
+                    className={inputClasses} disabled={submitting} />
+                </label>
+              )}
+            </div>
           </div>
 
           <div className="hidden">
