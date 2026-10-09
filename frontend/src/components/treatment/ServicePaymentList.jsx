@@ -78,7 +78,7 @@ const PaymentModal = ({ show, loading, onClose, paymentTypes, loadingPaymentType
           </div>
         </div>
 
-        <button onClick={() => onPay(selectedPaymentType, disc)} disabled={loading}
+        <button onClick={() => onPay(selectedPaymentType, disc)} disabled={loading || !selectedPaymentType}
           className="w-full mt-4 px-4 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 font-medium">
           {loading ? 'Обработка...' : `Оплатить ${finalAmt.toLocaleString()} ₸`}
         </button>
@@ -239,7 +239,7 @@ const ServicePaymentList = ({ plan, onUpdate, onEdit, paymentFilter = 'all', pro
 
   // Выполнить оплату с выбранным способом оплаты и скидкой
   const executePayment = async (paymentType, discount = 0) => {
-    if (!pendingPaymentData) return;
+    if (!pendingPaymentData || !paymentType) return;
     
     try {
       setLoading(true);

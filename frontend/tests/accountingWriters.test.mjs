@@ -120,6 +120,37 @@ test('consultation-sheet service without deposit sends a valid ledger receipt', 
   assert.match(request.body.operation_id, /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i);
 });
 
+test('ledger receipt requires payment method selection before final payment', async context => {
+  const plan = { ...makePlan('method-required'), deposit_amount: 0, accounting_events: [],
+    services: [{ service_id: 'service', service_row_id: 'row', service_name: 'Service',
+      total_price: 1000, paid_amount: 0, discount_amount: 0, payment_status: 'unpaid' }] };
+  const ui = await mount(context, ServicePaymentList, { plan }, (url, body) => {
+    if (url.includes('payment-types')) return [{ id: 'cash', name: 'Касса' }];
+    return { event: { kind: 'service_receipt' }, plan };
+  });
+  await ui.click(ui.container.querySelector('button'));
+  await ui.click([...ui.container.querySelectorAll('button')].find(element => element.textContent.includes('Оплатить') && !element.textContent.includes('остаток')));
+  const method = ui.container.querySelector('input[type="radio"]');
+  const finalAction = [...ui.container.querySelectorAll('button')].at(-1);
+  const writes = () => ui.requests.filter(request => request.options.method === 'POST');
+  assert.ok(method, 'available payment method exists');
+  assert.equal(method.checked, false);
+  assert.equal(writes().length, 0, 'opening payment must not write a receipt');
+  assert.equal(finalAction.disabled, true, 'final payment must be disabled until a method is selected');
+  await ui.click(finalAction);
+  assert.equal(writes().length, 0, 'no POST is allowed before selecting a payment method');
+  await ui.click(method);
+  assert.equal(method.checked, true);
+  assert.equal(finalAction.disabled, false, 'selecting a method enables final payment');
+  await ui.click(finalAction);
+  assert.equal(writes().length, 1);
+  const receipt = writes()[0];
+  assert.ok(receipt.url.endsWith('/api/treatment-plans/method-required/service-rows/row/receipts'));
+  assert.equal(receipt.body.payment_source, 'cash');
+  assert.equal(receipt.body.payment_method, 'cash');
+  assert.equal(receipt.body.payment_method_id, 'cash');
+});
+
 test('doctor-free analysis payment keeps payment-type selection and fixed discount without ledger fields', async context => {
   const plan = makePlan('analysis-fixed');
   plan.services[0] = { service_id: 'analysis', service_name: 'Анализ крови', unit: 'анализ', laboratory_id: 'lab', total_price: 1000, payment_status: 'unpaid' };
