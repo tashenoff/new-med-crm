@@ -42,9 +42,9 @@ const SalariesView = await compile('../src/components/finance/salaries/SalariesV
 const doctor = {
   id: 'a', full_name: 'Doctor A', specialty: 'Therapy', specialties: ['Therapy'],
   payment_mode: 'individual', payment_type: 'hybrid', payment_value: 2500,
-  hybrid_percentage_value: 0, currency: 'KZT', consultation_compensation_mode: 'separate',
+  hybrid_fixed_amount: 2500, hybrid_percentage_value: 0, currency: 'KZT', consultation_compensation_mode: 'separate',
   consultation_payment_type: 'hybrid', consultation_payment_value: 1500,
-  consultation_hybrid_percentage_value: 0,
+  consultation_hybrid_fixed_amount: 1500, consultation_currency: 'KZT', consultation_hybrid_percentage_value: 0,
   services: [{ service_id: 'service', commission_type: 'fixed', commission_value: 800, commission_currency: 'KZT' }]
 };
 const cleanups = new WeakMap();
@@ -282,6 +282,12 @@ for (const editing of [false, true]) {
     await act(async () => opened.onSave({ preventDefault() {} }, { ...doctor, editingItem: editing ? doctor : null }));
     assert.equal(calls.length, 1);
     for (const field of ['payment_type', 'payment_mode', 'hybrid_percentage_value', 'consultation_compensation_mode', 'consultation_payment_type', 'consultation_payment_value', 'consultation_hybrid_percentage_value', 'services']) assert.deepEqual(calls[0][field], doctor[field], field);
+    const { buildDoctorPayload } = await import('../src/utils/doctorCompensation.js');
+    const expected = buildDoctorPayload(doctor);
+    assert.deepEqual(calls[0], editing ? { id: doctor.id, ...expected } : expected);
+    for (const field of ['hybrid_fixed_amount', 'consultation_hybrid_fixed_amount', 'consultation_currency']) {
+      assert.equal(calls[0][field], doctor[field], field);
+    }
     if (editing) assert.equal(calls[0].id, doctor.id);
   });
 }
@@ -375,4 +381,88 @@ test('general percentage and fixed schemes serialize zero and fractional values'
     assert.equal(input.min, '0');
     assert.equal(input.max, payment_type === 'percentage' ? '100' : '');
   }
+});
+
+
+test('modal and page payload retain all compensation fields on edit', async context => {
+  const original = { ...doctor, hybrid_fixed_amount: 2500, consultation_hybrid_fixed_amount: 1500, consultation_currency: 'KZT' };
+  const ui = await modal(context, original);
+  await ui.submit();
+  const { buildDoctorPayload } = await import('../src/utils/doctorCompensation.js');
+  const submitted = buildDoctorPayload(ui.saved[0]);
+  for (const field of ['hybrid_fixed_amount', 'consultation_hybrid_fixed_amount', 'consultation_currency']) {
+    assert.equal(submitted[field], original[field], field);
+  }
+});
+
+
+test('editing hybrid canonical amounts keeps persisted aliases consistent', async context => {
+  const ui = await modal(context, { ...doctor, payment_mode: 'general', hybrid_fixed_amount: 2500, consultation_hybrid_fixed_amount: 1500 });
+  await ui.change(ui.container.querySelector('[name="payment_value"]'), '2700');
+  await ui.change(ui.container.querySelector('[name="consultation_payment_value"]'), '1700');
+  await ui.submit();
+  assert.equal(ui.saved[0].hybrid_fixed_amount, 2700);
+  assert.equal(ui.saved[0].consultation_hybrid_fixed_amount, 1700);
+});
+
+test('consultation currency cannot be silently replaced on edit', async context => {
+  const ui = await modal(context, { ...doctor, consultation_currency: 'USD' });
+  await ui.submit();
+  assert.equal(ui.saved.length, 0);
+  assert.ok(ui.container.querySelector('[role="alert"]'));
+});
+
+
+test('cross-stack modal payloads and API readback', async context => {
+  const { readFile, writeFile } = await import('node:fs/promises');
+  const { buildDoctorPayload } = await import('../src/utils/doctorCompensation.js');
+  if (process.env.DOCTOR_CONTRACT_READBACK) {
+    const documents = JSON.parse(await readFile(process.env.DOCTOR_CONTRACT_READBACK, 'utf8'));
+    for (const { expected, actual } of documents) {
+      const ui = await modal(context, actual);
+      await ui.submit();
+      const payload = buildDoctorPayload(ui.saved[0]);
+      for (const [field, value] of Object.entries(expected)) assert.deepEqual(payload[field], value, field);
+    }
+    return;
+  }
+  const cases = [];
+  for (const payment_mode of ['general', 'individual']) {
+    for (const payment_type of ['fixed', 'percentage', 'hybrid']) {
+      for (const consultation_compensation_mode of ['none', 'inherit', 'separate']) {
+        for (const consultation_payment_type of ['fixed', 'percentage', 'hybrid']) {
+          const original = { ...doctor, payment_mode, payment_type, payment_value: 17.5,
+            hybrid_fixed_amount: payment_type === 'hybrid' ? 17.5 : 0, hybrid_percentage_value: 12.5,
+            consultation_compensation_mode, consultation_payment_type, consultation_payment_value: 19.5,
+            consultation_hybrid_fixed_amount: consultation_payment_type === 'hybrid' ? 19.5 : 0,
+            consultation_hybrid_percentage_value: 14.5, consultation_currency: 'KZT',
+            services: payment_mode === 'individual' ? doctor.services : ['service'] };
+          const ui = await modal(context, null, original);
+          await ui.submit();
+          assert.equal(ui.saved.length, 1);
+          const expectedCreated = buildDoctorPayload(original);
+          assert.deepEqual(ui.saved[0], { ...expectedCreated, editingItem: null });
+          const created = buildDoctorPayload(ui.saved[0]);
+          assert.deepEqual(created, expectedCreated);
+          const edit = await modal(context, { ...created, id: 'mock-doctor' });
+          if (payment_mode === 'general' || consultation_compensation_mode === 'inherit') {
+            await edit.change(edit.container.querySelector('[name="payment_value"]'), '23.75');
+          }
+          if (consultation_compensation_mode === 'separate') {
+            await edit.change(edit.container.querySelector('[name="consultation_payment_value"]'), '31.25');
+          }
+          await edit.submit();
+          assert.equal(edit.saved.length, 1);
+          const expectedEdited = buildDoctorPayload({ ...created,
+            payment_value: payment_mode === 'general' || consultation_compensation_mode === 'inherit' ? 23.75 : created.payment_value,
+            consultation_payment_value: consultation_compensation_mode === 'separate' ? 31.25 : created.consultation_payment_value });
+          assert.deepEqual(edit.saved[0], { ...expectedEdited, editingItem: { ...created, id: 'mock-doctor' } });
+          assert.deepEqual(buildDoctorPayload(edit.saved[0]), expectedEdited);
+          cases.push({ created, edited: expectedEdited });
+        }
+      }
+    }
+  }
+  assert.equal(cases.length, 54);
+  if (process.env.DOCTOR_CONTRACT_PAYLOADS) await writeFile(process.env.DOCTOR_CONTRACT_PAYLOADS, JSON.stringify(cases));
 });

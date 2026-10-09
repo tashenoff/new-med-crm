@@ -78,6 +78,7 @@ const Navigation = ({
 
     // Если активна Finance секция, показываем финансовые пункты меню
     if (activeSection === 'finance') {
+      if (!user || user.role === 'patient') return [];
       const financeItems = [
         { key: 'finance-dashboard', label: 'Дашборд', type: 'tab' },
         { key: 'finance-income', label: 'Доходы', type: 'tab' },
@@ -86,7 +87,9 @@ const Navigation = ({
         { key: 'finance-reports', label: 'Отчеты', type: 'tab' }
       ];
 
-      return financeItems;
+      return user.role === 'admin' || user.role === 'super_admin'
+        ? financeItems
+        : financeItems.filter(item => item.key === 'finance-salaries');
     }
 
     if (activeSection === 'warehouse') {

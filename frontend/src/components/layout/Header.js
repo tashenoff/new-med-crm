@@ -98,6 +98,18 @@ const Header = ({ user, onLogout, onToggleSidebar, sidebarOpen, activeSection, s
                         Склад
                       </button>
                     )}
+                    {user.role !== 'patient' && (
+                      <button
+                        onClick={() => setActiveSection('finance')}
+                        className={`px-3 py-2 text-sm font-medium transition-colors ${
+                          activeSection === 'finance'
+                            ? 'text-white border-b-2 border-white/70'
+                            : 'text-white/80 hover:text-white'
+                        }`}
+                      >
+                        Финансы
+                      </button>
+                    )}
                   </nav>
                 </div>
               )}

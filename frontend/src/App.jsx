@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Routes, Route, useNavigate, useLocation } from 'react-router-dom';
+import { Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom';
 import axios from 'axios';
 import { useDoctors } from './hooks/useDoctors';
 import Header from './components/layout/Header';
@@ -83,6 +83,8 @@ function ClinicApp() {
   // Router hooks
   const navigate = useNavigate();
   const location = useLocation();
+  const canViewFinance = Boolean(user && user.role !== 'patient');
+  const canManageFinance = user?.role === 'admin' || user?.role === 'super_admin';
   
   // Determine activeTab from current route
   const getActiveTabFromPath = (pathname) => {
@@ -190,8 +192,7 @@ function ClinicApp() {
     if (section === 'crm') {
       handleTabChange('crm-dashboard');
     } else if (section === 'finance') {
-      // При переключении в Финансы, устанавливаем финансовый дашборд
-      handleTabChange('finance-dashboard');
+      handleTabChange(canViewFinance ? 'finance-salaries' : 'calendar');
     } else if (section === 'warehouse') {
       handleTabChange('warehouse');
     } else {
@@ -367,11 +368,17 @@ function ClinicApp() {
               {activeTab === 'crm-managers' && <ManagersView user={user} />}
               {activeTab === 'crm-contacts' && <SourcesView user={user} />}
               {activeTab === 'crm-task-statuses' && <TaskStatuses user={user} />}
-              {activeTab === 'finance-dashboard' && <FinanceDashboard user={user} />}
-              {activeTab === 'finance-income' && <IncomeView user={user} />}
-              {activeTab === 'finance-expenses' && <ExpensesView user={user} />}
-              {activeTab === 'finance-salaries' && <SalariesView user={user} />}
-              {activeTab === 'finance-reports' && <ReportsView user={user} />}
+              {activeTab.startsWith('finance') && (
+                !canViewFinance ? <Navigate to="/calendar" replace />
+                : activeTab === 'finance-salaries' ? <SalariesView user={user} />
+                : !canManageFinance || activeTab === 'finance' ? <Navigate to="/finance-salaries" replace />
+                : <>
+                    {activeTab === 'finance-dashboard' && <FinanceDashboard user={user} />}
+                    {activeTab === 'finance-income' && <IncomeView user={user} />}
+                    {activeTab === 'finance-expenses' && <ExpensesView user={user} />}
+                    {activeTab === 'finance-reports' && <ReportsView user={user} />}
+                  </>
+              )}
               {activeTab === 'statistics' && <DoctorStatistics user={user} />}
               {activeTab === 'treatment-statistics' && <TreatmentPlanStatistics />}
               {activeTab === 'doctor-statistics' && <DoctorStatistics />}

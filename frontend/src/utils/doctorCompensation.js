@@ -9,11 +9,14 @@ export const initializeDoctorForm = (doctor = {}) => {
     calendar_color: doctor.calendar_color || '#3B82F6',
     payment_type: doctor.payment_type || 'percentage',
     payment_value: doctor.payment_value ?? 0,
+    hybrid_fixed_amount: doctor.hybrid_fixed_amount ?? 0,
     hybrid_percentage_value: doctor.hybrid_percentage_value ?? 0,
     currency: doctor.currency || 'KZT',
     services: services.map(service => typeof service === 'object' ? { ...service } : service),
     payment_mode: doctor.payment_mode || (services.some(service => typeof service === 'object') ? 'individual' : 'general'),
     consultation_compensation_mode: doctor.consultation_compensation_mode ?? '',
+    consultation_currency: doctor.consultation_currency || 'KZT',
+    consultation_hybrid_fixed_amount: doctor.consultation_hybrid_fixed_amount ?? 0,
     consultation_payment_type: doctor.consultation_payment_type || 'percentage',
     consultation_payment_value: doctor.consultation_payment_value ?? 0,
     consultation_hybrid_percentage_value: doctor.consultation_hybrid_percentage_value ?? 0
@@ -57,7 +60,7 @@ const validateScheme = (type, value, hybridPercentage, label) => {
 
 export const buildDoctorPayload = (doctor) => {
   const form = initializeDoctorForm(doctor);
-  if (form.currency !== 'KZT' || form.services.some(service => typeof service === 'object' && service.commission_currency && service.commission_currency !== 'KZT')) {
+  if (form.currency !== 'KZT' || form.consultation_currency !== 'KZT' || form.services.some(service => typeof service === 'object' && service.commission_currency && service.commission_currency !== 'KZT')) {
     throw new Error('В записи есть иностранная валюта. Автоматическая конвертация запрещена; требуется явное согласование значений в KZT.');
   }
   if (!['general', 'individual'].includes(form.payment_mode)) throw new Error('Выберите режим комиссий.');
@@ -82,6 +85,8 @@ export const buildDoctorPayload = (doctor) => {
     ...form,
     full_name: form.full_name.trim(),
     phone: form.phone || null,
+    hybrid_fixed_amount: form.hybrid_fixed_amount ? boundedValue(form.payment_value) : 0,
+    consultation_hybrid_fixed_amount: form.consultation_hybrid_fixed_amount ? boundedValue(form.consultation_payment_value) : 0,
     payment_value: boundedValue(form.payment_value, form.payment_type === 'percentage'),
     hybrid_percentage_value: boundedValue(form.hybrid_percentage_value, true),
     consultation_payment_value: boundedValue(form.consultation_payment_value, form.consultation_payment_type === 'percentage'),

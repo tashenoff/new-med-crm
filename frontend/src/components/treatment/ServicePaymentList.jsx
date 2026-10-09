@@ -1,11 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { ledgerFetch, positiveKzt, requireSessionId, servicePayment } from '../../utils/accountingLedger';
 import { FaChevronDown, FaChevronRight, FaStethoscope, FaClipboardList, FaNotesMedical, FaUserMd, FaFileMedical, FaCreditCard } from 'react-icons/fa';
 
 const PaymentModal = ({ show, loading, onClose, paymentTypes, loadingPaymentTypes,
   selectedPaymentType, setSelectedPaymentType, discountInput, setDiscountInput,
-  discountType, setDiscountType, total, onPay, actualAmount, setActualAmount,
-  fundingSource, setFundingSource, allocations, setAllocations, isAdvance, isSession }) => {
+  discountType, setDiscountType, total, onPay }) => {
   if (!show) return null;
   const raw = Math.max(0, Number(discountInput) || 0);
   const disc = discountType === 'percent'
@@ -14,7 +12,7 @@ const PaymentModal = ({ show, loading, onClose, paymentTypes, loadingPaymentType
   const finalAmt = Math.max(0, Math.round((total - disc) * 100) / 100);
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50" onClick={onClose}>
-      <div className="bg-white rounded-xl shadow-2xl p-6 w-full max-w-md mx-4 max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+      <div className="bg-white rounded-xl shadow-2xl p-6 w-full max-w-md mx-4" onClick={e => e.stopPropagation()}>
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-lg font-semibold text-gray-900 flex items-center">
             <svg className="w-5 h-5 mr-2 text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M7 15h2m4 0h2M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>
@@ -38,7 +36,7 @@ const PaymentModal = ({ show, loading, onClose, paymentTypes, loadingPaymentType
             paymentTypes.map(pt => (
               <label key={pt.id}
                 className={`flex items-center gap-3 w-full px-3 py-2.5 rounded-lg border cursor-pointer transition-all ${selectedPaymentType && selectedPaymentType.id === pt.id ? 'border-blue-400 bg-blue-50' : 'border-gray-200 bg-gray-50 hover:bg-blue-50'}`}>
-                <input type="radio" name="paymethod" checked={Boolean(selectedPaymentType && selectedPaymentType.id === pt.id)} disabled={loading}
+                <input type="radio" name="paymethod" checked={selectedPaymentType && selectedPaymentType.id === pt.id}
                   onChange={() => setSelectedPaymentType(pt)} className="accent-blue-600" />
                 <div className="w-9 h-9 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 font-bold text-sm">
                   {pt.name.charAt(0).toUpperCase()}
@@ -53,33 +51,9 @@ const PaymentModal = ({ show, loading, onClose, paymentTypes, loadingPaymentType
         </div>
 
         <div className="mt-4 pt-3 border-t space-y-2">
-          <label className="block text-sm">Источник оплаты
-            <select aria-label="Источник оплаты" value={fundingSource} onChange={event => setFundingSource(event.target.value)} className="w-full border rounded p-2" required disabled={loading}>
-              <option value="">Выберите источник оплаты</option>
-              <option value="cash">Новый платеж (касса / безналичный)</option>
-              {!isAdvance && <option value="plan_advance">Явно направить аванс на эту услугу / компонент</option>}
-            </select>
-          </label>
-          <p className="text-xs text-gray-600">Аванс не начисляется врачу до точного распределения сервером. Начисление рассчитывает только сервер.</p>
-          {allocations.length ? allocations.map((allocation, index) => (
-            <div key={allocation.key} className="border rounded p-2">
-              <div className="text-sm">{allocation.name}: остаток {allocation.total.toLocaleString()} ₸</div>
-              <label className="block text-sm">Сумма для этой услуги / компонента, ₸
-                <input aria-label={`Сумма распределения ${allocation.key}`} type="number" min="0.01" max={allocation.total} step="0.01" required value={allocation.amount} disabled={loading}
-                  onChange={event => setAllocations(previous => previous.map((item, itemIndex) => itemIndex === index ? { ...item, amount: event.target.value } : item))} className="w-full border rounded p-2" />
-              </label>
-              {!allocation.sessionId && <label className="block text-sm">Скидка для этой услуги / компонента, ₸
-                <input type="number" min="0" max={allocation.total} step="0.01" value={allocation.discount} disabled={loading}
-                  onChange={event => setAllocations(previous => previous.map((item, itemIndex) => itemIndex === index ? { ...item, discount: event.target.value } : item))} className="w-full border rounded p-2" />
-              </label>}
-            </div>
-          )) : <label className="block text-sm">{isAdvance ? 'Фактически внесенный аванс, ₸' : fundingSource === 'plan_advance' ? 'Сумма явного распределения аванса, ₸' : 'Фактически получено, ₸'}
-            <input aria-label="Фактически получено, ₸" type="number" min="0.01" step="0.01" max={total} required value={actualAmount} onChange={event => setActualAmount(event.target.value)} disabled={loading} className="w-full border rounded p-2" />
-          </label>}
-          {!isAdvance && <div key="total" className="flex justify-between text-sm text-gray-600">
+          <div key="total" className="flex justify-between text-sm text-gray-600">
             <span>К оплате</span><span className="font-medium text-gray-900">{total.toLocaleString()} ₸</span>
-          </div>}
-          {!isAdvance && !isSession && allocations.length === 0 && <>
+          </div>
           <div key="discline" className={`flex justify-between text-sm ${disc > 0.001 ? 'text-green-600' : 'text-gray-400'}`}>
             <span>Скидка</span><span>− {disc > 0.001 ? disc.toLocaleString() : '0'} ₸</span>
           </div>
@@ -93,19 +67,18 @@ const PaymentModal = ({ show, loading, onClose, paymentTypes, loadingPaymentType
                   className={`px-3 py-1.5 text-xs ${discountType === 'percent' ? 'bg-blue-600 text-white' : 'bg-white text-gray-600'}`}>%</button>
               </div>
             </div>
-            <input type="number" min="0" step="0.01" value={discountInput} disabled={loading}
+            <input type="number" min="0" step="0.01" value={discountInput}
               onChange={(e) => setDiscountInput(e.target.value)}
               className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder={discountType === 'percent' ? 'Процент скидки' : 'Сумма скидки, ₸'} />
           </div>
           <div key="final" className="flex justify-between text-base font-semibold">
             <span>Итого к оплате</span><span className="text-blue-600">{finalAmt.toLocaleString()} ₸</span>
           </div>
-          </>}
         </div>
 
-        <button onClick={() => onPay(selectedPaymentType, discountType === 'percent' ? total * Number(discountInput || 0) / 100 : Number(discountInput || 0))} disabled={loading}
+        <button onClick={() => onPay(selectedPaymentType, disc)} disabled={loading}
           className="w-full mt-4 px-4 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 font-medium">
-          {loading ? 'Обработка...' : isAdvance && !actualAmount ? 'Внести аванс' : `Оплатить ${(Number(actualAmount) || finalAmt).toLocaleString()} ₸`}
+          {loading ? 'Обработка...' : `Оплатить ${finalAmt.toLocaleString()} ₸`}
         </button>
       </div>
     </div>
@@ -130,9 +103,6 @@ const ServicePaymentList = ({ plan, onUpdate, onEdit, paymentFilter = 'all', pro
   const [selectedPaymentType, setSelectedPaymentType] = useState(null);
   const [discountInput, setDiscountInput] = useState('');
   const [discountType, setDiscountType] = useState('fixed'); // 'fixed' | 'percent'
-  const [actualAmount, setActualAmount] = useState('');
-  const [fundingSource, setFundingSource] = useState('');
-  const [allocations, setAllocations] = useState([]);
 
   // Загрузка способов оплаты
   useEffect(() => {
@@ -223,9 +193,7 @@ const ServicePaymentList = ({ plan, onUpdate, onEdit, paymentFilter = 'all', pro
 
   // Открыть модальное окно выбора способа оплаты для оплаты услуги
   const openPaymentModalForService = (serviceId) => {
-    if (resumePayment('service', serviceId)) return;
-    resetPaymentModal();
-    setPendingPaymentData({ type: 'service', serviceId, operation_id: crypto.randomUUID() });
+    setPendingPaymentData({ type: 'service', serviceId });
     setShowPaymentModal(true);
   };
 
@@ -252,120 +220,137 @@ const ServicePaymentList = ({ plan, onUpdate, onEdit, paymentFilter = 'all', pro
   };
 
   const openPaymentModalForComplexRemaining = (serviceId) => {
-    if (resumePayment('complex-remaining', serviceId)) return;
-    resetPaymentModal();
-    const service = plan.services.find(item => item.service_id === serviceId);
-    setAllocations(paymentTargets(service));
-    setPendingPaymentData({ type: 'complex-remaining', serviceId, operation_id: crypto.randomUUID() });
+    setPendingPaymentData({ type: 'complex-remaining', serviceId });
     setShowPaymentModal(true);
   };
 
   const openPaymentModalForComponent = (serviceId, componentServiceId) => {
-    if (resumePayment('component', serviceId, componentServiceId)) return;
-    resetPaymentModal();
-    setPendingPaymentData({ type: 'component', serviceId, componentServiceId, operation_id: crypto.randomUUID() });
+    setPendingPaymentData({ type: 'component', serviceId, componentServiceId });
     setShowPaymentModal(true);
   };
 
   // Открыть модальное окно выбора способа оплаты для оплаты остатка
   const openPaymentModalForRemaining = () => {
-    if (resumePayment('remaining', null)) return;
-    try {
-      const targets = plan.services.filter(service => service.payment_status !== 'paid').flatMap(paymentTargets);
-      if (!targets.length) throw new Error('Нет услуг / сеансов с доступным остатком для распределения');
-      resetPaymentModal();
-      setAllocations(targets);
-      setPendingPaymentData({ type: 'remaining', serviceId: null, operation_id: crypto.randomUUID() });
-      setShowPaymentModal(true);
-    } catch (error) { alert(error.message); }
-  };
-
-  const resumePayment = (type, serviceId, componentServiceId) => {
-    if (pendingPaymentData?.type !== type || pendingPaymentData.serviceId !== serviceId || pendingPaymentData.componentServiceId !== componentServiceId) return false;
+    setPendingPaymentData({ type: 'remaining', serviceId: null });
     setShowPaymentModal(true);
-    return true;
-  };
-
-  const paymentTargets = (service) => service.is_course && (service.payment_type || service.course_payment_type) === 'per_session'
-    ? (service.sessions || []).filter(session => !session.paid && !session.is_paid && session.payment_status !== 'paid').map(session => {
-      const sessionId = requireSessionId(session);
-      return { key: `${service.service_id}:${sessionId}`, serviceId: service.service_id, sessionId, name: `${service.service_name || service.name}: сеанс ${sessionId}`,
-        total: Number(session.amount_due_kzt ?? (Number(session.price ?? service.session_price ?? service.price_per_unit ?? 0) - Number(session.paid_amount || 0))),
-        amount: '', discount: '', operation_id: crypto.randomUUID() };
-    }).filter(target => target.total > 0)
-    : service.is_complex
-    ? complexShares(service).map(component => ({
-      key: `${service.service_id}:${component.service_id}`, serviceId: service.service_id, componentServiceId: component.service_id,
-      name: component.name || component.service_name, total: Math.max(0, component.share - Number(component.paid_amount || 0) - Number(component.discount_amount || 0)),
-      amount: '', discount: '', operation_id: crypto.randomUUID()
-    })).filter(target => target.total > 0)
-    : [{ key: service.service_id, serviceId: service.service_id, name: service.service_name || service.name,
-      total: Math.max(0, Number(service.total_price || 0) - Number(service.paid_amount || 0) - Number(service.discount_amount || 0)),
-      amount: '', discount: '', operation_id: crypto.randomUUID() }].filter(target => target.total > 0);
-
-  const markSessionPaidForService = (service) => {
-    try {
-      const session = (service.sessions || []).find(item => !item.paid && !item.is_paid && item.payment_status !== 'paid');
-      const sessionId = requireSessionId(session);
-      if (resumePayment('session', service.service_id)) return;
-      resetPaymentModal();
-      setPendingPaymentData({ type: 'session', serviceId: service.service_id, sessionId,
-        total: Number(session.amount_due_kzt ?? (Number(session.price ?? service.session_price ?? service.price_per_unit ?? 0) - Number(session.paid_amount || 0))), operation_id: crypto.randomUUID() });
-      setShowPaymentModal(true);
-    } catch (error) { alert(error.message); }
   };
 
   // Выполнить оплату с выбранным способом оплаты и скидкой
   const executePayment = async (paymentType, discount = 0) => {
-    if (!pendingPaymentData || loading) return;
+    if (!pendingPaymentData) return;
     
     try {
-      const pending = pendingPaymentData;
-      if (!fundingSource) throw new Error('Выберите источник оплаты');
-      if (fundingSource === 'cash' && !paymentType) throw new Error('Выберите способ оплаты');
-      const method = { operation_id: pending.operation_id, ...(fundingSource === 'cash' && paymentType ? { payment_method_id: paymentType.id, payment_method_name: paymentType.name } : {}) };
-      const advanceBalance = Number(plan.advance_balance_kzt ?? plan.deposit_balance ?? 0);
-      let commands;
-      if (pending.type === 'deposit') {
-        if (fundingSource !== 'cash') throw new Error('Аванс вносится только новым платежом');
-        commands = [{ url: `${API}/api/treatment-plans/${plan.id}/add-deposit`, body: {
-          ...method, amount: positiveKzt(actualAmount), payment_method: paymentType.id,
-          payment_purpose: 'plan_advance', note: 'Аванс без автоматического начисления врачу'
-        } }];
-      } else if (pending.type === 'session') {
-        commands = [{ url: `${API}/api/treatment-plans/${plan.id}/services/${pending.serviceId}/sessions/${pending.sessionId}/mark-paid`, body: {
-          ...method, amount_kzt: positiveKzt(actualAmount, payableTarget()), session_id: pending.sessionId, funding_source: fundingSource
-        } }];
-        if (fundingSource === 'plan_advance') positiveKzt(actualAmount, advanceBalance);
-      } else {
-        const targets = allocations.length ? allocations : [{ serviceId: pending.serviceId, componentServiceId: pending.componentServiceId,
-          total: payableTarget(), amount: actualAmount, discount }];
-        const allocationTotal = targets.reduce((sum, target) => sum + Number(target.amount), 0);
-        if (fundingSource === 'plan_advance') positiveKzt(allocationTotal, advanceBalance);
-        commands = targets.map(target => ({
-          url: target.sessionId
-            ? `${API}/api/treatment-plans/${plan.id}/services/${target.serviceId}/sessions/${target.sessionId}/mark-paid`
-            : target.componentServiceId
-            ? `${API}/api/treatment-plans/${plan.id}/complex-services/${target.serviceId}/components/${target.componentServiceId}/mark-paid`
-            : `${API}/api/treatment-plans/${plan.id}/services/${target.serviceId}/mark-paid`,
-          body: target.sessionId
-            ? { ...method, operation_id: target.operation_id, amount_kzt: positiveKzt(target.amount, target.total), session_id: target.sessionId, funding_source: fundingSource }
-            : { ...method, operation_id: target.operation_id || pending.operation_id, ...servicePayment({ amount: target.amount, total: target.total, discount: target.discount, funding_source: fundingSource, advanceBalance }) }
-        }));
-      }
       setLoading(true);
-      for (const command of commands) {
-        const updated = await ledgerFetch(command.url, command.body);
-        if (onUpdate) onUpdate(updated.plan || updated);
-      }
       setShowPaymentModal(false);
-      setPendingPaymentData(null);
-      resetPaymentModal();
+      const token = localStorage.getItem('token');
+      const paymentData = paymentType ? {
+        payment_method_id: paymentType.id,
+        payment_method_name: paymentType.name
+      } : {};
+      if (discount > 0.001 && pendingPaymentData.type !== 'remaining') {
+        const target = payableTarget();
+        paymentData.amount = Math.max(0, Math.round((target - discount) * 100) / 100 || 0);
+      }
+
+      if (pendingPaymentData.type === 'service') {
+        // Оплата одной услуги
+        const response = await fetch(
+          `${API}/api/treatment-plans/${plan.id}/services/${pendingPaymentData.serviceId}/mark-paid`,
+          {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${token}`,
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(paymentData)
+          }
+        );
+
+        if (response.ok) {
+          const updatedPlan = await response.json();
+          if (onUpdate) {
+            onUpdate(updatedPlan);
+          }
+        } else {
+          alert('Ошибка при отметке оплаты');
+        }
+      } else if (pendingPaymentData.type === 'component') {
+        // Оплата одной услуги (доли) комплекса
+        const response = await fetch(
+          `${API}/api/treatment-plans/${plan.id}/complex-services/${pendingPaymentData.serviceId}/components/${pendingPaymentData.componentServiceId}/mark-paid`,
+          {
+            method: 'POST',
+            headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+            body: JSON.stringify(paymentData)
+          }
+        );
+        if (!response.ok) throw new Error('Ошибка при оплате услуги комплекса: ' + response.status);
+        const updated = await response.json();
+        if (onUpdate) onUpdate(updated);
+        alert('✅ Услуга комплекса оплачена');
+      } else if (pendingPaymentData.type === 'complex-remaining') {
+        const response = await fetch(
+          `${API}/api/treatment-plans/${plan.id}/complex-services/${pendingPaymentData.serviceId}/pay-remaining`,
+          {
+            method: 'POST',
+            headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+            body: JSON.stringify(paymentData)
+          }
+        );
+        if (!response.ok) throw new Error('Ошибка при оплате остатка: ' + response.status);
+        const updated = await response.json();
+        if (onUpdate) onUpdate(updated);
+        alert('✅ Комплекс оплачен полностью');
+      } else if (pendingPaymentData.type === 'remaining') {
+        // Оплата остатка - помечаем все неоплаченные услуги;
+        // скидка распределяется равномерно по неоплаченным простым услугам (по ТЗ)
+        const unpaidServices = plan.services.filter(s => s.payment_status !== 'paid');
+        const simpleUnpaid = unpaidServices.filter(s => !s.is_complex);
+        const discPer = simpleUnpaid.length && discount > 0.001
+          ? Math.round((discount / simpleUnpaid.length) * 100) / 100 : 0;
+
+        for (const service of unpaidServices) {
+          const pd = { ...paymentData };
+          if (discPer > 0.001 && !service.is_complex) {
+            pd.amount = Math.max(0, (service.total_price || 0) - discPer);
+          }
+          const response = await fetch(
+            `${API}/api/treatment-plans/${plan.id}/services/${service.service_id}/mark-paid`,
+            {
+              method: 'POST',
+              headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
+              },
+              body: JSON.stringify(pd)
+            }
+          );
+
+          if (!response.ok) {
+            throw new Error(`Ошибка при оплате услуги ${service.service_name}`);
+          }
+        }
+
+        // Обновляем план после оплаты всех услуг
+        const planResponse = await fetch(`${API}/api/treatment-plans/${plan.id}`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+
+        if (planResponse.ok) {
+          const updatedPlan = await planResponse.json();
+          if (onUpdate) {
+            onUpdate(updatedPlan);
+          }
+          alert(`✅ План лечения полностью оплачен! (${paymentType ? paymentType.name : 'без указания способа'})`);
+        }
+      }
     } catch (error) {
       console.error('Error executing payment:', error);
       alert('Ошибка при оплате: ' + error.message);
     } finally {
       setLoading(false);
+      setPendingPaymentData(null);
+      resetPaymentModal();
     }
   };
 
@@ -413,20 +398,54 @@ const ServicePaymentList = ({ plan, onUpdate, onEdit, paymentFilter = 'all', pro
   // Расчет баланса и долга
   // Если depositAmount >= totalAmount: есть остаток депозита
   // Если depositAmount < totalAmount: есть недоплата/долг
+  const usedFromDeposit = Math.min(depositAmount, totalAmount);
+  const depositBalance = depositAmount > totalAmount ? depositAmount - totalAmount : 0;
   const depositDebt = depositAmount < totalAmount ? totalAmount - depositAmount : 0;
   // remainingToPay - сумма неоплаченных услуг (без учёта депозита)
   const remainingToPay = Math.max(0, totalAmount - paidAmount);
   // actualRemainingToPay - реальная сумма к доплате с учётом депозита
   // Если есть депозит и он покрывает часть суммы, показываем только недостающую часть
-  const actualRemainingToPay = remainingToPay;
+  const actualRemainingToPay = depositAmount > 0
+    ? Math.max(0, totalAmount - paidAmount - depositAmount)  // Учитываем депозит
+    : remainingToPay;  // Если нет депозита, показываем полную сумму
 
   // Функция для добавления доплаты из кассы
   const addDepositPayment = async (amount) => {
-    if (resumePayment('deposit', undefined)) return;
-    resetPaymentModal();
-    setPendingPaymentData({ type: 'deposit', operation_id: crypto.randomUUID() });
-    setActualAmount(amount || '');
-    setShowPaymentModal(true);
+    try {
+      setLoading(true);
+      const token = localStorage.getItem('token');
+      const response = await fetch(
+        `${API}/api/treatment-plans/${plan.id}/add-deposit`,
+        {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            amount: amount,
+            payment_method: 'cash',
+            note: 'Доплата из кассы для покрытия плана лечения'
+          })
+        }
+      );
+
+      if (response.ok) {
+        const result = await response.json();
+        if (onUpdate && result.plan) {
+          onUpdate(result.plan);
+        }
+        alert(`✅ Доплата ${amount.toLocaleString()} ₸ успешно добавлена!`);
+      } else {
+        const error = await response.json();
+        alert('Ошибка: ' + (error.detail || 'Не удалось добавить доплату'));
+      }
+    } catch (error) {
+      console.error('Error adding deposit payment:', error);
+      alert('Ошибка при добавлении доплаты: ' + error.message);
+    } finally {
+      setLoading(false);
+    }
   };
 
   // Компонент раскрывающейся секции
@@ -471,13 +490,10 @@ const ServicePaymentList = ({ plan, onUpdate, onEdit, paymentFilter = 'all', pro
   const payableTarget = () => {
     const pd = pendingPaymentData;
     if (!pd) return 0;
-    if (pd.type === 'deposit') return Number.MAX_SAFE_INTEGER;
-    if (pd.type === 'session') return pd.total;
-    if (allocations.length) return allocations.reduce((sum, target) => sum + target.total, 0);
     if (pd.type === 'component') {
       const svc = (plan.services || []).find(x => x.service_id === pd.serviceId);
       const sh = svc ? complexShares(svc).find(c => c.service_id === pd.componentServiceId) : null;
-      return sh ? Math.max(0, sh.share - Number(sh.paid_amount || 0) - Number(sh.discount_amount || 0)) : 0;
+      return sh ? sh.share : 0;
     }
     if (pd.type === 'complex-remaining') {
       const svc = (plan.services || []).find(x => x.service_id === pd.serviceId);
@@ -489,12 +505,12 @@ const ServicePaymentList = ({ plan, onUpdate, onEdit, paymentFilter = 'all', pro
     }
     if (pd.type === 'service') {
       const svc = (plan.services || []).find(x => x.service_id === pd.serviceId);
-      return svc ? Math.max(0, Number(svc.total_price || 0) - Number(svc.paid_amount || 0) - Number(svc.discount_amount || 0)) : 0;
+      return svc ? svc.total_price : 0;
     }
     return Math.max(0, (plan.total_cost || 0) - (plan.paid_amount || 0));
   };
 
-  const resetPaymentModal = () => { setSelectedPaymentType(null); setDiscountInput(''); setDiscountType('fixed'); setActualAmount(''); setFundingSource(''); setAllocations([]); };
+  const resetPaymentModal = () => { setSelectedPaymentType(null); setDiscountInput(''); setDiscountType('fixed'); };
 
   return (
     <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
@@ -649,10 +665,6 @@ const ServicePaymentList = ({ plan, onUpdate, onEdit, paymentFilter = 'all', pro
           ) : null}
 
           {/* Кнопка оплаты остатка если есть недоплата */}
-          <div className="mt-4 text-sm text-gray-600">
-            Аванс не начисляется врачу автоматически. Требуется явное распределение на услугу / компонент; расчет выполняет сервер.
-            <button type="button" onClick={() => addDepositPayment()} disabled={loading} className="ml-3 px-3 py-2 border rounded">Внести аванс</button>
-          </div>
           {actualRemainingToPay > 0 && (
             <div className="mt-4 pt-4 border-t border-gray-200">
               <div className="flex items-center justify-between">
@@ -721,7 +733,7 @@ const ServicePaymentList = ({ plan, onUpdate, onEdit, paymentFilter = 'all', pro
               // показанная сумма оплаты/скидки: для комплекса — из долей, для обычной — из услуги
               const paidShown = service.is_complex ? cPaid : (service.paid_amount || cTotal);
               const discShown = service.is_complex ? cDisc : (service.discount_amount || 0);
-              const paymentType = service.payment_type || service.course_payment_type || 'single';
+              const paymentType = service.payment_type || 'single';
               
               // Для курсов с поэтапной оплатой
               const isPerSession = isCourse && paymentType === 'per_session';
@@ -730,7 +742,6 @@ const ServicePaymentList = ({ plan, onUpdate, onEdit, paymentFilter = 'all', pro
                 : 0;
               const totalSessions = service.quantity_total || 1;
               const sessionPrice = service.price_per_unit || 0;
-              const sessionReceived = Number(service.paid_amount ?? (service.sessions || []).reduce((sum, session) => sum + Number(session.paid_amount ?? session.actual_amount_kzt ?? 0), 0));
               
               return (
             <div
@@ -829,10 +840,10 @@ const ServicePaymentList = ({ plan, onUpdate, onEdit, paymentFilter = 'all', pro
                         <div className="text-right">
                           <div className="text-xs text-gray-500 font-medium mb-1">ОПЛАЧЕНО ДЕНЕГ</div>
                           <div className="text-xl font-bold text-green-600">
-                            {sessionReceived.toLocaleString()} ₸
+                            {(paidSessions * sessionPrice).toLocaleString()} ₸
                           </div>
                           <div className="text-xs text-gray-500">
-                            осталось {Math.max(0, totalSessions * sessionPrice - sessionReceived).toLocaleString()} ₸
+                            осталось {((totalSessions - paidSessions) * sessionPrice).toLocaleString()} ₸
                           </div>
                         </div>
                       </div>
@@ -855,7 +866,7 @@ const ServicePaymentList = ({ plan, onUpdate, onEdit, paymentFilter = 'all', pro
                     <div className="flex justify-end">
                       {paidSessions < totalSessions ? (
                         <button
-                          onClick={() => markSessionPaidForService(service)}
+                          onClick={() => markSessionPaidForService(plan.id, service.service_id, paidSessions)}
                           disabled={loading}
                           className="px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed font-medium transition-all shadow-md hover:shadow-lg"
                         >
@@ -990,7 +1001,7 @@ const ServicePaymentList = ({ plan, onUpdate, onEdit, paymentFilter = 'all', pro
       <PaymentModal
         show={showPaymentModal}
         loading={loading}
-        onClose={() => { if (!loading) setShowPaymentModal(false); }}
+        onClose={() => { resetPaymentModal(); setShowPaymentModal(false); }}
         paymentTypes={paymentTypes}
         loadingPaymentTypes={loadingPaymentTypes}
         selectedPaymentType={selectedPaymentType}
@@ -1000,14 +1011,6 @@ const ServicePaymentList = ({ plan, onUpdate, onEdit, paymentFilter = 'all', pro
         discountType={discountType}
         setDiscountType={setDiscountType}
         total={payableTarget()}
-        actualAmount={actualAmount}
-        setActualAmount={setActualAmount}
-        fundingSource={fundingSource}
-        setFundingSource={setFundingSource}
-        allocations={allocations}
-        setAllocations={setAllocations}
-        isAdvance={pendingPaymentData?.type === 'deposit'}
-        isSession={pendingPaymentData?.type === 'session'}
         onPay={(pType, d) => executePayment(pType, d)}
       />
     </div>

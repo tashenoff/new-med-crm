@@ -64,40 +64,65 @@ const makePlan = id => ({ id, title: 'План', created_at: '2026-01-01', total
   services: [{ service_id: 'service', name: 'Услуга', total_price: 1000, quantity_total: 2, quantity_completed: 0, payment_status: 'unpaid' }] });
 const button = (container, text) => [...container.querySelectorAll('button')].find(element => element.textContent.includes(text));
 
-test('service UI requires funding and actual amount; partial receipt/discount retries keep operation ID', async context => {
-  const plan = makePlan('service-ui');
-  let attempts = 0;
-  const ui = await mount(context, ServicePaymentList, { plan }, (url, body) => {
+test('laboratory analysis creation projects standalone services without inherited doctor assignments', async () => {
+  const source = await readFile(new URL('../src/components/modals/PatientModal.js', import.meta.url), 'utf8');
+  const start = source.indexOf('const handleAddLabAnalyzes = async (items) => {');
+  const end = source.indexOf('const handleSaveTreatmentPlan =', start);
+  assert.ok(start >= 0 && end > start);
+  const requests = [];
+  const refreshes = [];
+  const handleAdd = new Function('editingItem', 'localStorage', 'API', 'fetch', 'fetchTreatmentPlans',
+    'refreshTreatmentPlans', 'showSuccess', 'alert', `${source.slice(start, end)}; return handleAddLabAnalyzes;`)(
+    { id: 'patient', doctor_id: 'patient-doctor' }, { getItem: () => 'token' }, 'http://localhost',
+    async (url, options) => { requests.push({ url, options, body: JSON.parse(options.body) }); return { ok: true }; },
+    () => refreshes.push('plans'), () => refreshes.push('payments'), () => {}, assert.fail);
+  await handleAdd([{ id: 'analysis', service_name: 'Анализ крови', price: 1000, laboratory_id: 'lab',
+    laboratory_name: 'Лаборатория', doctor_id: 'catalog-doctor', doctor_name: 'Врач',
+    doctors: [{ doctor_id: 'catalog-doctor' }], assigned_doctor_id: 'assigned-doctor' }]);
+  assert.equal(requests.length, 1);
+  assert.equal(requests[0].url, 'http://localhost/api/patients/patient/treatment-plans');
+  assert.equal(requests[0].options.method, 'POST');
+  assert.deepEqual(requests[0].body.services, [{ service_id: 'analysis', service_name: 'Анализ крови',
+    category: 'Лаборатория', unit: 'анализ', unit_price: 1000, price: 1000, quantity: 1, total_price: 1000,
+    laboratory_id: 'lab', laboratory_name: 'Лаборатория' }]);
+  assert.deepEqual(requests[0].body.appointment_ids, []);
+  assert.equal(requests[0].body.doctor_id, undefined);
+  assert.equal(requests[0].body.total_cost, 1000);
+  assert.deepEqual(refreshes, ['plans', 'payments']);
+});
+
+test('doctor-free analysis payment keeps payment-type selection and fixed discount without ledger fields', async context => {
+  const plan = makePlan('analysis-fixed');
+  plan.services[0] = { service_id: 'analysis', service_name: 'Анализ крови', unit: 'анализ', laboratory_id: 'lab', total_price: 1000, payment_status: 'unpaid' };
+  const updated = [];
+  const ui = await mount(context, ServicePaymentList, { plan, onUpdate: value => updated.push(value) }, (url, body) => {
     if (url.includes('payment-types')) return [{ id: 'cash', name: 'Касса' }];
-    if (!body) return null;
-    attempts++;
-    return attempts === 1 ? { ok: false, data: { detail: 'retry' } } : plan;
+    return body ? plan : null;
   });
   await ui.click(ui.container.querySelector('button'));
   await ui.click([...ui.container.querySelectorAll('button')].filter(element => element.textContent.includes('Оплатить')).at(-1));
-  const pay = () => button(ui.container, 'Оплатить 1');
-  await ui.click(pay());
-  assert.equal(ui.requests.filter(request => request.body).length, 0);
-  await ui.change(ui.container.querySelector('[aria-label="Источник оплаты"]'), 'cash');
+  assert.ok(ui.requests.some(request => request.url.endsWith('/api/payment-types')));
+  assert.equal(ui.container.querySelector('[aria-label="Источник оплаты"]'), null);
+  assert.equal(ui.container.querySelector('[aria-label="Фактически получено, ₸"]'), null);
+  assert.equal(ui.container.querySelector('[aria-label^="Сумма распределения"]'), null);
   await ui.click(ui.container.querySelector('input[type="radio"]'));
-  await ui.change(ui.container.querySelector('[aria-label="Фактически получено, ₸"]'), '800');
   await ui.change(ui.container.querySelector('input[placeholder="Сумма скидки, ₸"]'), '100');
-  await ui.click(button(ui.container, 'Оплатить 8'));
-  await ui.click(button(ui.container, 'Оплатить 8'));
+  await ui.click(button(ui.container, 'Оплатить 900'));
   const requests = ui.requests.filter(request => request.body);
-  assert.equal(requests.length, 2);
-  assert.equal(requests[0].body.amount, 800);
-  assert.equal(requests[0].body.discount_amount, 100);
-  assert.equal(requests[0].body.funding_source, 'cash');
-  assert.equal(requests[0].body.operation_id, requests[1].body.operation_id);
+  assert.equal(requests.length, 1);
+  assert.ok(requests[0].url.endsWith('/api/treatment-plans/analysis-fixed/services/analysis/mark-paid'));
+  assert.equal(requests[0].options.method, 'POST');
+  assert.deepEqual(requests[0].body, { payment_method_id: 'cash', payment_method_name: 'Касса', amount: 900 });
+  assert.deepEqual(updated, [plan]);
 });
 
-test('advance never hides the explicit remaining service allocation; add-deposit is a plan advance only', async context => {
-  const ui = await mount(context, ServicePaymentList, { plan: makePlan('advance-ui') });
+test('existing deposit covering the plan hides remaining debt without new advance controls', async context => {
+  const ui = await mount(context, ServicePaymentList, { plan: makePlan('covered-deposit') });
   await ui.click(ui.container.querySelector('button'));
-  assert.ok(button(ui.container, 'Оплатить остаток'));
-  assert.ok(button(ui.container, 'Внести аванс'));
-  assert.match(ui.container.textContent, /не начисляется/i);
+  assert.equal(button(ui.container, 'Оплатить остаток'), undefined);
+  assert.equal(button(ui.container, 'Внести аванс'), undefined);
+  assert.doesNotMatch(ui.container.textContent, /начисляется|распределение/i);
+  assert.equal(ui.requests.filter(request => request.body).length, 0);
 });
 
 test('procedure completion retries carry stable occurrence and operation IDs', async context => {
@@ -224,88 +249,82 @@ test('appointment modal purpose is a required explicit receipt choice and histor
   assert.equal(saved[1].operation_id, saved[2].operation_id);
 });
 
-test('complex remaining payments require exact component amounts and partial-batch retry does not repay acknowledged components', async context => {
+test('complex payments retain component and remaining endpoints without allocation writers', async context => {
   const plan = makePlan('complex-batch');
   plan.services[0] = { ...plan.services[0], is_complex: true, price: 1000, quantity: 1,
     components: [{ service_id: 'first', name: 'Первая', price: 600 }, { service_id: 'second', name: 'Вторая', price: 400 }] };
-  const writes = [];
-  let failSecond = true;
   const ui = await mount(context, ServicePaymentList, { plan }, (url, body) => {
     if (url.includes('payment-types')) return [{ id: 'cash', name: 'Касса' }];
-    if (!body) return null;
-    writes.push({ url, body });
-    return url.includes('/second/') && failSecond ? { ok: false, data: { detail: 'retry' } } : plan;
+    return body ? plan : null;
   });
   await ui.click(ui.container.querySelector('button'));
+  await ui.click(button(ui.container, 'Оплатить'));
+  await ui.click(ui.container.querySelector('input[type="radio"]'));
+  await ui.change(ui.container.querySelector('input[placeholder="Сумма скидки, ₸"]'), '100');
+  await ui.click(button(ui.container, 'Оплатить 500'));
   await ui.click(button(ui.container, 'Оплатить всё'));
-  await ui.change(ui.container.querySelector('[aria-label="Источник оплаты"]'), 'cash');
   await ui.click(ui.container.querySelector('input[type="radio"]'));
+  assert.equal(ui.container.querySelector('[aria-label^="Сумма распределения"]'), null);
   await ui.click(button(ui.container, 'Оплатить 1'));
-  assert.equal(writes.length, 0);
-  await ui.change(ui.container.querySelector('[aria-label="Сумма распределения service:first"]'), '500');
-  await ui.change(ui.container.querySelector('[aria-label="Сумма распределения service:second"]'), '300');
-  await ui.click(button(ui.container, 'Оплатить 1'));
-  failSecond = false;
-  await ui.click(button(ui.container, 'Оплатить 1'));
-  assert.equal(writes.length, 3);
-  assert.equal(writes.filter(write => write.url.includes('/first/')).length, 1);
-  assert.equal(writes[0].body.amount, 500);
-  assert.equal(writes[1].body.amount, 300);
-  assert.equal(writes[1].body.operation_id, writes[2].body.operation_id);
-  assert.notEqual(writes[0].body.operation_id, writes[1].body.operation_id);
-});
-
-test('advance deposit receipt has explicit purpose and operation ID; closing/reopening failed payment preserves request', async context => {
-  const plan = makePlan('deposit-retry');
-  const ui = await mount(context, ServicePaymentList, { plan }, (url, body) => url.includes('payment-types')
-    ? [{ id: 'cash', name: 'Касса' }] : body ? { ok: false, data: { detail: 'retry' } } : null);
-  await ui.click(ui.container.querySelector('button'));
-  await ui.click(button(ui.container, 'Внести аванс'));
-  await ui.change(ui.container.querySelector('[aria-label="Источник оплаты"]'), 'cash');
-  await ui.click(ui.container.querySelector('input[type="radio"]'));
-  await ui.change(ui.container.querySelector('[aria-label="Фактически получено, ₸"]'), '200');
-  await ui.click(button(ui.container, 'Оплатить 2'));
-  await ui.click(button(ui.container, '×'));
-  await ui.click(button(ui.container, 'Внести аванс'));
-  assert.equal(ui.container.querySelector('[aria-label="Фактически получено, ₸"]').value, '200');
-  await ui.click(button(ui.container, 'Оплатить 2'));
   const writes = ui.requests.filter(request => request.body);
   assert.equal(writes.length, 2);
-  assert.equal(writes[0].body.payment_purpose, 'plan_advance');
-  assert.equal(writes[0].body.amount, 200);
-  assert.equal(writes[0].body.operation_id, writes[1].body.operation_id);
-  assert.ok(writes.every(write => write.url.endsWith('/add-deposit')));
+  assert.ok(writes[0].url.endsWith('/complex-services/service/components/first/mark-paid'));
+  assert.deepEqual(writes[0].body, { payment_method_id: 'cash', payment_method_name: 'Касса', amount: 500 });
+  assert.ok(writes[1].url.endsWith('/complex-services/service/pay-remaining'));
+  assert.deepEqual(writes[1].body, { payment_method_id: 'cash', payment_method_name: 'Касса' });
 });
 
-test('course receipt summary uses actual server amount and remaining plan payments target stable sessions', async context => {
+test('partial existing deposit retains remaining debt payment and plan refresh without new deposit receipts', async context => {
+  const plan = { ...makePlan('partial-deposit'), deposit_amount: 400 };
+  const updated = [];
+  const ui = await mount(context, ServicePaymentList, { plan, onUpdate: value => updated.push(value) }, url => url.includes('payment-types')
+    ? [{ id: 'cash', name: 'Касса' }] : url.endsWith('/partial-deposit') ? plan : null);
+  await ui.click(ui.container.querySelector('button'));
+  assert.match(button(ui.container, 'Оплатить остаток').textContent, /600\s*₸/);
+  assert.equal(button(ui.container, 'Внести аванс'), undefined);
+  await ui.click(button(ui.container, 'Оплатить остаток'));
+  await ui.click(ui.container.querySelector('input[type="radio"]'));
+  await ui.click(button(ui.container, 'Оплатить 1'));
+  const writes = ui.requests.filter(request => request.body);
+  assert.equal(writes.length, 1);
+  assert.ok(writes[0].url.endsWith('/services/service/mark-paid'));
+  assert.deepEqual(writes[0].body, { payment_method_id: 'cash', payment_method_name: 'Касса' });
+  assert.equal(ui.requests.some(request => request.url.endsWith('/add-deposit')), false);
+  assert.deepEqual(updated, [plan]);
+});
+
+test('existing per-session course summary retains paid-session pricing without accounting amounts', async context => {
   const plan = makePlan('session-summary');
-  plan.services[0] = { ...plan.services[0], is_course: true, course_payment_type: 'per_session', price_per_unit: 1000,
+  plan.services[0] = { ...plan.services[0], is_course: true, payment_type: 'per_session', price_per_unit: 1000,
     sessions: [{ session_id: 'paid-session', paid: true, paid_amount: 250 }, { session_id: 'unpaid-session', paid: false }] };
   const ui = await mount(context, ServicePaymentList, { plan }, url => url.includes('payment-types') ? [{ id: 'cash', name: 'Касса' }] : null);
   await ui.click(ui.container.querySelector('button'));
-  assert.match(ui.container.textContent, /250\s*₸/);
-  await ui.click(button(ui.container, 'Оплатить остаток'));
-  assert.ok(ui.container.querySelector('[aria-label="Сумма распределения service:unpaid-session"]'));
-  assert.equal(Boolean(ui.container.querySelector('input[placeholder="Сумма скидки, ₸"]')), false);
+  assert.match(ui.container.textContent, /ОПЛАЧЕНО ДЕНЕГ1\s*000\s*₸/);
+  assert.match(ui.container.textContent, /осталось 1\s*000\s*₸/);
+  assert.doesNotMatch(ui.container.textContent, /250\s*₸/);
+  assert.ok(button(ui.container, 'Оплатить 1 процедуру'));
+  assert.equal(ui.requests.filter(request => request.body).length, 0);
 });
 
-test('explicit advance allocations require server-reported unallocated balance and never create a new cash receipt', async context => {
-  const plan = makePlan('advance-allocation');
-  plan.advance_balance_kzt = 300;
+test('doctor-free analysis payment retains percent discounts and resets modal choices on close', async context => {
+  const plan = makePlan('analysis-percent');
+  plan.services[0] = { service_id: 'analysis', service_name: 'Анализ крови', unit: 'анализ', laboratory_id: 'lab', total_price: 1000, payment_status: 'unpaid' };
   const ui = await mount(context, ServicePaymentList, { plan }, (url, body) => url.includes('payment-types') ? [{ id: 'cash', name: 'Касса' }] : body ? plan : null);
   await ui.click(ui.container.querySelector('button'));
   await ui.click([...ui.container.querySelectorAll('button')].filter(element => element.textContent.includes('Оплатить')).at(-1));
-  await ui.change(ui.container.querySelector('[aria-label="Источник оплаты"]'), 'cash');
   await ui.click(ui.container.querySelector('input[type="radio"]'));
-  await ui.change(ui.container.querySelector('[aria-label="Источник оплаты"]'), 'plan_advance');
-  await ui.change(ui.container.querySelector('[aria-label="Фактически получено, ₸"]'), '400');
-  await ui.click(button(ui.container, 'Оплатить 4'));
+  await ui.click(button(ui.container, '%'));
+  await ui.change(ui.container.querySelector('input[placeholder="Процент скидки"]'), '25');
+  await ui.click(button(ui.container, '×'));
   assert.equal(ui.requests.filter(request => request.body).length, 0);
-  await ui.change(ui.container.querySelector('[aria-label="Фактически получено, ₸"]'), '200');
-  await ui.click(button(ui.container, 'Оплатить 2'));
+  await ui.click([...ui.container.querySelectorAll('button')].filter(element => element.textContent.includes('Оплатить')).at(-1));
+  assert.equal(ui.container.querySelector('input[type="radio"]').checked, false);
+  assert.equal(ui.container.querySelector('input[placeholder="Сумма скидки, ₸"]').value, '');
+  await ui.click(ui.container.querySelector('input[type="radio"]'));
+  await ui.click(button(ui.container, '%'));
+  await ui.change(ui.container.querySelector('input[placeholder="Процент скидки"]'), '25');
+  await ui.click(button(ui.container, 'Оплатить 750'));
   const write = ui.requests.find(request => request.body);
-  assert.equal(write.body.funding_source, 'plan_advance');
-  assert.equal(write.body.amount, 200);
-  assert.equal(write.body.payment_method_id, undefined);
-  assert.ok(write.body.operation_id);
+  assert.ok(write.url.endsWith('/services/analysis/mark-paid'));
+  assert.deepEqual(write.body, { payment_method_id: 'cash', payment_method_name: 'Касса', amount: 750 });
 });
