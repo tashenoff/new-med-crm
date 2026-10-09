@@ -117,7 +117,7 @@ test('doctor-free analysis payment keeps payment-type selection and fixed discou
 });
 
 test('existing deposit covering the plan hides remaining debt without new advance controls', async context => {
-  const ui = await mount(context, ServicePaymentList, { plan: makePlan('covered-deposit') });
+  const ui = await mount(context, ServicePaymentList, { plan: { ...makePlan('covered-deposit'), paid_amount: 1000 } });
   await ui.click(ui.container.querySelector('button'));
   assert.equal(button(ui.container, 'Оплатить остаток'), undefined);
   assert.equal(button(ui.container, 'Внести аванс'), undefined);
@@ -267,7 +267,7 @@ test('complex payments retain component and remaining endpoints without allocati
     return body ? plan : null;
   });
   await ui.click(ui.container.querySelector('button'));
-  await ui.click(button(ui.container, 'Оплатить'));
+  await ui.click([...ui.container.querySelectorAll('button')].find(element => element.textContent.trim() === 'Оплатить'));
   await ui.click(ui.container.querySelector('input[type="radio"]'));
   await ui.change(ui.container.querySelector('input[placeholder="Сумма скидки, ₸"]'), '100');
   await ui.click(button(ui.container, 'Оплатить 500'));
@@ -284,7 +284,7 @@ test('complex payments retain component and remaining endpoints without allocati
 });
 
 test('partial existing deposit retains remaining debt payment and plan refresh without new deposit receipts', async context => {
-  const plan = { ...makePlan('partial-deposit'), deposit_amount: 400 };
+  const plan = { ...makePlan('partial-deposit'), deposit_amount: 400, paid_amount: 400 };
   const updated = [];
   const ui = await mount(context, ServicePaymentList, { plan, onUpdate: value => updated.push(value) }, url => url.includes('payment-types')
     ? [{ id: 'cash', name: 'Касса' }] : url.endsWith('/partial-deposit') ? plan : null);
@@ -293,7 +293,7 @@ test('partial existing deposit retains remaining debt payment and plan refresh w
   assert.equal(button(ui.container, 'Внести аванс'), undefined);
   await ui.click(button(ui.container, 'Оплатить остаток'));
   await ui.click(ui.container.querySelector('input[type="radio"]'));
-  await ui.click(button(ui.container, 'Оплатить 1'));
+  await ui.click(button(ui.container, 'Оплатить 600'));
   const writes = ui.requests.filter(request => request.body);
   assert.equal(writes.length, 1);
   assert.ok(writes[0].url.endsWith('/services/service/mark-paid'));
@@ -336,4 +336,33 @@ test('doctor-free analysis payment retains percent discounts and resets modal ch
   const write = ui.requests.find(request => request.body);
   assert.ok(write.url.endsWith('/services/analysis/mark-paid'));
   assert.deepEqual(write.body, { payment_method_id: 'cash', payment_method_name: 'Касса', amount: 750 });
+});
+
+test('ordinary service paid_amount renders partial payment and only the remaining balance', async context => {
+  const plan = makePlan('ordinary-partial-payment');
+  plan.total_cost = 2500;
+  plan.paid_amount = 2000;
+  plan.services[0] = { ...plan.services[0], total_price: 2500, paid_amount: 2000, payment_status: 'unpaid' };
+  const ui = await mount(context, ServicePaymentList, { plan });
+  await ui.click(ui.container.querySelector('button'));
+  assert.match(ui.container.textContent, /Частично/);
+  assert.match(ui.container.textContent, /2\s*000 \/ 2\s*500\s*₸/);
+  assert.ok(button(ui.container, 'Оплатить500 ₸'), 'service offers payment of the remaining 500 ₸');
+  assert.equal([...ui.container.querySelectorAll('button')].some(element => /Оплатить\s*2\s*500\s*₸/.test(element.textContent)), false);
+});
+
+test('missing plan paid_amount keeps ordinary partial payment debt at 500 after expansion', async context => {
+  const plan = makePlan('missing-plan-paid-amount');
+  delete plan.paid_amount;
+  plan.total_cost = 2500;
+  plan.services[0] = { ...plan.services[0], total_price: 2500, paid_amount: 2000, payment_status: 'unpaid' };
+  const ui = await mount(context, ServicePaymentList, { plan });
+  await ui.click(ui.container.querySelector('button'));
+  assert.match(ui.container.textContent, /Частично/);
+  assert.match(ui.container.textContent, /2\s*000 \/ 2\s*500\s*₸/);
+  assert.ok(button(ui.container, 'Оплатить500 ₸'), 'service offers payment of the remaining 500 ₸');
+  const remaining = button(ui.container, 'Оплатить остаток');
+  assert.ok(remaining, 'summary offers remaining debt payment');
+  assert.match(remaining.textContent, /500\s*₸/);
+  assert.doesNotMatch(remaining.textContent, /2\s*500\s*₸/);
 });

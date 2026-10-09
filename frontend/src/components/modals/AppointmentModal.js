@@ -1,3 +1,4 @@
+import { paymentSummary } from '../../utils/paymentBalances';
 import React, { useState, useEffect, useRef } from 'react';
 import { appointmentPayment } from '../../utils/accountingLedger';
 import SignatureCanvas from 'react-signature-canvas';
@@ -17,11 +18,9 @@ import { CONSENT_DOCUMENTS, getRequiredConsents } from '../../config/consentDocu
 
 // Сводка оплаты по всем планам лечения (вкладка «Оплата» в календаре — дубль из карточки пациента)
 const PaymentSummary = ({ plans }) => {
-  const totalAmount = plans.reduce((sum, p) => sum + (p.total_cost || 0), 0);
-  const paidAmount = plans.reduce((sum, p) => sum + (p.paid_amount || 0), 0);
+  const { totalAmount, paidAmount, remainingToPay, depositPaid, otherPaid, known } = paymentSummary(plans);
   const totalServices = plans.reduce((sum, p) => sum + (p.services?.length || 0), 0);
   const paidServices = plans.reduce((sum, p) => sum + (p.services?.filter(s => s.payment_status === 'paid' || (s.is_complex && (s.paid_amount || 0) > 0)).length || 0), 0);
-  const remainingToPay = Math.max(0, totalAmount - paidAmount);
   const paymentProgress = totalAmount > 0 ? Math.round((paidAmount / totalAmount) * 100) : 0;
   return (
     <div className="p-5 bg-white rounded-xl border border-gray-200 shadow-sm">
@@ -34,6 +33,10 @@ const PaymentSummary = ({ plans }) => {
         <div className="text-center p-3 bg-green-50 rounded-lg border border-green-200">
           <div className="text-xs text-green-600 uppercase tracking-wide font-medium">✅ Оплачено</div>
           <div className="text-2xl font-bold text-green-600 mt-1">{paidAmount.toLocaleString()} ₸</div>
+            <div className="text-xs text-green-600 mt-1">
+              Из них депозитом: {depositPaid.toLocaleString()} ₸{!known && ' (ledger: сумма неизвестна)'}
+              {known && <> · Другие платежи: {otherPaid.toLocaleString()} ₸</>}
+            </div>
           {paidAmount > 0 && (
             <div className="text-xs text-green-500 mt-1">{paidServices} из {totalServices} услуг</div>
           )}

@@ -1,3 +1,4 @@
+import { discountedPaymentAmount } from '../../utils/paymentBalances';
 import React, { useState, useEffect } from 'react';
 import { FaChevronDown, FaChevronRight, FaStethoscope, FaClipboardList, FaNotesMedical, FaUserMd, FaFileMedical, FaCreditCard } from 'react-icons/fa';
 
@@ -249,7 +250,10 @@ const ServicePaymentList = ({ plan, onUpdate, onEdit, paymentFilter = 'all', pro
       } : {};
       if (discount > 0.001 && pendingPaymentData.type !== 'remaining') {
         const target = payableTarget();
-        paymentData.amount = Math.max(0, Math.round((target - discount) * 100) / 100 || 0);
+        const svc = pendingPaymentData.type === 'service'
+          ? plan.services.find(s => s.service_id === pendingPaymentData.serviceId) : null;
+        // Backend amount is the full discounted obligation, including prior financing.
+        paymentData.amount = discountedPaymentAmount(target, discount, svc?.paid_amount || 0);
       }
 
       if (pendingPaymentData.type === 'service') {
@@ -383,9 +387,12 @@ const ServicePaymentList = ({ plan, onUpdate, onEdit, paymentFilter = 'all', pro
   // Подсчет статистики оплаты
   const paidServices = plan.services.filter(s => s.payment_status === 'paid').length;
   const totalServices = plan.services.length;
-  const paidAmount = plan.services
-    .filter(s => s.payment_status === 'paid')
-    .reduce((sum, s) => sum + (s.total_price || 0), 0);
+  const paidAmount = typeof plan.paid_amount === 'number'
+    ? plan.paid_amount
+    : plan.services.reduce((sum, service) => sum + (service.paid_amount
+      ?? (service.payment_status === 'paid'
+        ? (service.total_price || 0) - (service.discount_amount || 0)
+        : 0)), 0);
   const totalAmount = plan.total_cost || 0;
   const paymentProgress = totalAmount > 0 ? Math.round((paidAmount / totalAmount) * 100) : 0;
   
@@ -403,11 +410,8 @@ const ServicePaymentList = ({ plan, onUpdate, onEdit, paymentFilter = 'all', pro
   const depositDebt = depositAmount < totalAmount ? totalAmount - depositAmount : 0;
   // remainingToPay - сумма неоплаченных услуг (без учёта депозита)
   const remainingToPay = Math.max(0, totalAmount - paidAmount);
-  // actualRemainingToPay - реальная сумма к доплате с учётом депозита
-  // Если есть депозит и он покрывает часть суммы, показываем только недостающую часть
-  const actualRemainingToPay = depositAmount > 0
-    ? Math.max(0, totalAmount - paidAmount - depositAmount)  // Учитываем депозит
-    : remainingToPay;  // Если нет депозита, показываем полную сумму
+  // paidAmount already includes applied deposit funding.
+  const actualRemainingToPay = remainingToPay;
 
   // Функция для добавления доплаты из кассы
   const addDepositPayment = async (amount) => {
@@ -505,7 +509,7 @@ const ServicePaymentList = ({ plan, onUpdate, onEdit, paymentFilter = 'all', pro
     }
     if (pd.type === 'service') {
       const svc = (plan.services || []).find(x => x.service_id === pd.serviceId);
-      return svc ? svc.total_price : 0;
+      return svc ? Math.max(0, (svc.total_price || 0) - (svc.discount_amount || 0) - (svc.paid_amount || 0)) : 0;
     }
     return Math.max(0, (plan.total_cost || 0) - (plan.paid_amount || 0));
   };
@@ -722,14 +726,14 @@ const ServicePaymentList = ({ plan, onUpdate, onEdit, paymentFilter = 'all', pro
               const isCourse = service.is_course;
               // для комплексной услуги — фактические остаток/общая по оплаченным долям
               const cShares = service.is_complex ? complexShares(service) : [];
-              const cPaid = cShares.reduce((a, x) => a + (x.paid_amount || 0), 0);
+              const cPaid = service.is_complex ? cShares.reduce((a, x) => a + (x.paid_amount || 0), 0) : (service.paid_amount || 0);
               const cTotal = service.total_price || 0;
               // скидка при оплате учитывается: долг = цена − сумма скидок − оплачено
-              const cDisc = cShares.reduce((a, x) => a + (x.discount_amount || 0), 0);
+              const cDisc = service.is_complex ? cShares.reduce((a, x) => a + (x.discount_amount || 0), 0) : (service.discount_amount || 0);
               const cDue = Math.max(0, cTotal - cDisc);
               const cRemaining = Math.max(0, cDue - cPaid);
               const cFully = cRemaining <= 0.001;
-              const isPartially = service.is_complex && cPaid > 0 && !cFully;
+              const isPartially = cPaid > 0 && !cFully;
               // показанная сумма оплаты/скидки: для комплекса — из долей, для обычной — из услуги
               const paidShown = service.is_complex ? cPaid : (service.paid_amount || cTotal);
               const discShown = service.is_complex ? cDisc : (service.discount_amount || 0);
@@ -953,7 +957,7 @@ const ServicePaymentList = ({ plan, onUpdate, onEdit, paymentFilter = 'all', pro
                     )}
 
                     {/* Кнопка оплаты (для комплекса — «Оплатить всё» за остаток) */}
-                    {!isPaid && !(service.is_complex && cFully) && (
+                    {!isPaid && !cFully && (
                       <div className="flex justify-end pt-2">
                         <button
                           onClick={() => service.is_complex
@@ -969,7 +973,7 @@ const ServicePaymentList = ({ plan, onUpdate, onEdit, paymentFilter = 'all', pro
                               <span>💳</span>
                               <span>{service.is_complex ? 'Оплатить всё' : 'Оплатить'}</span>
                               <span className="ml-2 px-2 py-0.5 bg-blue-700 rounded text-sm">
-                                {(service.is_complex ? cRemaining : service.total_price || 0).toLocaleString()} ₸
+                                {cRemaining.toLocaleString()} ₸
                               </span>
                             </>
                           )}
