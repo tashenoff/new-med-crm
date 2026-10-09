@@ -273,7 +273,7 @@ const ServicePaymentList = ({ plan, onUpdate, onEdit, paymentFilter = 'all', pro
               ...(paymentType?.name ? { payment_method_name: paymentType.name } : {})
             }
           );
-          if (onUpdate) onUpdate(updatedPlan);
+          if (onUpdate) onUpdate(updatedPlan.plan || updatedPlan);
         } else {
           const response = await fetch(
             `${API}/api/treatment-plans/${plan.id}/services/${pendingPaymentData.serviceId}/mark-paid`,

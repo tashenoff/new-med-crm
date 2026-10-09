@@ -101,13 +101,14 @@ test('consultation-sheet service without deposit sends a valid ledger receipt', 
     const validLedgerReceipt = body?.operation_id && url.endsWith('/api/treatment-plans/consultation-no-deposit/service-rows/consultation-row/receipts')
       && body.amount_kzt === 1000 && body.discount_amount_kzt === 0
       && body.payment_source === 'cash' && body.payment_method === 'cash' && body.payment_method_id === 'cash';
-    return { ok: Boolean(validLedgerReceipt), data: plan };
+    return { ok: Boolean(validLedgerReceipt), data: { event: { kind: 'service_receipt' }, plan } };
   });
   await ui.click(ui.container.querySelector('button'));
   await ui.click([...ui.container.querySelectorAll('button')].find(element => element.textContent.includes('Оплатить') && !element.textContent.includes('остаток')));
   await ui.click(ui.container.querySelector('input[type="radio"]'));
   await ui.click([...ui.container.querySelectorAll('button')].filter(element => element.textContent.includes('Оплатить')).at(-1));
   assert.equal(updated.length, 1, 'server should accept the ledger receipt');
+  assert.deepEqual(updated, [plan], 'the UI callback must receive the plan, not the event envelope');
   assert.equal(ui.alerts.length, 0);
   const request = ui.requests.find(item => item.body);
   assert.ok(request.url.endsWith('/api/treatment-plans/consultation-no-deposit/service-rows/consultation-row/receipts'));
