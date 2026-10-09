@@ -10,7 +10,7 @@ from services.accounting_ledger_service import ordinary_ledger_totals
 
 
 BLOCKER_DETAILS = {
-    "accounting_ledger_gap": "A plan row has no stable ledger identity, earning doctor or events. Unpaid/unlinked balances remain unresolved; no historical events are inferred.",
+    "accounting_ledger_gap": "A service target has no stable ledger identity or earning doctor, or stored payment, discount or completion evidence lacks matching ledger events. No historical events are inferred.",
     "invalid_accounting_event": "An accounting event failed snapshot/identity verification; no compensation was inferred.",
     "legacy_ledger_unavailable": "This plan has no accounting events. Legacy preview calculations are diagnostic only; payroll is blocked until the writer rollout is complete. No historical events are inferred.",
     "consultation_receipts_unavailable": "Appointments store price and ambiguous deposits, not identified consultation receipts. Percentage consultation pay cannot be calculated.",

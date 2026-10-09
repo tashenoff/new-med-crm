@@ -1264,10 +1264,6 @@ def ordinary_ledger_totals(plan, doctor_id, start, end):
                 payment_events_by_row.setdefault(payment_key, []).append(event)
             if start <= occurred.astimezone(timezone.utc) <= end:
                 revenue += float(amount)
-                if base_kind == "service_deposit_allocation":
-                    salary += float(stored_compensation or expected_compensation)
-                elif base_kind != "service_completion":
-                    salary += event["compensation_amount_kzt"]
         except (ValueError, KeyError, TypeError, HTTPException):
             blockers.append(dict(code="invalid_accounting_event", plan_id=plan.get("id"), event_id=event.get("event_id")))
     for parent in plan.get("services") or []:
@@ -1309,16 +1305,37 @@ def ordinary_ledger_totals(plan, doctor_id, start, end):
                     raise ValueError("Paid service has no stable occurrence identities")
                 fixed_amount = fixed_value * occurrence_count if kind in ("fixed", "hybrid") else 0
                 if start <= utc_datetime(last_payment["occurred_at"]) <= end:
-                    salary += float(Decimal(str(fixed_amount)).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP))
+                    commission = sum((money(event["compensation_amount_kzt"], "event compensation")
+                        or (money(compensation_amount(event["compensation_snapshot"], event["kind"],
+                            money(event["amount_kzt"], "event amount")), "calculated event compensation")
+                            if base_event_kind(event["kind"]) == "service_deposit_allocation" else Decimal("0"))
+                        for event in payments), Decimal("0"))
+                    salary += float(commission + Decimal(str(fixed_amount)).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP))
             except (ValueError, KeyError, TypeError, HTTPException):
                 blockers.append(dict(code="invalid_accounting_event", plan_id=plan.get("id"),
                                      service_row_id=parent.get("service_row_id"), component_id=component_id,
                                      session_id=session_id))
+    def has_stored_evidence(target):
+        return any(target.get(field) for field in (
+            "paid_amount", "paid", "paid_from_deposit", "cash_amount", "deposit",
+            "deposit_amount", "deposit_balance", "extra_deposit", "discount_amount", "completed",
+            "quantity_completed", "completed_units", "payment_date", "paid_at",
+            "completed_at", "completion_date")) or (
+                target.get("payment_status") in ("paid", "partially_paid", "part_paid")
+                or target.get("status") == "completed"
+                or target.get("execution_status") == "completed")
+
     for row in plan.get("services") or []:
         if row.get("is_complex") and row.get("components"):
             for component in row["components"]:
                 earner = component.get("doctor_id") or row.get("doctor_id") or plan.get("assigned_doctor_id")
                 if earner and earner != doctor_id:
+                    continue
+                if (earner and row.get("service_row_id") and component.get("component_id")
+                        and not has_stored_evidence(component) and not any(
+                            event.get("service_row_id") == row.get("service_row_id")
+                            and event.get("component_id") == component.get("component_id")
+                            for event in stored_events)):
                     continue
                 if not earner or not row.get("service_row_id") or not component.get("component_id") or not any(
                         event.get("service_row_id") == row.get("service_row_id")
@@ -1340,6 +1357,24 @@ def ordinary_ledger_totals(plan, doctor_id, start, end):
                 and event.get("compensation_snapshot") == resolve_snapshot(
                     dict(payment_type="percentage", payment_value=0), row.get("service_id"))
                 for event in stored_events):
+            continue
+        if row.get("is_course") or row.get("payment_type") == "per_session":
+            for session in row.get("sessions") or []:
+                session_id = session.get("session_id") or session.get("id")
+                session_earner = session.get("doctor_id") or earner
+                if session_earner and session_earner != doctor_id:
+                    continue
+                matching = [event for event in stored_events
+                            if event.get("service_row_id") == row.get("service_row_id")
+                            and event.get("session_id") == session_id]
+                if (has_stored_evidence(session) or matching) and (
+                        not session_earner or not row.get("service_row_id") or not session_id
+                        or not any(event.get("doctor_id") == doctor_id for event in matching)):
+                    blockers.append(dict(code="accounting_ledger_gap", plan_id=plan.get("id"),
+                                         service_row_id=row.get("service_row_id"), session_id=session_id))
+        if (earner and row.get("service_row_id") and not has_stored_evidence(row)
+                and not any(has_stored_evidence(session) for session in row.get("sessions") or [])
+                and not any(event.get("service_row_id") == row.get("service_row_id") for event in stored_events)):
             continue
         if not earner or not row.get("service_row_id") or not any(
                 event.get("service_row_id") == row.get("service_row_id") and event.get("doctor_id") == doctor_id
