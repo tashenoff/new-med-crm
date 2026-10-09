@@ -268,6 +268,8 @@ class ConsultationService:
         plan_dict = treatment_plan.dict()
         assign_ledger_identities(plan_dict["services"])
         await self.db.treatment_plans.insert_one(plan_dict)
+        from services.treatment_plan_service import TreatmentPlanService
+        await TreatmentPlanService(self.db).replay_appointment_deposits(consultation.patient_id)
     
     async def _update_treatment_plan_from_consultation(
         self,
@@ -312,6 +314,9 @@ class ConsultationService:
             if existing_plan:
                 for existing_service in existing_plan.get("services", []):
                     if existing_service.get("service_id") == ts.service_id:
+                        for key in ("service_row_id", "occurrence_ids"):
+                            if key in existing_service:
+                                service[key] = existing_service[key]
                         service["quantity_completed"] = existing_service.get("quantity_completed", 0)
                         service["status"] = existing_service.get("status", "pending")
                         service["payment_status"] = existing_service.get("payment_status", "unpaid")
@@ -355,6 +360,7 @@ class ConsultationService:
         
         if existing_plan:
             # Обновляем существующий план лечения
+            assign_ledger_identities(services)
             result = await self.db.treatment_plans.update_one(
                 {"id": existing_plan["id"], "services": existing_plan.get("services"),
                  "accounting_events.0": {"$exists": False},
@@ -400,6 +406,9 @@ class ConsultationService:
             plan_dict = treatment_plan.dict()
             assign_ledger_identities(plan_dict["services"])
             await self.db.treatment_plans.insert_one(plan_dict)
+
+        from services.treatment_plan_service import TreatmentPlanService
+        await TreatmentPlanService(self.db).replay_appointment_deposits(consultation.patient_id)
 
 
 consultation_service = ConsultationService()

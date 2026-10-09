@@ -28,6 +28,27 @@ BLOCKER_DETAILS = {
 
 
 class SalaryService:
+    @staticmethod
+    def _has_legacy_accounting_evidence(item):
+        """Only exempt untouched plans; never infer receipts or completions."""
+        amount_fields = (
+            "paid_amount", "paid_from_deposit", "cash_amount", "deposit",
+            "deposit_amount", "deposit_balance", "extra_deposit",
+            "quantity_completed", "completed_units",
+        )
+        date_fields = ("payment_date", "paid_at", "completed_at", "completion_date")
+        if (any(item.get(key) for key in amount_fields + date_fields)
+                or item.get("paid") or item.get("completed")
+                or item.get("payment_status") in ("paid", "partially_paid", "part_paid")
+                or item.get("status") == "completed"
+                or item.get("execution_status") == "completed"):
+            return True
+        return any(
+            SalaryService._has_legacy_accounting_evidence(child)
+            for key in ("services", "components", "sessions", "completions", "payments", "receipts")
+            for child in (item.get(key) or [])
+        )
+
     def __init__(self, db: AsyncIOMotorDatabase):
         self.db = db
         self.accounting_blockers = []
@@ -120,6 +141,8 @@ class SalaryService:
                 salary += event_salary
                 for blocker in blockers:
                     self._block(blocker["code"], doctor_id, **{key: value for key, value in blocker.items() if key != "code"})
+                continue
+            if not self._has_legacy_accounting_evidence(plan):
                 continue
             self._block("legacy_ledger_unavailable", doctor_id, plan_id=plan.get("id"))
             if (doctor.get("payment_mode") or "general") not in ("general", "individual"):

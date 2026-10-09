@@ -156,6 +156,40 @@ def report(modules, settings, plans=(), appointments=()):
     return asyncio.run(service.get_doctor_salary_report("2026-10-01", "2026-10-31"))
 
 
+def test_unpaid_unexecuted_plan_without_evidence_does_not_block_monthly_report(modules):
+    settings = doctor(payment_type="hybrid", payment_value=50, hybrid_percentage_value=20)
+    row = dict(service_id="service", price=1000, quantity=1, paid_amount=0,
+               payment_status="unpaid", status="pending", quantity_completed=0)
+    unpaid = plan(row, payment_status="unpaid", paid_amount=0,
+                  execution_status="pending", deposit=0, deposit_balance=0,
+                  created_at=datetime(2026, 10, 1))
+    assert not unpaid.get("accounting_events")
+    assert not row.get("paid") and not row.get("completed")
+    assert not row.get("payment_date") and not unpaid.get("payment_date")
+
+    # The exemption must remain limited to rows with no payment/execution evidence.
+    for markers in (dict(payment_status="paid", paid=True),
+                    dict(payment_status="partially_paid", paid_amount=300),
+                    dict(deposit=200), dict(deposit_amount=200),
+                    dict(status="completed", completed=True, quantity_completed=1)):
+        legacy = deepcopy(unpaid)
+        legacy["services"][0].update(markers)
+        blocked = report(modules, settings, [legacy])
+        assert blocked["compensation_complete"] is False
+        assert "legacy_ledger_unavailable" in {
+            entry["code"] for entry in blocked["accounting_blockers"]}
+
+    result = report(modules, settings, [unpaid])
+    item = result["salary_data"][0]
+    assert item["treatment_plans_revenue"] == 0
+    assert item["treatment_plans_salary"] == 0
+    assert item["calculated_salary"] == 0
+    assert result["accounting_blockers"] == []
+    assert result["compensation_complete"] is True
+    assert item["accounting_blockers"] == []
+    assert item["compensation_complete"] is True
+
+
 @pytest.mark.parametrize("kind,value,percentage,expected", [
     ("percentage", 20, 0, 60), ("fixed", 50, 0, 100), ("hybrid", 50, 20, 160),
 ])

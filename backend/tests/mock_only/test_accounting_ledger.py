@@ -1353,6 +1353,47 @@ def appointment_source(db, amount=700):
     return source
 
 
+def test_consultation_sheet_plan_picks_up_existing_appointment_deposit_without_advance(modules, monkeypatch):
+    db, saved, ledger = deposit_fixture(modules, monkeypatch)
+    source = appointment_source(db, 700)
+    saved.clear()  # The appointment exists before there is any linked plan.
+    db.appointments.find.return_value.sort.return_value.to_list = AsyncMock(
+        side_effect=lambda *args: [deepcopy(source)])
+    db.treatment_plans.find_one.side_effect = lambda query: deepcopy(saved) if saved else None
+    db.treatment_plans.find.return_value.sort.return_value.to_list = AsyncMock(
+        side_effect=lambda *args: [deepcopy(saved)] if saved else [])
+    db.consultation_sheets.insert_one = AsyncMock()
+
+    async def insert(document):
+        saved.update(deepcopy(document))
+
+    db.treatment_plans.insert_one = AsyncMock(side_effect=insert)
+    sheet_service = object.__new__(modules.sheets.ConsultationService)
+    sheet_service.db = db
+    sheet_service.collection = db.consultation_sheets
+    model = importlib.import_module("models.consultation").ConsultationSheetCreate
+    data = model(patient_id="patient", doctor_id="doctor", treatment_services=[dict(
+        service_id="catalog", service_name="Service", quantity=1,
+        price_per_unit=1000, total_price=1000)])
+    sheet = asyncio.run(sheet_service.create_consultation_sheet(data, "recorder", "Recorder"))
+    assert saved["consultation_sheet_id"] == sheet.id
+    assert saved["patient_id"] == source["patient_id"]
+    events = saved.get("accounting_events", [])
+    assert not any("advance" in event["kind"] for event in events)
+    deposits = [event for event in events if event["kind"] == "patient_deposit_received"]
+    assert len(deposits) == 1
+    assert deposits[0]["amount_kzt"] == 700
+    row = saved["services"][0]
+    allocations = [event for event in events if event["kind"] == "service_deposit_allocation"]
+    assert [(event["service_row_id"], event["completion_occurrence_id"], event["amount_kzt"])
+            for event in allocations] == [(row["service_row_id"], row["occurrence_ids"][0], 700)]
+    assert modules.ledger.patient_deposit_balance(events, saved["id"]) == 0
+    assert saved["paid_amount"] == 700
+    assert row["paid_amount"] == 700
+    assert source["treatment_plan_deposit_claims"] == [dict(plan_id=saved["id"], amount_kzt=700)]
+    assert deposit_totals(modules, saved) == (0, 0)
+
+
 def test_appointment_assignment_uses_actual_receipt_not_caller_amount(modules, monkeypatch):
     db, saved, ledger = deposit_fixture(modules, monkeypatch)
     appointment_source(db, 300)

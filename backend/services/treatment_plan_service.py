@@ -155,6 +155,15 @@ class TreatmentPlanService:
         if treatment_plan.payment_status != "unpaid" or treatment_plan.paid_amount:
             await self.sync_persisted_payment(treatment_plan.id)
         
+        appointments = await self.replay_appointment_deposits(patient_id)
+        if appointments:
+            treatment_plan = TreatmentPlan(**await self.db.treatment_plans.find_one({"id": treatment_plan.id}))
+
+        logger.info(f"Treatment plan created: {treatment_plan.title} for patient {patient_id}")
+        return treatment_plan
+
+    async def replay_appointment_deposits(self, patient_id: str) -> bool:
+        """Replay stored receipts through the idempotent official deposit writer."""
         # Replay actual appointment receipts in FIFO order; immutable assignments
         # across all plans prevent creation/retry from spending a receipt twice.
         from routers.appointments import apply_deposit_to_treatment_plans, appointment_deposit_kzt
@@ -166,11 +175,7 @@ class TreatmentPlanService:
             if not appointment_id:
                 raise HTTPException(409, "Appointment deposit requires immutable appointment identity")
             await apply_deposit_to_treatment_plans(patient_id, float(appointment_deposit_kzt(appointment)), appointment_id, self.db)
-        if appointments:
-            treatment_plan = TreatmentPlan(**await self.db.treatment_plans.find_one({"id": treatment_plan.id}))
-
-        logger.info(f"Treatment plan created: {treatment_plan.title} for patient {patient_id}")
-        return treatment_plan
+        return bool(appointments)
     
     async def get_patient_treatment_plans(self, patient_id: str) -> List[TreatmentPlan]:
         """Get all treatment plans for a patient"""
