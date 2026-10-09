@@ -91,6 +91,50 @@ def course_db():
     return db, saved, settings
 
 
+@pytest.mark.parametrize("marker", [dict(laboratory_id="lab"), dict(laboratory_name="Lab"),
+    dict(is_analysis=True), dict(is_lab_analysis=True), dict(category="Лабораторные анализы")])
+def test_doctorless_lab_analysis_cash_receipt_has_no_compensation(modules, monkeypatch, marker):
+    db, saved, _ = memory_db()
+    saved.pop("assigned_doctor_id")
+    db.service_prices.find_one = AsyncMock(return_value=dict(id="catalog", **marker))
+    monkeypatch.setattr(modules.plans.TreatmentPlanService, "sync_persisted_payment", AsyncMock())
+
+    result = asyncio.run(command(modules, db, receipt()))
+
+    event = result["event"]
+    assert event["doctor_id"] is None
+    assert event["amount_kzt"] == 300
+    assert event["payment_source"] == "cash"
+    assert event["compensation_amount_kzt"] == 0
+    assert event["compensation_snapshot"]["payment_type"] == "percentage"
+    assert event["compensation_snapshot"]["payment_value"] == 0
+    assert saved["accounting_events"] == [event]
+    assert modules.ledger.ordinary_ledger_totals(saved, "unrelated-doctor",
+        datetime(2000, 1, 1, tzinfo=timezone.utc), datetime(2100, 1, 1, tzinfo=timezone.utc)) == (0, 0, [])
+    db.doctors.find_one.assert_not_awaited()
+    db.service_prices.find_one.assert_awaited_once_with({"id": "catalog"})
+
+
+@pytest.mark.parametrize("catalog", [None, dict(id="catalog", service_type="regular"),
+    dict(id="other", is_analysis=True), dict(is_analysis=True)])
+def test_doctorless_non_analysis_or_unverified_catalog_rejected_before_write(modules, catalog):
+    db, saved, _ = memory_db()
+    saved.pop("assigned_doctor_id")
+    saved["services"][0].update(service_name="Анализ", is_analysis=True, laboratory_id="client-lab")
+    db.service_prices.find_one = AsyncMock(return_value=catalog)
+    before = deepcopy(saved)
+
+    with pytest.raises(HTTPException) as error:
+        asyncio.run(command(modules, db, receipt()))
+
+    assert error.value.status_code == 409
+    assert error.value.detail == "Assign the earning doctor before recording an event"
+    assert saved == before
+    db.treatment_plans.update_one.assert_not_awaited()
+    db.doctors.find_one.assert_not_awaited()
+    db.payment_logs.insert_one.assert_not_called()
+
+
 def test_stable_session_receipt_records_actual_partial_amount_atomically(modules, monkeypatch):
     db, saved, settings = course_db()
     monkeypatch.setattr(modules.routes, "db", db)

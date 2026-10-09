@@ -69,6 +69,13 @@ def money(value, field):
         raise HTTPException(422, f"{field} must be a finite non-negative KZT amount with at most two decimal places") from None
 
 
+def is_analysis_catalog(catalog, service_id):
+    return bool(service_id and isinstance(catalog, dict) and catalog.get("id") == service_id
+                and (catalog.get("laboratory_id") or catalog.get("laboratory_name")
+                     or catalog.get("is_analysis") or catalog.get("is_lab_analysis")
+                     or "анализ" in str(catalog.get("category", "")).lower()))
+
+
 def validate_deposit_catalog(catalog, service_id):
     # The catalog's individual service type is "regular"; analyses carry a lab link.
     if (not isinstance(catalog, dict) or catalog.get("id") != service_id or catalog.get("service_type") not in (None, "regular")
@@ -1051,11 +1058,16 @@ class AccountingLedgerService:
                 raise HTTPException(409, "Unresolved legacy payment/completion state is not accounting evidence")
             doctor_id = row.get("doctor_id") or parent.get("doctor_id") or plan.get("assigned_doctor_id")
             if not doctor_id:
-                raise HTTPException(409, "Assign the earning doctor before recording an event")
-            doctor = await self.db.doctors.find_one({"id": doctor_id})
-            if not doctor:
-                raise HTTPException(409, "Earning doctor not found")
-            snapshot = resolve_snapshot(doctor, row.get("service_id"))
+                catalog = await self.db.service_prices.find_one({"id": row.get("service_id")})
+                if not is_analysis_catalog(catalog, row.get("service_id")):
+                    raise HTTPException(409, "Assign the earning doctor before recording an event")
+                doctor_id = None
+                snapshot = resolve_snapshot(dict(payment_type="percentage", payment_value=0), row.get("service_id"))
+            else:
+                doctor = await self.db.doctors.find_one({"id": doctor_id})
+                if not doctor:
+                    raise HTTPException(409, "Earning doctor not found")
+                snapshot = resolve_snapshot(doctor, row.get("service_id"))
             if kind == "service_deposit_allocation":
                 catalog = await self.db.service_prices.find_one({"id": row.get("service_id")})
                 validate_deposit_catalog(catalog, row.get("service_id"))
@@ -1104,6 +1116,8 @@ class AccountingLedgerService:
                          doctor_id=doctor_id, recorded_by=recorded_by, occurred_at=now, recorded_at=now,
                          currency="KZT", amount_kzt=float(amount), compensation_snapshot=snapshot,
                          compensation_amount_kzt=compensation_amount(snapshot, kind, amount))
+            if doctor_id is None:
+                event["service_catalog_snapshot"] = deposit_catalog_snapshot(catalog)
             if component_id:
                 event["component_id"] = component_id
             if kind == "service_deposit_allocation":
@@ -1315,6 +1329,17 @@ def ordinary_ledger_totals(plan, doctor_id, start, end):
             continue
         earner = row.get("doctor_id") or plan.get("assigned_doctor_id")
         if earner and earner != doctor_id:
+            continue
+        # Catalog-confirmed doctorless analyses do not belong to any doctor's payroll.
+        if not earner and any(
+                event.get("service_row_id") == row.get("service_row_id")
+                and event.get("service_id") == row.get("service_id")
+                and event.get("doctor_id") is None
+                and is_analysis_catalog(event.get("service_catalog_snapshot"), row.get("service_id"))
+                and event.get("compensation_amount_kzt") == 0
+                and event.get("compensation_snapshot") == resolve_snapshot(
+                    dict(payment_type="percentage", payment_value=0), row.get("service_id"))
+                for event in stored_events):
             continue
         if not earner or not row.get("service_row_id") or not any(
                 event.get("service_row_id") == row.get("service_row_id") and event.get("doctor_id") == doctor_id
