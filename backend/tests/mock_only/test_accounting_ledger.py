@@ -1046,6 +1046,47 @@ def deposit_totals(modules, saved):
     return modules.ledger.ordinary_ledger_totals(saved, "doctor", datetime(2000, 1, 1, tzinfo=timezone.utc), datetime(2100, 1, 1, tzinfo=timezone.utc))[:2]
 
 
+@pytest.mark.parametrize("service_type", ["missing", None, "regular"])
+def test_deposit_catalog_snapshot_defaults_regular(modules, monkeypatch, service_type):
+    db, saved, ledger = deposit_fixture(modules, monkeypatch)
+    catalog = db.service_prices.find_one.return_value
+    if service_type == "missing":
+        catalog.pop("service_type")
+    else:
+        catalog["service_type"] = service_type
+    asyncio.run(ledger.record_patient_deposit("plan", "appointment", 700, "recorder"))
+    allocation = next(event for event in saved["accounting_events"]
+                      if event["kind"] == "service_deposit_allocation")
+    assert allocation["service_catalog_snapshot"]["service_type"] == "regular"
+
+
+def test_deposit_catalog_legacy_null_snapshot_validates_payroll(modules, monkeypatch):
+    db, saved, ledger = deposit_fixture(modules, monkeypatch)
+    asyncio.run(ledger.record_patient_deposit("plan", "appointment", 700, "recorder"))
+    allocation = next(event for event in saved["accounting_events"]
+                      if event["kind"] == "service_deposit_allocation")
+    snapshot = dict(id="catalog", service_type=None, laboratory_id=None,
+                    laboratory_name=None, category=None, is_analysis=None, is_lab_analysis=None)
+    allocation["service_catalog_snapshot"] = snapshot
+    modules.ledger.validate_deposit_catalog(snapshot, "catalog")
+    assert modules.ledger.ordinary_ledger_totals(saved, "doctor",
+        datetime(2000, 1, 1, tzinfo=timezone.utc), datetime(2100, 1, 1, tzinfo=timezone.utc)) == (0, 0, [])
+    assert allocation["service_catalog_snapshot"] == snapshot
+
+
+@pytest.mark.parametrize("fault", [dict(id="other"), dict(service_type="laboratory"),
+    dict(service_type=""), dict(service_type=False), dict(laboratory_id="lab"),
+    dict(laboratory_name="Lab"), dict(is_analysis=True), dict(is_lab_analysis=True),
+    dict(category="Анализы")])
+def test_deposit_catalog_legacy_null_snapshot_rejects_invalid_service(modules, fault):
+    snapshot = dict(id="catalog", service_type=None, laboratory_id=None,
+                    laboratory_name=None, category=None, is_analysis=None, is_lab_analysis=None)
+    snapshot.update(fault)
+    with pytest.raises(HTTPException) as error:
+        modules.ledger.validate_deposit_catalog(snapshot, "catalog")
+    assert error.value.status_code == 409
+
+
 def test_patient_deposit_collection_allocation_completion_and_retry(modules, monkeypatch):
     db, saved, ledger = deposit_fixture(modules, monkeypatch)
     first = asyncio.run(ledger.record_patient_deposit("plan", "appointment", 700, "recorder"))

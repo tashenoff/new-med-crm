@@ -71,7 +71,7 @@ def money(value, field):
 
 def validate_deposit_catalog(catalog, service_id):
     # The catalog's individual service type is "regular"; analyses carry a lab link.
-    if (not isinstance(catalog, dict) or catalog.get("id") != service_id or catalog.get("service_type", "regular") != "regular"
+    if (not isinstance(catalog, dict) or catalog.get("id") != service_id or catalog.get("service_type") not in (None, "regular")
             or catalog.get("laboratory_id") or catalog.get("laboratory_name")
             or catalog.get("is_analysis") or catalog.get("is_lab_analysis")
             or "анализ" in str(catalog.get("category", "")).lower()):
@@ -79,7 +79,10 @@ def validate_deposit_catalog(catalog, service_id):
 
 
 def deposit_catalog_snapshot(catalog):
-    return {field: catalog.get(field) for field in ("id", "service_type", "laboratory_id", "laboratory_name", "category", "is_analysis", "is_lab_analysis")}
+    snapshot = {field: catalog.get(field) for field in ("id", "service_type", "laboratory_id", "laboratory_name", "category", "is_analysis", "is_lab_analysis")}
+    if snapshot["service_type"] is None:
+        snapshot["service_type"] = "regular"
+    return snapshot
 
 
 def is_ledger_plan(plan):
