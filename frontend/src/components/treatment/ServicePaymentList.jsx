@@ -1,4 +1,5 @@
 import { discountedPaymentAmount } from '../../utils/paymentBalances';
+import { ledgerFetch } from '../../utils/accountingLedger';
 import React, { useState, useEffect } from 'react';
 import { FaChevronDown, FaChevronRight, FaStethoscope, FaClipboardList, FaNotesMedical, FaUserMd, FaFileMedical, FaCreditCard } from 'react-icons/fa';
 
@@ -258,25 +259,42 @@ const ServicePaymentList = ({ plan, onUpdate, onEdit, paymentFilter = 'all', pro
 
       if (pendingPaymentData.type === 'service') {
         // Оплата одной услуги
-        const response = await fetch(
-          `${API}/api/treatment-plans/${plan.id}/services/${pendingPaymentData.serviceId}/mark-paid`,
-          {
-            method: 'POST',
-            headers: {
-              'Authorization': `Bearer ${token}`,
-              'Content-Type': 'application/json'
-            },
-            body: JSON.stringify(paymentData)
-          }
-        );
-
-        if (response.ok) {
-          const updatedPlan = await response.json();
-          if (onUpdate) {
-            onUpdate(updatedPlan);
-          }
+        const service = plan.services.find(s => s.service_id === pendingPaymentData.serviceId);
+        const hasPatientDeposit = (plan.accounting_events || []).some(event => event.kind === 'patient_deposit_received');
+        if (service?.service_row_id && !hasPatientDeposit) {
+          const updatedPlan = await ledgerFetch(
+            `${API}/api/treatment-plans/${plan.id}/service-rows/${service.service_row_id}/receipts`,
+            {
+              amount_kzt: Math.max(0, Math.round((payableTarget() - discount) * 100) / 100),
+              discount_amount_kzt: Math.round(((Number(service.discount_amount) || 0) + discount) * 100) / 100,
+              payment_source: 'cash',
+              payment_method: paymentType?.id || paymentType?.name,
+              ...(paymentType?.id ? { payment_method_id: paymentType.id } : {}),
+              ...(paymentType?.name ? { payment_method_name: paymentType.name } : {})
+            }
+          );
+          if (onUpdate) onUpdate(updatedPlan);
         } else {
-          alert('Ошибка при отметке оплаты');
+          const response = await fetch(
+            `${API}/api/treatment-plans/${plan.id}/services/${pendingPaymentData.serviceId}/mark-paid`,
+            {
+              method: 'POST',
+              headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
+              },
+              body: JSON.stringify(paymentData)
+            }
+          );
+
+          if (response.ok) {
+            const updatedPlan = await response.json();
+            if (onUpdate) {
+              onUpdate(updatedPlan);
+            }
+          } else {
+            alert('Ошибка при отметке оплаты');
+          }
         }
       } else if (pendingPaymentData.type === 'component') {
         // Оплата одной услуги (доли) комплекса

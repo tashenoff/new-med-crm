@@ -91,6 +91,34 @@ test('laboratory analysis creation projects standalone services without inherite
   assert.deepEqual(refreshes, ['plans', 'payments']);
 });
 
+test('consultation-sheet service without deposit sends a valid ledger receipt', async context => {
+  const plan = { ...makePlan('consultation-no-deposit'), deposit_amount: 0, accounting_events: [],
+    services: [{ service_id: 'consultation-service', service_row_id: 'consultation-row', service_name: 'Услуга из консультационного листа',
+      total_price: 1000, paid_amount: 0, discount_amount: 0, payment_status: 'unpaid' }] };
+  const updated = [];
+  const ui = await mount(context, ServicePaymentList, { plan, onUpdate: value => updated.push(value) }, (url, body) => {
+    if (url.includes('payment-types')) return [{ id: 'cash', name: 'Касса' }];
+    const validLedgerReceipt = body?.operation_id && url.endsWith('/api/treatment-plans/consultation-no-deposit/service-rows/consultation-row/receipts')
+      && body.amount_kzt === 1000 && body.discount_amount_kzt === 0
+      && body.payment_source === 'cash' && body.payment_method === 'cash' && body.payment_method_id === 'cash';
+    return { ok: Boolean(validLedgerReceipt), data: plan };
+  });
+  await ui.click(ui.container.querySelector('button'));
+  await ui.click([...ui.container.querySelectorAll('button')].find(element => element.textContent.includes('Оплатить') && !element.textContent.includes('остаток')));
+  await ui.click(ui.container.querySelector('input[type="radio"]'));
+  await ui.click([...ui.container.querySelectorAll('button')].filter(element => element.textContent.includes('Оплатить')).at(-1));
+  assert.equal(updated.length, 1, 'server should accept the ledger receipt');
+  assert.equal(ui.alerts.length, 0);
+  const request = ui.requests.find(item => item.body);
+  assert.ok(request.url.endsWith('/api/treatment-plans/consultation-no-deposit/service-rows/consultation-row/receipts'));
+  assert.equal(request.body.amount_kzt, 1000);
+  assert.equal(request.body.discount_amount_kzt, 0);
+  assert.equal(request.body.payment_source, 'cash');
+  assert.equal(request.body.payment_method, 'cash');
+  assert.equal(request.body.payment_method_id, 'cash');
+  assert.match(request.body.operation_id, /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i);
+});
+
 test('doctor-free analysis payment keeps payment-type selection and fixed discount without ledger fields', async context => {
   const plan = makePlan('analysis-fixed');
   plan.services[0] = { service_id: 'analysis', service_name: 'Анализ крови', unit: 'анализ', laboratory_id: 'lab', total_price: 1000, payment_status: 'unpaid' };
