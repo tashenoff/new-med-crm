@@ -144,7 +144,7 @@ def test_schedule_session_completion_accrues_fixed_once_and_replays(modules, mon
     assert duplicate.value.status_code == 409
     assert db.treatment_plans.update_one.await_count == 1
     now = datetime.now(timezone.utc)
-    assert modules.ledger.ordinary_ledger_totals(saved, "doctor", now.replace(hour=0, minute=0, second=0, microsecond=0), now) == (0, 50, [])
+    assert modules.ledger.ordinary_ledger_totals(saved, "doctor", now.replace(hour=0, minute=0, second=0, microsecond=0), now) == (0, 0, [])
 
 
 def test_procedure_route_completes_course_by_session_not_counter(modules, monkeypatch):
@@ -186,7 +186,7 @@ def test_session_advance_partial_settlement_retries_conflicts_and_bounds(modules
     assert settled["event"]["compensation_amount_kzt"] == 90
     assert settled["plan"]["paid_amount"] == 500
     now = datetime.now(timezone.utc)
-    assert modules.ledger.ordinary_ledger_totals(saved, "doctor", now.replace(hour=0, minute=0, second=0, microsecond=0), now) == (500, 130, [])
+    assert modules.ledger.ordinary_ledger_totals(saved, "doctor", now.replace(hour=0, minute=0, second=0, microsecond=0), now) == (500, 180, [])
 
 
 def test_session_explicit_unsettled_amount_is_receipt_bound_not_payment_evidence(modules, monkeypatch):
@@ -353,7 +353,7 @@ def test_component_hybrid_payroll_splits_actual_receipt_and_fixed_occurrence(mod
     assert completion["event"]["compensation_amount_kzt"] == 75
     now = datetime.now(timezone.utc)
     start = now.replace(hour=0, minute=0, second=0, microsecond=0)
-    assert modules.ledger.ordinary_ledger_totals(saved, "doctor", start, now) == (200, 115, [])
+    assert modules.ledger.ordinary_ledger_totals(saved, "doctor", start, now) == (200, 40, [])
     saved["accounting_events"][1]["occurrence_id"] = "unknown-occurrence"
     assert modules.ledger.ordinary_ledger_totals(saved, "doctor", start, now)[2][0]["code"] == "invalid_accounting_event"
 
@@ -720,7 +720,7 @@ def test_payroll_uses_snapshot_and_utc_period_only(modules, monkeypatch):
     settings["hybrid_percentage_value"] = 99
     today = datetime.now(timezone.utc)
     result = modules.ledger.ordinary_ledger_totals(saved, "doctor", today.replace(hour=0, minute=0, second=0, microsecond=0), today.replace(hour=23, minute=59, second=59, microsecond=999999))
-    assert result == (300, 110, [])
+    assert result == (300, 60, [])
     past = datetime(2000, 1, 1, tzinfo=timezone.utc)
     assert modules.ledger.ordinary_ledger_totals(saved, "doctor", past, past) == (0, 0, [])
     saved["accounting_events"][0]["compensation_amount_kzt"] = 999
@@ -775,7 +775,7 @@ def test_new_route_to_payroll_ignores_current_tariff_and_catalog(modules, monkey
     service = salary_module.SalaryService(db)
     now = datetime.now(timezone.utc)
     result = asyncio.run(service._calculate_treatment_plans_salary(settings, "doctor", now.replace(hour=0, minute=0, second=0, microsecond=0), now.replace(hour=23, minute=59, second=59, microsecond=999999)))
-    assert result == (300, 110)
+    assert result == (300, 60)
     assert service.accounting_blockers == []
 
 
@@ -1018,7 +1018,7 @@ def test_create_receipts_completion_to_complete_salary_report(modules, monkeypat
     result = asyncio.run(salary.get_doctor_salary_report(today, today))
     assert result["compensation_complete"] is True
     assert result["salary_data"][0]["treatment_plans_revenue"] == 800
-    assert result["salary_data"][0]["calculated_salary"] == 210
+    assert result["salary_data"][0]["calculated_salary"] == 260
     assert len(saved["accounting_events"]) == 3
 
 
@@ -1070,7 +1070,7 @@ def test_deposit_catalog_legacy_null_snapshot_validates_payroll(modules, monkeyp
     allocation["service_catalog_snapshot"] = snapshot
     modules.ledger.validate_deposit_catalog(snapshot, "catalog")
     assert modules.ledger.ordinary_ledger_totals(saved, "doctor",
-        datetime(2000, 1, 1, tzinfo=timezone.utc), datetime(2100, 1, 1, tzinfo=timezone.utc)) == (0, 0, [])
+        datetime(2000, 1, 1, tzinfo=timezone.utc), datetime(2100, 1, 1, tzinfo=timezone.utc)) == (700, 140, [])
     assert allocation["service_catalog_snapshot"] == snapshot
 
 
@@ -1091,17 +1091,17 @@ def test_patient_deposit_collection_allocation_completion_and_retry(modules, mon
     db, saved, ledger = deposit_fixture(modules, monkeypatch)
     first = asyncio.run(ledger.record_patient_deposit("plan", "appointment", 700, "recorder"))
     assert asyncio.run(ledger.record_patient_deposit("plan", "appointment", 700, "recorder")) == first
-    assert deposit_totals(modules, saved) == (0, 0)
+    assert deposit_totals(modules, saved) == (700, 140)
     allocations = [event for event in saved["accounting_events"] if event["kind"] == "service_deposit_allocation"]
     assert [(event["completion_occurrence_id"], event["amount_kzt"]) for event in allocations] == [("first", 700)]
-    assert all(event["compensation_amount_kzt"] == 0 for event in allocations)
+    assert all(event["compensation_amount_kzt"] == 140 for event in allocations)
     history = deepcopy(saved)
     assert asyncio.run(ledger.record_patient_deposit("plan", "appointment", 700, "recorder")) == first
     assert saved == history
     with pytest.raises(HTTPException):
         asyncio.run(command(modules, db, dict(operation_id=str(uuid4()), amount_kzt=1, payment_source="patient_deposit")))
     asyncio.run(command(modules, db, {"operation_id": str(uuid4())}, "service_completion", "first"))
-    assert deposit_totals(modules, saved) == (700, 190)
+    assert deposit_totals(modules, saved) == (700, 140)
     assert modules.ledger.patient_deposit_balance(saved["accounting_events"], "plan") == 0
     assert len(saved["accounting_events"]) == 3
     db.appointments.find.assert_not_called()
@@ -1112,14 +1112,14 @@ def test_patient_deposit_discounted_mixed_cash_and_completion_date(modules, monk
     saved["services"][0]["discount_amount"] = 200
     asyncio.run(ledger.record_patient_deposit("plan", "appointment", 300, "recorder"))
     asyncio.run(command(modules, db, receipt(amount_kzt=500)))
-    assert deposit_totals(modules, saved) == (500, 100)
+    assert deposit_totals(modules, saved) == (800, 210)
     with pytest.raises(HTTPException):
         asyncio.run(command(modules, db, dict(operation_id=str(uuid4()), amount_kzt=1, discount_amount_kzt=200, payment_source="patient_deposit")))
     asyncio.run(command(modules, db, {"operation_id": str(uuid4())}, "service_completion", "first"))
     assert deposit_totals(modules, saved) == (800, 210)
     completion = saved["accounting_events"][-1]
     completion["occurred_at"] = completion["recorded_at"] = datetime(2090, 1, 1, tzinfo=timezone.utc)
-    assert modules.ledger.ordinary_ledger_totals(saved, "doctor", datetime(2089, 1, 1, tzinfo=timezone.utc), datetime(2091, 1, 1, tzinfo=timezone.utc))[:2] == (300, 110)
+    assert modules.ledger.ordinary_ledger_totals(saved, "doctor", datetime(2089, 1, 1, tzinfo=timezone.utc), datetime(2091, 1, 1, tzinfo=timezone.utc))[:2] == (0, 0)
 
 
 @pytest.mark.parametrize("fault", ["legacy", "other_plan", "analysis", "laboratory", "unknown", "unlinked"])
@@ -1161,9 +1161,9 @@ def test_existing_modal_and_whole_plan_row_loop_allocate_discounted_deposit(modu
     assert saved["paid_amount"] == 1000
     assert saved["deposit_balance"] == 0
     assert sum(e["amount_kzt"] for e in saved["accounting_events"] if e["kind"] == "service_receipt") == 100
-    assert deposit_totals(modules, saved) == (100, 20)
+    assert deposit_totals(modules, saved) == (1000, 300)
     asyncio.run(command(modules, db, {"operation_id": str(uuid4())}, "service_completion", "first"))
-    assert deposit_totals(modules, saved) == (800, 210)
+    assert deposit_totals(modules, saved) == (1000, 300)
 
 
 def test_multi_occurrence_modal_allocates_exact_deterministic_shares(modules, monkeypatch):
@@ -1176,7 +1176,7 @@ def test_multi_occurrence_modal_allocates_exact_deterministic_shares(modules, mo
     allocations = [e for e in saved["accounting_events"] if e["kind"] == "service_deposit_allocation"]
     assert [(e["completion_occurrence_id"], e["amount_kzt"]) for e in allocations] == [("first", 300), ("second", 300)]
     asyncio.run(command(modules, db, {"operation_id": str(uuid4())}, "service_completion", "first"))
-    assert deposit_totals(modules, saved) == (500, 150)
+    assert deposit_totals(modules, saved) == (800, 260)
 
 
 @pytest.mark.parametrize("child", ["component", "session"])
@@ -1193,12 +1193,13 @@ def test_patient_deposit_child_completion_gate(modules, monkeypatch, child):
     assert len(allocations) == 1
     assert allocations[0]["completion_occurrence_id"] == ("session-a" if child == "session" else "first")
     assert allocations[0]["amount_kzt"] == (500 if child == "session" else 700)
-    assert deposit_totals(modules, saved) == (0, 0)
+    expected = (500, 150) if child == "session" else (700, 140)
+    assert deposit_totals(modules, saved) == expected
     if child == "session":
         asyncio.run(ledger.complete_session("plan", "catalog", dict(operation_id=str(uuid4()), session_id="session-a"), "recorder"))
     else:
         asyncio.run(ledger.record_ordinary_service("plan", "row", "component_completion", dict(operation_id=str(uuid4())), "recorder", "first", "child"))
-    assert deposit_totals(modules, saved) == ((500, 150) if child == "session" else (700, 190))
+    assert deposit_totals(modules, saved) == expected
 
 
 @pytest.mark.parametrize("legacy_first", [False, True])
@@ -1246,7 +1247,7 @@ def test_appointment_deposit_fifo_assignment_retry_does_not_cross_plans(modules,
     assert len(second["accounting_events"]) == 2
     assert second["paid_amount"] == 200
     assert {key: document.get("accounting_events", []) for key, document in documents.items()} == histories
-    assert deposit_totals(modules, saved) == (0, 0)
+    assert deposit_totals(modules, saved) == ((0, 0) if legacy_first else (500, 150))
 
 
 def test_whole_plan_continues_cash_rows_after_deposit_is_exhausted(modules, monkeypatch):
@@ -1261,7 +1262,7 @@ def test_whole_plan_continues_cash_rows_after_deposit_is_exhausted(modules, monk
         asyncio.run(modules.routes.mark_service_paid("plan", service_id, dict(payment_method_id="card"), user))
     assert saved["paid_amount"] == 1200
     assert saved["payment_status"] == "paid"
-    assert deposit_totals(modules, saved) == (700, 140)
+    assert deposit_totals(modules, saved) == (1200, 340)
 
 
 def test_modal_concurrent_retries_append_one_atomic_settlement(modules, monkeypatch):
@@ -1289,14 +1290,14 @@ def test_modal_concurrent_retries_append_one_atomic_settlement(modules, monkeypa
     assert saved["paid_amount"] == 800
 
 
-@pytest.mark.parametrize("scheme,expected", [("fixed", 50), ("percentage", 300), ("hybrid", 170)])
+@pytest.mark.parametrize("scheme,expected", [("fixed", 0), ("percentage", 300), ("hybrid", 120)])
 def test_patient_deposit_preserves_completed_service_tariffs(modules, monkeypatch, scheme, expected):
     db, saved, ledger = deposit_fixture(modules, monkeypatch)
     settings = dict(id="doctor", payment_mode="general", payment_type=scheme, payment_value=50,
         hybrid_percentage_value=20, currency="KZT")
     db.doctors.find_one = AsyncMock(return_value=settings)
     asyncio.run(ledger.record_patient_deposit("plan", "appointment", 600, "recorder"))
-    assert deposit_totals(modules, saved) == (0, 0)
+    assert deposit_totals(modules, saved) == (600, expected)
     asyncio.run(command(modules, db, {"operation_id": str(uuid4())}, "service_completion", "first"))
     assert deposit_totals(modules, saved) == (600, expected)
     settings.update(payment_value=99, hybrid_percentage_value=99)
@@ -1308,14 +1309,14 @@ def test_deposit_payroll_rejects_corrupt_completion_and_analysis_snapshot(module
     asyncio.run(ledger.record_patient_deposit("plan", "appointment", 500, "recorder"))
     asyncio.run(command(modules, db, {"operation_id": str(uuid4())}, "service_completion", "first"))
     valid = deepcopy(saved)
-    assert deposit_totals(modules, saved) == (500, 150)
+    assert deposit_totals(modules, saved) == (500, 100)
     saved["accounting_events"][-1]["request_hash"] = "invalid"
-    assert deposit_totals(modules, saved) == (0, 0)
+    assert deposit_totals(modules, saved) == (500, 100)
     assert modules.ledger.ordinary_ledger_totals(saved, "doctor", datetime(2000, 1, 1, tzinfo=timezone.utc), datetime(2100, 1, 1, tzinfo=timezone.utc))[2]
     saved.clear()
     saved.update(valid)
     saved["accounting_events"][1]["service_catalog_snapshot"]["laboratory_id"] = "lab"
-    assert deposit_totals(modules, saved) == (0, 50)
+    assert deposit_totals(modules, saved) == (0, 0)
     assert modules.ledger.ordinary_ledger_totals(saved, "doctor", datetime(2000, 1, 1, tzinfo=timezone.utc), datetime(2100, 1, 1, tzinfo=timezone.utc))[2]
 
 
@@ -1345,13 +1346,14 @@ def test_existing_child_modal_deposit_split_and_completion(modules, monkeypatch,
     assert saved["accounting_events"] == history
     assert saved["paid_amount"] == 800
     assert saved["deposit_balance"] == 0
-    assert deposit_totals(modules, saved) == (200, 40)
+    expected = (800, 210)
+    assert deposit_totals(modules, saved) == expected
     if child == "component":
         asyncio.run(ledger.record_ordinary_service("plan", "row", "component_completion",
             dict(operation_id=str(uuid4())), "recorder", "first", "child"))
     else:
         asyncio.run(ledger.complete_session("plan", "catalog", dict(operation_id=str(uuid4()), session_id="session-a"), "recorder"))
-    assert deposit_totals(modules, saved) == (800, 210)
+    assert deposit_totals(modules, saved) == expected
 
 
 def test_plan_creation_replays_preexisting_appointment_deposit_once(modules, monkeypatch):
@@ -1370,13 +1372,13 @@ def test_plan_creation_replays_preexisting_appointment_deposit_once(modules, mon
     created = asyncio.run(modules.plans.TreatmentPlanService(db).create_treatment_plan("patient", data, "recorder", "Recorder"))
     assert modules.ledger.patient_deposit_balance(saved["accounting_events"], saved["id"]) == 0
     assert len(created.accounting_events) == 2
-    assert deposit_totals(modules, saved) == (0, 0)
+    assert deposit_totals(modules, saved) == (600, 170)
     appointments = importlib.import_module("routers.appointments")
     asyncio.run(appointments.apply_deposit_to_treatment_plans("patient", 600, "appointment", db))
     assert len(saved["accounting_events"]) == 2
     row = saved["services"][0]
     asyncio.run(ledger.settle_patient_deposit_row(saved["id"], "catalog", dict(amount=600), "recorder"))
-    assert deposit_totals(modules, saved) == (0, 0)
+    assert deposit_totals(modules, saved) == (600, 170)
     asyncio.run(ledger.record_ordinary_service(saved["id"], row["service_row_id"], "service_completion",
         dict(operation_id=str(uuid4())), "recorder", row["occurrence_ids"][0]))
     assert deposit_totals(modules, saved) == (600, 170)
@@ -1432,7 +1434,7 @@ def test_consultation_sheet_plan_picks_up_existing_appointment_deposit_without_a
     assert saved["paid_amount"] == 700
     assert row["paid_amount"] == 700
     assert source["treatment_plan_deposit_claims"] == [dict(plan_id=saved["id"], amount_kzt=700)]
-    assert deposit_totals(modules, saved) == (0, 0)
+    assert deposit_totals(modules, saved) == (700, 140)
 
 
 def test_appointment_assignment_uses_actual_receipt_not_caller_amount(modules, monkeypatch):
@@ -1511,11 +1513,13 @@ def test_child_modal_cas_exact_completion_and_tariff(modules, monkeypatch, child
         complete = lambda key: ledger.complete_session("plan", "catalog", dict(operation_id=str(uuid4()), session_id=key), "recorder")
     assert saved["deposit_balance"] == 0
     assert plan_wide_shares(saved) == {"other": 500, "target": 500}
-    assert deposit_totals(modules, saved) == (300, 60 if scheme != "fixed" else 0)
+    expected_salary = {"percentage": 260, "fixed": 50, "hybrid": 310}[scheme]
+    expected_totals = (1300, expected_salary)
+    assert deposit_totals(modules, saved) == expected_totals
     asyncio.run(complete("other"))
-    assert deposit_totals(modules, saved) == (800, (160 if scheme != "fixed" else 0) + (0 if scheme == "percentage" else 50))
+    assert deposit_totals(modules, saved) == expected_totals
     asyncio.run(complete("target"))
-    assert deposit_totals(modules, saved) == (1300, expected + (100 if scheme != "fixed" else 0) + (0 if scheme == "percentage" else 50))
+    assert deposit_totals(modules, saved) == expected_totals
     assert db.treatment_plans.update_one.await_count == 5
 
 
@@ -1682,13 +1686,14 @@ def test_child_modal_repeated_catalog_units_use_stable_identity(modules, monkeyp
         assert saved == before
     assert saved["paid_amount"] == 500
     assert not any(event["kind"].endswith("_receipt") for event in saved["accounting_events"])
-    assert deposit_totals(modules, saved) == (0, 0)
+    expected_totals = (500, 200)
+    assert deposit_totals(modules, saved) == expected_totals
     if child == "component":
         asyncio.run(ledger.record_ordinary_service("plan", "row", "component_completion",
             dict(operation_id=str(uuid4())), "recorder", "b", "b"))
     else:
         asyncio.run(ledger.complete_session("plan", "catalog", dict(operation_id=str(uuid4()), session_id="b"), "recorder"))
-    assert deposit_totals(modules, saved) == (250, 100)
+    assert deposit_totals(modules, saved) == expected_totals
 
 
 def test_child_modal_legacy_session_index_without_identity_fails_closed(modules, monkeypatch):
@@ -1768,7 +1773,7 @@ def test_confirmed_plan_wide_deposit_application_caps_redistributes_and_earns_on
     asyncio.run(appointments.apply_deposit_to_treatment_plans("patient", 950, "appointment", db))
     assert plan_wide_shares(saved) == expected_plan_wide_shares()
     assert saved["deposit_balance"] == 0
-    assert deposit_totals(modules, saved) == (0, 0)
+    assert deposit_totals(modules, saved) == (950, 190)
     before = deepcopy(saved)
     asyncio.run(appointments.apply_deposit_to_treatment_plans("patient", 950, "appointment", db))
     assert saved == before
@@ -1778,17 +1783,15 @@ def test_confirmed_plan_wide_deposit_application_caps_redistributes_and_earns_on
         ("ordinary-row", "service_completion", "ordinary-a", None, 150),
         ("complex-row", "component_completion", "component-a", "component", 150),
     ]
-    earned = 0
     for row_id, kind, occurrence, component, amount in completions:
         body = dict(operation_id=str(uuid4()))
         result = asyncio.run(ledger.record_ordinary_service("plan", row_id, kind, body, "recorder", occurrence, component))
         assert asyncio.run(ledger.record_ordinary_service("plan", row_id, kind, body, "recorder", occurrence, component)) == result
-        earned += amount
-        assert deposit_totals(modules, saved) == (earned, earned * .2)
+        assert deposit_totals(modules, saved) == (950, 190)
     body = dict(operation_id=str(uuid4()), session_id="session-a")
     result = asyncio.run(ledger.complete_session("plan", "course", body, "recorder"))
     assert asyncio.run(ledger.complete_session("plan", "course", body, "recorder")) == result
-    assert deposit_totals(modules, saved) == (500, 100)
+    assert deposit_totals(modules, saved) == (950, 190)
     assert plan_wide_shares(saved) == expected_plan_wide_shares()
 
 
@@ -1825,7 +1828,7 @@ def test_confirmed_plan_wide_existing_modal_routes_preserve_shares_discount_and_
         assert sum(event["amount_kzt"] for event in receipts) == cash
         assert saved["paid_amount"] == 950 + cash
         assert saved["deposit_balance"] == 0
-        assert deposit_totals(modules, saved) == (cash, cash * .2)
+        assert deposit_totals(modules, saved) == (950 + cash, (950 + cash) * .2)
         before = deepcopy(saved)
         replay = client.post(path, json=body)
         assert replay.status_code == 200, replay.text
@@ -1859,7 +1862,7 @@ def test_confirmed_plan_wide_deposit_funds_completed_component_without_payment_c
         body, "recorder", "component-a", "component"))
     assert asyncio.run(ledger.record_ordinary_service("plan", "complex-row", "component_completion",
         body, "recorder", "component-a", "component")) == result
-    assert deposit_totals(modules, saved) == (150, 30)
+    assert deposit_totals(modules, saved) == (950, 190)
 
 
 def test_confirmed_plan_wide_appointment_before_creation_allocates_all_units(modules, monkeypatch):
@@ -1882,7 +1885,7 @@ def test_confirmed_plan_wide_appointment_before_creation_allocates_all_units(mod
     assert result.id == saved["id"]
     assert plan_wide_shares(saved) == expected_plan_wide_shares()
     assert saved["deposit_balance"] == 0
-    assert deposit_totals(modules, saved) == (0, 0)
+    assert deposit_totals(modules, saved) == (950, 190)
     assert source["treatment_plan_deposit_claims"] == [dict(plan_id=result.id, amount_kzt=950)]
 
 
@@ -1949,11 +1952,12 @@ def test_covered_modal_without_payment_body_collects_no_cash_and_requires_exact_
     assert saved["accounting_events"] == history
     assert saved["paid_amount"] == 1000
     assert plan_wide_shares(saved) == {"first": 500, "second": 500}
-    assert deposit_totals(modules, saved) == (0, 0)
+    expected_totals = (1000, 300)
+    assert deposit_totals(modules, saved) == expected_totals
     saved["execution_status"] = "no_show"
-    assert deposit_totals(modules, saved) == (0, 0)
+    assert deposit_totals(modules, saved) == expected_totals
     asyncio.run(complete())
-    assert deposit_totals(modules, saved) == (500, 150)
+    assert deposit_totals(modules, saved) == expected_totals
     assert plan_wide_shares(saved) == {"first": 500, "second": 500}
 
 
@@ -1975,4 +1979,29 @@ def test_plan_equal_share_cent_residual_and_excess_credit_are_stable(modules, mo
     assert asyncio.run(ledger.record_patient_deposit("plan", "appointment", amount, "recorder")) == first
     assert saved == before
     assert not any(event["kind"].endswith("_receipt") for event in saved["accounting_events"])
-    assert deposit_totals(modules, saved) == (0, 0)
+    shares = plan_wide_shares(saved)
+    paid_rows = sum(Decimal(str(shares.get(row["service_row_id"], 0))) == Decimal(str(row["total_price"]))
+                    for row in saved["services"])
+    assert deposit_totals(modules, saved) == (float(Decimal(str(amount)) - Decimal(str(residual))), paid_rows * 50)
+
+
+def test_paid_hybrid_plan_counts_deposit_revenue_and_salary_without_completion(modules, monkeypatch):
+    db, saved, ledger = deposit_fixture(modules, monkeypatch)
+    row = saved["services"][0]
+    row.update(total_price=2500, quantity=1, occurrence_ids=["first"], payment_status="unpaid",
+               paid_amount=0, paid_from_deposit=0, discount_amount=0)
+    saved["total_cost"] = 2500
+    db.doctors.find_one = AsyncMock(return_value=dict(id="doctor", payment_mode="general",
+        payment_type="hybrid", payment_value=1000, hybrid_percentage_value=10, currency="KZT"))
+
+    asyncio.run(ledger.record_patient_deposit("plan", "appointment", 2000, "recorder"))
+    asyncio.run(ledger.record_ordinary_service("plan", "row", "service_receipt", dict(
+        operation_id=str(uuid4()), amount_kzt=500, discount_amount_kzt=0,
+        payment_source="cash", payment_method="cash"), "recorder"))
+
+    assert saved["services"][0]["payment_status"] == "paid"
+    assert not any(event["kind"] == "service_completion" for event in saved["accounting_events"])
+    saved["services"][0]["discount_amount"] = None
+    start = datetime(2000, 1, 1, tzinfo=timezone.utc)
+    end = datetime(2100, 1, 1, tzinfo=timezone.utc)
+    assert modules.ledger.ordinary_ledger_totals(saved, "doctor", start, end) == (2500, 1250, [])

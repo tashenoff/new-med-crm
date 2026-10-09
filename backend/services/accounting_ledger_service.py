@@ -256,7 +256,7 @@ def resolve_snapshot(doctor, service_id):
 def compensation_amount(snapshot, kind, amount):
     kind = base_event_kind(kind)
     scheme = tariff(snapshot)
-    computed = accrue(scheme, float(amount) if kind in ("service_receipt", "service_advance_allocation") else 0,
+    computed = accrue(scheme, float(amount) if kind in ("service_receipt", "service_advance_allocation", "service_deposit_allocation") else 0,
                       1 if kind == "service_completion" else 0)
     return float(Decimal(str(computed)).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP))
 
@@ -348,8 +348,18 @@ def patient_deposit_balance(events, plan_id):
             if any(identity[i] == previous[i] for previous in identities for i in (0, 1)):
                 raise ValueError
             identities.add(identity)
-            if event["plan_id"] != plan_id or event["currency"] != "KZT" or not event["recorded_by"] or event["compensation_amount_kzt"] != 0:
+            if event["plan_id"] != plan_id or event["currency"] != "KZT" or not event["recorded_by"]:
                 raise ValueError
+            stored_compensation = money(event["compensation_amount_kzt"], "deposit event compensation")
+            if kind == "patient_deposit_received":
+                if stored_compensation != 0:
+                    raise ValueError
+            else:
+                expected_compensation = money(compensation_amount(
+                    event["compensation_snapshot"], kind, money(event["amount_kzt"], "deposit allocation amount")),
+                    "calculated deposit compensation")
+                if stored_compensation not in (Decimal("0"), expected_compensation):
+                    raise ValueError
             if utc_datetime(event["occurred_at"]) != utc_datetime(event["recorded_at"]):
                 raise ValueError
             fields = ("operation_id", "amount_kzt", "appointment_id") if kind == "patient_deposit_received" else (
@@ -550,7 +560,9 @@ class AccountingLedgerService:
             appended.append(dict(command, event_id=str(uuid4()), request_hash=digest, kind=kind,
                 plan_id=plan["id"], service_row_id=row_id, service_id=service_id, doctor_id=doctor_id,
                 currency="KZT", recorded_by=recorded_by, occurred_at=now, recorded_at=now,
-                compensation_snapshot=snapshot, compensation_amount_kzt=0, service_catalog_snapshot=deposit_catalog_snapshot(catalog)))
+                compensation_snapshot=snapshot,
+                compensation_amount_kzt=compensation_amount(snapshot, kind, Decimal(unit["share"]) / 100),
+                service_catalog_snapshot=deposit_catalog_snapshot(catalog)))
             amount = Decimal(unit["share"]) / 100
             target["paid_amount"] = float(money(target.get("paid_amount", 0), "paid_amount") + amount)
             target["paid_from_deposit"] = float(money(target.get("paid_from_deposit", 0), "paid_from_deposit") + amount)
@@ -1150,8 +1162,7 @@ def ordinary_ledger_totals(plan, doctor_id, start, end):
         return 0.0, 0.0, [dict(code="invalid_accounting_event", plan_id=plan.get("id"))]
     identities = set()
     occurrences = set()
-    valid_completions = {}
-    deposit_allocations = []
+    payment_events_by_row = {}
     for event in plan.get("accounting_events") or []:
         if event.get("doctor_id") != doctor_id:
             continue
@@ -1226,26 +1237,69 @@ def ordinary_ledger_totals(plan, doctor_id, start, end):
             _, request_hash, _ = canonical_request(event["plan_id"], event["service_row_id"], kind, body, event.get("occurrence_id"))
             if request_hash != event["request_hash"]:
                 raise ValueError
-            if compensation_amount(snapshot, kind, amount) != float(money(event["compensation_amount_kzt"], "event compensation")):
+            stored_compensation = money(event["compensation_amount_kzt"], "event compensation")
+            expected_compensation = money(compensation_amount(snapshot, kind, amount), "calculated event compensation")
+            if (stored_compensation != expected_compensation
+                    and not (base_kind == "service_deposit_allocation" and stored_compensation == 0)):
                 raise ValueError
             occurred = utc_datetime(event["occurred_at"])
             if utc_datetime(event["recorded_at"]) != occurred:
                 raise ValueError
-            if base_kind == "service_completion":
-                valid_completions[(event["service_row_id"], event.get("component_id"), event.get("session_id"), event["occurrence_id"], event["service_id"], event["doctor_id"])] = event
-            if base_kind == "service_deposit_allocation":
-                deposit_allocations.append(event)
-                continue
+            if base_kind in ("service_receipt", "service_advance_allocation", "service_deposit_allocation"):
+                payment_key = (event["service_row_id"], event.get("component_id"), event.get("session_id"))
+                payment_events_by_row.setdefault(payment_key, []).append(event)
             if start <= occurred.astimezone(timezone.utc) <= end:
                 revenue += float(amount)
-                salary += event["compensation_amount_kzt"]
+                if base_kind == "service_deposit_allocation":
+                    salary += float(stored_compensation or expected_compensation)
+                elif base_kind != "service_completion":
+                    salary += event["compensation_amount_kzt"]
         except (ValueError, KeyError, TypeError, HTTPException):
             blockers.append(dict(code="invalid_accounting_event", plan_id=plan.get("id"), event_id=event.get("event_id")))
-    for allocation in deposit_allocations:
-        completion = valid_completions.get((allocation["service_row_id"], allocation.get("component_id"), allocation.get("session_id"), allocation["completion_occurrence_id"], allocation["service_id"], allocation["doctor_id"]))
-        if completion and start <= utc_datetime(completion["occurred_at"]) <= end:
-            revenue += allocation["amount_kzt"]
-            salary += float(Decimal(str(accrue(tariff(allocation["compensation_snapshot"]), allocation["amount_kzt"], 0))).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP))
+    for parent in plan.get("services") or []:
+        if not any(key[0] == parent.get("service_row_id") for key in payment_events_by_row):
+            continue
+        if parent.get("is_complex"):
+            targets = [(child, child.get("component_id"), None, component_price(parent, child))
+                       for child in parent.get("components") or []]
+        elif parent.get("is_course") or parent.get("payment_type") == "per_session":
+            targets = [(session, None, session.get("session_id") or session.get("id"),
+                        money(session.get("price", parent.get("session_price", parent.get("price_per_unit"))), "session price"))
+                       for session in parent.get("sessions") or []]
+        else:
+            targets = [(parent, None, None, money(parent.get("total_price"), "total_price"))]
+        for target, component_id, session_id, price in targets:
+            earner = target.get("doctor_id") or parent.get("doctor_id") or plan.get("assigned_doctor_id")
+            if earner != doctor_id:
+                continue
+            payment_key = (parent.get("service_row_id"), component_id, session_id)
+            payments = payment_events_by_row.get(payment_key, [])
+            if not payments:
+                continue
+            try:
+                received = sum((money(event["amount_kzt"], "event amount") for event in payments), Decimal("0"))
+                discount_values = {money(event.get("discount_amount_kzt", 0), "event discount") for event in payments}
+                if len(discount_values) != 1:
+                    raise ValueError("Payment discounts are inconsistent")
+                event_discount = next(iter(discount_values))
+                stored_discount = target.get("discount_amount")
+                discount = event_discount if stored_discount is None else money(stored_discount, "target discount")
+                if discount != event_discount or discount > price:
+                    raise ValueError("Stored discount does not match payment events")
+                if received + discount != price:
+                    continue
+                last_payment = max(payments, key=lambda event: utc_datetime(event["occurred_at"]))
+                kind, fixed_value, _ = tariff(last_payment["compensation_snapshot"])
+                occurrence_count = len(target.get("occurrence_ids") or []) or (1 if session_id else 0)
+                if occurrence_count < 1:
+                    raise ValueError("Paid service has no stable occurrence identities")
+                fixed_amount = fixed_value * occurrence_count if kind in ("fixed", "hybrid") else 0
+                if start <= utc_datetime(last_payment["occurred_at"]) <= end:
+                    salary += float(Decimal(str(fixed_amount)).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP))
+            except (ValueError, KeyError, TypeError, HTTPException):
+                blockers.append(dict(code="invalid_accounting_event", plan_id=plan.get("id"),
+                                     service_row_id=parent.get("service_row_id"), component_id=component_id,
+                                     session_id=session_id))
     for row in plan.get("services") or []:
         if row.get("is_complex") and row.get("components"):
             for component in row["components"]:
