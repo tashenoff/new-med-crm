@@ -5,7 +5,7 @@ from datetime import datetime, timezone
 from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
 from hashlib import sha256
 import json
-from uuid import UUID, uuid4
+from uuid import UUID, uuid4, uuid5, NAMESPACE_URL
 from urllib.parse import quote
 
 from fastapi import HTTPException
@@ -69,6 +69,23 @@ def money(value, field):
         raise HTTPException(422, f"{field} must be a finite non-negative KZT amount with at most two decimal places") from None
 
 
+def validate_deposit_catalog(catalog, service_id):
+    # The catalog's individual service type is "regular"; analyses carry a lab link.
+    if (not isinstance(catalog, dict) or catalog.get("id") != service_id or catalog.get("service_type", "regular") != "regular"
+            or catalog.get("laboratory_id") or catalog.get("laboratory_name")
+            or catalog.get("is_analysis") or catalog.get("is_lab_analysis")
+            or "анализ" in str(catalog.get("category", "")).lower()):
+        raise HTTPException(409, "Patient deposits require a known individual non-analysis service")
+
+
+def deposit_catalog_snapshot(catalog):
+    return {field: catalog.get(field) for field in ("id", "service_type", "laboratory_id", "laboratory_name", "category", "is_analysis", "is_lab_analysis")}
+
+
+def is_ledger_plan(plan):
+    return "accounting_events" in plan or any(row.get("service_row_id") for row in plan.get("services", []))
+
+
 def frontend_receipt(body):
     command = dict(body)
     for source, target in (("amount", "amount_kzt"), ("discount_amount", "discount_amount_kzt"),
@@ -114,6 +131,7 @@ def plan_result(plan, result):
     document = deepcopy(plan)
     document.pop("_id", None)
     document["advance_balance_kzt"] = float(advance_balance(document.get("accounting_events", []), document["id"]))
+    document["deposit_balance"] = float(patient_deposit_balance(document.get("accounting_events", []), document["id"]))
     return dict(result, plan=document)
 
 
@@ -149,8 +167,12 @@ def canonical_request(plan_id, row_id, kind, body, occurrence_id):
                     "payment_method_id", "payment_method_name"}
     elif kind == "plan_advance":
         allowed |= {"amount_kzt", "payment_method", "payment_method_id", "payment_method_name", "note"}
-    elif kind == "service_advance_allocation":
+    elif kind in ("service_advance_allocation", "service_deposit_allocation"):
         allowed |= {"amount_kzt", "discount_amount_kzt", "payment_source"}
+        if kind == "service_deposit_allocation":
+            allowed |= {"completion_occurrence_id"}
+    elif kind == "patient_deposit_received":
+        allowed |= {"amount_kzt", "appointment_id"}
     elif kind != "service_completion":
         raise HTTPException(422, "Unsupported ordinary-service event kind")
     if set(body) - allowed:
@@ -184,13 +206,23 @@ def canonical_request(plan_id, row_id, kind, body, occurrence_id):
                 canonical[field] = body[field].strip()
         if "payment_method_id" in canonical and canonical["payment_method_id"] != canonical["payment_method"]:
             raise HTTPException(422, "Conflicting payment method identity")
-    elif kind == "service_advance_allocation":
+    elif kind == "patient_deposit_received":
+        amount = money(body.get("amount_kzt"), "amount_kzt")
+        if not amount or not isinstance(body.get("appointment_id"), str) or not body["appointment_id"] or row_id is not None:
+            raise HTTPException(422, "Patient deposit requires appointment identity and positive amount")
+        canonical.update(amount_kzt=format(amount, ".2f"), appointment_id=body["appointment_id"])
+    elif kind in ("service_advance_allocation", "service_deposit_allocation"):
         amount = money(body.get("amount_kzt"), "amount_kzt")
         discount = money(body.get("discount_amount_kzt", 0), "discount_amount_kzt")
-        if not amount or body.get("payment_source") != "plan_advance":
-            raise HTTPException(422, "Allocation requires a positive amount and payment_source=plan_advance")
+        source = "patient_deposit" if kind == "service_deposit_allocation" else "plan_advance"
+        if not amount or body.get("payment_source") != source:
+            raise HTTPException(422, f"Allocation requires a positive amount and payment_source={source}")
         canonical.update(amount_kzt=format(amount, ".2f"), discount_amount_kzt=format(discount, ".2f"),
-                         payment_source="plan_advance")
+                         payment_source=source)
+        if "completion_occurrence_id" in body:
+            if not isinstance(body["completion_occurrence_id"], str) or not body["completion_occurrence_id"]:
+                raise HTTPException(422, "Stable completion_occurrence_id is required")
+            canonical["completion_occurrence_id"] = body["completion_occurrence_id"]
     elif not isinstance(occurrence_id, str) or not occurrence_id:
         raise HTTPException(422, "A stable occurrence_id is required")
     digest = sha256(json.dumps(canonical, sort_keys=True, separators=(",", ":"), ensure_ascii=False).encode()).hexdigest()
@@ -295,6 +327,52 @@ def reject_legacy_balance(plan, events):
         raise HTTPException(409, "Unallocated legacy plan balances are not event evidence; no backfill is supported")
 
 
+def patient_deposit_balance(events, plan_id):
+    """Only validated plan-owned appointment assignments can fund allocations."""
+    if not isinstance(events, list) or any(not isinstance(event, dict) for event in events):
+        raise HTTPException(409, "Invalid patient deposit event storage")
+    balance = Decimal("0")
+    identities = set()
+    appointments = set()
+    for event in events:
+        kind = event.get("kind", "")
+        if not isinstance(kind, str):
+            raise HTTPException(409, "Invalid patient deposit event kind")
+        if kind != "patient_deposit_received" and base_event_kind(kind) != "service_deposit_allocation":
+            continue
+        try:
+            identity = (str(UUID(event["event_id"])), str(UUID(event["operation_id"])))
+            if any(identity[i] == previous[i] for previous in identities for i in (0, 1)):
+                raise ValueError
+            identities.add(identity)
+            if event["plan_id"] != plan_id or event["currency"] != "KZT" or not event["recorded_by"] or event["compensation_amount_kzt"] != 0:
+                raise ValueError
+            if utc_datetime(event["occurred_at"]) != utc_datetime(event["recorded_at"]):
+                raise ValueError
+            fields = ("operation_id", "amount_kzt", "appointment_id") if kind == "patient_deposit_received" else (
+                "operation_id", "amount_kzt", "discount_amount_kzt", "payment_source", "component_id", "session_id", "completion_occurrence_id")
+            body = {field: event[field] for field in fields if field in event}
+            if kind == "patient_deposit_received":
+                if event.get("doctor_id") or event.get("service_id") or event.get("service_row_id") or event.get("compensation_snapshot") or event["appointment_id"] in appointments:
+                    raise ValueError
+                appointments.add(event["appointment_id"])
+                row_id = None
+            else:
+                row_id = event["service_row_id"]
+                if not row_id or not event["doctor_id"] or not event["service_id"] or not event["completion_occurrence_id"] or event.get("payment_method"):
+                    raise ValueError
+            _, digest, _ = canonical_request(plan_id, row_id, kind, body, None)
+            if digest != event["request_hash"]:
+                raise ValueError
+            amount = money(event["amount_kzt"], "patient deposit amount")
+            balance += amount if kind == "patient_deposit_received" else -amount
+            if balance < 0:
+                raise ValueError
+        except (KeyError, TypeError, ValueError, HTTPException):
+            raise HTTPException(409, "Invalid or unlinked patient deposit event; balance is blocked") from None
+    return balance
+
+
 def execution_projection(rows, events):
     completions = [event for event in events if event.get("kind") in ("service_completion", "session_completion", "component_completion")]
     completed = {(event["service_row_id"], event.get("component_id"), event["kind"], event["occurrence_id"]) for event in completions}
@@ -344,7 +422,12 @@ def reject_unresolved_child_state(row, events):
 def component_price(row, component):
     from services.service_price_service import validate_component_snapshot
     components = row.get("components") or []
-    validate_component_snapshot(components)
+    # Plan snapshots may repeat a catalog service when each component has its own
+    # stable identity. Catalog definitions retain their stricter uniqueness rule.
+    identities = [entry.get("component_id") for entry in components]
+    if not identities or not all(identities) or len(set(identities)) != len(identities):
+        raise HTTPException(409, "Unique stable component identities required")
+    validate_component_snapshot([dict(entry, service_id=entry["component_id"]) for entry in components])
     weights = [money(entry["price"], "component price") * entry.get("quantity", 1) for entry in components]
     total = money(row.get("total_price"), "complex total_price")
     scale = Decimal("1") if total == total.to_integral() else Decimal("0.01")
@@ -357,6 +440,311 @@ def component_price(row, component):
 class AccountingLedgerService:
     def __init__(self, db):
         self.db = db
+
+    async def plan_deposit_allocations(self, plan, events, balance, operation_id, recorded_by, now):
+        """Water-fill prospective exact units using integer cents; never invent identities."""
+        rows = deepcopy(plan.get("services", []))
+        units = []
+        keys = set()
+        payment_kinds = ("service_receipt", "service_advance_allocation", "service_deposit_allocation")
+        funded_total = sum((money(event["amount_kzt"], "event amount") for event in events
+                            if base_event_kind(event.get("kind", "")) in payment_kinds), Decimal("0"))
+        if money(plan.get("paid_amount", 0), "paid_amount") != funded_total:
+            raise HTTPException(409, "Prior plan payment cannot be reconstructed from events")
+        for parent in rows:
+            row_id = parent.get("service_row_id")
+            if not row_id or sum(row.get("service_row_id") == row_id for row in rows) != 1:
+                raise HTTPException(409, "Unique stable service rows required for plan distribution")
+            reject_unresolved_child_state(parent, events)
+            if parent.get("is_complex"):
+                targets = [(child, "component", component_price(parent, child)) for child in parent.get("components") or []]
+            elif parent.get("is_course") or parent.get("payment_type") == "per_session":
+                targets = [(child, "session", money(child.get("price", parent.get("session_price", parent.get("price_per_unit"))), "session price")) for child in parent.get("sessions") or []]
+            else:
+                targets = [(parent, "service", money(parent.get("total_price"), "total_price"))]
+            if not targets:
+                raise HTTPException(409, "Stable payable child units required")
+            for target, prefix, price in targets:
+                component = target.get("component_id") if prefix == "component" else None
+                session = target.get("session_id") if prefix == "session" else None
+                identities = [session] if prefix == "session" else target.get("occurrence_ids") or []
+                if not identities or any(not isinstance(identity, str) or not identity for identity in identities) or len(set(identities)) != len(identities) or (prefix == "component" and not component):
+                    raise HTTPException(409, "Stable exact unit identities required for plan distribution")
+                expected_count = 1 if prefix == "session" else target.get("quantity_total", target.get("quantity", 1))
+                if len(identities) != expected_count or (prefix == "session" and session.isdecimal()):
+                    raise HTTPException(409, "Stable unit identities do not match payable quantity")
+                linked = [event for event in events if event.get("service_row_id") == row_id and event.get("component_id") == component and event.get("session_id") == session]
+                payments = [event for event in linked if base_event_kind(event.get("kind", "")) in payment_kinds]
+                received = sum((money(event["amount_kzt"], "event amount") for event in payments), Decimal("0"))
+                if money(target.get("paid_amount", 0), "paid_amount") != received:
+                    raise HTTPException(409, "Prior unit payment cannot be reconstructed from events")
+                completed_count = sum(base_event_kind(event.get("kind", "")) == "service_completion" for event in linked)
+                if ((prefix != "session" and target.get("quantity_completed", 0) != completed_count)
+                        or (target.get("completed") and not completed_count)
+                        or (target.get("status") == "completed" and completed_count != len(identities))):
+                    raise HTTPException(409, "Prior unit completion cannot be reconstructed from events")
+                discount = money(target.get("discount_amount", 0), "discount")
+                net = price - discount
+                if net < received or ((target.get("paid") or target.get("payment_status") == "paid") and net != received):
+                    raise HTTPException(409, "Stored funding does not match payable capacity")
+                if received == net or completed_count == len(identities):
+                    continue
+                cents, residual = divmod(int(net * 100), len(identities))
+                # Unbound row receipts can only be reconstructed for a single unit.
+                unbound = sum((money(event["amount_kzt"], "amount") for event in payments if not event.get("completion_occurrence_id")), Decimal("0"))
+                if unbound and len(identities) != 1:
+                    raise HTTPException(409, "Prior row payment has no exact occurrence attribution")
+                for index, identity in enumerate(identities):
+                    key = (row_id, component or "", session or "", identity)
+                    if key in keys:
+                        raise HTTPException(409, "Duplicate exact payable unit")
+                    keys.add(key)
+                    funded = sum((money(event["amount_kzt"], "amount") for event in payments if event.get("completion_occurrence_id") == identity), Decimal("0")) + unbound
+                    capacity = cents + (index < residual) - int(funded * 100)
+                    completed = any(base_event_kind(event.get("kind", "")) == "service_completion" and event.get("occurrence_id") == identity for event in linked)
+                    if capacity < 0:
+                        raise HTTPException(409, "Exact unit funding exceeds capacity")
+                    if capacity and not completed and not target.get("paid") and target.get("payment_status") != "paid":
+                        units.append(dict(key=key, target=target, parent=parent, prefix=prefix, capacity=capacity, share=0, discount=discount))
+        units.sort(key=lambda unit: unit["key"])
+        remaining = int(balance * 100)
+        active = list(units)
+        while remaining and active:
+            capped = [unit for unit in active if (unit["capacity"] - unit["share"]) * len(active) <= remaining]
+            if capped:
+                for unit in capped:
+                    amount = unit["capacity"] - unit["share"]
+                    unit["share"] += amount
+                    remaining -= amount
+                active = [unit for unit in active if unit not in capped]
+                continue
+            portion, residual = divmod(remaining, len(active))
+            for index, unit in enumerate(active):
+                unit["share"] += portion + (index < residual)
+            remaining = 0
+        appended = []
+        for unit in units:
+            if not unit["share"]:
+                continue
+            row_id, component, session, identity = unit["key"]
+            target, parent = unit["target"], unit["parent"]
+            service_id = target.get("service_id", parent.get("service_id"))
+            catalog = await self.db.service_prices.find_one({"id": service_id})
+            validate_deposit_catalog(catalog, service_id)
+            doctor_id = target.get("doctor_id") or parent.get("doctor_id") or plan.get("assigned_doctor_id")
+            doctor = await self.db.doctors.find_one({"id": doctor_id}) if doctor_id else None
+            if not doctor:
+                raise HTTPException(409, "Known earning doctor required for plan distribution")
+            snapshot = resolve_snapshot(doctor, service_id)
+            command = dict(operation_id=str(uuid5(UUID(operation_id), json.dumps(unit["key"]))), amount_kzt=unit["share"] / 100,
+                discount_amount_kzt=float(unit["discount"]), payment_source="patient_deposit", completion_occurrence_id=identity)
+            if component:
+                command["component_id"] = component
+            if session:
+                command["session_id"] = session
+            kind = unit["prefix"] + "_deposit_allocation"
+            _, digest, _ = canonical_request(plan["id"], row_id, kind, command, None)
+            appended.append(dict(command, event_id=str(uuid4()), request_hash=digest, kind=kind,
+                plan_id=plan["id"], service_row_id=row_id, service_id=service_id, doctor_id=doctor_id,
+                currency="KZT", recorded_by=recorded_by, occurred_at=now, recorded_at=now,
+                compensation_snapshot=snapshot, compensation_amount_kzt=0, service_catalog_snapshot=deposit_catalog_snapshot(catalog)))
+            amount = Decimal(unit["share"]) / 100
+            target["paid_amount"] = float(money(target.get("paid_amount", 0), "paid_amount") + amount)
+            target["paid_from_deposit"] = float(money(target.get("paid_from_deposit", 0), "paid_from_deposit") + amount)
+        for parent in rows:
+            children = parent.get("components") if parent.get("is_complex") else parent.get("sessions") if parent.get("is_course") or parent.get("payment_type") == "per_session" else None
+            if children is not None:
+                parent["paid_amount"] = float(sum((money(child.get("paid_amount", 0), "paid_amount") for child in children), Decimal("0")))
+                parent["paid_from_deposit"] = float(sum((money(child.get("paid_from_deposit", 0), "paid_from_deposit") for child in children), Decimal("0")))
+        return appended, rows, Decimal(remaining) / 100
+
+    async def record_patient_deposit(self, plan_id, appointment_id, amount, recorded_by):
+        operation_id = str(uuid5(NAMESPACE_URL, f"patient-deposit:{plan_id}:{appointment_id}"))
+        body = dict(operation_id=operation_id, appointment_id=appointment_id, amount_kzt=amount)
+        _, digest, canonical = canonical_request(plan_id, None, "patient_deposit_received", body, None)
+        for _ in range(5):
+            plan = await self.db.treatment_plans.find_one({"id": plan_id})
+            if not plan:
+                raise HTTPException(404, "Treatment plan not found")
+            events = plan.get("accounting_events", [])
+            balance = patient_deposit_balance(events, plan_id)
+            previous = next((event for event in events if event.get("operation_id") == operation_id), None)
+            if previous:
+                if previous["request_hash"] != digest:
+                    raise HTTPException(409, "Appointment deposit assignment cannot be rewritten")
+                return event_result(previous)
+            reject_legacy_balance(plan, events)
+            now = datetime.now(timezone.utc)
+            now = now.replace(microsecond=(now.microsecond // 1000) * 1000)
+            event = dict(event_id=str(uuid4()), operation_id=operation_id, request_hash=digest,
+                         kind="patient_deposit_received", plan_id=plan_id, appointment_id=appointment_id,
+                         amount_kzt=float(Decimal(canonical["amount_kzt"])), currency="KZT", recorded_by=recorded_by,
+                         occurred_at=now, recorded_at=now, compensation_amount_kzt=0,
+                         allocation_policy="plan_equal_share_v1")
+            query = {"id": plan_id, "accounting_events.operation_id": {"$ne": operation_id}}
+            for key in ("accounting_events", "services", "updated_at", "paid_amount", "deposit_amount", "deposit_balance", "extra_deposit", "assigned_doctor_id"):
+                query[key] = plan.get(key)
+            allocations, rows, remaining = await self.plan_deposit_allocations(plan, events,
+                balance + Decimal(canonical["amount_kzt"]), operation_id, recorded_by, now)
+            allocated = sum((money(entry["amount_kzt"], "amount") for entry in allocations), Decimal("0"))
+            result = await self.db.treatment_plans.update_one(query, {"$push": {"accounting_events": {"$each": [event] + allocations}},
+                "$set": {"services": rows, "paid_amount": float(money(plan.get("paid_amount", 0), "paid_amount") + allocated),
+                         "deposit_balance": float(remaining), "updated_at": now}})
+            if result.matched_count:
+                return event_result(event)
+        raise HTTPException(409, "Concurrent deposit assignment; retry with the same appointment")
+
+    async def settle_patient_deposit_row(self, plan_id, service_id, body, recorded_by, component_service_id=None, session_id=None):
+        """Close the modal's discounted payable using immutable prior unit funding."""
+        body = dict(body or {})
+        if body.get("component_id") is not None and component_service_id is None:
+            raise HTTPException(422, "component_id requires a component route")
+        if set(body) - {"amount", "payment_method_id", "payment_method_name", "service_row_id", "component_id"}:
+            raise HTTPException(422, "Unsupported modal payment fields")
+        for _ in range(5):
+            plan = await self.db.treatment_plans.find_one({"id": plan_id})
+            if not plan:
+                raise HTTPException(404, "Treatment plan not found")
+            row_id = stable_row(plan, service_id, body.get("service_row_id"))
+            rows = deepcopy(plan["services"])
+            row = next(row for row in rows if row["service_row_id"] == row_id)
+            parent = row
+            component_id = None
+            prefix = "service"
+            if component_service_id is not None:
+                targets = [child for child in row.get("components", [])
+                           if component_service_id in (child.get("service_id"), child.get("component_id"))
+                           and (not body.get("component_id") or child.get("component_id") == body["component_id"])]
+                if not row.get("is_complex") or len(targets) != 1 or not targets[0].get("component_id"):
+                    raise HTTPException(422, "A unique stable component is required")
+                row = targets[0]
+                component_id = row["component_id"]
+                prefix = "component"
+            elif session_id is not None:
+                sessions = row.get("sessions", [])
+                # Existing modal URLs use array indices. After assignment the plan
+                # is immutable, so resolve that alias to its persisted exact unit.
+                if isinstance(session_id, str) and session_id.isdecimal():
+                    stable_ids = [child.get("session_id") for child in sessions]
+                    if (not any(event.get("allocation_policy") == "plan_equal_share_v1" for event in plan.get("accounting_events", []))
+                            or not stable_ids or any(not isinstance(key, str) or not key or key.isdecimal() for key in stable_ids)
+                            or len(set(stable_ids)) != len(stable_ids) or int(session_id) >= len(sessions)):
+                        raise HTTPException(409, "Legacy session index has no stable exact unit identity")
+                    session_id = stable_ids[int(session_id)]
+                targets = [child for child in sessions if child.get("session_id") == session_id]
+                if (not row.get("is_course") and row.get("payment_type") != "per_session") or len(targets) != 1 or not isinstance(session_id, str):
+                    raise HTTPException(422, "A unique stable session_id is required")
+                row = targets[0]
+                prefix = "session"
+            elif row.get("is_complex") or row.get("is_course") or row.get("payment_type") == "per_session":
+                raise HTTPException(422, "Use explicit stable component/session deposit commands")
+            events = plan.get("accounting_events", [])
+            balance = patient_deposit_balance(events, plan_id)
+            advance_balance(events, plan_id)
+            reject_legacy_balance(plan, events)
+            price = (component_price(parent, row) if component_id else
+                     money(row.get("price", parent.get("session_price", parent.get("price_per_unit"))), "session price")
+                     if session_id else money(row.get("total_price"), "total_price"))
+            payable = money(body.get("amount", price - money(row.get("discount_amount", 0), "discount")), "amount")
+            if payable > price or not payable:
+                raise HTTPException(422, "Payable amount must be positive and at most the service price")
+            discount = price - payable
+            operation_id = str(uuid5(NAMESPACE_URL, f"patient-deposit-modal:{plan_id}:{row_id}" + (f":{prefix}:{component_id or session_id}" if prefix != "service" else "")))
+            prior = [event for event in events if event.get("settlement_id") == operation_id]
+            if row.get("patient_deposit_settlement"):
+                prior.append(row["patient_deposit_settlement"])
+            method = body.get("payment_method_id")
+            if prior:
+                if any(event["discount_amount_kzt"] != float(discount) or event.get("settlement_payment_method") != method
+                       or event.get("settlement_payment_method_name") != body.get("payment_method_name") for event in prior):
+                    raise HTTPException(409, "Completed modal settlement cannot be rewritten")
+                return plan_result(plan, {})["plan"]
+            if not any(event.get("kind") == "patient_deposit_received" for event in events):
+                raise HTTPException(409, "No event-backed patient deposit for this plan")
+            row_events = [event for event in events if event.get("service_row_id") == row_id
+                          and event.get("component_id") == component_id and event.get("session_id") == session_id]
+            payments = [event for event in row_events if base_event_kind(event.get("kind", "")) in
+                        ("service_receipt", "service_advance_allocation", "service_deposit_allocation")]
+            received = sum((money(event["amount_kzt"], "event amount") for event in payments), Decimal("0"))
+            deposited = sum((money(event["amount_kzt"], "event amount") for event in payments
+                             if base_event_kind(event["kind"]) == "service_deposit_allocation"), Decimal("0"))
+            if (money(row.get("paid_amount", 0), "paid_amount") != received
+                    or money(row.get("paid_from_deposit", 0), "paid_from_deposit") != deposited):
+                raise HTTPException(409, "Unlinked legacy row payment is blocked")
+            # The allocation snapshot locks the discount too; modal settlement
+            # must obey the same rule as explicit receipts.
+            if payments and any(money(event.get("discount_amount_kzt", 0), "discount") != discount for event in payments):
+                raise HTTPException(409, "Discount is locked after the first receipt; send the same total discount")
+            if received > payable:
+                raise HTTPException(409, "Discounted payable is less than immutable prior funding")
+            if prefix != "service":
+                reject_unresolved_child_state(parent, events)
+                if not row_events and (row.get("completed") or row.get("quantity_completed")):
+                    raise HTTPException(409, "Unlinked legacy completion is blocked")
+            identities = [session_id] if session_id else row.get("occurrence_ids") or []
+            if not identities or len(identities) != len(set(identities)):
+                raise HTTPException(409, "Stable occurrence identities required")
+            earning_service_id = row.get("service_id", service_id)
+            catalog = await self.db.service_prices.find_one({"id": earning_service_id})
+            validate_deposit_catalog(catalog, earning_service_id)
+            doctor_id = row.get("doctor_id") or parent.get("doctor_id") or plan.get("assigned_doctor_id")
+            doctor = await self.db.doctors.find_one({"id": doctor_id}) if doctor_id else None
+            if not doctor:
+                raise HTTPException(409, "Known earning doctor required")
+            snapshot = resolve_snapshot(doctor, earning_service_id)
+            cash = payable - received
+            if cash and (not isinstance(method, str) or not method.strip()):
+                raise HTTPException(422, "Payment method required for actual cash receipt")
+            now = datetime.now(timezone.utc)
+            now = now.replace(microsecond=(now.microsecond // 1000) * 1000)
+            appended = []
+            if cash:
+                command = dict(operation_id=str(uuid5(UUID(operation_id), "cash")), amount_kzt=float(cash),
+                    discount_amount_kzt=float(discount), payment_source="cash", payment_method=method)
+                for field in ("payment_method_id", "payment_method_name"):
+                    if field in body:
+                        command[field] = body[field]
+                if component_id:
+                    command["component_id"] = component_id
+                if session_id:
+                    command["session_id"] = session_id
+                _, digest, _ = canonical_request(plan_id, row_id, prefix + "_receipt", command, None)
+                appended.append(dict(command, event_id=str(uuid4()), request_hash=digest, kind=prefix + "_receipt"))
+            for event in appended:
+                event.update(plan_id=plan_id, service_row_id=row_id, service_id=earning_service_id, doctor_id=doctor_id,
+                    currency="KZT", recorded_by=recorded_by, occurred_at=now, recorded_at=now, compensation_snapshot=deepcopy(snapshot),
+                    compensation_amount_kzt=compensation_amount(snapshot, base_event_kind(event["kind"]), event["amount_kzt"]),
+                    settlement_id=operation_id, settlement_payment_method=method,
+                    settlement_payment_method_name=body.get("payment_method_name"))
+            row.update(paid_amount=float(payable), paid_from_deposit=float(deposited), discount_amount=float(discount),
+                       payment_status="paid", payment_date=now,
+                       patient_deposit_settlement=dict(settlement_id=operation_id, discount_amount_kzt=float(discount),
+                           settlement_payment_method=method, settlement_payment_method_name=body.get("payment_method_name")))
+            for field in ("payment_method_id", "payment_method_name"):
+                if field in body:
+                    row[field] = body[field]
+            if prefix != "service":
+                row.update(paid=True, amount_due_kzt=0)
+                parent["paid_amount"] = float(sum((money(event["amount_kzt"], "amount") for event in events
+                    if event.get("service_row_id") == row_id and base_event_kind(event.get("kind", "")) in
+                    ("service_receipt", "service_advance_allocation", "service_deposit_allocation")), Decimal("0")) + cash)
+                parent["payment_status"] = "paid" if all(child.get("paid") for child in
+                    parent["components" if component_id else "sessions"]) else "partially_paid"
+                parent["discount_amount"] = float(sum((money(child.get("discount_amount", 0), "child discount")
+                    for child in parent["components" if component_id else "sessions"]), Decimal("0")))
+            fields = dict(services=rows, paid_amount=float(sum((money(event["amount_kzt"], "event amount") for event in events
+                if base_event_kind(event.get("kind", "")) in ("service_receipt", "service_advance_allocation", "service_deposit_allocation")), Decimal("0")) + cash),
+                deposit_balance=float(balance), updated_at=now,
+                payment_status="paid" if all(row.get("payment_status") == "paid" for row in rows) else "partially_paid")
+            query = {"id": plan_id}
+            for key in ("services", "accounting_events", "paid_amount", "updated_at", "assigned_doctor_id", "deposit_balance", "deposit_amount", "extra_deposit"):
+                query[key] = plan.get(key)
+            result = await self.db.treatment_plans.update_one(query, {"$set": fields, "$push": {"accounting_events": {"$each": appended}}})
+            if result.matched_count:
+                from services.treatment_plan_service import TreatmentPlanService
+                await TreatmentPlanService(self.db).sync_persisted_payment(plan_id)
+                return plan_result(await self.db.treatment_plans.find_one({"id": plan_id}), {})["plan"]
+        raise HTTPException(409, "Concurrent modal settlement; retry unchanged request")
 
     async def record_component_receipt(self, plan_id, service_id, component_service_id, body, recorded_by):
         plan = await self.db.treatment_plans.find_one({"id": plan_id})
@@ -443,10 +831,14 @@ class AccountingLedgerService:
 
     async def record_session(self, plan_id, service_id, session_id, body, recorded_by):
         command = frontend_receipt(body)
-        kind = "session_advance_allocation" if command.get("payment_source") == "plan_advance" else "session_receipt"
+        kind = "session_deposit_allocation" if command.get("payment_source") == "patient_deposit" else ("session_advance_allocation" if command.get("payment_source") == "plan_advance" else "session_receipt")
         row_id = command.pop("service_row_id", None)
         if command.get("session_id") != session_id:
             raise HTTPException(422, "Conflicting or missing session_id")
+        if kind == "session_deposit_allocation":
+            if command.get("completion_occurrence_id", session_id) != session_id:
+                raise HTTPException(422, "Deposit must link to this exact session completion")
+            command["completion_occurrence_id"] = session_id
         for attempt in range(5):
             plan = await self.db.treatment_plans.find_one({"id": plan_id})
             if not plan:
@@ -456,6 +848,7 @@ class AccountingLedgerService:
                 plan_id, row_id, kind, command, None)
             events = plan.get("accounting_events", [])
             balance = advance_balance(events, plan_id)
+            deposit_balance = patient_deposit_balance(events, plan_id)
             previous = next((event for event in events if event.get("operation_id") == operation_id), None)
             if previous:
                 if previous.get("request_hash") != request_hash:
@@ -481,11 +874,18 @@ class AccountingLedgerService:
             if not doctor:
                 raise HTTPException(409, "Assign a known earning doctor before recording an event")
             snapshot = resolve_snapshot(doctor, service_id)
-            payments = [event for event in target_events if event.get("kind") in ("session_receipt", "session_advance_allocation")]
+            if kind == "session_deposit_allocation":
+                catalog = await self.db.service_prices.find_one({"id": service_id})
+                validate_deposit_catalog(catalog, service_id)
+            payments = [event for event in target_events if event.get("kind") in ("session_receipt", "session_advance_allocation", "session_deposit_allocation")]
             received = sum((money(event["amount_kzt"], "event amount") for event in payments), Decimal("0"))
             amount = Decimal(canonical["amount_kzt"])
             if kind == "session_advance_allocation" and amount > balance:
                 raise HTTPException(409, "Insufficient same-plan event-backed unallocated advance")
+            if kind == "session_deposit_allocation" and any(event.get("allocation_policy") == "plan_equal_share_v1" for event in events):
+                raise HTTPException(409, "Patient deposit shares are assigned only at plan receipt assignment")
+            if kind == "session_deposit_allocation" and amount > deposit_balance:
+                raise HTTPException(409, "Insufficient same-plan event-backed patient deposit")
             discount = Decimal(canonical["discount_amount_kzt"])
             if discount:
                 raise HTTPException(422, "Session discounts are not supported")
@@ -504,17 +904,22 @@ class AccountingLedgerService:
                 occurred_at=now, recorded_at=now, currency="KZT", amount_kzt=float(amount),
                 discount_amount_kzt=0, payment_source=canonical["payment_source"], compensation_snapshot=snapshot,
                 compensation_amount_kzt=compensation_amount(snapshot, kind, amount))
+            if kind == "session_deposit_allocation":
+                event["completion_occurrence_id"] = session_id
+                event["service_catalog_snapshot"] = deposit_catalog_snapshot(catalog)
             for field in ("payment_method", "payment_method_id", "payment_method_name"):
                 if field in canonical:
                     event[field] = canonical[field]
                     session[field] = canonical[field]
             row["paid_amount"] = float(sum((money(entry["amount_kzt"], "event amount") for entry in events
-                if entry.get("service_row_id") == row_id and entry.get("kind") in ("session_receipt", "session_advance_allocation")), Decimal("0")) + amount)
+                if entry.get("service_row_id") == row_id and entry.get("kind") in ("session_receipt", "session_advance_allocation", "session_deposit_allocation")), Decimal("0")) + amount)
             row["payment_status"] = "paid" if all(entry.get("paid") for entry in row["sessions"]) else "partially_paid"
             fields = dict(services=rows, updated_at=now, advance_balance_kzt=float(balance - amount if kind == "session_advance_allocation" else balance),
                 paid_amount=float(sum((money(entry["amount_kzt"], "event amount") for entry in events
-                    if base_event_kind(entry.get("kind", "")) in ("service_receipt", "service_advance_allocation")), Decimal("0")) + amount),
+                    if base_event_kind(entry.get("kind", "")) in ("service_receipt", "service_advance_allocation", "service_deposit_allocation")), Decimal("0")) + amount),
                 payment_status="paid" if all(entry.get("payment_status") == "paid" for entry in rows) else "partially_paid")
+            if kind == "session_deposit_allocation":
+                fields["deposit_balance"] = float(deposit_balance - amount)
             query = {"id": plan_id, "accounting_events.operation_id": {"$ne": operation_id}}
             for key in ("services", "accounting_events", "paid_amount", "payment_status", "updated_at", "assigned_doctor_id",
                         "deposit_amount", "deposit_balance", "extra_deposit"):
@@ -538,6 +943,7 @@ class AccountingLedgerService:
                 raise HTTPException(404, "Treatment plan not found")
             events = plan.get("accounting_events", [])
             balance = advance_balance(events, plan_id)
+            patient_deposit_balance(events, plan_id)
             previous = next((event for event in events if event.get("operation_id") == operation_id), None)
             if previous:
                 if previous.get("request_hash") != request_hash:
@@ -566,12 +972,26 @@ class AccountingLedgerService:
         raise HTTPException(409, "Concurrent accounting update; retry with the same operation_id")
 
     async def record_ordinary_service(self, plan_id, row_id, kind, body, recorded_by, occurrence_id=None, component_id=None):
-        if kind in ("service_receipt", "component_receipt") and isinstance(body, dict) and body.get("payment_source") == "plan_advance":
-            kind = kind.replace("receipt", "advance_allocation")
+        if kind in ("service_receipt", "component_receipt") and isinstance(body, dict):
+            if body.get("payment_source") in ("plan_advance", "patient_deposit"):
+                kind = kind.replace("receipt", "deposit_allocation" if body["payment_source"] == "patient_deposit" else "advance_allocation")
         event_kind = kind
         if component_id:
             body = dict(body, component_id=component_id)
             kind = base_event_kind(kind)
+        if base_event_kind(event_kind) == "service_deposit_allocation":
+            plan = await self.db.treatment_plans.find_one({"id": plan_id})
+            targets = [row for row in (plan or {}).get("services", []) if row.get("service_row_id") == row_id]
+            target = targets[0] if len(targets) == 1 else {}
+            if component_id:
+                children = [child for child in target.get("components", []) if child.get("component_id") == component_id]
+                target = children[0] if len(children) == 1 else {}
+            identities = target.get("occurrence_ids") or []
+            body = dict(body)
+            link = body.get("completion_occurrence_id") or (identities[0] if len(identities) == 1 else None)
+            if not link or link not in identities:
+                raise HTTPException(422, "Deposit allocation requires exact completion_occurrence_id for multi-occurrence rows")
+            body["completion_occurrence_id"] = link
         operation_id, request_hash, canonical = canonical_request(plan_id, row_id, event_kind, body, occurrence_id)
         for attempt in range(5):
             plan = await self.db.treatment_plans.find_one({"id": plan_id})
@@ -583,6 +1003,7 @@ class AccountingLedgerService:
             if any(not isinstance(event, dict) for event in events):
                 raise HTTPException(409, "Invalid stored accounting event; payroll is blocked")
             balance = advance_balance(events, plan_id)
+            deposit_balance = patient_deposit_balance(events, plan_id)
             previous = next((event for event in events if event.get("operation_id") == operation_id), None)
             if previous:
                 if previous.get("request_hash") != request_hash:
@@ -598,7 +1019,7 @@ class AccountingLedgerService:
             if component_id:
                 reject_unresolved_child_state(parent, events)
                 components = [entry for entry in row.get("components") or [] if entry.get("component_id") == component_id]
-                if not row.get("is_complex") or len(components) != 1 or kind not in ("service_receipt", "service_advance_allocation", "service_completion"):
+                if not row.get("is_complex") or len(components) != 1 or kind not in ("service_receipt", "service_advance_allocation", "service_deposit_allocation", "service_completion"):
                     raise HTTPException(422, "A unique component target is required")
                 row = components[0]
                 price = component_price(parent, row) if kind != "service_completion" else None
@@ -620,18 +1041,25 @@ class AccountingLedgerService:
             if not doctor:
                 raise HTTPException(409, "Earning doctor not found")
             snapshot = resolve_snapshot(doctor, row.get("service_id"))
+            if kind == "service_deposit_allocation":
+                catalog = await self.db.service_prices.find_one({"id": row.get("service_id")})
+                validate_deposit_catalog(catalog, row.get("service_id"))
             received = sum(money(event.get("amount_kzt"), "stored amount_kzt") for event in row_events
-                           if base_event_kind(event.get("kind", "")) in ("service_receipt", "service_advance_allocation"))
+                           if base_event_kind(event.get("kind", "")) in ("service_receipt", "service_advance_allocation", "service_deposit_allocation"))
             fields = {}
             amount = Decimal("0")
-            if kind in ("service_receipt", "service_advance_allocation"):
+            if kind in ("service_receipt", "service_advance_allocation", "service_deposit_allocation"):
                 amount = Decimal(canonical["amount_kzt"])
                 discount = Decimal(canonical["discount_amount_kzt"])
-                payments = [event for event in row_events if base_event_kind(event.get("kind", "")) in ("service_receipt", "service_advance_allocation")]
+                payments = [event for event in row_events if base_event_kind(event.get("kind", "")) in ("service_receipt", "service_advance_allocation", "service_deposit_allocation")]
                 if payments and any(money(event.get("discount_amount_kzt"), "event discount") != discount for event in payments):
                     raise HTTPException(409, "Discount is locked after the first receipt; send the same total discount")
                 if kind == "service_advance_allocation" and amount > balance:
                     raise HTTPException(409, "Insufficient same-plan event-backed unallocated advance")
+                if kind == "service_deposit_allocation" and any(event.get("allocation_policy") == "plan_equal_share_v1" for event in events):
+                    raise HTTPException(409, "Patient deposit shares are assigned only at plan receipt assignment")
+                if kind == "service_deposit_allocation" and amount > deposit_balance:
+                    raise HTTPException(409, "Insufficient same-plan event-backed patient deposit")
                 net = (price if component_id else money(row.get("total_price"), "total_price")) - discount
                 if net < 0 or received + amount > net:
                     raise HTTPException(422, "Actual receipt exceeds the discounted remaining balance")
@@ -640,7 +1068,7 @@ class AccountingLedgerService:
                 if component_id:
                     row.update(paid=received + amount == net, amount_due_kzt=float(net - received - amount))
                     parent["paid_amount"] = float(sum((money(entry["amount_kzt"], "event amount") for entry in events
-                        if entry.get("service_row_id") == row_id and base_event_kind(entry.get("kind", "")) in ("service_receipt", "service_advance_allocation")), Decimal("0")) + amount)
+                        if entry.get("service_row_id") == row_id and base_event_kind(entry.get("kind", "")) in ("service_receipt", "service_advance_allocation", "service_deposit_allocation")), Decimal("0")) + amount)
                     parent["payment_status"] = "paid" if all(entry.get("paid") for entry in parent["components"]) else "partially_paid"
                 if kind == "service_receipt":
                     row["payment_method_name"] = canonical.get("payment_method_name", canonical["payment_method"])
@@ -663,7 +1091,11 @@ class AccountingLedgerService:
                          compensation_amount_kzt=compensation_amount(snapshot, kind, amount))
             if component_id:
                 event["component_id"] = component_id
-            if kind in ("service_receipt", "service_advance_allocation"):
+            if kind == "service_deposit_allocation":
+                event["completion_occurrence_id"] = canonical["completion_occurrence_id"]
+                event["service_catalog_snapshot"] = deposit_catalog_snapshot(catalog)
+                fields["deposit_balance"] = float(deposit_balance - amount)
+            if kind in ("service_receipt", "service_advance_allocation", "service_deposit_allocation"):
                 event.update(payment_source=canonical["payment_source"], discount_amount_kzt=float(discount))
                 if kind == "service_receipt":
                     event["payment_method"] = canonical["payment_method"]
@@ -672,7 +1104,7 @@ class AccountingLedgerService:
                         event[field] = canonical[field]
                 row["payment_date"] = now
                 fields["paid_amount"] = float(sum((money(entry["amount_kzt"], "event amount") for entry in events
-                    if base_event_kind(entry.get("kind", "")) in ("service_receipt", "service_advance_allocation")), Decimal("0")) + amount)
+                    if base_event_kind(entry.get("kind", "")) in ("service_receipt", "service_advance_allocation", "service_deposit_allocation")), Decimal("0")) + amount)
                 fields["advance_balance_kzt"] = float(balance - amount if kind == "service_advance_allocation" else balance)
                 fields["payment_status"] = "paid" if all(entry.get("payment_status") == "paid" for entry in rows) else "partially_paid"
                 fields["payment_date"] = now if fields["payment_status"] == "paid" else None
@@ -686,7 +1118,7 @@ class AccountingLedgerService:
                 query[key] = plan.get(key)
             result = await self.db.treatment_plans.update_one(query, {"$set": fields, "$push": {"accounting_events": event}})
             if result.matched_count:
-                if kind in ("service_receipt", "service_advance_allocation"):
+                if kind in ("service_receipt", "service_advance_allocation", "service_deposit_allocation"):
                     from services.treatment_plan_service import TreatmentPlanService
                     await TreatmentPlanService(self.db).sync_persisted_payment(plan_id)
                 return event_result(event)
@@ -710,17 +1142,20 @@ def ordinary_ledger_totals(plan, doctor_id, start, end):
         return 0.0, 0.0, [dict(code="invalid_accounting_event", plan_id=plan.get("id"))]
     try:
         advance_balance(stored_events, plan.get("id"))
+        patient_deposit_balance(stored_events, plan.get("id"))
     except HTTPException:
         return 0.0, 0.0, [dict(code="invalid_accounting_event", plan_id=plan.get("id"))]
     identities = set()
     occurrences = set()
+    valid_completions = {}
+    deposit_allocations = []
     for event in plan.get("accounting_events") or []:
         if event.get("doctor_id") != doctor_id:
             continue
         try:
             kind = event["kind"]
             base_kind = base_event_kind(kind)
-            if base_kind not in ("service_receipt", "service_advance_allocation", "service_completion") or event["plan_id"] != plan["id"] or event["currency"] != "KZT":
+            if base_kind not in ("service_receipt", "service_advance_allocation", "service_deposit_allocation", "service_completion") or event["plan_id"] != plan["id"] or event["currency"] != "KZT":
                 raise ValueError
             identity = (event["event_id"], event["operation_id"])
             UUID(identity[0])
@@ -735,6 +1170,12 @@ def ordinary_ledger_totals(plan, doctor_id, start, end):
                 raise ValueError
             amount = money(event["amount_kzt"], "event amount")
             body = {"operation_id": event["operation_id"]}
+            if kind.startswith("service_"):
+                rows = [row for row in plan.get("services", []) if row.get("service_row_id") == event["service_row_id"]]
+                if len(rows) != 1 or rows[0].get("service_id") != event["service_id"] or rows[0].get("is_complex") or rows[0].get("is_course") or rows[0].get("payment_type") == "per_session":
+                    raise ValueError
+                if base_kind == "service_completion" and event["occurrence_id"] not in rows[0].get("occurrence_ids", []):
+                    raise ValueError
             if kind.startswith("component_"):
                 body["component_id"] = event["component_id"]
                 rows = [row for row in plan.get("services", []) if row.get("service_row_id") == event["service_row_id"]]
@@ -761,9 +1202,9 @@ def ordinary_ledger_totals(plan, doctor_id, start, end):
                 if amount or occurrence in occurrences:
                     raise ValueError
                 occurrences.add(occurrence)
-            elif not amount or event.get("payment_source") != ("cash" if base_kind == "service_receipt" else "plan_advance") or (base_kind == "service_receipt" and not event.get("payment_method")):
+            elif not amount or event.get("payment_source") != ("cash" if base_kind == "service_receipt" else ("patient_deposit" if base_kind == "service_deposit_allocation" else "plan_advance")) or (base_kind == "service_receipt" and not event.get("payment_method")):
                 raise ValueError
-            if base_kind in ("service_receipt", "service_advance_allocation"):
+            if base_kind in ("service_receipt", "service_advance_allocation", "service_deposit_allocation"):
                 body.update(amount_kzt=event["amount_kzt"], discount_amount_kzt=event["discount_amount_kzt"],
                             payment_source=event["payment_source"])
                 if base_kind == "service_receipt":
@@ -771,6 +1212,14 @@ def ordinary_ledger_totals(plan, doctor_id, start, end):
                 for field in ("payment_method_id", "payment_method_name"):
                     if field in event:
                         body[field] = event[field]
+                if base_kind == "service_deposit_allocation":
+                    validate_deposit_catalog(event.get("service_catalog_snapshot"), event["service_id"])
+                    body["completion_occurrence_id"] = event["completion_occurrence_id"]
+                    rows = [row for row in plan.get("services", []) if row.get("service_row_id") == event["service_row_id"]]
+                    target = components[0] if kind.startswith("component_") else (rows[0] if len(rows) == 1 else {})
+                    expected = [event.get("session_id")] if kind.startswith("session_") else target.get("occurrence_ids", [])
+                    if target.get("service_id") != event["service_id"] or event["completion_occurrence_id"] not in expected:
+                        raise ValueError
             _, request_hash, _ = canonical_request(event["plan_id"], event["service_row_id"], kind, body, event.get("occurrence_id"))
             if request_hash != event["request_hash"]:
                 raise ValueError
@@ -779,11 +1228,21 @@ def ordinary_ledger_totals(plan, doctor_id, start, end):
             occurred = utc_datetime(event["occurred_at"])
             if utc_datetime(event["recorded_at"]) != occurred:
                 raise ValueError
+            if base_kind == "service_completion":
+                valid_completions[(event["service_row_id"], event.get("component_id"), event.get("session_id"), event["occurrence_id"], event["service_id"], event["doctor_id"])] = event
+            if base_kind == "service_deposit_allocation":
+                deposit_allocations.append(event)
+                continue
             if start <= occurred.astimezone(timezone.utc) <= end:
                 revenue += float(amount)
                 salary += event["compensation_amount_kzt"]
         except (ValueError, KeyError, TypeError, HTTPException):
             blockers.append(dict(code="invalid_accounting_event", plan_id=plan.get("id"), event_id=event.get("event_id")))
+    for allocation in deposit_allocations:
+        completion = valid_completions.get((allocation["service_row_id"], allocation.get("component_id"), allocation.get("session_id"), allocation["completion_occurrence_id"], allocation["service_id"], allocation["doctor_id"]))
+        if completion and start <= utc_datetime(completion["occurred_at"]) <= end:
+            revenue += allocation["amount_kzt"]
+            salary += float(Decimal(str(accrue(tariff(allocation["compensation_snapshot"]), allocation["amount_kzt"], 0))).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP))
     for row in plan.get("services") or []:
         if row.get("is_complex") and row.get("components"):
             for component in row["components"]:

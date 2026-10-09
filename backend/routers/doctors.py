@@ -76,7 +76,10 @@ async def get_individual_doctor_statistics(
 async def get_doctor_salary_report(
     date_from: Optional[str] = None,
     date_to: Optional[str] = None,
-    current_user: UserInDB = Depends(require_role([UserRole.ADMIN, UserRole.SUPER_ADMIN])),
+    current_user: UserInDB = Depends(require_role([
+        UserRole.ADMIN, UserRole.SUPER_ADMIN, UserRole.DOCTOR,
+        UserRole.MARKETER, UserRole.ADMINISTRATOR,
+    ])),
     service: SalaryService = Depends(get_salary_service)
 ):
     """Get doctor salary report with detailed commission calculations"""

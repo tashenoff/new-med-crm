@@ -19,7 +19,7 @@ from services.treatment_plan_service import TreatmentPlanService
 from services.statistics_service import StatisticsService
 from services.accounting_ledger_service import (
     AccountingLedgerService, reject_ledger_writer, frontend_receipt, stable_row, plan_result,
-    completion_command,
+    completion_command, is_ledger_plan,
 )
 
 # Router
@@ -552,6 +552,10 @@ async def mark_complex_component_paid(
     if isinstance(payment_data, dict) and payment_data.get("operation_id"):
         return await AccountingLedgerService(db).record_component_receipt(
             plan_id, service_id, component_service_id, payment_data, current_user.id)
+    plan = await db.treatment_plans.find_one({"id": plan_id})
+    if plan and is_ledger_plan(plan):
+        return await AccountingLedgerService(db).settle_patient_deposit_row(
+            plan_id, service_id, payment_data, current_user.id, component_service_id=component_service_id)
     return await service.pay_complex_component(plan_id, service_id, component_service_id, payment_data)
 
 
@@ -574,6 +578,8 @@ async def mark_service_paid(
         result = await AccountingLedgerService(db).record_ordinary_service(
             plan_id, row_id, "service_receipt", frontend_receipt(command), current_user.id)
         return plan_result(await db.treatment_plans.find_one({"id": plan_id}), result)
+    if any(event.get("kind") == "patient_deposit_received" for event in plan.get("accounting_events", [])):
+        return await AccountingLedgerService(db).settle_patient_deposit_row(plan_id, service_id, payment_data, current_user.id)
     reject_ledger_writer(plan)
     if any(row.get("service_id") == service_id and row.get("service_row_id") for row in plan.get("services", [])):
         raise HTTPException(422, "Prospective service receipts require operation_id UUID, service_row_id, actual amount_kzt, total discount_amount_kzt, payment_source and payment_method")
@@ -617,7 +623,7 @@ async def mark_service_paid(
                     svc_amount = float(amt)
                     service["discount_amount"] = round(total_price - svc_amount, 2)
             service["paid_amount"] = round(svc_amount, 2)
-            service_price = total_price
+            service_price = svc_amount
             
             # Сохранить способ оплаты если передан
             if payment_data and isinstance(payment_data, dict):
@@ -771,6 +777,9 @@ async def mark_session_paid(
     plan = await db.treatment_plans.find_one({"id": plan_id})
     if not plan:
         raise HTTPException(status_code=404, detail="Treatment plan not found")
+    if is_ledger_plan(plan) and (command is None or isinstance(command, dict) and not command.get("operation_id")):
+        return await AccountingLedgerService(db).settle_patient_deposit_row(
+            plan_id, service_id, command, current_user.id, session_id=session_id)
     if isinstance(command, dict):
         return await AccountingLedgerService(db).record_session(
             plan_id, service_id, session_id, command, current_user.id)

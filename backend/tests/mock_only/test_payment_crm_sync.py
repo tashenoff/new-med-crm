@@ -62,10 +62,13 @@ def plan_document():
 def memory_db(document):
     saved = deepcopy(document)
     db = Mock()
+    db.appointments.find.return_value.sort.return_value.to_list = AsyncMock(return_value=[])
     db.treatment_plans.find_one = AsyncMock(side_effect=lambda *args: deepcopy(saved))
     db.treatment_plans.find.return_value.to_list = AsyncMock(side_effect=lambda *args, **kwargs: [deepcopy(saved)])
     db.treatment_plans.find.return_value.sort.return_value.to_list = db.treatment_plans.find.return_value.to_list
     db.appointments.find.return_value.to_list = AsyncMock(return_value=[])
+    db.appointments.find_one = AsyncMock(return_value=dict(id="appointment", patient_id="patient", deposit=50))
+    db.appointments.update_one = AsyncMock(return_value=SimpleNamespace(matched_count=1))
 
     async def persist(query, update):
         saved.update(deepcopy(update["$set"]))

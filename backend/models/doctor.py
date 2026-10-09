@@ -57,6 +57,7 @@ class Doctor(BaseModel):
     consultation_payment_value: Optional[float] = 0.0  # Значение оплаты за консультации
     consultation_currency: Optional[str] = "KZT"  # Валюта для фиксированной оплаты за консультации
     consultation_compensation_mode: Optional[Literal["none", "inherit", "separate"]] = None
+    consultation_hybrid_fixed_amount: Optional[float] = 0.0
     consultation_hybrid_percentage_value: Optional[float] = 0.0
     # Услуги, которые может оказывать врач (для расчета зарплаты с планов лечения)
     services: Optional[List] = []  # Список ID услуг или объектов с настройками комиссий

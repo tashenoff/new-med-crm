@@ -13,7 +13,7 @@ from math import isfinite
 from models.treatment_plan import TreatmentPlan, TreatmentPlanCreate, TreatmentPlanUpdate
 from services.service_price_service import validate_component_snapshot
 from services.accounting_ledger_service import (
-    assign_ledger_identities, preserve_ledger_identities, reject_ledger_writer, advance_balance,
+    assign_ledger_identities, preserve_ledger_identities, reject_ledger_writer, advance_balance, patient_deposit_balance, is_ledger_plan,
 )
 
 logger = logging.getLogger(__name__)
@@ -155,6 +155,20 @@ class TreatmentPlanService:
         if treatment_plan.payment_status != "unpaid" or treatment_plan.paid_amount:
             await self.sync_persisted_payment(treatment_plan.id)
         
+        # Replay actual appointment receipts in FIFO order; immutable assignments
+        # across all plans prevent creation/retry from spending a receipt twice.
+        from routers.appointments import apply_deposit_to_treatment_plans, appointment_deposit_kzt
+        appointments = await self.db.appointments.find({
+            "patient_id": patient_id, "deposit": {"$gt": 0}
+        }).sort([("created_at", 1), ("id", 1)]).to_list(None)
+        for appointment in appointments:
+            appointment_id = appointment.get("id") or str(appointment.get("_id", ""))
+            if not appointment_id:
+                raise HTTPException(409, "Appointment deposit requires immutable appointment identity")
+            await apply_deposit_to_treatment_plans(patient_id, float(appointment_deposit_kzt(appointment)), appointment_id, self.db)
+        if appointments:
+            treatment_plan = TreatmentPlan(**await self.db.treatment_plans.find_one({"id": treatment_plan.id}))
+
         logger.info(f"Treatment plan created: {treatment_plan.title} for patient {patient_id}")
         return treatment_plan
     
@@ -178,7 +192,7 @@ class TreatmentPlanService:
         treatment_plans = await self.db.treatment_plans.find({"patient_id": patient_id}).sort("created_at", -1).to_list(100)
         
         # Получаем сумму депозитов из записей пациента
-        deposit_amount = await self._get_patient_deposit_amount(patient_id)
+        deposit_amount = await self._get_patient_deposit_amount(patient_id) if any(not is_ledger_plan(plan) for plan in treatment_plans) else 0
         
         # Добавляем deposit_amount и deposit_balance к каждому плану
         plans = []
@@ -194,6 +208,9 @@ class TreatmentPlanService:
             # deposit_balance - остаток депозита (если не установлен, равен total_deposit)
             plan_dict['deposit_balance'] = plan.get('deposit_balance', total_deposit)
             plan_dict['advance_balance_kzt'] = float(advance_balance(plan.get('accounting_events', []), plan['id']))
+            if is_ledger_plan(plan):
+                plan_dict['deposit_balance'] = float(patient_deposit_balance(plan.get('accounting_events', []), plan['id']))
+                plan_dict['deposit_amount'] = sum(event['amount_kzt'] for event in plan.get('accounting_events', []) if event.get('kind') == 'patient_deposit_received')
             plans.append(plan_dict)
         
         return plans
@@ -225,7 +242,7 @@ class TreatmentPlanService:
         
         # Получаем сумму депозитов из записей пациента
         patient_id = treatment_plan.get("patient_id")
-        deposit_amount = await self._get_patient_deposit_amount(patient_id) if patient_id else 0
+        deposit_amount = await self._get_patient_deposit_amount(patient_id) if patient_id and not is_ledger_plan(treatment_plan) else 0
         
         # Преобразуем в объект и добавляем депозит
         plan_obj = TreatmentPlan(**treatment_plan)
@@ -241,6 +258,9 @@ class TreatmentPlanService:
         plan_dict['deposit_balance'] = treatment_plan.get('deposit_balance', total_deposit)
         plan_dict['advance_balance_kzt'] = float(advance_balance(treatment_plan.get('accounting_events', []), plan_id))
         
+        if is_ledger_plan(treatment_plan):
+            plan_dict['deposit_balance'] = float(patient_deposit_balance(treatment_plan.get('accounting_events', []), plan_id))
+            plan_dict['deposit_amount'] = sum(event['amount_kzt'] for event in treatment_plan.get('accounting_events', []) if event.get('kind') == 'patient_deposit_received')
         return plan_dict
     
     async def update_treatment_plan(

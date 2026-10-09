@@ -21,6 +21,7 @@ from models.auth import UserInDB, UserRole
 from dependencies import get_current_active_user, require_role
 from services.patient_status import refresh_patient_appointments_count
 from services.treatment_plan_service import TreatmentPlanService
+from services.accounting_ledger_service import AccountingLedgerService, patient_deposit_balance, money, is_ledger_plan
 
 # Router
 appointments_router = APIRouter(prefix="/appointments", tags=["Appointments"])
@@ -45,6 +46,85 @@ class AppointmentStatusUpdate(BaseModel):
 
 
 # Helper functions
+def appointment_deposit_kzt(appointment):
+    amount = money(appointment.get("deposit", 0), "appointment deposit")
+    if appointment.get("deposit_type") == "percent":
+        if amount > 100:
+            raise HTTPException(409, "Invalid percentage appointment deposit")
+        amount = (money(appointment.get("price"), "appointment price") * amount / 100).quantize(
+            money("0.01", "cent"), rounding="ROUND_HALF_UP")
+    return amount
+
+
+def appointment_assignments(plans, appointment_id):
+    assigned = {}
+    for plan in plans:
+        events = plan.get("accounting_events", [])
+        if is_ledger_plan(plan):
+            patient_deposit_balance(events, plan["id"])
+        received = [event for event in events if event.get("kind") == "patient_deposit_received"
+                    and event.get("appointment_id") == appointment_id]
+        legacy = [entry for entry in plan.get("appointment_deposit_assignments", [])
+                  if entry.get("appointment_id") == appointment_id]
+        if len(received) > 1 or len(legacy) > 1:
+            raise HTTPException(409, "Duplicate immutable appointment assignment")
+        amounts = [money(entry["amount_kzt"], "appointment assignment") for entry in received + legacy]
+        if amounts and (not amounts[0] or any(amount != amounts[0] for amount in amounts)):
+            raise HTTPException(409, "Conflicting immutable appointment assignments")
+        if not amounts and appointment_id in plan.get("appointment_ids", []):
+            raise HTTPException(409, "Unlinked legacy appointment assignment cannot be replayed into ledger plans")
+        if amounts:
+            assigned[plan["id"]] = amounts[0]
+    return assigned
+
+
+async def reserve_appointment_deposit(db, source_query, appointment_id, plan_id, requested):
+    # Reserve before the plan write. A failed plan write leaves an immutable claim
+    # that the same appointment retry replays; another plan cannot spend it.
+    for _ in range(5):
+        source = await db.appointments.find_one(source_query)
+        if not source:
+            raise HTTPException(409, "Appointment deposit source disappeared")
+        claims = source.get("treatment_plan_deposit_claims", [])
+        plans = await db.treatment_plans.find({"patient_id": source["patient_id"]}).sort([
+            ("created_at", 1), ("id", 1)]).to_list(None)
+        assigned = appointment_assignments(plans, appointment_id)
+        for claim in claims:
+            amount = money(claim["amount_kzt"], "reserved appointment deposit")
+            if not amount or not isinstance(claim.get("plan_id"), str) or not claim["plan_id"]:
+                raise HTTPException(409, "Invalid immutable appointment reservation")
+            if claim["plan_id"] in assigned and assigned[claim["plan_id"]] != amount:
+                raise HTTPException(409, "Appointment reservation conflicts with immutable history")
+            assigned[claim["plan_id"]] = amount
+        available = appointment_deposit_kzt(source) - sum(assigned.values(), money(0, "zero"))
+        if available < 0 or len({claim["plan_id"] for claim in claims}) != len(claims):
+            raise HTTPException(409, "Appointment deposit reservations exceed actual receipt")
+        previous = next((claim for claim in claims if claim["plan_id"] == plan_id), None)
+        if previous:
+            return money(previous["amount_kzt"], "reserved appointment deposit")
+        if plan_id in assigned:
+            return money(0, "zero")
+        amount = min(requested, available)
+        if not amount:
+            return amount
+        query = dict(source_query, deposit=source.get("deposit"), deposit_type=source.get("deposit_type"),
+                     price=source.get("price"), treatment_plan_deposit_claims=source.get("treatment_plan_deposit_claims"))
+        result = await db.appointments.update_one(query, {"$set": {
+            "treatment_plan_deposit_claims": claims + [dict(plan_id=plan_id, amount_kzt=float(amount))]}})
+        if result.matched_count:
+            return amount
+    raise HTTPException(409, "Concurrent appointment reservation; retry unchanged appointment")
+
+
+async def reject_assigned_appointment_edit(db, appointment):
+    if appointment.get("treatment_plan_deposit_claims"):
+        raise HTTPException(409, "Assigned appointment deposit source is immutable")
+    plans = await db.treatment_plans.find({"patient_id": appointment["patient_id"]}).sort([
+        ("created_at", 1), ("id", 1)]).to_list(None)
+    if appointment_assignments(plans, appointment["id"]):
+        raise HTTPException(409, "Assigned appointment deposit source is immutable")
+
+
 async def apply_deposit_to_treatment_plans(patient_id: str, deposit_amount: float, appointment_id: str, db: AsyncIOMotorDatabase):
     """Применить депозит записи к планам лечения пациента"""
     if not deposit_amount or deposit_amount <= 0:
@@ -52,15 +132,50 @@ async def apply_deposit_to_treatment_plans(patient_id: str, deposit_amount: floa
     
     try:
         # Находим все активные планы лечения пациента (не завершенные и не отмененные)
-        active_plans = await db.treatment_plans.find({
-            "patient_id": patient_id,
-            "status": {"$nin": ["completed", "cancelled"]},
-            "payment_status": {"$ne": "paid"}  # Только не полностью оплаченные
-        }).sort("created_at", 1).to_list(100)  # Сортируем по дате создания, чтобы сначала обработать старые планы
-        
-        remaining_deposit = deposit_amount
+        active_plans = await db.treatment_plans.find({"patient_id": patient_id}).sort([
+            ("created_at", 1), ("id", 1)]).to_list(None)
+        source_query = {"id": appointment_id, "patient_id": patient_id}
+        source = await db.appointments.find_one(source_query)
+        if not source and ObjectId.is_valid(appointment_id):
+            source_query = {"_id": ObjectId(appointment_id), "patient_id": patient_id}
+            source = await db.appointments.find_one(source_query)
+        if not source or appointment_deposit_kzt(source) != money(deposit_amount, "appointment deposit"):
+            raise HTTPException(409, "Appointment deposit must match the actual stored receipt")
+        assignments_by_plan = appointment_assignments(active_plans, appointment_id)
+        assigned = sum(assignments_by_plan.values(), money(0, "zero"))
+        remaining_deposit = money(deposit_amount, "appointment deposit") - assigned
+        if remaining_deposit < 0:
+            raise HTTPException(409, "Appointment deposit is smaller than its immutable assignments")
+
         
         for plan in active_plans:
+            if is_ledger_plan(plan):
+                balance = patient_deposit_balance(plan.get("accounting_events", []), plan["id"])
+                if plan["id"] in assignments_by_plan:
+                    continue
+                pending = next((claim for claim in source.get("treatment_plan_deposit_claims", [])
+                                if claim["plan_id"] == plan["id"]), None)
+                if pending:
+                    amount = await reserve_appointment_deposit(db, source_query, appointment_id, plan["id"],
+                        money(pending["amount_kzt"], "reserved appointment deposit"))
+                    await AccountingLedgerService(db).record_patient_deposit(plan["id"], appointment_id, float(amount), "appointment:" + appointment_id)
+                    remaining_deposit -= amount
+                    continue
+                if plan.get("status") in ("completed", "cancelled") or plan.get("payment_status") == "paid":
+                    continue
+                capacity = sum((money(row.get("total_price"), "total_price") - money(row.get("discount_amount", 0), "discount_amount")
+                                for row in plan.get("services", [])), money(0, "zero")) - money(plan.get("paid_amount", 0), "paid_amount") - balance
+                amount = min(remaining_deposit, max(money(0, "zero"), capacity))
+                if amount:
+                    amount = await reserve_appointment_deposit(db, source_query, appointment_id, plan["id"], amount)
+                if amount:
+                    await AccountingLedgerService(db).record_patient_deposit(plan["id"], appointment_id, float(amount), "appointment:" + appointment_id)
+                    remaining_deposit -= amount
+                continue
+            if plan.get("status") in ("completed", "cancelled") or plan.get("payment_status") == "paid":
+                continue
+            if any(entry.get("appointment_id") == appointment_id for entry in plan.get("appointment_deposit_assignments", [])):
+                continue
             if remaining_deposit <= 0:
                 break
             
@@ -75,8 +190,12 @@ async def apply_deposit_to_treatment_plans(patient_id: str, deposit_amount: floa
                 continue
             
             # Сколько депозита применить к этому плану
-            deposit_to_apply = min(remaining_deposit, remaining_to_pay)
-            remaining_deposit -= deposit_to_apply
+            deposit_to_apply = float(min(remaining_deposit, money(remaining_to_pay, "remaining_to_pay")))
+            deposit_to_apply = float(await reserve_appointment_deposit(
+                db, source_query, appointment_id, plan["id"], money(deposit_to_apply, "deposit_to_apply")))
+            if not deposit_to_apply:
+                continue
+            remaining_deposit -= money(deposit_to_apply, "deposit_to_apply")
             
             # Обновляем план
             new_deposit_amount = current_deposit + deposit_to_apply
@@ -94,37 +213,51 @@ async def apply_deposit_to_treatment_plans(patient_id: str, deposit_amount: floa
             appointment_ids = plan.get("appointment_ids", [])
             if appointment_id not in appointment_ids:
                 appointment_ids.append(appointment_id)
+            assignments = plan.get("appointment_deposit_assignments", []) + [
+                {"appointment_id": appointment_id, "amount_kzt": deposit_to_apply}]
 
             if any(service.get("is_complex") for service in plan.get("services", [])):
                 balance = plan.get("deposit_balance")
                 if balance is None:
                     balance = current_deposit
-                await TreatmentPlanService(db).persist_payment_update(
+                result = await TreatmentPlanService(db).persist_payment_update(
                     {"id": plan["id"], "services": plan.get("services"),
-                     "deposit_balance": plan.get("deposit_balance")},
+                     "deposit_balance": plan.get("deposit_balance"),
+                     "appointment_deposit_assignments": plan.get("appointment_deposit_assignments")},
                     {"deposit_amount": new_deposit_amount,
                      "deposit_balance": balance + deposit_to_apply,
                      "appointment_ids": appointment_ids,
+                     "appointment_deposit_assignments": assignments,
                      "updated_at": datetime.utcnow()}
                 )
+                if not result.matched_count:
+                    raise HTTPException(409, "Concurrent appointment assignment; retry")
                 continue
             
-            await TreatmentPlanService(db).persist_payment_update(
-                {"id": plan["id"]},
+            result = await TreatmentPlanService(db).persist_payment_update(
+                {"id": plan["id"], "deposit_amount": plan.get("deposit_amount"),
+                 "appointment_deposit_assignments": plan.get("appointment_deposit_assignments")},
                 {
                     "deposit_amount": new_deposit_amount,
                     "payment_status": new_payment_status,
                     "appointment_ids": appointment_ids,
+                    "appointment_deposit_assignments": assignments,
                     "updated_at": datetime.utcnow()
                 }
             )
+            if not result.matched_count:
+                raise HTTPException(409, "Concurrent appointment assignment; retry")
             
             print(f"Депозит {deposit_to_apply}_tng применен к плану лечения {plan['id']} пациента {patient_id}")
         
         if remaining_deposit > 0:
             print(f"Остаток депозита {remaining_deposit}_tng будет применен к следующим планам лечения")
     
+    except HTTPException:
+        raise
     except Exception as e:
+        if any(is_ledger_plan(plan) for plan in locals().get("active_plans", [])):
+            raise HTTPException(503, "Patient deposit assignment failed; retry the appointment operation") from e
         print(f"Ошибка при применении депозита к плану лечения: {str(e)}")
 
 
@@ -329,9 +462,7 @@ async def create_appointment(
     # Вычисляем фактическую сумму депозита
     deposit_amount = 0
     if appointment.deposit and appointment.deposit > 0:
-        deposit_amount = appointment.deposit
-        if appointment.deposit_type == 'percent' and appointment.price:
-            deposit_amount = (appointment.price * appointment.deposit) / 100
+        deposit_amount = float(appointment_deposit_kzt(appointment_obj.dict()))
         
         await apply_deposit_to_treatment_plans(
             patient_id=appointment.patient_id,
@@ -754,6 +885,14 @@ async def update_appointment(
     else:  # Admin
         update_dict = {k: v for k, v in appointment_update.dict().items() if v is not None}
     
+    receipt_fields = ("patient_id", "deposit", "deposit_type", "price")
+    receipt_changed = any(key in update_dict and update_dict[key] != existing.get(key) for key in receipt_fields)
+    query = {"id": appointment_id}
+    if receipt_changed:
+        await reject_assigned_appointment_edit(db, existing)
+        query.update({key: existing.get(key) for key in receipt_fields})
+        query["treatment_plan_deposit_claims"] = existing.get("treatment_plan_deposit_claims")
+
     update_dict["updated_at"] = datetime.utcnow()
     
     # Check for time conflicts if updating time/date
@@ -773,11 +912,10 @@ async def update_appointment(
         if conflict:
             raise HTTPException(status_code=400, detail="Time slot already booked")
     
-    result = await db.appointments.update_one(
-        {"id": appointment_id}, 
-        {"$set": update_dict}
-    )
-    
+    result = await db.appointments.update_one(query, {"$set": update_dict})
+    if not result.matched_count:
+        raise HTTPException(409, "Concurrent appointment receipt assignment; retry edit")
+
     updated_appointment = await db.appointments.find_one({"id": appointment_id})
 
     if "status" in update_dict:
@@ -858,8 +996,11 @@ async def delete_appointment(
     existing = await db.appointments.find_one({"id": appointment_id})
     if not existing:
         raise HTTPException(status_code=404, detail="Appointment not found")
-    result = await db.appointments.delete_one({"id": appointment_id})
+    await reject_assigned_appointment_edit(db, existing)
+    query = {"id": appointment_id, "treatment_plan_deposit_claims": existing.get("treatment_plan_deposit_claims")}
+    query.update({key: existing.get(key) for key in ("patient_id", "deposit", "deposit_type", "price")})
+    result = await db.appointments.delete_one(query)
     if result.deleted_count == 0:
-        raise HTTPException(status_code=404, detail="Appointment not found")
+        raise HTTPException(409, "Concurrent appointment receipt assignment; deletion blocked")
     await refresh_patient_appointments_count(db, existing.get("patient_id"))
     return {"message": "Appointment deleted successfully"}

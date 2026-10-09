@@ -54,6 +54,93 @@ def memory_db(doctor=None, plans=(), appointments=()):
     )
 
 
+def persistence_db():
+    """Store only actual writes; return detached documents like a database driver."""
+    records = {}
+
+    def matches(record, query):
+        return all(
+            any(matches(record, condition) for condition in value)
+            if key == "$or" else record.get(key) == value
+            for key, value in query.items()
+        )
+
+    async def insert(document):
+        records[document["id"]] = deepcopy(document)
+
+    async def find_one(query):
+        return next((deepcopy(row) for row in records.values() if matches(row, query)), None)
+
+    async def update(query, changes):
+        for row in records.values():
+            if matches(row, query):
+                row.update(deepcopy(changes["$set"]))
+                return SimpleNamespace(matched_count=1)
+        return SimpleNamespace(matched_count=0)
+
+    def find(query):
+        cursor = SimpleNamespace(to_list=AsyncMock(side_effect=lambda limit: [
+            deepcopy(row) for row in records.values() if matches(row, query)]))
+        cursor.sort = lambda *args: cursor
+        return cursor
+
+    return SimpleNamespace(doctors=SimpleNamespace(
+        insert_one=AsyncMock(side_effect=insert), find_one=AsyncMock(side_effect=find_one),
+        update_one=AsyncMock(side_effect=update), find=find)), records
+
+
+@pytest.mark.parametrize("payment_mode", ["general", "individual"])
+@pytest.mark.parametrize("kind", ["fixed", "percentage", "hybrid"])
+@pytest.mark.parametrize("consultation_mode", ["none", "inherit", "separate"])
+@pytest.mark.parametrize("consultation_kind", ["fixed", "percentage", "hybrid"])
+def test_compensation_create_edit_round_trip(
+        modules, payment_mode, kind, consultation_mode, consultation_kind):
+    database, records = persistence_db()
+    service = modules.doctors.DoctorService(database)
+
+    def settings(edited=False):
+        value = 23 if edited else 17
+        consultation_value = 31 if edited else 19
+        return dict(
+            payment_mode=payment_mode, payment_type=kind, payment_value=value,
+            currency="KZT", hybrid_fixed_amount=value if kind == "hybrid" else 0,
+            hybrid_percentage_value=29 if edited else 13,
+            services=["plain-service", dict(service_id="fixed-service", commission_type="fixed",
+                       commission_value=150 if edited else 100, commission_currency="KZT"),
+                      dict(service_id="percentage-service", commission_type="percentage",
+                           commission_value=value, commission_currency="KZT")],
+            consultation_compensation_mode=consultation_mode,
+            consultation_payment_type=consultation_kind,
+            consultation_payment_value=consultation_value, consultation_currency="KZT",
+            consultation_hybrid_fixed_amount=(consultation_value if consultation_kind == "hybrid" else 0),
+            consultation_hybrid_percentage_value=37 if edited else 11,
+        )
+
+    def assert_settings(document, expected):
+        assert {key: document.get(key) for key in expected} == expected
+
+    async def round_trip():
+        original = settings()
+        created = await service.create_doctor(modules.models.DoctorCreate(full_name="Doctor", **original))
+        database.doctors.insert_one.assert_awaited_once()
+        assert_settings(database.doctors.insert_one.call_args.args[0], original)
+        assert_settings(records[created.id], original)
+        assert_settings(created.model_dump(), original)
+        assert_settings((await service.get_doctor_by_id(created.id)).model_dump(), original)
+        assert_settings((await service.get_doctors())[0].model_dump(), original)
+
+        edited = settings(edited=True)
+        saved = await service.update_doctor(created.id, modules.models.DoctorUpdate(**edited))
+        database.doctors.update_one.assert_awaited_once()
+        assert_settings(database.doctors.update_one.call_args.args[1]["$set"], edited)
+        assert_settings(records[created.id], edited)
+        assert_settings(saved.model_dump(), edited)
+        assert_settings((await service.get_doctor_by_id(created.id)).model_dump(), edited)
+        assert_settings((await service.get_doctors())[0].model_dump(), edited)
+
+    asyncio.run(round_trip())
+
+
 def doctor(**settings):
     return dict(id="doctor", full_name="Doctor", is_active=True,
                 services=["service"], consultation_compensation_mode="none", **settings)
@@ -362,3 +449,161 @@ def test_complete_report_endpoint_preserves_success_response(modules, monkeypatc
     payload = dict(compensation_complete=True, accounting_blockers=[], salary_data=[], summary={})
     service = SimpleNamespace(get_doctor_salary_report=AsyncMock(return_value=payload))
     assert asyncio.run(routes.get_doctor_salary_report("2026-10-01", "2026-10-31", None, service)) == payload
+
+
+@pytest.mark.parametrize("per_session", [False, True])
+@pytest.mark.parametrize("deposited", [0, 200, 300])
+@pytest.mark.parametrize("kind,expected_fixed", [("percentage", 0), ("hybrid", 50)])
+@pytest.mark.parametrize("completed", [False, True])
+def test_allocated_deposit_requires_completed_service(modules, per_session, deposited, kind, expected_fixed, completed):
+    settings = doctor(payment_type=kind, payment_value=20 if kind == "percentage" else 50,
+                      hybrid_percentage_value=20)
+    payment = dict(paid_amount=300, paid_from_deposit=deposited, cash_amount=300 - deposited, payment_date="2026-10-05")
+    row = dict(service_id="service", sessions=[dict(completed=completed, date="2026-10-06")], **payment)
+    if per_session:
+        row.update(payment_type="per_session", sessions=[dict(completed=completed, date="2026-10-06", **payment)])
+    item = report(modules, settings, [plan(row, deposit_amount=9999)])["salary_data"][0]
+    revenue = 300 if completed else 300 - deposited
+    assert item["treatment_plans_revenue"] == revenue
+    assert item["treatment_plans_salary"] == (expected_fixed if completed else 0) + revenue * 0.2
+
+
+def test_actual_modal_http_persist_readback_contract(modules, monkeypatch, tmp_path):
+    """Real React modal payloads, real HTTP models, in-memory storage only."""
+    import json
+    import os
+    import subprocess
+    from fastapi import FastAPI
+    from fastapi.testclient import TestClient
+
+    frontend = Path(__file__).resolve().parents[3].with_name("crm-doctor-compensation-frontend") / "frontend"
+    assert (frontend / "tests/doctorCompensation.test.mjs").exists(), "Frontend checkout is required for UI contract verification"
+    payload_path = tmp_path / "payloads.json"
+    readback_path = tmp_path / "readback.json"
+
+    def run_ui(variable, path):
+        result = subprocess.run(
+            ["node", "--test", "--test-name-pattern=cross-stack modal", "tests/doctorCompensation.test.mjs"],
+            cwd=frontend, env={**os.environ, variable: str(path)}, capture_output=True, text=True,
+            encoding="utf-8", timeout=60)
+        assert result.returncode == 0, result.stdout[-6000:] + result.stderr[-2000:]
+
+    run_ui("DOCTOR_CONTRACT_PAYLOADS", payload_path)
+    cases = json.loads(payload_path.read_text(encoding="utf-8"))
+    assert len(cases) == 54
+    auth = ModuleType("routers.auth")
+    auth.get_current_active_user = lambda: SimpleNamespace(id="mock-user")
+    auth.require_role = lambda roles: auth.get_current_active_user
+    monkeypatch.setitem(sys.modules, "routers.auth", auth)
+    routes = importlib.import_module("routers.doctors")
+    database, records = persistence_db()
+    service = modules.doctors.DoctorService(database)
+    app = FastAPI()
+    app.include_router(routes.doctors_router, prefix="/api")
+    app.dependency_overrides[routes.get_doctor_service] = lambda: service
+    # Override authentication only, including dependencies captured by earlier imports.
+    for route in routes.doctors_router.routes:
+        for dependency in route.dependant.dependencies:
+            if dependency.name == "current_user":
+                app.dependency_overrides[dependency.call] = auth.get_current_active_user
+    readbacks = []
+    with TestClient(app) as client:
+        for case in cases:
+            created = client.post("/api/doctors", json=case["created"])
+            assert created.status_code == 200, created.text
+            doctor_id = created.json()["id"]
+            for phase in ("created", "edited"):
+                expected = case[phase]
+                response = created if phase == "created" else client.put(f"/api/doctors/{doctor_id}", json=expected)
+                assert response.status_code == 200, response.text
+                for key, value in expected.items():
+                    assert response.json()[key] == value, key
+                    assert records[doctor_id][key] == value, key
+                single = client.get(f"/api/doctors/{doctor_id}")
+                listed = client.get("/api/doctors")
+                assert single.status_code == listed.status_code == 200
+                listed_doctor = next(row for row in listed.json() if row["id"] == doctor_id)
+                for key, value in expected.items():
+                    assert single.json()[key] == listed_doctor[key] == value, key
+                readbacks.append(dict(expected=expected, actual=single.json()))
+    readback_path.write_text(json.dumps(readbacks), encoding="utf-8")
+    run_ui("DOCTOR_CONTRACT_READBACK", readback_path)
+
+
+def test_unallocated_appointment_and_plan_deposit_never_earns_percentage(modules):
+    settings = doctor(payment_type="percentage", payment_value=20)
+    row = dict(service_id="service", sessions=[dict(completed=False, date="2026-10-06")])
+    appointment = dict(id="visit", doctor_id="doctor", status="no_show", deposit_amount=9000,
+                       appointment_date="2026-10-05")
+    item = report(modules, settings, [plan(row, deposit_amount=9000, paid_amount=0,
+                                         payment_status="unpaid")], [appointment])["salary_data"][0]
+    assert item["total_revenue"] == 0
+    assert item["calculated_salary"] == 0
+
+
+@pytest.mark.parametrize("status", ["no_show", "cancelled", "in_progress"])
+def test_unallocated_or_uncompleted_deposit_is_not_doctor_income(modules, status):
+    settings = doctor(payment_type="percentage", payment_value=20)
+    row = dict(service_id="service", paid_amount=300, paid_from_deposit=300,
+               payment_date="2026-10-05", sessions=[dict(completed=False, date="2026-10-06")])
+    result = report(modules, settings, [plan(row, deposit_amount=900, execution_status=status)],
+                    [dict(doctor_id="doctor", status=status, deposit_amount=900, appointment_date="2026-10-05")])
+    assert result["salary_data"][0]["total_revenue"] == 0
+    assert result["salary_data"][0]["calculated_salary"] == 0
+
+
+def test_lab_analysis_revenue_never_enters_doctor_row(modules):
+    database = memory_db(doctor(payment_type="percentage", payment_value=20))
+    lab = SimpleNamespace(find=AsyncMock(), aggregate=AsyncMock())
+    database.lab_analyses = lab
+    database.patient_analyses = lab
+    result = asyncio.run(modules.salary.SalaryService(database).get_doctor_salary_report("2026-10-01", "2026-10-31"))
+    assert result["salary_data"][0]["total_revenue"] == 0
+    assert result["salary_data"][0]["calculated_salary"] == 0
+    lab.find.assert_not_called()
+    lab.aggregate.assert_not_called()
+
+
+@pytest.mark.parametrize("role,expected_status", [
+    ("super_admin", 200),
+    ("admin", 200),
+    ("doctor", 200),
+    ("marketer", 200),
+    ("administrator", 200),
+    ("patient", 403),
+])
+def test_salary_report_employee_role_authorization(modules, monkeypatch, role, expected_status):
+    """Exercise the real FastAPI role dependency with no database access."""
+    from fastapi import FastAPI
+    from fastapi.testclient import TestClient
+    from models.auth import UserInDB, UserRole
+
+    # Earlier tests cache routers with stubbed auth; load fresh production modules.
+    root = Path(__file__).resolve().parents[2]
+    loaded = {}
+    for name in ("auth", "doctors"):
+        spec = importlib.util.spec_from_file_location(f"routers.{name}", root / "routers" / f"{name}.py")
+        module = importlib.util.module_from_spec(spec)
+        monkeypatch.setitem(sys.modules, f"routers.{name}", module)
+        spec.loader.exec_module(module)
+        loaded[name] = module
+    auth, routes = loaded["auth"], loaded["doctors"]
+    user = UserInDB(full_name="Employee", role=UserRole(role), hashed_password="unused")
+    payload = dict(compensation_complete=True, accounting_blockers=[], salary_data=[], summary={})
+    service = SimpleNamespace(get_doctor_salary_report=AsyncMock(return_value=payload))
+    app = FastAPI()
+    app.include_router(routes.doctors_router, prefix="/api")
+    # Keep get_current_active_user and require_role in the dependency graph.
+    app.dependency_overrides[auth.get_current_user] = lambda: user
+    app.dependency_overrides[routes.get_salary_service] = lambda: service
+
+    with TestClient(app) as client:
+        response = client.get("/api/doctors/salary-report", params={
+            "date_from": "2026-10-01", "date_to": "2026-10-31"})
+    assert response.status_code == expected_status, response.text
+    if expected_status == 200:
+        assert response.json() == payload
+        service.get_doctor_salary_report.assert_awaited_once_with("2026-10-01", "2026-10-31")
+    else:
+        assert response.json() == {"detail": "Not enough permissions"}
+        service.get_doctor_salary_report.assert_not_awaited()

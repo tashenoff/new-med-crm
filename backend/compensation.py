@@ -132,10 +132,25 @@ def service_accrual_data(item, start, end):
                 blockers.add("actual_receipt_amount_unavailable")
             continue
         try:
-            amount = nonnegative(receipt["paid_amount"], "paid_amount")
+            settled = nonnegative(receipt["paid_amount"], "paid_amount")
+            deposited = nonnegative(receipt.get("paid_from_deposit", 0) or 0, "paid_from_deposit")
+            # Legacy deposit consumption can exceed a discounted service amount.
+            # Keep cash separate from explicitly allocated patient deposits.
+            amount = max(0.0, settled - deposited)
+            if receipt.get("cash_amount") is not None:
+                cash = nonnegative(receipt["cash_amount"], "cash_amount")
+                if cash > amount:
+                    raise ValueError("cash exceeds actual non-deposit receipt")
+                amount = cash
         except ValueError:
             blockers.add("invalid_actual_receipt_amount")
             continue
+        # Only explicitly allocated deposits on completed services earn percentage.
+        funded_sessions = [receipt] if item.get("payment_type") == "per_session" else sessions
+        if deposited and any(session.get("completed") is True and
+                             in_period(session.get("date"), start, end) is True
+                             for session in funded_sessions):
+            received += min(settled, deposited)
         included = in_period(receipt.get("paid_at") or receipt.get("payment_date"), start, end)
         if amount and included is None:
             blockers.add("receipt_period_unavailable")
