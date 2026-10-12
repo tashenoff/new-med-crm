@@ -509,6 +509,9 @@ async def webhook_events(request: Request):
             local_file = Path("uploads") / Path(local_url).name if local_url else None
             if client.is_configured() and local_file and local_file.is_file():
                 channel = str(params.get("last_internal") or params.get("internal") or "")
+                if not channel and existing_call is not None:
+                    erp = (existing_call.get("raw_payload") or {})
+                    channel = str(erp.get("last_internal") or erp.get("internal") or "")
                 operator = await StaffService(db).resolve_operator_by_extension(channel) or None
                 task = asyncio.create_task(_push_call_to_calliq(
                     client, local_file, operator, channel, call_key, db))

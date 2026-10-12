@@ -42,6 +42,31 @@ async def test_record_upload(clean_db, monkeypatch, tmp_path, existing):
         await clean_db.staff.delete_one({"_id": staff_id})
 
 
+async def test_record_pushes_channel_from_existing_call(clean_db, monkeypatch, tmp_path):
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / "uploads").mkdir()
+    (tmp_path / "uploads" / "record.mp3").write_bytes(b"audio")
+    await clean_db.telephony_calls.insert_one({
+        "pbx_call_id": "pbx-x", "raw_payload": {"internal": "100"}})
+    monkeypatch.setattr(telephony, "get_database", lambda: clean_db)
+    monkeypatch.setattr(telephony, "_download_call_record", AsyncMock(return_value=("/uploads/record.mp3", None)))
+    client = MagicMock()
+    client.is_configured.return_value = True
+    client.upload_call = AsyncMock(return_value=42)
+    client.get_call = AsyncMock(return_value={"metrics": {}})
+    monkeypatch.setattr(telephony, "get_calliq_client", lambda: client)
+    app = FastAPI()
+    app.include_router(telephony.router)
+    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test") as http:
+        response = await asyncio.wait_for(http.post("/api/telephony/webhook/events", json={
+            "event": "NOTIFY_RECORD", "pbx_call_id": "pbx-x", "call_id_with_rec": "r"}), 2)
+    assert response.status_code == 200
+    assert response.json() == {"status": "ok"}
+    await asyncio.gather(*list(telephony._calliq_tasks))
+    client.upload_call.assert_awaited_once()
+    assert client.upload_call.await_args.args[2] == "100"
+
+
 async def test_unconfigured_record_no_network(clean_db, monkeypatch, tmp_path):
     monkeypatch.delenv("CALLIQ_URL", raising=False)
     client = CalliqClient()
