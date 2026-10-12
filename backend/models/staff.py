@@ -119,6 +119,7 @@ class StaffMember(BaseModel):
     full_name: str
     role: StaffRole
     phone: Optional[str] = None
+    extension: Optional[str] = None
     is_active: bool = True
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)
@@ -153,6 +154,7 @@ class StaffMemberCreate(BaseModel):
     full_name: str
     role: StaffRole
     phone: Optional[str] = None
+    extension: Optional[str] = None
     custom_permissions: List[Permission] = Field(default_factory=list)
 
 
@@ -163,6 +165,7 @@ class StaffMemberUpdate(BaseModel):
     full_name: Optional[str] = None
     role: Optional[StaffRole] = None
     phone: Optional[str] = None
+    extension: Optional[str] = None
     is_active: Optional[bool] = None
     custom_permissions: Optional[List[Permission]] = None
 
@@ -175,6 +178,7 @@ class StaffMemberResponse(BaseModel):
     full_name: str
     role: StaffRole
     phone: Optional[str] = None
+    extension: Optional[str] = None
     is_active: bool
     created_at: datetime
     updated_at: datetime

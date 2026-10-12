@@ -8,6 +8,7 @@ from motor.motor_asyncio import AsyncIOMotorDatabase
 from typing import List, Optional, Dict, Any
 from datetime import datetime
 import bcrypt
+import logging
 
 from models.staff import (
     StaffMember,
@@ -27,6 +28,24 @@ class StaffService:
         self.db = db
         self.collection = db.staff
         self.users_collection = db.users
+
+    @staticmethod
+    def _normalize_extension(extension) -> Optional[str]:
+        if extension is None:
+            return None
+        return "".join(str(extension).split()) or None
+
+    async def resolve_operator_by_extension(self, extension: Optional[str]) -> Optional[str]:
+        """Resolve a PBX extension without interrupting webhook processing."""
+        try:
+            extension = self._normalize_extension(extension)
+            if not extension:
+                return None
+            member = await self.collection.find_one({"extension": extension})
+            return (member.get("full_name") or None) if member else None
+        except Exception:
+            logging.getLogger(__name__).warning("Could not resolve CallIQ operator", exc_info=True)
+            return None
     
     def _hash_password(self, password: str) -> str:
         """Хеширование пароля используя bcrypt напрямую"""
@@ -177,6 +196,7 @@ class StaffService:
             full_name=staff_data.full_name,
             role=staff_data.role,
             phone=staff_data.phone,
+            extension=self._normalize_extension(staff_data.extension),
             custom_permissions=staff_data.custom_permissions
         )
         
@@ -248,6 +268,8 @@ class StaffService:
         
         # Подготавливаем данные для обновления
         update_data = staff_update.dict(exclude_unset=True)
+        if "extension" in update_data:
+            update_data["extension"] = self._normalize_extension(update_data["extension"])
         
         if not update_data:
             return await self.get_staff_by_id(staff_id)

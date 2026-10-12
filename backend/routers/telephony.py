@@ -1,5 +1,6 @@
 import os
 import uuid
+import asyncio
 from pathlib import Path
 
 import httpx
@@ -33,6 +34,8 @@ from models.telephony import (
 )
 
 from services.telephony_service import telephony_service
+from services.calliq_client import get_calliq_client
+from services.staff_service import StaffService
 
 from dependencies import get_current_user
 
@@ -45,6 +48,39 @@ from database import get_database
 
 
 logger = logging.getLogger(__name__)
+
+# Keep strong references until background tasks finish.
+_calliq_tasks = set()
+
+
+async def _push_call_to_calliq(client, local_file, operator, channel, call_key, db):
+    """Upload and poll only the recording document selected by the webhook."""
+    try:
+        document = await db.telephony_calls.find_one(call_key)
+        if not document:
+            logger.warning("CallIQ: recording document no longer exists")
+            return
+        query = {"_id": document["_id"]}
+        call_id = await client.upload_call(str(local_file), operator, channel)
+        await db.telephony_calls.update_one(query, {"$set": {
+            "calliq_call_id": call_id, "calliq_status": "sent",
+            "calliq_updated_at": datetime.utcnow()}})
+        for attempt in range(6):
+            result = await client.get_call(call_id)
+            update = None
+            if result.get("metrics") is not None:
+                update = {"calliq_transcript": result.get("transcript"),
+                          "calliq_metrics": result["metrics"], "calliq_status": "done"}
+            elif result.get("status") == "error":
+                update = {"calliq_status": "error"}
+            if update is not None:
+                update["calliq_updated_at"] = datetime.utcnow()
+                await db.telephony_calls.update_one(query, {"$set": update})
+                return
+            if attempt < 5:
+                await asyncio.sleep(2)
+    except Exception:
+        logger.warning("CallIQ recording processing failed", exc_info=True)
 
 
 
@@ -417,9 +453,12 @@ async def webhook_events(request: Request):
     # Поэтому это событие обрабатываем ДО проверки телефона.
     # ------------------------------------------------------------------
     if event == "NOTIFY_RECORD":
+        local_url = None
         rec_pbx_call_id = params.get("pbx_call_id", "")
         call_id_with_rec = params.get("call_id_with_rec", "") or params.get("call_id", "")
         recording_url = params.get("recording_url", "") or params.get("recording", "") or None
+        if recording_url and recording_url.startswith("/uploads/"):
+            local_url = recording_url
 
         if call_id_with_rec and not recording_url:
             local_url, remote_url = await _download_call_record(call_id_with_rec)
@@ -430,6 +469,7 @@ async def webhook_events(request: Request):
             existing_call = await db.telephony_calls.find_one({"pbx_call_id": rec_pbx_call_id})
 
         if existing_call:
+            call_key = {"_id": existing_call["_id"]}
             rec_update = {"is_recorded": True, "updated_at": datetime.utcnow()}
             if recording_url:
                 rec_update["recording_url"] = recording_url
@@ -444,7 +484,7 @@ async def webhook_events(request: Request):
             logger.info("Звонок %s: привязана запись %s", rec_pbx_call_id, recording_url)
         else:
             # Звонка ещё нет — сохраняем отдельным документом, чтобы не потерять запись
-            await db.telephony_calls.insert_one({
+            inserted = await db.telephony_calls.insert_one({
                 "phone_number": "",
                 "normalized_phone": "",
                 "direction": CallDirection.INBOUND.value,
@@ -459,10 +499,25 @@ async def webhook_events(request: Request):
                 "updated_at": datetime.utcnow(),
                 "raw_payload": params,
             })
+            call_key = {"_id": inserted.inserted_id}
             logger.warning(
                 "NOTIFY_RECORD: звонок %s не найден, запись сохранена отдельно",
                 rec_pbx_call_id,
             )
+        try:
+            client = get_calliq_client()
+            local_file = Path("uploads") / Path(local_url).name if local_url else None
+            if client.is_configured() and local_file and local_file.is_file():
+                channel = str(params.get("last_internal") or params.get("internal") or "")
+                operator = await StaffService(db).resolve_operator_by_extension(channel) or None
+                task = asyncio.create_task(_push_call_to_calliq(
+                    client, local_file, operator, channel, call_key, db))
+                _calliq_tasks.add(task)
+                task.add_done_callback(_calliq_tasks.discard)
+            else:
+                logger.debug("CallIQ upload skipped: configuration or local recording missing")
+        except Exception:
+            logger.warning("Could not schedule CallIQ upload", exc_info=True)
         return {"status": "ok"}
 
 
@@ -959,6 +1014,5 @@ async def health_check():
             "timestamp": datetime.now().isoformat(),
 
         }
-
 
 

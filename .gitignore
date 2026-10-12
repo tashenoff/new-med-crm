@@ -88,3 +88,6 @@ android-sdk/ -e
 
 # Graphify knowledge graph output
 /graphify-out/
+
+# Public integration configuration template (contains no credentials).
+!backend/.env.example
