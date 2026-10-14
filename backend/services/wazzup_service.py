@@ -74,6 +74,13 @@ class WazzupService:
     
     # ========== РАБОТА С СООБЩЕНИЯМИ ==========
     
+    async def _get_default_channel_id(self) -> str:
+        """Select the first active channel when no channel ID is supplied."""
+        for channel in await self.get_channels():
+            if channel.status.lower() == "active":
+                return channel.id
+        raise HTTPException(status_code=500, detail="Нет активных каналов Wazzup24")
+
     async def send_message(self, request: SendMessageRequest) -> WazzupMessage:
         """Отправить текстовое сообщение"""
         # Форматируем телефон и создаем chatId
@@ -82,17 +89,10 @@ class WazzupService:
         phone_number = phone.replace("+", "")
         chat_id = f"{phone_number}@c.us"
         
-        # Если channelId не указан, получаем первый доступный канал
+        # Если channelId не указан, получаем первый активный канал
         channel_id = request.channel_id
         if not channel_id:
-            channels = await self.get_channels()
-            if channels:
-                channel_id = channels[0].id
-            else:
-                raise HTTPException(
-                    status_code=500,
-                    detail="Нет доступных каналов Wazzup24"
-                )
+            channel_id = await self._get_default_channel_id()
         
         data = {
             "channelId": channel_id,
@@ -192,11 +192,7 @@ class WazzupService:
         chat_id = f"{phone_number}@c.us"
 
         if not channel_id:
-            channels = await self.get_channels()
-            if channels:
-                channel_id = channels[0].id
-            else:
-                raise HTTPException(status_code=500, detail="Нет доступных каналов Wazzup24")
+            channel_id = await self._get_default_channel_id()
 
         data = {
             "channelId": channel_id,
@@ -314,7 +310,7 @@ class WazzupService:
         
         Args:
             phone: Номер телефона клиента
-            channel_id: ID канала (если не указан, используется первый доступный)
+            channel_id: ID канала (если не указан, используется первый активный)
             limit: Количество сообщений (максимум 100 за запрос)
             before: ID сообщения, до которого нужно получить историю (для пагинации)
         
@@ -326,16 +322,9 @@ class WazzupService:
         phone_number = formatted_phone.replace("+", "")
         chat_id = f"{phone_number}@c.us"
         
-        # Если channelId не указан, получаем первый доступный канал
+        # Если channelId не указан, получаем первый активный канал
         if not channel_id:
-            channels = await self.get_channels()
-            if channels:
-                channel_id = channels[0].id
-            else:
-                raise HTTPException(
-                    status_code=500,
-                    detail="Нет доступных каналов Wazzup24"
-                )
+            channel_id = await self._get_default_channel_id()
         
         # Формируем параметры запроса
         params = {
