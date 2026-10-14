@@ -20,8 +20,8 @@ const NavigationSearch = ({ user, onNavigate }) => {
 
   useEffect(() => {
     const handleShortcut = (event) => {
-      if (event.defaultPrevented || event.isComposing || event.altKey || event.shiftKey ||
-          !(event.ctrlKey || event.metaKey) || event.key.toLowerCase() !== 'k') return;
+      if (event.defaultPrevented || event.isComposing || event.ctrlKey || event.metaKey ||
+          event.altKey || event.shiftKey || event.key !== 'F2') return;
 
       const focused = document.activeElement;
       const editable = focused?.closest('input, textarea, select, [contenteditable]:not([contenteditable="false"])');
@@ -32,6 +32,8 @@ const NavigationSearch = ({ user, onNavigate }) => {
         setQuery('');
         setActiveIndex(0);
         setOpen(true);
+      } else {
+        inputRef.current?.focus();
       }
     };
     document.addEventListener('keydown', handleShortcut);
@@ -93,8 +95,8 @@ const NavigationSearch = ({ user, onNavigate }) => {
         onClick={() => { setQuery(''); setActiveIndex(0); setOpen(true); }}
         aria-label="Поиск разделов"
         aria-haspopup="dialog"
-        aria-keyshortcuts="Control+k Meta+k"
-        title="Ctrl+K / ⌘K"
+        aria-keyshortcuts="F2"
+        title="F2"
         aria-expanded={open}
         className="flex items-center gap-2 p-2 rounded-lg bg-white/15 text-white hover:bg-white/25 focus-visible:ring-2 focus-visible:ring-white transition"
       >

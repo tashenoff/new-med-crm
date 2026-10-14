@@ -45,7 +45,7 @@ async function mount(context) {
 }
 
 async function key(target, options) {
-  const event = new window.KeyboardEvent('keydown', { key: 'k', bubbles: true, cancelable: true, ...options });
+  const event = new window.KeyboardEvent('keydown', { key: 'F2', bubbles: true, cancelable: true, ...options });
   await act(async () => target.dispatchEvent(event));
   return event;
 }
@@ -58,30 +58,33 @@ async function enterQuery(input, value) {
   assert.equal(input.value, value);
 }
 
-for (const modifier of ['ctrlKey', 'metaKey']) {
-  test(`${modifier} opens and focuses search, preserves an open query and clears it on reopening`, async context => {
-    const trigger = await mount(context);
-    assert.equal(trigger.getAttribute('aria-keyshortcuts'), 'Control+k Meta+k');
-    assert.match(trigger.title, /Ctrl\+K.*⌘K/);
-    assert.equal((await key(document.body, { [modifier]: true })).defaultPrevented, true);
-    let input = document.querySelector('[role="combobox"]');
-    assert.equal(document.activeElement, input);
-    await enterQuery(input, 'calendar');
-    assert.equal((await key(input, { [modifier]: true })).defaultPrevented, true);
-    assert.equal(input.value, 'calendar');
-    await key(input, { key: 'Escape' });
-    assert.equal(document.querySelector('[role="dialog"]'), null);
-    assert.equal(document.activeElement, trigger);
-    await key(trigger, { [modifier]: true });
-    input = document.querySelector('[role="combobox"]');
-    assert.equal(input.value, '');
-    assert.equal(document.activeElement, input);
-    await enterQuery(input, 'patients');
-    await key(input, { key: 'Escape' });
-    await act(async () => trigger.click());
-    assert.equal(document.querySelector('[role="combobox"]').value, '');
-  });
-}
+test('F2 opens and focuses search, preserves an open query and clears it on reopening', async context => {
+  const trigger = await mount(context);
+  assert.equal(trigger.getAttribute('aria-keyshortcuts'), 'F2');
+  assert.equal(trigger.title, 'F2');
+  assert.equal((await key(document.body, {})).defaultPrevented, true);
+  let input = document.querySelector('[role="combobox"]');
+  assert.equal(document.activeElement, input);
+  await enterQuery(input, 'calendar');
+  assert.equal((await key(input, {})).defaultPrevented, true);
+  assert.equal(input.value, 'calendar');
+  const closeButton = document.querySelector('[role="dialog"] button');
+  closeButton.focus();
+  assert.equal((await key(closeButton, {})).defaultPrevented, true);
+  assert.equal(document.activeElement, input);
+  assert.equal(input.value, 'calendar');
+  await key(input, { key: 'Escape' });
+  assert.equal(document.querySelector('[role="dialog"]'), null);
+  assert.equal(document.activeElement, trigger);
+  await key(trigger, {});
+  input = document.querySelector('[role="combobox"]');
+  assert.equal(input.value, '');
+  assert.equal(document.activeElement, input);
+  await enterQuery(input, 'patients');
+  await key(input, { key: 'Escape' });
+  await act(async () => trigger.click());
+  assert.equal(document.querySelector('[role="combobox"]').value, '');
+});
 
 test('shortcut ignores unrelated editable fields without preventing default, even while search is open', async context => {
   const trigger = await mount(context);
@@ -96,20 +99,56 @@ test('shortcut ignores unrelated editable fields without preventing default, eve
       document.body.append(field);
       const focused = tag === 'contenteditable' ? field.firstChild : field;
       focused.focus();
-      for (const modifier of ['ctrlKey', 'metaKey']) {
-        assert.equal((await key(focused, { [modifier]: true })).defaultPrevented, false);
-        assert.equal(!!document.querySelector('[role="dialog"]'), open);
-        assert.equal(document.activeElement, focused);
-      }
+      assert.equal((await key(focused, {})).defaultPrevented, false);
+      assert.equal(!!document.querySelector('[role="dialog"]'), open);
+      assert.equal(document.activeElement, focused);
       field.remove();
     }
   }
 });
 
-test('unmodified and other modified keys leave browser defaults alone', async context => {
+test('Ctrl+K, Meta+K, Ctrl+Shift+Space and Meta+Shift+Space are not intercepted', async context => {
+  const trigger = await mount(context);
+  for (const open of [false, true]) {
+    if (open) await act(async () => trigger.click());
+    const target = open ? document.querySelector('[role="combobox"]') : trigger;
+    if (open) await enterQuery(target, 'calendar');
+    for (const modifier of ['ctrlKey', 'metaKey']) {
+      for (const options of [{ key: 'k', [modifier]: true }, { key: ' ', [modifier]: true, shiftKey: true }]) {
+        assert.equal((await key(target, options)).defaultPrevented, false);
+        assert.equal(!!document.querySelector('[role="dialog"]'), open);
+        if (open) assert.equal(target.value, 'calendar');
+      }
+    }
+  }
+});
+
+test('F2 with any modifier is ignored while closed and open', async context => {
+  const trigger = await mount(context);
+  for (const open of [false, true]) {
+    if (open) await act(async () => trigger.click());
+    const input = document.querySelector('[role="combobox"]');
+    if (open) await enterQuery(input, 'calendar');
+    trigger.focus();
+    for (let mask = 1; mask < 16; mask++) {
+      const options = Object.fromEntries(['ctrlKey', 'metaKey', 'altKey', 'shiftKey']
+        .map((modifier, index) => [modifier, Boolean(mask & (1 << index))]));
+      assert.equal((await key(trigger, options)).defaultPrevented, false);
+      assert.equal(!!document.querySelector('[role="dialog"]'), open);
+      assert.equal(document.activeElement, trigger);
+      if (open) assert.equal(input.value, 'calendar');
+    }
+  }
+});
+
+test('other keys, composing events and already prevented F2 are ignored', async context => {
   await mount(context);
-  for (const options of [{}, { ctrlKey: true, key: 'j' }, { ctrlKey: true, altKey: true }, { metaKey: true, shiftKey: true }]) {
+  for (const options of [{ key: ' ' }, { key: 'k' }, { key: 'j' }, { isComposing: true }]) {
     assert.equal((await key(document.body, options)).defaultPrevented, false);
     assert.equal(document.querySelector('[role="dialog"]'), null);
   }
+  const event = new window.KeyboardEvent('keydown', { key: 'F2', bubbles: true, cancelable: true });
+  event.preventDefault();
+  await act(async () => document.body.dispatchEvent(event));
+  assert.equal(document.querySelector('[role="dialog"]'), null);
 });
