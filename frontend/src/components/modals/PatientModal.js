@@ -1245,35 +1245,6 @@ const PatientModal = ({
               {loadingSources && <span className="text-xs text-gray-400 ml-2">Загрузка...</span>}
             </div>
 
-            {editingItem && (
-              <div>
-                
-                <div className="grid grid-cols-2 gap-4 mt-3">
-                  <div>
-                    <label className="block text-sm text-gray-600 mb-1">Количество приемов</label>
-                    <input
-                      type="number"
-                      min="0"
-                      value={patientForm.appointments_count || 0}
-                      onChange={(e) => safeSetPatientForm({ appointments_count: parseInt(e.target.value) || 0 })}
-                      className={inputClasses}
-                    />
-                  </div>
-                  
-                  <div>
-                    <label className="block text-sm text-gray-600 mb-1">Количество записей</label>
-                    <input
-                      type="number"
-                      min="0"
-                      value={patientForm.records_count || 0}
-                      onChange={(e) => safeSetPatientForm({ records_count: parseInt(e.target.value) || 0 })}
-                      className={inputClasses}
-                    />
-                  </div>
-                </div>
-              </div>
-            )}
-            
             <textarea
               placeholder="Заметки"
               value={patientForm.notes}

@@ -117,9 +117,7 @@ const PatientsPage = ({ user }) => {
         notes: '',
         revenue: 0,
         debt: 0,
-        overpayment: 0,
-        appointments_count: 0,
-        records_count: 0
+        overpayment: 0
       },
       setPatientForm: (form) => updateModalProps('patient', { patientForm: form }),
       editingItem: null,
@@ -154,9 +152,7 @@ const PatientsPage = ({ user }) => {
         notes: patient.notes || '',
         revenue: patient.revenue || 0,
         debt: patient.debt || 0,
-        overpayment: patient.overpayment || 0,
-        appointments_count: patient.appointments_count || 0,
-        records_count: patient.records_count || 0
+        overpayment: patient.overpayment || 0
       },
       setPatientForm: (form) => updateModalProps('patient', { patientForm: form }),
       editingItem: patient,
@@ -256,9 +252,7 @@ const PatientsPage = ({ user }) => {
       notes: '',
       revenue: 0,
       debt: 0,
-      overpayment: 0,
-      appointments_count: 0,
-      records_count: 0
+      overpayment: 0
     });
   };
 
