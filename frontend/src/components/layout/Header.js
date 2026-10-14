@@ -1,8 +1,9 @@
 import React from 'react';
+import NavigationSearch from './NavigationSearch';
 import { useNotifications } from '../../context/NotificationContext';
 import { useGuide } from '../../context/GuideContext';
 
-const Header = ({ user, onLogout, onToggleSidebar, sidebarOpen, activeSection, setActiveSection }) => {
+const Header = ({ user, onLogout, onToggleSidebar, sidebarOpen, activeSection, setActiveSection, onNavigate }) => {
   const { unreadCount, togglePanel } = useNotifications();
   const { openGuideModal } = useGuide();
   // Проверяем текущую тему
@@ -39,7 +40,7 @@ const Header = ({ user, onLogout, onToggleSidebar, sidebarOpen, activeSection, s
             >
       <div className="px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center py-4">
-          <div className="flex items-center space-x-6 w-full">
+          <div className="flex items-center space-x-2 sm:space-x-6 min-w-0 flex-1">
             {!sidebarOpen && (
               <div className="flex items-center gap-3">
                 <button
@@ -115,7 +116,7 @@ const Header = ({ user, onLogout, onToggleSidebar, sidebarOpen, activeSection, s
               )}
             </div>
           
-            <div className="flex items-center space-x-4 text-white">
+            <div className="flex items-center space-x-1 sm:space-x-4 text-white shrink-0">
             {user && (
               <>
                 <div className="text-sm text-right hidden sm:block">
@@ -127,6 +128,8 @@ const Header = ({ user, onLogout, onToggleSidebar, sidebarOpen, activeSection, s
 
 
                 
+                <NavigationSearch user={user} onNavigate={onNavigate} />
+
                 {/* Guide Button */}
                 <button
                   onClick={openGuideModal}

@@ -7,6 +7,8 @@ const Modal = ({
   title, 
   children, 
   size = 'max-w-4xl',
+  dialogLabel,
+  onKeyDown,
   errorMessage = null 
 }) => {
   useEffect(() => {
@@ -37,6 +39,10 @@ const Modal = ({
       />
       <div 
         className={`modal-content bg-white dark:bg-gray-800 rounded-lg w-full ${size} max-h-[90vh] flex flex-col relative`}
+        role={dialogLabel ? "dialog" : undefined}
+        aria-modal={dialogLabel ? true : undefined}
+        aria-label={dialogLabel}
+        onKeyDown={onKeyDown}
         onClick={(e) => e.stopPropagation()}
       >
         {/* Фиксированная шапка модального окна */}

@@ -322,6 +322,7 @@ function ClinicApp() {
             onToggleSidebar={toggleSidebar}
             sidebarOpen={sidebarOpen}
             activeSection={activeSection}
+            onNavigate={handleTabChange}
             setActiveSection={handleSectionChange}
           />
 

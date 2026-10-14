@@ -3,10 +3,17 @@ import test from 'node:test';
 import { createRequire } from 'node:module';
 import { fileURLToPath } from 'node:url';
 import React, { act } from 'react';
-import { createRoot } from 'react-dom/client';
 import { MemoryRouter, useLocation } from 'react-router-dom';
 import { build } from 'esbuild';
 import { JSDOM } from 'jsdom';
+
+const bootstrap = new JSDOM('<html><body></body></html>');
+globalThis.window = bootstrap.window;
+globalThis.document = bootstrap.window.document;
+const { createRoot } = await import('react-dom/client');
+delete globalThis.window;
+delete globalThis.document;
+bootstrap.window.close();
 
 // Keep App routing and both navigation components real; replace unrelated screens
 // and providers so payroll mounts can be observed without network requests.
@@ -19,6 +26,7 @@ const compiled = await build({
   plugins: [{ name: 'unrelated-app-dependencies', setup(builder) {
     builder.onResolve({ filter: /^\.\.?\// }, args => {
       if (/App\.jsx$/.test(args.importer) && /layout\/(Header|Navigation)$/.test(args.path)) return;
+      if (['./NavigationSearch', './navigationCatalog', '../modals/Modal'].includes(args.path)) return;
       return { path: args.path, namespace: 'fixture' };
     });
     builder.onLoad({ filter: /.*/, namespace: 'fixture' }, args => ({ contents: `
@@ -109,4 +117,61 @@ test('nonadmin direct dashboard navigation lands on salaries without mounting fa
   assert.ok(!globalThis.financeMounts.includes('FinanceDashboard'));
   assert.equal(document.querySelector('#location').textContent, '/finance-salaries');
   assert.ok(document.querySelector('[data-screen="SalariesView"]'));
+});
+
+for (const role of [...staff, 'patient']) {
+  test(`Search respects finance access and keyboard navigation for ${role}`, async context => {
+    const document = await mount(context, role);
+    const trigger = document.querySelector('header [aria-haspopup="dialog"]');
+    await act(async () => trigger.click());
+    const input = document.querySelector('[role="combobox"]');
+    const listbox = document.getElementById(input.getAttribute('aria-controls'));
+    assert.equal(document.activeElement, input);
+    assert.equal(listbox.getAttribute('role'), 'listbox');
+    assert.equal(listbox.querySelectorAll('button, a, input, [tabindex]').length, 0);
+    const financeKeys = [...listbox.querySelectorAll('[role="option"]')]
+      .map(option => option.id.replace('navigation-result-', '')).filter(key => key.startsWith('finance-'));
+    assert.deepEqual(financeKeys, role === 'patient' ? [] : ['admin', 'super_admin'].includes(role)
+      ? ['finance-dashboard', 'finance-income', 'finance-expenses', 'finance-salaries', 'finance-reports']
+      : ['finance-salaries']);
+    if (role === 'patient') {
+      await act(async () => input.dispatchEvent(new window.KeyboardEvent('keydown', { key: 'Escape', bubbles: true })));
+    } else {
+      await act(async () => input.dispatchEvent(new window.KeyboardEvent('keydown', { key: 'ArrowDown', bubbles: true })));
+      const option = document.getElementById(input.getAttribute('aria-activedescendant'));
+      assert.equal(option.getAttribute('aria-selected'), 'true');
+      const destination = option.id.replace('navigation-result-', '');
+      await act(async () => input.dispatchEvent(new window.KeyboardEvent('keydown', { key: 'Enter', bubbles: true })));
+      assert.equal(document.querySelector('#location').textContent, `/${destination}`);
+    }
+    assert.equal(document.querySelector('[role="dialog"]'), null);
+    assert.equal(document.activeElement, trigger);
+  });
+}
+
+test('search traps focus, wraps arrows, ignores composing Enter and handles empty results', async context => {
+  const document = await mount(context, 'admin');
+  const trigger = document.querySelector('header [aria-haspopup="dialog"]');
+  await act(async () => trigger.click());
+  const input = document.querySelector('[role="combobox"]');
+  const closeButton = document.querySelector('[role="dialog"] button');
+  await act(async () => input.dispatchEvent(new window.KeyboardEvent('keydown', { key: 'Tab', bubbles: true, cancelable: true })));
+  assert.equal(document.activeElement, closeButton);
+  await act(async () => closeButton.dispatchEvent(new window.KeyboardEvent('keydown', { key: 'Tab', shiftKey: true, bubbles: true, cancelable: true })));
+  assert.equal(document.activeElement, input);
+  await act(async () => input.dispatchEvent(new window.KeyboardEvent('keydown', { key: 'ArrowUp', bubbles: true })));
+  assert.equal(input.getAttribute('aria-activedescendant'), document.querySelector('[role="option"]:last-child').id);
+  await act(async () => input.dispatchEvent(new window.KeyboardEvent('keydown', { key: 'Enter', isComposing: true, bubbles: true })));
+  assert.ok(document.querySelector('[role="dialog"]'));
+  await act(async () => {
+    Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set.call(input, 'nonexistent destination');
+    input.dispatchEvent(new window.Event('input', { bubbles: true }));
+  });
+  assert.equal(document.querySelectorAll('[role="option"]').length, 0);
+  assert.equal(input.hasAttribute('aria-activedescendant'), false);
+  await act(async () => input.dispatchEvent(new window.KeyboardEvent('keydown', { key: 'Enter', bubbles: true })));
+  assert.equal(document.querySelector('#location').textContent, '/calendar');
+  await act(async () => input.dispatchEvent(new window.KeyboardEvent('keydown', { key: 'Escape', bubbles: true })));
+  assert.equal(document.querySelector('[role="dialog"]'), null);
+  assert.equal(document.activeElement, trigger);
 });
