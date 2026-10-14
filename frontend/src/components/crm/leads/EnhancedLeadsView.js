@@ -23,6 +23,11 @@ import FirstTouchDateFilter from './FirstTouchDateFilter';
 import { firstTouchDateRange, matchesFirstTouchDate } from '../../../utils/firstTouchDateFilter';
 import { inputClasses, selectClasses, labelClasses, buttonPrimaryClasses, buttonSecondaryClasses } from '../../modals/modalUtils';
 
+const creationTimestamp = (lead) => {
+  const timestamp = typeof lead.created_at === 'string' ? Date.parse(lead.created_at) : NaN;
+  return Number.isFinite(timestamp) ? timestamp : -Infinity;
+};
+
 const fetchHistoryCalls = async ({ phone, limit, offset }) => {
   const API = import.meta.env.VITE_BACKEND_URL || 'https://medicodebase.preview.emergentagent.com';
   const query = new URLSearchParams({ phone, limit, offset });
@@ -634,7 +639,12 @@ const EnhancedLeadsView = ({ user }) => {
   };
 
   const groupedLeads = kanbanColumns.reduce((acc, column) => {
-    acc[column.id] = filteredLeads.filter(lead => cardColumnId(lead) === column.id);
+    // filter creates a new array; stable sort retains source order for equal/invalid dates.
+    acc[column.id] = filteredLeads.filter(lead => cardColumnId(lead) === column.id).sort((a, b) => {
+      const first = creationTimestamp(a);
+      const second = creationTimestamp(b);
+      return first === second ? 0 : second - first;
+    });
     return acc;
   }, {});
 

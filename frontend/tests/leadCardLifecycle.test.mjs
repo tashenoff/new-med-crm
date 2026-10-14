@@ -695,6 +695,34 @@ test('manual movement only permits new/custom sources and destinations, preserve
   assert.equal(view.scheduled.filter(args => args[0] === 'refresh-leads').length, 0);
 });
 
+test('each column renders newest creation first with stable ties and invalid dates without mutating source', async context => {
+  const dates = [
+    ['missing', undefined], ['old', '2026-01-01T00:00:00Z'],
+    ['invalid', 'invalid'], ['equal-first', '2026-03-01T00:00:00Z'],
+    ['newest', '2026-04-01T00:00:00Z'], ['null', null],
+    ['equal-second', '2026-03-01T05:00:00+05:00'], ['empty', ''],
+    ['non-string', 0]
+  ];
+  const columns = [...systemColumns(), customColumn];
+  const leads = Object.freeze(columns.flatMap(column => dates.map(([id, created_at]) => Object.freeze({
+    ...lead, id: `${column.id}-${id}`, status: column.is_system ? column.id : 'new',
+    kanban_column_id: column.is_system ? null : column.id, created_at,
+    updated_at: id === 'old' ? '2030-01-01T00:00:00Z' : '2026-01-01T00:00:00Z',
+    linked_inquiries: [{ created_at: '2031-01-01T00:00:00Z' }]
+  }))));
+  const snapshot = JSON.stringify(leads);
+  const view = await mountView(context, leads, { columns });
+  assert.deepEqual(columnIds(view), columns.map(column => column.id));
+  for (const column of columns) {
+    const rendered = view.container.querySelector(`[data-column-id="${column.id}"]`);
+    assert.deepEqual([...rendered.querySelectorAll('[data-lead-id]')].map(card => card.dataset.leadId),
+      ['newest', 'equal-first', 'equal-second', 'old', 'missing', 'invalid', 'null', 'empty', 'non-string']
+        .map(id => `${column.id}-${id}`));
+  }
+  assert.equal(view.fixture.crm.leads, leads);
+  assert.equal(JSON.stringify(leads), snapshot);
+});
+
 test('text search filters system and custom columns regardless of creation date', async context => {
   const leads = [
     { ...lead, id: 'today-custom', full_name: 'Matching Today', kanban_column_id: customColumn.id, created_at: dateAt(0) },
