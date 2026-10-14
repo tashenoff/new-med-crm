@@ -1,8 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import TimeGrid from './ux/TimeGrid';
 import DateNavigation from './ux/DateNavigation';
-import CalendarWidget from './ux/CalendarWidget';
-import { CalendarDaysIcon } from '@heroicons/react/24/outline';
+import CalendarDatePicker from './ux/CalendarDatePicker';
 import { DragDropManager } from './functions/DragDropManager';
 import { themeClasses } from '../../hooks/useTheme';
 import PanelHeader from '../common/PanelHeader';
@@ -102,9 +101,6 @@ const CalendarView = ({
     const displayRooms = isMobile && selectedRoomId
       ? rooms.filter(r => r.id === selectedRoomId)
       : rooms;
-
-    // Показ мини-календаря на мобильном (за иконкой)
-    const [showMobileCalendar, setShowMobileCalendar] = useState(false);
 
     // Все кабинеты для выпадающего списка (без повторов по id)
     const roomOptions = useMemo(() => {
@@ -244,6 +240,7 @@ const CalendarView = ({
         <div className="flex items-center justify-between p-4 border-b border-gray-200 dark:border-gray-700">
           <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Расписание врачей</h2>
           <div className="flex items-center space-x-2">
+            <CalendarDatePicker currentDate={safeCurrentDate} onDateChange={onDateChange} />
             {canEdit && onNewAppointment && (
               <button onClick={onNewAppointment} data-guide="add-appointment-btn" className={`px-4 py-2 rounded-lg text-sm font-medium ${themeClasses.button.primary} flex items-center space-x-2`}>
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -268,16 +265,6 @@ const CalendarView = ({
 
   return (
       <div className="flex gap-4">
-        {/* Боковая панель с виджетом календаря — на мобиле скрыта, открывается по иконке */}
-        {!isMobile && (
-          <div className="flex-shrink-0">
-            <CalendarWidget 
-              currentDate={safeCurrentDate}
-              onDateChange={onDateChange}
-            />
-          </div>
-        )}
-
         {/* Основной календарь */}
         <div className="flex-1 min-w-0">
           <div className={`calendar-container calendar-view-panel rounded-2xl ${themeClasses.shadow.default}`}>
@@ -287,7 +274,7 @@ const CalendarView = ({
             />
 
             <div className="bg-white dark:bg-gray-800 rounded-b-2xl border border-t-0 border-gray-200 dark:border-gray-700 p-4 space-y-4 shadow-sm">
-              {/* Мобильный тулбар: выбор кабинета слева, мини-календарь за иконкой справа */}
+              {/* Мобильный тулбар: выбор кабинета */}
                                         {isMobile && (
                                                                                     <div className="relative flex items-center justify-between calendar-mobile-toolbar">
                                 <div className="flex items-center gap-2">
@@ -303,24 +290,6 @@ const CalendarView = ({
                                   </select>
                                 </div>
 
-                                <button
-                                  type="button"
-                                  onClick={() => setShowMobileCalendar(!showMobileCalendar)}
-                                  title="Открыть календарь дат"
-                                  aria-label="Открыть календарь дат"
-                                  className={`p-2 rounded-lg border ${themeClasses.border.default} ${themeClasses.bg.secondary} flex items-center justify-center`}
-                                >
-                                  <CalendarDaysIcon className="w-5 h-5 text-gray-600 dark:text-gray-300" />
-                                </button>
-
-                                {showMobileCalendar && (
-                                                                  <div className="relative z-20 calendar-widget-popover">
-                                                                    <CalendarWidget
-                                                                      currentDate={safeCurrentDate}
-                                                                      onDateChange={onDateChange}
-                                                                    />
-                                                                  </div>
-                                                                )}
                               </div>
                             )}
 
