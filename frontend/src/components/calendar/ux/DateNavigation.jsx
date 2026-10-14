@@ -5,7 +5,7 @@ import { themeClasses } from '../../../hooks/useTheme';
 /**
  * Компонент навигации по датам календаря
  */
-const DateNavigation = ({ currentDate, onDateChange, onNewAppointment, isFullscreen, onToggleFullscreen }) => {
+const DateNavigation = ({ currentDate, onDateChange, onNewAppointment, isFullscreen, onToggleFullscreen, compact = false }) => {
   // Функции для изменения даты
   const goToPreviousDay = () => {
     const newDate = new Date(currentDate);
@@ -63,7 +63,7 @@ const DateNavigation = ({ currentDate, onDateChange, onNewAppointment, isFullscr
   const isToday = currentDate.toDateString() === new Date().toDateString();
 
   return (
-    <div className="calendar-date-nav flex items-center justify-end p-4 space-x-2" style={{ flexDirection: 'row', alignItems: 'center' }}>
+    <div className={compact ? "calendar-header-controls" : "calendar-date-nav flex items-center justify-end p-4 space-x-2"} style={compact ? undefined : { flexDirection: 'row', alignItems: 'center' }}>
       <CalendarDatePicker currentDate={currentDate} onDateChange={onDateChange} />
       {/* Кнопка "Новая запись" */}
       {onNewAppointment && (

@@ -253,3 +253,38 @@
                                                                         }
 
                                               }
+
+/* Allow schedule actions to wrap inside the header at any available width. */
+.calendar-schedule-header {
+  flex-direction: row;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.calendar-schedule-header > div:first-child {
+  flex: 1 1 20rem;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.calendar-header-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.5rem;
+  max-width: 100%;
+  min-width: 0;
+  margin-left: auto;
+}
+
+.calendar-normal-scroll {
+  max-height: calc(100vh - 216px);
+}
+
+@media (max-width: 1023px) {
+  /* Keep room for the wrapped header and the mobile room selector. */
+  .calendar-normal-scroll {
+    max-height: calc(100vh - 280px);
+  }
+}

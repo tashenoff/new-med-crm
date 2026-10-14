@@ -136,7 +136,7 @@ function ClinicApp() {
   };
   
   const [searchTerm, setSearchTerm] = useState('');
-  const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
   const [activeSection, setActiveSection] = useState('hms');
   const [aiChatSidebarOpen, setAiChatSidebarOpen] = useState(false);
   const [whatsAppInboxOpen, setWhatsAppInboxOpen] = useState(false);
@@ -149,8 +149,6 @@ function ClinicApp() {
     const handleResize = () => {
       if (window.innerWidth < 1024) {
         setSidebarOpen(false);
-      } else {
-        setSidebarOpen(true);
       }
     };
     

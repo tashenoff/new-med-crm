@@ -58,8 +58,9 @@ const module = { exports: {} };
 new Function('require', 'module', 'exports', compiled.outputFiles[0].text)(createRequire(import.meta.url), module, module.exports);
 const App = module.exports.default;
 
-async function mount(context, role, path = '/calendar') {
+async function mount(context, role, path = '/calendar', width = 1024) {
   const dom = new JSDOM('<div id="root"></div>', { url: 'https://crm.test' });
+  dom.window.innerWidth = width;
   const globals = { window: dom.window, document: dom.window.document,
     localStorage: dom.window.localStorage, IS_REACT_ACT_ENVIRONMENT: true,
     financeUser: role ? { role, full_name: 'Employee', permissions: [] } : null,
@@ -80,6 +81,66 @@ async function mount(context, role, path = '/calendar') {
     React.createElement(App), React.createElement(Location))));
   return dom.window.document;
 }
+
+function assertSidebar(document, open) {
+  const nav = document.querySelector('nav');
+  assert.equal(nav.classList.contains('translate-x-0'), open);
+  assert.equal(nav.classList.contains('-translate-x-full'), !open);
+  const content = document.querySelector('header').parentElement;
+  assert.equal(content.classList.contains('lg:ml-64'), open);
+  assert.equal(content.classList.contains('lg:ml-0'), !open);
+  assert.equal(!!document.querySelector('header [aria-label="Open sidebar"]'), !open);
+  assert.equal(!!document.querySelector('.bg-opacity-50.lg\\:hidden'), open);
+}
+
+async function resize(document, width) {
+  await act(async () => {
+    document.defaultView.innerWidth = width;
+    document.defaultView.dispatchEvent(new document.defaultView.Event('resize'));
+  });
+}
+
+test('desktop sidebar starts collapsed and header opens it; sidebar toggle closes it', async context => {
+  const document = await mount(context, 'admin');
+  assertSidebar(document, false);
+  await act(async () => document.querySelector('header [aria-label="Open sidebar"]').click());
+  assertSidebar(document, true);
+  await act(async () => document.querySelector('nav button[aria-label]').click());
+  assertSidebar(document, false);
+  await resize(document, 1440);
+  assertSidebar(document, false);
+});
+
+test('desktop resize preserves an open sidebar until mobile and never reopens it', async context => {
+  const document = await mount(context, 'admin', '/calendar', 1440);
+  assertSidebar(document, false);
+  await act(async () => document.querySelector('header [aria-label="Open sidebar"]').click());
+  await resize(document, 1024);
+  assertSidebar(document, true);
+  await act(async () => document.querySelector('nav [data-guide="nav-patients"]').click());
+  assert.equal(document.querySelector('#location').textContent, '/patients');
+  assertSidebar(document, true);
+  await resize(document, 1023);
+  assertSidebar(document, false);
+  await resize(document, 1280);
+  assertSidebar(document, false);
+});
+
+test('mobile sidebar starts collapsed, closes via overlay and navigation, and stays closed on desktop', async context => {
+  const document = await mount(context, 'admin', '/calendar', 390);
+  assertSidebar(document, false);
+  const open = async () => act(async () => document.querySelector('header [aria-label="Open sidebar"]').click());
+  await open();
+  assertSidebar(document, true);
+  await act(async () => document.querySelector('.bg-opacity-50.lg\\:hidden').click());
+  assertSidebar(document, false);
+  await open();
+  await act(async () => document.querySelector('nav [data-guide="nav-patients"]').click());
+  assert.equal(document.querySelector('#location').textContent, '/patients');
+  assertSidebar(document, false);
+  await resize(document, 1024);
+  assertSidebar(document, false);
+});
 
 const staff = ['admin', 'super_admin', 'doctor', 'marketer', 'administrator', 'nurse'];
 for (const role of staff) {

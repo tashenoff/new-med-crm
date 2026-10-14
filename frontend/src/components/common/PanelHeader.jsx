@@ -6,6 +6,7 @@ const PanelHeader = ({
   onAction,
   actionLabel,
   actionClass = 'calendar-new-appointment-btn bg-green-600 hover:bg-green-700 text-white rounded-lg px-4 py-2 transition-colors',
+  actions,
   className = ''
 }) => (
   <div
@@ -19,6 +20,7 @@ const PanelHeader = ({
       <h2 className="text-xl font-semibold text-white calendar-date-title">{title}</h2>
       <p className="text-sm text-sky-100 calendar-date-subtitle">{subtitle}</p>
     </div>
+    {actions}
     {onAction && actionLabel && (
       <button onClick={onAction} className={actionClass}>
         {actionLabel}

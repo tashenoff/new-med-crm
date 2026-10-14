@@ -269,6 +269,17 @@ const CalendarView = ({
         <div className="flex-1 min-w-0">
           <div className={`calendar-container calendar-view-panel rounded-2xl ${themeClasses.shadow.default}`}>
             <PanelHeader
+              className="calendar-schedule-header"
+              actions={
+                <DateNavigation
+                  compact
+                  currentDate={safeCurrentDate}
+                  onDateChange={onDateChange}
+                  onNewAppointment={canEdit ? onNewAppointment : null}
+                  isFullscreen={isFullscreen}
+                  onToggleFullscreen={isMobile ? null : toggleFullscreen}
+                />
+              }
               title="Расписание врачей"
               subtitle={`Управление приемами и расписанием кабинетов • интервал ${SLOT_INTERVAL_MINUTES} мин`}
             />
@@ -293,17 +304,8 @@ const CalendarView = ({
                               </div>
                             )}
 
-              {/* Навигация по датам */}
-              <DateNavigation
-                              currentDate={safeCurrentDate}
-                              onDateChange={onDateChange}
-                              onNewAppointment={canEdit ? onNewAppointment : null}
-                              isFullscreen={isFullscreen}
-                              onToggleFullscreen={isMobile ? null : toggleFullscreen}
-                            />
-
               {/* Grid календаря */}
-              <div className="calendar-main-scroll max-h-[calc(100vh-280px)] overflow-y-auto overflow-x-auto">
+              <div className="calendar-main-scroll calendar-normal-scroll overflow-y-auto overflow-x-auto">
                 {renderCalendarGrid()}
               </div>
             </div>
