@@ -19,6 +19,26 @@ const NavigationSearch = ({ user, onNavigate }) => {
   }, []);
 
   useEffect(() => {
+    const handleShortcut = (event) => {
+      if (event.defaultPrevented || event.isComposing || event.altKey || event.shiftKey ||
+          !(event.ctrlKey || event.metaKey) || event.key.toLowerCase() !== 'k') return;
+
+      const focused = document.activeElement;
+      const editable = focused?.closest('input, textarea, select, [contenteditable]:not([contenteditable="false"])');
+      if (focused !== inputRef.current && editable) return;
+
+      event.preventDefault();
+      if (!open) {
+        setQuery('');
+        setActiveIndex(0);
+        setOpen(true);
+      }
+    };
+    document.addEventListener('keydown', handleShortcut);
+    return () => document.removeEventListener('keydown', handleShortcut);
+  }, [open]);
+
+  useEffect(() => {
     setOpen(false);
   }, [location.key, user]);
 
@@ -73,6 +93,8 @@ const NavigationSearch = ({ user, onNavigate }) => {
         onClick={() => { setQuery(''); setActiveIndex(0); setOpen(true); }}
         aria-label="Поиск разделов"
         aria-haspopup="dialog"
+        aria-keyshortcuts="Control+k Meta+k"
+        title="Ctrl+K / ⌘K"
         aria-expanded={open}
         className="flex items-center gap-2 p-2 rounded-lg bg-white/15 text-white hover:bg-white/25 focus-visible:ring-2 focus-visible:ring-white transition"
       >
