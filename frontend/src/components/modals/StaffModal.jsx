@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Modal from './Modal';
 
 const StaffModal = ({
@@ -21,6 +21,14 @@ const StaffModal = ({
   const [resetPasswordLoading, setResetPasswordLoading] = useState(false);
   const [resetPasswordError, setResetPasswordError] = useState('');
   const [resetPasswordSuccess, setResetPasswordSuccess] = useState('');
+
+  useEffect(() => {
+    setResetPasswordMode(false);
+    setResetPasswordData({ newPassword: '', confirmPassword: '' });
+    setResetPasswordError('');
+    setResetPasswordSuccess('');
+    setShowPassword(false);
+  }, [isOpen, editingItem?.id]);
 
   // ВАЖНО: Роль "Врач" исключена - врачи создаются только в разделе "Врачи"
   const roleOptions = [
@@ -290,7 +298,6 @@ const StaffModal = ({
               </p>
             </div>
 
-            {editingItem && resetPasswordSection}
 
             {/* Пароль (только при создании) */}
             {!editingItem && (

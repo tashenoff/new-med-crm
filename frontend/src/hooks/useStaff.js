@@ -254,12 +254,10 @@ export const useStaff = () => {
     
     try {
       const token = localStorage.getItem('token');
-      let url = `${API}/api/staff/doctors/${doctorId}/assign-access?email=${encodeURIComponent(email)}&password=${encodeURIComponent(password)}`;
-      if (login) {
-        url += `&login=${encodeURIComponent(login)}`;
-      }
+      const url = `${API}/api/staff/doctors/${doctorId}/assign-access`;
       const response = await fetch(url, {
         method: 'POST',
+        body: JSON.stringify({ email, password, login }),
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'

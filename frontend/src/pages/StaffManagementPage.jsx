@@ -199,8 +199,8 @@ const StaffManagementPage = ({ user }) => {
     }
   };
 
-  const handleAssignAccessSubmit = async (doctorId, email, password) => {
-    return await staffHook.assignAccessToDoctor(doctorId, email, password);
+  const handleAssignAccessSubmit = async (doctorId, email, password, login) => {
+    return await staffHook.assignAccessToDoctor(doctorId, email, password, login);
   };
 
   // Обработчик сброса пароля
