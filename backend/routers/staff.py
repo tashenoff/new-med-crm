@@ -10,7 +10,7 @@ from motor.motor_asyncio import AsyncIOMotorDatabase
 from pydantic import BaseModel
 
 from database import get_database
-from dependencies import get_current_user
+from dependencies import get_current_active_user
 from models.auth import User
 from models.staff import (
     StaffMemberCreate,
@@ -20,6 +20,12 @@ from models.staff import (
     Permission
 )
 from services.staff_service import StaffService
+
+
+class DoctorAccessRequest(BaseModel):
+    email: Optional[str] = None
+    password: str
+    login: Optional[str] = None
 
 
 class ResetPasswordRequest(BaseModel):
@@ -34,7 +40,7 @@ def get_staff_service(db: AsyncIOMotorDatabase = Depends(get_database)) -> Staff
     return StaffService(db)
 
 
-def require_staff_permission(current_user: User = Depends(get_current_user)):
+def require_staff_permission(current_user: User = Depends(get_current_active_user)):
     """Проверка прав доступа к управлению персоналом"""
     # Только admin и super_admin могут управлять персоналом
     if current_user.role not in ["admin", "super_admin"]:
@@ -135,6 +141,8 @@ async def update_staff_member(
             )
         
         return updated_staff
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
     except HTTPException:
         raise
     except Exception as e:
@@ -176,7 +184,7 @@ async def delete_staff_member(
 @router.get("/{staff_id}/permissions", response_model=List[str])
 async def get_staff_permissions(
     staff_id: str,
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_active_user),
     staff_service: StaffService = Depends(get_staff_service)
 ):
     """
@@ -207,7 +215,7 @@ async def get_staff_permissions(
 async def check_staff_permission(
     staff_id: str,
     permission: Permission,
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_active_user),
     staff_service: StaffService = Depends(get_staff_service)
 ):
     """
@@ -234,7 +242,7 @@ async def check_staff_permission(
 @router.get("/roles/permissions/{role}", response_model=List[str])
 async def get_role_permissions(
     role: StaffRole,
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_active_user),
     staff_service: StaffService = Depends(get_staff_service)
 ):
     """
@@ -274,9 +282,7 @@ async def get_all_personnel(
 @router.post("/doctors/{doctor_id}/assign-access", status_code=status.HTTP_200_OK)
 async def assign_access_to_doctor(
     doctor_id: str,
-    email: str,
-    password: str,
-    login: Optional[str] = None,
+    access: DoctorAccessRequest,
     current_user: User = Depends(require_staff_permission),
     staff_service: StaffService = Depends(get_staff_service)
 ):
@@ -288,7 +294,7 @@ async def assign_access_to_doctor(
     Требует: admin или super_admin роль
     """
     try:
-        result = await staff_service.assign_access_to_doctor(doctor_id, email, password, login)
+        result = await staff_service.assign_access_to_doctor(doctor_id, access.email, access.password, access.login)
         return {
             "success": True,
             "message": "Доступ успешно назначен врачу",

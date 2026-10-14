@@ -237,6 +237,16 @@ class StaffService:
         staff_update: StaffMemberUpdate
     ) -> Optional[StaffMemberResponse]:
         """Обновить данные сотрудника"""
+        # Validate identity changes before updating or migrating any record.
+        for field in ("email", "login"):
+            value = getattr(staff_update, field)
+            if value:
+                for collection in (self.users_collection, self.collection):
+                    collision = await collection.find_one({
+                        field: value, "_id": {"$ne": staff_id}, "id": {"$ne": staff_id}
+                    })
+                    if collision:
+                        raise ValueError(f"{field} already used by another account")
         # Проверяем существование сотрудника
         existing_staff = await self.collection.find_one({"_id": staff_id})
         
@@ -348,44 +358,22 @@ class StaffService:
     
     async def delete_staff_member(self, staff_id: str) -> bool:
         """Удалить сотрудника (мягкое удаление)"""
-        # Проверяем существование и роль сотрудника
         existing_staff = await self.collection.find_one({"_id": staff_id})
-        
-        result = await self.collection.update_one(
-            {"_id": staff_id},
-            {
-                "$set": {
-                    "is_active": False,
-                    "updated_at": datetime.utcnow()
-                }
-            }
-        )
-        
-        # Также деактивируем пользователя
-        await self.users_collection.update_one(
-            {"_id": staff_id},
-            {
-                "$set": {
-                    "is_active": False,
-                    "updated_at": datetime.utcnow()
-                }
-            }
-        )
-        
-        # Если это был врач, деактивируем его в коллекции doctors
-        if existing_staff and existing_staff.get("role") == "doctor":
-            await self.db.doctors.update_one(
-                {"id": staff_id},  # Используем id, а не _id
-                {
-                    "$set": {
-                        "is_active": False,
-                        "updated_at": datetime.utcnow()
-                    }
-                }
-            )
-        
-        return result.modified_count > 0
-    
+        existing_user = await self.users_collection.find_one({"id": staff_id})
+        if not existing_user:
+            existing_user = await self.users_collection.find_one({"_id": staff_id})
+        if not existing_staff and not existing_user:
+            return False
+        update = {"$set": {"is_active": False, "updated_at": datetime.utcnow()}}
+        if existing_staff:
+            await self.collection.update_one({"_id": existing_staff["_id"]}, update)
+        if existing_user:
+            await self.users_collection.update_one({"_id": existing_user["_id"]}, update)
+        account = existing_staff or existing_user
+        if account.get("role") == "doctor":
+            await self.db.doctors.update_one({"id": staff_id}, update)
+        return True
+
     async def check_permission(self, staff_id: str, permission: Permission) -> bool:
         """Проверить наличие права у сотрудника"""
         staff = await self.get_staff_by_id(staff_id)
@@ -549,7 +537,7 @@ class StaffService:
     async def assign_access_to_doctor(
         self, 
         doctor_id: str, 
-        email: str, 
+        email: Optional[str],
         password: str,
         login: Optional[str] = None
     ) -> Dict[str, Any]:
@@ -557,14 +545,19 @@ class StaffService:
         Назначить врачу логин и пароль для доступа в систему
         """
         # Проверяем, существует ли врач
+        if not email and not login:
+            raise ValueError("Email or login is required")
+
         doctor_doc = await self.db.doctors.find_one({"id": doctor_id, "is_active": True})
         if not doctor_doc:
             raise ValueError("Врач не найден")
         
         # Проверяем, не занят ли email
-        existing_user = await self.users_collection.find_one({"email": email})
-        if existing_user and existing_user["_id"] != doctor_id:
-            raise ValueError(f"Email {email} уже используется другим пользователем")
+        if email:
+            email_owner = await self.users_collection.find_one({"email": email})
+            if email_owner and email_owner["_id"] != doctor_id:
+                raise ValueError(f"Email {email} уже используется другим пользователем")
+        existing_user = await self.users_collection.find_one({"_id": doctor_id})
         
         # Проверяем уникальность логина (если указан)
         if login:
@@ -628,7 +621,7 @@ class StaffService:
             await self.users_collection.insert_one(user_data)
         
         # Обновляем email в doctors если он изменился
-        if doctor_doc.get("email") != email:
+        if email and doctor_doc.get("email") != email:
             await self.db.doctors.update_one(
                 {"id": doctor_id},
                 {"$set": {"email": email, "updated_at": current_time}}

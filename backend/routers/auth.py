@@ -1,6 +1,7 @@
 from fastapi import APIRouter, HTTPException, Depends, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from jose import JWTError, jwt
+from bson import ObjectId
 from datetime import datetime, timedelta
 from motor.motor_asyncio import AsyncIOMotorDatabase
 from typing import Optional
@@ -16,7 +17,6 @@ from models.auth import (
     UserCreate,
     UserLogin,
     Token,
-    TokenData,
     ChangePasswordRequest
 )
 
@@ -95,27 +95,30 @@ async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(s
         sub: str = payload.get("sub")
         if sub is None:
             raise credentials_exception
-        token_data = TokenData(email=sub)
     except JWTError:
         raise credentials_exception
 
-    # Пробуем найти пользователя по email
-    user = await db.users.find_one({"email": token_data.email})
-    # Если не нашли — пробуем по логину (sub мог быть логином)
-    if user is None:
-        user = await db.users.find_one({"login": token_data.email})
+    if payload.get("sub_type") == "user_id":
+        user = await db.users.find_one({"id": sub})
+        if user is None:
+            user = await db.users.find_one({"_id": sub})
+        if user is None and ObjectId.is_valid(sub):
+            user = await db.users.find_one({"_id": ObjectId(sub)})
+    else:
+        user = await db.users.find_one({"email": sub})
+        if user is None:
+            user = await db.users.find_one({"login": sub})
     if user is None:
         raise credentials_exception
-
-    user["id"] = str(user["_id"])
-    del user["_id"]
+    user["id"] = str(user.get("id") or user["_id"])
+    user.pop("_id", None)
     return UserInDB(**user)
 
 async def get_user_by_email(email: str, db: AsyncIOMotorDatabase):
     """Find user by email"""
     user = await db.users.find_one({"email": email})
     if user:
-        user["id"] = str(user["_id"])
+        user["id"] = str(user.get("id") or user["_id"])
         del user["_id"]
         return UserInDB(**user)
     return None
@@ -125,7 +128,7 @@ async def get_user_by_login(login: str, db: AsyncIOMotorDatabase):
     """Find user by login name"""
     user = await db.users.find_one({"login": login})
     if user:
-        user["id"] = str(user["_id"])
+        user["id"] = str(user.get("id") or user["_id"])
         del user["_id"]
         return UserInDB(**user)
     return None
@@ -208,6 +211,7 @@ async def register(user: UserCreate, db: AsyncIOMotorDatabase = Depends(get_data
     # Create user
     user_dict = user.dict()
     user_dict.pop("password")
+    user_dict["role"] = UserRole.PATIENT
     user_dict["hashed_password"] = hashed_password
     user_dict["id"] = str(uuid.uuid4())
     user_dict["created_at"] = datetime.utcnow()
@@ -221,7 +225,7 @@ async def register(user: UserCreate, db: AsyncIOMotorDatabase = Depends(get_data
     # Create access token
     access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
     access_token = create_access_token(
-        data={"sub": user_obj.email}, expires_delta=access_token_expires
+        data={"sub": user_obj.id, "sub_type": "user_id"}, expires_delta=access_token_expires
     )
     
     # Convert to public user model
@@ -246,9 +250,8 @@ async def login(form_data: UserLogin, db: AsyncIOMotorDatabase = Depends(get_dat
         access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
     
     # Формируем данные токена
-    # Если email есть — используем его как sub, иначе используем логин
-    token_sub = user.email if user.email else user.login
-    token_data = {"sub": token_sub}
+    token_sub = user.id
+    token_data = {"sub": token_sub, "sub_type": "user_id"}
     if user.login:
         token_data["login"] = user.login
     
