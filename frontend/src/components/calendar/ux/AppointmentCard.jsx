@@ -94,6 +94,16 @@ const AppointmentCard = ({
   const patientName = patient?.full_name || appointment.patient_name || 'Загрузка...';
   const doctorName = doctor?.full_name || appointment.doctor_name || 'Загрузка...';
 
+  const formatTime = (time) => String(time || '').replace(/^(\d{1,2}:\d{2})(?::\d{2})?$/, '$1');
+  const timeRange = appointment.end_time
+    ? `${formatTime(appointment.appointment_time)} – ${formatTime(appointment.end_time)}`
+    : formatTime(appointment.appointment_time);
+  const cardHeight = height - 8;
+  // Reserve space for both detail rows before allowing extra text.
+  const allowTwoPatientLines = cardHeight >= 72;
+  const showReason = Boolean(appointment.reason) && cardHeight >= 76;
+  const cardLabel = [patientName, doctorName, timeRange, appointment.reason].filter(Boolean).join('; ');
+
   // Возможные статусы
   const STATUSES = [
     { value: 'unconfirmed', label: 'Не подтверждено', color: 'bg-yellow-400' },
@@ -191,12 +201,22 @@ const AppointmentCard = ({
       onDragStart={handleDragStart}
       onDragEnd={handleDragEnd}
       onContextMenu={handleContextMenu}
-      className="absolute top-1 left-1 right-1 rounded text-xs cursor-move z-50 transition-none overflow-visible"
+      tabIndex={0}
+      role={onEdit ? 'button' : undefined}
+      title={cardLabel}
+      aria-label={cardLabel}
+      onKeyDown={(e) => {
+        if (e.target === e.currentTarget && onEdit && (e.key === 'Enter' || e.key === ' ')) {
+          e.preventDefault();
+          if (!e.repeat) handleClick(e);
+        }
+      }}
+      className="absolute top-1 left-1 right-1 min-w-0 rounded text-xs cursor-move z-50 transition-none overflow-hidden focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-blue-600"
       style={{
-        height: `${height - 8}px`,
+        height: `${cardHeight}px`,
         backgroundColor: hexToRgba(doctorColor, 0.15),
         color: '#111827',
-        padding: '6px 10px 6px 14px'
+        padding: '4px 8px 4px 10px'
       }}
       onClick={handleClick}
     >
@@ -262,31 +282,25 @@ const AppointmentCard = ({
         )}
       </div>
 
-      {/* Имя пациента */}
-      <div className="font-semibold pr-4">
-        {patientName === 'Загрузка...' ? (
-          <div className="h-4 bg-gray-200 rounded animate-pulse w-24"></div>
-        ) : patientName}
-      </div>
-
-      {/* Имя врача */}
-      <div className="text-xs opacity-75">
-        {doctorName === 'Загрузка...' ? (
-          <div className="h-3 bg-gray-200 rounded animate-pulse w-20 mt-1"></div>
-        ) : doctorName}
-      </div>
-
-      {/* Причина приема */}
-      {appointment.reason && (
-        <div className="text-xs opacity-75 mt-1">
-          {appointment.reason}
+      <div className="flex h-full min-w-0 flex-col gap-0.5 overflow-hidden">
+        <div
+          className={`min-w-0 shrink-0 overflow-hidden pr-3 font-semibold leading-4 ${
+            allowTwoPatientLines ? 'line-clamp-2 break-words' : 'truncate'
+          }`}
+        >
+          {patientName}
         </div>
-      )}
 
-      {/* Время записи */}
-      <div className="text-xs opacity-60 mt-1">
-        {appointment.appointment_time}
-        {appointment.end_time && ` - ${appointment.end_time}`}
+        <div className="flex min-w-0 shrink-0 items-center gap-1 text-[11px] leading-[14px]">
+          <span className="min-w-0 flex-1 truncate opacity-75">{doctorName}</span>
+          <span className="shrink-0 whitespace-nowrap tabular-nums opacity-75">{timeRange}</span>
+        </div>
+
+        {showReason && (
+          <div className="min-w-0 shrink-0 truncate text-[11px] leading-[14px] opacity-75">
+            {appointment.reason}
+          </div>
+        )}
       </div>
     </div>
   );
