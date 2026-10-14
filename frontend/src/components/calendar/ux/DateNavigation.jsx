@@ -1,4 +1,5 @@
 import React from 'react';
+import CalendarDatePicker from './CalendarDatePicker';
 import { themeClasses } from '../../../hooks/useTheme';
 
 /**
@@ -62,7 +63,8 @@ const DateNavigation = ({ currentDate, onDateChange, onNewAppointment, isFullscr
   const isToday = currentDate.toDateString() === new Date().toDateString();
 
   return (
-    <div className="calendar-date-nav flex items-center justify-end p-4 space-x-2">
+    <div className="calendar-date-nav flex items-center justify-end p-4 space-x-2" style={{ flexDirection: 'row', alignItems: 'center' }}>
+      <CalendarDatePicker currentDate={currentDate} onDateChange={onDateChange} />
       {/* Кнопка "Новая запись" */}
       {onNewAppointment && (
         <button
