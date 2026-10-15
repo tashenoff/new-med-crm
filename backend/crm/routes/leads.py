@@ -450,9 +450,15 @@ async def schedule_appointment_from_lead(
     appointment_data: dict,
     db: AsyncIOMotorDatabase = Depends(get_database)
 ):
-    """Назначить прием прямо из заявки"""
+    """Назначить прием прямо из заявки.
+
+    Optional patient_full_name is the official name for a NEW patient only.
+    Existing patients retain their canonical full_name.
+    """
     import uuid
     from datetime import datetime
+    from services.patient_crm_sync import parse_full_name, sync_crm_names_from_patient
+    from services.wazzup_chat_service import WazzupChatService
     
     try:
         lead_service = LeadService(db)
@@ -460,6 +466,11 @@ async def schedule_appointment_from_lead(
         
         if not lead:
             raise HTTPException(status_code=404, detail="Лид не найден")
+
+        patient_full_name = appointment_data.get("patient_full_name")
+        if patient_full_name is not None and not isinstance(patient_full_name, str):
+            raise HTTPException(status_code=422, detail="patient_full_name must be a string")
+        patient_full_name = (patient_full_name or "").strip()
         
         # === ПРОВЕРКА КОНФЛИКТОВ ВРЕМЕНИ ===
         appointments_collection = db["appointments"]
@@ -566,11 +577,6 @@ async def schedule_appointment_from_lead(
             patient_data = await patients_collection.find_one({"iin": lead.iin})
             if patient_data:
                 patient_id = patient_data.get("id")
-                # Обновляем лид с найденным пациентом
-                from ..schemas.lead_schemas import LeadUpdate
-                await lead_service.update_lead(lead_id, LeadUpdate(
-                    converted_to_client_id=patient_id
-                ))
         
         if not patient_id:
             # Создаем нового пациента из данных лида только если не нашли по телефону
@@ -578,13 +584,17 @@ async def schedule_appointment_from_lead(
             full_name = f"{lead.first_name or ''} {lead.last_name or ''}".strip()
             if not full_name:
                 full_name = "Пациент из CRM"
+            first_name, last_name, middle_name = lead.first_name, lead.last_name, lead.middle_name
+            if patient_full_name:
+                full_name = patient_full_name
+                last_name, first_name, middle_name = parse_full_name(full_name)
             
             new_patient = {
                 "id": patient_id,
                 "full_name": full_name,
-                "first_name": lead.first_name,
-                "last_name": lead.last_name,
-                "middle_name": lead.middle_name,
+                "first_name": first_name,
+                "last_name": last_name,
+                "middle_name": middle_name,
                 "phone": lead.phone or "",
                 "email": lead.email,
                 "source": str(lead.source.value) if hasattr(lead.source, 'value') else str(lead.source),
@@ -605,12 +615,27 @@ async def schedule_appointment_from_lead(
             
             await patients_collection.insert_one(new_patient)
             
-            # Обновляем лид как конвертированный
-            from ..schemas.lead_schemas import LeadUpdate
-            await lead_service.update_lead(lead_id, LeadUpdate(
-                converted_to_client_id=patient_id,
-                status=LeadStatus.CONTACTED
-            ))
+            # Preserve legacy names when the optional field is absent.
+            if patient_full_name:
+                patient_data = new_patient
+
+        # LeadUpdate does not accept converted_to_client_id. Persist the link
+        # directly on this inquiry, before the existing patient-to-CRM sync.
+        await db.crm_leads.update_one(
+            {"id": lead_id},
+            {"$set": {"converted_to_client_id": patient_id, "updated_at": datetime.utcnow()}},
+        )
+        if patient_data and patient_data.get("full_name"):
+            await sync_crm_names_from_patient(db, patient_id, patient_data["full_name"])
+
+        # Link existing chats only; never create a chat or rewrite contact_name.
+        chat_matches = [{"linked_lead_id": lead_id}]
+        if lead.phone:
+            chat_matches.append({"phone": WazzupChatService._norm_phone(lead.phone)})
+        await db.wazzup_chats.update_many(
+            {"$or": chat_matches},
+            {"$set": {"linked_patient_id": patient_id, "updated_at": datetime.utcnow()}},
+        )
         
         # Создаем запись на прием
         appointment_id = str(uuid.uuid4())

@@ -113,14 +113,24 @@ class WazzupChatService:
 
     async def _enrich_patient(self, doc):
         """Привязать к текущему чат-доку пациентa из CRM и вернуть обогащённый doc."""
+        lead = None
+        if doc.get("linked_lead_id"):
+            lead = await self.db.crm_leads.find_one({"id": doc["linked_lead_id"]})
         patient = None
         if doc.get("linked_patient_id"):
             patient = await self.db.patients.find_one(
                 {"id": doc["linked_patient_id"]}, {"id": 1, "full_name": 1, "phone": 1}
             )
         else:
-            patient = await self._resolve_patient(doc["phone"])
+            # Explicit CRM conversion takes precedence over a phone match.
+            if lead and lead.get("converted_to_client_id"):
+                patient = await self.db.patients.find_one(
+                    {"id": lead["converted_to_client_id"]}, {"id": 1, "full_name": 1, "phone": 1}
+                )
+            if not patient:
+                patient = await self._resolve_patient(doc["phone"])
             if patient:
+                doc["linked_patient_id"] = patient.get("id")
                 await self.collection.update_one(
                     {"_id": doc["_id"]},
                     {"$set": {
@@ -140,14 +150,17 @@ class WazzupChatService:
         # Лид: если у чата нет пациента, но есть активный лид на этот телефон —
         # помечаем чат как лид (source=lead + linked_lead_id), чтобы запись шла
         # через конвертацию из «Сделок», а не требовала существующего пациента.
-        if not doc.get("patient_id") and not doc.get("linked_lead_id"):
-            lead = await self._resolve_lead(doc["phone"])
+        if not doc.get("patient_id"):
+            if not lead or lead.get("converted_to_client_id"):
+                lead = await self._resolve_lead(doc["phone"])
             if lead:
                 doc["source"] = "lead"
                 doc["linked_lead_id"] = lead.get("id")
                 doc["status"] = doc.get("status") or lead.get("status")
                 doc["lead_name"] = " ".join(filter(None, [
                     lead.get("first_name"), lead.get("last_name"), lead.get("middle_name")]))
+                # Display is CRM-owned; contact_name is raw Wazzup metadata.
+                doc["patient_name"] = doc["lead_name"] or doc.get("contact_name")
         return doc
 
     async def list_chats(

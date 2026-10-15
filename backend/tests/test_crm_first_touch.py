@@ -118,17 +118,20 @@ async def test_board_enrichment_does_not_choose_shared_phone_patient():
     assert response.treatment_plan_total == 0
 
 
-async def test_scheduling_retains_contacted_status(monkeypatch):
+async def test_scheduling_retains_contacted_status(monkeypatch, clean_db):
+    monkeypatch.setenv("WAZZUP24_API_KEY", "test-key-for-tests")
+    from services.notification_sender import NotificationSender
+
+    monkeypatch.setattr(NotificationSender, "send_appointment_created_notification", AsyncMock())
     lead = Lead(**touch("first", converted_to_client_id="patient-a"))
     service = SimpleNamespace(get_lead_by_id=AsyncMock(return_value=lead), update_lead_status=AsyncMock())
     monkeypatch.setattr(routes, "LeadService", lambda db: service)
-    patients = SimpleNamespace(find_one=AsyncMock(return_value={"id": "patient-a"}))
-    appointments = Mock()
-    appointments.find.return_value.to_list = AsyncMock(return_value=[])
-    appointments.insert_one = AsyncMock()
+    await clean_db.crm_leads.insert_one(lead.dict())
+    await clean_db.patients.insert_one({"id": "patient-a"})
     result = await routes.schedule_appointment_from_lead("first", {
         "appointment_date": "2026-10-08", "appointment_time": "10:00", "end_time": "10:30", "doctor_id": "doctor-a"
-    }, {"patients": patients, "appointments": appointments})
+    }, clean_db)
     assert result["patient_id"] == "patient-a"
-    assert appointments.insert_one.call_args.args[0]["status"] == "confirmed"
+    appointment = await clean_db.appointments.find_one({"id": result["appointment_id"]})
+    assert appointment["status"] == "confirmed"
     service.update_lead_status.assert_awaited_once_with("first", LeadStatus.CONTACTED, "Запись на прием создана")
