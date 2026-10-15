@@ -510,7 +510,7 @@ def test_actual_modal_http_persist_readback_contract(modules, monkeypatch, tmp_p
     from fastapi import FastAPI
     from fastapi.testclient import TestClient
 
-    frontend = Path(__file__).resolve().parents[3].with_name("crm-doctor-compensation-frontend") / "frontend"
+    frontend = Path(os.environ.get("CRM_FRONTEND_CHECKOUT", str(Path(__file__).resolve().parents[3].with_name("crm-doctor-compensation-frontend")))) / "frontend"
     assert (frontend / "tests/doctorCompensation.test.mjs").exists(), "Frontend checkout is required for UI contract verification"
     payload_path = tmp_path / "payloads.json"
     readback_path = tmp_path / "readback.json"

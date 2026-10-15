@@ -6,7 +6,7 @@ from bson import ObjectId
 from fastapi import HTTPException
 from models.consultation import ConsultationSheet, ConsultationSheetCreate, ConsultationSheetUpdate, ICD10Code
 from database import get_database
-from services.accounting_ledger_service import assign_ledger_identities, reject_ledger_writer
+from services.accounting_ledger_service import assign_ledger_identities, reject_ledger_writer, COMPLETED_PAID_POLICY, snapshot_analysis_catalogs
 
 
 class ConsultationService:
@@ -239,7 +239,9 @@ class ConsultationService:
             total_cost += ts.total_price
         
         # Создать план лечения
+        await snapshot_analysis_catalogs(self.db, services)
         treatment_plan = TreatmentPlan(
+            compensation_policy=COMPLETED_PAID_POLICY,
             id=str(uuid.uuid4()),
             patient_id=consultation.patient_id,
             title=f"План лечения от {consultation.consultation_date.strftime('%d.%m.%Y')}",
@@ -358,6 +360,8 @@ class ConsultationService:
             services.append(service)
             total_cost += service["total_price"]
         
+        if not existing_plan or existing_plan.get("compensation_policy") == COMPLETED_PAID_POLICY:
+            await snapshot_analysis_catalogs(self.db, services)
         if existing_plan:
             # Обновляем существующий план лечения
             assign_ledger_identities(services)
@@ -379,6 +383,7 @@ class ConsultationService:
             from models.treatment_plan import TreatmentPlan
             
             treatment_plan = TreatmentPlan(
+                compensation_policy=COMPLETED_PAID_POLICY,
                 id=str(uuid.uuid4()),
                 patient_id=consultation.patient_id,
                 title=f"План лечения от {consultation.consultation_date.strftime('%d.%m.%Y')}",

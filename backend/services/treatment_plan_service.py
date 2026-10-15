@@ -14,6 +14,7 @@ from models.treatment_plan import TreatmentPlan, TreatmentPlanCreate, TreatmentP
 from services.service_price_service import validate_component_snapshot
 from services.accounting_ledger_service import (
     assign_ledger_identities, preserve_ledger_identities, reject_ledger_writer, advance_balance, patient_deposit_balance, is_ledger_plan,
+    COMPLETED_PAID_POLICY, snapshot_analysis_catalogs,
 )
 
 logger = logging.getLogger(__name__)
@@ -128,7 +129,9 @@ class TreatmentPlanService:
                     raise HTTPException(status_code=400, detail="Use complex component payment endpoints")
                 await self._prepare_new_complex_row(row)
         assign_ledger_identities(services)
+        await snapshot_analysis_catalogs(self.db, services)
         treatment_plan = TreatmentPlan(
+            compensation_policy=COMPLETED_PAID_POLICY,
             patient_id=patient_id,
             title=plan_data.title,
             description=plan_data.description,
@@ -319,6 +322,8 @@ class TreatmentPlanService:
             for row in update_dict["services"]:
                 if row.get("is_complex") and row.get("service_id") not in existing_complex_ids:
                     await self._prepare_new_complex_row(row)
+        if "services" in update_dict and treatment_plan.get("compensation_policy") == COMPLETED_PAID_POLICY:
+            await snapshot_analysis_catalogs(self.db, update_dict["services"])
         if update_dict:
             update_dict["updated_at"] = datetime.utcnow()
             query = {"id": plan_id, "services": treatment_plan.get("services"),

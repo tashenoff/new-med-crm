@@ -12,6 +12,23 @@ from fastapi import HTTPException
 
 from compensation import accrue, tariff
 
+COMPLETED_PAID_POLICY = "completed_paid_v1"
+
+
+async def snapshot_analysis_catalogs(db, rows):
+    """Server-verified lab evidence, including untouched doctorless children."""
+    for row in rows:
+        for target in (row.get("components") or []) if row.get("is_complex") else [row]:
+            catalog = await db.service_prices.find_one({"id": target.get("service_id")})
+            target.pop("service_catalog_snapshot", None)
+            if is_analysis_catalog(catalog, target.get("service_id")):
+                target["service_catalog_snapshot"] = deposit_catalog_snapshot(catalog)
+
+
+def doctorless_analysis(target):
+    return not target.get("doctor_id") and is_analysis_catalog(
+        target.get("service_catalog_snapshot"), target.get("service_id"))
+
 
 def reject_ledger_writer(document):
     if document.get("accounting_events"):
@@ -1057,6 +1074,11 @@ class AccountingLedgerService:
                                    or any(session.get("completed") for session in row.get("sessions") or [])):
                 raise HTTPException(409, "Unresolved legacy payment/completion state is not accounting evidence")
             doctor_id = row.get("doctor_id") or parent.get("doctor_id") or plan.get("assigned_doctor_id")
+            if plan.get("compensation_policy") == COMPLETED_PAID_POLICY and not row.get("doctor_id"):
+                catalog = await self.db.service_prices.find_one({"id": row.get("service_id")})
+                if is_analysis_catalog(catalog, row.get("service_id")):
+                    row["service_catalog_snapshot"] = deposit_catalog_snapshot(catalog)
+                    doctor_id = None
             if not doctor_id:
                 catalog = await self.db.service_prices.find_one({"id": row.get("service_id")})
                 if not is_analysis_catalog(catalog, row.get("service_id")):
@@ -1177,6 +1199,7 @@ def ordinary_ledger_totals(plan, doctor_id, start, end):
     identities = set()
     occurrences = set()
     payment_events_by_row = {}
+    completion_events_by_row = {}
     for event in plan.get("accounting_events") or []:
         if event.get("doctor_id") != doctor_id:
             continue
@@ -1262,6 +1285,9 @@ def ordinary_ledger_totals(plan, doctor_id, start, end):
             if base_kind in ("service_receipt", "service_advance_allocation", "service_deposit_allocation"):
                 payment_key = (event["service_row_id"], event.get("component_id"), event.get("session_id"))
                 payment_events_by_row.setdefault(payment_key, []).append(event)
+            elif base_kind == "service_completion":
+                completion_key = (event["service_row_id"], event.get("component_id"), event.get("session_id"))
+                completion_events_by_row.setdefault(completion_key, []).append(event)
             if start <= occurred.astimezone(timezone.utc) <= end:
                 revenue += float(amount)
         except (ValueError, KeyError, TypeError, HTTPException):
@@ -1299,12 +1325,23 @@ def ordinary_ledger_totals(plan, doctor_id, start, end):
                 if received + discount != price:
                     continue
                 last_payment = max(payments, key=lambda event: utc_datetime(event["occurred_at"]))
+                earned_at = utc_datetime(last_payment["occurred_at"])
+                if plan.get("compensation_policy") == COMPLETED_PAID_POLICY:
+                    stable_ids = [session_id] if session_id else target.get("occurrence_ids") or []
+                    if not stable_ids or len(set(stable_ids)) != len(stable_ids):
+                        raise ValueError("Stable earning occurrences are required")
+                    completions = completion_events_by_row.get(payment_key, [])
+                    if set(stable_ids) != {event["occurrence_id"] for event in completions}:
+                        continue
+                    # Keep the existing target price, percentage and fixed formula.
+                    # Release it in the period when BOTH target conditions are met.
+                    earned_at = max(earned_at, *(utc_datetime(event["occurred_at"]) for event in completions))
                 kind, fixed_value, _ = tariff(last_payment["compensation_snapshot"])
                 occurrence_count = len(target.get("occurrence_ids") or []) or (1 if session_id else 0)
                 if occurrence_count < 1:
                     raise ValueError("Paid service has no stable occurrence identities")
                 fixed_amount = fixed_value * occurrence_count if kind in ("fixed", "hybrid") else 0
-                if start <= utc_datetime(last_payment["occurred_at"]) <= end:
+                if start <= earned_at <= end:
                     commission = sum((money(event["compensation_amount_kzt"], "event compensation")
                         or (money(compensation_amount(event["compensation_snapshot"], event["kind"],
                             money(event["amount_kzt"], "event amount")), "calculated event compensation")
@@ -1328,6 +1365,8 @@ def ordinary_ledger_totals(plan, doctor_id, start, end):
     for row in plan.get("services") or []:
         if row.get("is_complex") and row.get("components"):
             for component in row["components"]:
+                if plan.get("compensation_policy") == COMPLETED_PAID_POLICY and doctorless_analysis(component):
+                    continue
                 earner = component.get("doctor_id") or row.get("doctor_id") or plan.get("assigned_doctor_id")
                 if earner and earner != doctor_id:
                     continue
@@ -1345,6 +1384,8 @@ def ordinary_ledger_totals(plan, doctor_id, start, end):
                                          service_row_id=row.get("service_row_id"), component_id=component.get("component_id")))
             continue
         earner = row.get("doctor_id") or plan.get("assigned_doctor_id")
+        if plan.get("compensation_policy") == COMPLETED_PAID_POLICY and doctorless_analysis(row):
+            continue
         if earner and earner != doctor_id:
             continue
         # Catalog-confirmed doctorless analyses do not belong to any doctor's payroll.

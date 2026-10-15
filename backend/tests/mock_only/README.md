@@ -76,3 +76,29 @@ card. Card selection uses the existing Kanban first-touch grouping and explicit
 patient / linked CRM-client identity; no patient-phone or regex fallback is used.
 Unlinked cards, multiple matching groups, and terminal cards are left unchanged.
 CRM synchronization failures are logged without undoing a persisted payment.
+
+## Completed and paid policy (prospective only)
+
+New treatment plans, including consultation-created plans, receive the server-owned
+`compensation_policy=completed_paid_v1`. The existing fixed/percentage/hybrid
+formula, net target price and full-payment threshold are retained. Payroll releases
+that target only after all its stable occurrences are completed (one session for a
+course target), in the period of the later condition. Other components, doctors,
+sessions and the containing plan need not be finished or paid. Replays do not
+create additional earnings. Revenue remains the actual receipt revenue.
+
+Unversioned plans retain the historical calculation. No records or past reports are
+migrated/reinterpreted. Applying this rule to an already existing plan is blocked on
+an explicit history/cutover decision: previous paid-only fixed accrual may already
+have been reported. Generic plan completion without ledger evidence still cannot
+be used as proof; existing legacy blockers are not hidden. Refunds, reassignment
+and referral/cashback policy are unchanged.
+
+Server-verified catalog snapshots allow untouched doctorless laboratory targets to
+stay outside doctor payroll, both inside a complex and standalone. A plan's doctor
+is not inherited by a doctorless lab under the new policy. Client lab flags alone
+are not sufficient evidence.
+
+For the cross-stack modal test, set `CRM_FRONTEND_CHECKOUT` to the separate main
+frontend checkout root (the directory containing `frontend`). Run only the mock
+files with the isolation flags above; never collect parent Mongo fixtures.

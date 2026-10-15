@@ -338,6 +338,7 @@ def test_zero_receipt_discount_does_not_close_mixed_plan(modules, monkeypatch, f
 def test_plan_creation_with_initial_payment_uses_shared_hook(modules, monkeypatch, payment_status, paid_amount):
     db, saved = memory_db(plan_document())
     db.patients.find_one = AsyncMock(return_value={"id": "patient"})
+    db.service_prices.find_one = AsyncMock(side_effect=lambda query: dict(id=query["id"], service_type="regular"))
 
     async def insert(document):
         saved.clear()
