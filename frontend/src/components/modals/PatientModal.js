@@ -1389,9 +1389,6 @@ const PatientModal = ({
                 <p className="text-gray-500 text-center">
                   Планы лечения создаются автоматически при заполнении консультационного листа
                 </p>
-                <p className="text-sm text-gray-400 text-center mt-2">
-                  Или нажмите "Редактировать" на существующем плане для изменения
-                </p>
               </div>
             )}
 
@@ -1739,7 +1736,6 @@ const PatientModal = ({
                           );
                           refreshTreatmentPlans();
                         }}
-                        onEdit={handleEditTreatmentPlan}
                       />
                     </div>
                   ))}
