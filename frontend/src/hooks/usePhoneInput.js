@@ -1,25 +1,6 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
-
-// Количество цифр для валидного номера: код страны (+7) + 10 цифр номера
-export const PHONE_MAX_DIGITS = 11;
-export const PHONE_VALID_DIGITS = 11;
-
-// Форматирование телефона: убираем всё кроме цифр, ограничиваем длину, добавляем + в начало
-export const formatPhoneNumber = (value = '') => {
-  // Убираем всё кроме цифр
-  let digits = String(value).replace(/\D/g, '');
-
-  // Ограничиваем максимальное количество цифр
-  digits = digits.slice(0, PHONE_MAX_DIGITS);
-
-  // Если нет цифр, возвращаем пустую строку
-  if (digits.length === 0) {
-    return '';
-  }
-
-  // Просто добавляем + в начало
-  return '+' + digits;
-};
+import { formatPhoneNumber, formatPhoneChange, PHONE_VALID_DIGITS } from './phoneFormatter';
+export { formatPhoneNumber, PHONE_MAX_DIGITS, PHONE_VALID_DIGITS } from './phoneFormatter';
 
 // Проверка полноты номера (11 цифр с кодом страны +7)
 export const isValidPhone = (value = '') => {
@@ -30,7 +11,7 @@ export const isValidPhone = (value = '') => {
 // Хук для работы с полем телефона: форматирование, ограничение, валидация
 // и проверка наличия номера в базе (если передан onCheckPatient)
 export const usePhoneInput = (initialValue = '', onChange, onCheckPatient = null) => {
-  // Форматируем начальное значение (на случай если пришло из БД без форматирования)
+  // Keep the existing display formatting for stored values.
   const [value, setValue] = useState(() => formatPhoneNumber(initialValue));
   const [isChecking, setIsChecking] = useState(false);
   const [foundData, setFoundData] = useState(null); // { patient, active_lead } из check-phone
@@ -84,7 +65,7 @@ export const usePhoneInput = (initialValue = '', onChange, onCheckPatient = null
 
   const handlePhoneChange = useCallback(
     (e) => {
-      const formatted = formatPhoneNumber(e.target.value);
+      const formatted = formatPhoneChange(e.target.value);
       setValue(formatted);
       if (onChange) {
         onChange(formatted);
