@@ -13,6 +13,7 @@ from fastapi import HTTPException
 from compensation import accrue, tariff
 
 COMPLETED_PAID_POLICY = "completed_paid_v1"
+AUTO_COMPLETION_POLICY = "full_payment_v1"
 
 
 async def snapshot_analysis_catalogs(db, rows):
@@ -475,8 +476,19 @@ def component_price(row, component):
 
 
 class AccountingLedgerService:
-    def __init__(self, db):
+    def __init__(self, db, sync_payment=True):
         self.db = db
+        self._sync_enabled = sync_payment
+
+    async def _sync_payment(self, plan_id):
+        if self._sync_enabled:
+            from services.treatment_plan_service import TreatmentPlanService
+            await TreatmentPlanService(self.db).sync_persisted_payment(plan_id)
+
+    async def _payment_append(self, plan, fields, events, recorded_by, operation_id):
+        from services.payment_completion_service import append_auto_completions
+        result = await append_auto_completions(self.db, plan, fields, events, recorded_by, operation_id)
+        return result[0] if len(result) == 1 else {"$each": result}
 
     async def plan_deposit_allocations(self, plan, events, balance, operation_id, recorded_by, now):
         """Water-fill prospective exact units using integer cents; never invent identities."""
@@ -626,10 +638,13 @@ class AccountingLedgerService:
             allocations, rows, remaining = await self.plan_deposit_allocations(plan, events,
                 balance + Decimal(canonical["amount_kzt"]), operation_id, recorded_by, now)
             allocated = sum((money(entry["amount_kzt"], "amount") for entry in allocations), Decimal("0"))
-            result = await self.db.treatment_plans.update_one(query, {"$push": {"accounting_events": {"$each": [event] + allocations}},
-                "$set": {"services": rows, "paid_amount": float(money(plan.get("paid_amount", 0), "paid_amount") + allocated),
-                         "deposit_balance": float(remaining), "updated_at": now}})
+            fields = {"services": rows, "paid_amount": float(money(plan.get("paid_amount", 0), "paid_amount") + allocated),
+                      "deposit_balance": float(remaining), "updated_at": now}
+            pushed = await self._payment_append(plan, fields, [event] + allocations, recorded_by, operation_id)
+            result = await self.db.treatment_plans.update_one(query, {"$push": {"accounting_events": pushed}, "$set": fields})
             if result.matched_count:
+                if allocations and plan.get("payment_completion_policy") == AUTO_COMPLETION_POLICY:
+                    await self._sync_payment(plan_id)
                 return event_result(event)
         raise HTTPException(409, "Concurrent deposit assignment; retry with the same appointment")
 
@@ -778,10 +793,10 @@ class AccountingLedgerService:
             query = {"id": plan_id}
             for key in ("services", "accounting_events", "paid_amount", "updated_at", "assigned_doctor_id", "deposit_balance", "deposit_amount", "extra_deposit"):
                 query[key] = plan.get(key)
-            result = await self.db.treatment_plans.update_one(query, {"$set": fields, "$push": {"accounting_events": {"$each": appended}}})
+            pushed = await self._payment_append(plan, fields, appended, recorded_by, operation_id)
+            result = await self.db.treatment_plans.update_one(query, {"$set": fields, "$push": {"accounting_events": pushed}})
             if result.matched_count:
-                from services.treatment_plan_service import TreatmentPlanService
-                await TreatmentPlanService(self.db).sync_persisted_payment(plan_id)
+                await self._sync_payment(plan_id)
                 return plan_result(await self.db.treatment_plans.find_one({"id": plan_id}), {})["plan"]
         raise HTTPException(409, "Concurrent modal settlement; retry unchanged request")
 
@@ -909,10 +924,19 @@ class AccountingLedgerService:
             if not target_events and (session.get("paid_amount") or session.get("paid") or session.get("completed")):
                 raise HTTPException(409, "Legacy session state is not event evidence")
             doctor_id = session.get("doctor_id") or row.get("doctor_id") or plan.get("assigned_doctor_id")
-            doctor = await self.db.doctors.find_one({"id": doctor_id}) if doctor_id else None
-            if not doctor:
-                raise HTTPException(409, "Assign a known earning doctor before recording an event")
-            snapshot = resolve_snapshot(doctor, service_id)
+            catalog = None
+            if plan.get("payment_completion_policy") == AUTO_COMPLETION_POLICY and not session.get("doctor_id"):
+                catalog = await self.db.service_prices.find_one({"id": service_id})
+                if is_analysis_catalog(catalog, service_id):
+                    doctor_id = None
+            if doctor_id is None and is_analysis_catalog(catalog, service_id):
+                snapshot = resolve_snapshot(dict(payment_type="percentage", payment_value=0), service_id)
+                row["service_catalog_snapshot"] = deposit_catalog_snapshot(catalog)
+            else:
+                doctor = await self.db.doctors.find_one({"id": doctor_id}) if doctor_id else None
+                if not doctor:
+                    raise HTTPException(409, "Assign a known earning doctor before recording an event")
+                snapshot = resolve_snapshot(doctor, service_id)
             if kind == "session_deposit_allocation":
                 catalog = await self.db.service_prices.find_one({"id": service_id})
                 validate_deposit_catalog(catalog, service_id)
@@ -943,6 +967,8 @@ class AccountingLedgerService:
                 occurred_at=now, recorded_at=now, currency="KZT", amount_kzt=float(amount),
                 discount_amount_kzt=0, payment_source=canonical["payment_source"], compensation_snapshot=snapshot,
                 compensation_amount_kzt=compensation_amount(snapshot, kind, amount))
+            if doctor_id is None:
+                event["service_catalog_snapshot"] = deposit_catalog_snapshot(catalog)
             if kind == "session_deposit_allocation":
                 event["completion_occurrence_id"] = session_id
                 event["service_catalog_snapshot"] = deposit_catalog_snapshot(catalog)
@@ -963,10 +989,10 @@ class AccountingLedgerService:
             for key in ("services", "accounting_events", "paid_amount", "payment_status", "updated_at", "assigned_doctor_id",
                         "deposit_amount", "deposit_balance", "extra_deposit"):
                 query[key] = plan.get(key)
-            result = await self.db.treatment_plans.update_one(query, {"$set": fields, "$push": {"accounting_events": event}})
+            pushed = await self._payment_append(plan, fields, [event], recorded_by, operation_id)
+            result = await self.db.treatment_plans.update_one(query, {"$set": fields, "$push": {"accounting_events": pushed}})
             if result.matched_count:
-                from services.treatment_plan_service import TreatmentPlanService
-                await TreatmentPlanService(self.db).sync_persisted_payment(plan_id)
+                await self._sync_payment(plan_id)
                 return plan_result(await self.db.treatment_plans.find_one({"id": plan_id}), event_result(event))
         raise HTTPException(409, "Concurrent accounting update; retry with the same operation_id")
 
@@ -1167,11 +1193,11 @@ class AccountingLedgerService:
             for key in ("services", "accounting_events", "paid_amount", "payment_status", "updated_at", "assigned_doctor_id",
                         "deposit_amount", "deposit_balance", "extra_deposit"):
                 query[key] = plan.get(key)
-            result = await self.db.treatment_plans.update_one(query, {"$set": fields, "$push": {"accounting_events": event}})
+            pushed = await self._payment_append(plan, fields, [event], recorded_by, operation_id)
+            result = await self.db.treatment_plans.update_one(query, {"$set": fields, "$push": {"accounting_events": pushed}})
             if result.matched_count:
                 if kind in ("service_receipt", "service_advance_allocation", "service_deposit_allocation"):
-                    from services.treatment_plan_service import TreatmentPlanService
-                    await TreatmentPlanService(self.db).sync_persisted_payment(plan_id)
+                    await self._sync_payment(plan_id)
                 return event_result(event)
         plan = await self.db.treatment_plans.find_one({"id": plan_id})
         previous = next((event for event in (plan or {}).get("accounting_events", []) if event.get("operation_id") == operation_id), None)
@@ -1386,7 +1412,14 @@ def ordinary_ledger_totals(plan, doctor_id, start, end):
         earner = row.get("doctor_id") or plan.get("assigned_doctor_id")
         if plan.get("compensation_policy") == COMPLETED_PAID_POLICY and doctorless_analysis(row):
             continue
-        if earner and earner != doctor_id:
+        exact_course_owners = (plan.get("payment_completion_policy") == AUTO_COMPLETION_POLICY
+                               and (row.get("is_course") or row.get("payment_type") == "per_session")
+                               and bool(row.get("sessions")))
+        if exact_course_owners and all(
+                (session.get("doctor_id") or earner) and (session.get("doctor_id") or earner) != doctor_id
+                for session in row["sessions"]):
+            continue
+        if earner and earner != doctor_id and not exact_course_owners:
             continue
         # Catalog-confirmed doctorless analyses do not belong to any doctor's payroll.
         if not earner and any(
@@ -1413,6 +1446,9 @@ def ordinary_ledger_totals(plan, doctor_id, start, end):
                         or not any(event.get("doctor_id") == doctor_id for event in matching)):
                     blockers.append(dict(code="accounting_ledger_gap", plan_id=plan.get("id"),
                                          service_row_id=row.get("service_row_id"), session_id=session_id))
+        if exact_course_owners and (not has_stored_evidence(row) or any(
+                event.get("service_row_id") == row.get("service_row_id") for event in stored_events)):
+            continue
         if (earner and row.get("service_row_id") and not has_stored_evidence(row)
                 and not any(has_stored_evidence(session) for session in row.get("sessions") or [])
                 and not any(event.get("service_row_id") == row.get("service_row_id") for event in stored_events)):

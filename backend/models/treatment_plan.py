@@ -20,6 +20,7 @@ class TreatmentPlan(BaseModel):
     """Treatment plan model for patients"""
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     accounting_events: List[dict] = Field(default_factory=list)
+    payment_completion_policy: Optional[str] = None  # Server-owned; no historical auto-completion.
     compensation_policy: Optional[str] = None  # Server-owned; absent on historical plans.
     patient_id: str
     title: str

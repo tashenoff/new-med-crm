@@ -34,6 +34,16 @@ def get_statistics_service():
     return StatisticsService(db)
 
 
+@treatment_plans_router.post("/treatment-plans/{plan_id}/settle-remaining")
+async def settle_plan_remaining(
+    plan_id: str,
+    command: dict = Body(...),
+    current_user: UserInDB = Depends(require_role([UserRole.ADMIN, UserRole.SUPER_ADMIN, UserRole.DOCTOR])),
+):
+    from services.payment_completion_service import PaymentCompletionService
+    return await PaymentCompletionService(db).settle_remaining(plan_id, command, current_user.id)
+
+
 @treatment_plans_router.post("/treatment-plans/{plan_id}/service-rows/{service_row_id}/receipts")
 async def record_service_receipt(
     plan_id: str,

@@ -1083,8 +1083,7 @@ def test_create_receipts_completion_to_complete_salary_report(modules, monkeypat
         created.id, "catalog", dict(receipt(), service_row_id=row["service_row_id"]), user))
     asyncio.run(modules.routes.record_service_receipt(
         created.id, row["service_row_id"], receipt(amount_kzt=500), user))
-    asyncio.run(modules.routes.record_service_completion(
-        created.id, row["service_row_id"], row["occurrence_ids"][0], {"operation_id": str(uuid4())}, user))
+    assert all(event.get("completion_source") == "full_payment" for event in saved["accounting_events"] if event["kind"] == "service_completion")
     db.doctors.find.return_value.to_list = AsyncMock(return_value=[deepcopy(settings)])
     db.treatment_plans.find.return_value.to_list = AsyncMock(return_value=[deepcopy(saved)])
     db.appointments.find.return_value.to_list = AsyncMock(return_value=[])
@@ -1093,8 +1092,8 @@ def test_create_receipts_completion_to_complete_salary_report(modules, monkeypat
     result = asyncio.run(salary.get_doctor_salary_report(today, today))
     assert result["compensation_complete"] is True
     assert result["salary_data"][0]["treatment_plans_revenue"] == 800
-    assert result["salary_data"][0]["calculated_salary"] == 0  # Only one of this target's two occurrences is completed.
-    assert len(saved["accounting_events"]) == 3
+    assert result["salary_data"][0]["calculated_salary"] == 260
+    assert len(saved["accounting_events"]) == 4
 
 
 def test_patient_deposit_modal_confirmation_does_not_bypass_existing_payment_guard(modules, monkeypatch):
@@ -1452,16 +1451,16 @@ def test_plan_creation_replays_preexisting_appointment_deposit_once(modules, mon
         services=[dict(service_id="catalog", total_price=1000, quantity=1, discount_amount=400)])
     created = asyncio.run(modules.plans.TreatmentPlanService(db).create_treatment_plan("patient", data, "recorder", "Recorder"))
     assert modules.ledger.patient_deposit_balance(saved["accounting_events"], saved["id"]) == 0
-    assert len(created.accounting_events) == 2
-    assert deposit_totals(modules, saved) == (600, 0)
+    assert len(created.accounting_events) == 3
+    assert deposit_totals(modules, saved) == (600, 170)
     appointments = importlib.import_module("routers.appointments")
     asyncio.run(appointments.apply_deposit_to_treatment_plans("patient", 600, "appointment", db))
-    assert len(saved["accounting_events"]) == 2
+    assert len(saved["accounting_events"]) == 3
     row = saved["services"][0]
     asyncio.run(ledger.settle_patient_deposit_row(saved["id"], "catalog", dict(amount=600), "recorder"))
-    assert deposit_totals(modules, saved) == (600, 0)
-    asyncio.run(ledger.record_ordinary_service(saved["id"], row["service_row_id"], "service_completion",
-        dict(operation_id=str(uuid4())), "recorder", row["occurrence_ids"][0]))
+    assert deposit_totals(modules, saved) == (600, 170)
+    assert saved["services"][0]["status"] == "completed"
+    assert saved["services"][0]["payment_status"] == "paid"
     assert deposit_totals(modules, saved) == (600, 170)
 
 
@@ -1966,7 +1965,7 @@ def test_confirmed_plan_wide_appointment_before_creation_allocates_all_units(mod
     assert result.id == saved["id"]
     assert plan_wide_shares(saved) == expected_plan_wide_shares()
     assert saved["deposit_balance"] == 0
-    assert deposit_totals(modules, saved) == (950, 0)
+    assert deposit_totals(modules, saved) == (950, 10)
     assert source["treatment_plan_deposit_claims"] == [dict(plan_id=result.id, amount_kzt=950)]
 
 

@@ -14,7 +14,7 @@ from models.treatment_plan import TreatmentPlan, TreatmentPlanCreate, TreatmentP
 from services.service_price_service import validate_component_snapshot
 from services.accounting_ledger_service import (
     assign_ledger_identities, preserve_ledger_identities, reject_ledger_writer, advance_balance, patient_deposit_balance, is_ledger_plan,
-    COMPLETED_PAID_POLICY, snapshot_analysis_catalogs,
+    COMPLETED_PAID_POLICY, AUTO_COMPLETION_POLICY, snapshot_analysis_catalogs,
 )
 
 logger = logging.getLogger(__name__)
@@ -132,6 +132,7 @@ class TreatmentPlanService:
         await snapshot_analysis_catalogs(self.db, services)
         treatment_plan = TreatmentPlan(
             compensation_policy=COMPLETED_PAID_POLICY,
+            payment_completion_policy=AUTO_COMPLETION_POLICY,
             patient_id=patient_id,
             title=plan_data.title,
             description=plan_data.description,

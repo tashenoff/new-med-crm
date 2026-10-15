@@ -102,3 +102,28 @@ are not sufficient evidence.
 For the cross-stack modal test, set `CRM_FRONTEND_CHECKOUT` to the separate main
 frontend checkout root (the directory containing `frontend`). Run only the mock
 files with the isolation flags above; never collect parent Mongo fixtures.
+
+## Automatic completion from full payment (new plans)
+
+New plans also receive the server-owned `payment_completion_policy=full_payment_v1`.
+An ordinary/component/session cash receipt or identified credit allocation appends
+missing completion events in the same owning-plan update when its exact target is
+fully funded. Partial funding and unallocated credit do not complete anything.
+Existing manual completion events and already settled targets retain their IDs,
+dates and accruals. Doctorless catalog-confirmed analyses complete with zero doctor
+compensation. The salary formulas and full-target payment threshold are unchanged.
+
+`POST /api/treatment-plans/{plan_id}/settle-remaining` takes an operation UUID,
+actual cash amount, method and optionally a stable `service_row_id` for a complex
+or course. It stages the existing exact-target ledger commands on a private copy,
+disables payment hooks during staging, then uses one compare-and-set update for
+all payments and completions. The normal synchronization hook runs once after
+that real update. A failure while preparing any child leaves the whole plan intact.
+Retries retain their operation identity; stale amounts and unknown earning doctors
+are rejected. A whole course must have session prices matching its total; prices
+are never silently reallocated. Aggregate discounts must be established through
+individual target payments, not guessed across a batch.
+
+Older plans are not opted in or backfilled. Refunds and historical recalculation
+are not added. Run `test_auto_payment_completion.py` with the same DB-forbidden
+pytest flags as the other mock suites.
