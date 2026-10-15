@@ -531,3 +531,89 @@ test('missing stable row identity blocks completion without sending an invented 
   assert.equal(ui.requests.filter(request => request.body).length, 0);
   assert.match(ui.alerts[0], /идентификатора строки/);
 });
+
+const autoPayPlan = (id, type = 'complex') => ({ ...makeCompletionPlan(id), payment_completion_policy: 'full_payment_v1', total_cost: 6000,
+  services: [type === 'complex' ? { service_id: 'package', service_row_id: 'package-row', service_name: 'Комплекс', is_complex: true,
+    total_price: 6000, price: 6000, quantity: 1, paid_amount: 3000, payment_status: 'partially_paid', components: [
+      { service_id: 'same-service', component_id: 'part-a', service_name: 'Врач A', price: 3000, quantity: 1, paid: true, paid_amount: 3000 },
+      { service_id: 'same-service', component_id: 'part-b', service_name: 'Врач B', price: 3000, quantity: 1, paid: false, paid_amount: 0 }] }
+    : { service_id: 'course', service_row_id: 'course-row', service_name: 'Курс', is_course: true, payment_type: 'per_session',
+      total_price: 6000, quantity_total: 2, price_per_unit: 3000, paid_amount: 3000, payment_status: 'partially_paid', sessions: [
+        { session_id: 'paid-session', price: 3000, paid: true, paid_amount: 3000, completed: true },
+        { session_id: 'remaining-session', price: 3000, paid_amount: 0, completed: false }] }] });
+
+for (const type of ['complex', 'course']) {
+  test(`automatic full ${type} payment uses one atomic server settlement with stable scope and refreshes the plan`, async context => {
+    const plan = autoPayPlan('auto-full-' + type, type);
+    const updated = [];
+    const server = { ...plan, execution_status: 'completed', payment_status: 'paid' };
+    const ui = await mount(context, ServicePaymentList, { plan, onUpdate: value => updated.push(value) }, (url, body) =>
+      url.includes('payment-types') ? [{ id: 'card', name: 'Карта' }] : body ? { plan: server } : null);
+    await ui.click(ui.container.querySelector('button'));
+    await ui.click(button(ui.container, type === 'complex' ? 'Оплатить всё' : 'Оплатить весь курс'));
+    assert.match(ui.container.textContent, /автоматически отметит выполнение/);
+    assert.equal(ui.container.querySelector('input[placeholder="Сумма скидки, ₸"]').disabled, true);
+    await ui.click(ui.container.querySelector('input[type="radio"]'));
+    await ui.click([...ui.container.querySelectorAll('button')].filter(b => b.textContent.includes('Оплатить')).at(-1));
+    const writes = ui.requests.filter(r => r.body);
+    assert.equal(writes.length, 1);
+    assert.ok(writes[0].url.endsWith('/settle-remaining'));
+    assert.equal(writes[0].body.service_row_id, type === 'complex' ? 'package-row' : 'course-row');
+    assert.equal(writes[0].body.amount_kzt, 3000);
+    assert.equal(writes[0].body.payment_method, 'card');
+    assert.deepEqual(updated, [server]);
+    assert.deepEqual(ui.alerts, []);
+  });
+}
+
+test('automatic single component payment selects stable child despite repeated catalog IDs', async context => {
+  const plan = autoPayPlan('auto-component');
+  const updated = [];
+  const ui = await mount(context, ServicePaymentList, { plan, onUpdate: value => updated.push(value) }, (url, body) =>
+    url.includes('payment-types') ? [{ id: 'card', name: 'Карта' }] : body ? { plan: { ...plan, execution_status: 'completed' } } : null);
+  await ui.click(ui.container.querySelector('button'));
+  await ui.click([...ui.container.querySelectorAll('button')].find(b => b.textContent.trim() === 'Оплатить'));
+  await ui.click(ui.container.querySelector('input[type="radio"]'));
+  await ui.click([...ui.container.querySelectorAll('button')].filter(b => b.textContent.includes('Оплатить')).at(-1));
+  const writes = ui.requests.filter(r => r.body);
+  assert.equal(writes.length, 1);
+  assert.equal(writes[0].body.component_id, 'part-b');
+  assert.equal(writes[0].body.service_row_id, 'package-row');
+  assert.equal(writes[0].body.amount_kzt, 3000);
+  assert.equal(updated.length, 1);
+  assert.equal(ui.alerts.length, 0);
+});
+
+test('automatic single-session payment keeps already paid session untouched and sends stable remaining session', async context => {
+  const plan = autoPayPlan('auto-session', 'course');
+  const updated = [];
+  const ui = await mount(context, ServicePaymentList, { plan, onUpdate: value => updated.push(value) }, (url, body) =>
+    url.includes('payment-types') ? [{ id: 'card', name: 'Карта' }] : body ? { plan } : null);
+  await ui.click(ui.container.querySelector('button'));
+  await ui.click(button(ui.container, 'Оплатить 1 процедуру'));
+  await ui.click(ui.container.querySelector('input[type="radio"]'));
+  await ui.click([...ui.container.querySelectorAll('button')].filter(b => b.textContent.includes('Оплатить')).at(-1));
+  const writes = ui.requests.filter(r => r.body);
+  assert.equal(writes.length, 1);
+  assert.equal(writes[0].body.session_id, 'remaining-session');
+  assert.equal(writes[0].body.service_row_id, 'course-row');
+  assert.equal(writes[0].body.amount_kzt, 3000);
+  assert.equal(updated.length, 1);
+  assert.equal(ui.alerts.length, 0);
+});
+
+test('auto-course session count and partial-payment remainder come from sessions, not a missing quantity counter', async context => {
+  const plan = autoPayPlan('auto-session-partial', 'course');
+  delete plan.services[0].quantity_total;
+  plan.services[0].sessions[1].paid_amount = 1000;
+  const ui = await mount(context, ServicePaymentList, { plan }, (url, body) => url.includes('payment-types') ? [{ id: 'card', name: 'Карта' }] : body ? { plan } : null);
+  await ui.click(ui.container.querySelector('button'));
+  assert.match(ui.container.textContent, /1 из 2/);
+  const paySession = button(ui.container, 'Оплатить 1 процедуру');
+  assert.match(paySession.textContent, /2\s*000/);
+  assert.ok(button(ui.container, 'Оплатить весь курс'));
+  await ui.click(paySession);
+  await ui.click(ui.container.querySelector('input[type="radio"]'));
+  await ui.click([...ui.container.querySelectorAll('button')].filter(b => b.textContent.includes('Оплатить')).at(-1));
+  assert.equal(ui.requests.find(r => r.body).body.amount_kzt, 2000);
+});

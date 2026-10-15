@@ -1,11 +1,11 @@
 import { discountedPaymentAmount } from '../../utils/paymentBalances';
-import { ledgerFetch } from '../../utils/accountingLedger';
+import { ledgerFetch, requireSessionId } from '../../utils/accountingLedger';
 import React, { useState, useEffect } from 'react';
 import { FaChevronDown, FaChevronRight, FaStethoscope, FaClipboardList, FaNotesMedical, FaUserMd, FaFileMedical, FaCreditCard } from 'react-icons/fa';
 
 const PaymentModal = ({ show, loading, onClose, paymentTypes, loadingPaymentTypes,
   selectedPaymentType, setSelectedPaymentType, discountInput, setDiscountInput,
-  discountType, setDiscountType, total, onPay }) => {
+  discountType, setDiscountType, total, onPay, discountLocked = false, autoCompletion = false }) => {
   if (!show) return null;
   const raw = Math.max(0, Number(discountInput) || 0);
   const disc = discountType === 'percent'
@@ -69,7 +69,7 @@ const PaymentModal = ({ show, loading, onClose, paymentTypes, loadingPaymentType
                   className={`px-3 py-1.5 text-xs ${discountType === 'percent' ? 'bg-blue-600 text-white' : 'bg-white text-gray-600'}`}>%</button>
               </div>
             </div>
-            <input type="number" min="0" step="0.01" value={discountInput}
+            <input type="number" min="0" step="0.01" value={discountInput} disabled={discountLocked}
               onChange={(e) => setDiscountInput(e.target.value)}
               className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder={discountType === 'percent' ? 'Процент скидки' : 'Сумма скидки, ₸'} />
           </div>
@@ -78,6 +78,8 @@ const PaymentModal = ({ show, loading, onClose, paymentTypes, loadingPaymentType
           </div>
         </div>
 
+        {autoCompletion && <p className="mt-3 text-sm text-blue-700">Полная оплата автоматически отметит выполнение оплачиваемых услуг или сеансов.</p>}
+        {discountLocked && <p className="mt-2 text-xs text-gray-600">Скидку можно задать при отдельной оплате услуги.</p>}
         <button onClick={() => onPay(selectedPaymentType, disc)} disabled={loading || !selectedPaymentType}
           className="w-full mt-4 px-4 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 font-medium">
           {loading ? 'Обработка...' : `Оплатить ${finalAmt.toLocaleString()} ₸`}
@@ -94,6 +96,7 @@ const ServicePaymentList = ({ plan, onUpdate, onEdit, paymentFilter = 'all', pro
   const [expandedSections, setExpandedSections] = useState({});
   const [isCollapsed, setIsCollapsed] = useState(true); // По умолчанию свёрнуто
   const API = import.meta.env.VITE_BACKEND_URL;
+  const autoCompletion = plan.payment_completion_policy === 'full_payment_v1';
   
   // Способы оплаты
   const [paymentTypes, setPaymentTypes] = useState([]);
@@ -194,12 +197,22 @@ const ServicePaymentList = ({ plan, onUpdate, onEdit, paymentFilter = 'all', pro
   });
 
   // Открыть модальное окно выбора способа оплаты для оплаты услуги
-  const openPaymentModalForService = (serviceId) => {
-    setPendingPaymentData({ type: 'service', serviceId });
+  const openPaymentModalForService = (serviceId, serviceRowId) => {
+    setPendingPaymentData({ type: 'service', serviceId, serviceRowId });
     setShowPaymentModal(true);
   };
 
   const complexShares = (svc) => {
+    if (autoCompletion) {
+      const comps = svc.components || [];
+      const total = Number(svc.total_price || 0);
+      const weights = comps.map(c => Number(c.price || 0) * Number(c.quantity || 1));
+      const sum = weights.reduce((a, b) => a + b, 0);
+      const scale = Number.isInteger(total) ? 1 : 0.01;
+      const shares = weights.map(w => Math.floor((sum ? total * w / sum : 0) / scale + 1e-9) * scale);
+      if (weights.length) shares[weights.indexOf(Math.max(...weights))] += total - shares.reduce((a, b) => a + b, 0);
+      return comps.map((c, i) => ({ ...c, share: Math.round(shares[i] * 100) / 100 }));
+    }
     // цена комплекса: price | price_per_unit | total_price/количество (в плане price может не быть)
     const complexPrice = svc.price || svc.price_per_unit || (svc.total_price / (svc.quantity || 1)) || 0;
     const sumDefault = (svc.components || []).reduce((a, c) => a + (c.price || 0) * (c.quantity || 1), 0);
@@ -221,13 +234,13 @@ const ServicePaymentList = ({ plan, onUpdate, onEdit, paymentFilter = 'all', pro
     }));
   };
 
-  const openPaymentModalForComplexRemaining = (serviceId) => {
-    setPendingPaymentData({ type: 'complex-remaining', serviceId });
+  const openPaymentModalForComplexRemaining = (serviceId, serviceRowId) => {
+    setPendingPaymentData({ type: 'complex-remaining', serviceId, serviceRowId });
     setShowPaymentModal(true);
   };
 
-  const openPaymentModalForComponent = (serviceId, componentServiceId) => {
-    setPendingPaymentData({ type: 'component', serviceId, componentServiceId });
+  const openPaymentModalForComponent = (serviceId, componentServiceId, serviceRowId, componentId) => {
+    setPendingPaymentData({ type: 'component', serviceId, componentServiceId, serviceRowId, componentId });
     setShowPaymentModal(true);
   };
 
@@ -249,17 +262,41 @@ const ServicePaymentList = ({ plan, onUpdate, onEdit, paymentFilter = 'all', pro
         payment_method_id: paymentType.id,
         payment_method_name: paymentType.name
       } : {};
+      const selectedService = plan.services.find(s => s.service_id === pendingPaymentData.serviceId &&
+        (!pendingPaymentData.serviceRowId || s.service_row_id === pendingPaymentData.serviceRowId));
+      if (pendingPaymentData.type === 'session') {
+        const session = selectedService?.sessions?.find(s => requireSessionId(s) === pendingPaymentData.sessionId);
+        if (!session || !selectedService.service_row_id) throw new Error('Обновите план: нет стабильного идентификатора сеанса или строки.');
+        const updated = await ledgerFetch(`${API}/api/treatment-plans/${plan.id}/services/${selectedService.service_id}/sessions/${requireSessionId(session)}/mark-paid`, {
+          service_row_id: selectedService.service_row_id, session_id: requireSessionId(session), amount_kzt: payableTarget(),
+          discount_amount_kzt: 0, payment_source: 'cash', payment_method: paymentType.id, ...paymentData
+        });
+        if (onUpdate) await onUpdate(updated.plan || updated);
+        return;
+      }
+      if (autoCompletion && (pendingPaymentData.type === 'remaining' || pendingPaymentData.type === 'complex-remaining' ||
+          (pendingPaymentData.type === 'service' && (selectedService?.is_course || selectedService?.is_complex)))) {
+        if (discount) throw new Error('Задайте скидки при отдельной оплате услуг.');
+        const scope = pendingPaymentData.type === 'remaining' ? null : selectedService?.service_row_id;
+        if (pendingPaymentData.type !== 'remaining' && !scope) throw new Error('Обновите план: нет идентификатора строки.');
+        const updated = await ledgerFetch(`${API}/api/treatment-plans/${plan.id}/settle-remaining`, {
+          ...(scope ? { service_row_id: scope } : {}), amount_kzt: payableTarget(), discount_amount_kzt: 0,
+          payment_source: 'cash', payment_method: paymentType.id, ...paymentData
+        });
+        if (onUpdate) await onUpdate(updated.plan || updated);
+        return;
+      }
       if (discount > 0.001 && pendingPaymentData.type !== 'remaining') {
         const target = payableTarget();
         const svc = pendingPaymentData.type === 'service'
-          ? plan.services.find(s => s.service_id === pendingPaymentData.serviceId) : null;
+          ? selectedService : null;
         // Backend amount is the full discounted obligation, including prior financing.
         paymentData.amount = discountedPaymentAmount(target, discount, svc?.paid_amount || 0);
       }
 
       if (pendingPaymentData.type === 'service') {
         // Оплата одной услуги
-        const service = plan.services.find(s => s.service_id === pendingPaymentData.serviceId);
+        const service = selectedService;
         const hasPatientDeposit = (plan.accounting_events || []).some(event => event.kind === 'patient_deposit_received');
         if (service?.service_row_id && !hasPatientDeposit) {
           const updatedPlan = await ledgerFetch(
@@ -298,8 +335,8 @@ const ServicePaymentList = ({ plan, onUpdate, onEdit, paymentFilter = 'all', pro
         }
       } else if (pendingPaymentData.type === 'component') {
         // Оплата одной услуги (доли) комплекса
-        const service = (plan.services || []).find(s => s.service_id === pendingPaymentData.serviceId);
-        const component = (service?.components || []).find(c => c.service_id === pendingPaymentData.componentServiceId);
+        const service = selectedService;
+        const component = (service?.components || []).find(c => c.service_id === pendingPaymentData.componentServiceId && (!pendingPaymentData.componentId || c.component_id === pendingPaymentData.componentId));
         const hasPatientDeposit = (plan.accounting_events || []).some(event => event.kind === 'patient_deposit_received');
         if (service?.service_row_id && !component?.component_id) {
           throw new Error('Missing stable component_id for ledger component payment. Refresh the plan.');
@@ -399,9 +436,9 @@ const ServicePaymentList = ({ plan, onUpdate, onEdit, paymentFilter = 'all', pro
     }
   };
 
-  const markServicePaid = async (serviceId) => {
+  const markServicePaid = async (serviceId, serviceRowId) => {
     // Сначала показываем выбор способа оплаты
-    openPaymentModalForService(serviceId);
+    openPaymentModalForService(serviceId, serviceRowId);
   };
 
   // Функция для оплаты остатка (доплаты из депозита)
@@ -531,10 +568,35 @@ const ServicePaymentList = ({ plan, onUpdate, onEdit, paymentFilter = 'all', pro
     );
   };
 
+  const sessionRemaining = (service, session) => Math.max(0, Number(session.price ?? service.session_price ?? service.price_per_unit ?? 0) - Number(session.paid_amount || 0));
+  const openSessionPayment = service => {
+    try {
+      const session = (service.sessions || []).find(s => sessionRemaining(service, s) > 0);
+      const sessionId = requireSessionId(session);
+      setPendingPaymentData({ type: 'session', serviceId: service.service_id, serviceRowId: service.service_row_id, sessionId });
+      setShowPaymentModal(true);
+    } catch (error) { alert(error.message); }
+  };
+  const rowRemaining = service => {
+    if (!service) return 0;
+    if (service.is_complex) return complexShares(service).reduce((sum, c) => sum + Math.max(0, c.share - Number(c.discount_amount || 0) - Number(c.paid_amount || 0)), 0);
+    if (service.is_course || service.payment_type === 'per_session') return (service.sessions || []).reduce((sum, s) => sum + sessionRemaining(service, s), 0);
+    return Math.max(0, Number(service.total_price || 0) - Number(service.discount_amount || 0) - Number(service.paid_amount || 0));
+  };
   // Компонент модального окна выбора способа оплаты
   const payableTarget = () => {
     const pd = pendingPaymentData;
     if (!pd) return 0;
+    const selected = plan.services.find(s => s.service_id === pd.serviceId && (!pd.serviceRowId || s.service_row_id === pd.serviceRowId));
+    if (pd.type === 'session') return sessionRemaining(selected, (selected.sessions || []).find(s => requireSessionId(s) === pd.sessionId));
+    if (autoCompletion) {
+      if (pd.type === 'remaining') return Math.round(plan.services.reduce((sum, s) => sum + rowRemaining(s), 0) * 100) / 100;
+      if (pd.type === 'component') {
+        const c = complexShares(selected).find(c => c.component_id === pd.componentId);
+        return c ? Math.max(0, c.share - Number(c.discount_amount || 0) - Number(c.paid_amount || 0)) : 0;
+      }
+      return Math.round(rowRemaining(selected) * 100) / 100;
+    }
     if (pd.type === 'component') {
       const svc = (plan.services || []).find(x => x.service_id === pd.serviceId);
       const sh = svc ? complexShares(svc).find(c => c.service_id === pd.componentServiceId) : null;
@@ -785,8 +847,12 @@ const ServicePaymentList = ({ plan, onUpdate, onEdit, paymentFilter = 'all', pro
               const paidSessions = isPerSession && service.sessions 
                 ? service.sessions.filter(s => s.paid).length 
                 : 0;
-              const totalSessions = service.quantity_total || 1;
-              const sessionPrice = service.price_per_unit || 0;
+              const totalSessions = autoCompletion ? (service.sessions || []).length : service.quantity_total || 1;
+              const nextSession = (service.sessions || []).find(s => sessionRemaining(service, s) > 0);
+              const sessionPrice = autoCompletion ? Number(nextSession?.price ?? service.session_price ?? service.price_per_unit ?? 0) : service.price_per_unit || 0;
+              const sessionDue = autoCompletion && nextSession ? sessionRemaining(service, nextSession) : sessionPrice;
+              const coursePaidAmount = autoCompletion ? (service.sessions || []).reduce((sum, s) => sum + Number(s.paid_amount || 0), 0) : paidSessions * sessionPrice;
+              const courseRemaining = autoCompletion ? rowRemaining(service) : (totalSessions - paidSessions) * sessionPrice;
               
               return (
             <div
@@ -823,7 +889,7 @@ const ServicePaymentList = ({ plan, onUpdate, onEdit, paymentFilter = 'all', pro
                       <div className="px-3 py-2 bg-blue-50 text-xs font-semibold text-blue-800">Оплата по услугам комплекса</div>
                       <div className="divide-y divide-gray-100">
                         {shares.map(c => (
-                          <div key={c.service_id} className="flex items-center justify-between px-3 py-2 text-sm">
+                          <div key={c.component_id || c.service_id} className="flex items-center justify-between px-3 py-2 text-sm">
                             <div>
                               <div className="text-gray-900 font-medium">{c.service_name}</div>
                               <div className="text-xs text-gray-500">
@@ -838,7 +904,7 @@ const ServicePaymentList = ({ plan, onUpdate, onEdit, paymentFilter = 'all', pro
                                 {c.discount_amount > 0 && <div className="text-gray-400 text-[10px]">скидка −{(c.discount_amount || 0).toLocaleString()} ₸</div>}
                               </span>
                             ) : (
-                              <button type="button" onClick={() => openPaymentModalForComponent(service.service_id, c.service_id)}
+                              <button type="button" onClick={() => openPaymentModalForComponent(service.service_id, c.service_id, service.service_row_id, c.component_id)}
                                 className="px-3 py-1 bg-blue-600 text-white rounded-lg text-xs hover:bg-blue-700">Оплатить</button>
                             )}
                           </div>
@@ -868,7 +934,7 @@ const ServicePaymentList = ({ plan, onUpdate, onEdit, paymentFilter = 'all', pro
                           {totalSessions} процедур
                         </div>
                         <div className="text-xs text-purple-700 mt-1">
-                          на сумму {(totalSessions * sessionPrice).toLocaleString()} ₸
+                          на сумму {(autoCompletion ? service.total_price : totalSessions * sessionPrice).toLocaleString()} ₸
                         </div>
                       </div>
                     </div>
@@ -885,10 +951,10 @@ const ServicePaymentList = ({ plan, onUpdate, onEdit, paymentFilter = 'all', pro
                         <div className="text-right">
                           <div className="text-xs text-gray-500 font-medium mb-1">ОПЛАЧЕНО ДЕНЕГ</div>
                           <div className="text-xl font-bold text-green-600">
-                            {(paidSessions * sessionPrice).toLocaleString()} ₸
+                            {coursePaidAmount.toLocaleString()} ₸
                           </div>
                           <div className="text-xs text-gray-500">
-                            осталось {((totalSessions - paidSessions) * sessionPrice).toLocaleString()} ₸
+                            осталось {courseRemaining.toLocaleString()} ₸
                           </div>
                         </div>
                       </div>
@@ -908,10 +974,13 @@ const ServicePaymentList = ({ plan, onUpdate, onEdit, paymentFilter = 'all', pro
                     </div>
 
                     {/* Кнопка оплаты */}
+                    {autoCompletion && paidSessions < totalSessions && <button type="button" disabled={loading}
+                      onClick={() => openPaymentModalForComplexRemaining(service.service_id, service.service_row_id)}
+                      className="text-blue-700 underline">Оплатить весь курс</button>}
                     <div className="flex justify-end">
                       {paidSessions < totalSessions ? (
                         <button
-                          onClick={() => markSessionPaidForService(plan.id, service.service_id, paidSessions)}
+                          onClick={() => openSessionPayment(service)}
                           disabled={loading}
                           className="px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed font-medium transition-all shadow-md hover:shadow-lg"
                         >
@@ -922,7 +991,7 @@ const ServicePaymentList = ({ plan, onUpdate, onEdit, paymentFilter = 'all', pro
                               <span>💳</span>
                               <span>Оплатить 1 процедуру</span>
                               <span className="ml-2 px-2 py-0.5 bg-green-700 rounded">
-                                {sessionPrice.toLocaleString()} ₸
+                                {sessionDue.toLocaleString()} ₸
                               </span>
                             </span>
                           )}
@@ -1002,8 +1071,8 @@ const ServicePaymentList = ({ plan, onUpdate, onEdit, paymentFilter = 'all', pro
                       <div className="flex justify-end pt-2">
                         <button
                           onClick={() => service.is_complex
-                            ? openPaymentModalForComplexRemaining(service.service_id)
-                            : markServicePaid(service.service_id)}
+                            ? openPaymentModalForComplexRemaining(service.service_id, service.service_row_id)
+                            : markServicePaid(service.service_id, service.service_row_id)}
                           disabled={loading}
                           className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed font-medium transition-all shadow-md hover:shadow-lg flex items-center space-x-2"
                         >
@@ -1055,6 +1124,8 @@ const ServicePaymentList = ({ plan, onUpdate, onEdit, paymentFilter = 'all', pro
         setDiscountInput={setDiscountInput}
         discountType={discountType}
         setDiscountType={setDiscountType}
+        autoCompletion={autoCompletion}
+        discountLocked={pendingPaymentData?.type === 'session' || (autoCompletion && (pendingPaymentData?.type === 'remaining' || pendingPaymentData?.type === 'complex-remaining' || (pendingPaymentData?.type === 'service' && plan.services.find(s => s.service_row_id === pendingPaymentData.serviceRowId)?.is_course)))}
         total={payableTarget()}
         onPay={(pType, d) => executePayment(pType, d)}
       />
