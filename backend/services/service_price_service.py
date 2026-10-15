@@ -10,7 +10,7 @@ from math import isfinite
 from models.services import ServicePrice, ServicePriceCreate, ServicePriceUpdate
 
 
-def validate_component_snapshot(components):
+def validate_component_snapshot(components, require_positive_prices=False):
     try:
         identities = [component.get("service_id") for component in components]
         if not identities or not all(identities) or len(set(identities)) != len(identities):
@@ -23,7 +23,7 @@ def validate_component_snapshot(components):
             for value in (price, quantity, discount):
                 if not isinstance(value, (int, float)) or isinstance(value, bool) or not isfinite(value):
                     raise ValueError()
-            if price < 0 or quantity < 1 or int(quantity) != quantity or not 0 <= discount <= 100:
+            if (price <= 0 if require_positive_prices else price < 0) or quantity < 1 or int(quantity) != quantity or not 0 <= discount <= 100:
                 raise ValueError()
             total_weight += price * quantity
         if total_weight <= 0:
@@ -106,7 +106,7 @@ class ServicePriceService:
             details["price"] = doc.get("price", 0) or 0
             details["service_name"] = doc.get("service_name")
             hydrated.append(details)
-        validate_component_snapshot(hydrated)
+        validate_component_snapshot(hydrated, require_positive_prices=True)
         return hydrated
     
     async def update_service_price(

@@ -254,3 +254,87 @@ def test_paid_doctor_a_does_not_wait_for_other_doctors_unpaid_course(modules, mo
     assert saved['execution_status'] == 'in_progress'
     assert totals(modules, saved) == (3000, 1300, [])
     assert totals(modules, saved, 'doctor-b') == (0, 0, [])
+
+
+@pytest.mark.parametrize('entry', ['directory_create', 'directory_update', 'plan_create', 'plan_update'])
+def test_complex_zero_base_price_rejected_on_creation_and_editing(modules, monkeypatch, entry):
+    from models.services import ServicePriceCreate, ServicePriceUpdate
+    from services.service_price_service import ServicePriceService
+    db, saved, settings = component_db()
+    db.service_prices.insert_one = AsyncMock()
+    db.service_prices.update_one = AsyncMock()
+    db.treatment_plans.insert_one = AsyncMock()
+    db.patients.find_one = AsyncMock(return_value=dict(id='patient'))
+    async def catalog(query):
+        if query.get('id') == 'catalog':
+            return dict(id='catalog', service_type='complex', price=1000, components=saved['services'][0]['components'])
+        if query.get('id'):
+            return dict(id=query['id'], service_type='regular', price=0, is_active=True)
+        return None
+    db.service_prices.find_one = AsyncMock(side_effect=catalog)
+    components = [dict(service_id='component-catalog', price=500)]
+    with pytest.raises(HTTPException) as error:
+        if entry == 'directory_create':
+            asyncio.run(ServicePriceService(db).create_service_price(ServicePriceCreate(service_type='complex', service_name='Package', price=1000, components=components)))
+        elif entry == 'directory_update':
+            asyncio.run(ServicePriceService(db).update_service_price('catalog', ServicePriceUpdate(components=components)))
+        elif entry == 'plan_create':
+            data = modules.plans.TreatmentPlanCreate(title='Plan', services=[dict(service_id='catalog', is_complex=True, total_price=1000, components=components)])
+            asyncio.run(modules.plans.TreatmentPlanService(db).create_treatment_plan('patient', data, 'cashier', 'Cashier'))
+        else:
+            rows = deepcopy(saved['services'])
+            rows[0]['components'][0]['price'] = 0
+            asyncio.run(modules.plans.TreatmentPlanService(db).update_treatment_plan('plan', modules.plans.TreatmentPlanUpdate(services=rows)))
+    assert error.value.status_code == 400
+    db.service_prices.insert_one.assert_not_awaited()
+    db.service_prices.update_one.assert_not_awaited()
+    db.treatment_plans.insert_one.assert_not_awaited()
+    db.treatment_plans.update_one.assert_not_awaited()
+
+
+def test_positive_base_price_and_full_percentage_discount_are_distinct_validation_fields(modules):
+    from pydantic import ValidationError
+    from models.services import ServiceComponent
+    from services.service_price_service import validate_component_snapshot
+    with pytest.raises(ValidationError):
+        ServiceComponent(service_id='service', price=0)
+    component = ServiceComponent(service_id='service', price=1000, discount=100)
+    validate_component_snapshot([component.model_dump()], require_positive_prices=True)
+    # Existing historical snapshot parsing is not changed into a migration.
+    validate_component_snapshot([dict(service_id='a', price=0), dict(service_id='b', price=1000)])
+
+
+@pytest.mark.parametrize('kind', ['component', 'session'])
+@pytest.mark.parametrize('zero_kind', ['base', 'discount'])
+def test_unsupported_zero_payable_part_fails_before_any_charge_without_inventing_salary(modules, monkeypatch, kind, zero_kind):
+    from services.payment_completion_service import PaymentCompletionService
+    db, saved, settings, ledger, pay, hook = setup_case(modules, monkeypatch, kind)
+    row = saved['services'][0]
+    targets = row['components'] if kind == 'component' else row['sessions']
+    if zero_kind == 'base':
+        row['total_price'] = 3000
+        targets[0]['price'] = 0
+    else:
+        targets[0]['discount_amount'] = 3000
+    before = deepcopy(saved)
+    with pytest.raises(HTTPException) as error:
+        asyncio.run(PaymentCompletionService(db).settle_remaining('plan', batch_body(3000), 'cashier'))
+    assert error.value.status_code == 422
+    assert ('base price' if zero_kind == 'base' else 'Zero net') in error.value.detail
+    assert saved == before
+    db.treatment_plans.update_one.assert_not_awaited()
+    hook.assert_not_awaited()
+
+
+@pytest.mark.parametrize('kind', ['service', 'component'])
+def test_aggregate_payment_preserves_existing_discount_and_partial_receipt(modules, monkeypatch, kind):
+    from services.payment_completion_service import PaymentCompletionService
+    db, saved, settings, ledger, pay, hook = setup_case(modules, monkeypatch, kind)
+    asyncio.run(pay(1000, receipt(amount_kzt=1000, discount_amount_kzt=300)))
+    previous = deepcopy(saved['accounting_events'])
+    amount = 4700 if kind == 'component' else 1700
+    result = asyncio.run(PaymentCompletionService(db).settle_remaining('plan', batch_body(amount), 'cashier'))
+    assert saved['accounting_events'][:len(previous)] == previous
+    assert result['plan']['payment_status'] == 'paid'
+    assert result['plan']['execution_status'] == 'completed'
+    assert totals(modules, saved) == (2700, 1270, [])

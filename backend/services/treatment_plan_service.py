@@ -323,6 +323,8 @@ class TreatmentPlanService:
             for row in update_dict["services"]:
                 if row.get("is_complex") and row.get("service_id") not in existing_complex_ids:
                     await self._prepare_new_complex_row(row)
+                if row.get("is_complex"):
+                    validate_component_snapshot(row.get("components") or [], require_positive_prices=True)
         if "services" in update_dict and treatment_plan.get("compensation_policy") == COMPLETED_PAID_POLICY:
             await snapshot_analysis_catalogs(self.db, update_dict["services"])
         if update_dict:

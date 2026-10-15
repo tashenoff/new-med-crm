@@ -190,6 +190,11 @@ class PaymentCompletionService:
                     raise HTTPException(409, 'Prior target funding is not event-backed')
                 discount = money(target.get('discount_amount', 0), 'discount')
                 due = price - discount - received
+                base_price = money(target.get('price'), 'component base price') if prefix == 'component' else price
+                if base_price <= 0:
+                    raise HTTPException(422, 'A service/component/session base price must be positive; no funds collected')
+                if due == 0 and received == 0:
+                    raise HTTPException(422, 'Zero net after discount or allocation is not a cash receipt; no funds collected')
                 if due < 0:
                     raise HTTPException(409, 'Target is overfunded')
                 if due:

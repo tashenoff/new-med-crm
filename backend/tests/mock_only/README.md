@@ -127,3 +127,11 @@ individual target payments, not guessed across a batch.
 Older plans are not opted in or backfilled. Refunds and historical recalculation
 are not added. Run `test_auto_payment_completion.py` with the same DB-forbidden
 pytest flags as the other mock suites.
+
+Complex creation/editing requires a strictly positive component base price, both
+in directory composition and patient-plan edits. Catalog hydration validates the
+actual directory price, not a supplied client price. Historical snapshot parsing
+is retained. A zero net amount after discount/allocation is distinct from a zero
+base price: the existing receipt contract requires a positive cash amount, so an
+aggregate containing such an unsupported zero-payable target is rejected before
+any funds are collected. No zero-price compensation rule is introduced.
