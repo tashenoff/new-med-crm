@@ -3,7 +3,9 @@ Lead Service - Сервис для работы с лидами
 """
 
 import uuid
-from datetime import datetime
+import logging
+from datetime import datetime, timezone
+from events import CRMCardCreated, event_bus
 from typing import Optional, List, Dict, Any
 from motor.motor_asyncio import AsyncIOMotorDatabase
 from pymongo import ASCENDING, DESCENDING
@@ -36,6 +38,17 @@ class LeadService:
         
         # Сохраняем в БД
         await self.collection.insert_one(lead.dict())
+
+        # Persistence is authoritative; notification delivery cannot undo it.
+        try:
+            await event_bus.publish(CRMCardCreated(
+                event_id=f"crm.card.created:lead:{lead.id}",
+                card_id=lead.id,
+                title=lead.full_name,
+                timestamp=lead.created_at.replace(tzinfo=timezone.utc),
+            ))
+        except Exception:
+            logging.getLogger(__name__).exception("Could not emit crm.card.created for %s", lead.id)
         
         # Автоматически создаем задачу для нового лида в статусе "Неразобранное"
         if lead.status == LeadStatus.NEW:

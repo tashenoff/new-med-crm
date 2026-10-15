@@ -50,6 +50,7 @@ import { ModalProvider } from './context/ModalContext';
 import { NotificationProvider } from './context/NotificationContext';
 import ModalManager from './components/modals/ModalManager';
 import NotificationCenter from './components/notifications/NotificationCenter';
+import LiveNotifications from './components/notifications/LiveNotifications';
 import { useApi } from './hooks/useApi';
 import { materialsApi } from './api/materials';
 import { GlobalRefreshProvider, useGlobalRefresh } from './hooks/useGlobalRefresh';
@@ -458,6 +459,7 @@ function App() {
     <ThemeProvider>
       <AuthProvider>
         <NotificationProvider>
+          <LiveNotifications />
           <ModalProvider>
             <GuideProvider>
               <GlobalRefreshProvider>

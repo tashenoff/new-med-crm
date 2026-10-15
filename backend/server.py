@@ -28,6 +28,7 @@ from passlib.context import CryptContext
 
 # Import database
 from database import db, client, close_database
+from routers.live_events import router as live_events_router, live_events_lifespan
 
 # Import models from new modules
 from models.auth import UserRole, User, UserInDB, UserCreate, UserLogin, Token, TokenData
@@ -50,9 +51,11 @@ security = HTTPBearer()
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Startup
-    yield
-    # Shutdown
-    await close_database()
+    try:
+        async with live_events_lifespan():
+            yield
+    finally:
+        await close_database()
 
 # Create the main app
 app = FastAPI(lifespan=lifespan, redirect_slashes=False)
@@ -122,6 +125,7 @@ from routers.price_import import price_import_router
 
 # Include all API routers with /api prefix
 app.include_router(auth_router, prefix="/api")
+app.include_router(live_events_router, prefix="/api")
 app.include_router(patients_router, prefix="/api")
 app.include_router(doctors_router, prefix="/api")
 app.include_router(appointments_router, prefix="/api")
