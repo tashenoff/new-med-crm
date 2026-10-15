@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ledgerCommands, ledgerFetch, requireSessionId } from '../../utils/accountingLedger';
+import { completionRequest, ledgerFetch } from '../../utils/accountingLedger';
 
 const TreatmentPlanView = ({ plan, onUpdate }) => {
   const [loading, setLoading] = useState(false);
@@ -23,18 +23,13 @@ const TreatmentPlanView = ({ plan, onUpdate }) => {
       0
     );
 
-  const markProcedureCompleted = async (serviceId) => {
+  const markProcedureCompleted = async (service, component) => {
     if (loading) return;
     try {
       setLoading(true);
-      const service = plan.services.find(item => item.service_id === serviceId);
-      const nextOccurrence = (service?.occurrences || []).find(item => !item.completed);
-      const occurrence_id = nextOccurrence?.occurrence_id || nextOccurrence?.id || ledgerCommands.occurrence(`${plan.id}:${serviceId}:${service?.quantity_completed || 0}`);
-      const payload = service?.is_course
-        ? { session_id: requireSessionId((service.sessions || []).find(session => !session.completed)) }
-        : { occurrence_id };
-      const updatedPlan = await ledgerFetch(`${API}/api/treatment-plans/${plan.id}/services/${serviceId}/mark-completed`, payload);
-      if (onUpdate) onUpdate(updatedPlan.plan || updatedPlan);
+      const { path, payload } = completionRequest(plan, service, component);
+      const updatedPlan = await ledgerFetch(`${API}${path}`, payload);
+      if (onUpdate) await onUpdate(updatedPlan.plan || updatedPlan);
     } catch (error) {
       console.error('Error marking procedure completed:', error);
       alert('Ошибка при отметке процедуры: ' + error.message);
@@ -72,20 +67,25 @@ const TreatmentPlanView = ({ plan, onUpdate }) => {
     );
   };
 
+  const executionCounts = service => {
+    if (service.is_complex) {
+      return (service.components || []).reduce((sum, part) => ({
+        total: sum.total + (part.occurrence_ids?.length || part.quantity || 1),
+        completed: sum.completed + (part.quantity_completed || 0)
+      }), { total: 0, completed: 0 });
+    }
+    if (service.is_course || service.payment_type === 'per_session') {
+      return { total: (service.sessions || []).length,
+        completed: (service.sessions || []).filter(session => session.completed).length };
+    }
+    return { total: service.occurrence_ids?.length || service.quantity_total || service.quantity || 1,
+      completed: service.quantity_completed || 0 };
+  };
   const calculateProgress = () => {
-    let totalProcedures = 0;
-    let completedProcedures = 0;
-
-    plan.services.forEach(service => {
-      totalProcedures += service.quantity_total || 1;
-      completedProcedures += service.quantity_completed || 0;
-    });
-
-    return {
-      total: totalProcedures,
-      completed: completedProcedures,
-      percentage: totalProcedures > 0 ? Math.round((completedProcedures / totalProcedures) * 100) : 0
-    };
+    const counts = plan.services.map(executionCounts).reduce((sum, part) => ({
+      total: sum.total + part.total, completed: sum.completed + part.completed
+    }), { total: 0, completed: 0 });
+    return { ...counts, percentage: counts.total ? Math.round(counts.completed / counts.total * 100) : 0 };
   };
 
   const progress = calculateProgress();
@@ -161,8 +161,9 @@ const TreatmentPlanView = ({ plan, onUpdate }) => {
         <h4 className="font-medium text-gray-900">Назначенные услуги:</h4>
         
         {plan.services.map((service, index) => {
-          const isCompleted = (service.quantity_completed || 0) >= (service.quantity_total || 1);
-          const canAddMore = (service.quantity_completed || 0) < (service.quantity_total || 1);
+          const { total, completed } = executionCounts(service);
+          const isCompleted = total > 0 && completed >= total;
+          const canAddMore = !isCompleted;
           
           return (
             <div
@@ -175,7 +176,7 @@ const TreatmentPlanView = ({ plan, onUpdate }) => {
                 <div className="flex-1">
                   <div className="flex items-center space-x-2">
                     {isCompleted && <span className="text-green-600 text-xl">✓</span>}
-                    {!isCompleted && (service.quantity_completed || 0) > 0 && (
+                    {!isCompleted && completed > 0 && (
                       <span className="text-blue-600 text-xl">⏳</span>
                     )}
                     <h5 className="font-medium text-gray-900">{service.service_name}</h5>
@@ -187,7 +188,7 @@ const TreatmentPlanView = ({ plan, onUpdate }) => {
                   <div className="mt-2 space-y-1">
                     <div className="text-sm text-gray-600">
                       Выполнено: <span className="font-medium">
-                        {service.quantity_completed || 0} из {service.quantity_total || 1}
+                        {completed} из {total}
                       </span>
                     </div>
                     <div className="text-sm text-gray-600">
@@ -223,10 +224,14 @@ const TreatmentPlanView = ({ plan, onUpdate }) => {
                             ? service.components.map(c => {
                                 const compDiscount = getCompDiscount(c);
                                 return (
-                                  <li key={c.service_id || c.service_name}>
+                                  <li key={c.component_id || c.service_id || c.service_name}>
                                     {c.service_name}{c.quantity && c.quantity > 1 ? ` ×${c.quantity}` : ''}{c.price ? ` — ${c.price.toLocaleString()} ₸` : ''}
                                     {compDiscount > 0 && (
                                       <span className="text-red-500"> — скидка {compDiscount.toLocaleString()} ₸</span>
+                                    )}
+                                    {c.status !== 'completed' && (
+                                      <button type="button" disabled={loading} onClick={() => markProcedureCompleted(service, c)}
+                                        className="ml-2 text-blue-700 underline disabled:opacity-50">Отметить выполнение</button>
                                     )}
                                   </li>
                                 );
@@ -245,7 +250,7 @@ const TreatmentPlanView = ({ plan, onUpdate }) => {
                           }`}
                           style={{
                             width: `${Math.round(
-                              ((service.quantity_completed || 0) / (service.quantity_total || 1)) * 100
+                              (completed / (total || 1)) * 100
                             )}%`
                           }}
                         />
@@ -256,9 +261,9 @@ const TreatmentPlanView = ({ plan, onUpdate }) => {
 
                 {/* Кнопка отметки */}
                 <div className="ml-4">
-                  {canAddMore && (
+                  {canAddMore && !service.is_complex && (
                     <button
-                      onClick={() => markProcedureCompleted(service.service_id)}
+                      onClick={() => markProcedureCompleted(service)}
                       disabled={loading}
                       className="px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed text-sm font-medium transition-colors"
                     >

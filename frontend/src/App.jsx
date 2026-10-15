@@ -370,7 +370,7 @@ function ClinicApp() {
               {activeTab === 'crm-task-statuses' && <TaskStatuses user={user} />}
               {activeTab.startsWith('finance') && (
                 !canViewFinance ? <Navigate to="/calendar" replace />
-                : activeTab === 'finance-salaries' ? <SalariesView user={user} />
+                : activeTab === 'finance-salaries' ? <SalariesView user={user} refreshVersion={refreshTriggers.treatmentPlans} />
                 : !canManageFinance || activeTab === 'finance' ? <Navigate to="/finance-salaries" replace />
                 : <>
                     {activeTab === 'finance-dashboard' && <FinanceDashboard user={user} />}

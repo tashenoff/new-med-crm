@@ -62,6 +62,12 @@ async function mount(context, Component, props, responder = () => []) {
 }
 const makePlan = id => ({ id, title: 'План', created_at: '2026-01-01', total_cost: 1000, deposit_amount: 1000, paid_amount: 0,
   services: [{ service_id: 'service', name: 'Услуга', total_price: 1000, quantity_total: 2, quantity_completed: 0, payment_status: 'unpaid' }] });
+const makeCompletionPlan = id => {
+  const plan = makePlan(id);
+  plan.services[0].service_row_id = `${id}-row`;
+  plan.services[0].occurrence_ids = ['first', 'second'];
+  return plan;
+};
 const button = (container, text) => [...container.querySelectorAll('button')].find(element => element.textContent.includes(text));
 
 test('laboratory analysis creation projects standalone services without inherited doctor assignments', async () => {
@@ -243,24 +249,26 @@ test('existing deposit covering the plan hides remaining debt without new advanc
 
 test('procedure completion retries carry stable occurrence and operation IDs', async context => {
   let attempts = 0;
-  const ui = await mount(context, TreatmentPlanView, { plan: makePlan('completion-ui') }, (url, body) => {
+  const ui = await mount(context, TreatmentPlanView, { plan: makeCompletionPlan('completion-ui') }, (url, body) => {
     if (body) attempts++;
-    return { ok: attempts > 1, data: makePlan('completion-ui') };
+    return { ok: attempts > 1, data: makeCompletionPlan('completion-ui') };
   });
   await ui.click(button(ui.container, 'Отметить'));
   await ui.click(button(ui.container, 'Отметить'));
   const writes = ui.requests.filter(request => request.options.method === 'POST');
   assert.equal(writes.length, 2);
-  assert.ok(writes[0].body?.occurrence_id);
+  assert.ok(writes[0].url.endsWith('/service-rows/completion-ui-row/occurrences/first/complete'));
   assert.ok(writes[0].body?.operation_id);
   assert.deepEqual(writes[0].body, writes[1].body);
 });
 
 test('course schedule offers explicit session payment and completion with stable server ID', async context => {
   const plan = makePlan('course-ui');
+  plan.services[0].service_row_id = 'course-ui-row';
+  const updates = [];
   plan.services[0] = { ...plan.services[0], is_course: true, course_payment_type: 'per_session', price_per_unit: 1000,
     sessions: [{ session_id: 'server-session', date: new Date().toISOString(), completed: false, paid: false }] };
-  const ui = await mount(context, AppointmentsSchedule, { patientId: 'patient' }, (url, body) => body ? plan : [plan]);
+  const ui = await mount(context, AppointmentsSchedule, { patientId: 'patient', onUpdate: value => updates.push(value) }, (url, body) => body ? plan : [plan]);
   await ui.click(button(ui.container, 'Оплатить сеанс'));
   await ui.change(ui.container.querySelector('[aria-label="Фактически получено за сеанс, ₸"]'), '700');
   await ui.click(button(ui.container, 'Подтвердить оплату'));
@@ -270,12 +278,15 @@ test('course schedule offers explicit session payment and completion with stable
   assert.equal(writes[0].body.amount_kzt, 700);
   assert.equal(writes[0].body.session_id, 'server-session');
   assert.ok(writes[0].body.operation_id);
+  assert.deepEqual(updates, [plan, plan], 'both successful session commands notify the patient/Finance refresh callback');
+  assert.equal(writes[0].body.service_row_id, 'course-ui-row');
+  assert.equal(writes[1].body.service_row_id, 'course-ui-row');
   assert.equal(writes[1].body.session_id, 'server-session');
   assert.ok(writes[1].body.operation_id);
 });
 
 test('course completion in procedure view selects a concrete session, not an anonymous occurrence', async context => {
-  const plan = makePlan('course-procedure');
+  const plan = makeCompletionPlan('course-procedure');
   plan.services[0].is_course = true;
   plan.services[0].sessions = [{ session_id: 'next-session', completed: false }];
   const ui = await mount(context, TreatmentPlanView, { plan }, () => plan);
@@ -481,4 +492,42 @@ test('missing plan paid_amount keeps ordinary partial payment debt at 500 after 
   assert.ok(remaining, 'summary offers remaining debt payment');
   assert.match(remaining.textContent, /500\s*₸/);
   assert.doesNotMatch(remaining.textContent, /2\s*500\s*₸/);
+});
+
+test('component completion targets its occurrence, updates from server, and does not complete the package', async context => {
+  const plan = { ...makePlan('component-completion'), services: [{ service_id: 'package', service_row_id: 'package-row', is_complex: true,
+    components: [{ component_id: 'part-a', service_id: 'same-catalog', service_name: 'Врач A', quantity: 1, occurrence_ids: ['a-first'] },
+      { component_id: 'part-b', service_id: 'same-catalog', service_name: 'Врач B', quantity: 1, occurrence_ids: ['b-first'] }] }] };
+  const updated = [];
+  const serverPlan = { ...plan, execution_status: 'in_progress' };
+  const ui = await mount(context, TreatmentPlanView, { plan, onUpdate: value => updated.push(value) }, () => ({ plan: serverPlan }));
+  await ui.click(button(ui.container, 'Что входит'));
+  await ui.click(button(ui.container, 'Отметить выполнение'));
+  const write = ui.requests.find(request => request.body);
+  assert.ok(write.url.endsWith('/service-rows/package-row/components/part-a/occurrences/a-first/complete'));
+  assert.deepEqual(updated, [serverPlan]);
+  assert.equal(ui.alerts.length, 0);
+  assert.equal(ui.requests.filter(request => request.body).length, 1);
+});
+
+test('completion conflict preserves server detail, does not report success, and retries the same command', async context => {
+  const updated = [];
+  const ui = await mount(context, TreatmentPlanView, { plan: makeCompletionPlan('conflicting-completion'), onUpdate: value => updated.push(value) },
+    () => ({ ok: false, data: { detail: { message: 'Concurrent accounting update', target: 'row' } } }));
+  await ui.click(button(ui.container, 'Отметить'));
+  await ui.click(button(ui.container, 'Отметить'));
+  assert.deepEqual(updated, []);
+  assert.match(ui.alerts[0], /Concurrent accounting update/);
+  assert.doesNotMatch(ui.alerts[0], /\[object Object\]/);
+  const writes = ui.requests.filter(request => request.body);
+  assert.deepEqual(writes[0].body, writes[1].body);
+});
+
+test('missing stable row identity blocks completion without sending an invented occurrence', async context => {
+  const plan = makePlan('missing-row');
+  delete plan.services[0].service_row_id;
+  const ui = await mount(context, TreatmentPlanView, { plan });
+  await ui.click(button(ui.container, 'Отметить'));
+  assert.equal(ui.requests.filter(request => request.body).length, 0);
+  assert.match(ui.alerts[0], /идентификатора строки/);
 });

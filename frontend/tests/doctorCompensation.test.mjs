@@ -466,3 +466,27 @@ test('cross-stack modal payloads and API readback', async context => {
   assert.equal(cases.length, 54);
   if (process.env.DOCTOR_CONTRACT_PAYLOADS) await writeFile(process.env.DOCTOR_CONTRACT_PAYLOADS, JSON.stringify(cases));
 });
+
+test('salary refresh signal reloads the mounted Finance view and exposes a new 409', async context => {
+  const responses = [salaryResponse(salaryReport), salaryResponse({ detail: { message: 'New accounting conflict', accounting_blockers: salaryBlockers } }, 409)];
+  const ui = await mount(context, SalariesView, { refreshVersion: 0 }, () => responses.shift());
+  assert.match(ui.container.textContent, /Current salary doctor/);
+  await ui.render({ refreshVersion: 1 });
+  assert.equal(responses.length, 0);
+  assert.doesNotMatch(ui.container.textContent, /Current salary doctor/);
+  assert.match(ui.container.textContent, /409.*New accounting conflict/s);
+});
+
+test('an older salary response cannot overwrite Finance after a patient-save refresh', async context => {
+  let resolveOld;
+  let calls = 0;
+  const ui = await mount(context, SalariesView, { refreshVersion: 0 }, () => {
+    calls++;
+    return calls === 1 ? new Promise(resolve => { resolveOld = resolve; }) : salaryResponse(salaryReport);
+  });
+  await ui.render({ refreshVersion: 1 });
+  assert.match(ui.container.textContent, /Current salary doctor/);
+  await act(async () => resolveOld(salaryResponse({ salary_data: [], summary: {}, compensation_complete: true })));
+  assert.match(ui.container.textContent, /Current salary doctor/);
+  assert.equal(calls, 2);
+});

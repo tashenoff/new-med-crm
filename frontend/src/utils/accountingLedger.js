@@ -29,6 +29,25 @@ export function requireSessionId(session) {
   return sessionId;
 }
 
+export function completionRequest(plan, service, component) {
+  const rowId = service.service_row_id;
+  if (!rowId) throw new Error('Нет стабильного идентификатора строки. Обновите план или обратитесь к администратору.');
+  const prefix = `/api/treatment-plans/${encodeURIComponent(plan.id)}`;
+  if (!component && (service.is_course || service.payment_type === 'per_session')) {
+    const session = (service.sessions || []).find(item => !item.completed);
+    return { path: `${prefix}/services/${encodeURIComponent(service.service_id)}/mark-completed`,
+      payload: { service_row_id: rowId, session_id: requireSessionId(session) } };
+  }
+  const target = component || service;
+  const completed = new Set((plan.accounting_events || []).filter(event =>
+    event.service_row_id === rowId && (event.component_id || null) === (component?.component_id || null)
+    && event.kind === (component ? 'component_completion' : 'service_completion')).map(event => event.occurrence_id));
+  const occurrenceId = (target.occurrence_ids || []).find(id => !completed.has(id));
+  if (!occurrenceId || (component && !component.component_id)) throw new Error('Нет стабильного идентификатора выполнения. Обновите план или обратитесь к администратору.');
+  const child = component ? `/components/${encodeURIComponent(component.component_id)}` : '';
+  return { path: `${prefix}/service-rows/${encodeURIComponent(rowId)}${child}/occurrences/${encodeURIComponent(occurrenceId)}/complete`, payload: {} };
+}
+
 export function createLedgerCommands() {
   const entries = new Map();
   const operationBodies = new Map();
@@ -71,7 +90,10 @@ export async function ledgerFetch(url, payload) {
     });
     if (!response.ok) {
       const error = await response.json().catch(() => ({}));
-      throw new Error(error.detail || 'Не удалось записать операцию. Повторите тот же платеж.');
+      const detail = typeof error.detail === 'string' ? error.detail : JSON.stringify(error.detail || error);
+      const failure = new Error(`HTTP ${response.status || 'error'}: ${detail || 'Не удалось записать операцию.'}`);
+      failure.status = response.status;
+      throw failure;
     }
     return response.json();
   });

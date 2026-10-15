@@ -922,12 +922,16 @@ const PatientModal = ({
           appointment_ids: []
         });
         setEditingPlan(null);
-        fetchTreatmentPlans(); // Refresh plans list
+        await fetchTreatmentPlans();
+        refreshTreatmentPlans();
       } else {
-        console.error('Error saving treatment plan');
+        const error = await response.json().catch(() => ({}));
+        const detail = typeof error.detail === 'string' ? error.detail : JSON.stringify(error.detail || error);
+        throw new Error(`HTTP ${response.status}: ${detail || 'Не удалось сохранить план'}`);
       }
     } catch (error) {
       console.error('Error saving treatment plan:', error);
+      alert('Ошибка сохранения плана: ' + error.message);
     }
   };
 
@@ -1430,7 +1434,7 @@ const PatientModal = ({
                   
                   <select
                     value={planForm.execution_status}
-                    onChange={(e) => setPlanForm({...planForm, execution_status: e.target.value})}
+                    disabled
                     className={selectClasses}
                   >
                     <option value="pending">Ожидает</option>
@@ -1717,6 +1721,13 @@ const PatientModal = ({
                     })
                     .map((plan) => (
                     <div key={plan.id}>
+                      <details className="mb-3">
+                        <summary className="cursor-pointer text-blue-700">Выполнение услуг</summary>
+                        <TreatmentPlanView plan={plan} onUpdate={async updatedPlan => {
+                          setTreatmentPlans(plans => plans.map(p => p.id === updatedPlan.id ? updatedPlan : p));
+                          refreshTreatmentPlans();
+                        }} />
+                      </details>
                       <ServicePaymentList 
                         plan={plan}
                         paymentFilter={paymentFilter}
@@ -1726,6 +1737,7 @@ const PatientModal = ({
                           setTreatmentPlans(plans => 
                             plans.map(p => p.id === updatedPlan.id ? updatedPlan : p)
                           );
+                          refreshTreatmentPlans();
                         }}
                         onEdit={handleEditTreatmentPlan}
                       />
@@ -2203,7 +2215,10 @@ const PatientModal = ({
               </p>
             </div>
 
-            <AppointmentsSchedule patientId={editingItem.id} />
+            <AppointmentsSchedule patientId={editingItem.id} onUpdate={async () => {
+              await fetchTreatmentPlans();
+              refreshTreatmentPlans();
+            }} />
 
             <div className="flex justify-end pt-4">
               <button

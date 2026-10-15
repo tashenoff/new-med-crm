@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { ledgerFetch, positiveKzt, requireSessionId } from '../../utils/accountingLedger';
 
-const AppointmentsSchedule = ({ patientId }) => {
+const AppointmentsSchedule = ({ patientId, onUpdate }) => {
   const [appointments, setAppointments] = useState([]);
   const [currentDate, setCurrentDate] = useState(new Date());
   const [loading, setLoading] = useState(false);
@@ -96,7 +96,8 @@ const AppointmentsSchedule = ({ patientId }) => {
     try {
       const session_id = requireSessionId(session);
       setCommandLoading(true);
-      await ledgerFetch(`${API}/api/treatment-plans/${service.planId}/service/${service.service_id}/complete`, { session_id, date: session.date });
+      const result = await ledgerFetch(`${API}/api/treatment-plans/${service.planId}/service/${service.service_id}/complete`, { service_row_id: service.service_row_id, session_id, date: session.date });
+      if (onUpdate) await onUpdate(result.plan || result);
       await fetchAppointments();
     } catch (error) {
       alert('Ошибка при завершении сеанса: ' + error.message);
@@ -112,7 +113,8 @@ const AppointmentsSchedule = ({ patientId }) => {
       const maximum = Number(session.amount_due_kzt ?? session.price ?? service.session_price ?? service.price_per_unit ?? 0) - Number(session.paid_amount || 0);
       const amount_kzt = positiveKzt(sessionAmount, maximum);
       setCommandLoading(true);
-      await ledgerFetch(`${API}/api/treatment-plans/${service.planId}/services/${service.service_id}/sessions/${session_id}/mark-paid`, { session_id, amount_kzt, operation_id });
+      const result = await ledgerFetch(`${API}/api/treatment-plans/${service.planId}/services/${service.service_id}/sessions/${session_id}/mark-paid`, { service_row_id: service.service_row_id, session_id, amount_kzt, operation_id });
+      if (onUpdate) await onUpdate(result.plan || result);
       setSessionPayment(null);
       setSessionAmount('');
       await fetchAppointments();

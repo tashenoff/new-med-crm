@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { formatCompensation, formatConsultationCompensation } from '../../../utils/doctorCompensation';
 
 const formatReportDetail = (value) => {
@@ -10,7 +10,8 @@ const formatReportDetail = (value) => {
   return String(value);
 };
 
-const SalariesView = ({ user }) => {
+const SalariesView = ({ user, refreshVersion = 0 }) => {
+  const reportRequest = useRef(0);
   const [salaryData, setSalaryData] = useState([]);
   const [summary, setSummary] = useState(null);
   const [reportError, setReportError] = useState('');
@@ -27,6 +28,7 @@ const SalariesView = ({ user }) => {
   const API = import.meta.env.VITE_BACKEND_URL;
 
   const fetchSalaryData = async () => {
+    const request = ++reportRequest.current;
     setLoading(true);
     setSalaryData([]);
     setSummary(null);
@@ -40,14 +42,17 @@ const SalariesView = ({ user }) => {
           'Content-Type': 'application/json'
         }
       });
+      if (request !== reportRequest.current) return;
 
       let data;
       try {
         data = await response.json();
       } catch {
+        if (request !== reportRequest.current) return;
         setReportError(`Не удалось загрузить отчёт${response.ok ? '' : ` (HTTP ${response.status})`}: сервер вернул некорректный JSON. Повторите загрузку.`);
         return;
       }
+      if (request !== reportRequest.current) return;
 
       const blockers = data?.detail?.accounting_blockers ?? data?.accounting_blockers;
       setAccountingBlockers(Array.isArray(blockers) ? blockers : blockers == null ? [] : [blockers]);
@@ -74,15 +79,17 @@ const SalariesView = ({ user }) => {
         setReportError('Расчёт зарплаты неполный: необходимо устранить проблемы учёта и обновить отчёт.');
       }
     } catch {
+      if (request !== reportRequest.current) return;
       setReportError('Не удалось загрузить отчёт по зарплате. Проверьте соединение и повторите загрузку.');
     } finally {
-      setLoading(false);
+      if (request === reportRequest.current) setLoading(false);
     }
   };
 
   useEffect(() => {
     fetchSalaryData();
-  }, [dateFrom, dateTo]);
+    return () => { reportRequest.current += 1; };
+  }, [dateFrom, dateTo, refreshVersion]);
 
   const getPaymentTypeLabel = (type) => {
     return type === 'hybrid' ? 'Гибридная' : type === 'fixed' ? 'Фиксированная' : type === 'percentage' ? 'Процентная' : 'Не указан';
