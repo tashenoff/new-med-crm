@@ -161,6 +161,7 @@ const [sources, setSources] = useState([]);
     appointment_ids: []
   });
   const [editingPlan, setEditingPlan] = useState(null);
+  const prefilledLeadNameRef = useRef('');
   const [newPatientForm, setNewPatientForm] = useState({
     full_name: '',
     phone: '',
@@ -597,8 +598,10 @@ if (timeSchedule) {
           lead_source: appointmentForm.lead_source,
           lead_source_id: appointmentForm.lead_source_id
         });
+        const leadName = appointmentForm.lead_full_name || [appointmentForm.lead_first_name, appointmentForm.lead_last_name, appointmentForm.lead_middle_name].filter(Boolean).join(' ');
+        prefilledLeadNameRef.current = leadName;
         setNewPatientForm({
-          full_name: `${appointmentForm.lead_first_name || ''} ${appointmentForm.lead_last_name || ''}`.trim(),
+          full_name: leadName,
           phone: appointmentForm.lead_phone || '',
           email: appointmentForm.lead_email || '',
           iin: '',
@@ -612,7 +615,7 @@ if (timeSchedule) {
         setPatientSearch('');
       } else if (appointmentForm.lead_first_name) {
         // Если просто есть данные лида - показываем их в поле поиска
-        const leadName = `${appointmentForm.lead_first_name} ${appointmentForm.lead_last_name || ''}`.trim();
+        const leadName = appointmentForm.lead_full_name || [appointmentForm.lead_first_name, appointmentForm.lead_last_name, appointmentForm.lead_middle_name].filter(Boolean).join(' ');
         const leadInfo = appointmentForm.lead_phone ? ` (${appointmentForm.lead_phone})` : '';
         setPatientSearch(leadName + leadInfo);
         setShowNewPatientForm(false);
@@ -621,7 +624,7 @@ if (timeSchedule) {
         setShowNewPatientForm(false);
       }
     }
-  }, [show, appointmentForm?.patient_id, appointmentForm?.lead_first_name, appointmentForm?.lead_source_id, appointmentForm?.showNewPatientForm, patients]);
+  }, [show, appointmentForm?.patient_id, appointmentForm?.lead_full_name, appointmentForm?.lead_first_name, appointmentForm?.lead_source_id, appointmentForm?.showNewPatientForm, patients]);
 
   // Сброс всех состояний при закрытии модала
   useEffect(() => {
@@ -1025,6 +1028,15 @@ const handleCreateNewPatient = async (e) => {
     try {
       const base = { ...appointmentForm };
       delete base.operation_id;
+      delete base.patient_full_name;
+      // CRM conversion creates the patient in schedule-appointment, bypassing
+      // onCreatePatient. Only an edited name is an official-name override: the
+      // prefilled CRM name uses first/last order, while the parser is surname-first.
+      const patientFullName = newPatientForm.full_name.trim();
+      if (hideCreatePatientButton && showNewPatientForm && !appointmentForm.patient_id && !editingItem &&
+          patientFullName && patientFullName !== prefilledLeadNameRef.current.trim()) {
+        base.patient_full_name = patientFullName;
+      }
       payload = appointmentPayment(base);
       if (payload.status === 'completed') {
         const fingerprint = JSON.stringify(payload);
@@ -1279,7 +1291,7 @@ const handleCreateNewPatient = async (e) => {
                 <input
                   type="text"
                   placeholder="ФИО *"
-                  value={newPatientForm.full_name || (appointmentForm.lead_first_name ? `${appointmentForm.lead_first_name} ${appointmentForm.lead_last_name || ''}`.trim() : '')}
+                  value={newPatientForm.full_name}
                   onChange={(e) => setNewPatientForm({ ...newPatientForm, full_name: e.target.value })}
                   className="px-3 py-2 border border-gray-300 rounded-lg text-sm"
                 />

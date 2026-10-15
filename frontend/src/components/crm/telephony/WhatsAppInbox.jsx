@@ -17,7 +17,7 @@ const FUNNEL_STAGES = [
 const stageLabel = (s) => FUNNEL_STAGES.find(x => x.status === s)?.label || 'Без статуса';
 const stageBadge = (s) => FUNNEL_STAGES.find(x => x.status === s)?.badge || 'bg-gray-400';
 
-const contactNameMeta = (c) => c.patient_name || c.contact_name || c.phone || 'Клиент';
+const contactNameMeta = (c) => c.patient_name || c.lead_name || c.contact_name || c.phone || 'Клиент';
 const absMedia = (u) => u && u.startsWith('/') ? `${import.meta.env.VITE_BACKEND_URL}${u}` : u;
 
 const formatTime = (value) => {
@@ -56,12 +56,24 @@ const WhatsAppInbox = ({ isOpen, onClose }) => {
   const messagesRef = useRef(null);
   const fileInputRef = useRef(null);
   const attachMenuRef = useRef(null);
+  const selectedPhoneRef = useRef(null);
+  selectedPhoneRef.current = selected?.phone;
 
   const fetchChats = useCallback(async () => {
     try {
       setLoadingChats(true);
       const { data } = await apiClient.get('/wazzup/chats', { params: { search: search || undefined, limit: 200 } });
       setChats(data.chats || []);
+      const selectedPhone = selectedPhoneRef.current;
+      let refreshedSelected = (data.chats || []).find(chat => chat.phone === selectedPhone);
+      // Renaming can remove the open chat from the current search results.
+      if (selectedPhone && !refreshedSelected) {
+        const { data: selectedData } = await apiClient.get('/wazzup/chats', { params: { search: selectedPhone, limit: 200 } });
+        refreshedSelected = (selectedData.chats || []).find(chat => chat.phone === selectedPhone);
+      }
+      setSelected(current => current
+        ? (refreshedSelected?.phone === current.phone ? refreshedSelected : current)
+        : null);
       setError(null);
     } catch (err) {
       setError(handleApiError(err));
@@ -105,7 +117,7 @@ const WhatsAppInbox = ({ isOpen, onClose }) => {
     fetchMessages(selected.phone);
     msgTimer.current = setInterval(() => fetchMessages(selected.phone), 5000);
     return () => clearInterval(msgTimer.current);
-  }, [isOpen, selected, fetchMessages]);
+  }, [isOpen, selected?.phone, fetchMessages]);
 
   // При закрытии сбрасываем выбор.
   useEffect(() => {
@@ -308,15 +320,16 @@ const WhatsAppInbox = ({ isOpen, onClose }) => {
           room_id: '',
           status: 'confirmed',
           reason: 'Консультация',
-          notes: `Запись из WhatsApp. Лид: ${selected.patient_name || selected.contact_name || ''}${selected.phone ? `, тел: ${selected.phone}` : ''}`,
+          notes: `Запись из WhatsApp. Лид: ${contactNameMeta(selected)}${selected.phone ? `, тел: ${selected.phone}` : ''}`,
           patient_notes: '',
           price: 0,
           deposit_type: '',
           deposit: 0,
           source: lead.source || 'phone',
           source_id: lead.source_id || '',
-          lead_first_name: (selected.patient_name || selected.contact_name || '').split(' ')[0] || '',
-          lead_last_name: (selected.patient_name || selected.contact_name || '').split(' ')[1] || '',
+          lead_full_name: contactNameMeta(selected),
+          lead_first_name: contactNameMeta(selected),
+          lead_last_name: '',
           lead_middle_name: '',
           lead_phone: selected.phone,
           lead_email: selected.email || '',
@@ -333,13 +346,14 @@ const WhatsAppInbox = ({ isOpen, onClose }) => {
         onSave: async (appointmentData) => {
           try {
             const res = await apiClient.post(`/crm/leads/${selected.linked_lead_id}/schedule-appointment`, {
+              ...(appointmentData.patient_full_name ? { patient_full_name: appointmentData.patient_full_name } : {}),
               doctor_id: appointmentData.doctor_id,
               appointment_date: appointmentData.appointment_date,
               appointment_time: appointmentData.appointment_time,
               end_time: appointmentData.end_time,
               room_id: appointmentData.room_id,
               service: appointmentData.reason || 'Консультация',
-              notes: `Запись из WhatsApp. Заявка: ${selected.patient_name || selected.contact_name || ''}`,
+              notes: `Запись из WhatsApp. Заявка: ${contactNameMeta(selected)}`,
               price: appointmentData.price || 0,
               deposit: appointmentData.deposit || null,
               deposit_type: appointmentData.deposit_type || null,
@@ -358,13 +372,13 @@ const WhatsAppInbox = ({ isOpen, onClose }) => {
     }
 
     const patients = selected.patient_id
-      ? [{ id: selected.patient_id, full_name: selected.patient_name, phone: selected.patient_phone || selected.phone }]
+      ? [{ id: selected.patient_id, full_name: contactNameMeta(selected), phone: selected.patient_phone || selected.phone }]
       : [];
     openModal('appointment', {
       patients,
       appointmentForm: {
         patient_id: selected.patient_id || '',
-        patient_name: selected.patient_name || selected.contact_name || '',
+        patient_name: contactNameMeta(selected),
         patient_phone: selected.patient_phone || selected.phone,
         appointment_date: new Date().toISOString().split('T')[0],
       },
@@ -379,12 +393,12 @@ const WhatsAppInbox = ({ isOpen, onClose }) => {
     openModal('patient', {
       editingItem: {
         id: selected.patient_id,
-        full_name: selected.patient_name || selected.contact_name || '',
+        full_name: contactNameMeta(selected),
         phone: selected.patient_phone || selected.phone,
       },
       patientForm: {
         id: selected.patient_id,
-        full_name: selected.patient_name || selected.contact_name || '',
+        full_name: contactNameMeta(selected),
         phone: selected.patient_phone || selected.phone,
       },
     });
@@ -399,7 +413,7 @@ const WhatsAppInbox = ({ isOpen, onClose }) => {
     if (typeFilter === 'patient' && !chatIsPatient(c)) return false;
     if (typeFilter === 'chat' && !chatIsPlain(c)) return false;
     return !search ||
-      (c.contact_name || '').toLowerCase().includes(search.toLowerCase()) ||
+      contactNameMeta(c).toLowerCase().includes(search.toLowerCase()) ||
       (c.phone || '').includes(search);
   });
 

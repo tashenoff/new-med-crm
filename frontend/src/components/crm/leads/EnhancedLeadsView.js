@@ -8,6 +8,7 @@ import {
 } from 'lucide-react';
 import { FaWhatsapp } from 'react-icons/fa';
 import { useCrm } from '../../../hooks/useCrm';
+import { patientsApi } from '../../../api/patients';
 import { useTheme, themeClasses, cn } from '../../../hooks/useTheme';
 import { useModal } from '../../../context/ModalContext';
 import Modal from '../../modals/Modal';
@@ -44,6 +45,12 @@ const EnhancedLeadsView = ({ user }) => {
   const [dateFilter, setDateFilter] = useState({ preset: 'all', from: '', to: '' });
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [selectedLead, setSelectedLead] = useState(null);
+  const [editingNameLead, setEditingNameLead] = useState(null);
+  const [nameForm, setNameForm] = useState({});
+  const [nameLoading, setNameLoading] = useState(false);
+  const [nameSaving, setNameSaving] = useState(false);
+  const [nameError, setNameError] = useState('');
+  const nameEditRequest = useRef(0);
   const [showTaskModal, setShowTaskModal] = useState(false);
   const [showColumnModal, setShowColumnModal] = useState(false);
   const [editingColumn, setEditingColumn] = useState(null);
@@ -101,6 +108,7 @@ const EnhancedLeadsView = ({ user }) => {
     fetchLeads,
     applyLeadKanbanMove,
     createLead,
+    updateLead,
     convertLead,
     deleteLead,
     fetchAvailableManagers,
@@ -673,6 +681,60 @@ const EnhancedLeadsView = ({ user }) => {
     return { count, totalAmount };
   };
 
+  const closeNameEditor = () => {
+    if (nameSaving) return;
+    nameEditRequest.current += 1;
+    setEditingNameLead(null);
+  };
+
+  const editLeadName = async (lead) => {
+    const request = ++nameEditRequest.current;
+    setEditingNameLead(lead);
+    setNameError('');
+    setNameForm({
+      // Keep multi-word fields intact; do not split a display name into guesses.
+      first_name: lead.first_name ?? (lead.last_name || lead.middle_name ? '' : lead.full_name || ''),
+      last_name: lead.last_name || '',
+      middle_name: lead.middle_name || '',
+      full_name: ''
+    });
+    setNameLoading(!!lead.converted_to_client_id);
+    if (!lead.converted_to_client_id) return;
+    const result = await patientsApi.getById(lead.converted_to_client_id);
+    if (request !== nameEditRequest.current) return;
+    if (result.success) setNameForm({ full_name: result.data.full_name || '' });
+    else setNameError(result.error || 'Не удалось загрузить пациента');
+    setNameLoading(false);
+  };
+
+  const saveLeadName = async (event) => {
+    event.preventDefault();
+    if (nameSaving || nameLoading) return;
+    setNameSaving(true);
+    setNameError('');
+    try {
+      if (editingNameLead.converted_to_client_id) {
+        const result = await patientsApi.update(editingNameLead.converted_to_client_id, { full_name: nameForm.full_name.trim() });
+        if (!result.success) throw new Error(result.error || 'Не удалось сохранить имя');
+        setPatients(current => current.map(patient => patient.id === editingNameLead.converted_to_client_id
+          ? { ...patient, ...result.data } : patient));
+        await fetchLeads();
+      } else {
+        // updateLead refreshes the Kanban board after saving.
+        await updateLead(editingNameLead.id, {
+          first_name: nameForm.first_name.trim(),
+          last_name: nameForm.last_name.trim(),
+          middle_name: nameForm.middle_name.trim()
+        });
+      }
+      setEditingNameLead(null);
+    } catch (error) {
+      setNameError(error.message || 'Не удалось сохранить имя');
+    } finally {
+      setNameSaving(false);
+    }
+  };
+
   // Назначить прием для заявки через API CRM
   const handleScheduleAppointment = async (lead) => {
     setSelectedLead(lead);
@@ -724,6 +786,7 @@ const EnhancedLeadsView = ({ user }) => {
         lead_first_name: lead.first_name,
         lead_last_name: lead.last_name,
         lead_middle_name: lead.middle_name || '',
+        lead_full_name: lead.full_name || [lead.first_name, lead.last_name, lead.middle_name].filter(Boolean).join(' '),
         lead_phone: lead.phone,
         lead_email: lead.email,
         // Источник из лида - для формы создания пациента
@@ -752,6 +815,7 @@ const EnhancedLeadsView = ({ user }) => {
                 'Authorization': `Bearer ${localStorage.getItem('token')}`
               },
               body: JSON.stringify({
+                ...(appointmentData.patient_full_name ? { patient_full_name: appointmentData.patient_full_name } : {}),
                 doctor_id: appointmentData.doctor_id,
                 appointment_date: appointmentData.appointment_date,
                 appointment_time: appointmentData.appointment_time,
@@ -797,7 +861,7 @@ const EnhancedLeadsView = ({ user }) => {
           const patientData = {
             ...newPatientData,
             // Если форма не заполнена, используем данные из лида
-            full_name: newPatientData.full_name || `${lead.first_name} ${lead.last_name}`.trim(),
+            full_name: newPatientData.full_name || lead.full_name || [lead.first_name, lead.last_name, lead.middle_name].filter(Boolean).join(' '),
             phone: newPatientData.phone || lead.phone,
             email: newPatientData.email || lead.email
           };
@@ -878,11 +942,15 @@ const EnhancedLeadsView = ({ user }) => {
             {urgentTasks > 0 && (
               <div className="w-2 h-2 bg-red-500 rounded-full"></div>
             )}
-            <button 
-              onClick={(e) => e.stopPropagation()}
+            <button
+              type="button"
+              aria-label="Редактировать имя"
+              title="Редактировать имя"
+              draggable={false}
+              onClick={(e) => { e.stopPropagation(); editLeadName(lead); }}
               className={cn("p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-700")}
             >
-              <MoreHorizontal className="w-3 h-3" />
+              <Edit className="w-3 h-3" />
             </button>
           </div>
         </div>
@@ -956,7 +1024,7 @@ const EnhancedLeadsView = ({ user }) => {
                 onClick={(e) => {
                   e.stopPropagation();
                   setWhatsAppPhone(lead.phone);
-                  setWhatsAppLeadName(`${lead.first_name} ${lead.last_name}`);
+                  setWhatsAppLeadName(lead.full_name || [lead.first_name, lead.last_name, lead.middle_name].filter(Boolean).join(' '));
                   setShowWhatsAppSidebar(true);
                 }}
                 className="text-green-500 hover:text-green-600 transition-colors"
@@ -1218,6 +1286,39 @@ const EnhancedLeadsView = ({ user }) => {
         
       </div>
       </section>
+
+      <Modal
+        show={!!editingNameLead}
+        onClose={closeNameEditor}
+        title={editingNameLead?.converted_to_client_id ? 'Редактировать ФИО пациента' : 'Редактировать имя заявки'}
+        dialogLabel="Редактирование имени"
+        errorMessage={nameError}
+        size="max-w-md"
+      >
+        <form onSubmit={saveLeadName} className="space-y-4">
+          {nameLoading && <p className={themeClasses.text.muted}>Загрузка пациента…</p>}
+          {editingNameLead?.converted_to_client_id ? (
+            <label className={labelClasses}>
+              ФИО пациента
+              <input aria-label="ФИО пациента" required value={nameForm.full_name || ''}
+                disabled={nameLoading || nameSaving} className={inputClasses}
+                onChange={event => setNameForm({ full_name: event.target.value })} />
+            </label>
+          ) : [ ['first_name', 'Имя'], ['last_name', 'Фамилия'], ['middle_name', 'Отчество'] ].map(([field, label]) => (
+            <label key={field} className={labelClasses}>
+              {label}
+              <input aria-label={label} required={field === 'first_name'} value={nameForm[field] || ''}
+                disabled={nameSaving} className={inputClasses}
+                onChange={event => setNameForm(current => ({ ...current, [field]: event.target.value }))} />
+            </label>
+          ))}
+          <div className="flex justify-end gap-2">
+            <button type="button" onClick={closeNameEditor} disabled={nameSaving} className={buttonSecondaryClasses}>Отмена</button>
+            <button type="submit" disabled={nameLoading || nameSaving || !(editingNameLead?.converted_to_client_id ? nameForm.full_name : nameForm.first_name)?.trim()}
+              className={buttonPrimaryClasses}>{nameSaving ? 'Сохранение…' : 'Сохранить'}</button>
+          </div>
+        </form>
+      </Modal>
 
       {/* Create Lead Modal */}
       <Modal 
