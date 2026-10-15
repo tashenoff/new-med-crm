@@ -141,7 +141,7 @@ const AppointmentModal = ({
   const [uploadingConsent, setUploadingConsent] = useState(false);
 const [sources, setSources] = useState([]);
   const [loadingSources, setLoadingSources] = useState(false);
-  const [newPatientSourceError, setNewPatientSourceError] = useState('');
+
   const [appointmentSourceError, setAppointmentSourceError] = useState('');
   const [hasSignature, setHasSignature] = useState(false);
   const [submitting, setSubmitting] = useState(false); // Локальный прелоадер для защиты от двойного нажатия
@@ -168,7 +168,7 @@ const [sources, setSources] = useState([]);
     iin: '',
     birth_date: '',
     gender: '',
-    source: 'walk_in',
+    source: '',
     source_id: '',
     referrer: '',
     notes: ''
@@ -660,7 +660,7 @@ if (timeSchedule) {
         iin: '',
         birth_date: '',
         gender: '',
-        source: 'walk_in',
+        source: '',
         source_id: '',
         referrer: '',
         notes: ''
@@ -944,15 +944,19 @@ if (timeSchedule) {
 const handleCreateNewPatient = async (e) => {
     e.preventDefault();
 
-    // Валидация: источник (канал привлечения) обязателен
-    if (!newPatientForm.source_id) {
-      setNewPatientSourceError('Выберите канал привлечения клиента — это обязательное поле');
+    // Источник выбирается один раз в форме записи; без него нельзя создать пациента.
+    if (!appointmentForm.source_id) {
+      setAppointmentSourceError('Выберите канал привлечения — это обязательное поле');
       return;
     }
-    setNewPatientSourceError('');
+    setAppointmentSourceError('');
 
     try {
-      const result = await onCreatePatient(newPatientForm);
+      const result = await onCreatePatient({
+        ...newPatientForm,
+        source: appointmentForm.source,
+        source_id: appointmentForm.source_id
+      });
       
       // Поддерживаем оба формата ответа:
       // 1. { success: true, data: newPatient } - из CalendarPage
@@ -987,7 +991,7 @@ const handleCreateNewPatient = async (e) => {
         iin: '',
         birth_date: '',
         gender: '',
-        source: 'walk_in',
+        source: '',
         source_id: '',
         referrer: '',
         notes: ''
@@ -1325,47 +1329,7 @@ const handleCreateNewPatient = async (e) => {
                   <option value="male">Мужской</option>
                   <option value="female">Женский</option>
                 </select>
-<div>
-                  <label className="block text-xs text-gray-500 mb-1">
-                    Канал привлечения клиента <span className="text-red-500">*</span>
-                  </label>
-                  <select
-                    value={newPatientForm.source_id || ''}
-                    onChange={(e) => {
-                      const selectedValue = e.target.value;
-                      const selectedSource = sources.find(s => s.id === selectedValue);
-                      if (selectedSource) {
-                        setNewPatientForm({ 
-                          ...newPatientForm, 
-                          source_id: selectedValue,
-                          source: selectedSource.type 
-                        });
-                      } else {
-                        setNewPatientForm({ 
-                          ...newPatientForm, 
-                          source_id: selectedValue,
-                          source: '' 
-                        });
-                      }
-                      setNewPatientSourceError('');
-                    }}
-                    className={`px-3 py-2 border rounded-lg text-sm w-full ${
-                      newPatientSourceError ? 'border-red-400' : 'border-gray-300'
-                    }`}
-                    disabled={loadingSources}
-                  >
-                    <option value="">Выберите источник</option>
-                    {sources.map((source) => (
-                      <option key={source.id} value={source.id}>
-                        {source.name}
-                      </option>
-                    ))}
-                  </select>
-                  {newPatientSourceError && (
-                    <p className="text-xs text-red-600 mt-1">{newPatientSourceError}</p>
-                  )}
-                  {loadingSources && <span className="text-xs text-gray-400 ml-2">Загрузка...</span>}
-                </div>
+
               </div>
               <div className="mt-3">
                 <input
