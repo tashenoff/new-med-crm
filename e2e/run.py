@@ -237,6 +237,29 @@ def main():
             save()
             exit_code = 1
             print(metadata['error'], file=sys.stderr)
+    published = output / 'published'
+    if published.exists():
+        summary = {key: metadata.get(key) for key in
+                   ('status', 'frontend_sha', 'backend_sha', 'cleanup_verified', 'failed_stage')}
+        summary['sanitized_artifacts'] = True
+        evidence_file = published / 'evidence.json'
+        if evidence_file.exists():
+            evidence = json.loads(evidence_file.read_text())
+            summary['scenario_status'] = evidence.get('status')
+            summary['replay'] = evidence.get('replay')
+        for name in ('before-payment', 'after-reload'):
+            snapshot_file = published / (name + '.json')
+            if snapshot_file.exists():
+                snapshot = json.loads(snapshot_file.read_text())
+                events = snapshot['plan'].get('accounting_events', [])
+                summary[name] = {'salary_kzt': snapshot['report']['summary']['total_salary'],
+                                 'paid_kzt': snapshot['plan']['paid_amount'],
+                                 'event_count': len(events)}
+        print('E2E_RESULT_JSON: ' + json.dumps(summary, sort_keys=True), flush=True)
+        if exit_code:
+            # Only verified sanitized logs reach the CI console, never raw output.
+            diagnostics = (published / 'runner.log').read_text(errors='replace').splitlines()[-45:]
+            print('Sanitized failure diagnostics:\n' + '\n'.join(diagnostics), file=sys.stderr)
     print(f'E2E {metadata["status"].upper()}: {output}', flush=True)
     return exit_code
 
