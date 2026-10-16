@@ -13,6 +13,7 @@ from models.auth import UserInDB
 from models.doctor import Doctor, DoctorCreate, DoctorSchedule, DoctorScheduleCreate
 from models.services import ServicePrice, ServicePriceCreate
 from models.payment import PaymentType
+from models.laboratory import Laboratory, LaboratoryCreate
 from services.service_price_service import ServicePriceService
 
 session = json.loads(Path('/run/secrets/session').read_text())
@@ -49,6 +50,13 @@ for service_id, name, price in [
     validated = ServicePriceCreate(service_name=name, service_type='regular', price=price, category='E2E', unit='услуга')
     db.service_prices.insert_one(ServicePrice(id=service_id, **validated.model_dump()).model_dump())
 
+laboratory = LaboratoryCreate(name='E2E Synthetic Laboratory', description='Synthetic catalog only; no contacts or external integration')
+db.laboratories.insert_one(Laboratory(id='e2e-laboratory', **laboratory.model_dump()).model_dump())
+analysis = ServicePriceCreate(service_name='E2E Standalone Analysis', service_type='regular',
+    price=2500, category=laboratory.name, unit='анализ',
+    laboratory_id='e2e-laboratory', laboratory_name=laboratory.name)
+db.service_prices.insert_one(ServicePrice(id='e2e-analysis', **analysis.model_dump()).model_dump())
+
 
 async def seed_complex():
     async_client = AsyncIOMotorClient('mongodb://mongo:27017', serverSelectionTimeoutMS=5000)
@@ -75,5 +83,5 @@ payment = PaymentType(id='e2e-internal', name='E2E Internal Cash', commission_ra
                       description='Synthetic internal record; no payment gateway')
 db.payment_types.insert_one(payment.model_dump())
 assert db.notification_rules.count_documents({}) == 0
-print('Seed OK: expiring user, validated fixed/hybrid doctors, positive-price regular/complex catalog, seven-day schedules; no patients/plans/rules')
+print('Seed OK: expiring user, fixed/hybrid doctors, positive-price regular/complex/lab catalog, schedules; no patients/plans/rules')
 client.close()

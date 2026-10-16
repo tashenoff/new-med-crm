@@ -9,6 +9,7 @@ const cases = {
   'ordinary-hybrid': { doctor: 'e2e-hybrid', complex: false },
   'complex-components': { doctor: 'e2e-doctor', complex: true, componentFirst: true },
   'complex-full': { doctor: 'e2e-doctor', complex: true },
+  'lab-analysis': { doctor: null, complex: false, lab: true },
 };
 const caseId = process.env.E2E_SCENARIO;
 assert.ok(Object.hasOwn(cases, caseId), 'Runner must select a known bounded scenario');
@@ -17,16 +18,17 @@ const names = { 'e2e-doctor': 'E2E Fixed Doctor', 'e2e-hybrid': 'E2E Hybrid Doct
 const targets = config.complex ? [
   { service: 'e2e-component-fixed', doctor: 'e2e-doctor', price: 2000, salary: 1000 },
   { service: 'e2e-component-hybrid', doctor: 'e2e-hybrid', price: 3000, salary: 1300 },
-] : [{ service: 'e2e-service', doctor: config.doctor, price: 3000, salary: config.doctor === 'e2e-hybrid' ? 1300 : 1000 }];
+] : config.lab ? [{ service: 'e2e-analysis', doctor: null, price: 2500, salary: 0 }]
+  : [{ service: 'e2e-service', doctor: config.doctor, price: 3000, salary: config.doctor === 'e2e-hybrid' ? 1300 : 1000 }];
 const total = targets.reduce((sum, target) => sum + target.price, 0);
 const session = JSON.parse(await readFile('/run/secrets/session', 'utf8'));
 const origin = 'http://localhost';
 const patientName = `E2E Synthetic ${caseId}`;
 const client = new MongoClient('mongodb://mongo:27017');
 const db = client.db('medcrm_browser_e2e');
-const evidence = { caseId, stages: [], checkpoints: [], replays: [], blockedExternalRequests: [], httpErrors: [], browserErrors: [] };
+const evidence = { caseId, stages: [], checkpoints: [], replays: [], financeResponses: [], blockedExternalRequests: [], httpErrors: [], browserErrors: [] };
 let stage = 'browser startup';
-let page, browser, context, documentId;
+let page, browser, context, documentId, baselinePlan;
 const artifact = name => `/artifacts/${caseId}-${name}`;
 const stageAt = message => { stage = message; evidence.stages.push(message); console.log(`SCENARIO ${caseId}: ${message}`); };
 // Mongo stores UTC BSON dates at millisecond precision; FastAPI serializes the
@@ -61,8 +63,8 @@ async function api(path, body) {
   }, { path, body });
 }
 function expectedSalary(paidCount) {
-  const result = { 'e2e-doctor': 0, 'e2e-hybrid': 0 };
-  for (const target of targets.slice(0, paidCount)) result[target.doctor] += target.salary;
+  const result = config.lab ? { 'e2e-doctor': 1000, 'e2e-hybrid': 1300 } : { 'e2e-doctor': 0, 'e2e-hybrid': 0 };
+  for (const target of targets.slice(0, paidCount)) if (target.doctor) result[target.doctor] += target.salary;
   return result;
 }
 async function salary(paidCount) {
@@ -79,6 +81,24 @@ async function salary(paidCount) {
     assert.equal(rows[0].calculated_salary, amount, `${doctor}: exact salary`);
   }
   return result.body;
+}
+async function captureLabBaseline() {
+  // This is real persisted output of the preceding complex-full UI scenario,
+  // never a fabricated paid seed or a mocked finance response.
+  const patient = await db.collection('patients').findOne({ full_name: 'E2E Synthetic complex-full' });
+  assert.ok(patient, 'Run lab after the existing complex-full browser scenario');
+  assert.equal(await db.collection('patients').countDocuments({}), 1);
+  assert.equal(await db.collection('treatment_plans').countDocuments({}), 1);
+  baselinePlan = await db.collection('treatment_plans').findOne({ patient_id: patient.id });
+  assert.equal(baselinePlan.payment_status, 'paid');
+  assert.equal(baselinePlan.execution_status, 'completed');
+  assert.equal(baselinePlan.paid_amount, 5000);
+  assert.equal(baselinePlan.accounting_events.length, 4);
+  for (const [doctor, amount] of Object.entries(expectedSalary(0))) {
+    assert.equal(baselinePlan.accounting_events.filter(e => e.doctor_id === doctor)
+      .reduce((sum, event) => sum + event.compensation_amount_kzt, 0), amount);
+  }
+  evidence.baseline = { plan_id: baselinePlan.id, salary_by_doctor: expectedSalary(0) };
 }
 async function uiSalary(paidCount) {
   for (const [doctor, amount] of Object.entries(expectedSalary(paidCount))) {
@@ -105,7 +125,7 @@ async function uiComponents(paidCount) {
 async function snapshot(name, paidCount) {
   const patient = await db.collection('patients').findOne({ full_name: patientName });
   assert.ok(patient, 'UI-created synthetic patient must exist in MongoDB');
-  assert.equal(await db.collection('patients').countDocuments({}), 1);
+  assert.equal(await db.collection('patients').countDocuments({}), config.lab ? 2 : 1);
   const plans = await db.collection('treatment_plans').find({ patient_id: patient.id }).toArray();
   assert.equal(plans.length, 1, 'Exactly one UI-created treatment plan per reset');
   const plan = plans[0];
@@ -114,7 +134,7 @@ async function snapshot(name, paidCount) {
   assert.equal(plan.assigned_doctor_id, config.doctor);
   assert.equal(plan.services.length, 1);
   const row = plan.services[0];
-  assert.equal(row.service_id, config.complex ? 'e2e-complex' : 'e2e-service');
+  assert.equal(row.service_id, config.complex ? 'e2e-complex' : targets[0].service);
   assert.equal(Boolean(row.is_complex), config.complex);
   assert.equal(row.is_course || false, false);
   assert.equal(row.total_price, total);
@@ -128,6 +148,15 @@ async function snapshot(name, paidCount) {
     const item = config.complex ? row.components.find(component => component.service_id === target.service) : row;
     assert.ok(item, 'Expected stable service/component exists');
     assert.equal(item.doctor_id || plan.assigned_doctor_id, target.doctor);
+    if (config.lab) {
+      assert.equal(item.doctor_id ?? null, null);
+      assert.equal(plan.doctor_name ?? null, null);
+      assert.deepEqual(plan.appointment_ids, []);
+      assert.equal(item.laboratory_id, 'e2e-laboratory');
+      assert.equal(item.service_catalog_snapshot.id, 'e2e-analysis');
+      assert.equal(item.service_catalog_snapshot.laboratory_id, 'e2e-laboratory');
+      assert.equal(item.service_catalog_snapshot.service_type, 'regular');
+    }
     assert.equal(item.occurrence_ids.length, 1);
     assert.ok(item.occurrence_ids[0]);
     if (config.complex) { assert.equal(item.price, target.price); assert.ok(item.component_id); }
@@ -141,8 +170,8 @@ async function snapshot(name, paidCount) {
       const completion = linked.find(event => event.kind === `${prefix}_completion`);
       assert.ok(receipt); assert.ok(completion);
       assert.equal(receipt.amount_kzt, target.price);
-      assert.equal(receipt.compensation_amount_kzt, target.salary - 1000);
-      assert.equal(completion.compensation_amount_kzt, 1000);
+      assert.equal(receipt.compensation_amount_kzt, config.lab ? 0 : target.salary - 1000);
+      assert.equal(completion.compensation_amount_kzt, config.lab ? 0 : 1000);
       assert.equal(completion.amount_kzt, 0);
       assert.equal(completion.completion_source, 'full_payment');
       assert.equal(completion.occurrence_id, item.occurrence_ids[0]);
@@ -150,6 +179,12 @@ async function snapshot(name, paidCount) {
         assert.equal(event.doctor_id, target.doctor);
         assert.equal(event.service_row_id, row.service_row_id);
         assert.equal(event.currency, 'KZT');
+        if (config.lab) {
+          assert.equal(event.service_catalog_snapshot.id, 'e2e-analysis');
+          assert.equal(event.service_catalog_snapshot.laboratory_id, 'e2e-laboratory');
+          assert.deepEqual(event.compensation_snapshot, { payment_mode: 'general', payment_type: 'percentage',
+            payment_value: 0, hybrid_percentage_value: 0, currency: 'KZT', service_id: 'e2e-analysis' });
+        }
         if (config.complex) assert.equal(event.component_id, item.component_id);
       }
       assert.equal(linked.reduce((sum, event) => sum + event.compensation_amount_kzt, 0), target.salary);
@@ -174,12 +209,17 @@ async function snapshot(name, paidCount) {
   assert.equal(await db.collection('notification_rules').countDocuments({}), 0);
   assert.equal(await db.collection('wazzup_messages').countDocuments({}), 0);
   const report = await salary(paidCount);
+  if (config.lab) {
+    assert.equal(await db.collection('treatment_plans').countDocuments({}), 2);
+    assert.deepEqual(await db.collection('treatment_plans').findOne({ id: baselinePlan.id }), baselinePlan,
+      'Adding/paying/replaying a doctorless analysis preserves the entire previous paid plan');
+  }
   const apiPlan = await api(`/api/treatment-plans/${plan.id}`);
   assert.equal(apiPlan.status, 200);
   for (const key of ['paid_amount', 'execution_status', 'payment_status', 'services', 'accounting_events']) {
     assert.deepEqual(normalized(apiPlan.body[key]), normalized(plan[key]), `API/Mongo agree: ${key}`);
   }
-  const result = { patient, plan, report };
+  const result = { patient, plan, report, ...(config.lab ? { baselinePlan } : {}) };
   await writeFile(artifact(`${name}.json`), JSON.stringify(result, null, 2));
   evidence.checkpoints.push({ name, paid_kzt: paidAmount, salary_by_doctor: expectedSalary(paidCount), event_count: events.length });
   return result;
@@ -199,11 +239,22 @@ async function pay(amount, componentFirst = false) {
   await page.getByText('E2E Internal Cash', { exact: true }).click();
   const requestPromise = page.waitForRequest(request => request.method() === 'POST' &&
     /\/(receipts|settle-remaining|mark-paid)$/.test(new URL(request.url()).pathname));
+  // Lab salaries intentionally do not change. Require a fresh request from the
+  // mounted Finance view itself (dated query), not merely our API assertions.
+  const financeRefresh = config.lab ? page.waitForResponse(response => {
+    const url = new URL(response.url());
+    return url.pathname === '/api/doctors/salary-report' && url.searchParams.has('date_from');
+  }).then(response => ({ status: response.status() })).catch(error => ({ error: error.message })) : null;
   const formatted = new Intl.NumberFormat('ru-RU').format(amount).replaceAll('\u00a0', '\\s?');
   await page.getByRole('button', { name: new RegExp(`^Оплатить ${formatted} ₸$`) }).click();
   const request = await requestPromise;
   const response = await request.response();
   assert.ok(response?.ok(), `UI payment failed: ${response?.status()} ${await response?.text()}`);
+  if (financeRefresh) {
+    const result = await financeRefresh;
+    assert.equal(result.status, 200, `Mounted Finance must refresh after lab payment: ${JSON.stringify(result)}`);
+    evidence.financeLiveRefresh = true;
+  }
   return { path: new URL(request.url()).pathname, body: request.postDataJSON() };
 }
 async function replay(command, state, paidCount, name) {
@@ -254,6 +305,7 @@ try {
   page.on('console', message => logs.push(`${message.type()}: ${message.text()}`));
   page.on('pageerror', error => evidence.browserErrors.push(error.message));
   page.on('response', response => {
+    if (new URL(response.url()).pathname === '/api/doctors/salary-report') evidence.financeResponses.push(response.status());
     if (response.status() >= 400) evidence.httpErrors.push({ path: new URL(response.url()).pathname, status: response.status() });
   });
   page.on('dialog', dialog => dialog.accept());
@@ -269,35 +321,55 @@ try {
     const skip = page.getByRole('button', { name: 'Пропустить', exact: true });
     if (await skip.isVisible()) await skip.click();
     assert.equal((await api('/api/wazzup/messages/send', {})).status, 503);
-    stageAt('Create synthetic patient and plan through consultation UI');
+    if (config.lab) {
+      stageAt('Retain the prior UI-paid complex and its nonzero 1000/1300 doctor salaries');
+      await captureLabBaseline();
+      await salary(0);
+    }
+    stageAt(config.lab ? 'Create synthetic patient and standalone analysis through Analyses UI without a doctor' : 'Create synthetic patient and plan through consultation UI');
     await navigate('Пациенты');
     await page.getByRole('button', { name: '+ Добавить пациента', exact: true }).click();
     await page.getByPlaceholder('ФИО *', { exact: true }).fill(patientName);
-    await page.getByPlaceholder('Телефон *', { exact: true }).fill('70000000000');
+    await page.getByPlaceholder('Телефон *', { exact: true }).fill(config.lab ? '70000000001' : '70000000000');
     await page.getByRole('button', { name: 'Создать', exact: true }).click();
     await page.getByRole('row').filter({ hasText: patientName }).click();
-    await page.getByRole('button', { name: 'Консультации', exact: true }).click();
-    await page.getByRole('button', { name: 'Добавить', exact: true }).click();
-    await page.locator('select').filter({ has: page.locator(`option[value="${config.doctor}"]`) }).selectOption(config.doctor);
-    const serviceName = config.complex ? 'E2E Two Doctor Complex' : 'E2E Ordinary Service';
-    await page.getByPlaceholder('Поиск по названию услуги...').fill(serviceName);
-    await page.locator('label').filter({ hasText: serviceName }).getByRole('checkbox').check();
-    if (config.complex) {
-      stageAt('Use real specialist availability and valid automatically selected slots for two compatible doctors');
-      const availability = await api(`/api/service-prices/e2e-complex/specialists-availability?date=${new Date().toISOString().slice(0, 10)}`);
-      assert.equal(availability.status, 200);
-      assert.deepEqual(availability.body.services.map(row => row.doctors.map(doctor => doctor.doctor_id)), [['e2e-doctor'], ['e2e-hybrid']]);
-      const scheduling = page.getByText('📅 Расписание специалистов — по каждой услуге своя дата и время', { exact: true }).locator('..');
-      await expect(scheduling.locator('input[type="date"]')).toHaveCount(2);
-      const startSlots = scheduling.locator('select').filter({ has: page.locator('option[value="09:00"]') });
-      await expect(startSlots).toHaveCount(2);
-      for (const slot of await startSlots.all()) await expect(slot).toHaveValue('09:00');
+    if (config.lab) {
+      await page.getByRole('button', { name: 'Анализы', exact: true }).click();
+      await page.getByPlaceholder('Поиск по названию анализа...').fill('E2E Standalone Analysis');
+      await page.locator('label').filter({ hasText: 'E2E Standalone Analysis' }).getByRole('checkbox').check();
+      const created = page.waitForResponse(response => response.request().method() === 'POST' &&
+        /\/api\/patients\/[^/]+\/treatment-plans$/.test(new URL(response.url()).pathname));
+      await page.getByRole('button', { name: 'Добавить 1', exact: true }).click();
+      const response = await created;
+      assert.equal(response.status(), 200, await response.text());
+      const creation = response.request().postDataJSON();
+      assert.equal(creation.assigned_doctor_id ?? null, null);
+      assert.equal(creation.services[0].doctor_id ?? null, null);
+      await expect(page.getByText('✅ Анализы добавлены в план лечения', { exact: true })).toBeVisible();
+    } else {
+      await page.getByRole('button', { name: 'Консультации', exact: true }).click();
+      await page.getByRole('button', { name: 'Добавить', exact: true }).click();
+      await page.locator('select').filter({ has: page.locator(`option[value="${config.doctor}"]`) }).selectOption(config.doctor);
+      const serviceName = config.complex ? 'E2E Two Doctor Complex' : 'E2E Ordinary Service';
+      await page.getByPlaceholder('Поиск по названию услуги...').fill(serviceName);
+      await page.locator('label').filter({ hasText: serviceName }).getByRole('checkbox').check();
+      if (config.complex) {
+        stageAt('Use real specialist availability and valid automatically selected slots for two compatible doctors');
+        const availability = await api(`/api/service-prices/e2e-complex/specialists-availability?date=${new Date().toISOString().slice(0, 10)}`);
+        assert.equal(availability.status, 200);
+        assert.deepEqual(availability.body.services.map(row => row.doctors.map(doctor => doctor.doctor_id)), [['e2e-doctor'], ['e2e-hybrid']]);
+        const scheduling = page.getByText('📅 Расписание специалистов — по каждой услуге своя дата и время', { exact: true }).locator('..');
+        await expect(scheduling.locator('input[type="date"]')).toHaveCount(2);
+        const startSlots = scheduling.locator('select').filter({ has: page.locator('option[value="09:00"]') });
+        await expect(startSlots).toHaveCount(2);
+        for (const slot of await startSlots.all()) await expect(slot).toHaveValue('09:00');
+      }
+      await page.getByRole('button', { name: 'Добавить 1', exact: true }).click();
+      await page.getByRole('button', { name: 'Создать', exact: true }).click();
+      await page.getByText('Консультационные листы пациента:', { exact: false }).waitFor();
     }
-    await page.getByRole('button', { name: 'Добавить 1', exact: true }).click();
-    await page.getByRole('button', { name: 'Создать', exact: true }).click();
-    await page.getByText('Консультационные листы пациента:', { exact: false }).waitFor();
     const before = await snapshot('before-payment', 0);
-    stageAt('Mount Finance before payment; both doctors have zero salary');
+    stageAt(config.lab ? 'Mount Finance before lab payment; existing salaries stay 1000/1300 with no accounting blockers' : 'Mount Finance before payment; both doctors have zero salary');
     await navigate('Зарплата врачей');
     await uiSalary(0);
     documentId = randomUUID();
@@ -310,6 +382,10 @@ try {
     await uiSalary(paidCount);
     await uiComponents(paidCount);
     const after = await snapshot('after-first-payment', paidCount);
+    if (config.lab) {
+      const header = page.locator('button').filter({ has: page.getByText(before.plan.title, { exact: true }) }).filter({ visible: true });
+      await expect(header.getByText('✓ Оплачено', { exact: true })).toBeVisible();
+    }
     assert.equal(await page.evaluate(() => window.__e2eDocumentId), documentId, 'Finance refreshes without document reload');
     await page.screenshot({ path: artifact('finance-live-first.png'), fullPage: true });
     await replay(first, after, paidCount, 'first');
@@ -338,6 +414,11 @@ try {
       assert.deepEqual(final.plan.accounting_events, settled.plan.accounting_events);
     }
     assert.deepEqual(evidence.browserErrors, [], 'No uncaught browser errors');
+    if (config.lab) {
+      assert.ok(evidence.financeResponses.length >= 3, 'Real mounted Finance requests observed across payment/reload');
+      assert.ok(evidence.financeResponses.every(status => status === 200), 'Finance must never return 409 or another error for a doctorless analysis');
+      evidence.lab_semantics = 'Catalog-linked regular analysis: paid/completed accounting row, doctor_id null, zero compensation; no laboratory-result readiness status is invented';
+    }
     evidence.status = 'passed';
     stageAt('PASS: exact UI/API/Mongo per-doctor totals, live Finance, reload and duplicate protection');
   } finally {

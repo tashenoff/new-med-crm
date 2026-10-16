@@ -20,7 +20,7 @@ import zipfile
 
 ROOT = Path(__file__).resolve().parent.parent
 HARNESS = ROOT / 'e2e'
-SCENARIOS = ('ordinary-fixed', 'ordinary-hybrid', 'complex-components', 'complex-full')
+SCENARIOS = ('ordinary-fixed', 'ordinary-hybrid', 'complex-components', 'complex-full', 'lab-analysis')
 
 
 def git(*args):
@@ -97,7 +97,7 @@ def main():
                                          for p in HARNESS.iterdir() if p.is_file()},
                 'database': 'medcrm_browser_e2e', 'runtime_network': 'internal',
                 'scenarios': list(SCENARIOS), 'scenario_count': len(SCENARIOS),
-                'scope': 'ordinary fixed/hybrid; two-doctor complex component/full settlement'}
+                'scope': 'ordinary fixed/hybrid; complex component/full settlement; standalone doctorless analysis'}
     log = (output / 'runner.log').open('w')
     worktrees = []
     compose = None
@@ -185,9 +185,11 @@ def main():
                     metadata['active_scenario'] = scenario
                     save()
                     if index:
-                        # Reuse the same isolated stack; only its disposable DB is reset.
+                        # The lab case preserves the preceding UI-paid complex to
+                        # prove that existing nonzero doctor salaries stay unchanged.
                         command(compose + ['rm', '-f', 'browser'])
-                        command(compose + ['run', '--rm', '--no-deps', 'api', 'python', '/harness/seed.py'])
+                        if scenario != 'lab-analysis':
+                            command(compose + ['run', '--rm', '--no-deps', 'api', 'python', '/harness/seed.py'])
                     metadata['browser_started'] = True
                     save()
                     command(compose + ['up', '--no-deps', '--abort-on-container-exit', '--exit-code-from', 'browser', 'browser'], timeout=300)
@@ -268,6 +270,9 @@ def main():
             if evidence_file.exists():
                 evidence = json.loads(evidence_file.read_text())
                 summary['scenarios'][scenario] = {key: evidence.get(key) for key in ('status', 'checkpoints', 'replays', 'failure')}
+                if scenario == 'lab-analysis':
+                    summary['scenarios'][scenario].update({key: evidence.get(key) for key in
+                        ('baseline', 'financeResponses', 'financeLiveRefresh', 'lab_semantics')})
         print('E2E_RESULT_JSON: ' + json.dumps(summary, sort_keys=True), flush=True)
         if exit_code:
             # Only verified sanitized logs reach the CI console, never raw output.

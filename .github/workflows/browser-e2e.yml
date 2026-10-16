@@ -30,7 +30,7 @@ jobs:
           python3 -m unittest discover -s e2e -p 'test_*.py'
           python3 -m py_compile e2e/*.py
           node --check e2e/scenario.mjs
-      - name: Select frontend/backend source pair and run four isolated browser scenarios
+      - name: Select frontend/backend source pair and run five isolated browser scenarios
         env:
           EVENT_NAME: ${{ github.event_name }}
           BASE_BRANCH: ${{ github.event.pull_request.base.ref }}

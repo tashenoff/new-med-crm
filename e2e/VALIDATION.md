@@ -1,3 +1,61 @@
+# Пять browser E2E, включая отдельный анализ — 2026-10-16
+
+Локальная регрессия **5/5 PASS**: `20261016T005021Z-5c5233ec`,
+завершена `2026-10-16T00:52:36.563118+00:00`.
+Команда: `python3 e2e/run.py --frontend-ref HEAD`.
+Точная source-пара: frontend `3ccf06bc967ac6e5653902c6397ccd8da5a69f85` +
+backend `3101bf1bc1ef5a9bcfe888b213416173d19a8afd`.
+Новые test-файлы из checkout записаны по SHA256 в run.json.
+Released main остаётся `6b5fe391b33bbe3c5e4bf791de47ea1337389c1c`.
+
+Предыдущие ordinary-fixed, ordinary-hybrid, complex-components и complex-full
+снова PASS. Пятый lab-analysis использует их настоящий UI-paid complex-full
+как ненулевой baseline, без подделки оплаченного seed. База перед пятым случаем
+не сбрасывается: второй синтетический пациент имеет отдельный тестовый телефон.
+
+Анализ создан через вкладку «Анализы», выбор из реального прайса активной
+синтетической лаборатории. Цена 2500 KZT, service_type regular, laboratory_id
+подтверждён серверным catalog snapshot; assigned_doctor_id и doctor_id отсутствуют.
+UI-оплата создала ровно service_receipt 2500 и service_completion 0;
+оба doctor_id=null, compensation_amount_kzt=0, zero-percentage tariff.
+План и строка paid/completed, quantity_completed=1, appointment_ids пуст.
+
+Completed здесь — штатное выполнение услуги в финансовом учёте full_payment_v1,
+не готовность лабораторного результата. Отдельного result-ready статуса в этой
+модели нет; тест его не вводит и бизнес-код не меняет.
+
+В смонтированной вкладке Финансов после UI-оплаты наблюдался новый dated-query
+запрос с HTTP 200 без document reload; все восемь запросов salary-report — 200,
+accounting blockers пусты. Зарплаты сохранились fixed=1000, hybrid=1300 до/после
+создания, оплаты, повторов и reload. Весь предыдущий оплаченный plan document,
+включая ledger, сравнивается с baseline без изменений в каждом checkpoint.
+Два параллельных повтора платежа — 200/200; новый payment operation — 409,
+повтор completion — 409. Ledger и service projections полностью идентичны.
+409 от намеренного повторного платежа/completion не является ошибкой Finance:
+для salary-report проверяется строго HTTP 200.
+
+Ревью: API/DB не замоканы; production auth, бизнес-код и deploy workflow не
+менялись. Reset/egress guards сохранены, лаборатория не имеет реальных контактов
+или integration credentials. Исправлены только тестовые данные и селектор:
+второму пациенту нужен уникальный телефон, paid badge ограничен заголовком
+конкретного плана (в интерфейсе также есть одноимённый фильтр).
+Снимок Финансов после reload просмотрен. Четыре security unit-теста,
+Python compile, Node syntax и diff whitespace — PASS.
+
+Все 54 файла manifest проверены по SHA256; 683 файла/ZIP entries проверены на
+JWT, пять trace ZIP целы. Cleanup независимо подтверждён Docker label lookup.
+Bundle: `e2e-artifacts/20261016T005021Z-5c5233ec/published/` (gitignored).
+Предварительные UI-падения сохранили screenshot/trace/logs и также очистили стек.
+
+CI пяти сценариев проверяется после публикации того же draft PR #2; результат
+и точная CI-пара будут добавлены в его описание. Анализ внутри комплекса,
+курсы и частичная денежная оплата остаются вне пакета. Индивидуальные комиссии
+— следующий согласованный этап, пока не входят в эти пять сценариев.
+
+---
+
+Ниже исторические отчёты предыдущих этапов.
+
 # Пакет из четырёх browser E2E — 2026-10-16
 
 Локальный полный запуск **4/4 PASS**, `20261016T003457Z-5547a4de`,
