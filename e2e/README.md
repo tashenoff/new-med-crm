@@ -120,7 +120,9 @@ retention 7 дней. При отмене/ошибке scrubber необрабо
 `finally` удаляет контейнеры, сеть, volumes, project images, worktrees и временный
 secret, включая SIGINT/SIGTERM и обычные ошибки. Временные файлы и worktrees
 создаются в private `e2e/.runtime-*/` (gitignored), чтобы новые Buildx/Bake
-читали только scoped checkout paths без дополнительных filesystem entitlements. Docker base images/build cache
+читали только scoped checkout paths без дополнительных filesystem entitlements.
+API получает только четыре отдельных read-only helper mounts; приватный каталог
+с worktrees/secret никогда не монтируется внутрь контейнеров целиком. Docker base images/build cache
 может остаться для следующей сборки; в них нет runtime credentials или данных БД.
 При SIGKILL/падении Docker/машины cleanup может не выполниться. Project name
 записан в `run.json`; аварийный cleanup не затрагивает другие проекты:

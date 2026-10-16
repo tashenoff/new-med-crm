@@ -166,6 +166,9 @@ def main():
                 runtime = json.loads(subprocess.check_output(['docker', 'inspect', *ids], env=env))
                 metadata['runtime'] = []
                 for container in runtime:
+                    if any(mount['Type'] == 'bind' and (mount['RW'] or mount['Destination'] == '/harness')
+                           for mount in container['Mounts']):
+                        raise RuntimeError('Runtime binds must be read-only individual test helpers/config, never the harness directory')
                     if container['HostConfig']['PortBindings']:
                         raise RuntimeError('E2E must never publish host ports')
                     if set(container['NetworkSettings']['Networks']) != {project + '_isolated'}:

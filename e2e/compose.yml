@@ -30,7 +30,11 @@ services:
       PYTHONPATH: /app:/harness
       PYTHONUNBUFFERED: '1'
     volumes:
-      - ${HARNESS}:/harness:ro
+      # Bind only executable test helpers, never the private runtime/worktrees.
+      - ${HARNESS}/api.py:/harness/api.py:ro
+      - ${HARNESS}/safety.py:/harness/safety.py:ro
+      - ${HARNESS}/seed.py:/harness/seed.py:ro
+      - ${HARNESS}/check_safety.py:/harness/check_safety.py:ro
     secrets: [session]
     networks: [isolated]
     depends_on:
