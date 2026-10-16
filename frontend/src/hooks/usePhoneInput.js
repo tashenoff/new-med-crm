@@ -10,62 +10,55 @@ export const isValidPhone = (value = '') => {
 
 // Хук для работы с полем телефона: форматирование, ограничение, валидация
 // и проверка наличия номера в базе (если передан onCheckPatient)
-export const usePhoneInput = (initialValue = '', onChange, onCheckPatient = null) => {
+export const usePhoneInput = (initialValue = '', onChange, onCheckPatient = null, sessionKey = null) => {
   // Keep the existing display formatting for stored values.
   const [value, setValue] = useState(() => formatPhoneNumber(initialValue));
   const [isChecking, setIsChecking] = useState(false);
   const [foundData, setFoundData] = useState(null); // { patient, active_lead } из check-phone
   const checkTimeoutRef = useRef(null);
 
-  // Очищаем таймер при размонтировании
-  useEffect(() => {
-    return () => {
-      if (checkTimeoutRef.current) {
-        clearTimeout(checkTimeoutRef.current);
-      }
-    };
+  const checkGenerationRef = useRef(0);
+  const valueRef = useRef(value);
+  const invalidateChecks = useCallback(() => {
+    checkGenerationRef.current += 1;
+    clearTimeout(checkTimeoutRef.current);
+    checkTimeoutRef.current = null;
+    setFoundData(null);
+    setIsChecking(false);
   }, []);
 
-  // Проверка телефона в базе (как в CRM — только при полном номере, с debounce)
-  const runPhoneCheck = useCallback(
-    async (formattedPhone) => {
-      if (!onCheckPatient) return;
+  useEffect(() => {
+    invalidateChecks();
+    return () => {
+      checkGenerationRef.current += 1;
+      clearTimeout(checkTimeoutRef.current);
+    };
+  }, [sessionKey, invalidateChecks]);
 
-      // Очищаем предыдущий таймер
-      if (checkTimeoutRef.current) {
-        clearTimeout(checkTimeoutRef.current);
-      }
-
-      const digits = String(formattedPhone || '').replace(/\D/g, '');
-
-      // Проверяем только если введён полный номер (11 цифр с +7)
-      if (digits.length < PHONE_VALID_DIGITS) {
-        setFoundData(null);
-        setIsChecking(false);
-        return;
-      }
-
-      setIsChecking(true);
-
-      // Небольшая задержка для плавности UI
-      checkTimeoutRef.current = setTimeout(async () => {
-        try {
-          const result = await onCheckPatient(formattedPhone);
-          setFoundData(result || null);
-        } catch (error) {
+  const runPhoneCheck = useCallback((formattedPhone) => {
+    invalidateChecks();
+    if (!onCheckPatient || !isValidPhone(formattedPhone)) return;
+    const generation = checkGenerationRef.current;
+    setIsChecking(true);
+    checkTimeoutRef.current = setTimeout(async () => {
+      try {
+        const result = await onCheckPatient(formattedPhone);
+        if (generation === checkGenerationRef.current) setFoundData(result || null);
+      } catch (error) {
+        if (generation === checkGenerationRef.current) {
           console.error('Error checking phone:', error);
           setFoundData(null);
-        } finally {
-          setIsChecking(false);
         }
-      }, 300);
-    },
-    [onCheckPatient]
-  );
+      } finally {
+        if (generation === checkGenerationRef.current) setIsChecking(false);
+      }
+    }, 300);
+  }, [onCheckPatient, invalidateChecks]);
 
   const handlePhoneChange = useCallback(
     (e) => {
       const formatted = formatPhoneChange(e.target.value);
+      valueRef.current = formatted;
       setValue(formatted);
       if (onChange) {
         onChange(formatted);
@@ -77,21 +70,25 @@ export const usePhoneInput = (initialValue = '', onChange, onCheckPatient = null
   );
 
   const reset = useCallback(() => {
+    invalidateChecks();
+    valueRef.current = '';
     setValue('');
-    setFoundData(null);
-    setIsChecking(false);
-  }, []);
+  }, [invalidateChecks]);
+
+  const syncValue = useCallback((newValue) => {
+    const formatted = formatPhoneNumber(newValue);
+    // A parent echo of our own input must not cancel its debounce.
+    if (formatted !== valueRef.current) invalidateChecks();
+    valueRef.current = formatted;
+    setValue(formatted);
+  }, [invalidateChecks]);
 
   return {
     value,
     setValue,
     handlePhoneChange,
     reset,
-    // Обновляем внешнее состояние если значение изменилось снаружи (форматированное)
-    syncValue: useCallback((newValue) => {
-      setValue(formatPhoneNumber(newValue));
-      setFoundData(null);
-    }, []),
+    syncValue,
     // Готовый объект пропсов для <input>
     phoneInputProps: {
       type: 'tel',

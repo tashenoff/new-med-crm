@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { usePatients } from '../hooks/usePatients';
 import { useGlobalRefresh } from '../hooks/useGlobalRefresh';
 import { useModal } from '../context/ModalContext';
@@ -11,7 +11,32 @@ const PatientsPage = ({ user }) => {
   const { refreshTriggers } = useGlobalRefresh();
   
   // Modal hook
-  const { openModal, closeModal, updateModalProps, getModalProps } = useModal();
+  const { openModal, closeModal, updateModalProps } = useModal();
+
+  const patientSessionRef = useRef(null);
+  const patientSaveRef = useRef(false);
+
+  const openPatientModal = ({ patientForm, editingItem }) => {
+    const session = { patientId: editingItem?.id || editingItem?._id || null, patientForm };
+    patientSessionRef.current = session;
+    openModal('patient', {
+      patientForm,
+      editingItem,
+      loading,
+      errorMessage,
+      setPatientForm: (form) => {
+        if (patientSessionRef.current !== session) return;
+        session.patientForm = form;
+        updateModalProps('patient', { patientForm: form });
+      },
+      onClose: () => {
+        if (patientSessionRef.current !== session) return;
+        patientSessionRef.current = null;
+        closeModal('patient');
+      },
+      onSave: (event, form) => handleSavePatient(event, form, session)
+    });
+  };
 
   // UI состояния
   const [searchTerm, setSearchTerm] = useState('');
@@ -104,7 +129,7 @@ const PatientsPage = ({ user }) => {
 
   // Обработчики пациентов
   const handleAddPatient = () => {
-    openModal('patient', {
+    openPatientModal({
       patientForm: {
         full_name: '',
         phone: '',
@@ -119,11 +144,7 @@ const PatientsPage = ({ user }) => {
         debt: 0,
         overpayment: 0
       },
-      setPatientForm: (form) => updateModalProps('patient', { patientForm: form }),
-      editingItem: null,
-      loading,
-      errorMessage,
-      onSave: handleSavePatient
+      editingItem: null
     });
   };
 
@@ -138,7 +159,7 @@ const PatientsPage = ({ user }) => {
       alert('⚠️ У пациента нет ID!\n\nKeys: ' + Object.keys(patient).join(', '));
     }
 
-    openModal('patient', {
+    openPatientModal({
       patientForm: {
         id: patientId, // Сохраняем ID в форме для надёжного обновления
         full_name: patient.full_name || '',
@@ -154,34 +175,23 @@ const PatientsPage = ({ user }) => {
         debt: patient.debt || 0,
         overpayment: patient.overpayment || 0
       },
-      setPatientForm: (form) => updateModalProps('patient', { patientForm: form }),
-      editingItem: patient,
-      loading,
-      errorMessage,
-      onSave: handleSavePatient
+      editingItem: patient
     });
   };
 
-  const handleSavePatient = async (e, formData = null) => {
+  const handleSavePatient = async (e, formData, session) => {
     e.preventDefault();
     
-    // Защита от двойного вызова
-    if (loading) {
-      console.log('⚠️ handleSavePatient уже выполняется, пропускаем');
-      return;
-    }
-    
+    if (patientSessionRef.current !== session || patientSaveRef.current) return;
+    patientSaveRef.current = true;
     setLoading(true);
-    
-    // Получаем данные из модального контекста или используем переданные данные
-    const modalProps = getModalProps('patient');
-    const { editingItem } = modalProps;
-    const patientForm = formData || modalProps.patientForm;
-    
+    updateModalProps('patient', { loading: true });
+    const patientForm = formData || session.patientForm;
+
     try {
       let result;
-      // Проверяем editingItem, _editingItemId ИЛИ наличие id в patientForm (для надёжности)
-      const patientId = editingItem?.id || editingItem?._id || patientForm?._editingItemId || patientForm?.id || patientForm?._id;
+      // Save to the edit target captured when this session opened.
+      const patientId = session.patientId;
       
       if (patientId) {
         // Убираем служебные поля из данных для отправки
@@ -190,10 +200,10 @@ const PatientsPage = ({ user }) => {
         result = await patientsHook.updatePatient(patientId, dataToSend);
       } else {
         // Убираем служебные поля
-        const { _editingItemId, ...dataToCreate } = patientForm;
+        const { id, _id, _editingItemId, ...dataToCreate } = patientForm;
         console.log('➕ Создание нового пациента. Данные:', dataToCreate);
         result = await patientsHook.createPatient(dataToCreate);
-        if (result.success) {
+        if (result.success && patientSessionRef.current === session) {
           // Обновляем список пациентов после создания
           await patientsHook.fetchPatients();
           // Показываем уведомление о создании медкарты
@@ -208,12 +218,18 @@ const PatientsPage = ({ user }) => {
 
       // Обновляем список пациентов после обновления
       await patientsHook.fetchPatients();
-      closeModal('patient');
+      if (patientSessionRef.current === session) {
+        patientSessionRef.current = null;
+        closeModal('patient');
+      }
     } catch (error) {
       console.error('Error saving patient:', error);
-      setErrorMessage('Ошибка при сохранении пациента');
+      if (patientSessionRef.current === session) setErrorMessage('Ошибка при сохранении пациента');
+    } finally {
+      patientSaveRef.current = false;
+      setLoading(false);
+      if (patientSessionRef.current) updateModalProps('patient', { loading: false });
     }
-    setLoading(false);
   };
 
   const handleDeletePatient = async (id) => {

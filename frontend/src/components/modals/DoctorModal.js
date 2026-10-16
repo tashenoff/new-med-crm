@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import Modal from './Modal';
 import { inputClasses, selectClasses, labelClasses, buttonPrimaryClasses, buttonSecondaryClasses } from './modalUtils';
-import { initializeDoctorForm, initializeDoctorServices, buildDoctorPayload } from '../../utils/doctorCompensation';
+import { initializeDoctorForm, initializeDoctorServices, buildDoctorPayload, serializeDoctorServices, updateServiceCommission } from '../../utils/doctorCompensation';
 import { formatPhoneChange } from '../../hooks/phoneFormatter';
 
 const DoctorModal = ({ 
@@ -17,7 +17,7 @@ const DoctorModal = ({
   const [specialties, setSpecialties] = useState([]);
   const [services, setServices] = useState([]);
   const [selectedServices, setSelectedServices] = useState([]);
-  const [serviceCommissions, setServiceCommissions] = useState({}); // Объект {serviceId: {type: 'percentage', value: 0, currency: 'KZT'}}
+  const [serviceCommissions, setServiceCommissions] = useState({}); // Только явно заданные комиссии услуг; отсутствие наследует основную схему
   const [paymentMode, setPaymentMode] = useState('general'); // 'general' или 'individual'
   const [validationError, setValidationError] = useState(null);
   
@@ -104,74 +104,21 @@ const DoctorModal = ({
     });
   }, [services, doctorForm.specialties]);
 
-  // Обработчик для изменения услуг
+  const removeServiceCommissions = (ids) => {
+    setServiceCommissions(prev => Object.fromEntries(Object.entries(prev).filter(([id]) => !ids.includes(id))));
+  };
+
   const handleServiceToggle = (serviceId) => {
-    setSelectedServices(prev => {
-      const newSelected = prev.includes(serviceId) 
-        ? prev.filter(id => id !== serviceId)
-        : [...prev, serviceId];
-      
-      // Если режим индивидуальный и услуга добавлена, инициализируем настройки комиссии
-      if (paymentMode === 'individual' && !prev.includes(serviceId)) {
-        setServiceCommissions(prevCommissions => ({
-          ...prevCommissions,
-          [serviceId]: {
-            type: 'percentage',
-            value: 0,
-            currency: 'KZT'
-          }
-        }));
-      } else if (paymentMode === 'individual' && prev.includes(serviceId)) {
-        // Если услуга убрана в индивидуальном режиме, удаляем настройки комиссии
-        setServiceCommissions(prevCommissions => {
-          const newCommissions = { ...prevCommissions };
-          delete newCommissions[serviceId];
-          return newCommissions;
-        });
-      }
-      
-      return newSelected;
-    });
+    if (selectedServices.includes(serviceId)) removeServiceCommissions([serviceId]);
+    setSelectedServices(prev => prev.includes(serviceId) ? prev.filter(id => id !== serviceId) : [...prev, serviceId]);
   };
 
-  // Обработчик для изменения настроек комиссии услуги
   const handleCommissionChange = (serviceId, field, value) => {
-    setServiceCommissions(prev => ({
-      ...prev,
-      [serviceId]: {
-        ...prev[serviceId],
-        [field]: value
-      }
-    }));
+    setServiceCommissions(prev => updateServiceCommission(prev, serviceId, field, value));
   };
 
-  // Обработчик переключения режима оплаты
   const handlePaymentModeChange = (newMode) => {
-    console.log('🔄 ПЕРЕКЛЮЧЕНИЕ РЕЖИМА КОМИССИЙ:');
-    console.log('  - Старый режим:', paymentMode);
-    console.log('  - Новый режим:', newMode);
-    
     setPaymentMode(newMode);
-    
-    if (newMode === 'individual') {
-      console.log('  ✅ Переключение на ИНДИВИДУАЛЬНЫЙ режим');
-      // При переходе в индивидуальный режим инициализируем комиссии для выбранных услуг
-      const commissions = {};
-      selectedServices.forEach(serviceId => {
-        commissions[serviceId] = {
-          type: 'percentage',
-          value: 0,
-          currency: 'KZT'
-        };
-      });
-      setServiceCommissions(commissions);
-      console.log('  - Инициализированы комиссии:', commissions);
-    } else {
-      console.log('  ✅ Переключение на ОБЩИЙ режим');
-      // При переходе в общий режим очищаем индивидуальные настройки
-      setServiceCommissions({});
-      console.log('  - Комиссии очищены');
-    }
   };
 
   // НЕ синхронизируем услуги автоматически, чтобы не затирать поля формы
@@ -190,12 +137,7 @@ const DoctorModal = ({
         
         <form onSubmit={(e) => {
           e.preventDefault();
-          const servicesData = paymentMode === 'individual' ? selectedServices.map(serviceId => ({
-            service_id: serviceId,
-            commission_type: serviceCommissions[serviceId]?.type || 'percentage',
-            commission_value: serviceCommissions[serviceId]?.value ?? 0,
-            commission_currency: serviceCommissions[serviceId]?.currency || 'KZT'
-          })) : selectedServices;
+          const servicesData = serializeDoctorServices(selectedServices, serviceCommissions, paymentMode);
           try {
             const payload = buildDoctorPayload({ ...doctorForm, services: servicesData, payment_mode: paymentMode });
             setValidationError(null);
@@ -418,6 +360,7 @@ const DoctorModal = ({
                             // Снять все фильтрованные
                             const filteredIds = filteredServices.map(s => s.id);
                             setSelectedServices(prev => prev.filter(id => !filteredIds.includes(id)));
+                            removeServiceCommissions(filteredIds);
                           } else {
                             // Выбрать все фильтрованные
                             const filteredIds = filteredServices.map(s => s.id);
@@ -468,14 +411,17 @@ const DoctorModal = ({
                               {/* Настройки комиссии для выбранной услуги (только в индивидуальном режиме) */}
                               {selectedServices.includes(service.id) && paymentMode === 'individual' && (
                                 <div className="ml-6 p-3 bg-gray-50 dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-600">
+                                  <p className="text-xs mb-2">Без комиссии услуги применяется основная схема. Явный 0 означает оплату 0. Очистите значение или выберите «Основная схема» для сброса.</p>
                                   <div className="grid grid-cols-2 gap-2 text-xs">
                                     <div>
                                       <label className="block text-gray-700 dark:text-gray-300 mb-1">Тип комиссии</label>
                                       <select
-                                        value={serviceCommissions[service.id]?.type || 'percentage'}
+                                        aria-label={`Комиссия ${service.service_name || service.id}`}
+                                        value={serviceCommissions[service.id]?.type || 'inherit'}
                                         onChange={(e) => handleCommissionChange(service.id, 'type', e.target.value)}
                                         className="w-full px-2 py-1 text-xs border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                                       >
+                                        <option value="inherit">Основная схема</option>
                                         <option value="percentage">%</option>
                                         <option value="fixed">Фикс.</option>
                                       </select>
@@ -490,10 +436,12 @@ const DoctorModal = ({
                                           min="0"
                                           max={serviceCommissions[service.id]?.type === 'percentage' ? '100' : undefined}
                                           step="any"
-                                          value={serviceCommissions[service.id]?.value || 0}
-                                          onChange={(e) => handleCommissionChange(service.id, 'value', parseFloat(e.target.value) || 0)}
+                                          aria-label={`Значение комиссии ${service.service_name || service.id}`}
+                                          disabled={!serviceCommissions[service.id]?.type}
+                                          value={serviceCommissions[service.id]?.value ?? ''}
+                                          onChange={(e) => handleCommissionChange(service.id, 'value', e.target.validity.badInput ? NaN : e.target.value)}
                                           className="flex-1 px-2 py-1 text-xs border border-gray-300 dark:border-gray-600 rounded-l bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                                          placeholder="0"
+                                          placeholder="Основная схема"
                                         />
                                         {serviceCommissions[service.id]?.type === 'percentage' ? (
                                           <span className="px-2 py-1 text-xs bg-gray-200 dark:bg-gray-600 border border-l-0 border-gray-300 dark:border-gray-600 rounded-r text-gray-600 dark:text-gray-300">%</span>
@@ -548,7 +496,7 @@ const DoctorModal = ({
             </div>
           </div>
           
-          <fieldset disabled={paymentMode === 'individual' && doctorForm.consultation_compensation_mode !== 'inherit'}>
+          <fieldset disabled={paymentMode === 'individual' && doctorForm.consultation_compensation_mode !== 'inherit' && selectedServices.every(serviceId => serviceCommissions[serviceId] !== undefined)}>
           <div className="bg-orange-50 dark:bg-orange-900/20 p-4 rounded-lg border border-orange-200 dark:border-orange-800">
             <h3 className="flex items-center text-sm font-medium text-orange-800 dark:text-orange-200 mb-4">
               <span className="mr-2">💰</span> Основная схема оплаты

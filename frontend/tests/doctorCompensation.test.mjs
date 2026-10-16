@@ -94,7 +94,7 @@ async function mount(context, Component, props = {}, response) {
   } };
 }
 
-async function modal(context, editingItem = null, initial = {}) {
+async function modal(context, editingItem = null, initial = {}, response) {
   const saved = [];
   function Harness({ editingItem }) {
     const [form, setForm] = React.useState(initial);
@@ -104,7 +104,7 @@ async function modal(context, editingItem = null, initial = {}) {
       onClose() {}, onSave: (event, payload) => { event.preventDefault(); saved.push(payload); }
     });
   }
-  return { ...await mount(context, Harness, { editingItem }), saved };
+  return { ...await mount(context, Harness, { editingItem }, response), saved };
 }
 
 for (const editing of [false, true]) {
@@ -466,6 +466,121 @@ test('consultation currency cannot be silently replaced on edit', async context 
 });
 
 
+const mixedServices = [
+  { id: 'therapy-inherit', service_name: 'Therapy inherit', category: 'Therapy', price: 3000 },
+  { id: 'therapy-fixed', service_name: 'Therapy fixed', category: 'Therapy', price: 3000 },
+  { id: 'surgery-percent', service_name: 'Surgery percent', category: 'Surgery', price: 3000 },
+  { id: 'surgery-zero', service_name: 'Surgery zero', category: 'Surgery', price: 3000 }
+];
+const catalogResponse = url => ({ ok: true, json: async () => String(url).includes('specialties')
+  ? [{ id: 'therapy', name: 'Therapy' }, { id: 'surgery', name: 'Surgery' }] : mixedServices });
+const click = async element => { assert.ok(element); await act(async () => element.click()); };
+const serviceType = (ui, name) => ui.container.querySelector(`[aria-label="Комиссия ${name}"]`);
+const serviceValue = (ui, name) => ui.container.querySelector(`[aria-label="Значение комиссии ${name}"]`);
+const selectAll = ui => [...ui.container.querySelectorAll('label')].find(label => label.textContent.includes('Выбрать все')).querySelector('input');
+
+test('individual services enable the main scheme only while an override is unset with consultation none', async context => {
+  const ui = await modal(context, { ...doctor, consultation_compensation_mode: 'none', services: [
+    { ...doctor.services[0], service_id: 'therapy-fixed', commission_value: 0 }, 'therapy-inherit'
+  ] }, {}, catalogResponse);
+  const mainScheme = () => ui.container.querySelector('fieldset');
+  assert.equal(mainScheme().disabled, false, 'one unset service enables the main scheme alongside an explicit zero');
+  await ui.change(serviceType(ui, 'Therapy inherit'), 'fixed');
+  await ui.change(serviceValue(ui, 'Therapy inherit'), '0');
+  assert.equal(mainScheme().disabled, true, 'all selected services now have explicit overrides, including zero');
+  await ui.change(serviceValue(ui, 'Therapy inherit'), '');
+  assert.equal(mainScheme().disabled, false, 'clearing an override restores inheritance');
+  await click(selectAll(ui));
+  assert.equal(mainScheme().disabled, true, 'no selected services need the main scheme');
+  await click(ui.container.querySelector('input[value="general"]'));
+  assert.equal(mainScheme().disabled, false, 'general mode enables the main scheme');
+});
+
+for (const editing of [false, true]) {
+  test(`individual ${editing ? 'edit' : 'create'} selection inherits, overrides, clears, resets and reopens across specialties`, async context => {
+    const original = { full_name: 'Mixed', specialties: ['Therapy', 'Surgery'], services: [],
+      payment_mode: 'general', payment_type: 'hybrid', payment_value: 1000,
+      hybrid_percentage_value: 10, consultation_compensation_mode: 'none' };
+    const ui = await modal(context, editing ? { ...original, id: 'a' } : null, original, catalogResponse);
+    await click(selectAll(ui));
+    await click(ui.container.querySelector('input[value="individual"]'));
+    for (const service of mixedServices) {
+      assert.equal(serviceType(ui, service.service_name).value, 'inherit');
+      assert.equal(serviceValue(ui, service.service_name).value, '');
+    }
+    assert.equal(ui.container.querySelector('[name="payment_value"]').disabled, false);
+    await ui.submit();
+    assert.deepEqual(ui.saved.at(-1).services, mixedServices.map(service => service.id));
+    const inherited = ui.saved.at(-1);
+    await ui.render({ editingItem: { ...inherited, id: 'reopened' } });
+    await ui.submit();
+    assert.deepEqual(ui.saved.at(-1).services, inherited.services);
+    for (const [name, kind, value] of [
+      ['Therapy fixed', 'fixed', '500'], ['Surgery percent', 'percentage', '20'], ['Surgery zero', 'percentage', '0']
+    ]) {
+      await ui.change(serviceType(ui, name), kind);
+      await ui.change(serviceValue(ui, name), value);
+    }
+    await ui.submit();
+    const mixed = ui.saved.at(-1);
+    assert.deepEqual(mixed.services, ['therapy-inherit',
+      { service_id: 'therapy-fixed', commission_type: 'fixed', commission_value: 500, commission_currency: 'KZT' },
+      { service_id: 'surgery-percent', commission_type: 'percentage', commission_value: 20, commission_currency: 'KZT' },
+      { service_id: 'surgery-zero', commission_type: 'percentage', commission_value: 0, commission_currency: 'KZT' }]);
+    await click(ui.container.querySelector('input[value="general"]'));
+    await ui.submit();
+    assert.deepEqual(ui.saved.at(-1).services, mixedServices.map(service => service.id));
+    await click(ui.container.querySelector('input[value="individual"]'));
+    await ui.submit();
+    assert.deepEqual(ui.saved.at(-1).services, mixed.services, 'temporary mode switch preserves explicit overrides including zero');
+    await ui.render({ editingItem: { ...mixed, id: 'reopened-mixed' } });
+    assert.equal(serviceValue(ui, 'Surgery zero').value, '0');
+    await ui.change(serviceValue(ui, 'Surgery zero'), '');
+    await ui.change(serviceType(ui, 'Therapy fixed'), 'inherit');
+    await ui.submit();
+    assert.equal(ui.saved.at(-1).services[1], 'therapy-fixed');
+    assert.equal(ui.saved.at(-1).services[3], 'surgery-zero');
+    await click(selectAll(ui));
+    await click(selectAll(ui));
+    await ui.submit();
+    assert.deepEqual(ui.saved.at(-1).services, mixedServices.map(service => service.id));
+    // Individual selection after switching must also inherit, with no stale commission.
+    await click(selectAll(ui));
+    await click([...ui.container.querySelectorAll('label')].find(label => label.textContent.includes('Therapy fixed')).querySelector('input'));
+    await ui.submit();
+    assert.deepEqual(ui.saved.at(-1).services, ['therapy-fixed']);
+    await ui.render({ editingItem: { ...original, id: 'doctor-b', payment_mode: 'individual', services: ['surgery-zero'], payment_value: 700 } });
+    await ui.submit();
+    assert.deepEqual(ui.saved.at(-1).services, ['surgery-zero']);
+    assert.equal(ui.saved.at(-1).payment_value, 700);
+  });
+}
+
+test('individual partial and invalid tariffs never serialize into a zero override', async context => {
+  const { buildDoctorPayload, initializeDoctorServices, serializeDoctorServices } = await import('../src/utils/doctorCompensation.js');
+  const base = { ...doctor, consultation_compensation_mode: 'none' };
+  for (const partial of [
+    { commission_type: 'fixed' }, { commission_value: 0 }, { commission_currency: 'KZT' },
+    ...['', ' ', null, NaN, Infinity, true, -1, 'abc', '1e'].map(commission_value => ({ commission_type: 'fixed', commission_value })),
+    { commission_type: 'percentage', commission_value: 101 }, { commission_type: 'hybrid', commission_value: 20 }
+  ]) {
+    const form = { ...base, services: [{ service_id: 'service', ...partial }] };
+    assert.throws(() => buildDoctorPayload(form));
+    const { selected, commissions } = initializeDoctorServices(form);
+    assert.throws(() => buildDoctorPayload({ ...form, services: serializeDoctorServices(selected, commissions, 'individual') }));
+  }
+  const ui = await modal(context, { ...base, services: ['service'] });
+  await ui.change(serviceType(ui, 'service'), 'fixed');
+  await ui.submit();
+  assert.equal(ui.saved.length, 0, 'choosing an override requires a value');
+  await ui.change(serviceValue(ui, 'service'), '0');
+  await ui.submit();
+  assert.equal(ui.saved[0].services[0].commission_value, 0);
+  await ui.change(serviceValue(ui, 'service'), '');
+  await ui.submit();
+  assert.deepEqual(ui.saved[1].services, ['service']);
+});
+
 test('cross-stack modal payloads and API readback', async context => {
   const { readFile, writeFile } = await import('node:fs/promises');
   const { buildDoctorPayload } = await import('../src/utils/doctorCompensation.js');
@@ -516,7 +631,29 @@ test('cross-stack modal payloads and API readback', async context => {
       }
     }
   }
-  assert.equal(cases.length, 54);
+  for (const payment_type of ['fixed', 'percentage', 'hybrid']) {
+    const original = { ...doctor, payment_mode: 'individual', payment_type,
+      payment_value: payment_type === 'percentage' ? 10 : 1000, hybrid_fixed_amount: 0,
+      hybrid_percentage_value: 10, consultation_compensation_mode: 'none',
+      specialties: ['Therapy', 'Surgery'], services: [
+        'therapy-inherit', 'surgery-inherit',
+        { service_id: 'service', commission_type: 'fixed', commission_value: 500, commission_currency: 'KZT' },
+        { service_id: 'surgery-percent', commission_type: 'percentage', commission_value: 20, commission_currency: 'KZT' },
+        { service_id: 'therapy-zero', commission_type: 'fixed', commission_value: 0, commission_currency: 'KZT' },
+        { service_id: 'surgery-zero', commission_type: 'percentage', commission_value: 0, commission_currency: 'KZT' }
+      ] };
+    const ui = await modal(context, null, original);
+    await ui.submit();
+    const created = buildDoctorPayload(ui.saved[0]);
+    assert.deepEqual(created, buildDoctorPayload(original));
+    const edit = await modal(context, { ...created, id: 'mixed-doctor' });
+    await edit.change(serviceValue(edit, 'service'), '');
+    await edit.submit();
+    const edited = buildDoctorPayload(edit.saved[0]);
+    assert.deepEqual(edited.services, created.services.map(service => service.service_id === 'service' ? 'service' : service));
+    cases.push({ created, edited });
+  }
+  assert.equal(cases.length, 57);
   if (process.env.DOCTOR_CONTRACT_PAYLOADS) await writeFile(process.env.DOCTOR_CONTRACT_PAYLOADS, JSON.stringify(cases));
 });
 

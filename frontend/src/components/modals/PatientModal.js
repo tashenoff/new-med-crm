@@ -33,19 +33,8 @@ const PatientModal = ({
   const [selectedFile, setSelectedFile] = useState(null);
   const [documentDescription, setDocumentDescription] = useState('');
   
-  // Сохраняем ID редактируемого пациента в локальном состоянии для надёжности
-  const [currentPatientId, setCurrentPatientId] = useState(null);
-  
-  // Обновляем ID когда меняется editingItem
-  React.useEffect(() => {
-    if (editingItem) {
-      const id = editingItem.id || editingItem._id;
-      setCurrentPatientId(id);
-    } else if (!show) {
-      // Сбрасываем только когда модалка закрывается
-      setCurrentPatientId(null);
-    }
-  }, [editingItem, show]);
+  // Identity belongs to this opening's explicit edit target, never a previous form.
+  const currentPatientId = editingItem ? (editingItem.id || editingItem._id) : null;
 
     // При создании нового пациента (нет editingItem) всегда начинаем с вкладки "Информация",
     // иначе застрявшая с прошлого открытия вкладка (напр. "Оплата") даёт пустое окно
@@ -87,28 +76,18 @@ const PatientModal = ({
 
   const API = import.meta.env.VITE_BACKEND_URL;
   
-  // Безопасная функция обновления формы, которая всегда сохраняет ID пациента
-  const safeSetPatientForm = (updates) => {
-    const patientId = currentPatientId || patientForm.id || patientForm._id || editingItem?.id || editingItem?._id;
-    const updatedForm = typeof updates === 'function' 
-      ? updates(patientForm) 
-      : { ...patientForm, ...updates };
-    
-    // Всегда сохраняем ID если он есть
-    if (patientId && !updatedForm.id) {
-      updatedForm.id = patientId;
-    }
-    
-    // Диагностика
-    console.log('🔄 safeSetPatientForm:', {
-      'patientId сохранён': patientId,
-      'updates': updates,
-      'updatedForm.id': updatedForm.id
-    });
-    
-    setPatientForm(updatedForm);
+  const patientFormForSession = (form) => {
+    const { id, _id, _editingItemId, ...fields } = form;
+    return currentPatientId ? { ...fields, id: currentPatientId } : fields;
   };
-  
+
+  const safeSetPatientForm = (updates) => {
+    const updatedForm = typeof updates === 'function'
+      ? updates(patientForm)
+      : { ...patientForm, ...updates };
+    setPatientForm(patientFormForSession(updatedForm));
+  };
+
   // Глобальное обновление для синхронизации со страницей пациентов
   const { refreshTreatmentPlans } = useGlobalRefresh();
   
@@ -150,9 +129,13 @@ const PatientModal = ({
     (formattedPhone) => {
       safeSetPatientForm({ phone: formattedPhone });
     },
-    checkPatientByPhone
+    checkPatientByPhone,
+    show ? setPatientForm : null
   );
   
+  const hasPhoneMatch = phoneHook.hasMatch && (!currentPatientId ||
+    (phoneHook.foundData?.patient?.id || phoneHook.foundData?.patient?._id) !== currentPatientId);
+
   // Синхронизация хука телефона с внешним patientForm.phone (при редактировании)
   useEffect(() => {
     phoneHook.syncValue(patientForm.phone || '');
@@ -1120,15 +1103,7 @@ const PatientModal = ({
         {/* Tab Content */}
         {activeTab === 'info' && (
           <form onSubmit={(e) => {
-            // Используем currentPatientId из локального состояния - он надёжнее
-            const patientIdToUse = currentPatientId || editingItem?.id || editingItem?._id;
-            
-            // Передаём ID напрямую вместе с patientForm для надёжности
-            const formDataWithId = {
-              ...patientForm,
-              _editingItemId: patientIdToUse
-            };
-            onSave(e, formDataWithId);
+            onSave(e, patientFormForSession(patientForm));
           }} className="space-y-4">
             <div>
               <input
@@ -1197,7 +1172,7 @@ const PatientModal = ({
             </div>
 
             {/* Блок с информацией о найденном пациенте/лиде */}
-            {phoneHook.hasMatch && phoneHook.foundData && (
+            {hasPhoneMatch && phoneHook.foundData && (
               <div className="p-3 bg-orange-50 border border-orange-200 rounded-lg text-sm">
                 {phoneHook.foundData.patient ? (
                   <div className="flex items-center gap-2 text-orange-700">
@@ -1260,9 +1235,9 @@ const PatientModal = ({
             <div className="flex space-x-3">
               <button
                 type="submit"
-                disabled={loading || phoneHook.hasMatch}
-                className={`flex-1 ${buttonSuccessClasses} ${phoneHook.hasMatch ? 'opacity-50 cursor-not-allowed' : ''}`}
-                title={phoneHook.hasMatch ? 'Пациент с таким номером уже существует' : ''}
+                disabled={loading || hasPhoneMatch}
+                className={`flex-1 ${buttonSuccessClasses} ${hasPhoneMatch ? 'opacity-50 cursor-not-allowed' : ''}`}
+                title={hasPhoneMatch ? 'Пациент с таким номером уже существует' : ''}
               >
                 {loading ? 'Сохранение...' : (editingItem ? 'Обновить' : 'Создать')}
               </button>

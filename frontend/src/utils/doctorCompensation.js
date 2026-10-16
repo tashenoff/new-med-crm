@@ -23,16 +23,39 @@ export const initializeDoctorForm = (doctor = {}) => {
   };
 };
 
+const hasServiceOverride = service => service && typeof service === 'object' &&
+  ['commission_type', 'commission_value', 'commission_currency'].some(field => Object.hasOwn(service, field));
+
+// Untouched selection is just a service ID; never manufacture a zero tariff.
+export const serializeDoctorServices = (selected, commissions, mode) => selected.map(serviceId => {
+  const commission = commissions[serviceId];
+  if (mode !== 'individual' || !commission) return serviceId;
+  return { service_id: serviceId, commission_type: commission.type,
+    commission_value: commission.value, commission_currency: commission.currency ?? 'KZT' };
+});
+
+export const updateServiceCommission = (commissions, serviceId, field, value) => {
+  const next = { ...commissions };
+  if ((field === 'type' && value === 'inherit') || (field === 'value' && value === '')) {
+    delete next[serviceId];
+  } else {
+    next[serviceId] = { type: 'percentage', value: '', currency: 'KZT', ...next[serviceId], [field]: value };
+  }
+  return next;
+};
+
 export const initializeDoctorServices = (form) => {
   const commissions = {};
   const selected = form.services.map(service => {
     if (typeof service !== 'object') return service;
     const serviceId = service.service_id || service.id;
-    commissions[serviceId] = {
-      type: service.commission_type || 'percentage',
-      value: service.commission_value ?? 0,
-      currency: service.commission_currency || 'KZT'
-    };
+    if (hasServiceOverride(service)) {
+      commissions[serviceId] = {
+        type: service.commission_type ?? '',
+        value: service.commission_value,
+        currency: service.commission_currency ?? 'KZT'
+      };
+    }
     return serviceId;
   });
   return { selected, commissions };
@@ -67,7 +90,7 @@ export const buildDoctorPayload = (doctor) => {
   if (!['none', 'inherit', 'separate'].includes(form.consultation_compensation_mode)) {
     throw new Error('Выберите режим оплаты консультаций.');
   }
-  if (form.payment_mode === 'general' || form.consultation_compensation_mode === 'inherit') {
+  if (form.payment_mode === 'general' || form.consultation_compensation_mode === 'inherit' || form.services.some(service => !hasServiceOverride(service))) {
     validateScheme(form.payment_type, form.payment_value, form.hybrid_percentage_value, 'Основная оплата');
   }
   if (form.consultation_compensation_mode === 'separate') {
@@ -75,7 +98,9 @@ export const buildDoctorPayload = (doctor) => {
   }
   if (form.payment_mode === 'individual') {
     for (const service of form.services) {
-      if (typeof service !== 'object' || !['percentage', 'fixed'].includes(service.commission_type)) {
+      if (!hasServiceOverride(service)) continue;
+      if (!['percentage', 'fixed'].includes(service.commission_type) || service.commission_value === '' || service.commission_value == null ||
+          !['number', 'string'].includes(typeof service.commission_value) || String(service.commission_value).trim() === '') {
         throw new Error('Выберите процентную или фиксированную комиссию услуги.');
       }
       validateValue(service.commission_value, service.commission_type === 'percentage', 'Комиссия услуги');
@@ -91,12 +116,12 @@ export const buildDoctorPayload = (doctor) => {
     hybrid_percentage_value: boundedValue(form.hybrid_percentage_value, true),
     consultation_payment_value: boundedValue(form.consultation_payment_value, form.consultation_payment_type === 'percentage'),
     consultation_hybrid_percentage_value: boundedValue(form.consultation_hybrid_percentage_value, true),
-    services: form.services.map(service => typeof service === 'object' ? {
+    services: form.services.map(service => hasServiceOverride(service) ? {
       service_id: service.service_id || service.id,
       commission_type: service.commission_type,
       commission_value: boundedValue(service.commission_value, service.commission_type === 'percentage'),
       commission_currency: service.commission_currency || 'KZT'
-    } : service)
+    } : typeof service === 'object' ? service.service_id || service.id : service)
   };
 };
 
