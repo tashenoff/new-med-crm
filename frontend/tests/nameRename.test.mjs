@@ -133,6 +133,37 @@ const edit = ui => ui.body.querySelector('[aria-label="Редактироват�
 const input = (ui, label) => ui.body.querySelector(`[aria-label="${label}"]`);
 const chatButton = (ui, name) => [...ui.body.querySelectorAll('span')].find(item => item.textContent === name)?.closest('button');
 
+for (const [phone, expected] of [
+  ['8 (701) 234-56-78', '+77012345678'],
+  ['+8 (123) 456-78-901', '+812345678901']
+]) {
+  test(`AppointmentModal new-patient phone normalizes edited input and submission: ${phone}`, async context => {
+    const created = [];
+    const ui = await mount(context, AppointmentModal, { show: true,
+      appointmentForm: { ...booking, patient_id: '', showNewPatientForm: true, lead_full_name: lead.full_name },
+      onCreatePatient: value => { created.push(value); return { id: 'patient', ...value }; } });
+    const field = ui.body.querySelector('input[type="tel"]');
+    await ui.change(field, phone);
+    const displayedPhone = field.value;
+    await ui.click(button(ui, 'Создать пациента'));
+    assert.equal(created.length, 1);
+    assert.equal(created[0].phone, expected);
+    assert.equal(displayedPhone, expected);
+  });
+}
+
+test('AppointmentModal new-patient phone normalizes untouched lead-prefilled input on submission', async context => {
+  const created = [];
+  const ui = await mount(context, AppointmentModal, { show: true,
+    appointmentForm: { ...booking, patient_id: '', showNewPatientForm: true,
+      lead_full_name: lead.full_name, lead_phone: '8 (701) 234-56-78' },
+    onCreatePatient: value => { created.push(value); return { id: 'patient', ...value }; } });
+  assert.ok(ui.body.querySelector('input[type="tel"]').value, 'lead phone is prefilled');
+  await ui.click(button(ui, 'Создать пациента'));
+  assert.equal(created.length, 1);
+  assert.equal(created[0].phone, '+77012345678');
+});
+
 test('Deals pencil preserves structured name fields, saves via updateLead and refreshes without opening card', async context => {
   const ui = await mount(context, Board, {});
   const refreshes = ui.fixture.refreshes;

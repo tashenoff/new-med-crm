@@ -107,6 +107,59 @@ async function modal(context, editingItem = null, initial = {}) {
   return { ...await mount(context, Harness, { editingItem }), saved };
 }
 
+for (const editing of [false, true]) {
+  test(`doctor phone ${editing ? 'edit' : 'create'} normalizes local input in the field and saved payload`, async context => {
+    const ui = await modal(context, editing ? doctor : null, { consultation_compensation_mode: 'none' });
+    const phone = ui.container.querySelector('input[type="tel"]');
+    await ui.change(phone, '8 (701) 234-56-78');
+    assert.equal(phone.value, '+77012345678');
+    assert.equal([...ui.container.querySelectorAll('span')].some(span => span.textContent.trim() === '+7'), false, 'no separate country prefix');
+    await ui.submit();
+    assert.equal(ui.saved.length, 1);
+    assert.equal(ui.saved[0].phone, '+77012345678');
+    assert.deepEqual(ui.saved[0].editingItem, editing ? doctor : null);
+  });
+}
+
+test('doctor phone loads legacy ten-digit numbers and saves them untouched with +7', async context => {
+  for (const [phone, expected] of [
+    ['7012345678', '+77012345678'],
+    ['8012345678', '+78012345678'],
+    ['(701) 234-56-78', '+77012345678']
+  ]) {
+    const original = { ...doctor, phone };
+    const snapshot = structuredClone(original);
+    const ui = await modal(context, original);
+    assert.equal(ui.container.querySelector('input[type="tel"]').value, expected);
+    assert.deepEqual(original, snapshot, 'opening the modal does not mutate the server record');
+    assert.equal(ui.saved.length, 0, 'opening the modal does not save');
+    await ui.submit();
+    assert.equal(ui.saved.length, 1);
+    assert.equal(ui.saved[0].phone, expected);
+    assert.deepEqual(original, snapshot, 'saving does not mutate the source object');
+  }
+});
+
+for (const editing of [false, true]) {
+  test(`doctor phone ${editing ? 'edit' : 'create'} preserves an explicit international +8 input in full`, async context => {
+    const ui = await modal(context, editing ? doctor : null, { consultation_compensation_mode: 'none' });
+    const phone = ui.container.querySelector('input[type="tel"]');
+    await ui.change(phone, '+86 (138) 0013-8000');
+    assert.equal(phone.value, '+8613800138000');
+    await ui.submit();
+    assert.equal(ui.saved.length, 1);
+    assert.equal(ui.saved[0].phone, '+8613800138000');
+  });
+}
+
+test('doctor phone preserves a stored explicit international +8 number on untouched submit', async context => {
+  const ui = await modal(context, { ...doctor, phone: '+86 (138) 0013-8000' });
+  assert.equal(ui.container.querySelector('input[type="tel"]').value, '+8613800138000');
+  await ui.submit();
+  assert.equal(ui.saved.length, 1);
+  assert.equal(ui.saved[0].phone, '+8613800138000');
+});
+
 const salaryReport = {
   salary_data: [{ ...doctor, doctor_id: 'a', doctor_name: 'Current salary doctor', total_revenue: 987654, calculated_salary: 123456 }],
   summary: { total_doctors: 1, total_revenue: 987654, total_salary: 123456 },

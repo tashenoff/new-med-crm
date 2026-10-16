@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import Modal from './Modal';
 import { inputClasses, selectClasses, labelClasses, buttonPrimaryClasses, buttonSecondaryClasses } from './modalUtils';
 import { initializeDoctorForm, initializeDoctorServices, buildDoctorPayload } from '../../utils/doctorCompensation';
+import { formatPhoneChange } from '../../hooks/phoneFormatter';
 
 const DoctorModal = ({ 
   show, 
@@ -25,6 +26,11 @@ const DoctorModal = ({
   useEffect(() => {
     if (show) {
       const initialForm = initializeDoctorForm(editingItem || doctorForm);
+      // Legacy local numbers relied on the separate +7 prefix in the old UI.
+      const legacyPhone = String(initialForm.phone || '').trim();
+      const legacyDigits = legacyPhone.replace(/\D/g, '');
+      const isLegacyLocalNumber = !legacyPhone.startsWith('+') && legacyDigits.length === 10;
+      initialForm.phone = formatPhoneChange(isLegacyLocalNumber ? `+7${legacyDigits}` : legacyPhone);
       const { selected, commissions } = initializeDoctorServices(initialForm);
       setDoctorForm(initialForm);
       setSelectedServices(selected);
@@ -307,18 +313,13 @@ const DoctorModal = ({
                 </div>
               </div>
               
-              <div className="flex">
-                <span className="inline-flex items-center px-3 text-sm text-gray-900 bg-gray-200 border border-r-0 border-gray-300 rounded-l-lg dark:bg-gray-600 dark:text-gray-300 dark:border-gray-600">
-                  +7
-                </span>
-                <input
-                  type="tel"
-                  placeholder="(XXX) XXX-XX-XX"
-                  value={doctorForm.phone || ''}
-                  onChange={(e) => setDoctorForm({...doctorForm, phone: e.target.value})}
-                  className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-r-lg focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                />
-              </div>
+              <input
+                type="tel"
+                placeholder="+7 (XXX) XXX-XX-XX"
+                value={doctorForm.phone || ''}
+                onChange={(e) => setDoctorForm({...doctorForm, phone: formatPhoneChange(e.target.value)})}
+                className={inputClasses}
+              />
               
               <div>
                 <label className={labelClasses}>Цвет календаря</label>

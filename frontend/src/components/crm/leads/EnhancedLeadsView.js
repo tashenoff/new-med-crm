@@ -8,6 +8,7 @@ import {
 } from 'lucide-react';
 import { FaWhatsapp } from 'react-icons/fa';
 import { useCrm } from '../../../hooks/useCrm';
+import { formatPhoneChange } from '../../../hooks/phoneFormatter';
 import { patientsApi } from '../../../api/patients';
 import { useTheme, themeClasses, cn } from '../../../hooks/useTheme';
 import { useModal } from '../../../context/ModalContext';
@@ -477,26 +478,9 @@ const EnhancedLeadsView = ({ user }) => {
     }, 300);
   }, [checkPatientByPhone]);
 
-  // Форматирование телефона: просто добавляем + в начало
-  const formatPhoneNumber = (value) => {
-    // Убираем всё кроме цифр
-    let digits = value.replace(/\D/g, '');
-    
-    // Ограничиваем 11 цифрами (код страны + 10 цифр)
-    digits = digits.slice(0, 11);
-    
-    // Если нет цифр, возвращаем пустую строку
-    if (digits.length === 0) {
-      return '';
-    }
-    
-    // Просто добавляем + в начало
-    return '+' + digits;
-  };
-
   // Обработчик изменения телефона
   const handlePhoneChange = (e) => {
-    const formatted = formatPhoneNumber(e.target.value);
+    const formatted = formatPhoneChange(e.target.value);
     setNewLead({ ...newLead, phone: formatted });
     handlePhoneCheck(formatted);
   };
@@ -506,6 +490,7 @@ const EnhancedLeadsView = ({ user }) => {
       // Подготавливаем данные для отправки
       const leadData = {
         ...newLead,
+        phone: formatPhoneChange(newLead.phone),
         // Убеждаемся что source имеет допустимое значение
         source: newLead.source || 'website',
         // Очищаем пустые значения
