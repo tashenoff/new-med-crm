@@ -94,10 +94,6 @@ const AppointmentModal = ({
 }) => {
 // Используем локальное состояние для формы, чтобы изменения работали корректно
   const [appointmentForm, setLocalAppointmentForm] = useState(initialAppointmentForm);
-  const receiptOperation = useRef(null);
-  useEffect(() => {
-    receiptOperation.current = null;
-  }, [show, editingItem?.id, editingItem?._id]);
   
   // Ref для актуальной формы (избегаем устаревших данных в async-замыканиях)
   const appointmentFormRef = useRef(initialAppointmentForm);
@@ -1034,6 +1030,10 @@ const handleCreateNewPatient = async (e) => {
     try {
       const base = { ...appointmentForm };
       delete base.operation_id;
+      // Status changes belong to the calendar. Omit even the opening snapshot
+      // on edits so a later status change cannot be overwritten by this form.
+      delete base.status;
+      if (!editingItem) base.status = 'unconfirmed';
       delete base.patient_full_name;
       // CRM conversion creates the patient in schedule-appointment, bypassing
       // onCreatePatient. Only an edited name is an official-name override: the
@@ -1044,11 +1044,6 @@ const handleCreateNewPatient = async (e) => {
         base.patient_full_name = patientFullName;
       }
       payload = appointmentPayment(base);
-      if (payload.status === 'completed') {
-        const fingerprint = JSON.stringify(payload);
-        if (receiptOperation.current?.fingerprint !== fingerprint) receiptOperation.current = { fingerprint, id: crypto.randomUUID() };
-        payload.operation_id = receiptOperation.current.id;
-      }
     } catch (error) { alert(error.message); return; }
     setSubmitting(true);
 
@@ -1542,22 +1537,6 @@ const handleCreateNewPatient = async (e) => {
               </div>
               */}
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Статус записи</label>
-                <select
-                  value={appointmentForm.status || 'unconfirmed'}
-                  onChange={(e) => setAppointmentForm({ ...appointmentForm, status: e.target.value })}
-                  className={selectClasses}
-                >
-                  <option value="unconfirmed">🟡 Не подтверждено</option>
-                  <option value="confirmed">🟢 Подтверждено</option>
-                  <option value="arrived">🔵 Пациент пришел</option>
-                  <option value="in_progress">🟠 На приеме</option>
-                  <option value="completed">🟢 Завершен</option>
-                  <option value="cancelled">🔴 Отменено</option>
-                  <option value="no_show">⚪ Не явился</option>
-                </select>
-              </div>
             </div>
 
             {/* Секция депозита */}
@@ -1607,22 +1586,6 @@ const handleCreateNewPatient = async (e) => {
             </div>
             */}
 
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Статус записи</label>
-              <select
-                value={appointmentForm.status || 'unconfirmed'}
-                onChange={(e) => setAppointmentForm({ ...appointmentForm, status: e.target.value })}
-                className={selectClasses}
-              >
-                <option value="unconfirmed">🟡 Не подтверждено</option>
-                <option value="confirmed">🟢 Подтверждено</option>
-                <option value="arrived">🔵 Пациент пришел</option>
-                <option value="in_progress">🟠 На приеме</option>
-                <option value="completed">🟢 Завершен</option>
-                <option value="cancelled">🔴 Отменено</option>
-                <option value="no_show">⚪ Не явился</option>
-              </select>
-            </div>
           </div>
 
           <div>
