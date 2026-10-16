@@ -84,6 +84,7 @@ services:
     shm_size: 1gb
     environment:
       CI: '1'
+      E2E_SCENARIO: ${E2E_SCENARIO:?Runner must select a scenario}
     secrets: [session]
     # Loopback is a browser secure context (crypto.randomUUID), without TLS/auth bypass.
     # Share only the isolated web network namespace, never the host network.

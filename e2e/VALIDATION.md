@@ -1,3 +1,72 @@
+# Пакет из четырёх browser E2E — 2026-10-16
+
+Локальный полный запуск **4/4 PASS**, `20261016T003457Z-5547a4de`,
+завершён `2026-10-16T00:36:50.811508+00:00` в выбранном облачном Docker workspace.
+Команда: `python3 e2e/run.py --frontend-ref HEAD`.
+
+| Источник | Точный SHA |
+| --- | --- |
+| frontend, HEAD тестовой ветки при прогоне | `662507c7259d5f87ed061647bd00020594043ecc` |
+| backend, fetched ref-2 | `3101bf1bc1ef5a9bcfe888b213416173d19a8afd` |
+| фактический released main | `6b5fe391b33bbe3c5e4bf791de47ea1337389c1c` |
+
+Harness запускается из текущего checkout: этот прогон включает новые ещё
+незакоммиченные test-файлы, SHA256 каждого записан в run.json. Приложение берётся
+из точных immutable source commits; frontend/backend business-код не изменён.
+
+| Сценарий | До оплаты fixed / hybrid | После UI-оплаты fixed / hybrid | Ledger |
+| --- | --- | --- | --- |
+| ordinary-fixed, 3000 KZT | 0 / 0 | 1000 / 0 | 2 events |
+| ordinary-hybrid, 3000 KZT | 0 / 0 | 0 / 1300 | 2 events |
+| complex-components, 2000 затем 3000 | 0 / 0 | 1000 / 0 → 1000 / 1300 | 2 → 4 events |
+| complex-full, свежий план 5000 | 0 / 0 | 1000 / 1300 | 4 events |
+
+Каждый стартует с чистой собственной БД при общем временном стеке. Для каждой
+оплаты подтверждены live Finance без document reload, точные UI/API/Mongo
+суммы, статусы, earning doctor и стабильные component/occurrence IDs.
+Уплаченный компонент завершён сразу; неоплаченный компонент не завершён и его
+врач ничего не получает. После оплаты остатка первые два events идентичны.
+Во всех сценариях receipt + completion сверены по отдельности: hybrid =
+300 за receipt + 1000 за completion; fixed = 0 + 1000.
+
+После **каждой** оплаты проверены параллельные повторы исходной UI-команды
+(200/200), новая операция оплаты (component 422; aggregate 409), повторное
+completion каждой оплаченной occurrence (409). Весь ledger и service projections
+идентичны до/после повторов. Настоящий reload сохраняет точные результаты,
+включая промежуточное состояние комплекса после первой оплаты.
+
+При сравнении API и Mongo дата нормализуется к одному UTC-моменту:
+FastAPI отдаёт naive UTC с microseconds, Mongo BSON Date — UTC с milliseconds.
+Это единственная нормализация; суммы/статусы/врачи/identities не исключены из проверки.
+
+Самостоятельное ревью: область reset и egress guards сохранены; используются
+DoctorCreate/DoctorScheduleCreate/ServicePriceCreate и production validation
+состава комплекса. Не используются deprecated hybrid aliases, нулевые цены,
+бизнес-моки или обход совместимости/расписания. Селекторы расписания ограничены
+его панелью; browser viewport 1920×1200 позволяет видеть полные зарплатные строки.
+Screenshots комплекса после первой и полной оплаты просмотрены визуально.
+Бизнес-багов в этих четырёх сценариях не найдено. Application/deploy diff пуст.
+
+Четыре security unit-теста, Python compile, Node syntax и diff whitespace — PASS.
+Все 45 файлов manifest проверены по SHA256; 550 файлов/ZIP entries проверены
+на JWT; все четыре trace ZIP целы. Cleanup подтверждён runner и независимым
+Docker label lookup; временные worktrees/secret удалены. Опубликованный локальный
+bundle: `e2e-artifacts/20261016T003457Z-5547a4de/published/` (не коммитится).
+
+Предварительные падения были в fixture validation, сериализации дат и UI selector;
+их screenshot/trace/logs сохранены там, где браузер успел запуститься. Assertions
+бизнес-результатов не ослаблялись, production-файлы не исправлялись.
+
+CI этого расширенного пакета проверяется после публикации того же draft PR #2.
+Следующие непокрытые сценарии: курсы, частичная денежная оплата отдельной услуги,
+лабораторные анализы. Это **четыре сценария**, не полное покрытие CRM.
+
+---
+
+Ниже исторический отчёт первого этапа до публикации; его упоминания ещё
+не запущенного CI относятся только к тому моменту. Для первого этапа затем
+получен [GitHub Actions PASS](https://github.com/tashenoff/new-med-crm/actions/runs/38828872877).
+
 # Проверка первого этапа — 2026-10-16
 
 **Результат: локальный Docker/browser прогон PASS в выбранном облачном workspace.**

@@ -20,6 +20,7 @@ import zipfile
 
 ROOT = Path(__file__).resolve().parent.parent
 HARNESS = ROOT / 'e2e'
+SCENARIOS = ('ordinary-fixed', 'ordinary-hybrid', 'complex-components', 'complex-full')
 
 
 def git(*args):
@@ -95,7 +96,8 @@ def main():
                 'harness_files_sha256': {p.name: hashlib.sha256(p.read_bytes()).hexdigest()
                                          for p in HARNESS.iterdir() if p.is_file()},
                 'database': 'medcrm_browser_e2e', 'runtime_network': 'internal',
-                'scope': 'ordinary service 3000 KZT / fixed compensation 1000 KZT'}
+                'scenarios': list(SCENARIOS), 'scenario_count': len(SCENARIOS),
+                'scope': 'ordinary fixed/hybrid; two-doctor complex component/full settlement'}
     log = (output / 'runner.log').open('w')
     worktrees = []
     compose = None
@@ -141,6 +143,7 @@ def main():
                 command(['git', 'worktree', 'add', '--detach', source, sha])
                 worktrees.append(source)
             env = {**os.environ, 'HARNESS': str(HARNESS), 'SESSION_FILE': str(secret_file),
+                   'E2E_SCENARIO': SCENARIOS[0],
                    'FRONTEND_SOURCE': str(temp / 'frontend'), 'BACKEND_SOURCE': str(temp / 'backend'),
                    'DOCKER_CONFIG': str(temp / 'docker-config'), 'BUILD_CA_FILE': str(build_ca),
                    'BUILD_NETWORK': os.environ.get('E2E_BUILD_NETWORK', 'host' if certificate else 'default')}
@@ -176,8 +179,20 @@ def main():
                     metadata['runtime'].append({'name': container['Name'], 'image_id': container['Image'], 'published_ports': []})
                 metadata['network_internal_verified'] = True
                 save()
-                metadata['browser_started'] = True
-                command(compose + ['up', '--no-deps', '--abort-on-container-exit', '--exit-code-from', 'browser', 'browser'], timeout=300)
+                metadata['completed_scenarios'] = []
+                for index, scenario in enumerate(SCENARIOS):
+                    env['E2E_SCENARIO'] = scenario
+                    metadata['active_scenario'] = scenario
+                    save()
+                    if index:
+                        # Reuse the same isolated stack; only its disposable DB is reset.
+                        command(compose + ['rm', '-f', 'browser'])
+                        command(compose + ['run', '--rm', '--no-deps', 'api', 'python', '/harness/seed.py'])
+                    metadata['browser_started'] = True
+                    save()
+                    command(compose + ['up', '--no-deps', '--abort-on-container-exit', '--exit-code-from', 'browser', 'browser'], timeout=300)
+                    command(compose + ['cp', 'browser:/artifacts/.', str(output)], timeout=30)
+                    metadata['completed_scenarios'].append(scenario)
                 metadata['status'] = 'passed'
                 exit_code = 0
             finally:
@@ -212,7 +227,7 @@ def main():
         exit_code = 1
         metadata['status'] = 'failed'
         metadata['error'] = str(error)
-        evidence_path = output / 'evidence.json'
+        evidence_path = output / (metadata.get('active_scenario', SCENARIOS[0]) + '-evidence.json')
         if evidence_path.exists():
             failure = json.loads(evidence_path.read_text()).get('failure')
             if failure:
@@ -244,21 +259,15 @@ def main():
     published = output / 'published'
     if published.exists():
         summary = {key: metadata.get(key) for key in
-                   ('status', 'frontend_sha', 'backend_sha', 'cleanup_verified', 'failed_stage')}
+                   ('status', 'frontend_sha', 'backend_sha', 'cleanup_verified', 'failed_stage',
+                    'scenario_count', 'completed_scenarios')}
         summary['sanitized_artifacts'] = True
-        evidence_file = published / 'evidence.json'
-        if evidence_file.exists():
-            evidence = json.loads(evidence_file.read_text())
-            summary['scenario_status'] = evidence.get('status')
-            summary['replay'] = evidence.get('replay')
-        for name in ('before-payment', 'after-reload'):
-            snapshot_file = published / (name + '.json')
-            if snapshot_file.exists():
-                snapshot = json.loads(snapshot_file.read_text())
-                events = snapshot['plan'].get('accounting_events', [])
-                summary[name] = {'salary_kzt': snapshot['report']['summary']['total_salary'],
-                                 'paid_kzt': snapshot['plan']['paid_amount'],
-                                 'event_count': len(events)}
+        summary['scenarios'] = {}
+        for scenario in SCENARIOS:
+            evidence_file = published / (scenario + '-evidence.json')
+            if evidence_file.exists():
+                evidence = json.loads(evidence_file.read_text())
+                summary['scenarios'][scenario] = {key: evidence.get(key) for key in ('status', 'checkpoints', 'replays', 'failure')}
         print('E2E_RESULT_JSON: ' + json.dumps(summary, sort_keys=True), flush=True)
         if exit_code:
             # Only verified sanitized logs reach the CI console, never raw output.
