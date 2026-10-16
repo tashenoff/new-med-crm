@@ -1,5 +1,6 @@
 import { paymentSummary } from '../../utils/paymentBalances';
 import React, { useState, useEffect, useRef } from 'react';
+import { formatPhoneChange } from '../../hooks/phoneFormatter';
 import { appointmentPayment } from '../../utils/accountingLedger';
 import SignatureCanvas from 'react-signature-canvas';
 import Modal from './Modal';
@@ -954,6 +955,7 @@ const handleCreateNewPatient = async (e) => {
     try {
       const result = await onCreatePatient({
         ...newPatientForm,
+        phone: formatPhoneChange(newPatientForm.phone || appointmentForm.lead_phone || ''),
         source: appointmentForm.source,
         source_id: appointmentForm.source_id
       });
@@ -1303,7 +1305,7 @@ const handleCreateNewPatient = async (e) => {
                   type="tel"
                   placeholder="Телефон *"
                   value={newPatientForm.phone || appointmentForm.lead_phone || ''}
-                  onChange={(e) => setNewPatientForm({ ...newPatientForm, phone: e.target.value })}
+                  onChange={(e) => setNewPatientForm({ ...newPatientForm, phone: formatPhoneChange(e.target.value) })}
                   className="px-3 py-2 border border-gray-300 rounded-lg text-sm"
                 />
                 <input
