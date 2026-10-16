@@ -3,6 +3,7 @@ import Modal from '../modals/Modal';
 import PanelHeader from '../common/PanelHeader';
 import { inputClasses, selectClasses, buttonPrimaryClasses, buttonSecondaryClasses, buttonDangerClasses, tableClasses, tableHeaderClasses, tableRowClasses, labelClasses } from '../modals/modalUtils';
 import { materialsApi } from '../../api/materials';
+import { validateServicePrice, servicePriceSaveError } from './servicePriceForm';
 
 const API = import.meta.env.VITE_BACKEND_URL;
 
@@ -14,6 +15,7 @@ const ServicePrices = ({ user }) => {
   const [materialSearch, setMaterialSearch] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [priceError, setPriceError] = useState('');
   
   // Import Excel states
   const [showImportModal, setShowImportModal] = useState(false);
@@ -313,6 +315,8 @@ const ServicePrices = ({ user }) => {
   };
 
   const handleCreate = () => {
+    setError('');
+    setPriceError('');
     setEditingPrice(null);
     setFormData({
       service_name: '',
@@ -332,13 +336,15 @@ const ServicePrices = ({ user }) => {
   };
 
   const handleEdit = (price) => {
+    setError('');
+    setPriceError('');
     setEditingPrice(price);
     setFormData({
       service_name: price.service_name,
       service_name_kz: price.service_name_kz || '',
       service_code: price.service_code || '',
       category: price.category || '',
-      price: price.price || '',
+      price: price.price ?? '',
       description: price.description || '',
       disable_discount: price.disable_discount || false,
       service_type: price.service_type || 'regular',
@@ -349,6 +355,11 @@ const ServicePrices = ({ user }) => {
   };
 
   const handleSave = async () => {
+    const validationError = validateServicePrice(formData.price);
+    setPriceError(validationError);
+    setError('');
+    if (validationError) return;
+
     try {
       setLoading(true);
       const token = localStorage.getItem('token');
@@ -365,7 +376,7 @@ const ServicePrices = ({ user }) => {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify(formData)
+        body: JSON.stringify({ ...formData, price: Number(formData.price) })
       });
 
       if (response.ok) {
@@ -375,7 +386,9 @@ const ServicePrices = ({ user }) => {
         setError('');
       } else {
         const errorData = await response.json();
-        setError(errorData.detail || 'Ошибка при сохранении услуги');
+        const saveError = servicePriceSaveError(errorData.detail);
+        setError(saveError.message);
+        setPriceError(saveError.priceError);
       }
     } catch (error) {
       console.error('Error saving service price:', error);
@@ -956,6 +969,7 @@ const ServicePrices = ({ user }) => {
           setFilteredMaterials([]);
         }}
         title={editingPrice ? 'Редактировать услугу' : 'Новая услуга'}
+        errorMessage={error}
       >
         <div className="space-y-4">
           <div className="grid grid-cols-2 gap-4">
@@ -1130,16 +1144,28 @@ const ServicePrices = ({ user }) => {
 
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className={labelClasses}>Цена, ₸</label>
+              <label htmlFor="service-price" className={labelClasses}>Цена, ₸ *</label>
               <input
+                id="service-price"
                 type="number"
                 value={formData.price}
-                onChange={(e) => setFormData(prev => ({ ...prev, price: e.target.value }))}
-                className={inputClasses}
+                onChange={(e) => {
+                  setFormData(prev => ({ ...prev, price: e.target.value }));
+                  setPriceError('');
+                }}
+                className={`${inputClasses} ${priceError ? 'border-red-500 dark:border-red-400 ring-1 ring-red-500' : ''}`}
+                aria-invalid={Boolean(priceError)}
+                aria-describedby={priceError ? 'service-price-error' : undefined}
                 placeholder="1500"
                 min="0"
                 step="0.01"
+                required
               />
+              {priceError && (
+                <p id="service-price-error" role="alert" className="mt-1 text-sm text-red-600 dark:text-red-400">
+                  {priceError}
+                </p>
+              )}
             </div>
 
             <div>
