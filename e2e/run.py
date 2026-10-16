@@ -120,7 +120,8 @@ def main():
     signal.signal(signal.SIGTERM, interrupted)
     signal.signal(signal.SIGINT, interrupted)
     try:
-        with tempfile.TemporaryDirectory(prefix='medcrm-e2e-') as temporary:
+        # Bake permits only explicitly scoped checkout reads on newer runners.
+        with tempfile.TemporaryDirectory(prefix='.runtime-', dir=HARNESS) as temporary:
             temp = Path(temporary)
             secret_file = temp / 'session.json'
             secret_file.write_text(json.dumps(session))
