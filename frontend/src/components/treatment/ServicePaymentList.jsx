@@ -1,4 +1,4 @@
-import { discountedPaymentAmount } from '../../utils/paymentBalances';
+import { discountedPaymentAmount, planRemainingToPay } from '../../utils/paymentBalances';
 import { ledgerFetch, requireSessionId } from '../../utils/accountingLedger';
 import React, { useState, useEffect } from 'react';
 import { FaChevronDown, FaChevronRight, FaStethoscope, FaClipboardList, FaNotesMedical, FaUserMd, FaFileMedical, FaCreditCard } from 'react-icons/fa';
@@ -487,7 +487,7 @@ const ServicePaymentList = ({ plan, onUpdate, onEdit, paymentFilter = 'all', pro
   const depositBalance = depositAmount > totalAmount ? depositAmount - totalAmount : 0;
   const depositDebt = depositAmount < totalAmount ? totalAmount - depositAmount : 0;
   // remainingToPay - сумма неоплаченных услуг (без учёта депозита)
-  const remainingToPay = Math.max(0, totalAmount - paidAmount);
+  const remainingToPay = planRemainingToPay(plan, paidAmount);
   // paidAmount already includes applied deposit funding.
   const actualRemainingToPay = remainingToPay;
 

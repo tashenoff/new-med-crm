@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { paymentDiscount, paymentSummary } from '../../utils/paymentBalances';
 import { completionRequest, ledgerFetch } from '../../utils/accountingLedger';
 
 const TreatmentPlanView = ({ plan, onUpdate }) => {
@@ -13,15 +14,9 @@ const TreatmentPlanView = ({ plan, onUpdate }) => {
   // Скидка компонента: приоритет у discount_amount, иначе discount
   const getCompDiscount = (c) => (Number(c.discount_amount) || 0) || (Number(c.discount) || 0);
 
-  // Итоговая скидка по плану: discount_amount сервиса + discount_amount его компонентов
+  const { paidAmount, remainingToPay } = paymentSummary([plan]);
   const totalPlanDiscount = () =>
-    (plan.services || []).reduce(
-      (sum, s) =>
-        sum +
-        (Number(s.discount_amount) || 0) +
-        (s.components || []).reduce((cs, c) => cs + (Number(c.discount_amount) || 0), 0),
-      0
-    );
+    (plan.services || []).reduce((sum, service) => sum + paymentDiscount(service), 0);
 
   const markProcedureCompleted = async (service, component) => {
     if (loading) return;
@@ -138,16 +133,16 @@ const TreatmentPlanView = ({ plan, onUpdate }) => {
         <div>
           <div className="text-xs text-gray-500">Оплачено</div>
           <div className="text-lg font-semibold text-green-600">
-            {((plan.paid_amount || 0) + (plan.deposit_amount || 0)).toLocaleString()} ₸
+            {paidAmount.toLocaleString()} ₸
           </div>
         </div>
         <div>
           <div className="text-xs text-gray-500">Остаток</div>
           <div className="text-lg font-semibold text-red-600">
-            {((plan.total_cost || 0) - (plan.paid_amount || 0) - (plan.deposit_amount || 0)).toLocaleString()} ₸
+            {remainingToPay.toLocaleString()} ₸
           </div>
         </div>
-        {/* Итоговая скидка по плану: discount_amount сервиса + discount_amount его компонентов */}
+        {/* Денежные скидки строк без повторного учёта скидок компонентов */}
         <div>
           <div className="text-xs text-gray-500">Скидка</div>
           <div className="text-lg font-semibold text-red-500">

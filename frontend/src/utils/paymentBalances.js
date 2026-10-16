@@ -24,6 +24,35 @@ export function discountedPaymentAmount(remaining, discount, priorPaid = 0) {
   return Math.max(0, Math.round((remaining + priorPaid - discount) * 100) / 100);
 }
 
+const monetaryAmount = value => {
+  const amount = Number(value);
+  return Number.isFinite(amount) ? Math.max(0, amount) : 0;
+};
+
+export function paymentDiscount(service) {
+  // Complex parent discount_amount/discount_total may mirror the children.
+  // Component price is a catalog weight, not its allocated package obligation.
+  if (service.is_complex && Array.isArray(service.components) && service.components.length) {
+    return service.components.reduce((sum, component) => sum + monetaryAmount(component.discount_amount), 0);
+  }
+  return monetaryAmount(service.discount_amount ?? (service.is_complex ? service.discount_total : 0));
+}
+
+export function planRemainingToPay(plan, paidAmount = plan.paid_amount) {
+  const services = plan.services;
+  const hasRowTotals = Array.isArray(services) && services.length > 0 && services.every(service =>
+    service && service.total_price != null && service.total_price !== '' && Number.isFinite(Number(service.total_price)));
+  // total_price already includes selector discount (%). Only the separate
+  // monetary payment discount remains to subtract, once per payable row.
+  // Start from rows, not a plan total which may already be net-discounted.
+  // Incomplete legacy snapshots retain the aggregate fallback; do not guess bases.
+  const payable = hasRowTotals
+    ? services.reduce((sum, service) => sum + Math.max(0, monetaryAmount(service.total_price) - paymentDiscount(service)), 0)
+    : monetaryAmount(plan.total_cost);
+  // Actual money includes applied deposit funding. Receipts are not allocations.
+  return Math.max(0, payable - monetaryAmount(paidAmount));
+}
+
 // paid_amount includes deposit allocations, so subtract it only once.
 export function paymentSummary(plans) {
   const totalAmount = plans.reduce((sum, plan) => sum + (Number(plan.total_cost) || 0), 0);
@@ -31,7 +60,7 @@ export function paymentSummary(plans) {
   return {
     totalAmount,
     paidAmount,
-    remainingToPay: Math.max(0, totalAmount - paidAmount),
+    remainingToPay: Math.max(0, plans.reduce((sum, plan) => sum + planRemainingToPay(plan, 0), 0) - paidAmount),
     ...paymentBreakdown(plans),
   };
 }
