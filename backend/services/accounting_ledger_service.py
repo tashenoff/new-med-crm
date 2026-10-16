@@ -10,7 +10,7 @@ from urllib.parse import quote
 
 from fastapi import HTTPException
 
-from compensation import accrue, tariff
+from compensation import accrue, tariff, service_tariff_settings
 
 COMPLETED_PAID_POLICY = "completed_paid_v1"
 AUTO_COMPLETION_POLICY = "full_payment_v1"
@@ -259,19 +259,8 @@ def canonical_request(plan_id, row_id, kind, body, occurrence_id):
 
 def resolve_snapshot(doctor, service_id):
     mode = doctor.get("payment_mode") or "general"
-    settings = doctor
-    if mode == "individual":
-        configs = [entry for entry in doctor.get("services") or []
-                   if isinstance(entry, dict) and entry.get("service_id") == service_id]
-        if len(configs) != 1 or configs[0].get("commission_type") not in ("fixed", "percentage") or configs[0].get("commission_value") is None:
-            raise HTTPException(409, "An explicit individual service tariff is required")
-        config = configs[0]
-        settings = dict(payment_type=config["commission_type"], payment_value=config["commission_value"],
-                        currency=config.get("commission_currency", "KZT"))
-    elif mode != "general":
-        raise HTTPException(409, "Invalid doctor compensation mode")
     try:
-        kind, value, percent = tariff(settings)
+        kind, value, percent = tariff(service_tariff_settings(doctor, service_id))
     except ValueError as error:
         raise HTTPException(409, f"Cannot snapshot doctor tariff: {error}") from None
     return dict(payment_mode=mode, payment_type=kind, payment_value=value,

@@ -2167,12 +2167,13 @@ def test_independently_settled_target_releases_salary_once_in_final_payment_peri
 
 @pytest.mark.parametrize('target_kind', ['service', 'component', 'session'])
 @pytest.mark.parametrize('order', ['pay_first', 'complete_first'])
-@pytest.mark.parametrize('scheme,expected', [('fixed', 1000), ('percentage', 300), ('hybrid', 1300), ('individual_fixed', 1000), ('individual_percentage', 300)])
+@pytest.mark.parametrize('scheme,expected', [('fixed', 1000), ('percentage', 300), ('hybrid', 1300), ('individual_fixed', 1000), ('individual_percentage', 300), ('inherit_fixed', 1000), ('inherit_percentage', 300), ('inherit_hybrid', 1300), ('zero_fixed', 0), ('zero_percentage', 0)])
 def test_completed_paid_policy_requires_both_per_target(modules, monkeypatch, target_kind, order, scheme, expected):
     fixture = {'service': memory_db, 'component': component_db, 'session': course_db}[target_kind]
     db, saved, settings = fixture()
     saved['compensation_policy'] = modules.ledger.COMPLETED_PAID_POLICY
-    settings.update(payment_type=scheme if not scheme.startswith('individual') else 'fixed', payment_value=10 if scheme == 'percentage' else 1000, hybrid_percentage_value=10)
+    general_kind = scheme.removeprefix('inherit_') if scheme.startswith('inherit_') else scheme if scheme in ('fixed', 'percentage', 'hybrid') else 'hybrid'
+    settings.update(payment_type=general_kind, payment_value=10 if general_kind == 'percentage' else 1000, hybrid_percentage_value=10)
     row = saved['services'][0]
     row.update(total_price=3000, quantity=1, occurrence_ids=['first'])
     target = row
@@ -2190,6 +2191,10 @@ def test_completed_paid_policy_requires_both_per_target(modules, monkeypatch, ta
         occurrence = 'session-a'
     if scheme.startswith('individual'):
         settings.update(payment_mode='individual', services=[dict(service_id=target.get('service_id', row['service_id']), commission_type=scheme.split('_')[1], commission_value=10 if scheme.endswith('percentage') else 1000)])
+    if scheme.startswith('inherit_'):
+        settings.update(payment_mode='individual', services=[target.get('service_id', row['service_id'])])
+    elif scheme.startswith('zero_'):
+        settings.update(payment_mode='individual', services=[dict(service_id=target.get('service_id', row['service_id']), commission_type=scheme.split('_')[1], commission_value=0)])
     db.service_prices.find_one = AsyncMock(side_effect=lambda query: dict(id=query['id'], service_type='regular'))
     monkeypatch.setattr(modules.plans.TreatmentPlanService, 'sync_persisted_payment', AsyncMock())
     ledger = modules.ledger.AccountingLedgerService(db)
@@ -2322,3 +2327,82 @@ def test_new_fixed_doctor_completed_unpaid_plan_is_complete_zero_report_then_pai
     assert after['compensation_complete'] is True
     assert after['salary_data'][0]['calculated_salary'] == 1000
     assert after['salary_data'][0]['treatment_plans_revenue'] == 3000
+
+
+@pytest.mark.parametrize("kind,value,inherited", [("fixed", 1000, 1000), ("percentage", 10, 300), ("hybrid", 1000, 1300)])
+@pytest.mark.parametrize("order", ["receipt_first", "completion_first"])
+@pytest.mark.parametrize("completed_paid", [False, True])
+def test_mixed_individual_inheritance_ledger_receipt_completion_and_retries(modules, monkeypatch, kind, value, inherited, order, completed_paid):
+    db, saved, settings = memory_db()
+    if completed_paid:
+        saved["compensation_policy"] = modules.ledger.COMPLETED_PAID_POLICY
+    settings.update(payment_mode="individual", payment_type=kind, payment_value=value,
+                    hybrid_percentage_value=10, specialties=["Therapy", "Surgery"], services=[
+        "therapy-inherit", dict(service_id="surgery-inherit"),
+        dict(service_id="therapy-fixed", commission_type="fixed", commission_value=500),
+        dict(service_id="surgery-percent", commission_type="percentage", commission_value=20),
+        dict(service_id="therapy-zero", commission_type="fixed", commission_value=0),
+        dict(service_id="surgery-zero", commission_type="percentage", commission_value=0),
+    ])
+    other = dict(settings, id="doctor-b", payment_type="fixed", payment_value=700, services=["therapy-fixed"])
+    db.doctors.find_one = AsyncMock(side_effect=lambda query: deepcopy(settings if query["id"] == "doctor" else other))
+    targets = [(service if isinstance(service, str) else service["service_id"], "doctor", expected)
+               for service, expected in zip(settings["services"], [inherited, inherited, 500, 600, 0, 0])]
+    targets.append(("therapy-fixed", "doctor-b", 700))
+    saved["total_cost"] = len(targets) * 3000
+    saved["services"] = [dict(service_id=service_id, service_row_id=f"row-{index}", doctor_id=doctor_id,
+        total_price=3000, quantity=1, quantity_completed=0, occurrence_ids=["first"], payment_status="unpaid")
+        for index, (service_id, doctor_id, _) in enumerate(targets)]
+    monkeypatch.setattr(modules.plans.TreatmentPlanService, "sync_persisted_payment", AsyncMock())
+    ledger = modules.ledger.AccountingLedgerService(db)
+    period = (datetime(2000, 1, 1), datetime(2100, 1, 1))
+    for index, (service_id, doctor_id, expected) in enumerate(targets):
+        payment = receipt(amount_kzt=3000, discount_amount_kzt=0)
+        completion = dict(operation_id=str(uuid4()))
+        def pay():
+            return ledger.record_ordinary_service("plan", f"row-{index}", "service_receipt", payment, "recorder")
+        def complete():
+            return ledger.record_ordinary_service("plan", f"row-{index}", "service_completion", completion, "recorder", "first")
+        first, second = (pay, complete) if order == "receipt_first" else (complete, pay)
+        asyncio.run(first())
+        asyncio.run(second())
+        before = deepcopy(saved)
+        asyncio.run(pay())
+        asyncio.run(complete())
+        assert saved == before
+        events = [event for event in saved["accounting_events"] if event.get("service_row_id") == f"row-{index}"]
+        assert len(events) == 2
+        assert all(event["doctor_id"] == doctor_id for event in events)
+        snapshot = events[0]["compensation_snapshot"]
+        assert snapshot["payment_mode"] == "individual"
+        if expected == 0:
+            assert snapshot["payment_value"] == 0
+    assert modules.ledger.ordinary_ledger_totals(saved, "doctor", *period) == (18000, 2 * inherited + 1100, [])
+    assert modules.ledger.ordinary_ledger_totals(saved, "doctor-b", *period) == (3000, 700, [])
+    assert len(saved["accounting_events"]) == 14
+    history = deepcopy(saved["accounting_events"])
+    settings.update(payment_value=9999, hybrid_percentage_value=99, services=[])
+    other.update(payment_value=9999)
+    assert modules.ledger.ordinary_ledger_totals(saved, "doctor", *period)[1] == 2 * inherited + 1100
+    assert saved["accounting_events"] == history
+
+
+@pytest.mark.parametrize("services", [[], ["catalog"], [dict(service_id="catalog")]])
+def test_ledger_resolver_absent_override_inherits_without_rewriting_snapshot(modules, services):
+    settings = dict(payment_mode="individual", payment_type="hybrid", payment_value=1000,
+                    hybrid_percentage_value=10, services=services)
+    assert modules.ledger.resolve_snapshot(settings, "catalog") == dict(payment_mode="individual", payment_type="hybrid",
+        payment_value=1000, hybrid_percentage_value=10, currency="KZT", service_id="catalog")
+
+
+@pytest.mark.parametrize("config", [
+    dict(commission_type="fixed"), dict(commission_value=0), dict(commission_currency="KZT"),
+    *[dict(commission_type="fixed", commission_value=value) for value in (None, "", float("nan"), float("inf"), True, -1)],
+    dict(commission_type="percentage", commission_value=101),
+])
+def test_ledger_rejects_partial_or_invalid_individual_override(modules, config):
+    settings = dict(payment_mode="individual", payment_type="fixed", payment_value=1000,
+                    services=[dict(service_id="catalog", **config)])
+    with pytest.raises(HTTPException) as error:
+        modules.ledger.resolve_snapshot(settings, "catalog")
+    assert error.value.status_code == 409

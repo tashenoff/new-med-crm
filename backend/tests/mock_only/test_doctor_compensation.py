@@ -462,10 +462,23 @@ def test_unassigned_complex_component_is_not_paid_to_multiple_eligible_doctors(m
     assert result["salary_data"][0]["calculated_salary"] == 0
 
 
-def test_legacy_individual_services_without_tariffs_are_blocked(modules):
-    result = report(modules, doctor(payment_mode="individual"),
-                    [plan(dict(service_id="service", paid_amount=300, payment_date="2026-10-05"))])
-    assert "invalid_compensation_settings" in {entry["code"] for entry in result["accounting_blockers"]}
+@pytest.mark.parametrize("kind,value,expected", [("fixed", 1000, 1000), ("percentage", 10, 300), ("hybrid", 1000, 1300)])
+@pytest.mark.parametrize("override,amount", [
+    ("service", None), (dict(service_id="service"), None),
+    (dict(service_id="service", commission_type="fixed", commission_value=500), 500),
+    (dict(service_id="service", commission_type="percentage", commission_value=20), 600),
+    (dict(service_id="service", commission_type="fixed", commission_value=0), 0),
+    (dict(service_id="service", commission_type="percentage", commission_value=0), 0),
+])
+def test_individual_salary_fallback_inherits_only_unset_services(modules, kind, value, expected, override, amount):
+    settings = doctor(payment_mode="individual", payment_type=kind, payment_value=value, hybrid_percentage_value=10)
+    settings["services"] = [override]
+    row = dict(service_id="service", price=3000, paid_amount=3000, payment_date="2026-10-05",
+               sessions=[dict(completed=True, date="2026-10-06")])
+    result = report(modules, settings, [plan(row)])
+    assert result["salary_data"][0]["treatment_plans_salary"] == (expected if amount is None else amount)
+    # Existing historical-evidence blocker is deliberately retained.
+    assert {entry["code"] for entry in result["accounting_blockers"]} == {"legacy_ledger_unavailable"}
 
 
 def test_legacy_unknown_service_payment_mode_is_blocked(modules):
@@ -641,3 +654,77 @@ def test_salary_report_employee_role_authorization(modules, monkeypatch, role, e
     else:
         assert response.json() == {"detail": "Not enough permissions"}
         service.get_doctor_salary_report.assert_not_awaited()
+
+
+def test_individual_inheritance_http_create_edit_roundtrip_and_validation(modules, monkeypatch):
+    """Actual HTTP API with in-memory persistence; no browser or child process."""
+    from fastapi import FastAPI
+    from fastapi.testclient import TestClient
+
+    auth = ModuleType("routers.auth")
+    auth.get_current_active_user = lambda: SimpleNamespace(id="mock-user")
+    auth.require_role = lambda roles: auth.get_current_active_user
+    monkeypatch.setitem(sys.modules, "routers.auth", auth)
+    routes = importlib.import_module("routers.doctors")
+    database, records = persistence_db()
+    service = modules.doctors.DoctorService(database)
+    app = FastAPI()
+    app.include_router(routes.doctors_router, prefix="/api")
+    app.dependency_overrides[routes.get_doctor_service] = lambda: service
+    for route in routes.doctors_router.routes:
+        for dependency in route.dependant.dependencies:
+            if dependency.name == "current_user":
+                app.dependency_overrides[dependency.call] = auth.get_current_active_user
+    with TestClient(app) as client:
+        for kind in ("fixed", "percentage", "hybrid"):
+            payload = dict(full_name="Mixed " + kind, specialties=["Therapy", "Surgery"],
+                payment_mode="individual", payment_type=kind, payment_value=10 if kind == "percentage" else 1000,
+                hybrid_percentage_value=10, consultation_compensation_mode="none", services=[
+                    "therapy-inherit", dict(service_id="surgery-inherit"),
+                    dict(service_id="therapy-fixed", commission_type="fixed", commission_value=500),
+                    dict(service_id="surgery-percent", commission_type="percentage", commission_value=20),
+                    dict(service_id="therapy-zero", commission_type="fixed", commission_value=0),
+                    dict(service_id="surgery-zero", commission_type="percentage", commission_value=0),
+                ])
+            created = client.post("/api/doctors", json=payload)
+            assert created.status_code == 200, created.text
+            doctor_id = created.json()["id"]
+            for services in (payload["services"], ["therapy-fixed", "surgery-zero"], payload["services"]):
+                saved = client.put(f"/api/doctors/{doctor_id}", json=dict(services=services))
+                assert saved.status_code == 200, saved.text
+                assert saved.json()["services"] == records[doctor_id]["services"] == services
+                assert client.get(f"/api/doctors/{doctor_id}").json()["services"] == services
+                listed = client.get("/api/doctors").json()
+                assert next(row for row in listed if row["id"] == doctor_id)["services"] == services
+        assert len(records) == 3
+        assert {row["payment_type"] for row in records.values()} == {"fixed", "percentage", "hybrid"}
+        # The same HTTP create/update endpoints reject partial/invalid overrides without writes.
+        valid = dict(full_name="Validation", payment_mode="individual", payment_type="fixed",
+                     payment_value=1000, consultation_compensation_mode="none", services=["service"])
+        created = client.post("/api/doctors", json=valid)
+        assert created.status_code == 200
+        doctor_id = created.json()["id"]
+        for config in [
+            dict(commission_type="fixed"), dict(commission_value=0), dict(commission_currency="KZT"),
+            *[dict(commission_type="fixed", commission_value=value) for value in (None, "", "NaN", "Infinity", True, -1)],
+            dict(commission_type="percentage", commission_value=101),
+            dict(commission_type="hybrid", commission_value=10),
+        ]:
+            services = [dict(service_id="service", **config)]
+            before = deepcopy(records)
+            assert client.post("/api/doctors", json=dict(valid, services=services)).status_code == 422
+            assert client.put(f"/api/doctors/{doctor_id}", json=dict(services=services)).status_code == 422
+            assert records == before
+        for services in (["service"], [dict(service_id="service")],
+                         [dict(service_id="service", commission_type="fixed", commission_value=0)]):
+            assert client.put(f"/api/doctors/{doctor_id}", json=dict(services=services)).status_code == 200
+            assert client.get(f"/api/doctors/{doctor_id}").json()["services"] == services
+
+
+def test_individual_legacy_foreign_currency_stays_blocked_without_conversion(modules):
+    settings = doctor(payment_mode="individual", payment_type="fixed", payment_value=1000)
+    settings["services"] = [dict(service_id="service", commission_type="fixed", commission_value=500, commission_currency="USD")]
+    result = report(modules, settings, [plan(dict(service_id="service", paid_amount=3000, payment_date="2026-10-05",
+        sessions=[dict(completed=True, date="2026-10-06")]))])
+    assert result["salary_data"][0]["calculated_salary"] == 0
+    assert "legacy_non_kzt_compensation" in {entry["code"] for entry in result["accounting_blockers"]}

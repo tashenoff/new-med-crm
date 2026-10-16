@@ -58,19 +58,48 @@ def validate_compensation(settings, require_mode=False):
                 raise ValueError(f"{field} is required for separate consultation compensation")
         if settings.get("consultation_payment_type") == "hybrid" and settings.get("consultation_hybrid_percentage_value") is None:
             raise ValueError("consultation_hybrid_percentage_value is required for hybrid consultations")
+    seen = set()
     for service in settings.get("services") or []:
-        if isinstance(service, str):
-            continue
-        if not isinstance(service, dict) or not service.get("service_id"):
-            raise ValueError("services must contain service IDs or service commission objects")
-        kind = service.get("commission_type", "percentage")
-        if kind not in ("fixed", "percentage"):
-            raise ValueError("Individual commission_type must be fixed or percentage")
-        amount = nonnegative(service.get("commission_value", 0), "commission_value")
-        if kind == "percentage" and amount > 100:
-            raise ValueError("commission_value must be between 0 and 100")
-        if service.get("commission_currency", "KZT") != "KZT":
+        override = individual_service_settings(service)
+        if override is not None and override["currency"] != "KZT":
             raise ValueError("commission_currency must be KZT")
+        service_id = service if isinstance(service, str) else service["service_id"]
+        if service_id in seen:
+            raise ValueError("Duplicate service commission")
+        seen.add(service_id)
+
+
+def individual_service_settings(service):
+    """A service ID (or ID-only object) inherits; numeric zero is an override."""
+    if isinstance(service, str) and service:
+        return None
+    if not isinstance(service, dict) or not isinstance(service.get("service_id"), str) or not service["service_id"]:
+        raise ValueError("services must contain service IDs or service commission objects")
+    fields = {"commission_type", "commission_value", "commission_currency"}
+    if not fields.intersection(service):
+        return None
+    kind = service.get("commission_type")
+    if kind not in ("fixed", "percentage") or "commission_value" not in service:
+        raise ValueError("Individual commission requires both type and value")
+    amount = nonnegative(service["commission_value"], "commission_value")
+    if kind == "percentage" and amount > 100:
+        raise ValueError("commission_value must be between 0 and 100")
+    return dict(payment_type=kind, payment_value=amount, currency=service.get("commission_currency", "KZT"))
+
+
+def service_tariff_settings(doctor, service_id):
+    """Resolve only this doctor's service; overrides replace the whole general tariff."""
+    mode = doctor.get("payment_mode") or "general"
+    if mode == "general":
+        return doctor
+    if mode != "individual":
+        raise ValueError("invalid_compensation_settings")
+    matches = [entry for entry in doctor.get("services") or []
+               if (entry.get("service_id") if isinstance(entry, dict) else entry) == service_id]
+    if len(matches) > 1:
+        raise ValueError("Duplicate service commission")
+    override = individual_service_settings(matches[0]) if matches else None
+    return doctor if override is None else override
 
 
 def tariff(settings, prefix=""):

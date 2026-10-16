@@ -5,7 +5,7 @@ from typing import Any, Dict, List, Optional
 
 from motor.motor_asyncio import AsyncIOMotorDatabase
 
-from compensation import accrue, in_period, service_accrual_data, tariff
+from compensation import accrue, in_period, service_accrual_data, tariff, service_tariff_settings
 from services.accounting_ledger_service import ordinary_ledger_totals
 
 
@@ -170,15 +170,12 @@ class SalaryService:
                         continue
                     scheme = general_scheme
                     if doctor.get("payment_mode") == "individual":
-                        config = configs[service_id]
-                        if config.get("commission_type") not in ("fixed", "percentage") or config.get("commission_value") is None:
+                        try:
+                            settings = service_tariff_settings(doctor, service_id)
+                        except ValueError:
                             self._block("invalid_compensation_settings", doctor_id, service_id=service_id)
                             continue
-                        scheme = self._tariff(dict(
-                            id=doctor_id, payment_type=config.get("commission_type", "percentage"),
-                            payment_value=config.get("commission_value", 0),
-                            currency=config.get("commission_currency", "KZT"),
-                        ))
+                        scheme = self._tariff(dict(settings, id=doctor_id))
                     received, completed, blockers = service_accrual_data(item, date_from_dt, date_to_dt)
                     receipts = item.get("sessions") or [] if item.get("payment_type") == "per_session" else [item]
                     if not any(receipt.get("paid_amount") is not None for receipt in receipts) and (
