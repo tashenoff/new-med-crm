@@ -1,0 +1,99 @@
+services:
+  mongo:
+    image: mongo:7.0.16
+    command: [mongod, --bind_ip_all, --quiet]
+    tmpfs:
+      - /data/db
+      - /data/configdb
+    networks: [isolated]
+    healthcheck:
+      test: [CMD, mongosh, --quiet, --eval, 'quit(db.adminCommand({ping: 1}).ok ? 0 : 1)']
+      interval: 2s
+      timeout: 5s
+      retries: 45
+  api:
+    build:
+      context: ${BACKEND_SOURCE}/backend
+      dockerfile: ${HARNESS}/backend.Dockerfile
+      network: ${BUILD_NETWORK:-default}
+      extra_hosts:
+        - "${BUILD_PROXY_HOST:-e2e-unused.invalid}:${BUILD_PROXY_IP:-127.0.0.1}"
+      args:
+        HTTP_PROXY: ${HTTP_PROXY:-}
+        HTTPS_PROXY: ${HTTPS_PROXY:-}
+        NO_PROXY: ${NO_PROXY:-}
+      secrets: [build_ca]
+    command: [python, /harness/api.py]
+    environment:
+      MONGO_URL: mongodb://mongo:27017
+      DB_NAME: medcrm_browser_e2e
+      PYTHONPATH: /app:/harness
+      PYTHONUNBUFFERED: '1'
+    volumes:
+      - ${HARNESS}:/harness:ro
+    secrets: [session]
+    networks: [isolated]
+    depends_on:
+      mongo: {condition: service_healthy}
+    healthcheck:
+      test: [CMD, python, -c, 'import urllib.request; urllib.request.urlopen("http://127.0.0.1:8001/", timeout=2)']
+      interval: 2s
+      timeout: 4s
+      retries: 60
+  web:
+    build:
+      context: ${FRONTEND_SOURCE}/frontend
+      dockerfile: ${HARNESS}/frontend.Dockerfile
+      network: ${BUILD_NETWORK:-default}
+      extra_hosts:
+        - "${BUILD_PROXY_HOST:-e2e-unused.invalid}:${BUILD_PROXY_IP:-127.0.0.1}"
+      args:
+        HTTP_PROXY: ${HTTP_PROXY:-}
+        HTTPS_PROXY: ${HTTPS_PROXY:-}
+        NO_PROXY: ${NO_PROXY:-}
+      secrets: [build_ca]
+    volumes:
+      - ${HARNESS}/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+    networks: [isolated]
+    depends_on:
+      api: {condition: service_healthy}
+    healthcheck:
+      test: [CMD, wget, -q, -O, /dev/null, http://127.0.0.1/]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+  browser:
+    build:
+      context: ${HARNESS}
+      dockerfile: browser.Dockerfile
+      network: ${BUILD_NETWORK:-default}
+      extra_hosts:
+        - "${BUILD_PROXY_HOST:-e2e-unused.invalid}:${BUILD_PROXY_IP:-127.0.0.1}"
+      args:
+        HTTP_PROXY: ${HTTP_PROXY:-}
+        HTTPS_PROXY: ${HTTPS_PROXY:-}
+        NO_PROXY: ${NO_PROXY:-}
+      secrets: [build_ca]
+    volumes:
+      - ${HARNESS}/scenario.mjs:/tests/scenario.mjs:ro
+    init: true
+    shm_size: 1gb
+    environment:
+      CI: '1'
+    secrets: [session]
+    # Loopback is a browser secure context (crypto.randomUUID), without TLS/auth bypass.
+    # Share only the isolated web network namespace, never the host network.
+    network_mode: service:web
+    depends_on:
+      web: {condition: service_healthy}
+    # Artifacts are copied out before down; no host DB, ports or persistent volume.
+    command: [node, scenario.mjs]
+networks:
+  isolated:
+    internal: true
+secrets:
+  session:
+    file: ${SESSION_FILE}
+
+  build_ca:
+    file: ${BUILD_CA_FILE}

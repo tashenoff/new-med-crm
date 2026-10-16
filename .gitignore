@@ -88,3 +88,6 @@ android-sdk/
 
 # Graphify knowledge graph output
 /graphify-out/
+
+# Disposable browser E2E evidence (may contain synthetic clinical data)
+/e2e-artifacts/
