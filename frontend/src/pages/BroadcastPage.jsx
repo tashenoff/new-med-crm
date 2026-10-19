@@ -664,8 +664,8 @@ const BroadcastPage = ({ user }) => {
       {/* Модалка редактирования шаблона уведомления */}
       {editingRule && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={(e) => { if (e.target === e.currentTarget) setEditingRule(null); }}>
-          <div className="bg-curai-surface rounded-md shadow-none w-full max-w-2xl p-6">
-            <h3 className="text-lg font-semibold text-curai-ink">Редактировать шаблон уведомления</h3>
+          <div className="bg-curai-surface rounded-md shadow-none w-full max-w-2xl curai-glass-shell curai-custom-dialog">
+            <div className="curai-glass-header curai-modal-glass-heading"><h3 className="text-lg font-semibold text-curai-ink">Редактировать шаблон уведомления</h3></div><div className="curai-glass-body curai-glass-body-padded">
             <p className="text-sm text-curai-muted mt-1">
               {getTriggerLabel(editingRule.trigger)} · {getRecipientLabel(editingRule.recipient)} · {getMethodLabel(editingRule.method)}
             </p>
@@ -692,15 +692,15 @@ const BroadcastPage = ({ user }) => {
                 Сохранить
               </button>
             </div>
-          </div>
+          </div></div>
         </div>
       )}
 
       {/* Модалка создания правила уведомления */}
       {showCreateModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={(e) => { if (e.target === e.currentTarget) setShowCreateModal(false); }}>
-          <div className="bg-curai-surface rounded-md shadow-none w-full max-w-2xl p-6 overflow-y-auto max-h-full">
-            <h3 className="text-lg font-semibold text-curai-ink">Новое правило уведомления</h3>
+          <div className="bg-curai-surface rounded-md shadow-none w-full max-w-2xl overflow-y-auto max-h-full curai-glass-shell curai-custom-dialog">
+            <div className="curai-glass-header curai-modal-glass-heading"><h3 className="text-lg font-semibold text-curai-ink">Новое правило уведомления</h3></div><div className="curai-glass-body curai-glass-body-padded">
 
             <div className="space-y-4 mt-4">
               <div>
@@ -765,7 +765,7 @@ const BroadcastPage = ({ user }) => {
                 Создать
               </button>
             </div>
-          </div>
+          </div></div>
         </div>
       )}
     </div>

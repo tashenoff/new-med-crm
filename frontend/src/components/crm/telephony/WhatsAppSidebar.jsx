@@ -1,3 +1,4 @@
+import WhatsAppConnectionBadge from './WhatsAppConnectionBadge';
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { API_BASE_URL } from '../../../api/config';
@@ -105,7 +106,7 @@ const WhatsAppSidebar = ({ phone, patientName, isOpen, onClose }) => {
 
   return createPortal(
     <div 
-      className="curai-surface-root flex flex-col bg-curai-surface shadow-none border-l border-curai-border overflow-hidden"
+      className="curai-surface-root flex flex-col bg-curai-surface shadow-none border-l border-curai-border overflow-hidden curai-glass-shell curai-whatsapp-history"
       style={{
         position: 'fixed',
         top: 0,
@@ -116,11 +117,11 @@ const WhatsAppSidebar = ({ phone, patientName, isOpen, onClose }) => {
       }}
     >
       {/* Шапка - фиксированная */}
-      <div className="flex-shrink-0 bg-curai-positive p-4 text-white">
+      <div className="flex-shrink-0 p-4 curai-glass-header curai-whatsapp-history-header">
         <div className="flex items-center justify-between mb-2">
           <div className="flex items-center gap-2">
             <span className="text-2xl">💬</span>
-            <h3 className="font-semibold text-lg">WhatsApp</h3>
+            <h3 className="font-semibold text-lg">WhatsApp</h3><WhatsAppConnectionBadge isOpen={isOpen}/>
           </div>
           <button
             onClick={onClose}
@@ -133,7 +134,7 @@ const WhatsAppSidebar = ({ phone, patientName, isOpen, onClose }) => {
           <p className="text-sm font-medium">{patientName}</p>
           <p className="text-xs text-curai-positive">{phone}</p>
         </div>
-      </div>
+      </div><div className="curai-glass-body curai-whatsapp-body">
 
       {/* Статистика - фиксированная */}
       {totalCount > 0 && (
@@ -264,7 +265,7 @@ const WhatsAppSidebar = ({ phone, patientName, isOpen, onClose }) => {
           </button>
         </div>
       </div>
-    </div>,
+    </div></div>,
     document.body
   );
 };

@@ -18,15 +18,15 @@ const PaymentModal = ({ show, loading, onClose, paymentTypes, loadingPaymentType
   const finalAmt = Math.max(0, Math.round((total - disc) * 100) / 100);
   return (
     <div className="curai-payment-overlay fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50" onClick={onClose}>
-      <div role="dialog" aria-modal="true" aria-label="Оплата услуги" className="curai-payment-dialog bg-curai-surface rounded-md shadow-none p-6 w-full max-w-md mx-4" onClick={e => e.stopPropagation()}>
-        <div className="flex items-center justify-between mb-4">
+      <div role="dialog" aria-modal="true" aria-label="Оплата услуги" className="curai-payment-dialog bg-curai-surface rounded-md shadow-none w-full max-w-md mx-4 curai-glass-shell curai-custom-dialog" onClick={e => e.stopPropagation()}>
+        <div className="flex items-center justify-between curai-glass-header">
           <h3 className="text-lg font-semibold text-curai-ink flex items-center">
             <svg className="w-5 h-5 mr-2 text-curai-blue" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M7 15h2m4 0h2M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>
             Оплата услуги
           </h3>
           {caption && <p className="curai-payment-caption">{caption}</p>}
           <button onClick={onClose} className="text-curai-muted hover:text-curai-muted text-2xl leading-none">&times;</button>
-        </div>
+        </div><div className="curai-glass-body curai-payment-content">
 
         <div className="curai-payment-methods space-y-2 max-h-72 overflow-y-auto"><h4>Способ оплаты *</h4>
           {loadingPaymentTypes ? (
@@ -78,7 +78,7 @@ const PaymentModal = ({ show, loading, onClose, paymentTypes, loadingPaymentType
           className="w-full mt-4 px-4 py-3 bg-curai-blue text-white rounded-md hover:bg-curai-blue disabled:opacity-50 font-medium">
           {loading ? 'Обработка...' : `Оплатить ${finalAmt.toLocaleString()} ₸`}
         </button></div>
-      </div>
+      </div></div>
     </div>
   );
 };

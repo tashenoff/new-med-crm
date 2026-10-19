@@ -1,3 +1,4 @@
+import WhatsAppConnectionBadge from './WhatsAppConnectionBadge';
 import PatientAppointments from './PatientAppointments';
 import WhatsAppAudio from './WhatsAppAudio';
 import CuraiIcon from '../../common/CuraiIcon';
@@ -447,21 +448,21 @@ const WhatsAppInbox = ({ isOpen, onClose }) => {
 
   return createPortal(
     <div
-      className={`curai-surface-root curai-whatsapp${selected ? ' has-selection' : ''}`}
+      className={`curai-surface-root curai-glass-shell curai-whatsapp${selected ? ' has-selection' : ''}`}
       style={{ width: 'min(880px, 96vw)' }}
     >
       {/* Шапка */}
-      <div className="curai-whatsapp-title">
+      <div className="curai-whatsapp-title curai-glass-header">
         <div className="flex items-center gap-2">
           {selected && <CuraiButton variant="ghost" iconOnly className="curai-chat-back" aria-label="К списку чатов" onClick={() => setSelected(null)}><CuraiIcon name="arrow-left"/></CuraiButton>}
-          <span className="curai-chat-online" aria-hidden="true"/>
+          <WhatsAppConnectionBadge isOpen={isOpen}/>
           <h3 className="font-semibold">WhatsApp чаты</h3>
-          {loadingChats && <span className="text-xs text-curai-blue">обновление…</span>}
+
         </div>
         <button onClick={onClose} className="curai-button curai-button-ghost curai-button-icon" title="Закрыть" aria-label="Закрыть WhatsApp">
           <CuraiIcon name="close"/>
         </button>
-      </div>
+      </div><div className="curai-glass-body curai-whatsapp-body">
 
       {error && (
         <div className="flex-shrink-0 mx-3 mt-2 px-3 py-2 bg-curai-negativeBg border border-curai-negative rounded-md text-sm text-curai-negative">
@@ -735,7 +736,7 @@ const WhatsAppInbox = ({ isOpen, onClose }) => {
           )}
         </div>
       </div>
-    </div>,
+    </div></div>,
     document.body
   );
 };

@@ -210,8 +210,8 @@ const IncomeView = ({ user }) => {
       {/* Add Income Modal */}
       {showModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-curai-surface rounded-md p-6 w-full max-w-md mx-4">
-            <h3 className="text-lg font-semibold mb-4">➕ Добавить доход</h3>
+          <div className="bg-curai-surface rounded-md w-full max-w-md mx-4 curai-glass-shell curai-custom-dialog">
+            <div className="curai-glass-header curai-modal-glass-heading has-title-gap"><h3 className="text-lg font-semibold mb-4">➕ Добавить доход</h3></div><div className="curai-glass-body curai-glass-body-padded">
             
             <form onSubmit={handleSubmit} className="space-y-4">
               <div>
@@ -290,7 +290,7 @@ const IncomeView = ({ user }) => {
                 </button>
               </div>
             </form>
-          </div>
+          </div></div>
         </div>
       )}
     </div>

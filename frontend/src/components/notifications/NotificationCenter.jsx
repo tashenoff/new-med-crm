@@ -16,10 +16,10 @@ export default function NotificationCenter() {
   if (!isOpen) return null;
   return <div className="curai-surface-root">
     <div className="curai-notification-backdrop" onClick={closePanel} aria-hidden="true"/>
-    <aside ref={panel} role="dialog" aria-modal="true" aria-label="Уведомления" tabIndex={-1} className="curai-notification-drawer">
-      <header className="curai-notification-header"><div><h2>Уведомления</h2>{notifications.length > 0 && <p>{unreadCount ? `${unreadCount} непрочитанных` : 'Все прочитаны'}</p>}</div><CuraiButton variant="ghost" iconOnly onClick={closePanel} aria-label="Закрыть уведомления"><CuraiIcon name="close"/></CuraiButton></header>
-      {notifications.length > 0 && <div className="curai-notification-actions"><CuraiButton variant="ghost" disabled={!unreadCount} onClick={markAllAsRead}>Отметить всё</CuraiButton><CuraiButton variant="ghost" onClick={clearAll}>Очистить</CuraiButton></div>}
-      <div className="curai-notification-scroll">
+    <aside ref={panel} role="dialog" aria-modal="true" aria-label="Уведомления" tabIndex={-1} className="curai-notification-drawer curai-glass-shell">
+      <header className="curai-notification-header curai-glass-header"><div><h2>Уведомления</h2>{notifications.length > 0 && <p>{unreadCount ? `${unreadCount} непрочитанных` : 'Все прочитаны'}</p>}</div><CuraiButton variant="ghost" iconOnly onClick={closePanel} aria-label="Закрыть уведомления"><CuraiIcon name="close"/></CuraiButton></header>
+      {notifications.length > 0 && <div className="curai-notification-actions curai-glass-body"><CuraiButton variant="ghost" disabled={!unreadCount} onClick={markAllAsRead}>Отметить всё</CuraiButton><CuraiButton variant="ghost" onClick={clearAll}>Очистить</CuraiButton></div>}
+      <div className="curai-notification-scroll curai-glass-body">
         {!notifications.length ? <div className="curai-notification-empty"><CuraiIcon name="notifications"/><strong>Нет уведомлений</strong><p>Новые уведомления<br/>появятся здесь.</p></div> : <ul className="curai-notification-list">
           {notifications.map(notification => <li key={notification.id} className={`curai-notification-row${notification.read ? '' : ' is-unread'}`}>
             <CuraiIcon name={notification.type === 'success' ? 'check' : notification.type === 'error' ? 'close' : 'crm-card'}/>

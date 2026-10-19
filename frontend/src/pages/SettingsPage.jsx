@@ -389,15 +389,15 @@ const SettingsPage = ({ user }) => {
       {/* Модальное окно подтверждения */}
       {showConfirmModal && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-curai-ink rounded-md p-6 max-w-md mx-4 shadow-none">
-            <div className="flex items-center gap-3 mb-4">
+          <div className="bg-curai-ink rounded-md max-w-md mx-4 shadow-none curai-glass-shell curai-custom-dialog curai-glass-dark">
+            <div className="flex items-center gap-3 curai-glass-header curai-modal-glass-heading">
               <div className="w-12 h-12 bg-curai-negative rounded-full flex items-center justify-center">
                 <svg className="w-6 h-6 text-curai-negative" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
                 </svg>
               </div>
               <h3 className="text-xl font-semibold text-white">Подтверждение</h3>
-            </div>
+            </div><div className="curai-glass-body curai-glass-body-padded">
             
             <p className="text-curai-disabled mb-4">
               Вы уверены, что хотите удалить данные из следующих коллекций?
@@ -444,7 +444,7 @@ const SettingsPage = ({ user }) => {
                 )}
               </button>
             </div>
-          </div>
+          </div></div>
         </div>
       )}
     </div>

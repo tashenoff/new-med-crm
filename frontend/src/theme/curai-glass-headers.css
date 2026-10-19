@@ -1,0 +1,94 @@
+/* Shared title-bar material. Only headers sample the page behind each shell. */
+.curai-glass-shell.curai-glass-shell {
+  background: transparent;
+}
+.curai-glass-shell > .curai-glass-header {
+  position: relative;
+  flex-shrink: 0;
+  margin: 0;
+  background: var(--curai-glass-header-fallback);
+  border-bottom: 1px solid var(--curai-glass-header-border);
+  border-top-left-radius: inherit;
+  border-top-right-radius: inherit;
+}
+@supports ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .curai-glass-shell > .curai-glass-header {
+    background: var(--curai-glass-header-background);
+    -webkit-backdrop-filter: blur(var(--curai-glass-header-blur));
+    backdrop-filter: blur(var(--curai-glass-header-blur));
+  }
+}
+.curai-glass-body {
+  background: var(--curai-glass-body-surface, var(--curai-color-surface));
+}
+.curai-glass-shell > .curai-glass-body:last-child {
+  border-bottom-left-radius: inherit;
+  border-bottom-right-radius: inherit;
+}
+.curai-dialog-subheader { flex-shrink: 0; }
+
+/* Adapters preserve each legacy dialog's original padding and scrolling. */
+.curai-custom-dialog.curai-glass-shell { padding: 0; }
+.curai-modal-glass-heading { padding: 24px 24px 0; }
+.curai-modal-glass-heading.has-title-gap,
+.curai-glass-dark > .curai-modal-glass-heading { padding-bottom: 16px; }
+.curai-modal-glass-heading > h2,
+.curai-modal-glass-heading > h3 { margin: 0; }
+.curai-glass-body-padded { display: flow-root; padding: 0 24px 24px; }
+.curai-glass-dark { --curai-glass-body-surface: var(--curai-color-ink); }
+.curai-glass-dark > .curai-glass-header h3 { color: var(--curai-color-ink); }
+.curai-payment-content { display: flex; flex: 1; flex-direction: column; }
+.curai-payment-content > p {
+  margin: 24px 23px 0;
+  padding: 12px 14px;
+  background: var(--curai-color-selected);
+  border-radius: 4px;
+  font-size: 13px;
+  line-height: 20px;
+}
+.guide-modal-content.curai-glass-shell { padding: 0; }
+.guide-modal-content > .curai-glass-header { padding: 40px 40px 32px; }
+.curai-guide-body { padding: 0 40px 40px; }
+.guide-modal-backdrop { -webkit-backdrop-filter: none; backdrop-filter: none; }
+.dark .guide-modal-content { --curai-glass-body-surface: #1e293b; }
+.dark .guide-modal-content > .curai-glass-header .guide-modal-title { color: var(--curai-color-ink); }
+.dark .guide-modal-content > .curai-glass-header .guide-modal-subtitle { color: var(--curai-color-muted); }
+
+.curai-whatsapp-body { display: flex; flex: 1; flex-direction: column; min-height: 0; }
+.curai-whatsapp-history-header { color: var(--curai-color-ink); }
+.curai-notification-drawer > .curai-glass-header { border-top-right-radius: 0; border-top-left-radius: 0; }
+.curai-notification-drawer > .curai-notification-actions { border-top: 0; }
+.curai-connection-slot {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--curai-connection-width);
+  height: var(--curai-connection-height);
+  flex-shrink: 0;
+  order: 2;
+}
+.curai-connection-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  border-radius: var(--curai-connection-radius);
+  font-family: var(--curai-type-family), sans-serif;
+  font-size: 12px;
+  line-height: 18px;
+  font-weight: 600;
+  background: var(--curai-color-subtle);
+  color: var(--curai-color-muted);
+}
+.curai-connection-badge.is-online {
+  background: var(--curai-color-positiveBg);
+  color: var(--curai-color-positive);
+}
+@media (prefers-reduced-transparency: reduce), (forced-colors: active), print {
+  .curai-glass-shell > .curai-glass-header {
+    background: var(--curai-glass-header-fallback);
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
+}

@@ -358,8 +358,8 @@ const InventoryModal = ({ inventory, materials, onClose, onSave }) => {
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-curai-surface rounded-md shadow-none max-w-4xl w-full max-h-[90vh] overflow-hidden">
-        <div className="px-6 py-4 border-b border-curai-border flex justify-between items-center">
+      <div className="bg-curai-surface rounded-md shadow-none max-w-4xl w-full max-h-[90vh] overflow-hidden curai-glass-shell curai-custom-dialog">
+        <div className="px-6 py-4 border-b border-curai-border flex justify-between items-center curai-glass-header">
           <h3 className="text-xl font-semibold text-curai-ink">
             {inventory ? 'Редактировать инвентаризацию' : 'Новая инвентаризация'}
           </h3>
@@ -370,7 +370,7 @@ const InventoryModal = ({ inventory, materials, onClose, onSave }) => {
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="flex flex-col" style={{ maxHeight: 'calc(90vh - 140px)' }}>
+        <form onSubmit={handleSubmit} className="flex flex-col curai-glass-body" style={{ maxHeight: 'calc(90vh - 140px)' }}>
           <div className="px-6 py-4 overflow-y-auto">
             <div className="grid grid-cols-1 gap-4 mb-4">
               <div>

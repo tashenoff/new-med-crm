@@ -26,3 +26,5 @@ import "./theme/curai-payment-r21.css";
 
 import "./theme/curai-treatment-plans.css";
 import "./theme/curai-communication.css";
+
+import "./theme/curai-glass-headers.css";
