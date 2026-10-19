@@ -137,6 +137,7 @@ class LeadCallResponse(BaseModel):
 
 class KanbanLeadResponse(LeadResponse):
     kanban_column_id: Optional[str] = None
+    kanban_override_source: Optional[str] = None
     linked_inquiries: List[LeadResponse] = Field(default_factory=list)
     identity_patient_id: Optional[str] = None
     call_count: int = 0

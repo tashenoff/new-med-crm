@@ -1,3 +1,4 @@
+from services.appointment_status_policy import guard_appointment_status
 from fastapi import APIRouter, HTTPException, Depends, status
 from pydantic import BaseModel
 from typing import List, Optional, Union
@@ -256,9 +257,7 @@ async def apply_deposit_to_treatment_plans(patient_id: str, deposit_amount: floa
     except HTTPException:
         raise
     except Exception as e:
-        if any(is_ledger_plan(plan) for plan in locals().get("active_plans", [])):
-            raise HTTPException(503, "Patient deposit assignment failed; retry the appointment operation") from e
-        print(f"Ошибка при применении депозита к плану лечения: {str(e)}")
+        raise HTTPException(503, "Patient deposit assignment failed; retry the appointment operation") from e
 
 
 async def check_doctor_availability(doctor_id: str, appointment_date: str, appointment_time: str, db: AsyncIOMotorDatabase):
@@ -453,6 +452,7 @@ async def create_appointment(
             if room_sched and room_sched.get("room_id"):
                 appointment_dict["room_id"] = room_sched["room_id"]
 
+    guard_appointment_status(appointment.dict(), appointment.status)
     appointment_obj = Appointment(**appointment_dict)
     await db.appointments.insert_one(appointment_obj.dict())
 
@@ -734,7 +734,7 @@ async def get_appointments(
         ]
         
         print(f"Запрос appointments с query: {query}")
-        appointments = await db.appointments.aggregate(pipeline).to_list(length=10000)
+        appointments = await db.appointments.aggregate(pipeline).to_list(length=None if patient_id else 10000)
         print(f"Загружено {len(appointments)} appointments")
         
         return [AppointmentWithDetails(**appointment) for appointment in appointments]
@@ -885,6 +885,10 @@ async def update_appointment(
     else:  # Admin
         update_dict = {k: v for k, v in appointment_update.dict().items() if v is not None}
     
+    if ("status" in update_dict and update_dict["status"] != existing.get("status")) or (
+            "appointment_date" in update_dict and update_dict["appointment_date"] != existing.get("appointment_date")):
+        guard_appointment_status({**existing, **update_dict}, update_dict.get("status", existing.get("status")))
+
     receipt_fields = ("patient_id", "deposit", "deposit_type", "price")
     receipt_changed = any(key in update_dict and update_dict[key] != existing.get(key) for key in receipt_fields)
     query = {"id": appointment_id}
@@ -893,6 +897,11 @@ async def update_appointment(
         query.update({key: existing.get(key) for key in receipt_fields})
         query["treatment_plan_deposit_claims"] = existing.get("treatment_plan_deposit_claims")
 
+    if receipt_changed:
+        # Validate the stored source amount before persisting it. Claims and
+        # event-backed assignments remain immutable; no refund is invented.
+        prospective = {**existing, **update_dict}
+        update_dict["deposit_assignment_pending"] = appointment_deposit_kzt(prospective) > 0
     update_dict["updated_at"] = datetime.utcnow()
     
     # Check for time conflicts if updating time/date
@@ -917,6 +926,18 @@ async def update_appointment(
         raise HTTPException(409, "Concurrent appointment receipt assignment; retry edit")
 
     updated_appointment = await db.appointments.find_one({"id": appointment_id})
+
+    # Retry only sources marked by this operation, never backfill historical
+    # appointments on an unrelated save. Immutable claims replay failed writes.
+    if updated_appointment.get("deposit_assignment_pending"):
+        await apply_deposit_to_treatment_plans(updated_appointment["patient_id"],
+            float(appointment_deposit_kzt(updated_appointment)), appointment_id, db)
+        confirmed = {key: updated_appointment.get(key) for key in receipt_fields}
+        result = await db.appointments.update_one({"id": appointment_id,
+            "deposit_assignment_pending": True, **confirmed}, {"$set": {"deposit_assignment_pending": False}})
+        if not result.matched_count:
+            raise HTTPException(409, "Concurrent appointment deposit update; retry unchanged appointment")
+        updated_appointment = await db.appointments.find_one({"id": appointment_id})
 
     if "status" in update_dict:
         await refresh_patient_appointments_count(db, updated_appointment["patient_id"])
@@ -952,6 +973,7 @@ async def update_appointment_status(
     if not existing:
         raise HTTPException(status_code=404, detail="Appointment not found")
 
+    guard_appointment_status(existing, status_update.status)
     update_dict = status_update.model_dump(exclude_none=True)
     update_dict["updated_at"] = datetime.utcnow()
 

@@ -5,6 +5,7 @@ from copy import deepcopy
 
 import pytest
 from fastapi import HTTPException
+from pydantic import ValidationError
 
 
 async def seed_plan(db, components=None, quantity=1, regular=None):
@@ -48,7 +49,10 @@ async def test_consultation_update_preserves_linked_complex_state(clean_db):
     linked = await clean_db.treatment_plans.find_one({"id": "linked"})
     unrelated = await clean_db.treatment_plans.find_one({"id": "unrelated"})
     assert linked.get("notes") == "New notes"
-    assert linked["services"][0]["components"] == [component]
+    saved_component = linked["services"][0]["components"][0]
+    assert saved_component == {**component, "component_id": saved_component["component_id"],
+                               "occurrence_ids": saved_component["occurrence_ids"]}
+    assert len(saved_component["occurrence_ids"]) == 1
     assert linked["services"][0]["paid_amount"] == 80
     assert linked["services"][0]["discount_amount"] == 20
     assert unrelated["services"] == [row]
@@ -88,7 +92,8 @@ async def test_invalid_composition_cannot_create_zero_share_package(clean_db, co
     from services.service_price_service import ServicePriceService
     from services.treatment_plan_service import TreatmentPlanService
 
-    with pytest.raises(HTTPException) as error:
+    schema_rejects_zero = entry == "catalog" and any(c.get("price") == 0 for c in components)
+    with pytest.raises(ValidationError if schema_rejects_zero else HTTPException) as error:
         if entry == "catalog":
             await clean_db.service_prices.insert_one({"id": "a", "service_name": "A", "price": 0})
             await ServicePriceService(clean_db).create_service_price(ServicePriceCreate(
@@ -98,7 +103,10 @@ async def test_invalid_composition_cannot_create_zero_share_package(clean_db, co
             row["components"] = components
             await clean_db.treatment_plans.update_one({"id": "plan"}, {"$set": {"services": [row]}})
             await TreatmentPlanService(clean_db).pay_complex_remaining("plan", "package")
-    assert error.value.status_code == 400
+    if schema_rejects_zero:
+        assert [(e["loc"], e["type"]) for e in error.value.errors()] == [(("components", 0, "price"), "greater_than")]
+    else:
+        assert error.value.status_code == 400
     if entry == "catalog":
         assert await clean_db.service_prices.count_documents({"service_type": "complex"}) == 0
     else:
@@ -212,7 +220,7 @@ async def test_component_details_hydrated_from_catalog(clean_db, entry):
     await clean_db.service_prices.insert_one({"id": "a", "service_name": "Canonical",
                                               "price": 100, "service_type": "regular"})
     service = ServicePriceService(clean_db)
-    components = [{"service_id": "a", "price": 0, "service_name": "Forged", "quantity": 2}]
+    components = [{"service_id": "a", "price": 1, "service_name": "Forged", "quantity": 2}]
     if entry == "create":
         package = await service.create_service_price(ServicePriceCreate(
             service_name="Package", price=150, service_type="complex", components=components))
@@ -359,6 +367,8 @@ async def test_appointment_deposit_does_not_settle_complex_components(clean_db):
     from routers.appointments import apply_deposit_to_treatment_plans
 
     row = await seed_plan(clean_db)
+    await clean_db.appointments.insert_one({"id": "appointment", "patient_id": "p",
+        "deposit": 100, "deposit_type": "fixed", "price": 100})
     await apply_deposit_to_treatment_plans("p", 100, "appointment", clean_db)
     saved = await clean_db.treatment_plans.find_one({"id": "plan"})
     assert saved["payment_status"] == "unpaid"
@@ -532,7 +542,11 @@ async def test_consultation_edit_keeps_paid_complex_financial_snapshot(clean_db,
     else:
         await service._update_treatment_plan_from_consultation(consultation, "u", "User")
     saved = await clean_db.treatment_plans.find_one({"id": "plan"})
-    assert saved["services"][0]["components"] == before["services"][0]["components"]
+    for original, component in zip(before["services"][0]["components"], saved["services"][0]["components"], strict=True):
+        allowed_ids = {key: component[key] for key in ("component_id", "occurrence_ids") if key not in original and key in component}
+        assert component == {**original, **allowed_ids}
+        if change == "reprice":
+            assert component["component_id"] and len(component["occurrence_ids"]) == 1
     assert saved["services"][0]["total_price"] == before["services"][0]["total_price"]
     assert saved["total_cost"] == before["total_cost"]
     assert saved["paid_amount"] == 30

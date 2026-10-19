@@ -43,3 +43,18 @@ async def delete_column(column_id: str, db=Depends(get_database)):
 @kanban_router.patch('/leads/{lead_id}/kanban-column', response_model=ColumnMoved)
 async def move_card(lead_id: str, payload: ColumnMove, db=Depends(get_database)):
     return await KanbanService(db).move(lead_id, payload.column_id)
+
+
+@kanban_router.get('/whatsapp/kanban-stage')
+async def get_chat_stage(phone: str, db=Depends(get_database)):
+    from ..services.chat_kanban_service import ChatKanbanService
+    return await ChatKanbanService(db).context(phone)
+
+
+from ..schemas.kanban_schemas import ChatStageMove
+
+
+@kanban_router.patch('/whatsapp/kanban-stage')
+async def move_chat_stage(payload: ChatStageMove, phone: str, db=Depends(get_database)):
+    from ..services.chat_kanban_service import ChatKanbanService
+    return await ChatKanbanService(db).move(phone, payload)

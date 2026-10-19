@@ -430,6 +430,8 @@ async def update_chat(
     update: WazzupChatUpdate,
     current_user: User = Depends(get_current_user),
 ):
+    if "status" in update.model_fields_set and update.status is not None:
+        raise HTTPException(400, 'Ручной этап сделки изменяется через CRM; системные этапы управляются событиями')
     from database import get_database
     from services.wazzup_chat_service import WazzupChatService
     db = get_database()
@@ -440,18 +442,6 @@ async def update_chat(
         raise HTTPException(status_code=404, detail="Чат не найден")
 
     changed = update.model_fields_set
-    if "status" in changed and update.status is not None:
-        await svc.set_field(phone, "status", update.status)
-        # Статус чата = статус лида (воронка реюзится): синхронизируем лид.
-        lead_id = chat.get("linked_lead_id")
-        if lead_id:
-            try:
-                from crm.services.lead_service import LeadService
-                from crm.models.lead import LeadStatus
-                await LeadService(db).update_lead_status(lead_id, LeadStatus(update.status))
-            except Exception as e:
-                print(f"Не удалось синхронизировать статус лида {lead_id}: {e}")
-
     for field in ("assigned_manager_id", "linked_patient_id"):
         if field in changed and getattr(update, field) is not None:
             await svc.set_field(phone, field, getattr(update, field))

@@ -398,74 +398,28 @@ class LeadService:
         - confirmed (подтверждено) -> in_progress (ЗАПИСЬ ПОДТВЕРЖДЕНА)
         - arrived / in_progress (пациент пришел / на приеме) -> converted (ПАЦИЕНТ ПРИШЁЛ)
         """
-        lead = None
-        
-        # Способ 1: Находим лида через CRM клиента
+        # Only explicit appointment associations can mutate a CRM deal. A
+        # patient's other deals or a close phone match are not this visit.
+        if not appointment_id:
+            return None
+        appointment = await self.db.appointments.find_one({"id": appointment_id, "patient_id": patient_id})
+        if not appointment:
+            return None
+        candidates = await self.collection.find({"converted_to_appointment_id": appointment_id}).to_list(None)
+        identities = {patient_id}
         client = await self.db.crm_clients.find_one({"hms_patient_id": patient_id})
-        
         if client:
-            # Найдем лида, который был конвертирован в этого клиента
-            lead = await self.collection.find_one({
-                "$or": [
-                    {"converted_to_client_id": client.get("id")},
-                    {"converted_to_appointment_id": appointment_id}
-                ]
-            })
-            
-            if not lead:
-                # Попробуем найти по телефону клиента
-                client_phone = client.get("phone")
-                if client_phone:
-                    clean_phone = client_phone.replace("+", "").replace(" ", "").replace("-", "").replace("(", "").replace(")", "")
-                    lead = await self.collection.find_one({
-                        "phone": {"$regex": clean_phone},
-                        "status": {"$nin": [LeadStatus.CLOSED.value, LeadStatus.REJECTED.value, LeadStatus.LOST.value]}
-                    })
-        
-        # Способ 2: Поиск напрямую через пациента HMS
-        if not lead:
-            print(f"CRM клиент не найден, ищем пациента напрямую для {patient_id}")
-            patient = await self.db.patients.find_one({"id": patient_id})
-            
-            if patient and patient.get("phone"):
-                clean_phone = patient["phone"].replace("+", "").replace(" ", "").replace("-", "").replace("(", "").replace(")", "")
-                
-                # Сначала ищем ТОЧНОЕ совпадение телефона
-                lead = await self.collection.find_one({
-                    "phone": clean_phone,
-                    "status": {"$nin": [LeadStatus.CLOSED.value, LeadStatus.REJECTED.value, LeadStatus.LOST.value]}
-                })
-                
-                if lead:
-                    print(f"Найден лид по ТОЧНОМУ телефону пациента: {patient.get('phone')}")
-                else:
-                    # Если не нашли точное, ищем по regex но выбираем лучшее совпадение
-                    leads_cursor = await self.collection.find({
-                        "phone": {"$regex": clean_phone},
-                        "status": {"$nin": [LeadStatus.CLOSED.value, LeadStatus.REJECTED.value, LeadStatus.LOST.value]}
-                    }).to_list(None)
-                    
-                    if leads_cursor:
-                        # Выбираем лида с наиболее близким телефоном (наименьшая разница в длине)
-                        best_lead = None
-                        min_diff = float('inf')
-                        for l in leads_cursor:
-                            l_phone = l.get("phone", "").replace("+", "").replace(" ", "").replace("-", "")
-                            diff = abs(len(l_phone) - len(clean_phone))
-                            if diff < min_diff:
-                                min_diff = diff
-                                best_lead = l
-                        lead = best_lead
-                        if lead:
-                            print(f"Найден лид по regex (лучшее совпадение): {lead.get('phone')}")
-        
-        if not lead:
-            print(f"Лид не найден для пациента {patient_id}")
+            identities.add(client.get("id"))
+        canonical = {}
+        for candidate in candidates:
+            if candidate.get("converted_to_client_id") and candidate["converted_to_client_id"] not in identities:
+                return None
+            document = await self.canonical_document(candidate["id"])
+            if document:
+                canonical[document["id"]] = document
+        if len(canonical) != 1:
             return None
-        
-        lead = await self.canonical_document(lead["id"])
-        if not lead:
-            return None
+        lead = next(iter(canonical.values()))
 
         # Определяем новый статус на основе статуса записи
         new_status = None

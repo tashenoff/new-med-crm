@@ -20,6 +20,13 @@ SYSTEM_COLUMNS = {
 }
 
 
+def canonical_column_id(document):
+    status = document.get('status')
+    if status == 'new' or document.get('kanban_override_source') == 'whatsapp':
+        return document.get('kanban_column_id') or status
+    return status
+
+
 def normalized_columns(document):
     custom = {}
     reserved_names = {name.casefold() for name in SYSTEM_COLUMNS.values()}
@@ -85,7 +92,7 @@ class KanbanService:
             canonical = group[0]
             status = canonical.get('status')
             if status in SYSTEM_COLUMNS:
-                identifier = (canonical.get('kanban_column_id') or 'new') if status == 'new' else status
+                identifier = canonical_column_id(canonical)
                 counts[identifier] = counts.get(identifier, 0) + 1
         for column in columns:
             column['affected_count'] = counts.get(column['id'], 0)
@@ -185,6 +192,8 @@ class KanbanService:
                     update['$unset'] = {'kanban_column_id': ''}
                 else:
                     update['$set']['kanban_column_id'] = operation['column_id']
+                if operation.get('custom_only'):
+                    update['$set']['kanban_override_source'] = 'whatsapp'
                 result = await self.leads.update_one(query, update)
                 if result.matched_count == 0:
                     await self.leads.update_one(
@@ -194,19 +203,18 @@ class KanbanService:
                 lead = await self.leads.find_one({'id': query['id']})
                 applied = result.matched_count == 1 or (lead and lead.get('_kanban_operation') == operation['id'])
                 if applied:
-                    outcome = {'result': dict(lead_id=query['id'], column_id=operation['column_id'], status='new')}
+                    outcome = {'result': dict(lead_id=query['id'], column_id=operation['column_id'], status=query['status'])}
                 else:
                     outcome = {'error': 'Lead changed concurrently; reload and retry'}
             else:
                 for attempt in range(5):
                     candidates = [group[0] for group in await self.groups()
-                                  if group[0].get('status') == 'new'
-                                  and group[0].get('kanban_column_id') == operation['column_id']]
+                                  if canonical_column_id(group[0]) == operation['column_id']]
                     if not candidates:
                         break
                     for canonical in candidates:
                         await self.leads.update_one(
-                            {'id': canonical['id'], 'status': 'new',
+                            {'id': canonical['id'], 'status': canonical.get('status'),
                              'kanban_column_id': operation['column_id'],
                              '_kanban_operation': canonical.get('_kanban_operation')},
                             {'$set': {'updated_at': operation['updated_at'],
@@ -243,7 +251,14 @@ class KanbanService:
             )
         return receipt['outcome']
 
-    async def move(self, lead_id, identifier):
+    async def move(self, lead_id, identifier, custom_only=False, expected_column_id=None):
+        if custom_only:
+            columns = normalized_columns(await self.configuration() or {})
+            target = next((column for column in columns if column['id'] == identifier), None)
+            if target is None:
+                raise HTTPException(404, 'Kanban column not found')
+            if target['is_system'] or not target['manual_move_allowed']:
+                raise HTTPException(400, 'System destination is event-driven')
         await self.ensure_settings()
         for attempt in range(5):
             document = await self.ready_configuration()
@@ -251,22 +266,30 @@ class KanbanService:
             target = next((column for column in columns if column['id'] == identifier), None)
             if target is None:
                 raise HTTPException(404, 'Kanban column not found')
-            if not target['manual_move_allowed']:
+            if (custom_only and target['is_system']) or not target['manual_move_allowed']:
                 raise HTTPException(400, 'System destination is event-driven')
             group = next((group for group in await self.groups()
                           if any(touch.get('id') == lead_id for touch in group)), None)
             if group is None:
                 raise HTTPException(404, 'Lead not found')
             canonical = group[0]
-            current = canonical.get('kanban_column_id') or 'new'
+            current = canonical_column_id(canonical)
+            if custom_only and canonical.get('id') != lead_id:
+                raise HTTPException(409, 'Canonical card changed; reload and retry')
+            if expected_column_id is not None and current != expected_column_id:
+                raise HTTPException(409, 'Card stage changed; reload and retry')
             movable_ids = {column['id'] for column in columns if column['manual_move_allowed']}
-            if canonical.get('status') != 'new' or current not in movable_ids:
+            source_allowed = (canonical.get('status') in SYSTEM_COLUMNS and any(column['id'] == current for column in columns)) if custom_only else (canonical.get('status') == 'new' and current in movable_ids)
+            if not source_allowed:
                 raise HTTPException(400, 'Only Unparsed/custom cards can move manually')
             operation = dict(id='crm_kanban_move_' + str(uuid4()), kind='move', column_id=identifier,
                              updated_at=datetime.utcnow(),
-                             source={'id': canonical['id'], 'status': 'new',
+                             source={'id': canonical['id'], 'status': canonical.get('status') if custom_only else 'new',
                                      'kanban_column_id': canonical.get('kanban_column_id'),
                                      '_kanban_operation': canonical.get('_kanban_operation')})
+            if custom_only:
+                operation['custom_only'] = True
+                operation['source']['kanban_override_source'] = canonical.get('kanban_override_source')
             if await self.reserve(document, operation):
                 outcome = await self.recover({'pending_operation': operation})
                 if 'error' in outcome:

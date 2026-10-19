@@ -45,3 +45,8 @@ class ColumnMoved(BaseModel):
     lead_id: str
     column_id: str
     status: str
+
+
+class ChatStageMove(ColumnMove):
+    lead_id: StrictStr = Field(min_length=1)
+    expected_column_id: StrictStr = Field(min_length=1)

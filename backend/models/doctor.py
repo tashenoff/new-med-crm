@@ -180,6 +180,14 @@ class DoctorSchedule(BaseModel):
 
 class DoctorScheduleCreate(BaseModel):
     """Model for creating doctor schedule"""
+    room_id: str = Field(..., min_length=1)
+
+    @validator("room_id")
+    def validate_required_room(cls, value):
+        value = value.strip()
+        if not value:
+            raise ValueError("Выберите кабинет")
+        return value
     doctor_id: Optional[str] = None  # Optional - will be taken from URL parameter
     day_of_week: int
     start_time: str

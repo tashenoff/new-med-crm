@@ -167,59 +167,12 @@ async def create_doctor_schedule(
     schedule: DoctorScheduleCreate,
     current_user: UserInDB = Depends(require_role([UserRole.ADMIN, UserRole.SUPER_ADMIN]))
 ):
-    """Create doctor's working schedule"""
-    # Check if doctor exists - check both _id (for MongoDB ObjectId) and id field
-    # Try multiple ways to find the doctor
-    search_queries = [
-        {"id": doctor_id},
-        {"_id": doctor_id}
-    ]
-    
-    # If doctor_id looks like a valid ObjectId (24 hex chars), also try ObjectId
-    if len(doctor_id) == 24:
-        try:
-            search_queries.append({"_id": ObjectId(doctor_id)})
-        except:
-            pass
-    
-    doctor = await db.doctors.find_one({
-        "$or": search_queries,
-        "is_active": True
-    })
-    
-    if not doctor:
-        raise HTTPException(status_code=404, detail="Doctor not found")
-    
-    # Validate day_of_week (0-6)
-    if schedule.day_of_week < 0 or schedule.day_of_week > 6:
-        raise HTTPException(status_code=400, detail="Invalid day_of_week. Must be 0-6 (Monday-Sunday)")
-    
-    # Validate time format
-    try:
-        datetime.strptime(schedule.start_time, "%H:%M")
-        datetime.strptime(schedule.end_time, "%H:%M")
-    except ValueError:
-        raise HTTPException(status_code=400, detail="Invalid time format. Use HH:MM")
-    
-    # Check for existing schedule for this day
-    existing = await db.doctor_schedules.find_one({
-        "doctor_id": doctor_id,
-        "day_of_week": schedule.day_of_week,
-        "is_active": True
-    })
-    
-    if existing:
-        raise HTTPException(status_code=400, detail="Schedule already exists for this day")
-    
-    # Create schedule with doctor_id from URL parameter (ignore the one in request body)
-    schedule_obj = DoctorSchedule(
-        doctor_id=doctor_id,  # Use doctor_id from URL
-        day_of_week=schedule.day_of_week,
-        start_time=schedule.start_time,
-        end_time=schedule.end_time
+    """Create a room-backed schedule using the same validation as the main form."""
+    result = await create_doctor_schedule_with_room(
+        DoctorScheduleWithRoomCreate(**{**schedule.dict(), "doctor_id": doctor_id}),
+        current_user=current_user,
     )
-    await db.doctor_schedules.insert_one(schedule_obj.dict())
-    return schedule_obj
+    return DoctorSchedule(**result["doctor_schedule"])
 
 
 @doctors_router.get("/{doctor_id}/schedule", response_model=List[DoctorSchedule])
@@ -460,13 +413,13 @@ async def delete_doctor_schedule(
 
 from pydantic import BaseModel
 
-class DoctorScheduleWithRoomCreate(BaseModel):
+class DoctorScheduleWithRoomCreate(DoctorScheduleCreate):
     """Model for creating doctor schedule with room assignment"""
     doctor_id: str
     day_of_week: int
     start_time: str
     end_time: str
-    room_id: Optional[str] = None  # Опциональный кабинет
+
 
 
 @doctors_router.post("/schedule/with-room")
@@ -476,7 +429,7 @@ async def create_doctor_schedule_with_room(
 ):
     """
     Create doctor's working schedule with automatic room assignment.
-    If room_id is provided:
+    A room assignment is required:
     - Checks room availability for the given day and time
     - Creates both doctor schedule and room schedule entries
     """

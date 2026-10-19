@@ -18,6 +18,23 @@ async def _seed_service(clean_db, **overrides):
     return (await svc.create_service_price(ServicePriceCreate(**data))).dict()
 
 
+async def _pay_complex_via_ledger(db, plan_id, line):
+    from services.accounting_ledger_service import AccountingLedgerService
+    from uuid import uuid4
+    ledger = AccountingLedgerService(db)
+    for component in line["components"]:
+        share = component["price"] * component.get("quantity", 1) * line["total_price"] / sum(c["price"] * c.get("quantity", 1) for c in line["components"])
+        discount = share * line.get("discount", 0) / 100
+        await ledger.record_ordinary_service(plan_id, line["service_row_id"], "component_receipt",
+            {"operation_id": str(uuid4()), "amount_kzt": share - discount,
+             "discount_amount_kzt": discount, "payment_source": "cash", "payment_method": "cash"},
+            "fixture-user", component_id=component["component_id"])
+        await ledger.record_ordinary_service(plan_id, line["service_row_id"], "component_completion",
+            {"operation_id": str(uuid4())}, "fixture-user", component["occurrence_ids"][0], component_id=component["component_id"])
+    saved = await db.treatment_plans.find_one({"id": plan_id})
+    assert len(saved["accounting_events"]) == len(line["components"]) * 2
+
+
 async def _complex_payload(name="Базовый женский чекап", price=20000, **overrides):
     from models.services import ServicePriceCreate
 
@@ -265,19 +282,24 @@ async def test_salary_complex_pays_each_doctor_its_component_share(clean_db):
     assert line["is_complex"] is True
 
     now = datetime.utcnow()
+    from services.accounting_ledger_service import assign_ledger_identities, COMPLETED_PAID_POLICY
+    assign_ledger_identities([line])
     await clean_db.treatment_plans.insert_one({
+        "compensation_policy": COMPLETED_PAID_POLICY,
         "id": "plan-complex-1",
         "patient_id": "pat-1",
         "title": "План комплекс",
         "services": [line],
         "total_cost": line["total_price"],
-        "paid_amount": line["total_price"],
-        "payment_status": "paid",
+        "paid_amount": 0,
+        "payment_status": "unpaid",
         "payment_date": now,
         "created_at": now,
         "assigned_doctor_id": d1.id,  # plan belongs to d1 (responsible)
     })
 
+    await _pay_complex_via_ledger(clean_db, "plan-complex-1", line)
+    now = datetime.utcnow()
     salary = SalaryService(clean_db)
     p_from = now.replace(day=1)
     p_to = now
@@ -308,7 +330,7 @@ async def test_salary_complex_distributes_line_discount_to_components(clean_db):
     svc = ServicePriceService(clean_db)
     comp = await svc.create_service_price(
         await _complex_payload(
-            name="Чекап 3", price=4000,
+            name="Чекап 3", price=5000,
             components=[
                 {"service_id": a["id"], "quantity": 1, "doctor_id": d1.id, "price": 2000},
                 {"service_id": b["id"], "quantity": 1, "doctor_id": d2.id, "price": 3000},
@@ -316,16 +338,21 @@ async def test_salary_complex_distributes_line_discount_to_components(clean_db):
         )
     )
     line = await svc.build_complex_plan_line(comp.id, quantity=1)
-    line["discount"] = 25  # 25% discount on the whole complex
+    line["discount"] = 25  # Isolate discount distribution; sum of catalog prices equals complex price.
 
     now = datetime.utcnow()
+    from services.accounting_ledger_service import assign_ledger_identities, COMPLETED_PAID_POLICY
+    assign_ledger_identities([line])
     await clean_db.treatment_plans.insert_one({
+        "compensation_policy": COMPLETED_PAID_POLICY,
         "id": "plan-complex-2", "patient_id": "pat-2", "title": "План комплекс",
         "services": [line], "total_cost": line["total_price"],
-        "paid_amount": line["total_price"], "payment_status": "paid",
+        "paid_amount": 0, "payment_status": "unpaid",
         "payment_date": now, "created_at": now, "assigned_doctor_id": d1.id,
     })
 
+    await _pay_complex_via_ledger(clean_db, "plan-complex-2", line)
+    now = datetime.utcnow()
     salary = SalaryService(clean_db)
     p_from, p_to = now.replace(day=1), now
     _, sal1 = await salary._calculate_treatment_plans_salary(d1.dict(), d1.id, p_from, p_to)

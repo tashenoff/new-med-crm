@@ -65,7 +65,7 @@ async def test_list_chats_sorted_and_filtered(clean_db, auth_client):
     assert [ch["phone"] for ch in r.json()["chats"]] == ["+77770000002"]
 
 
-async def test_patch_status_syncs_linked_lead(clean_db, auth_client):
+async def test_legacy_manual_system_status_patch_is_rejected_without_mutation(clean_db, auth_client):
     # Создаём лид и чат, залинкованный на него
     lead_doc = {
         "id": "lead-uuid-1",
@@ -77,15 +77,13 @@ async def test_patch_status_syncs_linked_lead(clean_db, auth_client):
     await clean_db.crm_leads.insert_one(lead_doc)
     await _seed(clean_db, "+77770000001", "Иван", "привет", datetime(2026, 10, 2, 9, 0), "new", linked_lead_id="lead-uuid-1")
 
+    before_chat = await clean_db.wazzup_chats.find_one({"phone": "+77770000001"})
+    before_lead = await clean_db.crm_leads.find_one({"id": "lead-uuid-1"})
     r = await auth_client.patch("/api/wazzup/chats/+77770000001", json={"status": "contacted"})
-    assert r.status_code == 200
-    data = r.json()
-    assert data["status"] == "contacted"
-
-    chat = await clean_db.wazzup_chats.find_one({"phone": "+77770000001"})
-    lead = await clean_db.crm_leads.find_one({"id": "lead-uuid-1"})
-    assert chat["status"] == "contacted"
-    assert lead["status"] == "contacted"
+    assert r.status_code == 400
+    assert "системные этапы" in r.json()["detail"]
+    assert await clean_db.wazzup_chats.find_one({"phone": "+77770000001"}) == before_chat
+    assert await clean_db.crm_leads.find_one({"id": "lead-uuid-1"}) == before_lead
 
 
 async def test_patch_assigns_manager(clean_db, auth_client):

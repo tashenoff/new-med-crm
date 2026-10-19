@@ -241,6 +241,17 @@ async def get_patient_treatment_plans(
     return await service.get_patient_treatment_plans(patient_id)
 
 
+@treatment_plans_router.get("/patients/{patient_id}/funding-summary")
+async def get_patient_funding_summary(
+    patient_id: str,
+    current_user: UserInDB = Depends(require_role([UserRole.ADMIN, UserRole.SUPER_ADMIN, UserRole.DOCTOR, UserRole.PATIENT])),
+):
+    if current_user.role == UserRole.PATIENT and current_user.patient_id != patient_id:
+        raise HTTPException(403, "Access denied")
+    from services.patient_funding_service import get_patient_funding
+    return await get_patient_funding(db, patient_id)
+
+
 @treatment_plans_router.get("/treatment-plans/{plan_id}")
 async def get_treatment_plan(
     plan_id: str,
@@ -593,6 +604,10 @@ async def mark_service_paid(
     reject_ledger_writer(plan)
     if any(row.get("service_id") == service_id and row.get("service_row_id") for row in plan.get("services", [])):
         raise HTTPException(422, "Prospective service receipts require operation_id UUID, service_row_id, actual amount_kzt, total discount_amount_kzt, payment_source and payment_method")
+    if sum(row.get("service_id") == service_id for row in plan.get("services", [])) > 1:
+        raise HTTPException(409, "Select a unique service row before payment")
+    if any(row.get("service_id") == service_id and (row.get("payment_status") == "paid" or row.get("is_paid")) for row in plan.get("services", [])):
+        return await TreatmentPlanService(db).get_treatment_plan(plan_id)
     from copy import deepcopy
     snapshot = {key: deepcopy(plan.get(key)) for key in ("services", "deposit_balance", "updated_at")}
     
@@ -621,6 +636,8 @@ async def mark_service_paid(
             service_found = True
             
             # Установить статус оплаты услуги
+            if service.get("payment_status") == "paid" or service.get("is_paid"):
+                return await TreatmentPlanService(db).get_treatment_plan(plan_id)
             if service.get("is_complex"):
                 raise HTTPException(status_code=400, detail="Use complex component payment endpoints")
             service["payment_status"] = "paid"
@@ -835,9 +852,12 @@ async def mark_session_paid(
                 })
             
             # Проверить индекс
-            if session_index >= len(service["sessions"]):
+            if session_index < 0 or session_index >= len(service["sessions"]):
                 raise HTTPException(status_code=400, detail="Invalid session index")
             
+            if service["sessions"][session_index].get("paid"):
+                return await TreatmentPlanService(db).get_treatment_plan(plan_id)
+
             # Отметить сессию как оплаченную
             service["sessions"][session_index]["paid"] = True
             service["sessions"][session_index]["paid_at"] = datetime.utcnow().isoformat()

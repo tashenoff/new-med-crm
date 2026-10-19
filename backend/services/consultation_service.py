@@ -1,4 +1,5 @@
 from typing import List, Optional
+from copy import deepcopy
 from datetime import datetime
 import json
 import os
@@ -352,7 +353,8 @@ class ConsultationService:
                 previous = next((row for row in existing_plan.get("services", [])
                                  if row.get("service_id") == ts.service_id), None)
                 if previous and previous.get("is_complex"):
-                    service = {**service, **previous}
+                    # Keep nested legacy components separate from the original CAS snapshot.
+                    service = {**service, **deepcopy(previous)}
 
             if service.get("is_complex") and not (existing_plan and previous and previous.get("is_complex")):
                 from services.treatment_plan_service import TreatmentPlanService

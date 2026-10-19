@@ -537,7 +537,7 @@ def test_actual_modal_http_persist_readback_contract(modules, monkeypatch, tmp_p
 
     run_ui("DOCTOR_CONTRACT_PAYLOADS", payload_path)
     cases = json.loads(payload_path.read_text(encoding="utf-8"))
-    assert len(cases) == 54
+    assert len(cases) == 57
     auth = ModuleType("routers.auth")
     auth.get_current_active_user = lambda: SimpleNamespace(id="mock-user")
     auth.require_role = lambda roles: auth.get_current_active_user

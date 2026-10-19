@@ -183,7 +183,8 @@ async def get_kanban_leads(db: AsyncIOMotorDatabase = Depends(get_database)):
             inquiries.append(LeadResponse(**lead.dict(), full_name=lead.full_name))
         responses.append(KanbanLeadResponse(
             **response.dict(), linked_inquiries=inquiries, identity_patient_id=identity_patient_id,
-            kanban_column_id=touches[0].get("kanban_column_id") if canonical.status == LeadStatus.NEW else None,
+            kanban_column_id=touches[0].get("kanban_column_id") if canonical.status == LeadStatus.NEW or touches[0].get("kanban_override_source") == "whatsapp" else None,
+            kanban_override_source="whatsapp" if touches[0].get("kanban_override_source") == "whatsapp" else None,
             **call_history(calls)
         ))
     return responses

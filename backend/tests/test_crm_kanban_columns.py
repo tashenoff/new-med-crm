@@ -505,7 +505,9 @@ async def test_concurrent_moves_delete_and_config_edit_never_leave_deleted_assig
                                          ('in_progress', 'converted'), ('completed', 'converted')])
 async def test_appointment_events_clear_custom_on_first_touch_not_linked_history(event, expected):
     db = database(touch('first', kanban_column_id='custom_old'),
-                  touch('history', 1, converted_to_client_id='client-a'))
+                  touch('history', 1, converted_to_client_id='client-a',
+                        converted_to_appointment_id='appointment-a'))
+    db.appointments = Collection([{'id': 'appointment-a', 'patient_id': 'patient-a'}])
     db.crm_clients = Collection([{'id': 'client-a', 'hms_patient_id': 'patient-a'}])
     history = deepcopy(db.crm_leads.documents[1])
     result = await LeadService(db).sync_lead_from_appointment_status('patient-a', event, 'appointment-a')
@@ -517,7 +519,9 @@ async def test_appointment_events_clear_custom_on_first_touch_not_linked_history
 
 async def test_paid_plans_clear_custom_on_first_touch_not_linked_history():
     db = database(touch('first', kanban_column_id='custom_old'),
-                  touch('history', 1, converted_to_client_id='client-a'))
+                  touch('history', 1, converted_to_client_id='client-a',
+                        converted_to_appointment_id='appointment-a'))
+    db.appointments = Collection([{'id': 'appointment-a', 'patient_id': 'patient-a'}])
     db.crm_clients = Collection([{'id': 'client-a', 'hms_patient_id': 'patient-a'}])
     db.treatment_plans = Collection([{'patient_id': 'patient-a', 'payment_status': 'paid', 'paid_amount': 100}])
     history = deepcopy(db.crm_leads.documents[1])
@@ -557,7 +561,9 @@ async def test_legacy_manual_status_routes_cannot_bypass_event_destinations(stat
 @pytest.mark.parametrize('status', ['in_progress', 'converted'])
 async def test_repeated_appointment_event_clears_stale_custom_without_changing_status(status):
     db = database(touch('first', status=status, kanban_column_id='custom_old'),
-                  touch('history', 1, converted_to_client_id='client-a'))
+                  touch('history', 1, converted_to_client_id='client-a',
+                        converted_to_appointment_id='appointment-a'))
+    db.appointments = Collection([{'id': 'appointment-a', 'patient_id': 'patient-a'}])
     db.crm_clients = Collection([{'id': 'client-a', 'hms_patient_id': 'patient-a'}])
     event = 'confirmed' if status == 'in_progress' else 'arrived'
     await LeadService(db).sync_lead_from_appointment_status('patient-a', event, 'appointment-a')

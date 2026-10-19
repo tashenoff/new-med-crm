@@ -17,7 +17,7 @@ async def test_create_doctor_without_phone_allowed(clean_db):
     await _seed_doctor(clean_db, "Врач Без Номера", phone=None)
 
     svc = DoctorService(clean_db)
-    created = await svc.create_doctor(DoctorCreate(full_name="Новая Без Номера", phone=None))
+    created = await svc.create_doctor(DoctorCreate(full_name="Новая Без Номера", phone=None, consultation_compensation_mode="none"))
     assert created.full_name == "Новая Без Номера"
     assert created.phone is None
 
@@ -31,7 +31,7 @@ async def test_create_doctor_with_duplicate_phone_still_rejected(clean_db):
 
     svc = DoctorService(clean_db)
     try:
-        await svc.create_doctor(DoctorCreate(full_name="Второй", phone="+77771112233"))
+        await svc.create_doctor(DoctorCreate(full_name="Второй", phone="+77771112233", consultation_compensation_mode="none"))
         assert False, "должен был упасть на дубле телефона"
     except HTTPException as e:
         assert e.status_code == 400
