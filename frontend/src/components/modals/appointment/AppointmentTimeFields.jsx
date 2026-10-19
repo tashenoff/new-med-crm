@@ -76,7 +76,7 @@ const AppointmentTimeFields = ({
     <div className="space-y-3">
       <div className="grid grid-cols-2 gap-4 md:grid-cols-3">
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Дата приема *</label>
+          <label className="block text-sm font-medium text-curai-ink mb-1">Дата приема *</label>
           <input
             type="date"
             value={appointmentForm.appointment_date || ''}
@@ -88,7 +88,7 @@ const AppointmentTimeFields = ({
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Время начала *</label>
+          <label className="block text-sm font-medium text-curai-ink mb-1">Время начала *</label>
           <input
             type="time"
             step={SLOT_INTERVAL_MINUTES * 60}
@@ -116,7 +116,7 @@ const AppointmentTimeFields = ({
         */}
 
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
+          <label className="block text-sm font-medium text-curai-ink mb-1">
             Время окончания {isCustom && '*'}
           </label>
           <input
@@ -134,11 +134,11 @@ const AppointmentTimeFields = ({
       {/* Итоговая длительность / ошибка */}
       {startTime && endTime && (
         validation.valid ? (
-          <div className="text-sm text-gray-600">
+          <div className="text-sm text-curai-muted">
             ⏱ Длительность приёма: <span className="font-medium">{formatDuration(validation.duration)}</span>
           </div>
         ) : (
-          <div className="bg-red-50 border border-red-200 rounded-md p-2 text-red-700 text-sm">
+          <div className="bg-curai-negativeBg border border-curai-negative rounded-md p-2 text-curai-negative text-sm">
             ⚠️ {validation.message}
           </div>
         )

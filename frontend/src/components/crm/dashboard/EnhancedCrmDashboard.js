@@ -97,13 +97,9 @@ const EnhancedCrmDashboard = ({ user }) => {
 
   // Цвета для графиков в зависимости от темы
   const chartColors = {
-    primary: isDarkMode ? '#60A5FA' : '#3B82F6',
-    secondary: isDarkMode ? '#FCD34D' : '#F59E0B',
-    success: isDarkMode ? '#34D399' : '#10B981',
-    purple: isDarkMode ? '#A78BFA' : '#8B5CF6',
-    gray: isDarkMode ? '#6B7280' : '#9CA3AF',
-    grid: isDarkMode ? '#374151' : '#E5E7EB',
-    text: isDarkMode ? '#F3F4F6' : '#374151'
+    primary: 'var(--curai-color-blue)', secondary: 'var(--curai-color-warning)',
+    success: 'var(--curai-color-positive)', purple: 'var(--curai-data-statusPreset-5)',
+    gray: 'var(--curai-color-muted)', grid: 'var(--curai-color-border)', text: 'var(--curai-color-ink)'
   };
 
   // Данные для графиков - используем реальные данные из API
@@ -155,21 +151,21 @@ const EnhancedCrmDashboard = ({ user }) => {
   }, [isInitialized]);
 
   const MetricCard = ({ title, value, subtitle, icon: Icon, trend, trendValue, color, loading }) => (
-    <div className={cn(themeClasses.bg.card, themeClasses.border.default, themeClasses.shadow.default, "rounded-xl p-6 hover:shadow-md transition-shadow")}>
+    <div className={cn(themeClasses.bg.card, themeClasses.border.default, themeClasses.shadow.default, "rounded-md p-6 hover:shadow-none transition-shadow")}>
       <div className="flex items-center justify-between">
         <div className="flex items-center space-x-3">
-          <div className={`p-3 rounded-lg ${color}`}>
+          <div className={`p-3 rounded-md ${color}`}>
             <Icon className="w-6 h-6 text-white" />
           </div>
           <div>
             <p className={cn("text-sm font-medium", themeClasses.text.secondary)}>{title}</p>
-            <p className={cn("text-2xl font-bold", themeClasses.text.primary)}>
+            <p className={cn("text-2xl font-semibold", themeClasses.text.primary)}>
               {loading ? '⏳' : value}
             </p>
           </div>
         </div>
         {trend && (
-          <div className={`flex items-center space-x-1 ${trend === 'up' ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
+          <div className={`flex items-center space-x-1 ${trend === 'up' ? "text-curai-positive " : "text-curai-negative "}`}>
             {trend === 'up' ? <ArrowUpRight className="w-4 h-4" /> : <ArrowDownRight className="w-4 h-4" />}
             <span className="text-sm font-medium">{trendValue}%</span>
           </div>
@@ -184,11 +180,11 @@ const EnhancedCrmDashboard = ({ user }) => {
   if (error) {
     return (
       <div className="p-6">
-        <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg">
+        <div className="bg-curai-negativeBg border border-curai-negative text-curai-negative px-4 py-3 rounded-md">
           <p>Ошибка загрузки данных: {error}</p>
           <button 
             onClick={fetchDashboardData}
-            className="mt-2 bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 transition-colors"
+            className="mt-2 bg-curai-negative text-white px-4 py-2 rounded-md hover:bg-curai-negative transition-colors"
           >
             Попробовать снова
           </button>
@@ -199,19 +195,19 @@ const EnhancedCrmDashboard = ({ user }) => {
 
   return (
     <div className="space-y-6">
-      <div className={`calendar-container calendar-view-panel rounded-2xl ${themeClasses.shadow.default}`}>
+      <div className={`calendar-container calendar-view-panel rounded-md ${themeClasses.shadow.default}`}>
         <PanelHeader
           title="CRM Аналитика"
           subtitle="Детальный обзор ключевых метрик и активности"
         />
 
-        <div className="bg-white dark:bg-gray-800 rounded-b-2xl border border-t-0 border-gray-200 dark:border-gray-700 p-4 space-y-4 shadow-sm">
+        <div className="bg-curai-surface rounded-b-md border border-t-0 border-curai-border p-4 space-y-4 shadow-none">
           {/* Фильтры */}
           <div className="flex items-center justify-end space-x-4">
             <select
               value={selectedPeriod}
               onChange={(e) => setSelectedPeriod(e.target.value)}
-              className={cn("rounded-lg px-3 py-2 text-sm", themeClasses.input.default, themeClasses.input.focus)}
+              className={cn("rounded-md px-3 py-2 text-sm", themeClasses.input.default, themeClasses.input.focus)}
             >
               <option value="week">Неделя</option>
               <option value="month">Месяц</option>
@@ -232,7 +228,7 @@ const EnhancedCrmDashboard = ({ user }) => {
               icon={Target}
               trend="up"
               trendValue="12"
-              color="bg-blue-500"
+              color="bg-curai-blue"
               loading={loading}
             />
             <MetricCard
@@ -242,7 +238,7 @@ const EnhancedCrmDashboard = ({ user }) => {
               icon={Users}
               trend="up"
               trendValue="8"
-              color="bg-green-500"
+              color="bg-curai-positive"
               loading={loading}
             />
             <MetricCard
@@ -254,7 +250,7 @@ const EnhancedCrmDashboard = ({ user }) => {
               icon={DollarSign}
               trend="up"
               trendValue="15"
-              color="bg-emerald-500"
+              color="bg-curai-positive"
               loading={loadingHmsRevenue}
             />
             <MetricCard
@@ -264,7 +260,7 @@ const EnhancedCrmDashboard = ({ user }) => {
               icon={Award}
               trend="down"
               trendValue="3"
-              color="bg-purple-500"
+              color="bg-curai-blue"
               loading={loading}
             />
           </div>
@@ -272,16 +268,16 @@ const EnhancedCrmDashboard = ({ user }) => {
           {/* Графики */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             {/* График выручки */}
-            <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+            <div className="bg-curai-surface rounded-md shadow-none border border-curai-border p-6">
               <div className="flex items-center justify-between mb-6">
-                <h3 className="text-lg font-semibold text-gray-900">Динамика выручки</h3>
+                <h3 className="text-lg font-semibold text-curai-ink">Динамика выручки</h3>
                 <div className="flex items-center space-x-4 text-sm">
                   <div className="flex items-center space-x-2">
-                    <div className="w-3 h-3 bg-blue-500 rounded-full"></div>
+                    <div className="w-3 h-3 bg-curai-blue rounded-full"></div>
                     <span>Факт</span>
                   </div>
                   <div className="flex items-center space-x-2">
-                    <div className="w-3 h-3 bg-gray-300 rounded-full"></div>
+                    <div className="w-3 h-3 bg-curai-control rounded-full"></div>
                     <span>План</span>
                   </div>
                 </div>
@@ -310,8 +306,8 @@ const EnhancedCrmDashboard = ({ user }) => {
             </div>
 
             {/* Распределение заявок */}
-            <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-              <h3 className="text-lg font-semibold text-gray-900 mb-6">Распределение заявок</h3>
+            <div className="bg-curai-surface rounded-md shadow-none border border-curai-border p-6">
+              <h3 className="text-lg font-semibold text-curai-ink mb-6">Распределение заявок</h3>
               <ResponsiveContainer width="100%" height={300}>
                 <PieChart>
                   <Pie
@@ -337,8 +333,8 @@ const EnhancedCrmDashboard = ({ user }) => {
           {/* Воронка конверсии и топ менеджеры */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             {/* Воронка конверсии */}
-            <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-              <h3 className="text-lg font-semibold text-gray-900 mb-6">Воронка конверсии</h3>
+            <div className="bg-curai-surface rounded-md shadow-none border border-curai-border p-6">
+              <h3 className="text-lg font-semibold text-curai-ink mb-6">Воронка конверсии</h3>
               <ResponsiveContainer width="100%" height={300}>
                 <BarChart data={conversionData} layout="horizontal">
                   <CartesianGrid strokeDasharray="3 3" />
@@ -351,23 +347,23 @@ const EnhancedCrmDashboard = ({ user }) => {
             </div>
 
             {/* Топ менеджеры */}
-            <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-              <h3 className="text-lg font-semibold text-gray-900 mb-6">Топ менеджеры</h3>
+            <div className="bg-curai-surface rounded-md shadow-none border border-curai-border p-6">
+              <h3 className="text-lg font-semibold text-curai-ink mb-6">Топ менеджеры</h3>
               <div className="space-y-4">
                 {topManagersData.map((manager, index) => (
-                  <div key={manager.name} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                  <div key={manager.name} className="flex items-center justify-between p-3 bg-curai-subtle rounded-md">
                     <div className="flex items-center space-x-3">
-                      <div className="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center text-white text-sm font-medium">
+                      <div className="w-8 h-8 bg-curai-blue rounded-full flex items-center justify-center text-white text-sm font-medium">
                         {index + 1}
                       </div>
                       <div>
-                        <p className="font-medium text-gray-900">{manager.name}</p>
-                        <p className="text-sm text-gray-500">{manager.deals} сделок</p>
+                        <p className="font-medium text-curai-ink">{manager.name}</p>
+                        <p className="text-sm text-curai-muted">{manager.deals} сделок</p>
                       </div>
                     </div>
                     <div className="text-right">
-                      <p className="text-sm font-medium text-gray-900">{manager.revenue.toLocaleString()}₸</p>
-                      <p className="text-xs text-green-600">{manager.conversion}% конверсия</p>
+                      <p className="text-sm font-medium text-curai-ink">{manager.revenue.toLocaleString()}₸</p>
+                      <p className="text-xs text-curai-positive">{manager.conversion}% конверсия</p>
                     </div>
                   </div>
                 ))}
@@ -376,11 +372,11 @@ const EnhancedCrmDashboard = ({ user }) => {
           </div>
 
           {/* Последняя активность */}
-          <div className="bg-white rounded-xl shadow-sm border border-gray-100">
-            <div className="p-6 border-b border-gray-200">
+          <div className="bg-curai-surface rounded-md shadow-none border border-curai-border">
+            <div className="p-6 border-b border-curai-border">
               <div className="flex items-center justify-between">
-                <h3 className="text-lg font-semibold text-gray-900">Последняя активность</h3>
-                <Activity className="w-5 h-5 text-gray-400" />
+                <h3 className="text-lg font-semibold text-curai-ink">Последняя активность</h3>
+                <Activity className="w-5 h-5 text-curai-muted" />
               </div>
             </div>
             <div className="p-6">
@@ -388,24 +384,24 @@ const EnhancedCrmDashboard = ({ user }) => {
                 <div className="space-y-4">
                   {[1, 2, 3, 4].map(i => (
                     <div key={i} className="flex items-center space-x-4 animate-pulse">
-                      <div className="w-12 h-12 bg-gray-200 rounded-full"></div>
+                      <div className="w-12 h-12 bg-curai-border rounded-full"></div>
                       <div className="flex-1">
-                        <div className="h-4 bg-gray-200 rounded w-3/4 mb-2"></div>
-                        <div className="h-3 bg-gray-200 rounded w-1/2"></div>
+                        <div className="h-4 bg-curai-border rounded w-3/4 mb-2"></div>
+                        <div className="h-3 bg-curai-border rounded w-1/2"></div>
                       </div>
-                      <div className="h-4 bg-gray-200 rounded w-20"></div>
+                      <div className="h-4 bg-curai-border rounded w-20"></div>
                     </div>
                   ))}
                 </div>
               ) : recentActivity.length > 0 ? (
                 <div className="space-y-4">
                   {recentActivity.map((activity) => (
-                    <div key={activity.id} className="flex items-center space-x-4 p-4 hover:bg-gray-50 rounded-lg transition-colors">
+                    <div key={activity.id} className="flex items-center space-x-4 p-4 hover:bg-curai-subtle rounded-md transition-colors">
                       <div className={`w-12 h-12 rounded-full flex items-center justify-center ${
-                        activity.type === 'lead' ? 'bg-blue-100 text-blue-600' :
-                        activity.type === 'client' ? 'bg-green-100 text-green-600' :
-                        activity.type === 'deal' ? 'bg-purple-100 text-purple-600' :
-                        'bg-yellow-100 text-yellow-600'
+                        activity.type === 'lead' ? "bg-curai-selected text-curai-blue" :
+                        activity.type === 'client' ? "bg-curai-positiveBg text-curai-positive" :
+                        activity.type === 'deal' ? "bg-curai-selected text-curai-blue" :
+                        "bg-curai-warningBg text-curai-warning"
                       }`}>
                         {activity.type === 'lead' ? <Target className="w-6 h-6" /> :
                          activity.type === 'client' ? <Users className="w-6 h-6" /> :
@@ -413,16 +409,16 @@ const EnhancedCrmDashboard = ({ user }) => {
                          <Calendar className="w-6 h-6" />}
                       </div>
                       <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium text-gray-900">{activity.action}</p>
-                        <p className="text-sm text-gray-500">{activity.description}</p>
+                        <p className="text-sm font-medium text-curai-ink">{activity.action}</p>
+                        <p className="text-sm text-curai-muted">{activity.description}</p>
                         <div className="flex items-center space-x-2 mt-1">
-                          <Clock className="w-3 h-3 text-gray-400" />
-                          <p className="text-xs text-gray-400">{activity.time}</p>
+                          <Clock className="w-3 h-3 text-curai-muted" />
+                          <p className="text-xs text-curai-muted">{activity.time}</p>
                         </div>
                       </div>
                       {activity.amount && (
                         <div className="text-right">
-                          <p className="text-sm font-medium text-gray-900">{activity.amount.toLocaleString()}₸</p>
+                          <p className="text-sm font-medium text-curai-ink">{activity.amount.toLocaleString()}₸</p>
                         </div>
                       )}
                     </div>
@@ -430,32 +426,32 @@ const EnhancedCrmDashboard = ({ user }) => {
                 </div>
               ) : (
                 <div className="text-center py-8">
-                  <Activity className="w-12 h-12 text-gray-300 mx-auto mb-4" />
-                  <p className="text-gray-500">Нет активности</p>
+                  <Activity className="w-12 h-12 text-curai-disabled mx-auto mb-4" />
+                  <p className="text-curai-muted">Нет активности</p>
                 </div>
               )}
             </div>
           </div>
 
           {/* Быстрые действия */}
-          <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-            <h3 className="text-lg font-semibold text-gray-900 mb-6">Быстрые действия</h3>
+          <div className="bg-curai-surface rounded-md shadow-none border border-curai-border p-6">
+            <h3 className="text-lg font-semibold text-curai-ink mb-6">Быстрые действия</h3>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-              <button className="flex items-center justify-center p-4 border-2 border-dashed border-blue-300 rounded-lg hover:border-blue-400 hover:bg-blue-50 transition-all group">
-                <Target className="w-6 h-6 text-blue-500 mr-3 group-hover:scale-110 transition-transform" />
-                <span className="font-medium text-blue-700">Создать заявку</span>
+              <button className="flex items-center justify-center p-4 border-2 border-dashed border-curai-control rounded-md hover:border-curai-control hover:bg-curai-selected transition-all group">
+                <Target className="w-6 h-6 text-curai-blue mr-3 group-hover:scale-110 transition-transform" />
+                <span className="font-medium text-curai-blue">Создать заявку</span>
               </button>
-              <button className="flex items-center justify-center p-4 border-2 border-dashed border-green-300 rounded-lg hover:border-green-400 hover:bg-green-50 transition-all group">
-                <UserPlus className="w-6 h-6 text-green-500 mr-3 group-hover:scale-110 transition-transform" />
-                <span className="font-medium text-green-700">Добавить клиента</span>
+              <button className="flex items-center justify-center p-4 border-2 border-dashed border-curai-positive rounded-md hover:border-curai-positive hover:bg-curai-positiveBg transition-all group">
+                <UserPlus className="w-6 h-6 text-curai-positive mr-3 group-hover:scale-110 transition-transform" />
+                <span className="font-medium text-curai-positive">Добавить клиента</span>
               </button>
-              <button className="flex items-center justify-center p-4 border-2 border-dashed border-purple-300 rounded-lg hover:border-purple-400 hover:bg-purple-50 transition-all group">
-                <DollarSign className="w-6 h-6 text-purple-500 mr-3 group-hover:scale-110 transition-transform" />
-                <span className="font-medium text-purple-700">Новая сделка</span>
+              <button className="flex items-center justify-center p-4 border-2 border-dashed border-curai-control rounded-md hover:border-curai-control hover:bg-curai-selected transition-all group">
+                <DollarSign className="w-6 h-6 text-curai-blue mr-3 group-hover:scale-110 transition-transform" />
+                <span className="font-medium text-curai-blue">Новая сделка</span>
               </button>
-              <button className="flex items-center justify-center p-4 border-2 border-dashed border-yellow-300 rounded-lg hover:border-yellow-400 hover:bg-yellow-50 transition-all group">
-                <Calendar className="w-6 h-6 text-yellow-500 mr-3 group-hover:scale-110 transition-transform" />
-                <span className="font-medium text-yellow-700">Запланировать встречу</span>
+              <button className="flex items-center justify-center p-4 border-2 border-dashed border-curai-warning rounded-md hover:border-curai-warning hover:bg-curai-warningBg transition-all group">
+                <Calendar className="w-6 h-6 text-curai-warning mr-3 group-hover:scale-110 transition-transform" />
+                <span className="font-medium text-curai-warning">Запланировать встречу</span>
               </button>
             </div>
           </div>

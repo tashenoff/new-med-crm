@@ -1,0 +1,109 @@
+/* Clinical views follow native boards 6568, 7231, 9058 and payment states 9160–9449. */
+.curai-patient-consultations .curai-consultations-heading { margin:22px 0; gap:16px; }
+.curai-consultations-heading h4 { font-size:20px;line-height:28px;font-weight:600; }
+.curai-consultations-heading>.curai-button { width:184px;flex-shrink:0; }
+.curai-consultation-card { border-radius:6px; }
+.curai-consultation-card .curai-consultation-card-header { min-height:86px;padding:16px;background:var(--curai-color-surface);gap:16px; }
+.curai-consultation-card-header h3 {font-size:16px;line-height:24px;font-weight:600;}
+.curai-consultation-card-header h3+div {margin-top:6px;line-height:18px;}
+.curai-consultation-card-header>button {text-align:left;min-width:0;}
+.curai-consultation-card-header>button>svg,.curai-consultation-card-header h3+div svg { display:none; }
+.curai-consultation-card-header>div:last-child>button { min-height:36px;padding:7px 16px;font-size:13px;line-height:20px;border-color:var(--curai-color-border);border-radius:4px;color:var(--curai-color-blue); }
+.curai-consultation-card-header>div:last-child>button:last-of-type { border-color:transparent; }
+.curai-patient-dialog:has(.curai-patient-consultations,.curai-patient-payment) {height:1008px;}
+.curai-patient-dialog .curai-dialog-footer {padding:0;}
+.curai-patient-fixed-footer {display:flex;justify-content:flex-end;padding:17px 23px;min-height:70px;}
+.curai-patient-fixed-footer>button {width:184px;}
+.curai-patient-context {padding-bottom:6px;}
+.curai-consultation-card .curai-consultation-fields { grid-template-columns:repeat(2,minmax(0,1fr));gap:14px 12px; }
+.curai-consultation-fields>div { min-height:78px;padding:12px;border-radius:4px;background:var(--curai-color-canvas); }
+.curai-consultation-fields>div>div:first-child {font-size:13px;line-height:20px;font-weight:600;}
+.curai-consultation-fields>div>div:first-child svg {display:none;}
+.curai-consultation-fields>div>div:nth-child(2) {font-size:13px;line-height:20px;color:var(--curai-color-muted);font-weight:400;}
+.curai-consultation-fields>.curai-consultation-wide {grid-column:1/-1;}
+.curai-consultation-fields>.curai-consultation-wide:has(table) {margin-top:12px;background:var(--curai-color-surface);padding:0;}
+.curai-consultation-wide:has(table)>div:first-child {padding:12px;}
+.curai-consultation-wide table :is(th,td) {padding:10px 12px;font-size:12px;line-height:18px;}
+.curai-consultation-form>div:first-of-type>label {font-size:12px;line-height:18px;margin-bottom:6px;}
+.curai-consultation-clinical {margin-top:24px;}
+.curai-consultation-clinical>h4 {font-size:16px;line-height:24px;font-weight:600;margin:0 0 16px;}
+.curai-consultation-form-grid {display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:20px 24px;}
+.curai-consultation-form .curai-consultation-form-grid label {font-size:12px;line-height:18px;}
+.curai-consultation-form-grid textarea {min-height:96px;resize:vertical;}
+.curai-consultation-form-footer {justify-content:flex-end;border-top:1px solid var(--curai-color-border);padding-top:16px;gap:12px;}
+.curai-consultation-form .curai-consultation-form-footer>button {flex:none;min-width:152px;margin:0;}
+.curai-consultation-form-footer>button[type=submit] {order:2;background:var(--curai-color-blue);}
+.curai-consultation-form-footer>button[type=button] {order:1;background:var(--curai-color-surface);border:1px solid var(--curai-color-border);color:var(--curai-color-blue);}
+.curai-patient-payment>.curai-payment-help {font-size:12px;line-height:18px;color:var(--curai-color-muted);margin:8px 0 0;}
+.curai-payment-summary {padding:0;margin-top:20px;}
+.curai-payment-metrics {display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:24px;}
+.curai-payment-metrics>div {display:flex;flex-direction:column;gap:8px;min-width:0;}
+.curai-payment-metrics span {font-size:12px;line-height:18px;color:var(--curai-color-muted);}
+.curai-payment-metrics strong {font-size:20px;line-height:28px;font-weight:600;overflow-wrap:anywhere;}
+.curai-payment-note {font-size:12px;line-height:18px;color:var(--curai-color-muted);margin-top:24px;}
+.curai-payment-details {font-size:12px;line-height:18px;color:var(--curai-color-muted);margin:8px 0 20px;}
+.curai-payment-details summary {cursor:pointer;color:var(--curai-color-blue);}
+.curai-payment-details p,.curai-deposit-details {margin-top:8px;}
+.curai-deposit-details {display:flex;flex-wrap:wrap;gap:8px 16px;}
+.curai-payment-settled {font-size:13px;line-height:20px;color:var(--curai-color-positive);padding:12px;background:var(--curai-color-positiveBg);}
+.curai-payment-plan .curai-payment-plan-header {padding:12px 16px;min-height:64px;background:var(--curai-color-subtle);}
+.curai-payment-plan-header h3 {font-size:16px;line-height:24px;}
+.curai-payment-plan-header>div:last-child>span {border-radius:4px;min-width:168px;padding:6px 12px;font-size:12px;}
+.curai-payment-services>h4 {font-size:14px;line-height:20px;padding:14px 16px;margin:0;}
+.curai-payment-services .curai-payment-service {margin:12px 0 0;border:1px solid var(--curai-color-border);border-radius:6px;}
+.curai-payment-services .curai-payment-service-header {background:var(--curai-color-surface);padding:12px 16px;border:0;}
+.curai-payment-service-header h5 {font-size:16px;line-height:24px;font-weight:600;}
+.curai-payment-service-header h5+span,.curai-payment-service-header h5+span+span {border-radius:4px;padding:2px 8px;font-weight:500;}
+.curai-payment-service-header+div {padding:0 16px 12px;}
+.curai-payment-service-balance>div:first-child {align-items:flex-start;gap:16px;}
+.curai-payment-service-balance .text-2xl {font-size:14px;line-height:20px;font-weight:500;}
+.curai-payment-service-balance .text-xl {font-size:14px;line-height:20px;font-weight:500;}
+.curai-payment-service-balance .border-2 {border:0;border-radius:4px;padding:6px 12px;font-size:12px;line-height:18px;font-weight:500;}
+.curai-payment-service-balance .border-2>span {display:none;}
+.curai-payment-service-balance>div:last-child button {height:36px;padding:7px 24px;font-size:13px;line-height:20px;min-width:216px;}
+.curai-payment-service-balance>div:last-child button>span:first-child {display:none;}
+.curai-payment-service-balance>div:last-child button>span:last-child {padding:0;background:transparent;}
+.curai-complex-payment {margin:4px 0 12px;border:0;border-top:1px solid var(--curai-color-border);border-radius:0;}
+.curai-complex-payment>div:first-child {background:var(--curai-color-surface);color:var(--curai-color-muted);padding:12px 0 8px;font-size:12px;}
+.curai-complex-payment>div:last-child>div {padding:8px 0;gap:16px;}
+.curai-complex-payment button {height:36px;min-width:184px;background:var(--curai-color-surface);color:var(--curai-color-blue);border:1px solid var(--curai-color-border);border-radius:4px;font-size:13px;}
+.curai-payment-course>div.grid {gap:16px;}
+.curai-payment-course>div.grid>div {background:var(--curai-color-surface);padding:0;}
+.curai-payment-course .text-2xl,.curai-payment-course .text-xl {font-size:16px;line-height:24px;}
+.curai-payment-course button {min-height:36px;padding:7px 24px;background:var(--curai-color-blue);font-size:13px;line-height:20px;}
+.curai-payment-overlay {background:rgb(24 42 68 / 35%);padding:16px;}
+.curai-payment-overlay .curai-payment-dialog {position:relative;width:640px;max-width:100%;min-height:700px;max-height:calc(100dvh - 32px);overflow:auto;padding:0;margin:0;border:1px solid var(--curai-color-border);border-radius:6px;display:flex;flex-direction:column;}
+.curai-payment-dialog>div:first-child {padding:22px 23px 20px;min-height:108px;margin:0;border-bottom:1px solid var(--curai-color-border);position:relative;display:block;}
+.curai-payment-dialog h3 {font-size:24px;line-height:32px;font-weight:600;padding-right:32px;}
+.curai-payment-dialog h3>svg {display:none;}
+.curai-payment-dialog>div:first-child>button {position:absolute;top:20px;right:23px;width:24px;height:32px;font-size:24px;font-weight:400;}
+.curai-payment-caption {font-size:14px;line-height:20px;color:var(--curai-color-muted);margin-top:12px;}
+.curai-payment-methods {display:grid;grid-template-columns:repeat(2,minmax(0,1fr));column-gap:24px;padding:0 23px;margin:24px 0 0;min-height:120px;max-height:220px;align-content:start;row-gap:20px;}
+.curai-payment-methods>h4 {grid-column:1/-1;font-size:13px;line-height:20px;font-weight:600;margin:0;}
+.curai-payment-dialog .curai-payment-methods>label {padding:0;border:0;background:transparent;min-height:20px;margin:0;gap:12px;align-items:flex-start;}
+.curai-payment-methods input[type=radio] {width:18px;height:18px;accent-color:var(--curai-color-blue);margin-top:1px;flex-shrink:0;}
+.curai-payment-methods>label .font-medium {font-size:13px;line-height:20px;font-weight:400;}
+.curai-payment-methods>div {grid-column:1/-1;padding:12px 14px;background:var(--curai-color-selected);border-radius:4px;text-align:left;font-size:13px;line-height:20px;}
+.curai-payment-methods>div>div.animate-spin {display:none;}
+.curai-payment-calculation {display:flex;flex-direction:column;padding:24px 23px 0;margin:0;border:0;gap:12px;}
+.curai-payment-calculation>div {margin:0;}
+.curai-payment-calculation .curai-payment-discount {order:-1;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px 24px;margin-bottom:16px;}
+.curai-payment-discount>label {display:flex;flex-direction:column;gap:6px;min-width:0;font-size:12px;line-height:18px;color:var(--curai-color-muted);}
+.curai-payment-discount select,.curai-payment-discount input {width:100%;height:36px;min-height:36px;padding:7px 12px;border:1px solid var(--curai-color-border);border-radius:4px;background:var(--curai-color-surface);font-size:13px;line-height:20px;color:var(--curai-color-ink);}
+.curai-payment-discount select:disabled,.curai-payment-discount input:disabled {background:var(--curai-color-subtle);color:var(--curai-color-muted);}
+.curai-payment-discount>p {grid-column:1/-1;font-size:12px;line-height:18px;color:var(--curai-color-muted);}
+.curai-payment-calculation>div:not(.curai-payment-discount) {font-size:14px;line-height:24px;max-width:480px;}
+.curai-payment-dialog>p {margin:24px 23px 0;padding:12px 14px;background:var(--curai-color-selected);border-radius:4px;font-size:13px;line-height:20px;}
+.curai-payment-dialog .curai-payment-dialog-footer {display:flex;justify-content:space-between;gap:16px;border-top:1px solid var(--curai-color-border);margin-top:auto;padding:19px 23px 15px;min-height:72px;}
+.curai-payment-dialog-footer>button {width:184px;height:36px;margin:0;padding:7px 12px;font-size:13px;line-height:20px;flex-shrink:1;}
+.curai-payment-dialog-footer>button:last-child {width:280px;}
+@media(max-width:760px){
+  .curai-consultation-card .curai-consultation-fields,.curai-consultation-form-grid {grid-template-columns:1fr;}
+  .curai-consultation-card-header {flex-wrap:wrap;text-align:left;}
+  .curai-consultation-card-header>div:last-child {flex-wrap:wrap;margin-left:0;}
+  .curai-payment-metrics {grid-template-columns:repeat(2,minmax(0,1fr));gap:20px;}
+  .curai-payment-service-balance>div:first-child {flex-wrap:wrap;}
+  .curai-payment-methods {grid-template-columns:1fr;}
+  .curai-payment-dialog .curai-payment-dialog-footer {position:sticky;bottom:0;background:var(--curai-color-surface);}
+  .curai-payment-overlay .curai-payment-dialog {min-height:min(700px,calc(100dvh - 32px));}
+}

@@ -1,3 +1,4 @@
+import { scheduleErrorMessage } from './scheduleValidation';
 import React, { useState, useEffect, useMemo } from 'react';
 import PanelHeader from '../common/PanelHeader';
 import Modal from '../modals/Modal';
@@ -8,6 +9,7 @@ const DoctorSchedule = ({ doctors, user, canEdit, rooms = [] }) => {
   const [allRooms, setAllRooms] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [roomError, setRoomError] = useState('');
   const [success, setSuccess] = useState('');
   
   // Filters
@@ -273,6 +275,8 @@ const DoctorSchedule = ({ doctors, user, canEdit, rooms = [] }) => {
   };
 
   const handleCreateSchedule = async () => {
+    if (!formData.room_id?.trim()) { setRoomError('Выберите кабинет'); return; }
+    setRoomError('');
     if (!formData.doctor_id || !formData.start_time || !formData.end_time) {
       setError('Заполните все обязательные поля');
       return;
@@ -329,7 +333,7 @@ const DoctorSchedule = ({ doctors, user, canEdit, rooms = [] }) => {
         setTimeout(() => setSuccess(''), 3000);
       } else {
         const errorData = await response.json();
-        setError(errorData.detail || 'Ошибка при создании графика');
+        setError(scheduleErrorMessage(errorData.detail) || 'Ошибка при создании графика');
         setTimeout(() => setError(''), 5000);
       }
     } catch (error) {
@@ -358,7 +362,7 @@ const DoctorSchedule = ({ doctors, user, canEdit, rooms = [] }) => {
         setTimeout(() => setSuccess(''), 3000);
       } else {
         const errorData = await response.json();
-        setError(errorData.detail || 'Ошибка при удалении графика');
+        setError(scheduleErrorMessage(errorData.detail) || 'Ошибка при удалении графика');
         setTimeout(() => setError(''), 5000);
       }
     } catch (error) {
@@ -578,7 +582,7 @@ const DoctorSchedule = ({ doctors, user, canEdit, rooms = [] }) => {
           updatedCount += 1;
         } else {
           const errorData = await response.json();
-          lastError = errorData.detail || 'Ошибка при обновлении графика';
+          lastError = scheduleErrorMessage(errorData.detail) || 'Ошибка при обновлении графика';
         }
       }
 
@@ -608,6 +612,7 @@ const DoctorSchedule = ({ doctors, user, canEdit, rooms = [] }) => {
   };
 
   const resetForm = () => {
+    setRoomError('');
     setFormData({
       doctor_id: '',
       day_of_week: 0,
@@ -620,6 +625,7 @@ const DoctorSchedule = ({ doctors, user, canEdit, rooms = [] }) => {
   };
 
   const resetWeekForm = () => {
+    setRoomError('');
     setWeekScheduleData({
       doctor_id: '',
       room_id: '',
@@ -753,6 +759,8 @@ const DoctorSchedule = ({ doctors, user, canEdit, rooms = [] }) => {
 
   // Сохранение недельного расписания
   const handleSaveWeekSchedule = async () => {
+    if (!weekScheduleData.room_id?.trim()) { setRoomError('Выберите кабинет'); return; }
+    setRoomError('');
     if (!weekScheduleData.doctor_id) {
       setError('Выберите врача');
       setTimeout(() => setError(''), 3000);
@@ -831,7 +839,7 @@ const DoctorSchedule = ({ doctors, user, canEdit, rooms = [] }) => {
           const errorData = await response.json();
           results.failed.push({
             day: dayName,
-            reason: errorData.detail || 'Ошибка создания'
+            reason: scheduleErrorMessage(errorData.detail) || 'Ошибка создания'
           });
         }
       } catch (err) {
@@ -885,16 +893,16 @@ const DoctorSchedule = ({ doctors, user, canEdit, rooms = [] }) => {
 
   return (
     <div className="space-y-6">
-      <div className={`calendar-container calendar-view-panel rounded-2xl`}>
+      <div className={`calendar-container calendar-view-panel rounded-md`}>
         <PanelHeader
           title="Расписание врачей"
           subtitle="Управление рабочим временем и графиком врачей"
         />
 
-        <div className="bg-white dark:bg-gray-800 rounded-b-2xl border border-t-0 border-gray-200 dark:border-gray-700 p-4 space-y-4 shadow-sm">
+        <div className="bg-curai-surface rounded-b-md border border-t-0 border-curai-border p-4 space-y-4 shadow-none">
           {/* Статистика и кнопки управления */}
           <div className="flex flex-wrap justify-between items-center gap-4">
-            <div className="text-sm text-gray-500">
+            <div className="text-sm text-curai-muted">
               Врачей: {doctors.length} (активных: {doctors.filter(doctor => doctor.is_active).length})
             </div>
             
@@ -902,13 +910,13 @@ const DoctorSchedule = ({ doctors, user, canEdit, rooms = [] }) => {
               <div className="flex gap-2 flex-wrap">
                 <button
                   onClick={() => setShowAddModal(true)}
-                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm font-medium"
+                  className="px-4 py-2 bg-curai-blue text-white rounded-md hover:bg-curai-blue text-sm font-medium"
                 >
                   + График врача
                 </button>
                 <button
                   onClick={() => setShowWeekModal(true)}
-                  className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 text-sm font-medium"
+                  className="px-4 py-2 bg-curai-positive text-white rounded-md hover:bg-curai-positive text-sm font-medium"
                 >
                   📅 На неделю
                 </button>
@@ -917,13 +925,13 @@ const DoctorSchedule = ({ doctors, user, canEdit, rooms = [] }) => {
           </div>
 
           {/* Фильтры */}
-          <div className="bg-white dark:bg-gray-800 p-4 rounded-lg border border-gray-200 dark:border-gray-700">
+          <div className="bg-curai-surface p-4 rounded-md border border-curai-border ">
             <div className="flex flex-wrap gap-4 items-center">
               {/* Тип графика */}
               <select
                 value={selectedScheduleType}
                 onChange={(e) => setSelectedScheduleType(e.target.value)}
-                className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm bg-white dark:bg-gray-700 dark:text-white"
+                className="px-3 py-2 border border-curai-control rounded-md text-sm bg-curai-surface "
               >
                 <option value="all">Все графики</option>
                 <option value="fixed">Фиксированный график</option>
@@ -934,7 +942,7 @@ const DoctorSchedule = ({ doctors, user, canEdit, rooms = [] }) => {
               <select
                 value={selectedShift}
                 onChange={(e) => setSelectedShift(e.target.value)}
-                className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm bg-white dark:bg-gray-700 dark:text-white"
+                className="px-3 py-2 border border-curai-control rounded-md text-sm bg-curai-surface "
               >
                 <option value="all">Все смены</option>
                 <option value="morning">Утренняя</option>
@@ -946,7 +954,7 @@ const DoctorSchedule = ({ doctors, user, canEdit, rooms = [] }) => {
               <select
                 value={selectedDoctor}
                 onChange={(e) => setSelectedDoctor(e.target.value)}
-                className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm bg-white dark:bg-gray-700 dark:text-white min-w-[200px]"
+                className="px-3 py-2 border border-curai-control rounded-md text-sm bg-curai-surface min-w-[200px]"
               >
                 <option value="all">Любой врач</option>
                 {doctors.filter(d => d.is_active).map(doctor => (
@@ -960,7 +968,7 @@ const DoctorSchedule = ({ doctors, user, canEdit, rooms = [] }) => {
               <select
                 value={selectedRoom}
                 onChange={(e) => setSelectedRoom(e.target.value)}
-                className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm bg-white dark:bg-gray-700 dark:text-white min-w-[150px]"
+                className="px-3 py-2 border border-curai-control rounded-md text-sm bg-curai-surface min-w-[150px]"
               >
                 <option value="all">Любое кресло</option>
                 {allRooms.map(room => (
@@ -974,7 +982,7 @@ const DoctorSchedule = ({ doctors, user, canEdit, rooms = [] }) => {
               <select
                 value={selectedMonth}
                 onChange={(e) => setSelectedMonth(parseInt(e.target.value))}
-                className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm bg-white dark:bg-gray-700 dark:text-white"
+                className="px-3 py-2 border border-curai-control rounded-md text-sm bg-curai-surface "
               >
                 {months.map(month => (
                   <option key={month.value} value={month.value}>
@@ -987,7 +995,7 @@ const DoctorSchedule = ({ doctors, user, canEdit, rooms = [] }) => {
               <select
                 value={selectedYear}
                 onChange={(e) => setSelectedYear(parseInt(e.target.value))}
-                className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm bg-white dark:bg-gray-700 dark:text-white"
+                className="px-3 py-2 border border-curai-control rounded-md text-sm bg-curai-surface "
               >
                 {years.map(year => (
                   <option key={year} value={year}>
@@ -1000,13 +1008,13 @@ const DoctorSchedule = ({ doctors, user, canEdit, rooms = [] }) => {
 
           {/* Сообщения */}
           {error && (
-            <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg dark:bg-red-900/50 dark:border-red-800 dark:text-red-300">
+            <div className="bg-curai-negativeBg border border-curai-negative text-curai-negative px-4 py-3 rounded-md ">
               {error}
             </div>
           )}
           
           {success && (
-            <div className="bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded-lg dark:bg-green-900/50 dark:border-green-800 dark:text-green-300">
+            <div className="bg-curai-positiveBg border border-curai-positive text-curai-positive px-4 py-3 rounded-md ">
               {success}
             </div>
           )}
@@ -1015,40 +1023,40 @@ const DoctorSchedule = ({ doctors, user, canEdit, rooms = [] }) => {
           <div className="overflow-x-auto">
             {loading ? (
               <div className="text-center py-8">
-                <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-                <div className="text-gray-500 mt-2">Загружаем расписание...</div>
+                <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-curai-control"></div>
+                <div className="text-curai-muted mt-2">Загружаем расписание...</div>
               </div>
             ) : (
               <table className={tableClasses}>
                 <thead>
                   <tr className={tableHeaderClasses}>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider dark:text-gray-400">
+                    <th className="px-6 py-3 text-left text-xs font-medium text-curai-muted uppercase tracking-wider ">
                       Врач
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider dark:text-gray-400">
+                    <th className="px-6 py-3 text-left text-xs font-medium text-curai-muted uppercase tracking-wider ">
                       Дата
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider dark:text-gray-400">
+                    <th className="px-6 py-3 text-left text-xs font-medium text-curai-muted uppercase tracking-wider ">
                       Сменный график работы
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider dark:text-gray-400">
+                    <th className="px-6 py-3 text-left text-xs font-medium text-curai-muted uppercase tracking-wider ">
                       Кресло
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider dark:text-gray-400">
+                    <th className="px-6 py-3 text-left text-xs font-medium text-curai-muted uppercase tracking-wider ">
                       Заменяемый врач
                     </th>
                     {canEdit && (
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider dark:text-gray-400">
+                      <th className="px-6 py-3 text-left text-xs font-medium text-curai-muted uppercase tracking-wider ">
                         Действия
                       </th>
                     )}
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
+                <tbody className="divide-y divide-curai-border ">
                   {paginatedSchedules.length === 0 ? (
                     <tr>
-                      <td colSpan={canEdit ? 6 : 5} className="px-6 py-8 text-center text-gray-500">
-                        <div className="text-4xl mb-2">📅</div>
+                      <td colSpan={canEdit ? 6 : 5} className="px-6 py-8 text-center text-curai-muted">
+                        <div className="text-2xl mb-2">📅</div>
                         <p>Расписание не найдено</p>
                         <p className="text-sm">Добавьте график врача</p>
                       </td>
@@ -1057,30 +1065,30 @@ const DoctorSchedule = ({ doctors, user, canEdit, rooms = [] }) => {
                     paginatedSchedules.map((item, index) => (
                       <tr key={item.doctor_id} className={tableRowClasses}>
                         <td className="px-6 py-4">
-                          <div className="font-medium text-gray-900 dark:text-white">
+                          <div className="font-medium text-curai-ink ">
                             {item.doctor_name}
                           </div>
                           {item.doctor_specialty && (
-                            <div className="text-sm text-gray-500 dark:text-gray-400">
+                            <div className="text-sm text-curai-muted ">
                               {item.doctor_specialty}
                             </div>
                           )}
                         </td>
-                        <td className="px-6 py-4 text-gray-600 dark:text-gray-300">
+                        <td className="px-6 py-4 text-curai-muted ">
                           {getMonthYearLabel()}
                         </td>
                         <td className="px-6 py-4">
-                          <span className="text-orange-600 dark:text-orange-400 underline cursor-pointer hover:text-orange-800">
+                          <span className="text-curai-warning underline cursor-pointer hover:text-curai-warning">
                             Фиксированный график на месяц
                           </span>
-                          <div className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+                          <div className="text-sm text-curai-muted mt-1">
                             {formatScheduleInfo(item.schedules)}
                           </div>
                         </td>
-                        <td className="px-6 py-4 text-gray-600 dark:text-gray-300">
+                        <td className="px-6 py-4 text-curai-muted ">
                           {item.room_name || '-'}
                         </td>
-                        <td className="px-6 py-4 text-gray-500 dark:text-gray-400">
+                        <td className="px-6 py-4 text-curai-muted ">
                           -
                         </td>
                         {canEdit && (
@@ -1088,14 +1096,14 @@ const DoctorSchedule = ({ doctors, user, canEdit, rooms = [] }) => {
                             <div className="flex items-center gap-2">
                               <button
                                 onClick={() => handleOpenEditModal(item)}
-                                className="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300"
+                                className="text-curai-blue hover:text-curai-blue "
                                 title="Редактировать"
                               >
                                 ✏️
                               </button>
                               <button
                                 onClick={() => handleDeleteAllSchedules(item.doctor_id, item.schedules)}
-                                className="text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300"
+                                className="text-curai-negative hover:text-curai-negative "
                                 title={`Удалить все расписания (${item.schedules?.length || 0} дн.)`}
                               >
                                 🗑️
@@ -1113,7 +1121,7 @@ const DoctorSchedule = ({ doctors, user, canEdit, rooms = [] }) => {
 
           {/* Пагинация */}
           <div className="flex flex-col sm:flex-row justify-between items-center gap-4 pt-4">
-            <div className="text-sm text-gray-500 dark:text-gray-400">
+            <div className="text-sm text-curai-muted ">
               Всего {filteredSchedules.length} записей
             </div>
             
@@ -1125,8 +1133,8 @@ const DoctorSchedule = ({ doctors, user, canEdit, rooms = [] }) => {
                     onClick={() => setCurrentPage(page)}
                     className={`px-3 py-1 rounded ${
                       currentPage === page
-                        ? 'bg-blue-600 text-white'
-                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600'
+                        ? "bg-curai-blue text-white"
+                        : "bg-curai-subtle text-curai-ink hover:bg-curai-border "
                     }`}
                   >
                     {page}
@@ -1149,8 +1157,9 @@ const DoctorSchedule = ({ doctors, user, canEdit, rooms = [] }) => {
         title={showFixedModal ? 'Добавить зафиксированный график' : 'Добавить график врача'}
       >
         <div className="space-y-4">
+          {error && <p role="alert" className="text-sm text-curai-negative">{error}</p>}
           <div>
-            <label className="block text-sm font-medium mb-1 dark:text-gray-200">Врач *</label>
+            <label className="block text-sm font-medium mb-1 ">Врач *</label>
             <select
               value={formData.doctor_id}
               onChange={(e) => setFormData({ ...formData, doctor_id: e.target.value })}
@@ -1167,7 +1176,7 @@ const DoctorSchedule = ({ doctors, user, canEdit, rooms = [] }) => {
           </div>
 
           <div>
-            <label className="block text-sm font-medium mb-1 dark:text-gray-200">День недели *</label>
+            <label className="block text-sm font-medium mb-1 ">День недели *</label>
             <select
               value={formData.day_of_week}
               onChange={(e) => setFormData({ ...formData, day_of_week: parseInt(e.target.value) })}
@@ -1182,7 +1191,7 @@ const DoctorSchedule = ({ doctors, user, canEdit, rooms = [] }) => {
 
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium mb-1 dark:text-gray-200">Время начала *</label>
+              <label className="block text-sm font-medium mb-1 ">Время начала *</label>
               <input
                 type="time"
                 value={formData.start_time}
@@ -1192,7 +1201,7 @@ const DoctorSchedule = ({ doctors, user, canEdit, rooms = [] }) => {
               />
             </div>
             <div>
-              <label className="block text-sm font-medium mb-1 dark:text-gray-200">Время окончания *</label>
+              <label className="block text-sm font-medium mb-1 ">Время окончания *</label>
               <input
                 type="time"
                 value={formData.end_time}
@@ -1204,10 +1213,11 @@ const DoctorSchedule = ({ doctors, user, canEdit, rooms = [] }) => {
           </div>
 
           <div>
-            <label className="block text-sm font-medium mb-1 dark:text-gray-200">Кабинет/Кресло</label>
+            <label className="block text-sm font-medium mb-1 ">Кабинет/Кресло *</label>
             <select
               value={formData.room_id}
-              onChange={(e) => setFormData({ ...formData, room_id: e.target.value })}
+              onChange={(e) => { setRoomError(''); setFormData({ ...formData, room_id: e.target.value }); }}
+              id="doctor-schedule-room" aria-label="Кабинет/кресло" required aria-required="true" aria-invalid={Boolean(roomError)} aria-describedby={roomError ? 'doctor-schedule-room-error' : undefined}
               className={selectClasses}
             >
               <option value="">Выберите кабинет</option>
@@ -1217,6 +1227,7 @@ const DoctorSchedule = ({ doctors, user, canEdit, rooms = [] }) => {
                 </option>
               ))}
             </select>
+            {roomError && <p id="doctor-schedule-room-error" role="alert" className="text-sm text-curai-negative mt-1">{roomError}</p>}
           </div>
 
           <div className="flex justify-end space-x-3 pt-4">
@@ -1256,12 +1267,12 @@ const DoctorSchedule = ({ doctors, user, canEdit, rooms = [] }) => {
       >
         <div className="space-y-4">
           {editingSchedule && (
-            <div className="bg-blue-50 dark:bg-blue-900/30 border border-blue-200 dark:border-blue-800 rounded-lg p-3 mb-4">
-              <div className="font-medium text-blue-800 dark:text-blue-300">
+            <div className="bg-curai-selected border border-curai-control rounded-md p-3 mb-4">
+              <div className="font-medium text-curai-blue ">
                 {editingSchedule.doctor_name}
               </div>
               {editingSchedule.doctor_specialty && (
-                <div className="text-sm text-blue-600 dark:text-blue-400">
+                <div className="text-sm text-curai-blue ">
                   {editingSchedule.doctor_specialty}
                 </div>
               )}
@@ -1272,13 +1283,13 @@ const DoctorSchedule = ({ doctors, user, canEdit, rooms = [] }) => {
           {editingSchedule?.allSchedules && editingSchedule.allSchedules.length > 0 && (
             <div className="mb-4">
               <div className="flex items-center justify-between mb-2">
-                <label className="block text-sm font-medium dark:text-gray-200">
+                <label className="block text-sm font-medium ">
                   Дни для изменения ({editSelectedDays.length} из {editingSchedule.allSchedules.length})
                 </label>
                 <div className="flex gap-2 text-xs">
-                  <button type="button" onClick={selectAllEditDays} className="text-blue-600 hover:underline dark:text-blue-400">Все дни</button>
-                  <button type="button" onClick={selectWorkEditDays} className="text-blue-600 hover:underline dark:text-blue-400">Пн–Пт</button>
-                  <button type="button" onClick={clearEditDaysSelection} className="text-gray-500 hover:underline">Сбросить</button>
+                  <button type="button" onClick={selectAllEditDays} className="text-curai-blue hover:underline ">Все дни</button>
+                  <button type="button" onClick={selectWorkEditDays} className="text-curai-blue hover:underline ">Пн–Пт</button>
+                  <button type="button" onClick={clearEditDaysSelection} className="text-curai-muted hover:underline">Сбросить</button>
                 </div>
               </div>
               <div className="space-y-2">
@@ -1288,10 +1299,10 @@ const DoctorSchedule = ({ doctors, user, canEdit, rooms = [] }) => {
                   return (
                     <div
                       key={schedule.id}
-                      className={`px-3 py-2 rounded-lg border-2 transition-all ${
+                      className={`px-3 py-2 rounded-md border-2 transition-all ${
                         selected
-                          ? 'bg-blue-50 dark:bg-blue-900/20 border-blue-600'
-                          : 'bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600'
+                          ? "bg-curai-selected border-curai-control"
+                          : "bg-curai-surface border-curai-control "
                       }`}
                     >
                       <div className="flex items-center gap-3">
@@ -1307,7 +1318,7 @@ const DoctorSchedule = ({ doctors, user, canEdit, rooms = [] }) => {
                                 return [...prev, schedule.id];
                               });
                             }}
-                            className="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 dark:focus:ring-blue-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600"
+                            className="w-4 h-4 text-curai-blue bg-curai-subtle border-curai-control rounded focus:ring-curai-focus focus:ring-2 "
                           />
                           <select
                             value={editDayOfWeeks[schedule.id] ?? schedule.day_of_week}
@@ -1326,7 +1337,7 @@ const DoctorSchedule = ({ doctors, user, canEdit, rooms = [] }) => {
                             onChange={(e) => updateEditDayTime(schedule.id, 'start_time', e.target.value)}
                             className={`${inputClasses} py-1`}
                           />
-                          <span className="text-gray-400">–</span>
+                          <span className="text-curai-muted">–</span>
                           <input
                             type="time"
                             value={times.end_time}
@@ -1339,14 +1350,14 @@ const DoctorSchedule = ({ doctors, user, canEdit, rooms = [] }) => {
                   );
                 })}
               </div>
-              <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
+              <p className="mt-2 text-xs text-curai-muted ">
                 Время задаётся прямо у дня. Клик по названию дня выбирает только его; Ctrl+клик — несколько дней. Изменение времени автоматически включает день.
               </p>
             </div>
           )}
 
           <div>
-            <label className="block text-sm font-medium mb-1 dark:text-gray-200">Кабинет/Кресло</label>
+            <label className="block text-sm font-medium mb-1 ">Кабинет/Кресло</label>
             <select
               value={formData.room_id}
               onChange={(e) => setFormData({ ...formData, room_id: e.target.value })}
@@ -1389,8 +1400,9 @@ const DoctorSchedule = ({ doctors, user, canEdit, rooms = [] }) => {
       {/* Модальное окно для создания недельного расписания */}
       <Modal show={showWeekModal} onClose={() => { setShowWeekModal(false); resetWeekForm(); }} title="Расписание на неделю" size="max-w-2xl">
         <div className="space-y-6">
+          {error && <p role="alert" className="text-sm text-curai-negative">{error}</p>}
           <div>
-            <label className="block text-sm font-medium mb-1 dark:text-gray-200">Врач *</label>
+            <label className="block text-sm font-medium mb-1 ">Врач *</label>
             <select value={weekScheduleData.doctor_id} onChange={(e) => setWeekScheduleData({ ...weekScheduleData, doctor_id: e.target.value })} className={selectClasses} required>
               <option value="">Выберите врача</option>
               {doctors.filter(d => d.is_active).map(doctor => (
@@ -1400,15 +1412,15 @@ const DoctorSchedule = ({ doctors, user, canEdit, rooms = [] }) => {
           </div>
 
           <div>
-            <label className="block text-sm font-medium mb-2 dark:text-gray-200">
-              Дни недели * <span className="text-gray-500 font-normal ml-2">(выбрано: {weekScheduleData.selectedDays.length})</span>
+            <label className="block text-sm font-medium mb-2 ">
+              Дни недели * <span className="text-curai-muted font-normal ml-2">(выбрано: {weekScheduleData.selectedDays.length})</span>
             </label>
             <div className="flex gap-2 mb-3">
-              <button type="button" onClick={selectWorkDays} className="px-3 py-1 text-xs bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 rounded-lg border border-gray-300 dark:border-gray-600">Пн-Пт</button>
-              <button type="button" onClick={selectAllDays} className="px-3 py-1 text-xs bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 rounded-lg border border-gray-300 dark:border-gray-600">Все дни</button>
-              <button type="button" onClick={clearDaysSelection} className="px-3 py-1 text-xs bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 rounded-lg border border-gray-300 dark:border-gray-600">Очистить</button>
+              <button type="button" onClick={selectWorkDays} className="px-3 py-1 text-xs bg-curai-subtle hover:bg-curai-border text-curai-ink rounded-md border border-curai-control ">Пн-Пт</button>
+              <button type="button" onClick={selectAllDays} className="px-3 py-1 text-xs bg-curai-subtle hover:bg-curai-border text-curai-ink rounded-md border border-curai-control ">Все дни</button>
+              <button type="button" onClick={clearDaysSelection} className="px-3 py-1 text-xs bg-curai-subtle hover:bg-curai-border text-curai-ink rounded-md border border-curai-control ">Очистить</button>
                           </div>
-                          <label className="flex items-center gap-2 mb-2 text-xs text-gray-600 dark:text-gray-300 cursor-pointer select-none">
+                          <label className="flex items-center gap-2 mb-2 text-xs text-curai-muted cursor-pointer select-none">
                             <input type="checkbox" checked={applyToAllDays} onChange={(e) => setApplyToAllDays(e.target.checked)} className="w-3.5 h-3.5 accent-blue-600" />
                             Применять введённое время ко всем выбранным дням
                           </label>
@@ -1421,20 +1433,20 @@ const DoctorSchedule = ({ doctors, user, canEdit, rooms = [] }) => {
                 return (
                   <div
                     key={day.id}
-                    className={`px-3 py-2 rounded-lg border-2 transition-all ${
+                    className={`px-3 py-2 rounded-md border-2 transition-all ${
                       isSelected
                         ? hasConflict
-                          ? 'bg-red-50 dark:bg-red-900/20 border-red-400'
-                          : 'bg-blue-50 dark:bg-blue-900/20 border-blue-600'
-                        : 'bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600'
+                          ? "bg-curai-negativeBg border-curai-negative"
+                          : "bg-curai-selected border-curai-control"
+                        : "bg-curai-surface border-curai-control "
                     }`}
                   >
                     <div className="flex items-center gap-3">
                       <button
                         type="button"
                         onClick={(e) => toggleDaySelection(day.id, e)}
-                        className={`min-w-[140px] shrink-0 text-left px-3 py-2 rounded-lg text-sm font-medium ${
-                          isSelected ? 'text-blue-800 dark:text-blue-200' : 'text-gray-700 dark:text-gray-200'
+                        className={`min-w-[140px] shrink-0 text-left px-3 py-2 rounded-md text-sm font-medium ${
+                          isSelected ? "text-curai-blue " : "text-curai-ink "
                         }`}
                       >
                         {isSelected ? '✓ ' : ''}{day.name}
@@ -1446,7 +1458,7 @@ const DoctorSchedule = ({ doctors, user, canEdit, rooms = [] }) => {
                           onChange={(e) => updateDayTime(day.id, 'start_time', e.target.value)}
                           className={`${inputClasses} py-1`}
                         />
-                        <span className="text-gray-400">–</span>
+                        <span className="text-curai-muted">–</span>
                         <input
                           type="time"
                           value={times.end_time}
@@ -1456,7 +1468,7 @@ const DoctorSchedule = ({ doctors, user, canEdit, rooms = [] }) => {
                       </div>
                     </div>
                     {hasConflict && (
-                      <p className="mt-1 ml-[152px] text-xs text-red-600 dark:text-red-400">
+                      <p className="mt-1 ml-[152px] text-xs text-curai-negative ">
                         Кабинет занят: {conflict.conflicts.map(c => `${c.doctor_name} (${c.start_time}–${c.end_time})`).join(', ')}
                       </p>
                     )}
@@ -1464,26 +1476,27 @@ const DoctorSchedule = ({ doctors, user, canEdit, rooms = [] }) => {
                 );
               })}
             </div>
-            <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
+            <p className="mt-2 text-xs text-curai-muted ">
               Время задаётся прямо у дня. Клик по названию дня выбирает только его; Ctrl+клик — несколько дней. Изменение времени автоматически включает день.
             </p>
           </div>
 
           <div>
-            <label className="block text-sm font-medium mb-1 dark:text-gray-200">Кабинет/Кресло</label>
-            <select value={weekScheduleData.room_id} onChange={(e) => updateWeekScheduleWithCheck({ room_id: e.target.value })} className={selectClasses}>
-              <option value="">Выберите кабинет (необязательно)</option>
+            <label className="block text-sm font-medium mb-1 ">Кабинет/Кресло *</label>
+            <select aria-label="Кабинет/кресло" required aria-required="true" aria-invalid={Boolean(roomError)} aria-describedby={roomError ? "doctor-week-room-error" : undefined} value={weekScheduleData.room_id} onChange={(e) => { setRoomError(''); updateWeekScheduleWithCheck({ room_id: e.target.value }); }} className={selectClasses}>
+              <option value="">Выберите кабинет</option>
               {allRooms.map(room => <option key={room.id} value={room.id}>{room.name}</option>)}
             </select>
+            {roomError && <p id="doctor-week-room-error" role="alert" className="text-sm text-curai-negative mt-1">{roomError}</p>}
           </div>
 
           {Object.values(roomConflicts).some(c => !c.is_available) && (
-            <div className="bg-yellow-50 dark:bg-yellow-900/30 border border-yellow-300 dark:border-yellow-700 rounded-lg p-3 text-sm text-yellow-800 dark:text-yellow-200">
+            <div className="bg-curai-warningBg border border-curai-warning rounded-md p-3 text-sm text-curai-warning ">
               ⚠️ Внимание: кабинет занят в некоторые дни. При сохранении эти дни будут пропущены.
             </div>
           )}
 
-          <div className="flex justify-end space-x-3 pt-4 border-t dark:border-gray-700">
+          <div className="flex justify-end space-x-3 pt-4 border-t ">
             <button onClick={() => { setShowWeekModal(false); resetWeekForm(); }} className={`px-4 ${buttonSecondaryClasses}`} disabled={weekScheduleSaving}>Отмена</button>
             <button onClick={handleSaveWeekSchedule} className={`px-4 ${buttonPrimaryClasses}`} disabled={weekScheduleSaving || !weekScheduleData.selectedDays.length || !weekScheduleData.doctor_id}>
               {weekScheduleSaving ? 'Сохранение...' : `Сохранить (${weekScheduleData.selectedDays.length} дн.)`}

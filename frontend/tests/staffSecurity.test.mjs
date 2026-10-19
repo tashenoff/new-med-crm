@@ -25,19 +25,19 @@ for (const type of ['staff','doctor']) for (const close of ['X','Cancel','Escape
     t.after(async()=>{await act(async()=>root.unmount());dom.window.close();for(const [k,d] of saved) {if(d)Object.defineProperty(globalThis,k,d);else delete globalThis[k];}});
     const render=async()=>act(async()=>root.render(React.createElement(StaffModal,props)));
     await render();
-    const resetButtons=[...document.querySelectorAll('button')].filter(b=>b.className.includes('bg-orange-500'));
+    const resetButtons=[...document.querySelectorAll('button')].filter(b=>b.textContent.trim()==='Сбросить пароль');
     assert.equal(resetButtons.length,1,'one reset section');
     await act(async()=>resetButtons[0].click());
     await act(async()=>{
       if(close==='Escape')document.dispatchEvent(new dom.window.KeyboardEvent('keydown',{key:'Escape',bubbles:true}));
-      else if(close==='X')document.querySelector('[aria-label]').click();
+      else if(close==='X')document.querySelector('button[aria-label="Закрыть"]').click();
       else document.querySelector('form > .flex.justify-end button').click();
     });
     assert.equal(closes,1);assert.equal(saves,0);assert.equal(resets,0);
-    assert.equal(document.querySelectorAll('.bg-red-100').length,0);
+    assert.equal(document.querySelectorAll('[role=alert]').length,0);
     props.isOpen=false;await render();props.isOpen=true;await render();
     assert.equal(document.querySelectorAll('input[type=password]').length,0,'reset mode cleared');
-    assert.equal(document.querySelectorAll('.bg-red-100').length,0);
+    assert.equal(document.querySelectorAll('[role=alert]').length,0);
   });
 }
 test('doctor grant puts credentials and optional login only in JSON body',async t=>{

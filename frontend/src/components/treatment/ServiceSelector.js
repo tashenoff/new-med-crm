@@ -307,11 +307,11 @@ const ServiceSelector = ({ onServiceAdd, selectedPatient, onlyComplex = false })
   };
 
   return (
-    <div className="space-y-4">
+    <div className={`curai-service-selector space-y-4 ${onlyComplex ? 'curai-complex-selector' : ''}`}>
       <div className={`${onlyComplex ? '' : 'grid grid-cols-2 gap-4'}`}>
         {!onlyComplex && (
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Категория услуг</label>
+          <label className="block text-sm font-medium text-curai-ink mb-1">Категория услуг</label>
           <select
             value={selectedCategory}
             onChange={(e) => {
@@ -319,7 +319,7 @@ const ServiceSelector = ({ onServiceAdd, selectedPatient, onlyComplex = false })
               setSelectedService('');
               setSelectedTeeth([]);
             }}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+            className="w-full px-3 py-2 border border-curai-control rounded-md focus:ring-2 focus:ring-curai-focus"
           >
             <option value="">Выберите категорию</option>
             {categories.map(category => (
@@ -330,11 +330,11 @@ const ServiceSelector = ({ onServiceAdd, selectedPatient, onlyComplex = false })
         )}
 
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">{onlyComplex ? 'Комплексная услуга' : 'Услуга'}</label>
+          <label className="block text-sm font-medium text-curai-ink mb-1">{onlyComplex ? 'Комплексная услуга' : 'Услуга'}</label>
           <select
             value={selectedService}
             onChange={(e) => setSelectedService(e.target.value)}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+            className="w-full px-3 py-2 border border-curai-control rounded-md focus:ring-2 focus:ring-curai-focus"
             disabled={onlyComplex ? false : !selectedCategory}
           >
             <option value="">{onlyComplex ? 'Выберите комплексную услугу' : 'Выберите услугу'}</option>
@@ -350,7 +350,7 @@ const ServiceSelector = ({ onServiceAdd, selectedPatient, onlyComplex = false })
       {/* Tooth chart for dental services */}
       {!onlyComplex && isToothService && (
         <div className="space-y-3">
-          <div className="text-sm text-gray-600">
+          <div className="text-sm text-curai-muted">
             🦷 Выбор зубов для услуги: <span className="font-medium">{selectedServiceData.name}</span>
           </div>
           <ToothChart 
@@ -360,7 +360,7 @@ const ServiceSelector = ({ onServiceAdd, selectedPatient, onlyComplex = false })
             disabled={false}
           />
           {selectedTeeth.length > 0 && (
-            <div className="text-sm text-green-600">
+            <div className="text-sm text-curai-positive">
               Выбрано зубов: {selectedTeeth.join(', ')} (всего: {selectedTeeth.length})
             </div>
           )}
@@ -369,23 +369,23 @@ const ServiceSelector = ({ onServiceAdd, selectedPatient, onlyComplex = false })
 
       {/* Service details and quantity */}
       {selectedServiceData && (
-        <div className="bg-blue-50 p-4 rounded-lg border border-blue-200">
-          <h5 className="font-medium text-blue-800 mb-2 flex items-center">
+        <div className="curai-service-details bg-curai-selected p-4 rounded-md border border-curai-control">
+          <h5 className="font-medium text-curai-blue mb-2 flex items-center">
             {selectedServiceData.name}
             {isToothService && (
-              <span className="ml-2 px-2 py-1 bg-blue-200 text-blue-700 text-xs rounded-full">
+              <span className="ml-2 px-2 py-1 bg-curai-selected text-curai-blue text-xs rounded-full">
                 🦷 по зубам
               </span>
             )}
             {selectedServiceData.service_type === 'complex' && (
-              <span className="ml-2 px-2 py-1 bg-purple-100 text-purple-700 text-xs rounded-full">
+              <span className="ml-2 px-2 py-1 bg-curai-selected text-curai-blue text-xs rounded-full">
                 🧩 Комплекс
               </span>
             )}
           </h5>
                     {selectedServiceData.service_type === 'complex' && (
-            <div className="mb-3 p-3 bg-blue-50 border border-blue-200 rounded-lg">
-              <div className="font-medium text-sm text-gray-800">📅 Расписание специалистов комплекса — по каждой услуге своя дата и время</div>
+            <div className="curai-complex-schedule mb-3 p-3 bg-curai-selected border border-curai-control rounded-md">
+              <div className="font-medium text-sm text-curai-ink">📅 Расписание специалистов комплекса — по каждой услуге своя дата и время</div>
               <label className="flex items-center gap-2 text-sm mt-2">
                 <input type="checkbox" checked={oneDoctor} onChange={(event) => {
                   setOneDoctor(event.target.checked);
@@ -398,8 +398,8 @@ const ServiceSelector = ({ onServiceAdd, selectedPatient, onlyComplex = false })
               {(() => {
                 const today = new Date().toISOString().slice(0, 10);
                 const rows = availabilityServices();
-                if (rows.length === 0) return <p className="text-xs text-gray-500 mt-1">Загрузка доступности…</p>;
-                if (oneDoctor && !rows[0].doctors.length) return <p className="text-xs text-amber-600 mt-1">Нет врача, который делает весь комплекс целиком.</p>;
+                if (rows.length === 0) return <p className="text-xs text-curai-muted mt-1">Загрузка доступности…</p>;
+                if (oneDoctor && !rows[0].doctors.length) return <p className="text-xs text-curai-warning mt-1">Нет врача, который делает весь комплекс целиком.</p>;
                 return (
                   <div className="space-y-2 mt-1">
                     {rows.map((svc) => {
@@ -413,10 +413,10 @@ const ServiceSelector = ({ onServiceAdd, selectedPatient, onlyComplex = false })
                       const doc = svcForDate?.doctors?.find(d => d.doctor_id === doctorId) || null;
                       const times = doc ? freeTimesFor(doc) : [];
                       return (
-                        <div key={svc.service_id} className="bg-white border border-gray-200 rounded p-2">
+                        <div key={svc.service_id} className="curai-complex-row bg-curai-surface border border-curai-border rounded p-2">
                           <div className="text-sm font-medium">{svc.service_name}{svc.quantity && svc.quantity > 1 ? ` ×${svc.quantity}` : ''}</div>
-                          <div className="flex items-center gap-2 mt-1 flex-wrap">
-                            <label className="text-[10px] text-gray-500">Врач</label>
+                          <div className="curai-complex-doctor flex items-center gap-2 mt-1 flex-wrap">
+                            <label className="text-[10px] text-curai-muted">Врач</label>
                             <select
                                                           value={doctorId}
                                                           onChange={(e) => { const d = e.target.value; setSelDoctors(prev => ({ ...prev, [svc.service_id]: d }));
@@ -431,7 +431,7 @@ const ServiceSelector = ({ onServiceAdd, selectedPatient, onlyComplex = false })
                                                               ensureAvailability(nd);
                                                             }
                                                           }}
-                                                          className="flex-1 min-w-0 px-1.5 py-1 border border-gray-300 rounded text-sm"
+                                                          className="flex-1 min-w-0 px-1.5 py-1 border border-curai-control rounded text-sm"
                                                         >
                               <option value="">—</option>
                               {(svc.doctors || []).map(doc => (
@@ -439,21 +439,21 @@ const ServiceSelector = ({ onServiceAdd, selectedPatient, onlyComplex = false })
                               ))}
                             </select>
                           </div>
-                          <div className="grid grid-cols-3 gap-1.5 mt-1">
-                            <label className="text-[10px] text-gray-500">Дата</label>
-                            <label className="text-[10px] text-gray-500">С</label>
-                            <label className="text-[10px] text-gray-500">До</label>
+                          <div className="curai-complex-dates grid grid-cols-3 gap-1.5 mt-1">
+                            <label className="text-[10px] text-curai-muted">Дата</label>
+                            <label className="text-[10px] text-curai-muted">С</label>
+                            <label className="text-[10px] text-curai-muted">До</label>
                             <input
                               type="date"
                               value={date}
                               onChange={(e) => { const dd = e.target.value; setSelDates(prev => ({ ...prev, [svc.service_id]: dd })); setSelSlots(prev => ({ ...prev, [svc.service_id]: { date: dd, start: '', end: '' } })); ensureAvailability(dd); }}
-                              className="w-full px-1.5 py-1 border border-gray-300 rounded text-sm"
+                              className="w-full px-1.5 py-1 border border-curai-control rounded text-sm"
                             />
                             {doc && doc.has_schedule ? (
                               <select
                                 value={sl.start || ''}
                                 onChange={(e) => setSelSlots(prev => ({ ...prev, [svc.service_id]: { ...(prev[svc.service_id] || {}), start: e.target.value, end: defaultEndTime(e.target.value) } }))}
-                                className="w-full px-1.5 py-1 border border-gray-300 rounded text-sm"
+                                className="w-full px-1.5 py-1 border border-curai-control rounded text-sm"
                               >
                                 <option value="">—</option>
                                 {times.map(t => <option key={t} value={t}>{t}</option>)}
@@ -464,7 +464,7 @@ const ServiceSelector = ({ onServiceAdd, selectedPatient, onlyComplex = false })
                                 disabled
                                 value={sl.start || ''}
                                 onChange={(e) => setSelSlots(prev => ({ ...prev, [svc.service_id]: { ...(prev[svc.service_id] || {}), start: e.target.value, end: defaultEndTime(e.target.value) } }))}
-                                className="w-full px-1.5 py-1 border border-gray-300 rounded text-sm"
+                                className="w-full px-1.5 py-1 border border-curai-control rounded text-sm"
                               />
                             )}
                             <input
@@ -472,17 +472,17 @@ const ServiceSelector = ({ onServiceAdd, selectedPatient, onlyComplex = false })
                               disabled
                               value={sl.end || defaultEndTime(sl.start) || ''}
                               onChange={(e) => setSelSlots(prev => ({ ...prev, [svc.service_id]: { ...(prev[svc.service_id] || {}), end: e.target.value } }))}
-                              className="w-full px-1.5 py-1 border border-gray-300 rounded text-sm"
+                              className="w-full px-1.5 py-1 border border-curai-control rounded text-sm"
                             />
                           </div>
                           {!dateAvail ? (
-                            <div className="text-[10px] text-amber-600 mt-0.5">Загрузка доступности… Время пока недоступно.</div>
+                            <div className="text-[10px] text-curai-warning mt-0.5">Загрузка доступности… Время пока недоступно.</div>
                           ) : !doc ? (
-                            <div className="text-[10px] text-amber-600 mt-0.5">Выбранный врач недоступен на {date}.</div>
+                            <div className="text-[10px] text-curai-warning mt-0.5">Выбранный врач недоступен на {date}.</div>
                           ) : doc.has_schedule ? (
-                            <div className="text-[10px] text-green-600 mt-0.5">окно {doc.schedule_start}-{doc.schedule_end}, занято: {doc.booked?.length || 0}</div>
+                            <div className="text-[10px] text-curai-positive mt-0.5">окно {doc.schedule_start}-{doc.schedule_end}, занято: {doc.booked?.length || 0}</div>
                           ) : (
-                            <div className="text-[10px] text-amber-600 mt-0.5">у врача нет расписания на {date} — выберите другого врача или дату</div>
+                            <div className="text-[10px] text-curai-warning mt-0.5">у врача нет расписания на {date} — выберите другого врача или дату</div>
                           )}
                         </div>
                       );
@@ -494,16 +494,17 @@ const ServiceSelector = ({ onServiceAdd, selectedPatient, onlyComplex = false })
           )}
           
           {isToothService && (
-            <div className="mb-3 p-2 bg-blue-100 rounded text-sm text-blue-700">
+            <div className="mb-3 p-2 bg-curai-selected rounded text-sm text-curai-blue">
               💡 Для этой услуги выберите зубы на карте ниже. Цена будет рассчитана за каждый зуб: {selectedServiceData.price}₸ × количество зубов
             </div>
           )}
           
-          <div className={`${onlyComplex ? 'grid grid-cols-1' : 'grid grid-cols-3 gap-4'}`}>
+          <div className="curai-service-actions">
+<div className={`${onlyComplex ? 'grid grid-cols-1' : 'grid grid-cols-3 gap-4'}`}>
                       {!onlyComplex && (
                       <>
                       <div>
-                        <label className="block text-sm text-gray-600 mb-1">
+                        <label className="block text-sm text-curai-muted mb-1">
                           {isToothService ? 'Количество (зубы)' : 'Количество'}
                         </label>
                         <input
@@ -512,25 +513,25 @@ const ServiceSelector = ({ onServiceAdd, selectedPatient, onlyComplex = false })
                           value={isToothService ? finalQuantity : quantity}
                           onChange={(e) => setQuantity(parseInt(e.target.value) || 1)}
                           disabled={isToothService}
-                          className={`w-full px-3 py-2 border border-gray-300 rounded-lg text-sm ${isToothService ? 'bg-gray-100' : ''}`}
+                          className={`w-full px-3 py-2 border border-curai-control rounded-md text-sm ${isToothService ? "bg-curai-subtle" : ''}`}
                         />
                       </div>
                       <div>
-                        <label className="block text-sm text-gray-600 mb-1">Скидка (%)</label>
+                        <label className="block text-sm text-curai-muted mb-1">Скидка (%)</label>
                         <input
                           type="number"
                           min="0"
                           max="100"
                           value={discount}
                           onChange={(e) => setDiscount(parseFloat(e.target.value) || 0)}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                          className="w-full px-3 py-2 border border-curai-control rounded-md text-sm"
                         />
                       </div>
                       </>
                       )}
                       <div>
-                        <label className="block text-sm text-gray-600 mb-1">Итого</label>
-                        <div className="w-full px-3 py-2 bg-gray-100 border border-gray-300 rounded-lg text-sm font-medium">
+                        <label className="block text-sm text-curai-muted mb-1">Итого</label>
+                        <div className="w-full px-3 py-2 bg-curai-subtle border border-curai-control rounded-md text-sm font-medium">
                           {(totalPrice || 0).toFixed(0)} ₸
                         </div>
                       </div>
@@ -540,10 +541,11 @@ const ServiceSelector = ({ onServiceAdd, selectedPatient, onlyComplex = false })
             type="button"
             onClick={handleAddService}
             disabled={schedulingBlocked}
-            className="mt-3 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+            className="mt-3 px-4 py-2 bg-curai-blue text-white rounded-md hover:bg-curai-blue"
           >
             Добавить в план
           </button>
+</div>
         </div>
       )}
     </div>

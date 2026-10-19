@@ -15,7 +15,7 @@ const MessageContent = ({ content }) => {
     return (
       <div className="space-y-3">
         {textContent && <div className="text-sm whitespace-pre-wrap">{textContent}</div>}
-        <div className="border rounded-lg overflow-hidden">
+        <div className="border rounded-md overflow-hidden">
           <iframe
             src={iframeSrc}
             width="100%"
@@ -42,7 +42,7 @@ const MessageContent = ({ content }) => {
     return (
       <div className="space-y-3">
         {textContent && <div className="text-sm whitespace-pre-wrap">{textContent}</div>}
-        <div className="border rounded-lg overflow-hidden">
+        <div className="border rounded-md overflow-hidden">
           <iframe
             src={url}
             width="100%"
@@ -154,17 +154,17 @@ const AIChatModal = ({ show, onClose, badge }) => {
     <Modal show={show} onClose={onClose} title="Чат с ИИ" size="lg">
       <div className="flex flex-col h-96">
         {/* Messages Area */}
-        <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
+        <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-curai-subtle rounded-md">
           {messages.map((message, index) => (
             <div
               key={index}
               className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
             >
               <div
-                className={`max-w-xs lg:max-w-2xl px-4 py-2 rounded-lg ${
+                className={`max-w-xs lg:max-w-2xl px-4 py-2 rounded-md ${
                   message.role === 'user'
-                    ? 'bg-blue-500 text-white'
-                    : 'bg-white dark:bg-gray-700 text-gray-900 dark:text-white'
+                    ? "bg-curai-blue text-white"
+                    : "bg-curai-surface text-curai-ink "
                 }`}
               >
                 <MessageContent content={message.content} />
@@ -176,10 +176,10 @@ const AIChatModal = ({ show, onClose, badge }) => {
           ))}
           {isLoading && (
             <div className="flex justify-start">
-              <div className="bg-white dark:bg-gray-700 px-4 py-2 rounded-lg">
+              <div className="bg-curai-surface px-4 py-2 rounded-md">
                 <div className="flex items-center space-x-2">
-                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-gray-900 dark:border-white"></div>
-                  <span className="text-sm text-gray-500 dark:text-gray-300">ИИ думает...</span>
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-curai-control "></div>
+                  <span className="text-sm text-curai-muted ">ИИ думает...</span>
                 </div>
               </div>
             </div>
@@ -195,13 +195,13 @@ const AIChatModal = ({ show, onClose, badge }) => {
             onChange={(e) => setInputMessage(e.target.value)}
             onKeyPress={handleKeyPress}
             placeholder="Введите сообщение..."
-            className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
+            className="flex-1 px-3 py-2 border border-curai-control rounded-md focus:outline-none focus:ring-2 focus:ring-curai-focus "
             disabled={isLoading}
           />
           <button
             onClick={sendMessage}
             disabled={!inputMessage.trim() || isLoading}
-            className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            className="px-4 py-2 bg-curai-blue text-white rounded-md hover:bg-curai-blue disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
           >
             Отправить
           </button>

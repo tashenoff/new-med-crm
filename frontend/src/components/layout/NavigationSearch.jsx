@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
+import CuraiIcon from '../common/CuraiIcon';
 import { useLocation } from 'react-router-dom';
 import Modal from '../modals/Modal';
 import { filterSearchNavigation, getSearchNavigation, normalizeNavigationQuery } from './navigationCatalog';
@@ -98,17 +99,17 @@ const NavigationSearch = ({ user, onNavigate }) => {
         aria-keyshortcuts="F2"
         title="F2"
         aria-expanded={open}
-        className="flex items-center gap-2 p-2 rounded-lg bg-white/15 text-white hover:bg-white/25 focus-visible:ring-2 focus-visible:ring-white transition"
+        className="curai-search-trigger"
       >
-        <svg aria-hidden="true" className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <circle cx="10.5" cy="10.5" r="6.5" strokeWidth="2" />
-          <path d="m16 16 4 4" strokeWidth="2" strokeLinecap="round" />
-        </svg>
-        <span className="hidden xl:inline text-sm">Поиск</span>
+        <CuraiIcon name="search" />
+        <span className="curai-search-label">Поиск разделов</span>
+        <kbd className="curai-search-shortcut">F2</kbd>
       </button>
-      <Modal show={open} onClose={close} title="Поиск разделов" size="max-w-lg" dialogLabel="Поиск" onKeyDown={handleKeyDown}>
-        <div ref={panelRef}>
-          <label htmlFor="navigation-search" className="sr-only">Название раздела</label>
+      <Modal show={open} onClose={close} title="Поиск разделов" size="max-w-[640px]" className="curai-section-search" dialogLabel="Поиск" onKeyDown={handleKeyDown}
+        footer={<div className="curai-search-keyboard"><span>↑ ↓ &nbsp;Выбрать</span><span>Enter &nbsp;Перейти</span><span>Esc &nbsp;Закрыть</span></div>}>
+        <div ref={panelRef} className="curai-search-panel">
+          <div className="curai-search-field">
+          <label htmlFor="navigation-search">Название раздела</label>
           <input
             id="navigation-search"
             ref={inputRef}
@@ -122,13 +123,13 @@ const NavigationSearch = ({ user, onNavigate }) => {
             aria-activedescendant={results[index] ? `navigation-result-${results[index].key}` : undefined}
             value={query}
             onChange={event => { setQuery(event.target.value); setActiveIndex(0); }}
-            placeholder="Календарь, расписание…"
-            className="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 outline-none"
+            className="curai-search-input"
           />
-          <p id="navigation-search-status" className="my-3 text-sm text-gray-500 dark:text-gray-400" role="status">
+          </div>
+          <p id="navigation-search-status" className="curai-search-status" role="status">
             {normalizeNavigationQuery(query) ? `Найдено разделов: ${results.length}` : 'Выберите раздел или начните вводить его название.'}
           </p>
-          <ul id="navigation-search-results" role="listbox" aria-label="Доступные разделы" className="max-h-[45vh] overflow-y-auto space-y-1">
+          <ul id="navigation-search-results" role="listbox" aria-label="Доступные разделы" className={`curai-search-results ${!results.length ? 'is-empty' : ''}`}>
             {results.map((item, resultIndex) => (
               <li
                 key={item.key}
@@ -138,14 +139,14 @@ const NavigationSearch = ({ user, onNavigate }) => {
                 // Keep DOM focus on the combobox; options use aria-activedescendant.
                 onMouseDown={event => event.preventDefault()}
                 onClick={() => select(item)}
-                className={`w-full text-left px-3 py-2 rounded-lg cursor-pointer text-gray-900 dark:text-white ${resultIndex === index ? 'bg-blue-100 dark:bg-blue-900' : 'hover:bg-gray-100 dark:hover:bg-gray-700'}`}
+                className="curai-search-result"
               >
-                <span className="block text-sm font-medium">{item.label}</span>
-                <span className="block text-xs text-gray-500 dark:text-gray-400">{item.section === 'hms' ? 'HMS' : item.section === 'crm' ? 'CRM' : item.section === 'finance' ? 'Финансы' : 'Склад'}{item.parent ? ` · ${item.parent}` : ''}</span>
+                <span className="curai-search-result-title">{item.label}</span>
+                <span className="curai-search-result-category">{item.section === 'hms' ? 'HMS' : item.section === 'crm' ? 'CRM' : item.section === 'finance' ? 'Финансы' : 'Склад'}{item.parent ? ` · ${item.parent}` : ''}</span>
               </li>
             ))}
           </ul>
-          {!results.length && <p className="py-4 text-sm text-gray-600 dark:text-gray-300">Разделы не найдены. Попробуйте другое название.</p>}
+          {!results.length && <div className="curai-search-empty"><h4>Разделы не найдены</h4><p>Попробуйте другое название.</p></div>}
         </div>
       </Modal>
     </>

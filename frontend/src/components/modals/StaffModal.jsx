@@ -90,7 +90,7 @@ const StaffModal = ({
   };
 
   const resetPasswordSection = (
-          <div className="border-t border-gray-200 pt-4 mt-4">
+          <div className="border-t border-curai-border pt-4 mt-4">
             {!resetPasswordMode ? (
               <div>
                 <button
@@ -101,20 +101,20 @@ const StaffModal = ({
                     setResetPasswordSuccess('');
                     setResetPasswordData({ newPassword: '', confirmPassword: '' });
                   }}
-                  className="px-4 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition-colors text-sm"
+                  className="px-4 py-2 bg-curai-warning text-white rounded-md hover:bg-curai-warning transition-colors text-sm"
                 >
                   <svg className="w-4 h-4 inline mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" />
                   </svg>
                   Сбросить пароль
                 </button>
-                <p className="text-xs text-gray-500 mt-2">
+                <p className="text-xs text-curai-muted mt-2">
                   Установите новый пароль для сотрудника без знания текущего
                 </p>
               </div>
             ) : (
-              <div className="bg-orange-50 border border-orange-200 rounded-lg p-4">
-                <h4 className="text-sm font-medium text-orange-900 mb-3 flex items-center gap-2">
+              <div className="bg-curai-warningBg border border-curai-warning rounded-md p-4">
+                <h4 className="text-sm font-medium text-curai-warning mb-3 flex items-center gap-2">
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" />
                   </svg>
@@ -122,40 +122,40 @@ const StaffModal = ({
                 </h4>
 
                 {resetPasswordError && (
-                  <div className="bg-red-100 border border-red-300 text-red-700 px-3 py-2 rounded mb-3 text-sm">
+                  <div role="alert" className="bg-curai-negativeBg border border-curai-negative text-curai-negative px-3 py-2 rounded mb-3 text-sm">
                     {resetPasswordError}
                   </div>
                 )}
 
                 {resetPasswordSuccess && (
-                  <div className="bg-green-100 border border-green-300 text-green-700 px-3 py-2 rounded mb-3 text-sm">
+                  <div className="bg-curai-positiveBg border border-curai-positive text-curai-positive px-3 py-2 rounded mb-3 text-sm">
                     {resetPasswordSuccess}
                   </div>
                 )}
 
                 <div className="space-y-3">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                    <label className="block text-sm font-medium text-curai-ink mb-1">
                       Новый пароль
                     </label>
                     <input
                       type="password"
                       value={resetPasswordData.newPassword}
                       onChange={(e) => setResetPasswordData({ ...resetPasswordData, newPassword: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                      className="w-full px-3 py-2 border border-curai-control rounded-md focus:ring-2 focus:ring-curai-focus focus:border-transparent"
                       placeholder="Минимум 6 символов"
                       minLength={6}
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                    <label className="block text-sm font-medium text-curai-ink mb-1">
                       Подтверждение пароля
                     </label>
                     <input
                       type="password"
                       value={resetPasswordData.confirmPassword}
                       onChange={(e) => setResetPasswordData({ ...resetPasswordData, confirmPassword: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                      className="w-full px-3 py-2 border border-curai-control rounded-md focus:ring-2 focus:ring-curai-focus focus:border-transparent"
                       placeholder="Повторите новый пароль"
                     />
                   </div>
@@ -168,7 +168,7 @@ const StaffModal = ({
                         setResetPasswordSuccess('');
                         setResetPasswordData({ newPassword: '', confirmPassword: '' });
                       }}
-                      className="px-3 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors text-sm"
+                      className="px-3 py-2 border border-curai-control rounded-md text-curai-ink hover:bg-curai-subtle transition-colors text-sm"
                       disabled={resetPasswordLoading}
                     >
                       Отмена
@@ -177,7 +177,7 @@ const StaffModal = ({
                       type="button"
                       onClick={handleResetPassword}
                       disabled={resetPasswordLoading}
-                      className="px-3 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition-colors text-sm disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1"
+                      className="px-3 py-2 bg-curai-warning text-white rounded-md hover:bg-curai-warning transition-colors text-sm disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1"
                     >
                       {resetPasswordLoading && (
                         <svg className="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
@@ -203,20 +203,20 @@ const StaffModal = ({
     >
       <form onSubmit={handleSubmit} className="space-y-4">
         {errorMessage && (
-          <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative">
+          <div className="bg-curai-negativeBg border border-curai-negative text-curai-negative px-4 py-3 rounded relative">
             {errorMessage}
           </div>
         )}
 
         {/* Информация о враче (только при редактировании врача) */}
         {isEditingDoctor && (
-          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
-            <p className="text-sm text-blue-800">
+          <div className="bg-curai-selected border border-curai-control rounded-md p-4 mb-4">
+            <p className="text-sm text-curai-blue">
               <strong>Врач:</strong> {editingItem.full_name}<br />
               <strong>Специальность:</strong> {editingItem.specialty || 'Не указана'}<br />
               <strong>Email:</strong> {editingItem.email || 'Не указан'}
             </p>
-            <p className="text-xs text-blue-600 mt-2">
+            <p className="text-xs text-curai-blue mt-2">
               Базовые данные врача редактируются в разделе "Врачи"
             </p>
           </div>
@@ -225,17 +225,17 @@ const StaffModal = ({
         {/* Поле логина для врачей (доступно при редактировании) */}
         {isEditingDoctor && (
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
+            <label className="block text-sm font-medium text-curai-ink mb-1">
               Логин (для входа)
             </label>
             <input
               type="text"
               value={staffForm.login || ''}
               onChange={(e) => setStaffForm({ ...staffForm, login: e.target.value })}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="w-full px-3 py-2 border border-curai-control rounded-md focus:ring-2 focus:ring-curai-focus focus:border-transparent"
               placeholder="myusername"
             />
-            <p className="text-xs text-gray-500 mt-1">
+            <p className="text-xs text-curai-muted mt-1">
               Вход возможен как по email, так и по логину
             </p>
           </div>
@@ -248,14 +248,14 @@ const StaffModal = ({
           <>
             {/* Полное имя */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Полное имя <span className="text-red-500">*</span>
+              <label className="block text-sm font-medium text-curai-ink mb-1">
+                Полное имя <span className="text-curai-negative">*</span>
               </label>
               <input
                 type="text"
                 value={staffForm.full_name || ''}
                 onChange={(e) => setStaffForm({ ...staffForm, full_name: e.target.value })}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="w-full px-3 py-2 border border-curai-control rounded-md focus:ring-2 focus:ring-curai-focus focus:border-transparent"
                 placeholder="Иванов Иван Иванович"
                 required
               />
@@ -263,19 +263,19 @@ const StaffModal = ({
 
             {/* Email */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
+              <label className="block text-sm font-medium text-curai-ink mb-1">
                 Email
               </label>
               <input
                 type="email"
                 value={staffForm.email || ''}
                 onChange={(e) => setStaffForm({ ...staffForm, email: e.target.value })}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="w-full px-3 py-2 border border-curai-control rounded-md focus:ring-2 focus:ring-curai-focus focus:border-transparent"
                 placeholder="user@example.com"
                 disabled={editingItem} // Email нельзя изменить при редактировании
               />
               {editingItem && (
-                <p className="text-xs text-gray-500 mt-1">
+                <p className="text-xs text-curai-muted mt-1">
                   Email нельзя изменить после создания
                 </p>
               )}
@@ -283,17 +283,17 @@ const StaffModal = ({
 
             {/* Логин (для входа вместо email) */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
+              <label className="block text-sm font-medium text-curai-ink mb-1">
                 Логин (для входа)
               </label>
               <input
                 type="text"
                 value={staffForm.login || ''}
                 onChange={(e) => setStaffForm({ ...staffForm, login: e.target.value })}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="w-full px-3 py-2 border border-curai-control rounded-md focus:ring-2 focus:ring-curai-focus focus:border-transparent"
                 placeholder="myusername"
               />
-              <p className="text-xs text-gray-500 mt-1">
+              <p className="text-xs text-curai-muted mt-1">
                 Можно войти как по email, так и по логину
               </p>
             </div>
@@ -302,15 +302,15 @@ const StaffModal = ({
             {/* Пароль (только при создании) */}
             {!editingItem && (
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Пароль <span className="text-red-500">*</span>
+                <label className="block text-sm font-medium text-curai-ink mb-1">
+                  Пароль <span className="text-curai-negative">*</span>
                 </label>
                 <div className="relative">
                   <input
                     type={showPassword ? 'text' : 'password'}
                     value={staffForm.password || ''}
                     onChange={(e) => setStaffForm({ ...staffForm, password: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent pr-10"
+                    className="w-full px-3 py-2 border border-curai-control rounded-md focus:ring-2 focus:ring-curai-focus focus:border-transparent pr-10"
                     placeholder="Минимум 6 символов"
                     required
                     minLength={6}
@@ -318,7 +318,7 @@ const StaffModal = ({
                   <button
                     type="button"
                     onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-2 top-1/2 transform -translate-y-1/2 text-gray-500 hover:text-gray-700"
+                    className="absolute right-2 top-1/2 transform -translate-y-1/2 text-curai-muted hover:text-curai-ink"
                   >
                     {showPassword ? (
                       <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -332,7 +332,7 @@ const StaffModal = ({
                     )}
                   </button>
                 </div>
-                <p className="text-xs text-gray-500 mt-1">
+                <p className="text-xs text-curai-muted mt-1">
                   Пароль должен содержать минимум 6 символов
                 </p>
               </div>
@@ -340,13 +340,13 @@ const StaffModal = ({
 
             {/* Роль */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Роль <span className="text-red-500">*</span>
+              <label className="block text-sm font-medium text-curai-ink mb-1">
+                Роль <span className="text-curai-negative">*</span>
               </label>
               <select
                 value={staffForm.role || ''}
                 onChange={(e) => setStaffForm({ ...staffForm, role: e.target.value })}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="w-full px-3 py-2 border border-curai-control rounded-md focus:ring-2 focus:ring-curai-focus focus:border-transparent"
                 required
               >
                 <option value="">Выберите роль</option>
@@ -360,25 +360,25 @@ const StaffModal = ({
 
             {/* Телефон */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
+              <label className="block text-sm font-medium text-curai-ink mb-1">
                 Телефон
               </label>
               <input
                 type="tel"
                 value={staffForm.phone || ''}
                 onChange={(e) => setStaffForm({ ...staffForm, phone: e.target.value })}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="w-full px-3 py-2 border border-curai-control rounded-md focus:ring-2 focus:ring-curai-focus focus:border-transparent"
                 placeholder="+7 (777) 123-45-67"
               />
             </div>
 
             {/* Информация о правах */}
             {staffForm.role && (
-              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                <h4 className="text-sm font-medium text-blue-900 mb-2">
+              <div className="bg-curai-selected border border-curai-control rounded-md p-4">
+                <h4 className="text-sm font-medium text-curai-blue mb-2">
                   Базовые права для роли "{roleOptions.find(r => r.value === staffForm.role)?.label}"
                 </h4>
-                <p className="text-xs text-blue-700">
+                <p className="text-xs text-curai-blue">
                   {staffForm.role === 'super_admin' && 'Полный доступ ко всем функциям системы'}
                   {staffForm.role === 'admin' && 'Управление пациентами, врачами, CRM, складом, справочниками, просмотр финансов'}
                   {staffForm.role === 'doctor' && 'Работа с пациентами, доступ к календарю, просмотр справочников'}
@@ -391,16 +391,16 @@ const StaffModal = ({
 
         {/* Дополнительные права доступа */}
         {staffForm.role && (
-          <div className="border border-gray-300 rounded-lg p-4">
-            <h4 className="text-sm font-medium text-gray-900 mb-3">
+          <div className="border border-curai-control rounded-md p-4">
+            <h4 className="text-sm font-medium text-curai-ink mb-3">
               Дополнительные права доступа
             </h4>
-            <p className="text-xs text-gray-600 mb-3">
+            <p className="text-xs text-curai-muted mb-3">
               Выберите разделы, к которым у сотрудника будет доступ
             </p>
             
             {/* Чекбокс "Все" */}
-            <div className="mb-4 pb-3 border-b border-gray-200">
+            <div className="mb-4 pb-3 border-b border-curai-border">
               <div className="flex items-center">
                 <input
                   type="checkbox"
@@ -426,9 +426,9 @@ const StaffModal = ({
                       setStaffForm({ ...staffForm, custom_permissions: [] });
                     }
                   }}
-                  className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                  className="w-4 h-4 text-curai-blue border-curai-control rounded focus:ring-curai-focus"
                 />
-                <label htmlFor="select_all_permissions" className="ml-2 text-sm font-medium text-gray-900">
+                <label htmlFor="select_all_permissions" className="ml-2 text-sm font-medium text-curai-ink">
                   Все
                 </label>
               </div>
@@ -450,9 +450,9 @@ const StaffModal = ({
                         setStaffForm({ ...staffForm, custom_permissions: perms.filter(p => p !== 'patients_view') });
                       }
                     }}
-                    className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                    className="w-4 h-4 text-curai-blue border-curai-control rounded focus:ring-curai-focus"
                   />
-                  <label htmlFor="patients_view" className="ml-2 text-sm text-gray-700">
+                  <label htmlFor="patients_view" className="ml-2 text-sm text-curai-ink">
                     Просмотр пациентов
                   </label>
                 </div>
@@ -469,9 +469,9 @@ const StaffModal = ({
                         setStaffForm({ ...staffForm, custom_permissions: perms.filter(p => p !== 'patients_edit') });
                       }
                     }}
-                    className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                    className="w-4 h-4 text-curai-blue border-curai-control rounded focus:ring-curai-focus"
                   />
-                  <label htmlFor="patients_edit" className="ml-2 text-sm text-gray-600">
+                  <label htmlFor="patients_edit" className="ml-2 text-sm text-curai-muted">
                     Редактирование пациентов
                   </label>
                 </div>
@@ -492,9 +492,9 @@ const StaffModal = ({
                         setStaffForm({ ...staffForm, custom_permissions: perms.filter(p => p !== 'doctors_view') });
                       }
                     }}
-                    className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                    className="w-4 h-4 text-curai-blue border-curai-control rounded focus:ring-curai-focus"
                   />
-                  <label htmlFor="doctors_view" className="ml-2 text-sm text-gray-700">
+                  <label htmlFor="doctors_view" className="ml-2 text-sm text-curai-ink">
                     Просмотр врачей
                   </label>
                 </div>
@@ -515,9 +515,9 @@ const StaffModal = ({
                         setStaffForm({ ...staffForm, custom_permissions: perms.filter(p => p !== 'calendar_view') });
                       }
                     }}
-                    className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                    className="w-4 h-4 text-curai-blue border-curai-control rounded focus:ring-curai-focus"
                   />
-                  <label htmlFor="calendar_view" className="ml-2 text-sm text-gray-700">
+                  <label htmlFor="calendar_view" className="ml-2 text-sm text-curai-ink">
                     Доступ к календарю
                   </label>
                 </div>
@@ -538,9 +538,9 @@ const StaffModal = ({
                         setStaffForm({ ...staffForm, custom_permissions: perms.filter(p => p !== 'crm_view') });
                       }
                     }}
-                    className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                    className="w-4 h-4 text-curai-blue border-curai-control rounded focus:ring-curai-focus"
                   />
-                  <label htmlFor="crm_view" className="ml-2 text-sm text-gray-700">
+                  <label htmlFor="crm_view" className="ml-2 text-sm text-curai-ink">
                     Доступ к CRM
                   </label>
                 </div>
@@ -561,9 +561,9 @@ const StaffModal = ({
                         setStaffForm({ ...staffForm, custom_permissions: perms.filter(p => p !== 'warehouse_view') });
                       }
                     }}
-                    className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                    className="w-4 h-4 text-curai-blue border-curai-control rounded focus:ring-curai-focus"
                   />
-                  <label htmlFor="warehouse_view" className="ml-2 text-sm text-gray-700">
+                  <label htmlFor="warehouse_view" className="ml-2 text-sm text-curai-ink">
                     Доступ к складу
                   </label>
                 </div>
@@ -584,9 +584,9 @@ const StaffModal = ({
                         setStaffForm({ ...staffForm, custom_permissions: perms.filter(p => p !== 'directory_view') });
                       }
                     }}
-                    className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                    className="w-4 h-4 text-curai-blue border-curai-control rounded focus:ring-curai-focus"
                   />
-                  <label htmlFor="directory_view" className="ml-2 text-sm text-gray-700">
+                  <label htmlFor="directory_view" className="ml-2 text-sm text-curai-ink">
                     Просмотр справочников
                   </label>
                 </div>
@@ -607,9 +607,9 @@ const StaffModal = ({
                         setStaffForm({ ...staffForm, custom_permissions: perms.filter(p => p !== 'finance_view') });
                       }
                     }}
-                    className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                    className="w-4 h-4 text-curai-blue border-curai-control rounded focus:ring-curai-focus"
                   />
-                  <label htmlFor="finance_view" className="ml-2 text-sm text-gray-700">
+                  <label htmlFor="finance_view" className="ml-2 text-sm text-curai-ink">
                     Просмотр финансов
                   </label>
                 </div>
@@ -630,9 +630,9 @@ const StaffModal = ({
                         setStaffForm({ ...staffForm, custom_permissions: perms.filter(p => p !== 'statistics_view') });
                       }
                     }}
-                    className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                    className="w-4 h-4 text-curai-blue border-curai-control rounded focus:ring-curai-focus"
                   />
-                  <label htmlFor="statistics_view" className="ml-2 text-sm text-gray-700">
+                  <label htmlFor="statistics_view" className="ml-2 text-sm text-curai-ink">
                     Просмотр статистики
                   </label>
                 </div>
@@ -646,14 +646,14 @@ const StaffModal = ({
           <button
             type="button"
             onClick={onClose}
-            className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors"
+            className="px-4 py-2 border border-curai-control rounded-md text-curai-ink hover:bg-curai-subtle transition-colors"
             disabled={loading}
           >
             Отмена
           </button>
           <button
             type="submit"
-            className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+            className="px-4 py-2 bg-curai-blue text-white rounded-md hover:bg-curai-blue transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
             disabled={loading}
           >
             {loading && (

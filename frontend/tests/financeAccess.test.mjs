@@ -26,7 +26,7 @@ const compiled = await build({
   plugins: [{ name: 'unrelated-app-dependencies', setup(builder) {
     builder.onResolve({ filter: /^\.\.?\// }, args => {
       if (/App\.jsx$/.test(args.importer) && /layout\/(Header|Navigation)$/.test(args.path)) return;
-      if (['./NavigationSearch', './navigationCatalog', '../modals/Modal'].includes(args.path)) return;
+      if (['./NavigationSearch', './navigationCatalog', '../modals/Modal', './WorkspaceTabs', './NavigationItem', '../common/CuraiIcon', '../common/CuraiButton'].includes(args.path)) return;
       return { path: args.path, namespace: 'fixture' };
     });
     builder.onLoad({ filter: /.*/, namespace: 'fixture' }, args => ({ contents: `
@@ -83,14 +83,13 @@ async function mount(context, role, path = '/calendar', width = 1024) {
 }
 
 function assertSidebar(document, open) {
-  const nav = document.querySelector('nav');
-  assert.equal(nav.classList.contains('translate-x-0'), open);
-  assert.equal(nav.classList.contains('-translate-x-full'), !open);
+  const nav = document.getElementById('workspace-navigation');
+  assert.equal(nav.classList.contains('is-expanded'), open);
+  assert.equal(nav.classList.contains('is-collapsed'), !open);
   const content = document.querySelector('header').parentElement;
-  assert.equal(content.classList.contains('lg:ml-64'), open);
-  assert.equal(content.classList.contains('lg:ml-0'), !open);
-  assert.equal(!!document.querySelector('header [aria-label="Open sidebar"]'), !open);
-  assert.equal(!!document.querySelector('.bg-opacity-50.lg\\:hidden'), open);
+  assert.equal(content.classList.contains('is-menu-expanded'), open);
+  assert.equal(document.querySelector('header [aria-controls="workspace-navigation"]').getAttribute('aria-expanded'), String(open));
+  assert.equal(!!document.querySelector('.bg-black\\/30.lg\\:hidden'), open);
 }
 
 async function resize(document, width) {
@@ -132,7 +131,7 @@ test('mobile sidebar starts collapsed, closes via overlay and navigation, and st
   const open = async () => act(async () => document.querySelector('header [aria-label="Open sidebar"]').click());
   await open();
   assertSidebar(document, true);
-  await act(async () => document.querySelector('.bg-opacity-50.lg\\:hidden').click());
+  await act(async () => document.querySelector('.bg-black\\/30.lg\\:hidden').click());
   assertSidebar(document, false);
   await open();
   await act(async () => document.querySelector('nav [data-guide="nav-patients"]').click());
@@ -163,7 +162,7 @@ for (const role of ['patient', null]) {
 for (const role of staff) {
   test(`Finance sidebar exposes appropriate tabs for ${role}`, async context => {
     const document = await mount(context, role, '/finance-salaries');
-    const labels = [...document.querySelectorAll('nav .space-y-1 button')].map(b => b.textContent.trim());
+    const labels = [...document.querySelectorAll('#workspace-navigation .curai-sidebar-items button')].map(b => b.getAttribute('aria-label'));
     assert.deepEqual(labels, ['admin', 'super_admin'].includes(role)
       ? ['Дашборд', 'Доходы', 'Расходы', 'Зарплата врачей', 'Отчеты'] : ['Зарплата врачей']);
   });

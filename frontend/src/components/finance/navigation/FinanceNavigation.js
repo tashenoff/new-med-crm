@@ -35,9 +35,9 @@ const FinanceNavigation = ({ activeTab, setActiveTab, user }) => {
   ];
 
   return (
-    <div className="h-full bg-gradient-to-b from-green-50 to-emerald-100">
+    <div className="h-full bg-curai-positiveBg ">
       <div className="p-4">
-        <h2 className="text-xl font-bold text-gray-800 mb-6">
+        <h2 className="text-xl font-semibold text-curai-ink mb-6">
           💰 Финансовая система
         </h2>
         
@@ -46,22 +46,22 @@ const FinanceNavigation = ({ activeTab, setActiveTab, user }) => {
             <button
               key={item.key}
               onClick={() => setActiveTab(item.key)}
-              className={`w-full text-left p-3 rounded-lg transition-all duration-200 group ${
+              className={`w-full text-left p-3 rounded-md transition-all duration-200 group ${
                 activeTab === item.key
-                  ? 'bg-green-600 text-white shadow-lg'
-                  : 'text-gray-700 hover:bg-white hover:shadow-md'
+                  ? "bg-curai-positive text-white shadow-none"
+                  : "text-curai-ink hover:bg-curai-surface hover:shadow-none"
               }`}
             >
               <div className="flex items-center space-x-3">
                 <span className="text-lg">{item.icon}</span>
                 <div>
                   <div className={`font-medium ${
-                    activeTab === item.key ? 'text-white' : 'text-gray-800'
+                    activeTab === item.key ? 'text-white' : "text-curai-ink"
                   }`}>
                     {item.label.replace(/^.+ /, '')}
                   </div>
                   <div className={`text-xs ${
-                    activeTab === item.key ? 'text-green-100' : 'text-gray-500'
+                    activeTab === item.key ? "text-curai-positive" : "text-curai-muted"
                   }`}>
                     {item.description}
                   </div>
@@ -71,30 +71,30 @@ const FinanceNavigation = ({ activeTab, setActiveTab, user }) => {
           ))}
         </nav>
         
-        <div className="mt-8 p-4 bg-green-100 rounded-lg">
-          <h3 className="font-semibold text-green-800 mb-2">💡 Быстрые действия</h3>
+        <div className="mt-8 p-4 bg-curai-positiveBg rounded-md">
+          <h3 className="font-semibold text-curai-positive mb-2">💡 Быстрые действия</h3>
           <div className="space-y-2">
             <button 
               onClick={() => setActiveTab('finance-income')}
-              className="w-full text-left text-sm text-green-700 hover:text-green-900"
+              className="w-full text-left text-sm text-curai-positive hover:text-curai-positive"
             >
               + Добавить доход
             </button>
             <button 
               onClick={() => setActiveTab('finance-expenses')}
-              className="w-full text-left text-sm text-green-700 hover:text-green-900"
+              className="w-full text-left text-sm text-curai-positive hover:text-curai-positive"
             >
               + Добавить расход
             </button>
             <button 
               onClick={() => setActiveTab('finance-salaries')}
-              className="w-full text-left text-sm text-green-700 hover:text-green-900"
+              className="w-full text-left text-sm text-curai-positive hover:text-curai-positive"
             >
               👨‍⚕️ Зарплата врачей
             </button>
             <button 
               onClick={() => setActiveTab('finance-reports')}
-              className="w-full text-left text-sm text-green-700 hover:text-green-900"
+              className="w-full text-left text-sm text-curai-positive hover:text-curai-positive"
             >
               📊 Создать отчет
             </button>

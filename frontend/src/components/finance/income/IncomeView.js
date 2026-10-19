@@ -101,34 +101,34 @@ const IncomeView = ({ user }) => {
     <div className="space-y-6">
       {/* Header */}
       <div className="flex justify-between items-center">
-        <h1 className="text-2xl font-bold text-gray-900">💰 Доходы</h1>
+        <h1 className="text-2xl font-semibold text-curai-ink">💰 Доходы</h1>
         <button
           onClick={() => setShowModal(true)}
-          className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors"
+          className="bg-curai-positive text-white px-4 py-2 rounded-md hover:bg-curai-positive transition-colors"
         >
           ➕ Добавить доход
         </button>
       </div>
 
       {/* Filters */}
-      <div className="bg-white rounded-lg shadow p-6">
+      <div className="bg-curai-surface rounded-md shadow-none p-6">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Поиск</label>
+            <label className="block text-sm font-medium text-curai-ink mb-2">Поиск</label>
             <input
               type="text"
               placeholder="Поиск по описанию или пациенту..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500"
+              className="w-full px-3 py-2 border border-curai-control rounded-md focus:ring-2 focus:ring-curai-focus"
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Период</label>
+            <label className="block text-sm font-medium text-curai-ink mb-2">Период</label>
             <select
               value={selectedPeriod}
               onChange={(e) => setSelectedPeriod(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500"
+              className="w-full px-3 py-2 border border-curai-control rounded-md focus:ring-2 focus:ring-curai-focus"
             >
               <option value="current_month">Текущий месяц</option>
               <option value="last_month">Прошлый месяц</option>
@@ -137,68 +137,68 @@ const IncomeView = ({ user }) => {
             </select>
           </div>
           <div className="flex items-end">
-            <div className="bg-green-100 p-3 rounded-lg">
-              <p className="text-sm text-green-700">Общий доход</p>
-              <p className="text-2xl font-bold text-green-800">{totalIncome.toLocaleString('ru-RU')} ₸</p>
+            <div className="bg-curai-positiveBg p-3 rounded-md">
+              <p className="text-sm text-curai-positive">Общий доход</p>
+              <p className="text-2xl font-semibold text-curai-positive">{totalIncome.toLocaleString('ru-RU')} ₸</p>
             </div>
           </div>
         </div>
       </div>
 
       {/* Income List */}
-      <div className="bg-white rounded-lg shadow overflow-hidden">
+      <div className="bg-curai-surface rounded-md shadow-none overflow-hidden">
         <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50">
+          <table className="min-w-full divide-y divide-curai-border">
+            <thead className="bg-curai-subtle">
               <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-6 py-3 text-left text-xs font-medium text-curai-muted uppercase tracking-wider">
                   Описание
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-6 py-3 text-left text-xs font-medium text-curai-muted uppercase tracking-wider">
                   Категория
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-6 py-3 text-left text-xs font-medium text-curai-muted uppercase tracking-wider">
                   Сумма
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-6 py-3 text-left text-xs font-medium text-curai-muted uppercase tracking-wider">
                   Дата
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-6 py-3 text-left text-xs font-medium text-curai-muted uppercase tracking-wider">
                   Пациент
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-6 py-3 text-left text-xs font-medium text-curai-muted uppercase tracking-wider">
                   Действия
                 </th>
               </tr>
             </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
+            <tbody className="bg-curai-surface divide-y divide-curai-border">
               {filteredIncomes.map((income) => (
-                <tr key={income.id} className="hover:bg-gray-50">
+                <tr key={income.id} className="hover:bg-curai-subtle">
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm font-medium text-gray-900">{income.description}</div>
+                    <div className="text-sm font-medium text-curai-ink">{income.description}</div>
                     {income.notes && (
-                      <div className="text-sm text-gray-500">{income.notes}</div>
+                      <div className="text-sm text-curai-muted">{income.notes}</div>
                     )}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-curai-positiveBg text-curai-positive">
                       {getCategoryIcon(income.category)} {getCategoryName(income.category)}
                     </span>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm font-bold text-green-600">
+                    <div className="text-sm font-semibold text-curai-positive">
                       +{income.amount.toLocaleString('ru-RU')} ₸
                     </div>
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-curai-ink">
                     {new Date(income.date).toLocaleDateString('ru-RU')}
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-curai-ink">
                     {income.patient_name || '-'}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm font-medium space-x-2">
-                    <button className="text-blue-600 hover:text-blue-900">Редактировать</button>
-                    <button className="text-red-600 hover:text-red-900">Удалить</button>
+                    <button className="text-curai-blue hover:text-curai-blue">Редактировать</button>
+                    <button className="text-curai-negative hover:text-curai-negative">Удалить</button>
                   </td>
                 </tr>
               ))}
@@ -210,27 +210,27 @@ const IncomeView = ({ user }) => {
       {/* Add Income Modal */}
       {showModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 w-full max-w-md mx-4">
+          <div className="bg-curai-surface rounded-md p-6 w-full max-w-md mx-4">
             <h3 className="text-lg font-semibold mb-4">➕ Добавить доход</h3>
             
             <form onSubmit={handleSubmit} className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Описание *</label>
+                <label className="block text-sm font-medium text-curai-ink mb-1">Описание *</label>
                 <input
                   type="text"
                   value={incomeForm.description}
                   onChange={(e) => setIncomeForm({...incomeForm, description: e.target.value})}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500"
+                  className="w-full px-3 py-2 border border-curai-control rounded-md focus:ring-2 focus:ring-curai-focus"
                   required
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Категория</label>
+                <label className="block text-sm font-medium text-curai-ink mb-1">Категория</label>
                 <select
                   value={incomeForm.category}
                   onChange={(e) => setIncomeForm({...incomeForm, category: e.target.value})}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500"
+                  className="w-full px-3 py-2 border border-curai-control rounded-md focus:ring-2 focus:ring-curai-focus"
                 >
                   <option value="treatment">Лечение</option>
                   <option value="consultation">Консультация</option>
@@ -241,35 +241,35 @@ const IncomeView = ({ user }) => {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Сумма (₸) *</label>
+                <label className="block text-sm font-medium text-curai-ink mb-1">Сумма (₸) *</label>
                 <input
                   type="number"
                   min="0"
                   step="0.01"
                   value={incomeForm.amount}
                   onChange={(e) => setIncomeForm({...incomeForm, amount: e.target.value})}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500"
+                  className="w-full px-3 py-2 border border-curai-control rounded-md focus:ring-2 focus:ring-curai-focus"
                   required
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Дата *</label>
+                <label className="block text-sm font-medium text-curai-ink mb-1">Дата *</label>
                 <input
                   type="date"
                   value={incomeForm.date}
                   onChange={(e) => setIncomeForm({...incomeForm, date: e.target.value})}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500"
+                  className="w-full px-3 py-2 border border-curai-control rounded-md focus:ring-2 focus:ring-curai-focus"
                   required
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Примечания</label>
+                <label className="block text-sm font-medium text-curai-ink mb-1">Примечания</label>
                 <textarea
                   value={incomeForm.notes}
                   onChange={(e) => setIncomeForm({...incomeForm, notes: e.target.value})}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500"
+                  className="w-full px-3 py-2 border border-curai-control rounded-md focus:ring-2 focus:ring-curai-focus"
                   rows="3"
                 />
               </div>
@@ -277,14 +277,14 @@ const IncomeView = ({ user }) => {
               <div className="flex space-x-3">
                 <button
                   type="submit"
-                  className="flex-1 bg-green-600 text-white py-2 rounded-lg hover:bg-green-700"
+                  className="flex-1 bg-curai-positive text-white py-2 rounded-md hover:bg-curai-positive"
                 >
                   Сохранить
                 </button>
                 <button
                   type="button"
                   onClick={() => setShowModal(false)}
-                  className="flex-1 bg-gray-300 text-gray-700 py-2 rounded-lg hover:bg-gray-400"
+                  className="flex-1 bg-curai-control text-curai-ink py-2 rounded-md hover:bg-curai-disabled"
                 >
                   Отмена
                 </button>

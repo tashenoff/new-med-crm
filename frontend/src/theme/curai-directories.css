@@ -1,0 +1,39 @@
+/* Individual directory reconciliation: native boards 24913, 25264, 26707. */
+.curai-directory-page .curai-panel-header {min-height:88px;align-items:flex-start;}
+.curai-directory-page .curai-panel-header button {min-width:232px;}
+.curai-directory-page table {border-collapse:separate;border-spacing:0;border:1px solid var(--curai-color-border);border-radius:6px;overflow:hidden;}
+.curai-directory-page table th {height:48px;padding:12px 11px;font-size:12px;line-height:18px;font-weight:400;text-transform:none;letter-spacing:0;color:var(--curai-color-muted);background:var(--curai-color-subtle);border:0;}
+.curai-directory-page table tbody td {height:104px;padding:16px 11px;vertical-align:top;font-size:13px;line-height:20px;font-weight:500;color:var(--curai-color-muted);border-top:1px solid var(--curai-color-border);}
+.curai-directory-page table tbody tr:first-child td {border-top:0;}
+.curai-directory-page table tbody td:first-child {font-weight:600;color:var(--curai-color-ink);}
+.curai-directory-page table tbody td:last-child button {font-size:13px;line-height:20px;min-height:36px;padding:4px 8px;color:var(--curai-color-blue);white-space:nowrap;}
+.curai-rooms table {table-layout:fixed;}
+.curai-rooms table th:nth-child(1) {width:21%;}
+.curai-rooms table th:nth-child(2) {width:9.7%;}
+.curai-rooms table th:nth-child(3) {width:25.8%;}
+.curai-rooms table th:nth-child(4) {width:22.6%;}
+.curai-rooms table th:nth-child(5) {width:20.9%;}
+.curai-rooms table tbody td:nth-child(4)>div {font-size:13px;line-height:20px;}
+.curai-specialties .curai-specialty-filter {padding:0;border:0;background:transparent;border-radius:0;}
+.curai-specialty-filter label {font-size:12px;line-height:18px;margin-bottom:6px;}
+.curai-specialties .curai-directory-counts {display:flex;flex-wrap:wrap;gap:8px 24px;font-size:12px;line-height:18px;color:var(--curai-color-muted);margin:12px 0 28px;}
+.curai-specialties table th:nth-child(1) {width:28%;}
+.curai-specialties table th:nth-child(2) {width:34%;}
+.curai-specialties table th:nth-child(3) {width:20%;}
+.curai-directory-dialog .curai-dialog-header {height:64px;flex:0 0 64px;padding:23px 23px 8px;border-bottom:0;}
+.curai-room-dialog {height:510px;}
+.curai-specialty-dialog {height:430px;}
+.curai-room-schedule-dialog {min-height:min(780px,90dvh);}
+.curai-directory-dialog .curai-dialog-body {padding:23px 23px 25px;}
+.curai-directory-dialog :is(label,.text-sm) {font-size:12px;line-height:18px;}
+.curai-directory-dialog textarea {min-height:72px;height:72px;}
+.curai-directory-dialog label {margin-bottom:6px;}
+.curai-room-dialog .curai-dialog-body>div,.curai-specialty-dialog form {min-height:100%;display:flex;flex-direction:column;}
+.curai-directory-dialog.curai-room-dialog .curai-dialog-body>div>div+div,.curai-directory-dialog.curai-specialty-dialog form>div+div {margin-top:20px;}
+.curai-directory-dialog .curai-dialog-body>div>div:last-child:has(button),.curai-directory-dialog form>div:last-child {border-top:1px solid var(--curai-color-border);padding-top:20px;justify-content:flex-end;gap:12px;}
+.curai-directory-dialog .curai-dialog-body>div>div:last-child>button,.curai-directory-dialog form>div:last-child>button {height:36px;min-width:128px;flex:none;margin:0;font-size:13px;line-height:20px;}
+.curai-directory-dialog.curai-room-dialog .curai-dialog-body>div>div:last-child,.curai-directory-dialog.curai-specialty-dialog form>div:last-child {margin-top:auto;}
+.curai-specialties .curai-directory-counts+div {margin-top:32px;}
+.curai-directory-dialog form>div:last-child>button[type=submit] {order:2;}
+.curai-directory-dialog form>div:last-child>button[type=button] {order:1;}
+@media(max-width:767px){.curai-directory-page table {min-width:760px;}.curai-directory-page .curai-panel-header button {min-width:0;}.curai-directory-counts {gap:8px 16px;}}

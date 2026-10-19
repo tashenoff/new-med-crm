@@ -1,0 +1,55 @@
+/* Doctor editor references 22940/23019/49888/50433: 1120px, two 520px columns,
+   32px gutter; existing domain fields and commission behavior are preserved. */
+.curai-doctor-dialog .curai-dialog-header { flex: 0 0 63px; min-height: 63px; border: 0; padding: 23px 23px 0; }
+.curai-doctor-dialog .curai-dialog-body { padding: 24px 23px; }
+.curai-doctor-dialog form > .grid { gap: 32px; }
+.curai-doctor-dialog form > .grid h3 { border: 0; padding: 0; font-size: 16px; line-height: 24px; font-weight: 600; color: var(--curai-color-ink); }
+.curai-doctor-dialog form > .grid h3 > span { display: none; }
+.curai-doctor-dialog form > .grid > div > * + *, .curai-doctor-dialog form > .grid > div:nth-child(2) > div:first-child > * + * { margin-top: 20px; }
+.curai-doctor-field { display: flex; flex-direction: column; gap: 6px; font-size: 12px; line-height: 18px; font-weight: 400; }
+.curai-doctor-specialty-chips { margin: 8px 0 12px; }
+.curai-doctor-specialty-chips > span { border-radius: 4px; font-size: 11px; line-height: 18px; padding: 3px 8px; color: var(--curai-color-blue); background: var(--curai-color-selected); }
+.curai-doctor-specialties .curai-selection-toolbar { margin-bottom: 8px; }
+.curai-doctor-specialties label.cursor-pointer { min-height: 32px; padding: 4px; border-color: transparent; border-radius: 0; }
+.curai-doctor-specialties .max-h-\[108px\] { padding: 4px; border-color: var(--curai-color-border); }
+.curai-doctor-dialog form > .grid > div > .curai-doctor-specialties + .curai-doctor-field { margin-top: 26px; }
+.curai-doctor-dialog form > .grid > .space-y-4 > :not([hidden]) ~ :not([hidden]), .curai-doctor-dialog form > .grid .space-y-3 > :not([hidden]) ~ :not([hidden]) { margin-top: 20px; }
+.curai-doctor-dialog .curai-selection-toolbar { gap: 8px; }
+.curai-selection-count { color: var(--curai-color-muted); font-size: 13px; line-height: 20px; font-weight: 600; }
+.curai-doctor-dialog form > .grid > div > .curai-doctor-service-picker { margin-top: 10px; }
+.curai-doctor-service-picker > div:first-child { border: 0; min-height: 32px; padding: 4px; }
+.curai-doctor-service-scroll { height: 204px; overflow-y: auto; border: 1px solid var(--curai-color-border); border-radius: 4px; margin-top: 2px; }
+.curai-doctor-dialog fieldset > .bg-curai-warningBg { border: 0; border-radius: 0; padding: 0; background: transparent; }
+.curai-doctor-dialog fieldset h3, .curai-doctor-dialog form > section h3 { font-size: 16px; line-height: 24px; font-weight: 600; color: var(--curai-color-ink); }
+.curai-doctor-dialog fieldset h3 > span { display: none; }
+.curai-doctor-dialog form > .flex:last-child > button[type='button'] { flex-basis: 128px; }
+.curai-doctor-dialog form > .flex:last-child > button[type='submit'] { flex-basis: 152px; }
+@media (max-width: 1023px) {
+  .curai-doctor-dialog form > .grid { gap: 24px; }
+}
+@media (max-width: 639px) {
+  .curai-doctor-dialog .curai-dialog-header { padding-left: 15px; padding-right: 15px; }
+  .curai-doctor-dialog .curai-dialog-body { padding: 16px 15px; }
+}
+
+/* Keep commission controls inside the doctor form and its service list. */
+.curai-doctor-dialog :is(form, fieldset, form > .grid, form > .grid > div, form > section) { min-width: 0; max-width: 100%; }
+.curai-doctor-dialog fieldset { min-inline-size: 0; }
+.curai-doctor-dialog .curai-dialog-body { min-width: 0; }
+.curai-doctor-dialog :is(input, select, textarea) { min-width: 0; max-width: 100%; }
+.curai-doctor-dialog input.flex-1 { width: 0; flex: 1 1 0%; }
+.curai-doctor-dialog input.flex-1 + span { flex: none; white-space: nowrap; display: inline-flex; align-items: center; }
+.curai-doctor-service-picker { min-width: 0; max-width: 100%; container: doctor-services / inline-size; }
+.curai-doctor-service-scroll { min-width: 0; max-width: 100%; }
+.curai-doctor-service-label { min-width: 0; flex-wrap: wrap; }
+.curai-doctor-service-name { flex: 1 1 140px; min-width: 0; overflow-wrap: anywhere; }
+.curai-doctor-service-label > span:last-child { flex: none; white-space: nowrap; }
+.curai-doctor-service-commission { min-width: 0; max-width: calc(100% - 24px); overflow-wrap: anywhere; }
+.curai-doctor-commission-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: end; }
+.curai-doctor-commission-grid > div { min-width: 0; }
+.curai-doctor-commission-grid label { overflow-wrap: anywhere; }
+.curai-doctor-commission-grid > div > div { display: flex; width: 100%; min-width: 0; }
+@container doctor-services (max-width: 420px) {
+  .curai-doctor-service-commission { margin-left: 0; max-width: 100%; }
+  .curai-doctor-commission-grid { grid-template-columns: minmax(0, 1fr); }
+}

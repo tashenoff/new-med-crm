@@ -1,8 +1,16 @@
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { inputClasses, textareaClasses, buttonSuccessClasses, buttonSecondaryClasses } from '../modals/modalUtils';
+import Modal from '../modals/Modal';
 import ServiceCheckboxSelector from './ServiceCheckboxSelector';
 
 const ConsultationSheetForm = ({ patientId, onSave, onSaved, onCancel, editingSheet = null }) => {
+  const [showServicePicker, setShowServicePicker] = useState(false);
+  const servicePickerRef = useRef(null);
+  const servicePickerButtonRef = useRef(null);
+  const closeServicePicker = () => { setShowServicePicker(false); servicePickerButtonRef.current?.focus(); };
+  useEffect(() => {
+    if (showServicePicker) servicePickerRef.current?.querySelector('input,button,select')?.focus();
+  }, [showServicePicker]);
   const [doctors, setDoctors] = useState([]);
   const [icd10Query, setIcd10Query] = useState('');
   const [icd10Results, setIcd10Results] = useState([]);
@@ -78,7 +86,7 @@ const ConsultationSheetForm = ({ patientId, onSave, onSaved, onCancel, editingSh
           'Content-Type': 'application/json'
         }
       });
-      
+
       if (response.ok) {
         const data = await response.json();
         setDoctors(data);
@@ -102,7 +110,7 @@ const ConsultationSheetForm = ({ patientId, onSave, onSaved, onCancel, editingSh
           'Content-Type': 'application/json'
         }
       });
-      
+
       if (response.ok) {
         const data = await response.json();
         setIcd10Results(data);
@@ -156,13 +164,13 @@ const ConsultationSheetForm = ({ patientId, onSave, onSaved, onCancel, editingSh
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (saving || persisted) return;
-    
+
     // Валидация: услуги обязательны
     if (form.treatment_services.length === 0) {
       setServicesError('Необходимо добавить хотя бы одну услугу из прайса');
       return;
     }
-    
+
     setServicesError('');
 
     setSubmitError('');
@@ -208,12 +216,13 @@ const ConsultationSheetForm = ({ patientId, onSave, onSaved, onCancel, editingSh
   };
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4">
-      {submitError && <div role="alert" className="text-red-600 text-sm">{submitError}</div>}
+    <form onSubmit={handleSubmit} className="curai-consultation-form space-y-4" data-optional-fields-hidden={!visibleFields.recommendations && !visibleFields.treatment && !visibleFields.notes}>
+<div className="curai-consultation-fields-scroll"><div className="curai-consultation-form-body space-y-4">
+      {submitError && <div role="alert" className="text-curai-negative text-sm">{submitError}</div>}
       {/* Врач */}
       <div>
-        <label className="block text-sm font-medium text-gray-700 mb-1">
-          Врач *
+        <label className="block text-sm font-medium text-curai-ink mb-1">
+          Врач и специальность *
         </label>
         <select
           value={form.doctor_id}
@@ -231,16 +240,17 @@ const ConsultationSheetForm = ({ patientId, onSave, onSaved, onCancel, editingSh
       </div>
 
       {/* Жалобы */}
-      {visibleFields.complaints && (
+      <section className="curai-consultation-clinical"><h4>Клинические данные</h4><div className="curai-consultation-form-grid">
+{visibleFields.complaints && (
         <div>
           <div className="flex justify-between items-center mb-1">
-            <label className="text-sm font-medium text-gray-700">
+            <label className="text-sm font-medium text-curai-ink">
               Жалобы
             </label>
             <button
               type="button"
               onClick={() => toggleFieldVisibility('complaints')}
-              className="text-gray-400 hover:text-red-600 transition-colors"
+              className="text-curai-muted hover:text-curai-negative transition-colors"
               title="Скрыть поле"
             >
               ✕
@@ -255,18 +265,16 @@ const ConsultationSheetForm = ({ patientId, onSave, onSaved, onCancel, editingSh
           />
         </div>
       )}
-
-      {/* Анамнез заболевания */}
-      {visibleFields.anamnesis_morbi && (
+{visibleFields.anamnesis_morbi && (
         <div>
           <div className="flex justify-between items-center mb-1">
-            <label className="text-sm font-medium text-gray-700">
+            <label className="text-sm font-medium text-curai-ink">
               Анамнез заболевания
             </label>
             <button
               type="button"
               onClick={() => toggleFieldVisibility('anamnesis_morbi')}
-              className="text-gray-400 hover:text-red-600 transition-colors"
+              className="text-curai-muted hover:text-curai-negative transition-colors"
               title="Скрыть поле"
             >
               ✕
@@ -281,18 +289,16 @@ const ConsultationSheetForm = ({ patientId, onSave, onSaved, onCancel, editingSh
           />
         </div>
       )}
-
-      {/* Анамнез жизни */}
-      {visibleFields.anamnesis_vitae && (
+{visibleFields.anamnesis_vitae && (
         <div>
           <div className="flex justify-between items-center mb-1">
-            <label className="text-sm font-medium text-gray-700">
+            <label className="text-sm font-medium text-curai-ink">
               Анамнез жизни
             </label>
             <button
               type="button"
               onClick={() => toggleFieldVisibility('anamnesis_vitae')}
-              className="text-gray-400 hover:text-red-600 transition-colors"
+              className="text-curai-muted hover:text-curai-negative transition-colors"
               title="Скрыть поле"
             >
               ✕
@@ -307,18 +313,16 @@ const ConsultationSheetForm = ({ patientId, onSave, onSaved, onCancel, editingSh
           />
         </div>
       )}
-
-      {/* Объективный осмотр */}
-      {visibleFields.examination && (
+{visibleFields.examination && (
         <div>
           <div className="flex justify-between items-center mb-1">
-            <label className="text-sm font-medium text-gray-700">
+            <label className="text-sm font-medium text-curai-ink">
               Объективный осмотр
             </label>
             <button
               type="button"
               onClick={() => toggleFieldVisibility('examination')}
-              className="text-gray-400 hover:text-red-600 transition-colors"
+              className="text-curai-muted hover:text-curai-negative transition-colors"
               title="Скрыть поле"
             >
               ✕
@@ -333,18 +337,16 @@ const ConsultationSheetForm = ({ patientId, onSave, onSaved, onCancel, editingSh
           />
         </div>
       )}
-
-      {/* Локальный статус */}
-      {visibleFields.local_status && (
+{visibleFields.local_status && (
         <div>
           <div className="flex justify-between items-center mb-1">
-            <label className="text-sm font-medium text-gray-700">
+            <label className="text-sm font-medium text-curai-ink">
               Локальный статус
             </label>
             <button
               type="button"
               onClick={() => toggleFieldVisibility('local_status')}
-              className="text-gray-400 hover:text-red-600 transition-colors"
+              className="text-curai-muted hover:text-curai-negative transition-colors"
               title="Скрыть поле"
             >
               ✕
@@ -359,40 +361,77 @@ const ConsultationSheetForm = ({ patientId, onSave, onSaved, onCancel, editingSh
           />
         </div>
       )}
-
-      {/* МКБ-10 */}
-      {visibleFields.icd10_codes && (
+{visibleFields.diagnosis && (
         <div>
           <div className="flex justify-between items-center mb-1">
-            <label className="text-sm font-medium text-gray-700">
-              Коды МКБ-10
+            <label className="text-sm font-medium text-curai-ink">
+              Диагноз
             </label>
             <button
               type="button"
-              onClick={() => toggleFieldVisibility('icd10_codes')}
-              className="text-gray-400 hover:text-red-600 transition-colors"
+              onClick={() => toggleFieldVisibility('diagnosis')}
+              className="text-curai-muted hover:text-curai-negative transition-colors"
               title="Скрыть поле"
             >
               ✕
             </button>
           </div>
-          
+          <textarea
+            value={form.diagnosis}
+            onChange={(e) => setForm({ ...form, diagnosis: e.target.value })}
+            className={textareaClasses}
+            rows="2"
+            placeholder="Заключительный диагноз..."
+          />
+        </div>
+      )}
+</div></section>
+
+      {/* Анамнез заболевания */}
+
+
+      {/* Анамнез жизни */}
+
+
+      {/* Объективный осмотр */}
+
+
+      {/* Локальный статус */}
+
+
+      {/* МКБ-10 */}
+      {visibleFields.icd10_codes && (
+        <div className="curai-consultation-icd">
+          <div className="flex justify-between items-center mb-1">
+            <label className="text-sm font-medium text-curai-ink">
+              Коды МКБ-10
+            </label>
+            <button
+              type="button"
+              onClick={() => toggleFieldVisibility('icd10_codes')}
+              className="text-curai-muted hover:text-curai-negative transition-colors"
+              title="Скрыть поле"
+            >
+              ✕
+            </button>
+          </div>
+
           {/* Добавленные коды */}
           {form.icd10_codes.length > 0 && (
             <div className="mb-2 space-y-1">
               {form.icd10_codes.map((code) => (
-                <div 
-                  key={code.code} 
-                  className="flex items-center justify-between bg-blue-50 border border-blue-200 rounded px-3 py-2"
+                <div
+                  key={code.code}
+                  className="flex items-center justify-between bg-curai-selected border border-curai-control rounded px-3 py-2"
                 >
                   <div>
-                    <span className="font-medium text-blue-900">{code.code}</span>
-                    <span className="text-gray-700 ml-2">{code.name}</span>
+                    <span className="font-medium text-curai-blue">{code.code}</span>
+                    <span className="text-curai-ink ml-2">{code.name}</span>
                   </div>
                   <button
                     type="button"
                     onClick={() => removeIcd10Code(code.code)}
-                    className="text-red-600 hover:text-red-800 ml-2"
+                    className="text-curai-negative hover:text-curai-negative ml-2"
                   >
                     ✕
                   </button>
@@ -411,85 +450,48 @@ const ConsultationSheetForm = ({ patientId, onSave, onSaved, onCancel, editingSh
               className={inputClasses}
               placeholder="Введите код или название диагноза (например, K02 или кариес)..."
             />
-            
+
             {/* Dropdown с результатами */}
             {showIcd10Dropdown && icd10Results.length > 0 && (
-              <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-60 overflow-y-auto">
+              <div className="absolute z-10 w-full mt-1 bg-curai-surface border border-curai-control rounded-md shadow-none max-h-60 overflow-y-auto">
                 {icd10Results.map((code) => (
                   <button
                     key={code.code}
                     type="button"
                     onClick={() => addIcd10Code(code)}
-                    className="w-full text-left px-4 py-2 hover:bg-blue-50 border-b border-gray-100 last:border-b-0"
+                    className="w-full text-left px-4 py-2 hover:bg-curai-selected border-b border-curai-border last:border-b-0"
                   >
-                    <div className="font-medium text-blue-900">{code.code}</div>
-                    <div className="text-sm text-gray-700">{code.name}</div>
+                    <div className="font-medium text-curai-blue">{code.code}</div>
+                    <div className="text-sm text-curai-ink">{code.name}</div>
                   </button>
                 ))}
               </div>
             )}
           </div>
-          <p className="text-xs text-gray-500 mt-1">
+          <p className="text-xs text-curai-muted mt-1">
             Начните вводить код или название для поиска в справочнике МКБ-10
           </p>
         </div>
       )}
 
       {/* Диагноз */}
-      {visibleFields.diagnosis && (
-        <div>
-          <div className="flex justify-between items-center mb-1">
-            <label className="text-sm font-medium text-gray-700">
-              Диагноз
-            </label>
-            <button
-              type="button"
-              onClick={() => toggleFieldVisibility('diagnosis')}
-              className="text-gray-400 hover:text-red-600 transition-colors"
-              title="Скрыть поле"
-            >
-              ✕
-            </button>
-          </div>
-          <textarea
-            value={form.diagnosis}
-            onChange={(e) => setForm({ ...form, diagnosis: e.target.value })}
-            className={textareaClasses}
-            rows="2"
-            placeholder="Заключительный диагноз..."
-          />
-        </div>
-      )}
+
 
       {/* Назначенные услуги из прайса */}
-      <div className="border-t border-gray-200 pt-4">
-        <label className="block text-sm font-medium text-gray-700 mb-2">
-          Назначить услуги из прайса <span className="text-red-500">*</span>
+      <div className="curai-consultation-service-picker border-t border-curai-border pt-4">
+        <label className="block text-sm font-medium text-curai-ink mb-2">
+          Назначить услуги из прайса <span className="text-curai-negative">*</span>
         </label>
-        
+
         {/* Сообщение об ошибке */}
         {servicesError && (
-          <div className="mb-2 p-2 bg-red-50 border border-red-200 rounded text-sm text-red-600">
+          <div className="mb-2 p-2 bg-curai-negativeBg border border-curai-negative rounded text-sm text-curai-negative">
             {servicesError}
           </div>
         )}
-        
+
         {/* Добавленные услуги */}
-        {form.treatment_services.length > 0 && (
-          <div className="mb-3 bg-gray-50 rounded-lg p-3 space-y-2">
-            {form.treatment_services.map((service, index) => (
-              <div 
-                key={index} 
-                className="flex items-center justify-between bg-white border border-gray-200 rounded px-3 py-2"
-              >
-                <div className="flex-1">
-                  <div className="font-medium text-gray-900">{service.service_name}</div>
-                  <div className="text-sm text-gray-600">
-                    {service.price_per_unit.toLocaleString()} ₸ × {service.quantity} = {service.total_price.toLocaleString()} ₸
-                  </div>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <input
+        {form.treatment_services.length > 0 && (<div className="curai-consultation-selected-services"><div className="overflow-x-auto"><table><thead><tr><th>Услуга</th><th>Количество</th><th>Цена</th><th>Сумма</th><th aria-label="Действия" /></tr></thead><tbody>{form.treatment_services.map((service, index) => (<tr key={index}><td>{service.service_name}</td><td><input
                     type="number"
                     min="1"
                     value={service.quantity}
@@ -503,9 +505,8 @@ const ConsultationSheetForm = ({ patientId, onSave, onSaved, onCancel, editingSh
                       };
                       setForm({ ...form, treatment_services: newServices });
                     }}
-                    className="w-16 px-2 py-1 border border-gray-300 rounded text-center"
-                  />
-                  <button
+                    className="w-16 px-2 py-1 border border-curai-control rounded text-center"
+                  /></td><td>{service.price_per_unit.toLocaleString()} ₸</td><td>{service.total_price.toLocaleString()} ₸</td><td><button
                     type="button"
                     onClick={() => {
                       setForm({
@@ -513,24 +514,21 @@ const ConsultationSheetForm = ({ patientId, onSave, onSaved, onCancel, editingSh
                         treatment_services: form.treatment_services.filter((_, i) => i !== index)
                       });
                     }}
-                    className="text-red-600 hover:text-red-800 p-1"
+                    className="text-curai-negative hover:text-curai-negative p-1"
                   >
                     🗑️
-                  </button>
-                </div>
-              </div>
-            ))}
-            <div className="text-right font-semibold text-gray-900 pt-2 border-t border-gray-200">
+                  </button></td></tr>))}</tbody></table></div><div className="text-right font-semibold text-curai-ink pt-2 border-t border-curai-border">
               Итого: {form.treatment_services.reduce((sum, s) => sum + s.total_price, 0).toLocaleString()} ₸
-            </div>
-          </div>
-        )}
+            </div></div>)}
+{form.treatment_services.length === 0 && <p className="curai-consultation-services-empty">Услуги пока не выбраны. Выберите их из прайс-листа.</p>}
 
-        <ServiceCheckboxSelector
+        <button ref={servicePickerButtonRef} type="button" className="curai-button curai-button-secondary curai-open-service-picker" onClick={() => setShowServicePicker(true)}>+ Выбрать услуги</button>
+        <Modal show={showServicePicker} title="Выбор услуг из прайс-листа" onClose={closeServicePicker} size="max-w-[992px]" className="curai-clinical-service-dialog" onKeyDown={event => { if (event.key === 'Escape') { event.preventDefault(); event.stopPropagation(); closeServicePicker(); } }}><div ref={servicePickerRef}><ServiceCheckboxSelector
           alreadyAddedIds={alreadyAddedServiceIds}
-          onAddServices={handleAddServices}
-        />
-        <p className="text-xs text-gray-500 mt-1">
+          onAddServices={services => { handleAddServices(services); closeServicePicker(); }}
+          onCancel={closeServicePicker}
+        /></div></Modal>
+        <p className="text-xs text-curai-muted mt-1">
           Отметьте галочками услуги — они автоматически создадут план лечения
         </p>
       </div>
@@ -539,13 +537,13 @@ const ConsultationSheetForm = ({ patientId, onSave, onSaved, onCancel, editingSh
       {visibleFields.recommendations && (
         <div>
           <div className="flex justify-between items-center mb-1">
-            <label className="text-sm font-medium text-gray-700">
+            <label className="text-sm font-medium text-curai-ink">
               Дополнительные рекомендации для пациента
             </label>
             <button
               type="button"
               onClick={() => toggleFieldVisibility('recommendations')}
-              className="text-gray-400 hover:text-red-600 transition-colors"
+              className="text-curai-muted hover:text-curai-negative transition-colors"
               title="Скрыть поле"
             >
               ✕
@@ -558,7 +556,7 @@ const ConsultationSheetForm = ({ patientId, onSave, onSaved, onCancel, editingSh
             rows="3"
             placeholder="Соблюдать постельный режим, пить много жидкости..."
           />
-          <p className="text-xs text-gray-500 mt-1">
+          <p className="text-xs text-curai-muted mt-1">
             Рекомендации по образу жизни, режиму, питанию и т.д.
           </p>
         </div>
@@ -568,13 +566,13 @@ const ConsultationSheetForm = ({ patientId, onSave, onSaved, onCancel, editingSh
       {visibleFields.treatment && (
         <div>
           <div className="flex justify-between items-center mb-1">
-            <label className="text-sm font-medium text-gray-700">
+            <label className="text-sm font-medium text-curai-ink">
               Назначенное лечение
             </label>
             <button
               type="button"
               onClick={() => toggleFieldVisibility('treatment')}
-              className="text-gray-400 hover:text-red-600 transition-colors"
+              className="text-curai-muted hover:text-curai-negative transition-colors"
               title="Скрыть поле"
             >
               ✕
@@ -594,13 +592,13 @@ const ConsultationSheetForm = ({ patientId, onSave, onSaved, onCancel, editingSh
       {visibleFields.notes && (
         <div>
           <div className="flex justify-between items-center mb-1">
-            <label className="text-sm font-medium text-gray-700">
+            <label className="text-sm font-medium text-curai-ink">
               Дополнительные заметки
             </label>
             <button
               type="button"
               onClick={() => toggleFieldVisibility('notes')}
-              className="text-gray-400 hover:text-red-600 transition-colors"
+              className="text-curai-muted hover:text-curai-negative transition-colors"
               title="Скрыть поле"
             >
               ✕
@@ -617,17 +615,17 @@ const ConsultationSheetForm = ({ patientId, onSave, onSaved, onCancel, editingSh
       )}
 
       {/* Панель восстановления скрытых полей */}
-      {(!visibleFields.complaints || !visibleFields.anamnesis_morbi || !visibleFields.anamnesis_vitae || !visibleFields.local_status || !visibleFields.examination || 
-        !visibleFields.icd10_codes || !visibleFields.diagnosis || !visibleFields.treatment || 
+      {(!visibleFields.complaints || !visibleFields.anamnesis_morbi || !visibleFields.anamnesis_vitae || !visibleFields.local_status || !visibleFields.examination ||
+        !visibleFields.icd10_codes || !visibleFields.diagnosis || !visibleFields.treatment ||
         !visibleFields.recommendations || !visibleFields.notes) && (
-        <div className="bg-gray-50 border border-gray-300 rounded-lg p-3">
-          <div className="text-sm font-medium text-gray-700 mb-2">Скрытые поля:</div>
+        <div className="bg-curai-subtle border border-curai-control rounded-md p-3">
+          <div className="text-sm font-medium text-curai-ink mb-2">Скрытые поля:</div>
           <div className="flex flex-wrap gap-2">
             {!visibleFields.complaints && (
               <button
                 type="button"
                 onClick={() => toggleFieldVisibility('complaints')}
-                className="px-3 py-1 bg-blue-100 text-blue-700 rounded hover:bg-blue-200 text-sm"
+                className="px-3 py-1 bg-curai-selected text-curai-blue rounded hover:bg-curai-selected text-sm"
               >
                 + Жалобы
               </button>
@@ -636,7 +634,7 @@ const ConsultationSheetForm = ({ patientId, onSave, onSaved, onCancel, editingSh
               <button
                 type="button"
                 onClick={() => toggleFieldVisibility('anamnesis_morbi')}
-                className="px-3 py-1 bg-blue-100 text-blue-700 rounded hover:bg-blue-200 text-sm"
+                className="px-3 py-1 bg-curai-selected text-curai-blue rounded hover:bg-curai-selected text-sm"
               >
                 + Анамнез заболевания
               </button>
@@ -645,7 +643,7 @@ const ConsultationSheetForm = ({ patientId, onSave, onSaved, onCancel, editingSh
               <button
                 type="button"
                 onClick={() => toggleFieldVisibility('anamnesis_vitae')}
-                className="px-3 py-1 bg-blue-100 text-blue-700 rounded hover:bg-blue-200 text-sm"
+                className="px-3 py-1 bg-curai-selected text-curai-blue rounded hover:bg-curai-selected text-sm"
               >
                 + Анамнез жизни
               </button>
@@ -654,7 +652,7 @@ const ConsultationSheetForm = ({ patientId, onSave, onSaved, onCancel, editingSh
               <button
                 type="button"
                 onClick={() => toggleFieldVisibility('examination')}
-                className="px-3 py-1 bg-blue-100 text-blue-700 rounded hover:bg-blue-200 text-sm"
+                className="px-3 py-1 bg-curai-selected text-curai-blue rounded hover:bg-curai-selected text-sm"
               >
                 + Объективный осмотр
               </button>
@@ -663,7 +661,7 @@ const ConsultationSheetForm = ({ patientId, onSave, onSaved, onCancel, editingSh
               <button
                 type="button"
                 onClick={() => toggleFieldVisibility('local_status')}
-                className="px-3 py-1 bg-blue-100 text-blue-700 rounded hover:bg-blue-200 text-sm"
+                className="px-3 py-1 bg-curai-selected text-curai-blue rounded hover:bg-curai-selected text-sm"
               >
                 + Локальный статус
               </button>
@@ -672,7 +670,7 @@ const ConsultationSheetForm = ({ patientId, onSave, onSaved, onCancel, editingSh
               <button
                 type="button"
                 onClick={() => toggleFieldVisibility('icd10_codes')}
-                className="px-3 py-1 bg-blue-100 text-blue-700 rounded hover:bg-blue-200 text-sm"
+                className="px-3 py-1 bg-curai-selected text-curai-blue rounded hover:bg-curai-selected text-sm"
               >
                 + Коды МКБ-10
               </button>
@@ -681,7 +679,7 @@ const ConsultationSheetForm = ({ patientId, onSave, onSaved, onCancel, editingSh
               <button
                 type="button"
                 onClick={() => toggleFieldVisibility('diagnosis')}
-                className="px-3 py-1 bg-blue-100 text-blue-700 rounded hover:bg-blue-200 text-sm"
+                className="px-3 py-1 bg-curai-selected text-curai-blue rounded hover:bg-curai-selected text-sm"
               >
                 + Диагноз
               </button>
@@ -690,7 +688,7 @@ const ConsultationSheetForm = ({ patientId, onSave, onSaved, onCancel, editingSh
               <button
                 type="button"
                 onClick={() => toggleFieldVisibility('treatment')}
-                className="px-3 py-1 bg-blue-100 text-blue-700 rounded hover:bg-blue-200 text-sm"
+                className="px-3 py-1 bg-curai-selected text-curai-blue rounded hover:bg-curai-selected text-sm"
               >
                 + Назначенное лечение
               </button>
@@ -699,7 +697,7 @@ const ConsultationSheetForm = ({ patientId, onSave, onSaved, onCancel, editingSh
               <button
                 type="button"
                 onClick={() => toggleFieldVisibility('recommendations')}
-                className="px-3 py-1 bg-blue-100 text-blue-700 rounded hover:bg-blue-200 text-sm"
+                className="px-3 py-1 bg-curai-selected text-curai-blue rounded hover:bg-curai-selected text-sm"
               >
                 + Рекомендации
               </button>
@@ -708,7 +706,7 @@ const ConsultationSheetForm = ({ patientId, onSave, onSaved, onCancel, editingSh
               <button
                 type="button"
                 onClick={() => toggleFieldVisibility('notes')}
-                className="px-3 py-1 bg-blue-100 text-blue-700 rounded hover:bg-blue-200 text-sm"
+                className="px-3 py-1 bg-curai-selected text-curai-blue rounded hover:bg-curai-selected text-sm"
               >
                 + Заметки
               </button>
@@ -718,7 +716,8 @@ const ConsultationSheetForm = ({ patientId, onSave, onSaved, onCancel, editingSh
       )}
 
       {/* Кнопки */}
-      <div className="flex space-x-3 pt-4">
+      <button type="button" className="curai-toggle-optional-fields" onClick={() => setVisibleFields(prev => { const show = !prev.recommendations && !prev.treatment && !prev.notes; return {...prev, recommendations:show, treatment:show, notes:show}; })}>{!visibleFields.recommendations && !visibleFields.treatment && !visibleFields.notes ? 'Показать дополнительные поля' : 'Скрыть дополнительные поля'}</button></div></div>
+<div className="curai-consultation-form-footer flex space-x-3 pt-4">
         <button
           type="submit"
           disabled={saving || persisted || form.treatment_services.length === 0}
@@ -735,7 +734,7 @@ const ConsultationSheetForm = ({ patientId, onSave, onSaved, onCancel, editingSh
           Отмена
         </button>
       </div>
-    </form>
+</form>
   );
 };
 

@@ -30,11 +30,11 @@ const TasksView = ({ user }) => {
 
   // Типы заданий
   const taskTypes = {
-    call: { label: 'Звонок', icon: Phone, color: 'bg-blue-500' },
-    email: { label: 'Письмо', icon: Mail, color: 'bg-green-500' },
-    meeting: { label: 'Встреча', icon: Calendar, color: 'bg-purple-500' },
-    follow_up: { label: 'Дозвон', icon: Clock, color: 'bg-orange-500' },
-    note: { label: 'Заметка', icon: FileText, color: 'bg-gray-500' }
+    call: { label: 'Звонок', icon: Phone, color: "bg-curai-blue" },
+    email: { label: 'Письмо', icon: Mail, color: "bg-curai-positive" },
+    meeting: { label: 'Встреча', icon: Calendar, color: "bg-curai-blue" },
+    follow_up: { label: 'Дозвон', icon: Clock, color: "bg-curai-warning" },
+    note: { label: 'Заметка', icon: FileText, color: "bg-curai-muted" }
   };
 
   // Загрузка всех задач
@@ -187,7 +187,7 @@ const TasksView = ({ user }) => {
 
   return (
     <div className="space-y-6">
-      <div className={`calendar-container calendar-view-panel rounded-2xl ${themeClasses.shadow.default}`}>
+      <div className={`calendar-container calendar-view-panel rounded-md ${themeClasses.shadow.default}`}>
         <PanelHeader
           title="Задачи"
           subtitle="Управление задачами CRM"
@@ -195,55 +195,55 @@ const TasksView = ({ user }) => {
           actionLabel="+ Создать задачу"
         />
 
-        <div className="bg-white dark:bg-gray-800 rounded-b-2xl border border-t-0 border-gray-200 dark:border-gray-700 p-6 space-y-6 shadow-sm">
+        <div className="bg-curai-surface rounded-b-md border border-t-0 border-curai-border p-6 space-y-6 shadow-none">
           {/* Статистика */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
-            <div className={cn("p-4 rounded-lg", themeClasses.bg.card, themeClasses.border.default)}>
+            <div className={cn("p-4 rounded-md", themeClasses.bg.card, themeClasses.border.default)}>
               <div className="flex items-center space-x-3">
-                <CheckSquare className="w-8 h-8 text-blue-500" />
+                <CheckSquare className="w-8 h-8 text-curai-blue" />
                 <div>
-                  <p className={cn("text-2xl font-bold", themeClasses.text.primary)}>{stats.total}</p>
+                  <p className={cn("text-2xl font-semibold", themeClasses.text.primary)}>{stats.total}</p>
                   <p className={cn("text-sm", themeClasses.text.muted)}>Всего задач</p>
                 </div>
               </div>
             </div>
             
-            <div className={cn("p-4 rounded-lg", themeClasses.bg.card, themeClasses.border.default)}>
+            <div className={cn("p-4 rounded-md", themeClasses.bg.card, themeClasses.border.default)}>
               <div className="flex items-center space-x-3">
-                <Clock className="w-8 h-8 text-yellow-500" />
+                <Clock className="w-8 h-8 text-curai-warning" />
                 <div>
-                  <p className={cn("text-2xl font-bold", themeClasses.text.primary)}>{stats.pending}</p>
+                  <p className={cn("text-2xl font-semibold", themeClasses.text.primary)}>{stats.pending}</p>
                   <p className={cn("text-sm", themeClasses.text.muted)}>В ожидании</p>
                 </div>
               </div>
             </div>
             
-            <div className={cn("p-4 rounded-lg", themeClasses.bg.card, themeClasses.border.default)}>
+            <div className={cn("p-4 rounded-md", themeClasses.bg.card, themeClasses.border.default)}>
               <div className="flex items-center space-x-3">
-                <AlertCircle className="w-8 h-8 text-orange-500" />
+                <AlertCircle className="w-8 h-8 text-curai-warning" />
                 <div>
-                  <p className={cn("text-2xl font-bold", themeClasses.text.primary)}>{stats.inProgress}</p>
+                  <p className={cn("text-2xl font-semibold", themeClasses.text.primary)}>{stats.inProgress}</p>
                   <p className={cn("text-sm", themeClasses.text.muted)}>В работе</p>
                 </div>
               </div>
             </div>
             
-            <div className={cn("p-4 rounded-lg", themeClasses.bg.card, themeClasses.border.default)}>
+            <div className={cn("p-4 rounded-md", themeClasses.bg.card, themeClasses.border.default)}>
               <div className="flex items-center space-x-3">
-                <CheckCircle className="w-8 h-8 text-green-500" />
+                <CheckCircle className="w-8 h-8 text-curai-positive" />
                 <div>
-                  <p className={cn("text-2xl font-bold", themeClasses.text.primary)}>{stats.completed}</p>
+                  <p className={cn("text-2xl font-semibold", themeClasses.text.primary)}>{stats.completed}</p>
                   <p className={cn("text-sm", themeClasses.text.muted)}>Выполнено</p>
                 </div>
               </div>
             </div>
             
-            <div className={cn("p-4 rounded-lg bg-red-50 dark:bg-red-900/20", themeClasses.border.default)}>
+            <div className={cn("p-4 rounded-md bg-curai-negativeBg ", themeClasses.border.default)}>
               <div className="flex items-center space-x-3">
-                <AlertCircle className="w-8 h-8 text-red-500" />
+                <AlertCircle className="w-8 h-8 text-curai-negative" />
                 <div>
-                  <p className="text-2xl font-bold text-red-600 dark:text-red-400">{stats.overdue}</p>
-                  <p className="text-sm text-red-600 dark:text-red-400">Просрочено</p>
+                  <p className="text-2xl font-semibold text-curai-negative ">{stats.overdue}</p>
+                  <p className="text-sm text-curai-negative ">Просрочено</p>
                 </div>
               </div>
             </div>
@@ -253,13 +253,13 @@ const TasksView = ({ user }) => {
           <div className="flex flex-wrap items-center gap-4">
             <div className="flex-1 min-w-[200px]">
               <div className="relative">
-                <Search className="w-4 h-4 absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
+                <Search className="w-4 h-4 absolute left-3 top-1/2 transform -translate-y-1/2 text-curai-muted" />
                 <input
                   type="text"
                   placeholder="Поиск задач..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  className={cn("pl-9 pr-4 py-2 rounded-lg w-full", themeClasses.input.default)}
+                  className={cn("pl-9 pr-4 py-2 rounded-md w-full", themeClasses.input.default)}
                 />
               </div>
             </div>
@@ -267,7 +267,7 @@ const TasksView = ({ user }) => {
             <select
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value)}
-              className={cn("rounded-lg px-3 py-2", themeClasses.input.default)}
+              className={cn("rounded-md px-3 py-2", themeClasses.input.default)}
             >
               <option value="all">Все статусы</option>
               <option value="pending">В ожидании</option>
@@ -278,7 +278,7 @@ const TasksView = ({ user }) => {
             <select
               value={priorityFilter}
               onChange={(e) => setPriorityFilter(e.target.value)}
-              className={cn("rounded-lg px-3 py-2", themeClasses.input.default)}
+              className={cn("rounded-md px-3 py-2", themeClasses.input.default)}
             >
               <option value="all">Все приоритеты</option>
               <option value="high">Высокий</option>
@@ -291,12 +291,12 @@ const TasksView = ({ user }) => {
           <div className="space-y-3">
             {loading ? (
               <div className="text-center py-12">
-                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
+                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-curai-control mx-auto"></div>
                 <p className={cn("mt-4", themeClasses.text.muted)}>Загрузка задач...</p>
               </div>
             ) : filteredTasks.length === 0 ? (
               <div className="text-center py-12">
-                <CheckSquare className="w-16 h-16 text-gray-300 mx-auto mb-4" />
+                <CheckSquare className="w-16 h-16 text-curai-disabled mx-auto mb-4" />
                 <p className={cn("text-lg", themeClasses.text.secondary)}>Задач нет</p>
                 <p className={cn("text-sm", themeClasses.text.muted)}>Создайте первую задачу</p>
               </div>
@@ -309,11 +309,11 @@ const TasksView = ({ user }) => {
                   <div
                     key={task.id}
                     className={cn(
-                      "p-4 rounded-lg border transition-all hover:shadow-md",
+                      "p-4 rounded-md border transition-all hover:shadow-none",
                       task.status === 'completed' 
-                        ? "bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800" 
+                        ? "bg-curai-positiveBg border-curai-positive "
                         : isOverdue
-                          ? "bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800"
+                          ? "bg-curai-negativeBg border-curai-negative "
                           : themeClasses.bg.card + " " + themeClasses.border.default
                     )}
                   >
@@ -324,8 +324,8 @@ const TasksView = ({ user }) => {
                         className={cn(
                           "mt-1 w-6 h-6 rounded border-2 flex items-center justify-center transition-colors",
                           task.status === 'completed'
-                            ? "bg-green-500 border-green-500"
-                            : "border-gray-300 hover:border-blue-500"
+                            ? "bg-curai-positive border-curai-positive"
+                            : "border-curai-control hover:border-curai-control"
                         )}
                       >
                         {task.status === 'completed' && <CheckCircle className="w-4 h-4 text-white" />}
@@ -333,8 +333,8 @@ const TasksView = ({ user }) => {
 
                       {/* Иконка типа */}
                       <div className={cn(
-                        "p-2 rounded-lg",
-                        taskTypes[task.type]?.color || 'bg-gray-500'
+                        "p-2 rounded-md",
+                        taskTypes[task.type]?.color || "bg-curai-muted"
                       )}>
                         <TaskIcon className="w-5 h-5 text-white" />
                       </div>
@@ -345,7 +345,7 @@ const TasksView = ({ user }) => {
                           <h3 className={cn(
                             "font-medium",
                             task.status === 'completed' 
-                              ? "line-through text-gray-500" 
+                              ? "line-through text-curai-muted"
                               : themeClasses.text.primary
                           )}>
                             {task.title}
@@ -353,9 +353,9 @@ const TasksView = ({ user }) => {
                           
                           <span className={cn(
                             "px-2 py-1 text-xs rounded-full",
-                            task.priority === 'high' ? 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200' :
-                            task.priority === 'medium' ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200' :
-                            'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200'
+                            task.priority === 'high' ? "bg-curai-negativeBg text-curai-negative " :
+                            task.priority === 'medium' ? "bg-curai-warningBg text-curai-warning " :
+                            "bg-curai-subtle text-curai-ink "
                           )}>
                             {task.priority === 'high' ? '🔴 Высокий' : 
                              task.priority === 'medium' ? '🟡 Средний' : 
@@ -373,7 +373,7 @@ const TasksView = ({ user }) => {
                           <div className="flex items-center space-x-1">
                             <Clock className="w-3 h-3" />
                             <span className={cn(
-                              isOverdue ? "text-red-600 dark:text-red-400 font-medium" : themeClasses.text.muted
+                              isOverdue ? "text-curai-negative font-medium" : themeClasses.text.muted
                             )}>
                               {new Date(task.due_date).toLocaleString('ru-RU')}
                               {isOverdue && ' (Просрочено)'}
@@ -411,14 +411,14 @@ const TasksView = ({ user }) => {
                             });
                             setShowCreateModal(true);
                           }}
-                          className="p-2 text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded transition-colors"
+                          className="p-2 text-curai-blue hover:bg-curai-selected rounded transition-colors"
                         >
                           <Edit className="w-4 h-4" />
                         </button>
                         
                         <button
                           onClick={() => handleDeleteTask(task.id)}
-                          className="p-2 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded transition-colors"
+                          className="p-2 text-curai-negative hover:bg-curai-negativeBg rounded transition-colors"
                         >
                           <Trash2 className="w-4 h-4" />
                         </button>
@@ -519,13 +519,13 @@ const TasksView = ({ user }) => {
                 setShowCreateModal(false);
                 setEditingTask(null);
               }}
-              className="px-4 py-2 text-gray-600 hover:text-gray-800 transition-colors"
+              className="px-4 py-2 text-curai-muted hover:text-curai-ink transition-colors"
             >
               Отмена
             </button>
             <button
               type="submit"
-              className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
+              className="bg-curai-blue text-white px-4 py-2 rounded-md hover:bg-curai-blue transition-colors"
             >
               {editingTask ? 'Обновить' : 'Создать'}
             </button>

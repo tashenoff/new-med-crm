@@ -43,25 +43,25 @@ const WarehouseAttention = () => {
   };
 
   const getSeverityColor = (shortage, minStock) => {
-    if (minStock <= 0) return 'bg-red-100 border-red-300';
+    if (minStock <= 0) return "bg-curai-negativeBg border-curai-negative";
     const percentage = (shortage / minStock) * 100;
-    if (percentage >= 75) return 'bg-red-100 border-red-300';
-    if (percentage >= 50) return 'bg-orange-100 border-orange-300';
-    return 'bg-yellow-100 border-yellow-300';
+    if (percentage >= 75) return "bg-curai-negativeBg border-curai-negative";
+    if (percentage >= 50) return "bg-curai-warningBg border-curai-warning";
+    return "bg-curai-warningBg border-curai-warning";
   };
 
   const getSeverityTextColor = (shortage, minStock) => {
-    if (minStock <= 0) return 'text-red-800';
+    if (minStock <= 0) return "text-curai-negative";
     const percentage = (shortage / minStock) * 100;
-    if (percentage >= 75) return 'text-red-800';
-    if (percentage >= 50) return 'text-orange-800';
-    return 'text-yellow-800';
+    if (percentage >= 75) return "text-curai-negative";
+    if (percentage >= 50) return "text-curai-warning";
+    return "text-curai-warning";
   };
 
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="text-gray-500">Загрузка...</div>
+        <div className="text-curai-muted">Загрузка...</div>
       </div>
     );
   }
@@ -69,27 +69,27 @@ const WarehouseAttention = () => {
   return (
     <div className="space-y-4">
       {/* Заголовок с общей статистикой */}
-      <div className="bg-gradient-to-r from-red-50 to-orange-50 rounded-xl border border-red-200 p-6 shadow-sm">
+      <div className="bg-curai-negativeBg rounded-md border border-curai-negative p-6 shadow-none">
         <div className="flex items-start justify-between">
           <div>
-            <h2 className="text-2xl font-bold text-gray-900 mb-2">Материалы, требующие внимания</h2>
-            <p className="text-gray-600">
+            <h2 className="text-2xl font-semibold text-curai-ink mb-2">Материалы, требующие внимания</h2>
+            <p className="text-curai-muted">
               Материалы с остатком ниже минимального уровня на складах
             </p>
           </div>
-          <div className="bg-white rounded-lg px-4 py-3 border border-red-200">
-            <div className="text-3xl font-bold text-red-600">{materials.length}</div>
-            <div className="text-xs text-gray-500 mt-1">критических позиций</div>
+          <div className="bg-curai-surface rounded-md px-4 py-3 border border-curai-negative">
+            <div className="text-2xl font-semibold text-curai-negative">{materials.length}</div>
+            <div className="text-xs text-curai-muted mt-1">критических позиций</div>
           </div>
         </div>
       </div>
 
       {/* Список материалов */}
       {materials.length === 0 ? (
-        <div className="bg-white rounded-xl border border-gray-200 p-12 text-center shadow-sm">
-          <Package className="w-16 h-16 mx-auto mb-4 text-green-500" />
-          <h3 className="text-lg font-medium text-gray-900 mb-2">Все материалы в норме</h3>
-          <p className="text-gray-500">
+        <div className="bg-curai-surface rounded-md border border-curai-border p-12 text-center shadow-none">
+          <Package className="w-16 h-16 mx-auto mb-4 text-curai-positive" />
+          <h3 className="text-lg font-medium text-curai-ink mb-2">Все материалы в норме</h3>
+          <p className="text-curai-muted">
             Нет материалов с остатком ниже минимального уровня
           </p>
         </div>
@@ -98,7 +98,7 @@ const WarehouseAttention = () => {
           {materials.map((material, index) => (
             <div
               key={`${material.material_id}-${material.warehouse_name}-${index}`}
-              className={`rounded-xl border-2 p-6 shadow-sm hover:shadow-md transition-shadow ${getSeverityColor(material.shortage, material.min_stock)}`}
+              className={`rounded-md border-2 p-6 shadow-none hover:shadow-none transition-shadow ${getSeverityColor(material.shortage, material.min_stock)}`}
             >
               <div className="flex items-start justify-between mb-4">
                 <div className="flex items-start gap-3 flex-1">
@@ -106,43 +106,43 @@ const WarehouseAttention = () => {
                     <AlertTriangle className={`w-6 h-6 ${getSeverityTextColor(material.shortage, material.min_stock)}`} />
                   </div>
                   <div className="flex-1">
-                    <h3 className="text-lg font-semibold text-gray-900 mb-1">
+                    <h3 className="text-lg font-semibold text-curai-ink mb-1">
                       {material.material_name}
                     </h3>
-                    <p className="text-sm text-gray-600 flex items-center gap-2">
+                    <p className="text-sm text-curai-muted flex items-center gap-2">
                       <Package className="w-4 h-4" />
                       {material.warehouse_name}
                     </p>
                   </div>
                 </div>
 
-                <div className={`text-right px-4 py-2 rounded-lg border-2 ${getSeverityColor(material.shortage, material.min_stock)}`}>
-                  <div className={`text-2xl font-bold ${getSeverityTextColor(material.shortage, material.min_stock)}`}>
+                <div className={`text-right px-4 py-2 rounded-md border-2 ${getSeverityColor(material.shortage, material.min_stock)}`}>
+                  <div className={`text-2xl font-semibold ${getSeverityTextColor(material.shortage, material.min_stock)}`}>
                     -{material.shortage.toFixed(2)}
                   </div>
-                  <div className="text-xs text-gray-600 mt-1">дефицит</div>
+                  <div className="text-xs text-curai-muted mt-1">дефицит</div>
                 </div>
               </div>
 
-              <div className="grid grid-cols-4 gap-4 pt-4 border-t border-gray-300">
+              <div className="grid grid-cols-4 gap-4 pt-4 border-t border-curai-control">
                 <div>
-                  <div className="text-xs text-gray-600 mb-1">Текущий остаток</div>
-                  <div className="text-lg font-semibold text-gray-900">
+                  <div className="text-xs text-curai-muted mb-1">Текущий остаток</div>
+                  <div className="text-lg font-semibold text-curai-ink">
                     {material.current_stock.toFixed(2)}
-                    {material.unit && <span className="text-sm text-gray-500 ml-1">{material.unit}</span>}
+                    {material.unit && <span className="text-sm text-curai-muted ml-1">{material.unit}</span>}
                   </div>
                 </div>
 
                 <div>
-                  <div className="text-xs text-gray-600 mb-1">Минимум</div>
-                  <div className="text-lg font-semibold text-gray-900">
+                  <div className="text-xs text-curai-muted mb-1">Минимум</div>
+                  <div className="text-lg font-semibold text-curai-ink">
                     {material.min_stock.toFixed(2)}
-                    {material.unit && <span className="text-sm text-gray-500 ml-1">{material.unit}</span>}
+                    {material.unit && <span className="text-sm text-curai-muted ml-1">{material.unit}</span>}
                   </div>
                 </div>
 
                 <div>
-                  <div className="text-xs text-gray-600 mb-1">Процент дефицита</div>
+                  <div className="text-xs text-curai-muted mb-1">Процент дефицита</div>
                   <div className={`text-lg font-semibold ${getSeverityTextColor(material.shortage, material.min_stock)}`}>
                     {material.min_stock > 0
                       ? `${((material.shortage / material.min_stock) * 100).toFixed(1)}%`
@@ -151,11 +151,11 @@ const WarehouseAttention = () => {
                 </div>
 
                 <div>
-                  <div className="text-xs text-gray-600 mb-1 flex items-center gap-1">
+                  <div className="text-xs text-curai-muted mb-1 flex items-center gap-1">
                     <Calendar className="w-3 h-3" />
                     Последняя инвентаризация
                   </div>
-                  <div className="text-sm font-medium text-gray-900">
+                  <div className="text-sm font-medium text-curai-ink">
                     {formatDate(material.last_inventory_date)}
                   </div>
                 </div>
@@ -165,16 +165,16 @@ const WarehouseAttention = () => {
               <div className="mt-4">
                 <div className="flex items-center gap-2 mb-2">
                   <TrendingDown className={`w-4 h-4 ${getSeverityTextColor(material.shortage, material.min_stock)}`} />
-                  <span className="text-xs font-medium text-gray-700">Уровень критичности</span>
+                  <span className="text-xs font-medium text-curai-ink">Уровень критичности</span>
                 </div>
-                <div className="w-full bg-gray-200 rounded-full h-2 overflow-hidden">
+                <div className="w-full bg-curai-border rounded-full h-2 overflow-hidden">
                   <div
                     className={`h-2 rounded-full transition-all ${
                       (material.min_stock > 0 && (material.shortage / material.min_stock) * 100 >= 75)
-                        ? 'bg-red-500'
+                        ? "bg-curai-negative"
                         : (material.min_stock > 0 && (material.shortage / material.min_stock) * 100 >= 50)
-                        ? 'bg-orange-500'
-                        : 'bg-yellow-500'
+                        ? "bg-curai-warning"
+                        : "bg-curai-warning"
                     }`}
                     style={{ width: `${Math.min(100, material.min_stock > 0 ? (material.shortage / material.min_stock) * 100 : 100)}%` }}
                   />
@@ -186,9 +186,9 @@ const WarehouseAttention = () => {
       )}
 
       {materials.length > 0 && (
-        <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 flex items-start gap-3">
-          <AlertTriangle className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" />
-          <div className="text-sm text-blue-800">
+        <div className="bg-curai-selected border border-curai-control rounded-md p-4 flex items-start gap-3">
+          <AlertTriangle className="w-5 h-5 text-curai-blue flex-shrink-0 mt-0.5" />
+          <div className="text-sm text-curai-blue">
             <strong>Рекомендация:</strong> Рекомендуется провести заказ материалов или инвентаризацию для
             подтверждения фактических остатков на складах.
           </div>

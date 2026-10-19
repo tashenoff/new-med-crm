@@ -12,8 +12,8 @@ const TreatmentPlanInfo = ({
   if (isLoading) {
     return (
       <div className="flex items-center space-x-2">
-        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
-        <span className="text-xs text-gray-500">Загрузка планов...</span>
+        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-curai-control"></div>
+        <span className="text-xs text-curai-muted">Загрузка планов...</span>
       </div>
     );
   }
@@ -22,7 +22,7 @@ const TreatmentPlanInfo = ({
   // Но если есть депозит - показываем его даже без планов
   if (!treatmentData) {
     return (
-      <div className="text-xs text-gray-400">
+      <div className="text-xs text-curai-muted">
         Данные не загружены
       </div>
     );
@@ -32,7 +32,7 @@ const TreatmentPlanInfo = ({
   const hasDeposit = (treatmentData.depositAmount || 0) > 0 || (treatmentData.depositBalance || 0) > 0;
   if (treatmentData.treatmentPlansCount === 0 && !hasDeposit) {
     return (
-      <div className="text-xs text-gray-400">
+      <div className="text-xs text-curai-muted">
         Планы лечения не найдены
       </div>
     );
@@ -55,16 +55,16 @@ const TreatmentPlanInfo = ({
   if (compact) {
     return (
       <div className="space-y-1">
-        <div className="text-xs font-medium text-gray-700">
+        <div className="text-xs font-medium text-curai-ink">
           {treatmentPlansCount} {treatmentPlansCount === 1 ? 'план' : 'планов'} лечения
         </div>
         {totalAmount > 0 && (
           <>
-            <div className="text-xs text-green-600 font-medium">
+            <div className="text-xs text-curai-positive font-medium">
               Оплачено: {paidAmount.toLocaleString()}₸
             </div>
             {pendingAmount > 0 && (
-              <div className="text-xs text-orange-600">
+              <div className="text-xs text-curai-warning">
                 К доплате: {pendingAmount.toLocaleString()}₸
               </div>
             )}
@@ -72,12 +72,12 @@ const TreatmentPlanInfo = ({
         )}
         {/* ✅ НОВОЕ: Показываем депозит и остаток */}
         {depositAmount > 0 && (
-          <div className="text-xs text-blue-600 font-medium">
+          <div className="text-xs text-curai-blue font-medium">
             💰 Депозит: {depositAmount.toLocaleString()}₸
           </div>
         )}
         {depositBalance > 0 && (
-          <div className="text-xs text-green-600 font-medium">
+          <div className="text-xs text-curai-positive font-medium">
             💵 Остаток: {depositBalance.toLocaleString()}₸
           </div>
         )}
@@ -86,12 +86,12 @@ const TreatmentPlanInfo = ({
   }
 
   return (
-    <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 space-y-2">
+    <div className="bg-curai-selected border border-curai-control rounded-md p-3 space-y-2">
       <div className="flex items-center justify-between">
-        <h4 className="text-sm font-medium text-blue-900">
+        <h4 className="text-sm font-medium text-curai-blue">
           📋 Планы лечения
         </h4>
-        <span className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded">
+        <span className="text-xs bg-curai-selected text-curai-blue px-2 py-1 rounded">
           {treatmentPlansCount} {treatmentPlansCount === 1 ? 'план' : 'планов'}
         </span>
       </div>
@@ -99,9 +99,9 @@ const TreatmentPlanInfo = ({
       {totalAmount > 0 ? (
         <div className="space-y-2">
           {/* Progress Bar */}
-          <div className="w-full bg-gray-200 rounded-full h-2">
+          <div className="w-full bg-curai-border rounded-full h-2">
             <div 
-              className="bg-green-600 h-2 rounded-full transition-all duration-300"
+              className="bg-curai-positive h-2 rounded-full transition-all duration-300"
               style={{ width: `${paidPercentage}%` }}
             ></div>
           </div>
@@ -109,14 +109,14 @@ const TreatmentPlanInfo = ({
           {/* Amounts */}
           <div className="grid grid-cols-2 gap-2 text-xs">
             <div>
-              <div className="text-gray-600">Общая сумма:</div>
-              <div className="font-medium text-gray-900">
+              <div className="text-curai-muted">Общая сумма:</div>
+              <div className="font-medium text-curai-ink">
                 {totalAmount.toLocaleString()}₸
               </div>
             </div>
             <div>
-              <div className="text-gray-600">Оплачено ({paidPercentage}%):</div>
-              <div className="font-medium text-green-600">
+              <div className="text-curai-muted">Оплачено ({paidPercentage}%):</div>
+              <div className="font-medium text-curai-positive">
                 {totalPaidWithDeposit.toLocaleString()}₸
               </div>
             </div>
@@ -124,10 +124,10 @@ const TreatmentPlanInfo = ({
 
           {/* Депозит (если есть) */}
           {depositAmount > 0 && (
-            <div className="pt-1 border-t border-blue-200">
+            <div className="pt-1 border-t border-curai-control">
               <div className="flex justify-between items-center">
-                <span className="text-xs text-gray-600">💰 Из них депозит:</span>
-                <span className="text-sm font-medium text-blue-600">
+                <span className="text-xs text-curai-muted">💰 Из них депозит:</span>
+                <span className="text-sm font-medium text-curai-blue">
                   {depositAmount.toLocaleString()}₸
                 </span>
               </div>
@@ -136,10 +136,10 @@ const TreatmentPlanInfo = ({
 
           {/* ✅ НОВОЕ: Остаток депозита (если есть) */}
           {depositBalance > 0 && (
-            <div className="pt-1 border-t border-blue-200">
+            <div className="pt-1 border-t border-curai-control">
               <div className="flex justify-between items-center">
-                <span className="text-xs text-gray-600">💵 Остаток депозита:</span>
-                <span className="text-sm font-medium text-green-600">
+                <span className="text-xs text-curai-muted">💵 Остаток депозита:</span>
+                <span className="text-sm font-medium text-curai-positive">
                   {depositBalance.toLocaleString()}₸
                 </span>
               </div>
@@ -147,10 +147,10 @@ const TreatmentPlanInfo = ({
           )}
 
           {pendingAmount > 0 && (
-            <div className="pt-1 border-t border-blue-200">
+            <div className="pt-1 border-t border-curai-control">
               <div className="flex justify-between items-center">
-                <span className="text-xs text-gray-600">К доплате:</span>
-                <span className="text-sm font-medium text-orange-600">
+                <span className="text-xs text-curai-muted">К доплате:</span>
+                <span className="text-sm font-medium text-curai-warning">
                   {pendingAmount.toLocaleString()}₸
                 </span>
               </div>
@@ -158,13 +158,13 @@ const TreatmentPlanInfo = ({
           )}
         </div>
       ) : (
-        <div className="text-xs text-gray-500">
+        <div className="text-xs text-curai-muted">
           Финансовая информация недоступна
         </div>
       )}
 
       {treatmentData.lastUpdate && (
-        <div className="text-xs text-gray-400 pt-1 border-t border-blue-200">
+        <div className="text-xs text-curai-muted pt-1 border-t border-curai-control">
           Обновлено: {new Date(treatmentData.lastUpdate).toLocaleString('ru-RU')}
         </div>
       )}

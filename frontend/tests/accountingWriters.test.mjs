@@ -449,7 +449,7 @@ test('doctor-free analysis payment retains percent discounts and resets modal ch
   await ui.click(ui.container.querySelector('button'));
   await ui.click([...ui.container.querySelectorAll('button')].filter(element => element.textContent.includes('Оплатить')).at(-1));
   await ui.click(ui.container.querySelector('input[type="radio"]'));
-  await ui.click(button(ui.container, '%'));
+  await ui.change(ui.container.querySelector('select[aria-label="Тип скидки"]'), 'percent');
   await ui.change(ui.container.querySelector('input[placeholder="Процент скидки"]'), '25');
   await ui.click(button(ui.container, '×'));
   assert.equal(ui.requests.filter(request => request.body).length, 0);
@@ -457,7 +457,7 @@ test('doctor-free analysis payment retains percent discounts and resets modal ch
   assert.equal(ui.container.querySelector('input[type="radio"]').checked, false);
   assert.equal(ui.container.querySelector('input[placeholder="Сумма скидки, ₸"]').value, '');
   await ui.click(ui.container.querySelector('input[type="radio"]'));
-  await ui.click(button(ui.container, '%'));
+  await ui.change(ui.container.querySelector('select[aria-label="Тип скидки"]'), 'percent');
   await ui.change(ui.container.querySelector('input[placeholder="Процент скидки"]'), '25');
   await ui.click(button(ui.container, 'Оплатить 750'));
   const write = ui.requests.find(request => request.body);

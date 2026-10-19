@@ -24,12 +24,12 @@ const StaffView = ({
   // Цвета для бейджей ролей
   const getRoleColor = (role) => {
     const colors = {
-      super_admin: 'bg-purple-100 text-purple-800',
-      admin: 'bg-blue-100 text-blue-800',
-      doctor: 'bg-green-100 text-green-800',
-      marketer: 'bg-orange-100 text-orange-800'
+      super_admin: "bg-curai-selected text-curai-blue",
+      admin: "bg-curai-selected text-curai-blue",
+      doctor: "bg-curai-positiveBg text-curai-positive",
+      marketer: "bg-curai-warningBg text-curai-warning"
     };
-    return colors[role] || 'bg-gray-100 text-gray-800';
+    return colors[role] || "bg-curai-subtle text-curai-ink";
   };
 
   // Фильтрация персонала
@@ -42,22 +42,22 @@ const StaffView = ({
   });
 
   return (
-    <div className="bg-white rounded-lg shadow">
+    <div className="bg-curai-surface rounded-md shadow-none">
       {/* Header */}
-      <div className="px-6 py-4 border-b border-gray-200">
+      <div className="px-6 py-4 border-b border-curai-border">
         <div className="flex justify-between items-center">
           <div>
-            <h2 className="text-2xl font-bold text-gray-800">
+            <h2 className="text-2xl font-semibold text-curai-ink">
               Управление персоналом
             </h2>
-            <p className="text-sm text-gray-600 mt-1">
+            <p className="text-sm text-curai-muted mt-1">
               Управление сотрудниками и врачами клиники
             </p>
           </div>
           {canManage && (
             <button
               onClick={onAddStaff}
-              className="px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors flex items-center gap-2"
+              className="px-4 py-2 bg-curai-positive text-white rounded-md hover:bg-curai-positive transition-colors flex items-center gap-2"
             >
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
@@ -69,11 +69,11 @@ const StaffView = ({
       </div>
 
       {/* Filters */}
-      <div className="px-6 py-4 bg-gray-50 border-b border-gray-200">
+      <div className="px-6 py-4 bg-curai-subtle border-b border-curai-border">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {/* Поиск */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
+            <label className="block text-sm font-medium text-curai-ink mb-1">
               Поиск по имени или email
             </label>
             <input
@@ -81,19 +81,19 @@ const StaffView = ({
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               placeholder="Поиск..."
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="w-full px-3 py-2 border border-curai-control rounded-md focus:ring-2 focus:ring-curai-focus focus:border-transparent"
             />
           </div>
 
           {/* Фильтр по роли */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
+            <label className="block text-sm font-medium text-curai-ink mb-1">
               Фильтр по роли
             </label>
             <select
               value={filterRole}
               onChange={(e) => setFilterRole(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="w-full px-3 py-2 border border-curai-control rounded-md focus:ring-2 focus:ring-curai-focus focus:border-transparent"
             >
               <option value="all">Все роли</option>
               <option value="super_admin">Супер Администратор</option>
@@ -107,63 +107,63 @@ const StaffView = ({
 
       {/* Table */}
       <div className="overflow-x-auto">
-        <table className="min-w-full divide-y divide-gray-200">
-          <thead className="bg-gray-50">
+        <table className="min-w-full divide-y divide-curai-border">
+          <thead className="bg-curai-subtle">
             <tr>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+              <th className="px-6 py-3 text-left text-xs font-medium text-curai-muted uppercase tracking-wider">
                 Сотрудник
               </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+              <th className="px-6 py-3 text-left text-xs font-medium text-curai-muted uppercase tracking-wider">
                 Email / Логин
               </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+              <th className="px-6 py-3 text-left text-xs font-medium text-curai-muted uppercase tracking-wider">
                 Роль
               </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+              <th className="px-6 py-3 text-left text-xs font-medium text-curai-muted uppercase tracking-wider">
                 Телефон
               </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+              <th className="px-6 py-3 text-left text-xs font-medium text-curai-muted uppercase tracking-wider">
                 Статус
               </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+              <th className="px-6 py-3 text-left text-xs font-medium text-curai-muted uppercase tracking-wider">
                 Дата создания
               </th>
               {canManage && (
-                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-6 py-3 text-right text-xs font-medium text-curai-muted uppercase tracking-wider">
                   Действия
                 </th>
               )}
             </tr>
           </thead>
-          <tbody className="bg-white divide-y divide-gray-200">
+          <tbody className="bg-curai-surface divide-y divide-curai-border">
             {filteredStaff.length === 0 ? (
               <tr>
                 <td colSpan={canManage ? 7 : 6} className="px-6 py-12 text-center">
                   <div className="flex flex-col items-center justify-center">
-                    <svg className="w-16 h-16 text-gray-300 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <svg className="w-16 h-16 text-curai-disabled mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M21 10a2 2 0 11-4 0 2 2 0 014 0z" />
                     </svg>
-                    <p className="text-gray-500 text-lg">Сотрудники не найдены</p>
-                    <p className="text-gray-400 text-sm mt-1">Попробуйте изменить параметры поиска</p>
+                    <p className="text-curai-muted text-lg">Сотрудники не найдены</p>
+                    <p className="text-curai-muted text-sm mt-1">Попробуйте изменить параметры поиска</p>
                   </div>
                 </td>
               </tr>
             ) : (
               filteredStaff.map((member) => (
-                <tr key={member.id} className="hover:bg-gray-50 transition-colors">
+                <tr key={member.id} className="hover:bg-curai-subtle transition-colors">
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="flex items-center">
                       <div className={`flex-shrink-0 h-10 w-10 rounded-full flex items-center justify-center text-white font-semibold ${
-                        member.type === 'doctor' ? 'bg-gradient-to-br from-green-500 to-teal-600' : 'bg-gradient-to-br from-blue-500 to-purple-600'
+                        member.type === 'doctor' ? "bg-curai-positive " : "bg-curai-blue "
                       }`}>
                         {member.full_name.charAt(0).toUpperCase()}
                       </div>
                       <div className="ml-4">
-                        <div className="text-sm font-medium text-gray-900">
+                        <div className="text-sm font-medium text-curai-ink">
                           {member.full_name}
                         </div>
                         {member.type === 'doctor' && member.specialty && (
-                          <div className="text-xs text-gray-500">
+                          <div className="text-xs text-curai-muted">
                             {member.specialty}
                           </div>
                         )}
@@ -171,12 +171,12 @@ const StaffView = ({
                     </div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm text-gray-900">{member.email || '—'}</div>
+                    <div className="text-sm text-curai-ink">{member.email || '—'}</div>
                     {member.login && (
-                      <div className="text-xs text-gray-500">логин: {member.login}</div>
+                      <div className="text-xs text-curai-muted">логин: {member.login}</div>
                     )}
                     {member.type === 'doctor' && !member.has_access && (
-                      <div className="text-xs text-orange-600 flex items-center gap-1">
+                      <div className="text-xs text-curai-warning flex items-center gap-1">
                         <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
                         </svg>
@@ -189,21 +189,21 @@ const StaffView = ({
                       {roleLabels[member.role] || member.role}
                     </span>
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-curai-muted">
                     {member.phone || '—'}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     {member.is_active ? (
-                      <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">
+                      <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-curai-positiveBg text-curai-positive">
                         Активен
                       </span>
                     ) : (
-                      <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-red-100 text-red-800">
+                      <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-curai-negativeBg text-curai-negative">
                         Неактивен
                       </span>
                     )}
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-curai-muted">
                     {member.created_at ? new Date(member.created_at).toLocaleDateString('ru-RU') : '—'}
                   </td>
                   {canManage && (
@@ -214,15 +214,15 @@ const StaffView = ({
                           <div className="flex justify-end gap-2">
                             <button
                               onClick={() => onEditStaff(member)}
-                              className="text-blue-600 hover:text-blue-900"
+                              className="text-curai-blue hover:text-curai-blue"
                               title="Редактировать права"
                             >
                               Права доступа
                             </button>
-                            <span className="text-gray-300">|</span>
+                            <span className="text-curai-disabled">|</span>
                             <button
                               onClick={() => onRevokeAccess && onRevokeAccess(member)}
-                              className="text-orange-600 hover:text-orange-900"
+                              className="text-curai-warning hover:text-curai-warning"
                               title="Отозвать доступ"
                             >
                               Отозвать доступ
@@ -231,7 +231,7 @@ const StaffView = ({
                         ) : (
                           <button
                             onClick={() => onAssignAccess && onAssignAccess(member)}
-                            className="text-green-600 hover:text-green-900 font-semibold"
+                            className="text-curai-positive hover:text-curai-positive font-semibold"
                             title="Назначить доступ"
                           >
                             Назначить доступ
@@ -242,14 +242,14 @@ const StaffView = ({
                         <>
                           <button
                             onClick={() => onEditStaff(member)}
-                            className="text-blue-600 hover:text-blue-900 mr-3"
+                            className="text-curai-blue hover:text-curai-blue mr-3"
                             title="Редактировать"
                           >
                             Редактировать
                           </button>
                           <button
                             onClick={() => onDeleteStaff(member.id)}
-                            className="text-red-600 hover:text-red-900"
+                            className="text-curai-negative hover:text-curai-negative"
                             title="Удалить"
                           >
                             Удалить
@@ -266,8 +266,8 @@ const StaffView = ({
       </div>
 
       {/* Footer with count */}
-      <div className="px-6 py-4 bg-gray-50 border-t border-gray-200">
-        <p className="text-sm text-gray-600">
+      <div className="px-6 py-4 bg-curai-subtle border-t border-curai-border">
+        <p className="text-sm text-curai-muted">
           Показано <span className="font-medium">{filteredStaff.length}</span> из{' '}
           <span className="font-medium">{staff.length}</span> сотрудников
         </p>

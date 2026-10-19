@@ -54,46 +54,46 @@ export const ThemeProvider = ({ children }) => {
 export const themeClasses = {
   // Фоны
   bg: {
-    primary: 'bg-white dark:bg-gray-900',
-    secondary: 'bg-gray-50 dark:bg-gray-800',
-    card: 'bg-white dark:bg-gray-800',
-    hover: 'hover:bg-gray-50 dark:hover:bg-gray-700',
-    selected: 'bg-blue-50 dark:bg-blue-900/20'
+    primary: "bg-curai-surface ",
+    secondary: "bg-curai-subtle ",
+    card: "bg-curai-surface ",
+    hover: "hover:bg-curai-subtle ",
+    selected: "bg-curai-selected "
   },
   
   // Текст
   text: {
-    primary: 'text-gray-900 dark:text-white',
-    secondary: 'text-gray-600 dark:text-gray-300',
-    muted: 'text-gray-500 dark:text-gray-400',
-    inverse: 'text-white dark:text-gray-900'
+    primary: "text-curai-ink ",
+    secondary: "text-curai-muted ",
+    muted: "text-curai-muted ",
+    inverse: "text-white "
   },
   
   // Границы
   border: {
-    default: 'border-gray-200 dark:border-gray-700',
-    light: 'border-gray-100 dark:border-gray-800',
-    strong: 'border-gray-300 dark:border-gray-600'
+    default: "border-curai-border ",
+    light: "border-curai-border ",
+    strong: "border-curai-control "
   },
   
   // Формы
   input: {
-    default: 'bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400',
-    focus: 'focus:ring-blue-500 dark:focus:ring-blue-400 focus:border-blue-500 dark:focus:border-blue-400'
+    default: "bg-curai-surface border-curai-control text-curai-ink placeholder-curai-muted ",
+    focus: "focus:ring-curai-focus focus:border-curai-control "
   },
   
   // Кнопки
   button: {
-    primary: 'bg-blue-600 dark:bg-blue-500 hover:bg-blue-700 dark:hover:bg-blue-600 text-white',
-    secondary: 'bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-gray-900 dark:text-white',
-    ghost: 'hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-700 dark:text-gray-300'
+    primary: "bg-curai-blue hover:bg-curai-blue text-white",
+    secondary: "bg-curai-border hover:bg-curai-control text-curai-ink ",
+    ghost: "hover:bg-curai-subtle text-curai-ink "
   },
   
   // Тени
   shadow: {
-    sm: 'shadow-sm dark:shadow-gray-900/25',
-    default: 'shadow dark:shadow-gray-900/25',
-    lg: 'shadow-lg dark:shadow-gray-900/25'
+    sm: "shadow-none ",
+    default: "shadow-none ",
+    lg: "shadow-none "
   }
 };
 

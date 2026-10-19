@@ -1,184 +1,26 @@
 import React from 'react';
 import NavigationSearch from './NavigationSearch';
+import WorkspaceTabs from './WorkspaceTabs';
+import CuraiIcon from '../common/CuraiIcon';
+import CuraiButton from '../common/CuraiButton';
 import { useNotifications } from '../../context/NotificationContext';
 import { useGuide } from '../../context/GuideContext';
 
 const Header = ({ user, onLogout, onToggleSidebar, sidebarOpen, activeSection, setActiveSection, onNavigate }) => {
   const { unreadCount, togglePanel } = useNotifications();
   const { openGuideModal } = useGuide();
-  // Проверяем текущую тему
-  const [isDarkMode, setIsDarkMode] = React.useState(() => {
-    // Проверяем сохраненное значение при монтировании
-    const savedMode = localStorage.getItem('darkMode') === 'true';
-    // Применяем тему
-    if (savedMode) {
-      document.documentElement.classList.add('dark');
-    } else {
-      document.documentElement.classList.remove('dark');
-    }
-    return savedMode;
-  });
-
-  const toggleDarkMode = () => {
-    const newDarkMode = !isDarkMode;
-    setIsDarkMode(newDarkMode);
-
-    if (newDarkMode) {
-      document.documentElement.classList.add('dark');
-      document.body.style.backgroundColor = "#1f2937";
-    } else {
-      document.documentElement.classList.remove('dark');
-      document.body.style.backgroundColor = "#f9fafb";
-    }
-    localStorage.setItem('darkMode', newDarkMode.toString());
-  };
-
-  return (
-    <header
-              className="mobile-fixed-header backdrop-blur-xl shadow-md border-b border-white/10"
-              style={{ backgroundColor: 'rgba(2, 77, 189, 0.82)' }}
-            >
-      <div className="px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center py-4">
-          <div className="flex items-center space-x-2 sm:space-x-6 min-w-0 flex-1">
-            {!sidebarOpen && (
-              <div className="flex items-center gap-3">
-                <button
-                    onClick={onToggleSidebar}
-                    className="p-2 rounded-lg text-white hover:bg-white/20 transition-colors"
-                    aria-label="Open sidebar"
-                    data-testid="mobile-hamburger"
-                  >
-                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
-                    </svg>
-                  </button>
-                  <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
-                    <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-                    </svg>
-                  </div>
-                </div>
-              )}
-              {user && (
-                <div className="hidden md:flex items-center space-x-4 w-full">
-                  <nav className="flex-1 flex items-center space-x-6">
-                    <button 
-                      onClick={() => setActiveSection('hms')}
-                      className={`px-3 py-2 text-sm font-medium transition-colors ${
-                        activeSection === 'hms' 
-                          ? 'text-white border-b-2 border-white/70' 
-                          : 'text-white/80 hover:text-white'
-                      }`}
-                    >
-                      HMS
-                    </button>
-                    {/* CRM доступ для админов или пользователей с правом crm_view */}
-                    {(user.role === 'admin' || user.role === 'super_admin' || (user.permissions && user.permissions.includes('crm_view'))) && (
-                      <button 
-                        onClick={() => setActiveSection('crm')}
-                        className={`px-3 py-2 text-sm font-medium transition-colors ${
-                          activeSection === 'crm' 
-                            ? 'text-white border-b-2 border-white/70' 
-                            : 'text-white/80 hover:text-white'
-                        }`}
-                      >
-                        CRM
-                      </button>
-                    )}
-                    {/* Склад доступ для админов или пользователей с правом warehouse_view */}
-                    {(user.role === 'admin' || user.role === 'super_admin' || (user.permissions && user.permissions.includes('warehouse_view'))) && (
-                      <button 
-                        onClick={() => setActiveSection('warehouse')}
-                        className={`px-3 py-2 text-sm font-medium transition-colors ${
-                          activeSection === 'warehouse' 
-                            ? 'text-white border-b-2 border-white/70' 
-                            : 'text-white/80 hover:text-white'
-                        }`}
-                      >
-                        Склад
-                      </button>
-                    )}
-                    {user.role !== 'patient' && (
-                      <button
-                        onClick={() => setActiveSection('finance')}
-                        className={`px-3 py-2 text-sm font-medium transition-colors ${
-                          activeSection === 'finance'
-                            ? 'text-white border-b-2 border-white/70'
-                            : 'text-white/80 hover:text-white'
-                        }`}
-                      >
-                        Финансы
-                      </button>
-                    )}
-                  </nav>
-                </div>
-              )}
-            </div>
-          
-            <div className="flex items-center space-x-1 sm:space-x-4 text-white shrink-0">
-            {user && (
-              <>
-                <div className="text-sm text-right hidden sm:block">
-                  <div className="font-medium">{user.full_name}</div>
-                  <div className="text-xs text-white/70">
-                    {user.role === 'super_admin' ? 'Супер-админ' : user.role === 'admin' ? 'Администратор' : user.role === 'doctor' ? 'Врач' : 'Пациент'}
-                  </div>
-                </div>
-
-
-                
-                <NavigationSearch user={user} onNavigate={onNavigate} />
-
-                {/* Guide Button */}
-                <button
-                  onClick={openGuideModal}
-                  className="p-2 rounded-full bg-white/10 text-white hover:bg-white/20 transition"
-                  aria-label="Помощь"
-                  title="Помощь по системе"
-                >
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                  </svg>
-                </button>
-
-                {/* Notifications Button */}
-                <button
-                  onClick={togglePanel}
-                  className="relative p-2 rounded-full bg-white/10 text-white hover:bg-white/20 transition"
-                  aria-label="Уведомления"
-                  title="Уведомления"
-                >
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
-                  </svg>
-                  {unreadCount > 0 && (
-                    <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center">
-                      {unreadCount > 9 ? '9+' : unreadCount}
-                    </span>
-                  )}
-                </button>
-
-                {/* User Avatar Dropdown */}
-                                <div className="relative">
-                  <div className="w-8 h-8 bg-transparent border border-white/40 rounded-full flex items-center justify-center text-white font-medium text-sm">
-                    {user.full_name?.charAt(0)?.toUpperCase()}
-                  </div>
-                </div>
-                
-                <button
-                  onClick={onLogout}
-                  className="text-white px-4 py-2 rounded-lg hover:bg-white/20 transition-colors text-sm font-medium"
-                >
-                  Выйти
-                </button>
-              </>
-            )}
-          </div>
-        </div>
-      </div>
-    </header>
-  );
+  const role = user?.role === 'super_admin' ? 'Супер-админ' : user?.role === 'admin' ? 'Администратор' : user?.role === 'doctor' ? 'Врач' : 'Пациент';
+  return <header className="curai-navbar">
+    <CuraiButton variant="ghost" iconOnly className="curai-mobile-menu" onClick={onToggleSidebar} aria-label="Open sidebar" aria-expanded={sidebarOpen} aria-controls="workspace-navigation" data-testid="mobile-hamburger"><CuraiIcon name="menu" /></CuraiButton>
+    <div className="curai-brand" aria-label="Curai">curai</div>
+    {user && <WorkspaceTabs user={user} activeSection={activeSection} onChange={setActiveSection} />}
+    {user && <div className="curai-navbar-actions">
+      <NavigationSearch user={user} onNavigate={onNavigate} />
+      <CuraiButton variant="ghost" iconOnly onClick={openGuideModal} aria-label="Помощь" title="Помощь по системе"><CuraiIcon name="help" /></CuraiButton>
+      <CuraiButton variant="ghost" iconOnly className="relative" onClick={togglePanel} aria-label="Уведомления" title="Уведомления"><CuraiIcon name="notifications" />{unreadCount > 0 && <span className="curai-notification-count">{unreadCount > 9 ? '9+' : unreadCount}</span>}</CuraiButton>
+      <div className="curai-user" title={`${user.full_name || ''} · ${role}`}><span className="curai-user-name">{user.full_name}</span><span className="curai-avatar" aria-label={user.full_name}>{user.full_name?.charAt(0)?.toUpperCase()}</span></div>
+      <CuraiButton variant="ghost" iconOnly onClick={onLogout} aria-label="Выход" title="Выход"><CuraiIcon name="logout" /></CuraiButton>
+    </div>}
+  </header>;
 };
-
 export default Header;

@@ -160,19 +160,19 @@ const ServicesReport = ({ user }) => {
   if (loading) {
     return (
       <div className="flex items-center justify-center py-20">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-curai-control"></div>
       </div>
     );
   }
 
   if (error) {
     return (
-      <div className="bg-red-50 border border-red-200 text-red-700 px-6 py-4 rounded-xl">
+      <div className="bg-curai-negativeBg border border-curai-negative text-curai-negative px-6 py-4 rounded-md">
         <p className="font-medium">Ошибка загрузки отчета</p>
         <p className="text-sm mt-1">{error}</p>
         <button
           onClick={fetchReport}
-          className="mt-3 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 text-sm"
+          className="mt-3 px-4 py-2 bg-curai-negative text-white rounded-md hover:bg-curai-negative text-sm"
         >
           Повторить
         </button>
@@ -184,7 +184,7 @@ const ServicesReport = ({ user }) => {
     <div className="space-y-6">
       {/* Header */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-        <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
+        <h1 className="text-2xl font-semibold text-curai-ink ">
           📊 Отчет по оказанным услугам
         </h1>
 
@@ -194,7 +194,7 @@ const ServicesReport = ({ user }) => {
           <select
             value={year}
             onChange={(e) => setYear(parseInt(e.target.value))}
-            className="px-3 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg text-sm text-gray-700 dark:text-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            className="px-3 py-2 bg-curai-surface border border-curai-control rounded-md text-sm text-curai-ink focus:ring-2 focus:ring-curai-focus focus:border-curai-control"
           >
             {years.map(y => (
               <option key={y} value={y}>{y}</option>
@@ -205,7 +205,7 @@ const ServicesReport = ({ user }) => {
           <select
             value={month ?? ''}
             onChange={(e) => setMonth(e.target.value ? parseInt(e.target.value) : null)}
-            className="px-3 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg text-sm text-gray-700 dark:text-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            className="px-3 py-2 bg-curai-surface border border-curai-control rounded-md text-sm text-curai-ink focus:ring-2 focus:ring-curai-focus focus:border-curai-control"
           >
             {months.map(m => (
               <option key={m.value ?? 'all'} value={m.value ?? ''}>{m.label}</option>
@@ -214,7 +214,7 @@ const ServicesReport = ({ user }) => {
 
           <button
             onClick={fetchReport}
-            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium flex items-center gap-2"
+            className="px-4 py-2 bg-curai-blue text-white rounded-md hover:bg-curai-blue transition-colors text-sm font-medium flex items-center gap-2"
           >
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
@@ -225,9 +225,9 @@ const ServicesReport = ({ user }) => {
       </div>
 
       {/* Filters block */}
-      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-4">
+      <div className="bg-curai-surface rounded-md shadow-none border border-curai-border p-4">
         <div className="flex flex-wrap items-center gap-4">
-          <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Фильтры:</span>
+          <span className="text-sm font-medium text-curai-ink ">Фильтры:</span>
 
           {/* Специальности (множественный выбор) */}
           <div className="relative">
@@ -237,7 +237,7 @@ const ServicesReport = ({ user }) => {
                 const dropdown = document.getElementById('category-dropdown');
                 if (dropdown) dropdown.classList.toggle('hidden');
               }}
-              className="px-3 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg text-sm text-gray-700 dark:text-gray-300 hover:border-gray-400 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 min-w-[180px] text-left flex items-center justify-between gap-2"
+              className="px-3 py-2 bg-curai-surface border border-curai-control rounded-md text-sm text-curai-ink hover:border-curai-control focus:ring-2 focus:ring-curai-focus focus:border-curai-control min-w-[180px] text-left flex items-center justify-between gap-2"
             >
               <span className="truncate">
                 {selectedCategories.length === 0
@@ -250,23 +250,23 @@ const ServicesReport = ({ user }) => {
             </button>
             <div
               id="category-dropdown"
-              className="hidden absolute z-50 mt-1 w-64 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg max-h-64 overflow-y-auto"
+              className="hidden absolute z-50 mt-1 w-64 bg-curai-surface border border-curai-border rounded-md shadow-none max-h-64 overflow-y-auto"
             >
-              <label className="flex items-center gap-2 px-3 py-2 hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer border-b border-gray-100 dark:border-gray-700">
+              <label className="flex items-center gap-2 px-3 py-2 hover:bg-curai-subtle cursor-pointer border-b border-curai-border ">
                 <input
                   type="checkbox"
                   checked={selectedCategories.length === 0}
                   onChange={() => setSelectedCategories([])}
-                  className="rounded text-blue-600 focus:ring-blue-500"
+                  className="rounded text-curai-blue focus:ring-curai-focus"
                 />
-                <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Все специальности</span>
+                <span className="text-sm font-medium text-curai-ink ">Все специальности</span>
               </label>
               {categories.map(cat => {
                 const isSelected = selectedCategories.includes(cat);
                 return (
                   <label
                     key={cat}
-                    className="flex items-center gap-2 px-3 py-2 hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer"
+                    className="flex items-center gap-2 px-3 py-2 hover:bg-curai-subtle cursor-pointer"
                   >
                     <input
                       type="checkbox"
@@ -278,9 +278,9 @@ const ServicesReport = ({ user }) => {
                           setSelectedCategories(prev => [...prev, cat]);
                         }
                       }}
-                      className="rounded text-blue-600 focus:ring-blue-500"
+                      className="rounded text-curai-blue focus:ring-curai-focus"
                     />
-                    <span className="text-sm text-gray-700 dark:text-gray-300">{cat}</span>
+                    <span className="text-sm text-curai-ink ">{cat}</span>
                   </label>
                 );
               })}
@@ -295,7 +295,7 @@ const ServicesReport = ({ user }) => {
                 const dropdown = document.getElementById('doctor-dropdown');
                 if (dropdown) dropdown.classList.toggle('hidden');
               }}
-              className="px-3 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg text-sm text-gray-700 dark:text-gray-300 hover:border-gray-400 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 min-w-[180px] text-left flex items-center justify-between gap-2"
+              className="px-3 py-2 bg-curai-surface border border-curai-control rounded-md text-sm text-curai-ink hover:border-curai-control focus:ring-2 focus:ring-curai-focus focus:border-curai-control min-w-[180px] text-left flex items-center justify-between gap-2"
             >
               <span className="truncate">
                 {selectedDoctorIds.length === 0
@@ -308,23 +308,23 @@ const ServicesReport = ({ user }) => {
             </button>
             <div
               id="doctor-dropdown"
-              className="hidden absolute z-50 mt-1 w-64 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg max-h-64 overflow-y-auto"
+              className="hidden absolute z-50 mt-1 w-64 bg-curai-surface border border-curai-border rounded-md shadow-none max-h-64 overflow-y-auto"
             >
-              <label className="flex items-center gap-2 px-3 py-2 hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer border-b border-gray-100 dark:border-gray-700">
+              <label className="flex items-center gap-2 px-3 py-2 hover:bg-curai-subtle cursor-pointer border-b border-curai-border ">
                 <input
                   type="checkbox"
                   checked={selectedDoctorIds.length === 0}
                   onChange={() => setSelectedDoctorIds([])}
-                  className="rounded text-blue-600 focus:ring-blue-500"
+                  className="rounded text-curai-blue focus:ring-curai-focus"
                 />
-                <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Все врачи</span>
+                <span className="text-sm font-medium text-curai-ink ">Все врачи</span>
               </label>
               {filteredDoctors.map(doc => {
                 const isSelected = selectedDoctorIds.includes(doc.id);
                 return (
                   <label
                     key={doc.id}
-                    className="flex items-center gap-2 px-3 py-2 hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer"
+                    className="flex items-center gap-2 px-3 py-2 hover:bg-curai-subtle cursor-pointer"
                   >
                     <input
                       type="checkbox"
@@ -336,14 +336,14 @@ const ServicesReport = ({ user }) => {
                           setSelectedDoctorIds(prev => [...prev, doc.id]);
                         }
                       }}
-                      className="rounded text-blue-600 focus:ring-blue-500"
+                      className="rounded text-curai-blue focus:ring-curai-focus"
                     />
-                    <span className="text-sm text-gray-700 dark:text-gray-300">{doc.name}</span>
+                    <span className="text-sm text-curai-ink ">{doc.name}</span>
                   </label>
                 );
               })}
               {filteredDoctors.length === 0 && selectedCategories.length > 0 && (
-                <div className="px-3 py-4 text-sm text-gray-400 text-center">
+                <div className="px-3 py-4 text-sm text-curai-muted text-center">
                   Нет врачей с выбранными специальностями
                 </div>
               )}
@@ -351,14 +351,14 @@ const ServicesReport = ({ user }) => {
           </div>
 
           {/* Только с задолженностью */}
-          <label className="flex items-center gap-2 px-3 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg cursor-pointer hover:border-gray-400 transition-colors select-none">
+          <label className="flex items-center gap-2 px-3 py-2 bg-curai-surface border border-curai-control rounded-md cursor-pointer hover:border-curai-control transition-colors select-none">
             <input
               type="checkbox"
               checked={showOnlyDebt}
               onChange={(e) => setShowOnlyDebt(e.target.checked)}
-              className="rounded text-red-500 focus:ring-red-500"
+              className="rounded text-curai-negative focus:ring-curai-focus"
             />
-            <span className="text-sm text-gray-700 dark:text-gray-300 whitespace-nowrap">
+            <span className="text-sm text-curai-ink whitespace-nowrap">
               Только с задолженностью
             </span>
           </label>
@@ -367,7 +367,7 @@ const ServicesReport = ({ user }) => {
           <button
             onClick={handleApplyFilters}
             disabled={loading}
-            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-sm font-medium"
+            className="px-4 py-2 bg-curai-blue text-white rounded-md hover:bg-curai-blue disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-sm font-medium"
           >
             {loading ? 'Загрузка...' : 'Применить'}
           </button>
@@ -377,53 +377,53 @@ const ServicesReport = ({ user }) => {
       {/* Totals Cards */}
       {filteredTotals && (
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-5">
-            <p className="text-sm text-gray-500 dark:text-gray-400 mb-1">Ожидаемый доход</p>
-            <p className="text-2xl font-bold text-blue-600">{formatMoney(filteredTotals.total_expected)}</p>
+          <div className="bg-curai-surface rounded-md shadow-none border border-curai-border p-5">
+            <p className="text-sm text-curai-muted mb-1">Ожидаемый доход</p>
+            <p className="text-2xl font-semibold text-curai-blue">{formatMoney(filteredTotals.total_expected)}</p>
           </div>
-          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-5">
-            <p className="text-sm text-gray-500 dark:text-gray-400 mb-1">Фактически оплачено</p>
-            <p className="text-2xl font-bold text-green-600">{formatMoney(filteredTotals.total_paid)}</p>
+          <div className="bg-curai-surface rounded-md shadow-none border border-curai-border p-5">
+            <p className="text-sm text-curai-muted mb-1">Фактически оплачено</p>
+            <p className="text-2xl font-semibold text-curai-positive">{formatMoney(filteredTotals.total_paid)}</p>
           </div>
-          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-5">
-            <p className="text-sm text-gray-500 dark:text-gray-400 mb-1">Задолженность</p>
-            <p className="text-2xl font-bold text-red-600">{formatMoney(filteredTotals.total_outstanding)}</p>
+          <div className="bg-curai-surface rounded-md shadow-none border border-curai-border p-5">
+            <p className="text-sm text-curai-muted mb-1">Задолженность</p>
+            <p className="text-2xl font-semibold text-curai-negative">{formatMoney(filteredTotals.total_outstanding)}</p>
           </div>
         </div>
       )}
 {/* Table */}
-      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
+      <div className="bg-curai-surface rounded-md shadow-none border border-curai-border overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full">
             <thead>
-              <tr className="bg-gray-50 dark:bg-gray-700/50">
-                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+              <tr className="bg-curai-subtle ">
+                <th className="px-4 py-3 text-left text-xs font-semibold text-curai-muted uppercase tracking-wider">
                   Название услуги
                 </th>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                <th className="px-4 py-3 text-left text-xs font-semibold text-curai-muted uppercase tracking-wider">
                   Категория
                 </th>
-                <th className="px-4 py-3 text-right text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                <th className="px-4 py-3 text-right text-xs font-semibold text-curai-muted uppercase tracking-wider">
                   Цена услуги
                 </th>
-                <th className="px-4 py-3 text-right text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                <th className="px-4 py-3 text-right text-xs font-semibold text-curai-muted uppercase tracking-wider">
                   Кол-во
                 </th>
-                <th className="px-4 py-3 text-right text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                <th className="px-4 py-3 text-right text-xs font-semibold text-curai-muted uppercase tracking-wider">
                   Ожидаемый доход
                 </th>
-                <th className="px-4 py-3 text-right text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                <th className="px-4 py-3 text-right text-xs font-semibold text-curai-muted uppercase tracking-wider">
                   Оплачено
                 </th>
-                <th className="px-4 py-3 text-right text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                <th className="px-4 py-3 text-right text-xs font-semibold text-curai-muted uppercase tracking-wider">
                   Задолженность
                 </th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
+            <tbody className="divide-y divide-curai-border ">
               {filteredItems.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="px-4 py-12 text-center text-gray-500 dark:text-gray-400">
+                  <td colSpan={7} className="px-4 py-12 text-center text-curai-muted ">
                     Нет данных для отображения. Создайте планы лечения с услугами.
                   </td>
                 </tr>
@@ -433,30 +433,30 @@ const ServicesReport = ({ user }) => {
                   return (
                     <tr
                       key={index}
-                      className="hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors cursor-pointer"
+                      className="hover:bg-curai-subtle transition-colors cursor-pointer"
                       onClick={() => openServiceDetail(item.service_name)}
                     >
-                      <td className="px-4 py-3 text-sm font-medium text-gray-900 dark:text-white">
+                      <td className="px-4 py-3 text-sm font-medium text-curai-ink ">
                         {item.service_name}
                       </td>
-                      <td className="px-4 py-3 text-sm text-gray-500 dark:text-gray-400">
-                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400">
+                      <td className="px-4 py-3 text-sm text-curai-muted ">
+                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-curai-selected text-curai-blue ">
                           {item.category}
                         </span>
                       </td>
-                      <td className="px-4 py-3 text-sm text-gray-700 dark:text-gray-300 text-right">
+                      <td className="px-4 py-3 text-sm text-curai-ink text-right">
                         {formatMoney(item.price)}
                       </td>
-                      <td className="px-4 py-3 text-sm text-gray-700 dark:text-gray-300 text-right">
+                      <td className="px-4 py-3 text-sm text-curai-ink text-right">
                         {item.quantity_total}
                       </td>
-                      <td className="px-4 py-3 text-sm text-gray-900 dark:text-white text-right font-medium">
+                      <td className="px-4 py-3 text-sm text-curai-ink text-right font-medium">
                         {formatMoney(item.total_expected)}
                       </td>
-                      <td className="px-4 py-3 text-sm text-green-600 dark:text-green-400 text-right font-medium">
+                      <td className="px-4 py-3 text-sm text-curai-positive text-right font-medium">
                         {formatMoney(item.total_paid)}
                       </td>
-                      <td className="px-4 py-3 text-sm text-red-600 dark:text-red-400 text-right font-medium">
+                      <td className="px-4 py-3 text-sm text-curai-negative text-right font-medium">
                         {formatMoney(outstanding)}
                       </td>
                     </tr>
@@ -468,12 +468,12 @@ const ServicesReport = ({ user }) => {
         </div>
 
         {/* Footer with count */}
-        <div className="px-4 py-3 bg-gray-50 dark:bg-gray-700/50 border-t border-gray-200 dark:border-gray-700">
-          <p className="text-sm text-gray-500 dark:text-gray-400">
+        <div className="px-4 py-3 bg-curai-subtle border-t border-curai-border ">
+          <p className="text-sm text-curai-muted ">
             Всего услуг: <span className="font-medium">{filteredTotals?.services_count || 0}</span>
             {showOnlyDebt && filteredTotals && (
               <>
-                {' • '}Задолженность: <span className="font-medium text-red-600">{formatMoney(filteredTotals.total_outstanding)}</span>
+                {' • '}Задолженность: <span className="font-medium text-curai-negative">{formatMoney(filteredTotals.total_outstanding)}</span>
               </>
             )}
           </p>

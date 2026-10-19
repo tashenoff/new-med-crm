@@ -96,14 +96,14 @@ const WarehouseInventory = ({ user }) => {
   const getStatusBadge = (status) => {
     if (status === 'На заполнении') {
       return (
-        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
+        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-curai-warningBg text-curai-warning">
           <Clock className="w-3 h-3 mr-1" />
           На заполнении
         </span>
       );
     }
     return (
-      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-curai-positiveBg text-curai-positive">
         <CheckCircle className="w-3 h-3 mr-1" />
         Заполнено
       </span>
@@ -113,7 +113,7 @@ const WarehouseInventory = ({ user }) => {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="text-gray-500">Загрузка...</div>
+        <div className="text-curai-muted">Загрузка...</div>
       </div>
     );
   }
@@ -121,14 +121,14 @@ const WarehouseInventory = ({ user }) => {
   return (
     <div className="space-y-4">
       {/* Фильтры */}
-      <div className="bg-white rounded-xl border border-gray-200 p-4 shadow-sm">
+      <div className="bg-curai-surface rounded-md border border-curai-border p-4 shadow-none">
         <div className="flex gap-4 items-center">
           <div className="flex-1">
-            <label className="block text-sm font-medium text-gray-700 mb-1">Склад</label>
+            <label className="block text-sm font-medium text-curai-ink mb-1">Склад</label>
             <select
               value={selectedWarehouse}
               onChange={(e) => setSelectedWarehouse(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full px-3 py-2 border border-curai-control rounded-md focus:outline-none focus:ring-2 focus:ring-curai-focus"
             >
               <option value="">Любой склад</option>
               <option value="Склад по умолчанию">Склад по умолчанию</option>
@@ -137,11 +137,11 @@ const WarehouseInventory = ({ user }) => {
           </div>
 
           <div className="flex-1">
-            <label className="block text-sm font-medium text-gray-700 mb-1">Статус</label>
+            <label className="block text-sm font-medium text-curai-ink mb-1">Статус</label>
             <select
               value={selectedStatus}
               onChange={(e) => setSelectedStatus(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full px-3 py-2 border border-curai-control rounded-md focus:outline-none focus:ring-2 focus:ring-curai-focus"
             >
               <option value="">Все</option>
               <option value="На заполнении">На заполнении</option>
@@ -152,7 +152,7 @@ const WarehouseInventory = ({ user }) => {
           <div className="flex items-end">
             <button
               onClick={handleCreateInventory}
-              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2"
+              className="px-4 py-2 bg-curai-blue text-white rounded-md hover:bg-curai-blue flex items-center gap-2"
             >
               <Plus className="w-4 h-4" />
               Начать инвентаризацию
@@ -162,65 +162,65 @@ const WarehouseInventory = ({ user }) => {
       </div>
 
       {/* Таблица */}
-      <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+      <div className="bg-curai-surface rounded-md border border-curai-border shadow-none overflow-hidden">
         <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50">
+          <table className="min-w-full divide-y divide-curai-border">
+            <thead className="bg-curai-subtle">
               <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-6 py-3 text-left text-xs font-medium text-curai-muted uppercase tracking-wider">
                   #
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-6 py-3 text-left text-xs font-medium text-curai-muted uppercase tracking-wider">
                   Дата инвентаризации
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-6 py-3 text-left text-xs font-medium text-curai-muted uppercase tracking-wider">
                   Склад
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-6 py-3 text-left text-xs font-medium text-curai-muted uppercase tracking-wider">
                   Статус
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-6 py-3 text-left text-xs font-medium text-curai-muted uppercase tracking-wider">
                   Дата заполнения
                 </th>
-                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-6 py-3 text-right text-xs font-medium text-curai-muted uppercase tracking-wider">
                   Действия
                 </th>
               </tr>
             </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
+            <tbody className="bg-curai-surface divide-y divide-curai-border">
               {inventories.length === 0 ? (
                 <tr>
-                  <td colSpan="6" className="px-6 py-12 text-center text-gray-500">
-                    <FileText className="w-12 h-12 mx-auto mb-3 text-gray-400" />
+                  <td colSpan="6" className="px-6 py-12 text-center text-curai-muted">
+                    <FileText className="w-12 h-12 mx-auto mb-3 text-curai-muted" />
                     <p className="text-sm">Нет инвентаризаций</p>
-                    <p className="text-xs text-gray-400 mt-1">Создайте первую инвентаризацию</p>
+                    <p className="text-xs text-curai-muted mt-1">Создайте первую инвентаризацию</p>
                   </td>
                 </tr>
               ) : (
                 inventories.map((inventory) => (
-                  <tr key={inventory.id} className="hover:bg-gray-50">
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                  <tr key={inventory.id} className="hover:bg-curai-subtle">
+                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-curai-ink">
                       {inventory.number}
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-curai-ink">
                       <div className="flex items-center">
-                        <Calendar className="w-4 h-4 mr-2 text-gray-400" />
+                        <Calendar className="w-4 h-4 mr-2 text-curai-muted" />
                         {formatDate(inventory.inventory_date)}
                       </div>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-curai-ink">
                       {inventory.warehouse_name}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       {getStatusBadge(inventory.status)}
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-curai-muted">
                       {formatDate(inventory.completion_date)}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                       <button
                         onClick={() => handleEditInventory(inventory)}
-                        className="text-blue-600 hover:text-blue-900 mr-3"
+                        className="text-curai-blue hover:text-curai-blue mr-3"
                         title="Редактировать"
                       >
                         <Edit className="w-4 h-4" />
@@ -228,7 +228,7 @@ const WarehouseInventory = ({ user }) => {
                       {user?.role === 'admin' || user?.role === 'super_admin' && (
                         <button
                           onClick={() => handleDeleteInventory(inventory.id)}
-                          className="text-red-600 hover:text-red-900"
+                          className="text-curai-negative hover:text-curai-negative"
                           title="Удалить"
                         >
                           <Trash2 className="w-4 h-4" />
@@ -243,7 +243,7 @@ const WarehouseInventory = ({ user }) => {
         </div>
       </div>
 
-      <div className="text-sm text-gray-500 px-2">
+      <div className="text-sm text-curai-muted px-2">
         Всего {inventories.length} записей
       </div>
 
@@ -358,12 +358,12 @@ const InventoryModal = ({ inventory, materials, onClose, onSave }) => {
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-2xl shadow-xl max-w-4xl w-full max-h-[90vh] overflow-hidden">
-        <div className="px-6 py-4 border-b border-gray-200 flex justify-between items-center">
-          <h3 className="text-xl font-semibold text-gray-900">
+      <div className="bg-curai-surface rounded-md shadow-none max-w-4xl w-full max-h-[90vh] overflow-hidden">
+        <div className="px-6 py-4 border-b border-curai-border flex justify-between items-center">
+          <h3 className="text-xl font-semibold text-curai-ink">
             {inventory ? 'Редактировать инвентаризацию' : 'Новая инвентаризация'}
           </h3>
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-600">
+          <button onClick={onClose} className="text-curai-muted hover:text-curai-muted">
             <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
             </svg>
@@ -374,11 +374,11 @@ const InventoryModal = ({ inventory, materials, onClose, onSave }) => {
           <div className="px-6 py-4 overflow-y-auto">
             <div className="grid grid-cols-1 gap-4 mb-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Склад</label>
+                <label className="block text-sm font-medium text-curai-ink mb-1">Склад</label>
                 <select
                   value={formData.warehouse_name}
                   onChange={(e) => setFormData({ ...formData, warehouse_name: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 border border-curai-control rounded-md focus:outline-none focus:ring-2 focus:ring-curai-focus"
                   required
                 >
                   <option value="Склад по умолчанию">Склад по умолчанию</option>
@@ -388,11 +388,11 @@ const InventoryModal = ({ inventory, materials, onClose, onSave }) => {
             </div>
 
             <div className="mb-4">
-              <label className="block text-sm font-medium text-gray-700 mb-1">Статус</label>
+              <label className="block text-sm font-medium text-curai-ink mb-1">Статус</label>
               <select
                 value={formData.status}
                 onChange={(e) => setFormData({ ...formData, status: e.target.value })}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full px-3 py-2 border border-curai-control rounded-md focus:outline-none focus:ring-2 focus:ring-curai-focus"
               >
                 <option value="На заполнении">На заполнении</option>
                 <option value="Заполнено">Заполнено</option>
@@ -400,17 +400,17 @@ const InventoryModal = ({ inventory, materials, onClose, onSave }) => {
             </div>
 
             <div className="mb-4">
-              <label className="block text-sm font-medium text-gray-700 mb-1">Примечание</label>
+              <label className="block text-sm font-medium text-curai-ink mb-1">Примечание</label>
               <textarea
                 value={formData.notes}
                 onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full px-3 py-2 border border-curai-control rounded-md focus:outline-none focus:ring-2 focus:ring-curai-focus"
                 rows="2"
               />
             </div>
 
             <div className="mb-2">
-              <label className="block text-sm font-medium text-gray-700 mb-2">Материалы</label>
+              <label className="block text-sm font-medium text-curai-ink mb-2">Материалы</label>
               <div className="relative mb-2" ref={materialSearchRef}>
                 <input
                   type="text"
@@ -422,22 +422,22 @@ const InventoryModal = ({ inventory, materials, onClose, onSave }) => {
                   }}
                   onFocus={() => setMaterialDropdownOpen(true)}
                   onBlur={() => setTimeout(() => setMaterialDropdownOpen(false), 200)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 border border-curai-control rounded-md focus:outline-none focus:ring-2 focus:ring-curai-focus"
                 />
                 {materialDropdownOpen && (
-                  <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-48 overflow-y-auto">
+                  <div className="absolute z-10 w-full mt-1 bg-curai-surface border border-curai-control rounded-md shadow-none max-h-48 overflow-y-auto">
                     {filteredMaterials.length === 0 ? (
-                      <div className="px-3 py-2 text-sm text-gray-500">Ничего не найдено</div>
+                      <div className="px-3 py-2 text-sm text-curai-muted">Ничего не найдено</div>
                     ) : (
                       filteredMaterials.map(material => (
                         <button
                           key={material.id}
                           type="button"
                           onClick={() => handleMaterialSelect(material)}
-                          className="w-full px-3 py-2 text-left text-sm hover:bg-blue-50 focus:bg-blue-50 focus:outline-none border-b border-gray-100 last:border-b-0"
+                          className="w-full px-3 py-2 text-left text-sm hover:bg-curai-selected focus:bg-curai-selected focus:outline-none border-b border-curai-border last:border-b-0"
                         >
                           <span className="font-medium">{material.name}</span>
-                          <span className="text-gray-500 ml-2">(остаток: {material.balance})</span>
+                          <span className="text-curai-muted ml-2">(остаток: {material.balance})</span>
                         </button>
                       ))
                     )}
@@ -446,19 +446,19 @@ const InventoryModal = ({ inventory, materials, onClose, onSave }) => {
               </div>
 
               {formData.items.length > 0 && (
-                <div className="border border-gray-200 rounded-lg overflow-hidden">
-                  <table className="min-w-full divide-y divide-gray-200">
-                    <thead className="bg-gray-50">
+                <div className="border border-curai-border rounded-md overflow-hidden">
+                  <table className="min-w-full divide-y divide-curai-border">
+                    <thead className="bg-curai-subtle">
                       <tr>
-                        <th className="px-3 py-2 text-left text-xs font-medium text-gray-500">Материал</th>
-                        <th className="px-3 py-2 text-left text-xs font-medium text-gray-500">Ожидается</th>
-                        <th className="px-3 py-2 text-left text-xs font-medium text-gray-500">Факт</th>
-                        <th className="px-3 py-2 text-left text-xs font-medium text-gray-500">Разница</th>
-                        <th className="px-3 py-2 text-left text-xs font-medium text-gray-500">Примечание</th>
+                        <th className="px-3 py-2 text-left text-xs font-medium text-curai-muted">Материал</th>
+                        <th className="px-3 py-2 text-left text-xs font-medium text-curai-muted">Ожидается</th>
+                        <th className="px-3 py-2 text-left text-xs font-medium text-curai-muted">Факт</th>
+                        <th className="px-3 py-2 text-left text-xs font-medium text-curai-muted">Разница</th>
+                        <th className="px-3 py-2 text-left text-xs font-medium text-curai-muted">Примечание</th>
                         <th className="px-3 py-2"></th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-gray-200">
+                    <tbody className="divide-y divide-curai-border">
                       {formData.items.map((item, index) => (
                         <tr key={index}>
                           <td className="px-3 py-2 text-sm">{item.material_name}</td>
@@ -469,12 +469,12 @@ const InventoryModal = ({ inventory, materials, onClose, onSave }) => {
                               step="0.01"
                               value={item.actual_quantity || ''}
                               onChange={(e) => updateItem(index, 'actual_quantity', parseFloat(e.target.value) || null)}
-                              className="w-20 px-2 py-1 border border-gray-300 rounded text-sm"
+                              className="w-20 px-2 py-1 border border-curai-control rounded text-sm"
                             />
                           </td>
                           <td className="px-3 py-2 text-sm">
                             {item.difference !== null && (
-                              <span className={item.difference < 0 ? 'text-red-600' : item.difference > 0 ? 'text-green-600' : ''}>
+                              <span className={item.difference < 0 ? "text-curai-negative" : item.difference > 0 ? "text-curai-positive" : ''}>
                                 {item.difference > 0 ? '+' : ''}{item.difference}
                               </span>
                             )}
@@ -484,14 +484,14 @@ const InventoryModal = ({ inventory, materials, onClose, onSave }) => {
                               type="text"
                               value={item.notes || ''}
                               onChange={(e) => updateItem(index, 'notes', e.target.value)}
-                              className="w-full px-2 py-1 border border-gray-300 rounded text-sm"
+                              className="w-full px-2 py-1 border border-curai-control rounded text-sm"
                             />
                           </td>
                           <td className="px-3 py-2">
                             <button
                               type="button"
                               onClick={() => removeItem(index)}
-                              className="text-red-600 hover:text-red-900"
+                              className="text-curai-negative hover:text-curai-negative"
                             >
                               <Trash2 className="w-4 h-4" />
                             </button>
@@ -505,17 +505,17 @@ const InventoryModal = ({ inventory, materials, onClose, onSave }) => {
             </div>
           </div>
 
-          <div className="px-6 py-4 border-t border-gray-200 flex justify-end gap-3">
+          <div className="px-6 py-4 border-t border-curai-border flex justify-end gap-3">
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50"
+              className="px-4 py-2 border border-curai-control rounded-md text-curai-ink hover:bg-curai-subtle"
             >
               Отмена
             </button>
             <button
               type="submit"
-              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+              className="px-4 py-2 bg-curai-blue text-white rounded-md hover:bg-curai-blue"
             >
               Сохранить
             </button>

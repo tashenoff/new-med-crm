@@ -56,13 +56,13 @@ const PatientBonusWidget = ({ patientId }) => {
   const getTransactionColor = (type) => {
     switch (type) {
       case 'earned':
-        return 'text-green-600';
+        return "text-curai-positive";
       case 'spent':
-        return 'text-blue-600';
+        return "text-curai-blue";
       case 'refund':
-        return 'text-orange-600';
+        return "text-curai-warning";
       default:
-        return 'text-gray-600';
+        return "text-curai-muted";
     }
   };
 
@@ -79,10 +79,10 @@ const PatientBonusWidget = ({ patientId }) => {
 
   if (loading) {
     return (
-      <div className="bg-white rounded-lg shadow p-4">
+      <div className="bg-curai-surface rounded-md shadow-none p-4">
         <div className="animate-pulse">
-          <div className="h-4 bg-gray-200 rounded w-1/2 mb-2"></div>
-          <div className="h-8 bg-gray-200 rounded w-3/4"></div>
+          <div className="h-4 bg-curai-border rounded w-1/2 mb-2"></div>
+          <div className="h-8 bg-curai-border rounded w-3/4"></div>
         </div>
       </div>
     );
@@ -93,25 +93,25 @@ const PatientBonusWidget = ({ patientId }) => {
   }
 
   return (
-    <div className="bg-gradient-to-br from-purple-50 to-blue-50 rounded-lg shadow-lg p-6">
+    <div className="bg-curai-selected rounded-md shadow-none p-6">
       {/* Заголовок и баланс */}
       <div className="flex items-center justify-between mb-4">
-        <h3 className="text-lg font-semibold text-gray-800">🎁 Бонусная программа</h3>
+        <h3 className="text-lg font-semibold text-curai-ink">🎁 Бонусная программа</h3>
         {!bonusInfo.can_use_bonus && (
-          <span className="text-xs bg-gray-200 text-gray-600 px-2 py-1 rounded">
+          <span className="text-xs bg-curai-border text-curai-muted px-2 py-1 rounded">
             Неактивна
           </span>
         )}
       </div>
 
       {/* Текущий баланс */}
-      <div className="bg-white rounded-lg p-4 mb-4">
-        <div className="text-sm text-gray-600 mb-1">Доступно бонусов</div>
-        <div className="text-3xl font-bold text-purple-600">
+      <div className="bg-curai-surface rounded-md p-4 mb-4">
+        <div className="text-sm text-curai-muted mb-1">Доступно бонусов</div>
+        <div className="text-2xl font-semibold text-curai-blue">
           {bonusInfo.bonus_balance.toFixed(0)} ₸
         </div>
         {bonusInfo.can_use_bonus && (
-          <div className="text-xs text-gray-500 mt-1">
+          <div className="text-xs text-curai-muted mt-1">
             Можно оплатить до {bonusInfo.max_usage_percent}% от услуги
           </div>
         )}
@@ -119,15 +119,15 @@ const PatientBonusWidget = ({ patientId }) => {
 
       {/* Статистика */}
       <div className="grid grid-cols-2 gap-4 mb-4">
-        <div className="bg-green-50 rounded-lg p-3">
-          <div className="text-xs text-green-700 mb-1">Всего заработано</div>
-          <div className="text-lg font-semibold text-green-600">
+        <div className="bg-curai-positiveBg rounded-md p-3">
+          <div className="text-xs text-curai-positive mb-1">Всего заработано</div>
+          <div className="text-lg font-semibold text-curai-positive">
             {bonusInfo.total_earned.toFixed(0)} ₸
           </div>
         </div>
-        <div className="bg-blue-50 rounded-lg p-3">
-          <div className="text-xs text-blue-700 mb-1">Всего потрачено</div>
-          <div className="text-lg font-semibold text-blue-600">
+        <div className="bg-curai-selected rounded-md p-3">
+          <div className="text-xs text-curai-blue mb-1">Всего потрачено</div>
+          <div className="text-lg font-semibold text-curai-blue">
             {bonusInfo.total_spent.toFixed(0)} ₸
           </div>
         </div>
@@ -135,7 +135,7 @@ const PatientBonusWidget = ({ patientId }) => {
 
       {/* Информация о начислении */}
       {bonusInfo.can_use_bonus && (
-        <div className="bg-blue-50 rounded-lg p-3 mb-4 text-sm text-blue-800">
+        <div className="bg-curai-selected rounded-md p-3 mb-4 text-sm text-curai-blue">
           <div className="font-medium mb-1">💡 Как получить бонусы:</div>
           <div>При оплате услуг начисляется {bonusInfo.earning_rate}% бонусами</div>
         </div>
@@ -144,7 +144,7 @@ const PatientBonusWidget = ({ patientId }) => {
       {/* Кнопка истории */}
       <button
         onClick={() => setShowHistory(!showHistory)}
-        className="w-full text-sm text-purple-600 hover:text-purple-700 font-medium flex items-center justify-center gap-2 py-2"
+        className="w-full text-sm text-curai-blue hover:text-curai-blue font-medium flex items-center justify-center gap-2 py-2"
       >
         {showHistory ? '▼ Скрыть историю' : '▶ Показать историю операций'}
       </button>
@@ -152,16 +152,16 @@ const PatientBonusWidget = ({ patientId }) => {
       {/* История операций */}
       {showHistory && (
         <div className="mt-4 space-y-2 max-h-96 overflow-y-auto">
-          <div className="text-sm font-medium text-gray-700 mb-2">История операций:</div>
+          <div className="text-sm font-medium text-curai-ink mb-2">История операций:</div>
           {history.length === 0 ? (
-            <div className="text-sm text-gray-500 text-center py-4">
+            <div className="text-sm text-curai-muted text-center py-4">
               Нет операций
             </div>
           ) : (
             history.map((transaction) => (
               <div
                 key={transaction.id}
-                className="bg-white rounded-lg p-3 text-sm border border-gray-100"
+                className="bg-curai-surface rounded-md p-3 text-sm border border-curai-border"
               >
                 <div className="flex items-start justify-between mb-1">
                   <div className="flex items-center gap-2">
@@ -175,14 +175,14 @@ const PatientBonusWidget = ({ patientId }) => {
                       {transaction.amount.toFixed(0)} ₸
                     </span>
                   </div>
-                  <div className="text-xs text-gray-500">
+                  <div className="text-xs text-curai-muted">
                     {formatDate(transaction.created_at)}
                   </div>
                 </div>
-                <div className="text-xs text-gray-600 ml-7">
+                <div className="text-xs text-curai-muted ml-7">
                   {transaction.description}
                 </div>
-                <div className="text-xs text-gray-400 ml-7 mt-1">
+                <div className="text-xs text-curai-muted ml-7 mt-1">
                   Баланс после: {transaction.balance_after.toFixed(0)} ₸
                 </div>
               </div>

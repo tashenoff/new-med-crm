@@ -55,13 +55,13 @@ const AssignDoctorAccessModal = ({
     >
       <form onSubmit={handleSubmit} className="space-y-4">
         {error && (
-          <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative">
+          <div className="bg-curai-negativeBg border border-curai-negative text-curai-negative px-4 py-3 rounded relative">
             {error}
           </div>
         )}
 
-        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
-          <p className="text-sm text-blue-800">
+        <div className="bg-curai-selected border border-curai-control rounded-md p-4 mb-4">
+          <p className="text-sm text-curai-blue">
             <strong>Врач:</strong> {doctor?.full_name}<br />
             <strong>Специальность:</strong> {doctor?.specialty || 'Не указана'}<br />
             <strong>Телефон:</strong> {doctor?.phone || 'Не указан'}
@@ -70,50 +70,50 @@ const AssignDoctorAccessModal = ({
 
         {/* Email */}
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
+          <label className="block text-sm font-medium text-curai-ink mb-1">
             Email
           </label>
           <input
             type="email"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            className="w-full px-3 py-2 border border-curai-control rounded-md focus:ring-2 focus:ring-curai-focus focus:border-transparent"
             placeholder="doctor@example.com"
             autoFocus
           />
-          <p className="text-xs text-gray-500 mt-1">
+          <p className="text-xs text-curai-muted mt-1">
             Email для входа (необязательно, если указан логин)
           </p>
         </div>
 
         {/* Логин */}
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
+          <label className="block text-sm font-medium text-curai-ink mb-1">
             Логин (для входа)
           </label>
           <input
             type="text"
             value={login}
             onChange={(e) => setLogin(e.target.value)}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            className="w-full px-3 py-2 border border-curai-control rounded-md focus:ring-2 focus:ring-curai-focus focus:border-transparent"
             placeholder="myusername"
           />
-          <p className="text-xs text-gray-500 mt-1">
+          <p className="text-xs text-curai-muted mt-1">
             Можно войти как по email, так и по логину
           </p>
         </div>
 
         {/* Пароль */}
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            Пароль <span className="text-red-500">*</span>
+          <label className="block text-sm font-medium text-curai-ink mb-1">
+            Пароль <span className="text-curai-negative">*</span>
           </label>
           <div className="relative">
             <input
               type={showPassword ? 'text' : 'password'}
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent pr-10"
+              className="w-full px-3 py-2 border border-curai-control rounded-md focus:ring-2 focus:ring-curai-focus focus:border-transparent pr-10"
               placeholder="Минимум 6 символов"
               required
               minLength={6}
@@ -121,7 +121,7 @@ const AssignDoctorAccessModal = ({
             <button
               type="button"
               onClick={() => setShowPassword(!showPassword)}
-              className="absolute right-2 top-1/2 transform -translate-y-1/2 text-gray-500 hover:text-gray-700"
+              className="absolute right-2 top-1/2 transform -translate-y-1/2 text-curai-muted hover:text-curai-ink"
             >
               {showPassword ? (
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -135,7 +135,7 @@ const AssignDoctorAccessModal = ({
               )}
             </button>
           </div>
-          <p className="text-xs text-gray-500 mt-1">
+          <p className="text-xs text-curai-muted mt-1">
             Пароль должен содержать минимум 6 символов
           </p>
         </div>
@@ -145,14 +145,14 @@ const AssignDoctorAccessModal = ({
           <button
             type="button"
             onClick={handleClose}
-            className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors"
+            className="px-4 py-2 border border-curai-control rounded-md text-curai-ink hover:bg-curai-subtle transition-colors"
             disabled={loading}
           >
             Отмена
           </button>
           <button
             type="submit"
-            className="px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+            className="px-4 py-2 bg-curai-positive text-white rounded-md hover:bg-curai-positive transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
             disabled={loading}
           >
             {loading && (

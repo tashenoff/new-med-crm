@@ -7,13 +7,13 @@ function Toast({ notification, onDismiss }) {
   }, [notification.id, onDismiss]);
 
   return (
-    <div className="flex gap-3 rounded-lg border border-blue-200 bg-white p-4 text-gray-900 shadow-lg dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100">
+    <div className="flex gap-3 rounded-md border border-curai-control bg-curai-surface p-4 text-curai-ink shadow-none ">
       <div className="min-w-0 flex-1 break-words" role="status">
         <p className="font-semibold">{notification.title}</p>
         <p className="mt-1 text-sm">{notification.message}</p>
       </div>
       <button type="button" aria-label="Закрыть уведомление" onClick={() => onDismiss(notification.id)}
-        className="self-start rounded px-2 text-xl hover:bg-gray-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-600 dark:hover:bg-gray-700">
+        className="self-start rounded px-2 text-xl hover:bg-curai-subtle focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-600 ">
         <span aria-hidden="true">×</span>
       </button>
     </div>

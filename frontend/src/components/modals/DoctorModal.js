@@ -1,5 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import Modal from './Modal';
+import CuraiColorPicker from '../common/CuraiColorPicker';
+import CuraiSelectionToolbar from '../common/CuraiSelectionToolbar';
 import { inputClasses, selectClasses, labelClasses, buttonPrimaryClasses, buttonSecondaryClasses } from './modalUtils';
 import { initializeDoctorForm, initializeDoctorServices, buildDoctorPayload, serializeDoctorServices, updateServiceCommission } from '../../utils/doctorCompensation';
 import { formatPhoneChange } from '../../hooks/phoneFormatter';
@@ -20,6 +22,9 @@ const DoctorModal = ({
   const [serviceCommissions, setServiceCommissions] = useState({}); // Только явно заданные комиссии услуг; отсутствие наследует основную схему
   const [paymentMode, setPaymentMode] = useState('general'); // 'general' или 'individual'
   const [validationError, setValidationError] = useState(null);
+  const [specialtyQuery, setSpecialtyQuery] = useState('');
+  const [serviceQuery, setServiceQuery] = useState('');
+  const [selectedServicesOnly, setSelectedServicesOnly] = useState(false);
   
   const API = import.meta.env.VITE_BACKEND_URL;
 
@@ -37,6 +42,9 @@ const DoctorModal = ({
       setServiceCommissions(commissions);
       setPaymentMode(initialForm.payment_mode);
       setValidationError(null);
+      setSpecialtyQuery('');
+      setServiceQuery('');
+      setSelectedServicesOnly(false);
       fetchSpecialties();
       fetchServices();
     }
@@ -124,6 +132,9 @@ const DoctorModal = ({
   // НЕ синхронизируем услуги автоматически, чтобы не затирать поля формы
   // Услуги будут добавлены при сохранении формы
 
+  const visibleSpecialties = specialties.filter(item => item.name.toLocaleLowerCase('ru').includes(specialtyQuery.toLocaleLowerCase('ru').trim()));
+  const visibleServices = filteredServices.filter(item => (!selectedServicesOnly || selectedServices.includes(item.id)) && (item.service_name || '').toLocaleLowerCase('ru').includes(serviceQuery.toLocaleLowerCase('ru').trim()));
+
   if (!show) return null;
 
   return (
@@ -132,7 +143,8 @@ const DoctorModal = ({
       onClose={onClose}
       title={editingItem ? 'Редактировать врача' : 'Новый врач'}
       errorMessage={errorMessage}
-      size="max-w-4xl"
+      size="max-w-[1120px]"
+      className="curai-doctor-dialog"
     >
         
         <form onSubmit={(e) => {
@@ -146,9 +158,9 @@ const DoctorModal = ({
             setValidationError(error.message);
           }
         }} className="space-y-6">
-          {validationError && <p role="alert" className="text-red-600">{validationError}</p>}
+          {validationError && <p role="alert" className="text-curai-negative">{validationError}</p>}
           {((doctorForm.currency && doctorForm.currency !== 'KZT') || Object.values(serviceCommissions).some(commission => commission.currency !== 'KZT')) && (
-            <p role="alert" className="text-red-600">В записи есть иностранная валюта ({doctorForm.currency !== 'KZT' ? doctorForm.currency : Object.values(serviceCommissions).filter(commission => commission.currency !== 'KZT').map(commission => commission.currency).join(', ')}). Значения не конвертированы. Сохранение требует явного согласования значений в KZT.</p>
+            <p role="alert" className="text-curai-negative">В записи есть иностранная валюта ({doctorForm.currency !== 'KZT' ? doctorForm.currency : Object.values(serviceCommissions).filter(commission => commission.currency !== 'KZT').map(commission => commission.currency).join(', ')}). Значения не конвертированы. Сохранение требует явного согласования значений в KZT.</p>
           )}
           
           {/* Две колонки: Основная информация и Услуги врача */}
@@ -156,11 +168,12 @@ const DoctorModal = ({
             
             {/* Левая колонка - Основная информация */}
             <div className="space-y-4">
-              <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300 border-b pb-2">
+              <h3 className="text-sm font-medium text-curai-ink border-b pb-2">
                 Основная информация
               </h3>
               
-              <input
+              <label className="curai-doctor-field">Полное имя *
+<input
                 type="text"
                 placeholder="Полное имя *"
                 value={doctorForm.full_name || ''}
@@ -168,25 +181,58 @@ const DoctorModal = ({
                 className={inputClasses}
                 required
               />
+</label>
               
-              <div>
+              <div className="curai-doctor-specialties">
                 <label className={labelClasses}>Специальности *</label>
+                {(doctorForm.specialties || []).length > 0 && (
+                    <div className="curai-doctor-specialty-chips flex flex-wrap gap-2">
+                      {(doctorForm.specialties || []).map((spec, idx) => (
+                        <span
+                          key={spec}
+                          className={`inline-flex items-center gap-1 px-2.5 py-1 text-xs rounded-full ${
+                            idx === 0
+                              ? "bg-curai-selected text-curai-blue "
+                              : "bg-curai-subtle text-curai-ink "
+                          }`}
+                        >
+                          {spec}
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const newSpecialties = (doctorForm.specialties || []).filter(s => s !== spec);
+                              setDoctorForm({
+                                ...doctorForm,
+                                specialties: newSpecialties,
+                                specialty: newSpecialties.length > 0 ? newSpecialties[0] : null
+                              });
+                            }}
+                            className="ml-1 hover:text-curai-negative"
+                          >
+                            ✕
+                          </button>
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                <CuraiSelectionToolbar label="Поиск специальностей" query={specialtyQuery} onQueryChange={setSpecialtyQuery} />
                 <div className="space-y-2">
                   {specialties.length === 0 ? (
-                    <p className="text-sm text-red-500 dark:text-red-400">
+                    <p className="text-sm text-curai-negative ">
                       ⚠️ Специальности не найдены. Создайте специальности в разделе "Справочники"
                     </p>
                   ) : (
-                    <div className="max-h-48 overflow-y-auto border border-gray-300 dark:border-gray-600 rounded-lg p-2 space-y-1">
-                      {specialties.map(specialty => {
+                    <div className="max-h-[108px] overflow-y-auto border border-curai-control rounded-md p-2 space-y-1">
+                      {visibleSpecialties.length === 0 && <p role="status" className="p-3 text-curai-muted">Ничего не найдено</p>}
+                      {visibleSpecialties.map(specialty => {
                         const isSelected = (doctorForm.specialties || []).includes(specialty.name);
                         return (
                           <label
                             key={specialty.id}
                             className={`flex items-center space-x-2 px-3 py-2 rounded-md cursor-pointer transition-colors ${
                               isSelected
-                                ? 'bg-purple-100 dark:bg-purple-900/30 border border-purple-300 dark:border-purple-700'
-                                : 'hover:bg-gray-100 dark:hover:bg-gray-700 border border-transparent'
+                                ? "bg-curai-selected border border-curai-control "
+                                : "hover:bg-curai-subtle border border-transparent"
                             }`}
                           >
                             <input
@@ -204,13 +250,13 @@ const DoctorModal = ({
                                   specialty: newSpecialties.length > 0 ? newSpecialties[0] : null
                                 });
                               }}
-                              className="rounded text-purple-600 focus:ring-purple-500"
+                              className="rounded text-curai-blue focus:ring-curai-focus"
                             />
-                            <span className={`text-sm ${isSelected ? 'font-medium text-purple-800 dark:text-purple-200' : 'text-gray-700 dark:text-gray-300'}`}>
+                            <span className={`text-sm ${isSelected ? "font-medium text-curai-blue " : "text-curai-ink "}`}>
                               {specialty.name}
                             </span>
                             {isSelected && (
-                              <span className="ml-auto text-xs text-purple-500 dark:text-purple-400">
+                              <span className="ml-auto text-xs text-curai-blue ">
                                 {(doctorForm.specialties || []).indexOf(specialty.name) === 0 ? '✅ Основная' : ''}
                               </span>
                             )}
@@ -219,67 +265,32 @@ const DoctorModal = ({
                       })}
                     </div>
                   )}
-                  {(doctorForm.specialties || []).length > 0 && (
-                    <div className="flex flex-wrap gap-1.5 mt-2">
-                      {(doctorForm.specialties || []).map((spec, idx) => (
-                        <span
-                          key={spec}
-                          className={`inline-flex items-center gap-1 px-2.5 py-1 text-xs rounded-full ${
-                            idx === 0
-                              ? 'bg-purple-100 text-purple-800 dark:bg-purple-900/40 dark:text-purple-200'
-                              : 'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300'
-                          }`}
-                        >
-                          {spec}
-                          <button
-                            type="button"
-                            onClick={() => {
-                              const newSpecialties = (doctorForm.specialties || []).filter(s => s !== spec);
-                              setDoctorForm({
-                                ...doctorForm,
-                                specialties: newSpecialties,
-                                specialty: newSpecialties.length > 0 ? newSpecialties[0] : null
-                              });
-                            }}
-                            className="ml-1 hover:text-red-500"
-                          >
-                            ✕
-                          </button>
-                        </span>
-                      ))}
-                    </div>
-                  )}
-                  <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
+
+                  <p className="text-xs text-curai-muted mt-1">
                     Загружено специальностей: {specialties.length} | Выбрано: {(doctorForm.specialties || []).length}
                   </p>
                 </div>
               </div>
               
-              <input
+              <label className="curai-doctor-field">Телефон
+<input
                 type="tel"
                 placeholder="+7 (XXX) XXX-XX-XX"
                 value={doctorForm.phone || ''}
                 onChange={(e) => setDoctorForm({...doctorForm, phone: formatPhoneChange(e.target.value)})}
                 className={inputClasses}
               />
+</label>
               
-              <div>
-                <label className={labelClasses}>Цвет календаря</label>
-                <input
-                  type="color"
-                  value={doctorForm.calendar_color || '#3B82F6'}
-                  onChange={(e) => setDoctorForm({...doctorForm, calendar_color: e.target.value})}
-                  className="w-full h-10 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700"
-                />
-              </div>
+              <CuraiColorPicker value={doctorForm.calendar_color || '#3B82F6'} onChange={color => setDoctorForm({...doctorForm, calendar_color: color})} />
             </div>
             
             {/* Правая колонка - Услуги врача */}
             <div className="space-y-4">
               <div className="space-y-3">
-                <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300 border-b pb-2">
+                <h3 className="text-sm font-medium text-curai-ink border-b pb-2">
                   Услуги врача
-                  <span className="text-xs text-gray-500 dark:text-gray-400 ml-2">
+                  <span className="text-xs text-curai-muted ml-2">
                     {paymentMode === 'general' 
                       ? '(используется общая оплата)'
                       : '(индивидуальные комиссии)'
@@ -288,98 +299,58 @@ const DoctorModal = ({
                 </h3>
                 
                 {/* Переключатель режима оплаты */}
-                <div className="bg-gray-50 dark:bg-gray-800 p-3 rounded-lg">
-                  <label className="text-xs font-medium text-gray-700 dark:text-gray-300 block mb-2">
-                    Режим настройки комиссий
-                  </label>
-                  <div className="flex space-x-4">
-                    <label className="flex items-center space-x-2">
-                      <input
-                        type="radio"
-                        name="paymentMode"
-                        value="general"
-                        checked={paymentMode === 'general'}
-                        onChange={(e) => handlePaymentModeChange(e.target.value)}
-                        className="text-blue-600 dark:text-blue-400"
-                      />
-                      <span className="text-xs text-gray-700 dark:text-gray-300">
-                        Общая оплата
-                      </span>
-                    </label>
-                    <label className="flex items-center space-x-2">
-                      <input
-                        type="radio"
-                        name="paymentMode"
-                        value="individual"
-                        checked={paymentMode === 'individual'}
-                        onChange={(e) => handlePaymentModeChange(e.target.value)}
-                        className="text-blue-600 dark:text-blue-400"
-                      />
-                      <span className="text-xs text-gray-700 dark:text-gray-300">
-                        Индивидуальные комиссии
-                      </span>
-                    </label>
-                  </div>
-                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
-                    {paymentMode === 'general' 
-                      ? 'Используется общая настройка оплаты для всех услуг' 
-                      : 'Для каждой услуги настраивается своя комиссия'
-                    }
-                  </p>
-                </div>
+                <label className="curai-doctor-field">Режим настройки комиссий
+  <select name="paymentMode" aria-label="Режим настройки комиссий" value={paymentMode} onChange={event => handlePaymentModeChange(event.target.value)} className={selectClasses}>
+    <option value="general">Общая оплата</option><option value="individual">Индивидуальные комиссии</option>
+  </select>
+</label>
               </div>
               
               {/* Индикатор фильтрации по специальностям */}
-              {(doctorForm.specialties || []).length > 0 && (
-                <div className="text-xs text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20 px-3 py-2 rounded-lg">
-                  📋 Показаны услуги для специальностей: <strong>{(doctorForm.specialties || []).join(', ')}</strong>
-                  {filteredServices.length === 0 && services.length > 0 && (
-                    <span className="ml-1 text-amber-600 dark:text-amber-400">
-                      — нет услуг с этой категорией
-                    </span>
-                  )}
-                </div>
-              )}
+
               {!doctorForm.specialty && services.length > 0 && (
-                <div className="text-xs text-gray-500 dark:text-gray-400 bg-gray-50 dark:bg-gray-800 px-3 py-2 rounded-lg">
+                <div className="text-xs text-curai-muted bg-curai-subtle px-3 py-2 rounded-md">
                   👆 Выберите специальность, чтобы увидеть соответствующие услуги
                 </div>
               )}
               
+              {filteredServices.length > 0 && <CuraiSelectionToolbar label="Поиск услуг" query={serviceQuery} onQueryChange={setServiceQuery} total={filteredServices.length} selected={selectedServices.length} selectedOnly={selectedServicesOnly} onSelectedOnlyChange={setSelectedServicesOnly} />}
               {filteredServices.length > 0 ? (
-                <div className="max-h-64 overflow-y-auto border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700">
-                  {/* Чекбокс "Выбрать все" */}
-                  <div className="px-3 py-2 border-b border-gray-200 dark:border-gray-600 bg-gray-50/50 dark:bg-gray-750">
+                <div className="curai-doctor-service-picker">
+<div className="px-3 py-2 border-b border-curai-border bg-curai-subtle ">
                     <label className="flex items-center space-x-2 text-sm cursor-pointer">
                       <input
                         type="checkbox"
-                        checked={filteredServices.every(s => selectedServices.includes(s.id))}
+                        disabled={visibleServices.length === 0}
+                        checked={visibleServices.length > 0 && visibleServices.every(s => selectedServices.includes(s.id))}
                         onChange={() => {
-                          const allSelected = filteredServices.every(s => selectedServices.includes(s.id));
+                          const allSelected = visibleServices.every(s => selectedServices.includes(s.id));
                           if (allSelected) {
                             // Снять все фильтрованные
-                            const filteredIds = filteredServices.map(s => s.id);
+                            const filteredIds = visibleServices.map(s => s.id);
                             setSelectedServices(prev => prev.filter(id => !filteredIds.includes(id)));
                             removeServiceCommissions(filteredIds);
                           } else {
                             // Выбрать все фильтрованные
-                            const filteredIds = filteredServices.map(s => s.id);
+                            const filteredIds = visibleServices.map(s => s.id);
                             setSelectedServices(prev => {
                               const newSet = new Set([...prev, ...filteredIds]);
                               return Array.from(newSet);
                             });
                           }
                         }}
-                        className="text-blue-600 dark:text-blue-400 rounded"
+                        className="text-curai-blue rounded"
                       />
-                      <span className="text-gray-700 dark:text-gray-300 font-medium">Выбрать все</span>
-                      <span className="text-xs text-gray-500 dark:text-gray-400">
-                        ({filteredServices.length} услуг)
+                      <span className="text-curai-ink font-medium">Выбрать все найденные</span>
+                      <span className="text-xs text-curai-muted ">
+                        ({visibleServices.length} услуг)
                       </span>
                     </label>
                   </div>
+<div className="curai-doctor-service-scroll">
+                  {visibleServices.length === 0 && <p role="status" className="p-3 text-curai-muted">Ничего не найдено. Выбор вне поиска сохранён.</p>}
                   {(() => {
-                    const servicesByCategory = filteredServices.reduce((acc, service) => {
+                    const servicesByCategory = visibleServices.reduce((acc, service) => {
                       const category = service.category || 'Без категории';
                       if (!acc[category]) acc[category] = [];
                       acc[category].push(service);
@@ -387,39 +358,39 @@ const DoctorModal = ({
                     }, {});
                     
                     return Object.keys(servicesByCategory).map(category => (
-                      <div key={category} className="border-b border-gray-200 dark:border-gray-600 last:border-b-0">
-                        <div className="px-3 py-2 bg-gray-50 dark:bg-gray-800 font-medium text-sm text-gray-700 dark:text-gray-300">
+                      <div key={category} className="border-b border-curai-border last:border-b-0">
+                        <div className="px-3 py-2 bg-curai-subtle font-medium text-sm text-curai-ink ">
                           {category}
                         </div>
                         <div className="px-3 py-2 space-y-3">
                           {servicesByCategory[category].map(service => (
                             <div key={service.id} className="space-y-2">
                               {/* Чекбокс и название услуги */}
-                              <label className="flex items-center space-x-2 text-sm">
+                              <label className="curai-doctor-service-label flex items-start gap-2 text-sm">
                                 <input
                                   type="checkbox"
                                   checked={selectedServices.includes(service.id)}
                                   onChange={() => handleServiceToggle(service.id)}
-                                  className="text-blue-600 dark:text-blue-400 rounded"
+                                  className="text-curai-blue rounded"
                                 />
-                                <span className="text-gray-900 dark:text-white font-medium">{service.service_name}</span>
-                                <span className="text-xs text-gray-500 dark:text-gray-400">
+                                <span className="curai-doctor-service-name text-curai-ink font-medium">{service.service_name}</span>
+                                <span className="text-xs text-curai-muted ">
                                   ({service.price.toLocaleString()} ₸)
                                 </span>
                               </label>
                               
                               {/* Настройки комиссии для выбранной услуги (только в индивидуальном режиме) */}
                               {selectedServices.includes(service.id) && paymentMode === 'individual' && (
-                                <div className="ml-6 p-3 bg-gray-50 dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-600">
+                                <div className="curai-doctor-service-commission ml-6 p-3 bg-curai-subtle rounded-md border border-curai-border ">
                                   <p className="text-xs mb-2">Без комиссии услуги применяется основная схема. Явный 0 означает оплату 0. Очистите значение или выберите «Основная схема» для сброса.</p>
-                                  <div className="grid grid-cols-2 gap-2 text-xs">
+                                  <div className="curai-doctor-commission-grid grid grid-cols-2 gap-2 text-xs">
                                     <div>
-                                      <label className="block text-gray-700 dark:text-gray-300 mb-1">Тип комиссии</label>
+                                      <label className="block text-curai-ink mb-1">Тип комиссии</label>
                                       <select
                                         aria-label={`Комиссия ${service.service_name || service.id}`}
                                         value={serviceCommissions[service.id]?.type || 'inherit'}
                                         onChange={(e) => handleCommissionChange(service.id, 'type', e.target.value)}
-                                        className="w-full px-2 py-1 text-xs border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                                        className="w-full px-2 py-1 text-xs border border-curai-control rounded bg-curai-surface text-curai-ink "
                                       >
                                         <option value="inherit">Основная схема</option>
                                         <option value="percentage">%</option>
@@ -427,7 +398,7 @@ const DoctorModal = ({
                                       </select>
                                     </div>
                                     <div>
-                                      <label className="block text-gray-700 dark:text-gray-300 mb-1">
+                                      <label className="block text-curai-ink mb-1">
                                         {serviceCommissions[service.id]?.type === 'percentage' ? 'Процент' : 'Сумма (KZT за завершённую услугу)'}
                                       </label>
                                       <div className="flex">
@@ -440,11 +411,11 @@ const DoctorModal = ({
                                           disabled={!serviceCommissions[service.id]?.type}
                                           value={serviceCommissions[service.id]?.value ?? ''}
                                           onChange={(e) => handleCommissionChange(service.id, 'value', e.target.validity.badInput ? NaN : e.target.value)}
-                                          className="flex-1 px-2 py-1 text-xs border border-gray-300 dark:border-gray-600 rounded-l bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                                          className="flex-1 px-2 py-1 text-xs border border-curai-control rounded-l bg-curai-surface text-curai-ink "
                                           placeholder="Основная схема"
                                         />
                                         {serviceCommissions[service.id]?.type === 'percentage' ? (
-                                          <span className="px-2 py-1 text-xs bg-gray-200 dark:bg-gray-600 border border-l-0 border-gray-300 dark:border-gray-600 rounded-r text-gray-600 dark:text-gray-300">%</span>
+                                          <span className="px-2 py-1 text-xs bg-curai-border border border-l-0 border-curai-control rounded-r text-curai-muted ">%</span>
                                         ) : (
                                           <span className="px-2 py-1 text-xs">{serviceCommissions[service.id]?.currency || 'KZT'}</span>
                                         )}
@@ -460,8 +431,9 @@ const DoctorModal = ({
                     ));
                   })()}
                 </div>
+</div>
               ) : (
-                <div className="text-center py-8 text-gray-500 dark:text-gray-400">
+                <div className="text-center py-8 text-curai-muted ">
                   <p>🔧 Услуги не найдены</p>
                   <p className="text-sm">
                     {doctorForm.specialty 
@@ -470,26 +442,36 @@ const DoctorModal = ({
                   </p>
                 </div>
               )}
+{(doctorForm.specialties || []).length > 0 && (
+                <div className="text-xs text-curai-blue bg-curai-selected px-3 py-2 rounded-md">
+                  📋 Показаны услуги для специальностей: <strong>{(doctorForm.specialties || []).join(', ')}</strong>
+                  {filteredServices.length === 0 && services.length > 0 && (
+                    <span className="ml-1 text-curai-warning ">
+                      — нет услуг с этой категорией
+                    </span>
+                  )}
+                </div>
+              )}
               
               {filteredServices.length > 0 && doctorForm.specialty && (
-                <div className="text-xs text-green-600 dark:text-green-400 mt-1">
+                <div className="text-xs text-curai-positive mt-1">
                   📊 Найдено услуг: {filteredServices.length}
                   <span className="ml-2">✅ Выбрано: {selectedServices.length}</span>
                   {paymentMode === 'individual' && (
-                    <span className="ml-2 text-blue-600 dark:text-blue-400">
+                    <span className="ml-2 text-curai-blue ">
                       (с индивидуальными комиссиями)
                     </span>
                   )}
                 </div>
               )}
               {selectedServices.length > 0 && !doctorForm.specialty && (
-                <div className="text-xs text-green-600 dark:text-green-400 mt-1">
+                <div className="text-xs text-curai-positive mt-1">
                   ✅ Выбрано услуг: {selectedServices.length}
                 </div>
               )}
               
               {paymentMode === 'individual' && selectedServices.length === 0 && (
-                <div className="text-xs text-amber-600 dark:text-amber-400 mt-2">
+                <div className="text-xs text-curai-warning mt-2">
                   ⚠️ Выберите услуги для настройки индивидуальных комиссий
                 </div>
               )}
@@ -497,8 +479,8 @@ const DoctorModal = ({
           </div>
           
           <fieldset disabled={paymentMode === 'individual' && doctorForm.consultation_compensation_mode !== 'inherit' && selectedServices.every(serviceId => serviceCommissions[serviceId] !== undefined)}>
-          <div className="bg-orange-50 dark:bg-orange-900/20 p-4 rounded-lg border border-orange-200 dark:border-orange-800">
-            <h3 className="flex items-center text-sm font-medium text-orange-800 dark:text-orange-200 mb-4">
+          <div className="bg-curai-warningBg p-4 rounded-md border border-curai-warning ">
+            <h3 className="flex items-center text-sm font-medium text-curai-warning mb-4">
               <span className="mr-2">💰</span> Основная схема оплаты
             </h3>
             
@@ -550,23 +532,23 @@ const DoctorModal = ({
                         const val = e.target.value;
                         setDoctorForm({...doctorForm, payment_value: val === '' ? '' : parseFloat(val) || 0});
                       }}
-                      className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-l-lg focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                      className="flex-1 px-3 py-2 border border-curai-control rounded-l-md focus:ring-2 focus:ring-curai-focus bg-curai-surface text-curai-ink "
                       placeholder={doctorForm.payment_type === 'percentage' ? '0.0' : '0'}
                     />
                     {doctorForm.payment_type === 'percentage' ? (
-                      <span className="px-3 py-2 bg-gray-100 dark:bg-gray-600 border border-l-0 border-gray-300 dark:border-gray-600 rounded-r-lg text-gray-600 dark:text-gray-300">%</span>
+                      <span className="px-3 py-2 bg-curai-subtle border border-l-0 border-curai-control rounded-r-md text-curai-muted ">%</span>
                     ) : (
                       <span className="px-3 py-2">{doctorForm.currency || 'KZT'}</span>
                     )}
                   </div>
                   {doctorForm.payment_type === 'percentage' && (
-                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Укажите процент от общей выручки врача</p>
+                    <p className="text-xs text-curai-muted mt-1">Укажите процент от общей выручки врача</p>
                   )}
                   {doctorForm.payment_type === 'fixed' && (
-                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">KZT за каждую завершённую услугу/приём, не за отчётный период</p>
+                    <p className="text-xs text-curai-muted mt-1">KZT за каждую завершённую услугу/приём, не за отчётный период</p>
                   )}
                   {doctorForm.payment_type === 'hybrid' && (
-                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Фиксированная часть KZT за каждую завершённую услугу/приём плюс процент от выручки; 0% допустим</p>
+                    <p className="text-xs text-curai-muted mt-1">Фиксированная часть KZT за каждую завершённую услугу/приём плюс процент от выручки; 0% допустим</p>
                   )}
                 </div>
               </div>
@@ -588,15 +570,15 @@ const DoctorModal = ({
                           const val = e.target.value;
                           setDoctorForm({...doctorForm, hybrid_percentage_value: val === '' ? '' : parseFloat(val) || 0});
                         }}
-                        className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-l-lg focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                        className="flex-1 px-3 py-2 border border-curai-control rounded-l-md focus:ring-2 focus:ring-curai-focus bg-curai-surface text-curai-ink "
                         placeholder="0.0"
                       />
-                      <span className="px-3 py-2 bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200 border border-l-0 border-gray-300 dark:border-gray-600 rounded-r-lg">%</span>
+                      <span className="px-3 py-2 bg-curai-positiveBg text-curai-positive border border-l-0 border-curai-control rounded-r-md">%</span>
                     </div>
-                    <p className="text-xs text-green-600 dark:text-green-400 mt-1">Процентная часть от выручки</p>
+                    <p className="text-xs text-curai-positive mt-1">Процентная часть от выручки</p>
                   </div>
 
-                  <div className="text-sm text-gray-600 dark:text-gray-400">
+                  <div className="text-sm text-curai-muted ">
                     <div className="font-medium mb-2">Сводка гибридной оплаты:</div>
                     <div className="space-y-1">
                       <div>💰 Фиксированная: {(doctorForm.payment_value || 0).toLocaleString()} {(doctorForm.currency || 'KZT')}</div>
@@ -609,7 +591,7 @@ const DoctorModal = ({
           </div>
           </fieldset>
 
-          <section className="space-y-4 rounded-lg border border-orange-200 p-4">
+          <section className="space-y-4 rounded-md border border-curai-warning p-4">
             <h3 className={labelClasses}>Оплата консультаций</h3>
             <label htmlFor="consultation_compensation_mode" className={labelClasses}>Режим оплаты консультаций (обязательно)</label>
             <select
@@ -675,7 +657,7 @@ const DoctorModal = ({
               disabled={loading}
               className={`flex-1 ${buttonPrimaryClasses}`}
             >
-              {loading ? 'Сохранение...' : (editingItem ? 'Обновить' : 'Создать')}
+              {loading ? 'Сохранение...' : 'Сохранить'}
             </button>
             <button
               type="button"

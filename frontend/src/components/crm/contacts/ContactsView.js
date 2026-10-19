@@ -112,18 +112,18 @@ const ContactsView = ({ user }) => {
   };
 
   const sourceTypes = {
-    website: { label: 'Сайт', icon: '🌐', color: 'bg-blue-100 text-blue-800' },
-    social: { label: 'Соц. сети', icon: '📱', color: 'bg-pink-100 text-pink-800' },
-    referral: { label: 'Рекомендации', icon: '👥', color: 'bg-green-100 text-green-800' },
-    advertising: { label: 'Реклама', icon: '📢', color: 'bg-purple-100 text-purple-800' },
-    phone: { label: 'Телефон', icon: '📞', color: 'bg-yellow-100 text-yellow-800' },
-    other: { label: 'Другое', icon: '📋', color: 'bg-gray-100 text-gray-800' }
+    website: { label: 'Сайт', icon: '🌐', color: "bg-curai-selected text-curai-blue" },
+    social: { label: 'Соц. сети', icon: '📱', color: "bg-curai-negativeBg text-curai-negative" },
+    referral: { label: 'Рекомендации', icon: '👥', color: "bg-curai-positiveBg text-curai-positive" },
+    advertising: { label: 'Реклама', icon: '📢', color: "bg-curai-selected text-curai-blue" },
+    phone: { label: 'Телефон', icon: '📞', color: "bg-curai-warningBg text-curai-warning" },
+    other: { label: 'Другое', icon: '📋', color: "bg-curai-subtle text-curai-ink" }
   };
 
   if (!isInitialized || loading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-curai-control"></div>
       </div>
     );
   }
@@ -131,7 +131,7 @@ const ContactsView = ({ user }) => {
   if (error) {
     return (
       <div className="text-center py-8">
-        <div className="text-red-600 mb-4">
+        <div className="text-curai-negative mb-4">
           <p>Ошибка загрузки источников: {error}</p>
         </div>
         <button 
@@ -139,7 +139,7 @@ const ContactsView = ({ user }) => {
             clearError();
             fetchSources();
           }}
-          className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
+          className="bg-curai-blue text-white px-4 py-2 rounded-md hover:bg-curai-blue transition-colors"
         >
           Повторить
         </button>
@@ -151,12 +151,12 @@ const ContactsView = ({ user }) => {
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">📱 Источники обращений</h1>
-          <p className="text-gray-600 mt-1">Анализ эффективности каналов привлечения</p>
+          <h1 className="text-2xl font-semibold text-curai-ink">📱 Источники обращений</h1>
+          <p className="text-curai-muted mt-1">Анализ эффективности каналов привлечения</p>
         </div>
         <button 
           onClick={() => setShowCreateModal(true)}
-          className="bg-orange-600 text-white px-4 py-2 rounded-lg hover:bg-orange-700 transition-colors"
+          className="bg-curai-warning text-white px-4 py-2 rounded-md hover:bg-curai-warning transition-colors"
         >
           + Новый источник
         </button>
@@ -164,92 +164,92 @@ const ContactsView = ({ user }) => {
 
       {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+        <div className="bg-curai-surface rounded-md shadow-none border border-curai-border p-6">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-gray-600 text-sm font-medium">Всего заявок</p>
-              <p className="text-3xl font-bold text-gray-900 mt-1">
+              <p className="text-curai-muted text-sm font-medium">Всего заявок</p>
+              <p className="text-2xl font-semibold text-curai-ink mt-1">
                 {sourcesStats?.total_leads || 0}
               </p>
             </div>
-            <div className="text-3xl">🎯</div>
+            <div className="text-2xl">🎯</div>
           </div>
         </div>
         
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+        <div className="bg-curai-surface rounded-md shadow-none border border-curai-border p-6">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-gray-600 text-sm font-medium">Средняя конверсия</p>
-              <p className="text-3xl font-bold text-gray-900 mt-1">
+              <p className="text-curai-muted text-sm font-medium">Средняя конверсия</p>
+              <p className="text-2xl font-semibold text-curai-ink mt-1">
                 {sourcesStats?.avg_conversion_rate || 0}%
               </p>
             </div>
-            <div className="text-3xl">📈</div>
+            <div className="text-2xl">📈</div>
           </div>
         </div>
         
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+        <div className="bg-curai-surface rounded-md shadow-none border border-curai-border p-6">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-gray-600 text-sm font-medium">Лучший источник</p>
-              <p className="text-lg font-bold text-gray-900 mt-1">
+              <p className="text-curai-muted text-sm font-medium">Лучший источник</p>
+              <p className="text-lg font-semibold text-curai-ink mt-1">
                 {sourcesStats?.top_sources?.[0]?.name || 'Нет данных'}
               </p>
             </div>
-            <div className="text-3xl">🏆</div>
+            <div className="text-2xl">🏆</div>
           </div>
         </div>
       </div>
 
       {/* Sources List */}
-      <div className="bg-white rounded-lg shadow-sm border border-gray-200">
+      <div className="bg-curai-surface rounded-md shadow-none border border-curai-border">
         {sources.length === 0 ? (
-          <div className="text-center py-8 text-gray-500">
+          <div className="text-center py-8 text-curai-muted">
             <p>Источники не найдены</p>
           </div>
         ) : (
           <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
+            <table className="min-w-full divide-y divide-curai-border">
+              <thead className="bg-curai-subtle">
                 <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-6 py-3 text-left text-xs font-medium text-curai-muted uppercase tracking-wider">
                     Источник
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-6 py-3 text-left text-xs font-medium text-curai-muted uppercase tracking-wider">
                     Тип
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-6 py-3 text-left text-xs font-medium text-curai-muted uppercase tracking-wider">
                     Заявки
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-6 py-3 text-left text-xs font-medium text-curai-muted uppercase tracking-wider">
                     Конверсия
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-6 py-3 text-left text-xs font-medium text-curai-muted uppercase tracking-wider">
                     Стоимость заявки
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-6 py-3 text-left text-xs font-medium text-curai-muted uppercase tracking-wider">
                     Выручка HMS
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-6 py-3 text-left text-xs font-medium text-curai-muted uppercase tracking-wider">
                     ROI
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-6 py-3 text-left text-xs font-medium text-curai-muted uppercase tracking-wider">
                     Действия
                   </th>
                 </tr>
               </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
+              <tbody className="bg-curai-surface divide-y divide-curai-border">
                 {sources.map((source) => {
                   const sourceType = sourceTypes[source.type] || sourceTypes.other;
                   
                   return (
-                    <tr key={source.id} className="hover:bg-gray-50">
+                    <tr key={source.id} className="hover:bg-curai-subtle">
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div>
-                          <div className="font-medium text-gray-900">{source.name}</div>
-                          <div className="text-sm text-gray-500">{source.description}</div>
+                          <div className="font-medium text-curai-ink">{source.name}</div>
+                          <div className="text-sm text-curai-muted">{source.description}</div>
                           {source.url && (
-                            <div className="text-xs text-blue-500 mt-1">
+                            <div className="text-xs text-curai-blue mt-1">
                               <a href={source.url} target="_blank" rel="noopener noreferrer" className="hover:underline">
                                 {source.url}
                               </a>
@@ -263,27 +263,27 @@ const ContactsView = ({ user }) => {
                         </span>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm font-medium text-gray-900">{source.leads_count}</div>
-                        <div className="text-xs text-gray-500">За месяц: {source.leads_this_month}</div>
+                        <div className="text-sm font-medium text-curai-ink">{source.leads_count}</div>
+                        <div className="text-xs text-curai-muted">За месяц: {source.leads_this_month}</div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className={`text-sm font-medium ${
-                          source.conversion_rate >= 50 ? 'text-green-600' :
-                          source.conversion_rate >= 25 ? 'text-yellow-600' :
-                          'text-red-600'
+                          source.conversion_rate >= 50 ? "text-curai-positive" :
+                          source.conversion_rate >= 25 ? "text-curai-warning" :
+                          "text-curai-negative"
                         }`}>
                           {source.conversion_rate}%
                         </div>
-                        <div className="text-xs text-gray-500">
+                        <div className="text-xs text-curai-muted">
                           {source.conversion_count} конверсий
                         </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm text-gray-900">
+                        <div className="text-sm text-curai-ink">
                           {source.cost_per_lead === 0 ? 'Бесплатно' : `${source.cost_per_lead}₸`}
                         </div>
                         {source.monthly_budget && (
-                          <div className="text-xs text-gray-500">
+                          <div className="text-xs text-curai-muted">
                             Бюджет: {source.monthly_budget}₸/мес
                           </div>
                         )}
@@ -294,19 +294,19 @@ const ContactsView = ({ user }) => {
                           const revenueData = sourcesRevenue?.sources?.find(s => s.source_id === source.id);
                           
                           if (loadingRevenue) {
-                            return <div className="text-xs text-gray-400">⏳ Загрузка...</div>;
+                            return <div className="text-xs text-curai-muted">⏳ Загрузка...</div>;
                           }
                           
                           if (!revenueData) {
-                            return <div className="text-xs text-gray-400">Нет данных</div>;
+                            return <div className="text-xs text-curai-muted">Нет данных</div>;
                           }
                           
                           return (
                             <div>
-                              <div className="text-sm font-medium text-green-600">
+                              <div className="text-sm font-medium text-curai-positive">
                                 {Math.round(revenueData.total_revenue).toLocaleString()}₸
                               </div>
-                              <div className="text-xs text-gray-500">
+                              <div className="text-xs text-curai-muted">
                                 {revenueData.converted_patients_count} пациентов
                               </div>
                             </div>
@@ -315,13 +315,13 @@ const ContactsView = ({ user }) => {
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className={`text-sm font-medium ${
-                          source.roi >= 80 ? 'text-green-600' :
-                          source.roi >= 50 ? 'text-yellow-600' :
-                          'text-red-600'
+                          source.roi >= 80 ? "text-curai-positive" :
+                          source.roi >= 50 ? "text-curai-warning" :
+                          "text-curai-negative"
                         }`}>
                           {source.roi.toFixed(1)}%
                         </div>
-                        <div className="text-xs text-gray-500">
+                        <div className="text-xs text-curai-muted">
                           Затраты: {source.total_cost.toFixed(0)}₸
                         </div>
                       </td>
@@ -332,8 +332,8 @@ const ContactsView = ({ user }) => {
                             disabled={source.leads_count > 0}
                             className={`text-xs px-2 py-1 rounded ${
                               source.leads_count > 0
-                                ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
-                                : 'bg-red-100 text-red-700 hover:bg-red-200'
+                                ? "bg-curai-subtle text-curai-muted cursor-not-allowed"
+                                : "bg-curai-negativeBg text-curai-negative hover:bg-curai-negativeBg"
                             }`}
                             title={source.leads_count > 0 ? `Нельзя удалить: есть ${source.leads_count} заявок` : 'Удалить источник'}
                           >
@@ -365,14 +365,14 @@ const ContactsView = ({ user }) => {
           onClick={() => setShowCreateModal(false)}
         >
           <div 
-            className="bg-white rounded-lg shadow-xl p-6 w-full max-w-md max-h-[90vh] overflow-y-auto"
+            className="bg-curai-surface rounded-md shadow-none p-6 w-full max-w-md max-h-[90vh] overflow-y-auto"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex justify-between items-center mb-4">
-              <h2 className="text-xl font-bold text-gray-900">Новый источник</h2>
+              <h2 className="text-xl font-semibold text-curai-ink">Новый источник</h2>
               <button
                 onClick={() => setShowCreateModal(false)}
-                className="text-gray-400 hover:text-gray-600 text-xl font-bold"
+                className="text-curai-muted hover:text-curai-muted text-xl font-semibold"
               >
                 ×
               </button>
@@ -380,22 +380,22 @@ const ContactsView = ({ user }) => {
             
             <div className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Название *</label>
+                <label className="block text-sm font-medium text-curai-ink mb-1">Название *</label>
                 <input
                   type="text"
                   value={newSource.name}
                   onChange={(e) => setNewSource({...newSource, name: e.target.value})}
-                  className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm"
+                  className="w-full border border-curai-control rounded-md px-3 py-2 text-sm"
                   placeholder="Название источника"
                 />
               </div>
               
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Тип *</label>
+                <label className="block text-sm font-medium text-curai-ink mb-1">Тип *</label>
                 <select
                   value={newSource.type}
                   onChange={(e) => setNewSource({...newSource, type: e.target.value})}
-                  className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm"
+                  className="w-full border border-curai-control rounded-md px-3 py-2 text-sm"
                 >
                   {Object.entries(sourceTypes).map(([key, type]) => (
                     <option key={key} value={key}>{type.icon} {type.label}</option>
@@ -404,49 +404,49 @@ const ContactsView = ({ user }) => {
               </div>
               
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Описание</label>
+                <label className="block text-sm font-medium text-curai-ink mb-1">Описание</label>
                 <textarea
                   value={newSource.description}
                   onChange={(e) => setNewSource({...newSource, description: e.target.value})}
-                  className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm"
+                  className="w-full border border-curai-control rounded-md px-3 py-2 text-sm"
                   rows="3"
                   placeholder="Описание источника..."
                 />
               </div>
               
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">URL</label>
+                <label className="block text-sm font-medium text-curai-ink mb-1">URL</label>
                 <input
                   type="url"
                   value={newSource.url}
                   onChange={(e) => setNewSource({...newSource, url: e.target.value})}
-                  className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm"
+                  className="w-full border border-curai-control rounded-md px-3 py-2 text-sm"
                   placeholder="https://example.com"
                 />
               </div>
               
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Стоимость заявки (₸)</label>
+                  <label className="block text-sm font-medium text-curai-ink mb-1">Стоимость заявки (₸)</label>
                   <input
                     type="number"
                     min="0"
                     step="0.01"
                     value={newSource.cost_per_lead}
                     onChange={(e) => setNewSource({...newSource, cost_per_lead: parseFloat(e.target.value) || 0})}
-                    className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm"
+                    className="w-full border border-curai-control rounded-md px-3 py-2 text-sm"
                     placeholder="0"
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Месячный бюджет (₸)</label>
+                  <label className="block text-sm font-medium text-curai-ink mb-1">Месячный бюджет (₸)</label>
                   <input
                     type="number"
                     min="0"
                     step="0.01"
                     value={newSource.monthly_budget}
                     onChange={(e) => setNewSource({...newSource, monthly_budget: e.target.value})}
-                    className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm"
+                    className="w-full border border-curai-control rounded-md px-3 py-2 text-sm"
                     placeholder="Необязательно"
                   />
                 </div>
@@ -456,14 +456,14 @@ const ContactsView = ({ user }) => {
             <div className="flex justify-end gap-3 mt-6">
               <button
                 onClick={() => setShowCreateModal(false)}
-                className="px-4 py-2 text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+                className="px-4 py-2 text-curai-ink border border-curai-control rounded-md hover:bg-curai-subtle transition-colors"
               >
                 Отмена
               </button>
               <button
                 onClick={handleCreateSource}
                 disabled={!newSource.name}
-                className="bg-orange-600 text-white px-4 py-2 rounded-lg hover:bg-orange-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors"
+                className="bg-curai-warning text-white px-4 py-2 rounded-md hover:bg-curai-warning disabled:bg-curai-control disabled:cursor-not-allowed transition-colors"
               >
                 Создать
               </button>

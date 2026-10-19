@@ -282,7 +282,7 @@ const ClientsView = ({ user }) => {
   if (!isInitialized || loading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-curai-control"></div>
       </div>
     );
   }
@@ -290,12 +290,12 @@ const ClientsView = ({ user }) => {
   if (error) {
     return (
       <div className="p-6">
-        <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded">
-          <h3 className="font-bold">Ошибка загрузки</h3>
+        <div className="bg-curai-negativeBg border border-curai-negative text-curai-negative px-4 py-3 rounded">
+          <h3 className="font-semibold">Ошибка загрузки</h3>
           <p>{error}</p>
           <button 
             onClick={clearError}
-            className="mt-2 bg-red-600 text-white px-3 py-1 rounded text-sm hover:bg-red-700"
+            className="mt-2 bg-curai-negative text-white px-3 py-1 rounded text-sm hover:bg-curai-negative"
           >
             Повторить
           </button>
@@ -307,24 +307,24 @@ const ClientsView = ({ user }) => {
   return (
     <div className="space-y-6">
       {/* Переключатель вкладок */}
-      <div className="bg-white rounded-lg shadow-sm border border-gray-200">
+      <div className="bg-curai-surface rounded-md shadow-none border border-curai-border">
         <div className="flex gap-2 p-2">
           <button
             onClick={() => setActiveView('clients')}
-            className={`flex-1 py-3 px-4 rounded-lg font-medium transition-colors ${
+            className={`flex-1 py-3 px-4 rounded-md font-medium transition-colors ${
               activeView === 'clients'
-                ? 'bg-blue-600 text-white'
-                : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                ? "bg-curai-blue text-white"
+                : "bg-curai-subtle text-curai-muted hover:bg-curai-border"
             }`}
           >
             👥 Контакты
           </button>
           <button
             onClick={() => setActiveView('telephony')}
-            className={`flex-1 py-3 px-4 rounded-lg font-medium transition-colors ${
+            className={`flex-1 py-3 px-4 rounded-md font-medium transition-colors ${
               activeView === 'telephony'
-                ? 'bg-blue-600 text-white'
-                : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                ? "bg-curai-blue text-white"
+                : "bg-curai-subtle text-curai-muted hover:bg-curai-border"
             }`}
           >
             📞 API Телефонии
@@ -340,13 +340,13 @@ const ClientsView = ({ user }) => {
       {/* Header */}
       <div className="flex justify-between items-center">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">👥 Контакты</h1>
-          <p className="text-gray-600 mt-1">CRM клиенты и HMS пациенты</p>
+          <h1 className="text-2xl font-semibold text-curai-ink">👥 Контакты</h1>
+          <p className="text-curai-muted mt-1">CRM клиенты и HMS пациенты</p>
         </div>
         <div className="flex gap-3">
           <button 
             onClick={() => setShowCreateModal(true)}
-            className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors"
+            className="bg-curai-positive text-white px-4 py-2 rounded-md hover:bg-curai-positive transition-colors"
           >
             + Новый контакт
           </button>
@@ -356,61 +356,61 @@ const ClientsView = ({ user }) => {
       {/* Statistics */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
         {/* Всего контактов */}
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+        <div className="bg-curai-surface rounded-md shadow-none border border-curai-border p-6">
           <div className="flex items-center">
             <div className="flex-shrink-0">
-              <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
-                <span className="text-blue-600 font-semibold">👥</span>
+              <div className="w-8 h-8 bg-curai-selected rounded-full flex items-center justify-center">
+                <span className="text-curai-blue font-semibold">👥</span>
               </div>
             </div>
             <div className="ml-4">
-              <p className="text-sm font-medium text-gray-500">Всего</p>
-              <p className="text-2xl font-bold text-gray-900">{allContacts.length}</p>
+              <p className="text-sm font-medium text-curai-muted">Всего</p>
+              <p className="text-2xl font-semibold text-curai-ink">{allContacts.length}</p>
             </div>
           </div>
         </div>
 
         {/* CRM клиенты */}
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+        <div className="bg-curai-surface rounded-md shadow-none border border-curai-border p-6">
           <div className="flex items-center">
             <div className="flex-shrink-0">
-              <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
-                <span className="text-blue-600 font-semibold">📋</span>
+              <div className="w-8 h-8 bg-curai-selected rounded-full flex items-center justify-center">
+                <span className="text-curai-blue font-semibold">📋</span>
               </div>
             </div>
             <div className="ml-4">
-              <p className="text-sm font-medium text-gray-500">CRM клиенты</p>
-              <p className="text-2xl font-bold text-gray-900">{clients.length}</p>
+              <p className="text-sm font-medium text-curai-muted">CRM клиенты</p>
+              <p className="text-2xl font-semibold text-curai-ink">{clients.length}</p>
             </div>
           </div>
         </div>
 
         {/* HMS Пациенты */}
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+        <div className="bg-curai-surface rounded-md shadow-none border border-curai-border p-6">
           <div className="flex items-center">
             <div className="flex-shrink-0">
-              <div className="w-8 h-8 bg-purple-100 rounded-full flex items-center justify-center">
-                <span className="text-purple-600 font-semibold">🏥</span>
+              <div className="w-8 h-8 bg-curai-selected rounded-full flex items-center justify-center">
+                <span className="text-curai-blue font-semibold">🏥</span>
               </div>
             </div>
             <div className="ml-4">
-              <p className="text-sm font-medium text-gray-500">HMS пациенты</p>
-              <p className="text-2xl font-bold text-gray-900">{hmsPatients.length}</p>
+              <p className="text-sm font-medium text-curai-muted">HMS пациенты</p>
+              <p className="text-2xl font-semibold text-curai-ink">{hmsPatients.length}</p>
             </div>
           </div>
         </div>
 
         {/* Связанные */}
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+        <div className="bg-curai-surface rounded-md shadow-none border border-curai-border p-6">
           <div className="flex items-center">
             <div className="flex-shrink-0">
-              <div className="w-8 h-8 bg-green-100 rounded-full flex items-center justify-center">
-                <span className="text-green-600 font-semibold">🔗</span>
+              <div className="w-8 h-8 bg-curai-positiveBg rounded-full flex items-center justify-center">
+                <span className="text-curai-positive font-semibold">🔗</span>
               </div>
             </div>
             <div className="ml-4">
-              <p className="text-sm font-medium text-gray-500">Связанные CRM+HMS</p>
-              <p className="text-2xl font-bold text-gray-900">
+              <p className="text-sm font-medium text-curai-muted">Связанные CRM+HMS</p>
+              <p className="text-2xl font-semibold text-curai-ink">
                 {clients.filter(c => c.is_hms_patient).length}
               </p>
             </div>
@@ -419,71 +419,71 @@ const ClientsView = ({ user }) => {
       </div>
 
       {/* Search */}
-      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
+      <div className="bg-curai-surface rounded-md shadow-none border border-curai-border p-4">
         <input
           type="text"
           placeholder="Поиск контактов..."
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
-          className="w-full border border-gray-300 rounded-md px-3 py-2"
+          className="w-full border border-curai-control rounded-md px-3 py-2"
         />
       </div>
 
       {/* Contacts List */}
-      <div className="bg-white rounded-lg shadow-sm border border-gray-200">
+      <div className="bg-curai-surface rounded-md shadow-none border border-curai-border">
         {filteredContacts.length === 0 ? (
-          <div className="text-center py-8 text-gray-500">
+          <div className="text-center py-8 text-curai-muted">
             <p>{loading || patientsLoading ? 'Загрузка...' : 'Контакты не найдены'}</p>
           </div>
         ) : (
           <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
+            <table className="min-w-full divide-y divide-curai-border">
+              <thead className="bg-curai-subtle">
                 <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-6 py-3 text-left text-xs font-medium text-curai-muted uppercase tracking-wider">
                     Контакт
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-6 py-3 text-left text-xs font-medium text-curai-muted uppercase tracking-wider">
                     Телефон/Email
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-6 py-3 text-left text-xs font-medium text-curai-muted uppercase tracking-wider">
                     Планы лечения
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-6 py-3 text-left text-xs font-medium text-curai-muted uppercase tracking-wider">
                     Последний прием
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-6 py-3 text-left text-xs font-medium text-curai-muted uppercase tracking-wider">
                     Действия
                   </th>
                 </tr>
               </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
+              <tbody className="bg-curai-surface divide-y divide-curai-border">
                 {filteredContacts.map((client) => (
-                  <tr key={client.id} className="hover:bg-gray-50">
+                  <tr key={client.id} className="hover:bg-curai-subtle">
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="font-medium text-gray-900">{client._displayName || `${client.first_name} ${client.last_name}`}</div>
-                      <div className="text-sm text-gray-500">
+                      <div className="font-medium text-curai-ink">{client._displayName || `${client.first_name} ${client.last_name}`}</div>
+                      <div className="text-sm text-curai-muted">
                         {client.created_at ? `с ${new Date(client.created_at).toLocaleDateString('ru-RU')}` : ''}
                       </div>
                       <div className="flex gap-1 mt-1">
                         {client._source === 'hms' ? (
-                          <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-purple-100 text-purple-800">
+                          <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-curai-selected text-curai-blue">
                             🏥 HMS
                           </span>
                         ) : client._source === 'crm' && client.is_hms_patient ? (
-                          <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800">
+                          <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-curai-positiveBg text-curai-positive">
                             🔗 CRM + HMS
                           </span>
                         ) : (
-                          <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800">
+                          <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-curai-selected text-curai-blue">
                             📋 CRM
                           </span>
                         )}
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm text-gray-900">{client.phone}</div>
-                      <div className="text-sm text-gray-500">{client.email || 'Email не указан'}</div>
+                      <div className="text-sm text-curai-ink">{client.phone}</div>
+                      <div className="text-sm text-curai-muted">{client.email || 'Email не указан'}</div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       {client._isLinkedToHMS ? (
@@ -494,46 +494,46 @@ const ClientsView = ({ user }) => {
                           compact={true}
                         />
                       ) : (
-                        <div className="text-xs text-gray-400">
+                        <div className="text-xs text-curai-muted">
                           Не пациент HMS
                         </div>
                       )}
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-curai-ink">
                       {(() => {
                         const appointment = getCachedAppointment(client.id);
                         const isLoading = isClientAppointmentLoading(client.id);
                         
                         if (isLoading) {
-                          return <div className="text-xs text-gray-400">⏳ Загрузка...</div>;
+                          return <div className="text-xs text-curai-muted">⏳ Загрузка...</div>;
                         }
                         
                         if (appointment) {
                           return (
                             <div>
-                              <div className="text-sm font-medium text-gray-900">
+                              <div className="text-sm font-medium text-curai-ink">
                                 {new Date(appointment.date).toLocaleDateString('ru-RU')} в {appointment.time}
                               </div>
-                              <div className="text-xs text-blue-600 font-medium">
+                              <div className="text-xs text-curai-blue font-medium">
                                 👨‍⚕️ {appointment.doctor_name}
                               </div>
                               {appointment.doctor_specialty && (
-                                <div className="text-xs text-gray-500">
+                                <div className="text-xs text-curai-muted">
                                   📋 {appointment.doctor_specialty}
                                 </div>
                               )}
                               {appointment.reason && (
-                                <div className="text-xs text-gray-400 mt-1">
+                                <div className="text-xs text-curai-muted mt-1">
                                   💬 {appointment.reason}
                                 </div>
                               )}
-                              <div className="text-xs text-gray-400 mt-1">
+                              <div className="text-xs text-curai-muted mt-1">
                                 🏷️ {appointment.status === 'unconfirmed' ? 'Не подтвержден' : 
                                      appointment.status === 'confirmed' ? 'Подтвержден' :
                                      appointment.status === 'completed' ? 'Завершен' : appointment.status}
                               </div>
                               {appointment.deposit && appointment.deposit > 0 && (
-                                <div className="text-xs text-green-600 font-medium mt-1">
+                                <div className="text-xs text-curai-positive font-medium mt-1">
                                   💰 Депозит: {appointment.deposit.toLocaleString()}₸
                                 </div>
                               )}
@@ -542,9 +542,9 @@ const ClientsView = ({ user }) => {
                         }
                         
                         if (client._isLinkedToHMS) {
-                          return <div className="text-xs text-gray-400">Нет завершенных приемов</div>;
+                          return <div className="text-xs text-curai-muted">Нет завершенных приемов</div>;
                         } else {
-                          return <div className="text-xs text-gray-400">Не пациент HMS</div>;
+                          return <div className="text-xs text-curai-muted">Не пациент HMS</div>;
                         }
                       })()}
                     </td>
@@ -553,14 +553,14 @@ const ClientsView = ({ user }) => {
                         <>
                           <button
                             onClick={() => handleShowHmsData(client)}
-                            className="text-purple-600 hover:text-purple-900 mr-2"
+                            className="text-curai-blue hover:text-curai-blue mr-2"
                             title="Просмотр данных HMS"
                           >
                             📊
                           </button>
                           <button
                             onClick={() => handleCreateAppointment(client)}
-                            className="text-blue-600 hover:text-blue-900 mr-2"
+                            className="text-curai-blue hover:text-curai-blue mr-2"
                             title="Записать на прием"
                           >
                             📅
@@ -570,14 +570,14 @@ const ClientsView = ({ user }) => {
                         <>
                           <button
                             onClick={() => handleConvertToHMS(client)}
-                            className="text-green-600 hover:text-green-900 mr-2"
+                            className="text-curai-positive hover:text-curai-positive mr-2"
                             title="Конвертировать в пациента HMS"
                           >
                             🏥
                           </button>
                           <button
                             onClick={() => handleCreateAppointment(client)}
-                            className="text-blue-600 hover:text-blue-900"
+                            className="text-curai-blue hover:text-curai-blue"
                             title="Записать на прием"
                           >
                             📅
@@ -608,14 +608,14 @@ const ClientsView = ({ user }) => {
           onClick={() => setShowCreateModal(false)}
         >
           <div 
-            className="bg-white rounded-lg shadow-xl p-6 w-full max-w-md max-h-[90vh] overflow-y-auto"
+            className="bg-curai-surface rounded-md shadow-none p-6 w-full max-w-md max-h-[90vh] overflow-y-auto"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex justify-between items-center mb-4">
-              <h2 className="text-xl font-bold text-gray-900">Новый контакт</h2>
+              <h2 className="text-xl font-semibold text-curai-ink">Новый контакт</h2>
               <button
                 onClick={() => setShowCreateModal(false)}
-                className="text-gray-400 hover:text-gray-600 text-xl font-bold"
+                className="text-curai-muted hover:text-curai-muted text-xl font-semibold"
               >
                 ×
               </button>
@@ -623,45 +623,45 @@ const ClientsView = ({ user }) => {
             
             <div className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">ФИО *</label>
+                <label className="block text-sm font-medium text-curai-ink mb-1">ФИО *</label>
                 <input
                   type="text"
                   value={newClient.first_name}
                   onChange={(e) => setNewClient({...newClient, first_name: e.target.value})}
-                  className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm"
+                  className="w-full border border-curai-control rounded-md px-3 py-2 text-sm"
                   placeholder="Введите ФИО"
                 />
               </div>
               
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Телефон *</label>
+                <label className="block text-sm font-medium text-curai-ink mb-1">Телефон *</label>
                 <input
                   type="tel"
                   value={newClient.phone}
                   onChange={(e) => setNewClient({...newClient, phone: e.target.value})}
-                  className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm"
+                  className="w-full border border-curai-control rounded-md px-3 py-2 text-sm"
                   placeholder="+7 (___) ___-__-__"
                 />
               </div>
               
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
+                <label className="block text-sm font-medium text-curai-ink mb-1">Email</label>
                 <input
                   type="email"
                   value={newClient.email}
                   onChange={(e) => setNewClient({...newClient, email: e.target.value})}
-                  className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm"
+                  className="w-full border border-curai-control rounded-md px-3 py-2 text-sm"
                   placeholder="example@email.com"
                 />
               </div>
               
               
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Описание</label>
+                <label className="block text-sm font-medium text-curai-ink mb-1">Описание</label>
                 <textarea
                   value={newClient.description}
                   onChange={(e) => setNewClient({...newClient, description: e.target.value})}
-                  className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm"
+                  className="w-full border border-curai-control rounded-md px-3 py-2 text-sm"
                   rows="3"
                   placeholder="Дополнительная информация о контакте..."
                 />
@@ -671,14 +671,14 @@ const ClientsView = ({ user }) => {
             <div className="flex justify-end gap-3 mt-6">
               <button
                 onClick={() => setShowCreateModal(false)}
-                className="px-4 py-2 text-gray-600 hover:text-gray-800 transition-colors"
+                className="px-4 py-2 text-curai-muted hover:text-curai-ink transition-colors"
               >
                 Отмена
               </button>
               <button
                 onClick={handleCreateClient}
                 disabled={!newClient.first_name || !newClient.phone}
-                className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors"
+                className="bg-curai-positive text-white px-4 py-2 rounded-md hover:bg-curai-positive disabled:bg-curai-control disabled:cursor-not-allowed transition-colors"
               >
                 Создать
               </button>
@@ -700,14 +700,14 @@ const ClientsView = ({ user }) => {
       >
         {loadingHmsData ? (
           <div className="flex justify-center items-center py-8">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-            <span className="ml-2 text-gray-600 dark:text-gray-400">Загрузка данных HMS...</span>
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-curai-control"></div>
+            <span className="ml-2 text-curai-muted ">Загрузка данных HMS...</span>
           </div>
         ) : (
           <div className="space-y-6">
             {/* Treatment Plans Section */}
             <div>
-              <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">📋 Планы лечения</h3>
+              <h3 className="text-lg font-semibold text-curai-ink mb-4">📋 Планы лечения</h3>
               {hmsData.treatmentPlans.length > 0 ? (
                 <div className="overflow-x-auto">
                   <table className={tableClasses}>
@@ -721,13 +721,13 @@ const ClientsView = ({ user }) => {
                         <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider">Дата создания</th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
+                    <tbody className="divide-y divide-curai-border ">
                       {hmsData.treatmentPlans.map((plan, index) => (
                         <tr key={plan.id || index} className={tableRowClasses}>
-                          <td className="px-4 py-3 text-sm text-gray-900 dark:text-white">
+                          <td className="px-4 py-3 text-sm text-curai-ink ">
                             <div className="font-medium">{plan.plan_name || `План ${index + 1}`}</div>
                             {plan.description && (
-                              <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                              <div className="text-xs text-curai-muted mt-1">
                                 {plan.description}
                               </div>
                             )}
@@ -735,12 +735,12 @@ const ClientsView = ({ user }) => {
                           <td className="px-4 py-3 text-sm">
                             <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
                               plan.status === 'approved' 
-                                ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300'
+                                ? "bg-curai-positiveBg text-curai-positive "
                                 : plan.status === 'active'
-                                ? 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300'
+                                ? "bg-curai-selected text-curai-blue "
                                 : plan.status === 'completed'
-                                ? 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-300'
-                                : 'bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-300'
+                                ? "bg-curai-selected text-curai-blue "
+                                : "bg-curai-subtle text-curai-ink "
                             }`}>
                               {plan.status === 'approved' ? 'Утвержден' : 
                                plan.status === 'active' ? 'Активен' :
@@ -751,25 +751,25 @@ const ClientsView = ({ user }) => {
                           <td className="px-4 py-3 text-sm">
                             <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
                               plan.payment_status === 'paid' 
-                                ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300'
+                                ? "bg-curai-positiveBg text-curai-positive "
                                 : plan.payment_status === 'pending'
-                                ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300'
+                                ? "bg-curai-warningBg text-curai-warning "
                                 : plan.payment_status === 'partially_paid'
-                                ? 'bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-300'
-                                : 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300'
+                                ? "bg-curai-warningBg text-curai-warning "
+                                : "bg-curai-negativeBg text-curai-negative "
                             }`}>
                               {plan.payment_status === 'paid' ? 'Оплачен' : 
                                plan.payment_status === 'pending' ? 'Ожидает оплаты' : 
                                plan.payment_status === 'partially_paid' ? 'Частично оплачен' : 'Не оплачен'}
                             </span>
                           </td>
-                          <td className="px-4 py-3 text-sm text-gray-900 dark:text-white">
+                          <td className="px-4 py-3 text-sm text-curai-ink ">
                             {plan.total_cost ? `${plan.total_cost.toLocaleString()} ₸` : 'Не указана'}
                           </td>
-                          <td className="px-4 py-3 text-sm text-gray-900 dark:text-white">
+                          <td className="px-4 py-3 text-sm text-curai-ink ">
                             {plan.paid_amount ? `${plan.paid_amount.toLocaleString()} ₸` : '0 ₸'}
                           </td>
-                          <td className="px-4 py-3 text-sm text-gray-500 dark:text-gray-400">
+                          <td className="px-4 py-3 text-sm text-curai-muted ">
                             {plan.created_at ? new Date(plan.created_at).toLocaleDateString('ru-RU') : 'Не указана'}
                           </td>
                         </tr>
@@ -778,7 +778,7 @@ const ClientsView = ({ user }) => {
                   </table>
                 </div>
               ) : (
-                <div className="text-gray-500 dark:text-gray-400 text-center py-4">
+                <div className="text-curai-muted text-center py-4">
                   Планы лечения не найдены
                 </div>
               )}
@@ -786,7 +786,7 @@ const ClientsView = ({ user }) => {
 
             {/* Appointments Section */}
             <div>
-              <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">📅 Приемы</h3>
+              <h3 className="text-lg font-semibold text-curai-ink mb-4">📅 Приемы</h3>
               {hmsData.appointments.length > 0 ? (
                 <div className="overflow-x-auto">
                   <table className={tableClasses}>
@@ -798,34 +798,34 @@ const ClientsView = ({ user }) => {
                         <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider">Заметки</th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
+                    <tbody className="divide-y divide-curai-border ">
                       {hmsData.appointments.map((appointment, index) => (
                         <tr key={appointment.id || index} className={tableRowClasses}>
-                          <td className="px-4 py-3 text-sm text-gray-900 dark:text-white">
+                          <td className="px-4 py-3 text-sm text-curai-ink ">
                             {appointment.appointment_date ? 
                               new Date(appointment.appointment_date).toLocaleString('ru-RU') : 
                               'Не указана'
                             }
                           </td>
-                          <td className="px-4 py-3 text-sm text-gray-900 dark:text-white">
+                          <td className="px-4 py-3 text-sm text-curai-ink ">
                             {appointment.doctor_name || 'Не указан'}
                           </td>
                           <td className="px-4 py-3 text-sm">
                             <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
                               appointment.status === 'completed' 
-                                ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300'
+                                ? "bg-curai-positiveBg text-curai-positive "
                                 : appointment.status === 'confirmed'
-                                ? 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300'
+                                ? "bg-curai-selected text-curai-blue "
                                 : appointment.status === 'cancelled'
-                                ? 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300'
-                                : 'bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-300'
+                                ? "bg-curai-negativeBg text-curai-negative "
+                                : "bg-curai-subtle text-curai-ink "
                             }`}>
                               {appointment.status === 'completed' ? 'Завершен' : 
                                appointment.status === 'confirmed' ? 'Подтвержден' :
                                appointment.status === 'cancelled' ? 'Отменен' : 'Запланирован'}
                             </span>
                           </td>
-                          <td className="px-4 py-3 text-sm text-gray-500 dark:text-gray-400">
+                          <td className="px-4 py-3 text-sm text-curai-muted ">
                             {appointment.notes || 'Нет заметок'}
                           </td>
                         </tr>
@@ -834,7 +834,7 @@ const ClientsView = ({ user }) => {
                   </table>
                 </div>
               ) : (
-                <div className="text-gray-500 dark:text-gray-400 text-center py-4">
+                <div className="text-curai-muted text-center py-4">
                   Приемы не найдены
                 </div>
               )}

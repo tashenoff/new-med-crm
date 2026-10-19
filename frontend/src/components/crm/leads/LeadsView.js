@@ -47,12 +47,12 @@ const LeadsView = ({ user }) => {
 
   // Статусы заявок
   const leadStatuses = {
-    new: { label: 'Новая', color: 'bg-blue-100 text-blue-800', icon: '🆕' },
-    contacted: { label: 'Связались', color: 'bg-yellow-100 text-yellow-800', icon: '📞' },
-    in_progress: { label: 'В работе', color: 'bg-orange-100 text-orange-800', icon: '⏳' },
-    converted: { label: 'Конвертирована', color: 'bg-green-100 text-green-800', icon: '✅' },
-    rejected: { label: 'Отказ', color: 'bg-red-100 text-red-800', icon: '❌' },
-    closed: { label: 'Закрыта', color: 'bg-gray-100 text-gray-800', icon: '🔒' }
+    new: { label: 'Новая', color: "bg-curai-selected text-curai-blue", icon: '🆕' },
+    contacted: { label: 'Связались', color: "bg-curai-warningBg text-curai-warning", icon: '📞' },
+    in_progress: { label: 'В работе', color: "bg-curai-warningBg text-curai-warning", icon: '⏳' },
+    converted: { label: 'Конвертирована', color: "bg-curai-positiveBg text-curai-positive", icon: '✅' },
+    rejected: { label: 'Отказ', color: "bg-curai-negativeBg text-curai-negative", icon: '❌' },
+    closed: { label: 'Закрыта', color: "bg-curai-subtle text-curai-ink", icon: '🔒' }
   };
 
   // Источники заявок
@@ -252,7 +252,7 @@ const LeadsView = ({ user }) => {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-curai-control"></div>
       </div>
     );
   }
@@ -262,26 +262,26 @@ const LeadsView = ({ user }) => {
       {/* Header */}
       <div className="flex justify-between items-center">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">🎯 Заявки</h1>
-          <p className="text-gray-600 mt-1">Управление входящими заявками</p>
+          <h1 className="text-2xl font-semibold text-curai-ink">🎯 Заявки</h1>
+          <p className="text-curai-muted mt-1">Управление входящими заявками</p>
         </div>
         <button
           onClick={() => setShowCreateModal(true)}
-          className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
+          className="bg-curai-blue text-white px-4 py-2 rounded-md hover:bg-curai-blue transition-colors"
         >
           + Новая заявка
         </button>
       </div>
 
       {/* Filters */}
-      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
+      <div className="bg-curai-surface rounded-md shadow-none border border-curai-border p-4">
         <div className="flex flex-wrap gap-4 items-center">
           <div>
             <label className={labelClasses}>Статус</label>
             <select
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value)}
-              className="border border-gray-300 rounded-md px-3 py-2 text-sm"
+              className="border border-curai-control rounded-md px-3 py-2 text-sm"
             >
               <option value="all">Все статусы</option>
               {Object.entries(leadStatuses).map(([key, status]) => (
@@ -304,53 +304,53 @@ const LeadsView = ({ user }) => {
       </div>
 
       {/* Leads List */}
-      <div className="bg-white rounded-lg shadow-sm border border-gray-200">
+      <div className="bg-curai-surface rounded-md shadow-none border border-curai-border">
         {filteredLeads.length === 0 ? (
-          <div className="text-center py-8 text-gray-500">
+          <div className="text-center py-8 text-curai-muted">
             <p>Заявки не найдены</p>
           </div>
         ) : (
           <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
+            <table className="min-w-full divide-y divide-curai-border">
+              <thead className="bg-curai-subtle">
                 <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-6 py-3 text-left text-xs font-medium text-curai-muted uppercase tracking-wider">
                     Заявка
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-6 py-3 text-left text-xs font-medium text-curai-muted uppercase tracking-wider">
                     Контакты
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-6 py-3 text-left text-xs font-medium text-curai-muted uppercase tracking-wider">
                     Статус
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-6 py-3 text-left text-xs font-medium text-curai-muted uppercase tracking-wider">
                     Менеджер
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-6 py-3 text-left text-xs font-medium text-curai-muted uppercase tracking-wider">
                     Дата создания
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-6 py-3 text-left text-xs font-medium text-curai-muted uppercase tracking-wider">
                     Действия
                   </th>
                 </tr>
               </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
+              <tbody className="bg-curai-surface divide-y divide-curai-border">
                 {filteredLeads.map((lead) => (
-                  <tr key={lead.id} className="hover:bg-gray-50">
+                  <tr key={lead.id} className="hover:bg-curai-subtle">
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div>
-                        <div className="font-medium text-gray-900">
+                        <div className="font-medium text-curai-ink">
                           {lead.full_name || `${lead.first_name} ${lead.last_name}`}
                         </div>
-                        <div className="text-sm text-gray-500">{lead.description}</div>
-                        <div className="text-xs text-gray-400 mt-1">
+                        <div className="text-sm text-curai-muted">{lead.description}</div>
+                        <div className="text-xs text-curai-muted mt-1">
                           Источник: {leadSources[lead.source]}
                         </div>
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm text-gray-900">{lead.phone}</div>
-                      <div className="text-sm text-gray-500">{lead.email}</div>
+                      <div className="text-sm text-curai-ink">{lead.phone}</div>
+                      <div className="text-sm text-curai-muted">{lead.email}</div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <select
@@ -364,24 +364,24 @@ const LeadsView = ({ user }) => {
                       </select>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm text-gray-900">
+                      <div className="text-sm text-curai-ink">
                         {lead.manager_name || 'Не назначен'}
                       </div>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-curai-ink">
                       {new Date(lead.created_at).toLocaleDateString('ru-RU')}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium space-x-2">
                       <button
                         onClick={() => handleConvertToClient(lead)}
-                        className="text-green-600 hover:text-green-900"
+                        className="text-curai-positive hover:text-curai-positive"
                         title="Конвертировать в клиента"
                       >
                         👥
                       </button>
                       <button
                         onClick={() => handleCreateAppointment(lead)}
-                        className="text-blue-600 hover:text-blue-900"
+                        className="text-curai-blue hover:text-curai-blue"
                         title="Создать запись на прием"
                       >
                         📅
@@ -428,7 +428,7 @@ const LeadsView = ({ user }) => {
                   />
                   {isCheckingPhone && (
                     <div className="absolute right-3 top-1/2 -translate-y-1/2">
-                      <div className="w-4 h-4 animate-spin rounded-full border-2 border-blue-500 border-t-transparent"></div>
+                      <div className="w-4 h-4 animate-spin rounded-full border-2 border-curai-control border-t-transparent"></div>
                     </div>
                   )}
                 </div>
@@ -436,14 +436,14 @@ const LeadsView = ({ user }) => {
 
               {/* Блок с информацией о найденном пациенте */}
               {foundPatient && (
-                <div className="p-4 bg-green-50 border border-green-200 rounded-lg">
+                <div className="p-4 bg-curai-positiveBg border border-curai-positive rounded-md">
                   <div className="flex items-start gap-3">
-                    <span className="text-green-600 text-xl">✅</span>
+                    <span className="text-curai-positive text-xl">✅</span>
                     <div className="flex-1">
-                      <p className="text-sm font-medium text-green-800">
+                      <p className="text-sm font-medium text-curai-positive">
                         Пациент найден в базе! Данные подставлены автоматически.
                       </p>
-                      <div className="mt-2 space-y-1 text-sm text-green-700">
+                      <div className="mt-2 space-y-1 text-sm text-curai-positive">
                         <p><span className="font-medium">ФИО:</span> {foundPatient.full_name}</p>
                         <p><span className="font-medium">Телефон:</span> {foundPatient.phone}</p>
                         {foundPatient.email && <p><span className="font-medium">Email:</span> {foundPatient.email}</p>}
@@ -463,14 +463,14 @@ const LeadsView = ({ user }) => {
 
               {/* Предупреждение об активном лиде */}
               {foundActiveLead && !foundPatient && (
-                <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+                <div className="p-4 bg-curai-warningBg border border-curai-warning rounded-md">
                   <div className="flex items-start gap-3">
-                    <span className="text-yellow-600 text-xl">⚠️</span>
+                    <span className="text-curai-warning text-xl">⚠️</span>
                     <div className="flex-1">
-                      <p className="text-sm font-medium text-yellow-800">
+                      <p className="text-sm font-medium text-curai-warning">
                         Активная заявка с таким телефоном уже существует! Данные подставлены.
                       </p>
-                      <div className="mt-2 space-y-1 text-sm text-yellow-700">
+                      <div className="mt-2 space-y-1 text-sm text-curai-warning">
                         <p><span className="font-medium">ФИО:</span> {foundActiveLead.full_name}</p>
                         <p><span className="font-medium">Статус:</span> {
                           foundActiveLead.status === 'new' ? 'Новая' :
@@ -547,14 +547,14 @@ const LeadsView = ({ user }) => {
             <div className="flex justify-end gap-3 mt-6">
               <button
                 onClick={() => setShowCreateModal(false)}
-                className="px-4 py-2 text-gray-600 hover:text-gray-800 transition-colors"
+                className="px-4 py-2 text-curai-muted hover:text-curai-ink transition-colors"
               >
                 Отмена
               </button>
               <button
                 onClick={handleCreateLead}
                 disabled={!newLead.first_name || !newLead.phone}
-                className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors"
+                className="bg-curai-blue text-white px-4 py-2 rounded-md hover:bg-curai-blue disabled:bg-curai-control disabled:cursor-not-allowed transition-colors"
               >
                 Создать
               </button>

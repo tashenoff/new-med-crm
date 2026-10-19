@@ -1,3 +1,4 @@
+import { sendAppointmentStatus } from '../utils/appointmentStatus';
 import { useState, useCallback } from 'react';
 import axios from 'axios';
 import { appointmentPayment, ledgerCommands } from '../utils/accountingLedger';
@@ -142,9 +143,7 @@ export const useAppointments = () => {
   // Обновить статус записи
   const updateAppointmentStatus = useCallback(async (id, status) => {
     try {
-      const response = status === 'completed'
-        ? await ledgerCommands.run(`appointment:status:${id}`, { status }, body => axios.patch(`${API}/appointments/${id}/status`, body))
-        : await axios.patch(`${API}/appointments/${id}/status`, { status });
+      const response = await sendAppointmentStatus(id, status, body => axios.patch(`${API}/appointments/${id}/status`, body));
       
       // Обновляем локальный список
       setAppointments(prev => 

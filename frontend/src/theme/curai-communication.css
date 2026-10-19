@@ -1,0 +1,131 @@
+/* R24 chat and R25 notifications share the existing Curai variables/primitives. */
+.curai-whatsapp {position:fixed;top:24px;bottom:24px;right:24px;z-index:60;display:flex;flex-direction:column;min-height:0;max-width:calc(100vw - 32px);background:var(--curai-color-surface);border:1px solid var(--curai-color-border);border-radius:8px;overflow:hidden;color:var(--curai-color-ink)}
+.curai-whatsapp-title {display:flex;flex-shrink:0;align-items:center;justify-content:space-between;min-height:56px;padding:12px 24px;background:var(--curai-color-surface)}
+.curai-whatsapp-title h3 {font-size:20px;line-height:28px;font-weight:600;order:1}
+.curai-chat-online {width:6px;height:6px;border-radius:50%;background:var(--curai-color-positive);order:2}
+.curai-chat-sidebar {width:288px;flex-shrink:0;display:flex;flex-direction:column;min-height:0;border-right:1px solid var(--curai-color-border)}
+.curai-chat-search {padding:16px;flex-shrink:0;min-height:120px}
+.curai-chat-search input {height:36px;font-size:12px}
+.curai-chat-search>div {display:grid;grid-template-columns:64px 64px minmax(0,1fr);gap:4px;margin-top:12px}
+.curai-chat-search>div button {height:32px;border-radius:4px;padding:0 8px;font-size:12px}
+.curai-chat-search>div button[aria-pressed="true"] {background:var(--curai-color-selected);color:var(--curai-color-blue);border:1px solid transparent}
+.curai-chat-sidebar>div:last-child>button {padding:16px;min-height:104px}
+.curai-chat-contact-type {margin-top:14px;color:var(--curai-color-muted);font-size:11px}
+.curai-chat-thread {flex:1;display:flex;flex-direction:column;min-height:0;min-width:0;container-type:inline-size;container-name:chat-thread}
+.curai-chat-header {display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px 12px;align-items:center;flex-shrink:0;min-height:104px;padding:16px 24px;border-bottom:1px solid var(--curai-color-border);background:var(--curai-color-surface)}
+.curai-chat-person {grid-column:1;grid-row:1;display:flex;gap:8px;align-items:center;min-width:0}
+.curai-chat-person>.curai-icon {width:20px;height:20px;color:var(--curai-color-muted)}
+.curai-chat-person strong,.curai-patient-link {overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:14px;font-weight:600;min-width:0}
+.curai-patient-link {color:var(--curai-color-blue);text-decoration:underline;text-underline-offset:3px;text-align:left}
+.curai-chat-header-actions {grid-column:2;grid-row:1;display:flex;align-items:center;gap:8px;min-width:0}
+.curai-chat-header-actions>.curai-button-primary {width:104px;flex-shrink:0}
+.curai-chat-action.curai-button {width:112px;border:0;color:var(--curai-color-blue);padding:0 8px;height:36px;flex-shrink:0}
+.curai-chat-stage>.curai-chat-action {width:128px}
+.curai-chat-phone {grid-column:1;grid-row:2;padding-left:28px;font-size:11px;color:var(--curai-color-muted)}
+.curai-chat-deal-title {grid-column:2;grid-row:2;font-size:11px;text-align:right;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--curai-color-muted)}
+.curai-chat-stage {position:relative;flex-shrink:0}
+.curai-stage-error {position:absolute;top:40px;right:0;z-index:2;width:260px;background:var(--curai-color-surface);border:1px solid var(--curai-color-negative);padding:8px;color:var(--curai-color-negative);font-size:12px}
+.curai-chat-messages {flex:1;min-height:0;overflow-y:auto;padding:24px;background:var(--curai-color-canvas);display:flex;flex-direction:column;gap:12px}
+.curai-chat-bubble {position:relative;width:432px;max-width:85%;min-width:130px;border-radius:6px;padding:12px 16px 28px;background:var(--curai-color-surface);border:1px solid var(--curai-color-border);overflow-wrap:anywhere;font-size:14px;line-height:20px;color:var(--curai-color-ink)}
+.curai-chat-bubble.is-outgoing {background:var(--curai-color-selected);border-color:transparent}
+.curai-chat-bubble.has-audio {width:432px;max-width:100%;min-width:0;padding-bottom:26px}
+.curai-chat-bubble>button {border:0;padding:4px 0;font-weight:600;color:var(--curai-color-blue)}
+.curai-chat-file {display:block;margin-bottom:8px;font-weight:600;font-size:13px;color:var(--curai-color-ink);text-decoration:none}
+.curai-inline-icon {display:inline-block!important;width:14px!important;height:14px!important;vertical-align:-2px}
+.curai-save-icon {width:14px!important;height:14px!important}
+.curai-message-time {position:absolute;right:16px;bottom:6px;width:104px;display:flex;justify-content:flex-end;gap:4px;font-size:11px;line-height:14px;color:var(--curai-color-muted);white-space:nowrap}
+.curai-chat-compose {display:flex;align-items:center;gap:8px;flex-shrink:0;border-top:1px solid var(--curai-color-border);padding:16px 24px;background:var(--curai-color-surface)}
+.curai-chat-compose textarea {min-width:0;min-height:48px;font-size:13px;line-height:20px;padding:12px 16px}
+.curai-chat-compose>button {height:36px;padding:0 16px;background:var(--curai-color-blue);font-size:13px}
+.curai-chat-compose>button:disabled {background:var(--curai-color-subtle);color:var(--curai-color-disabled)}
+.curai-chat-compose>.relative>button {border:0;background:transparent;color:var(--curai-color-muted)}
+.curai-chat-compose>.relative>button>.curai-icon {width:24px;height:24px}
+.curai-whatsapp-audio {display:grid;grid-template-columns:36px minmax(0,1fr) 40px;gap:12px;align-items:center;min-width:0}
+.curai-whatsapp-audio audio {display:none}
+.curai-audio-toggle.curai-button {width:36px;min-height:36px;border:0;border-radius:5px;background:var(--curai-color-selected);color:var(--curai-color-blue)}
+.curai-audio-toggle>.curai-icon {width:18px;height:18px}
+.curai-audio-toggle[data-playing="false"]>.curai-icon {fill:currentColor;stroke:none}
+.curai-audio-track {display:flex;flex-direction:column;min-width:0;gap:4px}
+.curai-audio-track strong {font-size:13px;font-weight:600}
+.curai-audio-track input {width:100%;height:12px;margin:0;appearance:none;-webkit-appearance:none;background:transparent;cursor:pointer}
+.curai-audio-track input::-webkit-slider-runnable-track {height:4px;background:linear-gradient(to right,var(--curai-color-blue) var(--audio-progress),var(--curai-color-muted) var(--audio-progress))}
+.curai-audio-track input::-webkit-slider-thumb {-webkit-appearance:none;width:8px;height:8px;border:0;border-radius:50%;margin-top:-2px;background:var(--curai-color-blue)}
+.curai-audio-track input::-moz-range-track {height:4px;background:var(--curai-color-muted)}
+.curai-audio-track input::-moz-range-progress {height:4px;background:var(--curai-color-blue)}
+.curai-audio-track input::-moz-range-thumb {width:8px;height:8px;border:0;border-radius:50%;background:var(--curai-color-blue)}
+.curai-audio-track span,.curai-audio-duration {font-size:11px;line-height:14px;color:var(--curai-color-muted)}
+.curai-audio-duration {text-align:right;align-self:center}
+.curai-audio-error {grid-column:1/-1;font-size:11px;color:var(--curai-color-negative)}
+.curai-popover {position:fixed;z-index:100000;max-height:min(360px,calc(100vh - 16px));overflow:auto;background:var(--curai-color-surface);border:1px solid var(--curai-color-border);border-radius:6px;padding:4px;color:var(--curai-color-ink);font-family:var(--curai-type-family)}
+.curai-menu-current {display:flex;align-items:center;gap:8px;padding:8px 10px;font-size:12px;color:var(--curai-color-muted);border-bottom:1px solid var(--curai-color-border);margin-bottom:4px}
+.curai-menu-current>.curai-icon {width:14px;height:14px}
+.curai-status-option {width:100%;display:flex;align-items:center;gap:8px;text-align:left;padding:8px 10px;min-height:36px;border-radius:4px;font-size:13px;line-height:20px;color:var(--curai-color-ink)}
+.curai-status-option:hover,.curai-status-option:focus-visible {background:var(--curai-color-hover)}
+.curai-status-option:disabled {color:var(--curai-color-disabled);cursor:not-allowed;background:transparent}
+.curai-status-option>.curai-icon {width:16px;height:16px;color:var(--curai-color-muted)}
+.curai-status-option>.curai-icon:last-child:not(:first-child) {margin-left:auto}
+.curai-status-control {display:flex;align-items:center;gap:6px;width:168px;min-height:36px;padding:6px 8px;border:1px solid var(--curai-color-border);border-radius:5px;font-size:12px;line-height:20px;white-space:nowrap;text-align:left}
+.curai-status-control>.curai-icon {width:16px;height:16px}
+.curai-status-control>.curai-icon:last-child {margin-left:auto;width:14px}
+.curai-status-warning {background:var(--curai-color-warningBg);color:var(--curai-color-warning)}
+.curai-status-positive {background:var(--curai-color-positiveBg);color:var(--curai-color-positive)}
+.curai-status-blue {background:var(--curai-color-selected);color:var(--curai-color-blue)}
+.curai-status-muted {background:var(--curai-color-subtle);color:var(--curai-color-muted)}
+.curai-status-negative {background:var(--curai-color-negativeBg);color:var(--curai-color-negative)}
+.curai-appointments-dialog {width:min(960px,calc(100vw - 32px))}
+.curai-appointments-dialog .curai-dialog-header {border-bottom:0;padding-bottom:8px}
+.curai-appointments-dialog .curai-dialog-header h3 {font-size:20px;line-height:28px}
+.curai-appointments-dialog .curai-dialog-body {padding-top:20px}
+.curai-appointments-subheader {padding:0 24px;font-size:13px;font-weight:600;color:var(--curai-color-muted)}
+.curai-appointments-subheader>.curai-button {position:absolute;top:24px;right:78px;width:120px}
+.curai-appointments-table {width:100%;border-collapse:collapse;font-size:13px;text-align:left;table-layout:fixed}
+.curai-appointments-table th {position:sticky;top:0;background:var(--curai-color-subtle);font-weight:400;font-size:12px;color:var(--curai-color-muted);padding:12px 8px}
+.curai-appointments-table th:nth-child(1) {width:20%}.curai-appointments-table th:nth-child(2){width:29%}.curai-appointments-table th:nth-child(3){width:21%}.curai-appointments-table th:nth-child(4){width:23%}
+.curai-appointments-table td {border-bottom:1px solid var(--curai-color-border);padding:12px 8px;vertical-align:middle;min-height:72px}
+.curai-appointments-table td strong,.curai-appointments-table td>span {display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.curai-appointments-table td>span {margin-top:6px;font-size:12px;color:var(--curai-color-muted)}
+.curai-appointments-table .curai-button {width:160px;padding:0 8px}
+.curai-appointments-table .curai-button:disabled {background:var(--curai-color-subtle);border-color:var(--curai-color-border);color:var(--curai-color-disabled);cursor:not-allowed}
+.curai-appointments-empty {text-align:center;padding:64px 24px;color:var(--curai-color-muted)}
+.curai-appointments-empty strong {display:block;color:var(--curai-color-ink);margin-bottom:8px}
+.curai-communication-error {padding:12px;border:1px solid var(--curai-color-negative);color:var(--curai-color-negative);border-radius:6px;font-size:13px}
+.curai-notification-backdrop {position:fixed;inset:0;background:rgb(19 36 58 / .12);z-index:79}
+.curai-notification-drawer {position:fixed;right:0;top:0;bottom:0;width:min(384px,100vw);z-index:80;display:flex;flex-direction:column;min-height:0;background:var(--curai-color-surface);color:var(--curai-color-ink);border-left:1px solid var(--curai-color-border);outline:none}
+.curai-notification-header {display:flex;justify-content:space-between;align-items:flex-start;gap:12px;padding:20px 24px 12px;flex-shrink:0}
+.curai-notification-header h2 {font-size:20px;line-height:28px;font-weight:600;margin:0}
+.curai-notification-header p {font-size:12px;color:var(--curai-color-muted);margin-top:2px}
+.curai-notification-header>.curai-button {min-height:24px;width:24px;margin-top:0}
+.curai-notification-header>.curai-button>.curai-icon {width:20px;height:20px}
+.curai-notification-actions {display:grid;grid-template-columns:1fr 1fr;padding:4px 16px;border-block:1px solid var(--curai-color-border);flex-shrink:0;min-height:48px}
+.curai-notification-actions>.curai-button {border:0;color:var(--curai-color-blue);font-size:13px}
+.curai-notification-scroll {min-height:0;flex:1;overflow-y:auto;overscroll-behavior:contain;scrollbar-gutter:stable}
+.curai-notification-empty {display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;min-height:200px;padding:24px;text-align:center;gap:12px}
+.curai-notification-empty>.curai-icon {width:22px;height:22px;color:var(--curai-color-muted);margin-bottom:8px}
+.curai-notification-empty>strong {font-size:16px;font-weight:600}
+.curai-notification-empty>p {font-size:13px;color:var(--curai-color-muted);line-height:20px}
+.curai-notification-list {list-style:none;padding:0;margin:0}
+.curai-notification-row {position:relative;display:grid;grid-template-columns:20px minmax(0,1fr) 24px;column-gap:12px;padding:16px 20px 16px 24px;min-height:128px;border-left:3px solid transparent;background:var(--curai-color-surface)}
+.curai-notification-row:after {content:'';position:absolute;left:16px;right:0;bottom:0;height:1px;background:var(--curai-color-border)}
+.curai-notification-row.is-unread {border-left-color:var(--curai-color-blue);background:var(--curai-color-canvas)}
+.curai-notification-row>.curai-icon {width:18px;height:18px;margin-top:3px;color:var(--curai-color-muted)}
+.curai-notification-summary {min-width:0;display:flex;flex-direction:column;gap:8px;text-align:left;font-size:13px;line-height:20px}
+.curai-notification-summary strong {font-weight:600}.curai-notification-summary>span {overflow-wrap:anywhere}
+.curai-notification-summary[aria-disabled="true"] {cursor:default}
+.curai-notification-meta {display:flex;justify-content:space-between;align-items:center;gap:8px;width:100%;margin-top:auto;padding-top:12px;font-size:11px;line-height:14px;color:var(--curai-color-muted);white-space:nowrap}
+.curai-notification-meta>span {text-align:right;flex-shrink:0}
+.curai-notification-delete.curai-button {width:24px;min-height:24px;align-self:end;color:var(--curai-color-muted);margin-bottom:0}
+.curai-notification-delete>.curai-icon {width:18px;height:18px}
+.curai-surface-root button:focus-visible,.curai-surface-root input:focus-visible,.curai-surface-root textarea:focus-visible {outline:2px solid var(--curai-color-focus);outline-offset:2px}
+.curai-chat-back {display:none!important}
+@container chat-thread (max-width:560px) {
+ .curai-chat-header {grid-template-columns:minmax(0,1fr) minmax(0,1fr)}
+ .curai-chat-person {grid-column:1/-1;grid-row:1}.curai-chat-phone{grid-column:1;grid-row:2}.curai-chat-deal-title{grid-column:2;grid-row:2}
+ .curai-chat-header-actions {grid-column:1/-1;grid-row:3;justify-content:flex-end;gap:4px}
+ .curai-chat-header-actions .curai-chat-action {width:100px}.curai-chat-stage>.curai-chat-action{width:116px}
+}
+@media(max-width:640px) {
+ .curai-whatsapp{inset:0;width:100vw!important;max-width:100vw;border:0;border-radius:0}
+ .curai-whatsapp.has-selection .curai-chat-sidebar{display:none}.curai-whatsapp:not(.has-selection) .curai-chat-sidebar{width:100%;border:0}.curai-whatsapp:not(.has-selection) .curai-chat-thread{display:none}
+ .curai-chat-back{display:inline-flex!important}.curai-whatsapp-title{padding-inline:16px}.curai-chat-header,.curai-chat-compose{padding-inline:16px}.curai-chat-messages{padding:16px}
+ .curai-appointments-dialog .curai-dialog-body{overflow:auto}.curai-appointments-table{min-width:800px}.curai-appointments-subheader{padding-inline:16px}.curai-appointments-subheader>.curai-button{width:96px;right:56px;top:18px}
+}

@@ -117,7 +117,7 @@ const PatientsView = ({
 
   return (
     <div className="space-y-6">
-      <div className={`calendar-container calendar-view-panel rounded-2xl`}>
+      <div className={`calendar-container calendar-view-panel rounded-md`}>
         <PanelHeader
           title="Пациенты"
           subtitle="Управление списком пациентов клиники"
@@ -125,7 +125,7 @@ const PatientsView = ({
           actionLabel="+ Добавить пациента"
         />
 
-        <div className="bg-white dark:bg-gray-800 rounded-b-2xl border border-t-0 border-gray-200 dark:border-gray-700 p-4 space-y-4 shadow-sm">
+        <div className="bg-curai-surface rounded-b-md border border-t-0 border-curai-border p-4 space-y-4 shadow-none">
           {/* Фильтры */}
           <div className="mb-6 space-y-4">
             {/* Поиск */}
@@ -135,7 +135,7 @@ const PatientsView = ({
                 placeholder="Поиск по имени или телефону..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-blue-500"
+                className="w-full px-4 py-2 border border-curai-control rounded-md focus:ring-2 focus:ring-curai-focus"
               />
             </div>
 
@@ -143,13 +143,13 @@ const PatientsView = ({
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
               {/* Фильтр по типу пациента */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                <label className="block text-sm font-medium text-curai-ink mb-1">
                   Тип пациента
                 </label>
                 <select
                   value={filterType}
                   onChange={(e) => setFilterType(e.target.value)}
-                  className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-4 py-2 border border-curai-control rounded-md focus:ring-2 focus:ring-curai-focus"
                 >
                   <option value="all">Все пациенты</option>
                   <option value="returning">Повторные</option>
@@ -159,13 +159,13 @@ const PatientsView = ({
 
               {/* Фильтр по планам лечения */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                <label className="block text-sm font-medium text-curai-ink mb-1">
                   Планы лечения
                 </label>
                 <select
                   value={planStatusFilter}
                   onChange={(e) => setPlanStatusFilter && setPlanStatusFilter(e.target.value)}
-                  className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-4 py-2 border border-curai-control rounded-md focus:ring-2 focus:ring-curai-focus"
                 >
                   <option value="all">Все планы</option>
                   <option value="open">Незакрытые</option>
@@ -176,27 +176,27 @@ const PatientsView = ({
 
               {/* Дата от */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                <label className="block text-sm font-medium text-curai-ink mb-1">
                   Период с
                 </label>
                 <input
                   type="date"
                   value={dateFrom}
                   onChange={(e) => setDateFrom(e.target.value)}
-                  className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-4 py-2 border border-curai-control rounded-md focus:ring-2 focus:ring-curai-focus"
                 />
               </div>
 
               {/* Дата до */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                <label className="block text-sm font-medium text-curai-ink mb-1">
                   Период по
                 </label>
                 <input
                   type="date"
                   value={dateTo}
                   onChange={(e) => setDateTo(e.target.value)}
-                  className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-4 py-2 border border-curai-control rounded-md focus:ring-2 focus:ring-curai-focus"
                 />
               </div>
             </div>
@@ -212,7 +212,7 @@ const PatientsView = ({
                     setDateFrom('');
                     setDateTo('');
                   }}
-                  className="px-4 py-2 text-sm text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700"
+                  className="px-4 py-2 text-sm text-curai-muted hover:text-curai-ink border border-curai-control rounded-md hover:bg-curai-subtle "
                 >
                   Очистить фильтры
                 </button>
@@ -221,70 +221,70 @@ const PatientsView = ({
           </div>
 
           {/* Список пациентов */}
-          <div className="bg-white rounded-lg shadow overflow-hidden">
+          <div className="bg-curai-surface rounded-md shadow-none overflow-hidden">
             {filteredPatients.length === 0 ? (
-              <div className="text-center py-8 text-gray-500">
+              <div className="text-center py-8 text-curai-muted">
                 <p>Пациенты не найдены</p>
               </div>
             ) : (
               <div className="overflow-x-auto">
-                <table className="min-w-full divide-y divide-gray-200">
-                  <thead className="bg-gray-50">
+                <table className="min-w-full divide-y divide-curai-border">
+                  <thead className="bg-curai-subtle">
                     <tr>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      <th className="px-6 py-3 text-left text-xs font-medium text-curai-muted uppercase tracking-wider">
                         Пациент
                       </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      <th className="px-6 py-3 text-left text-xs font-medium text-curai-muted uppercase tracking-wider">
                         Контакты
                       </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      <th className="px-6 py-3 text-left text-xs font-medium text-curai-muted uppercase tracking-wider">
                         Личные данные
                       </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      <th className="px-6 py-3 text-left text-xs font-medium text-curai-muted uppercase tracking-wider">
                         Источник
                       </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      <th className="px-6 py-3 text-left text-xs font-medium text-curai-muted uppercase tracking-wider">
                         Финансы
                       </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      <th className="px-6 py-3 text-left text-xs font-medium text-curai-muted uppercase tracking-wider">
                         Статус / Дата
                       </th>
                     </tr>
                   </thead>
-                  <tbody className="bg-white divide-y divide-gray-200">
+                  <tbody className="bg-curai-surface divide-y divide-curai-border">
                     {filteredPatients.map((patient, index) => (
                       <tr 
                         key={patient.id} 
-                        className="hover:bg-gray-50 cursor-pointer transition-colors"
+                        className="hover:bg-curai-subtle cursor-pointer transition-colors"
                         onClick={() => canManage && onEditPatient(patient)}
                         title={canManage ? "Нажмите для редактирования" : ""}
                         data-guide={index === 0 ? "patient-row" : undefined}
                       >
                         <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="font-medium text-gray-900">
+                          <div className="font-medium text-curai-ink">
                             {patient.full_name || `${patient.first_name || ''} ${patient.last_name || ''}`.trim() || patient.name || 'Без имени'}
                           </div>
                           {patient.notes && (
-                            <div className="text-sm text-gray-500">{patient.notes}</div>
+                            <div className="text-sm text-curai-muted">{patient.notes}</div>
                           )}
                           {patient.referrer && (
-                            <div className="text-sm text-blue-600">Направил: {patient.referrer}</div>
+                            <div className="text-sm text-curai-blue">Направил: {patient.referrer}</div>
                           )}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="text-sm text-gray-900">{patient.phone}</div>
+                          <div className="text-sm text-curai-ink">{patient.phone}</div>
                           {patient.iin && (
-                            <div className="text-sm text-gray-500">ИИН: {patient.iin}</div>
+                            <div className="text-sm text-curai-muted">ИИН: {patient.iin}</div>
                           )}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
                           {patient.birth_date && (
-                            <div className="text-sm text-gray-900">
+                            <div className="text-sm text-curai-ink">
                               {new Date(patient.birth_date).toLocaleDateString('ru-RU')}
                             </div>
                           )}
                           {patient.gender && (
-                            <div className="text-sm text-gray-500">
+                            <div className="text-sm text-curai-muted">
                               {patient.gender === 'male' ? 'Мужской' :
                                patient.gender === 'female' ? 'Женский' : 'Другой'}
                             </div>
@@ -292,15 +292,15 @@ const PatientsView = ({
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
                           <span className={`px-2 py-1 text-xs rounded font-medium ${
-                            patient.source === 'phone' ? 'bg-blue-100 text-blue-800' :
-                            patient.source === 'walk_in' ? 'bg-green-100 text-green-800' :
-                            patient.source === 'referral' ? 'bg-purple-100 text-purple-800' :
-                            patient.source === 'website' ? 'bg-indigo-100 text-indigo-800' :
-                            patient.source === 'social_media' || patient.source === 'social' ? 'bg-pink-100 text-pink-800' :
-                            patient.source === 'advertising' ? 'bg-orange-100 text-orange-800' :
-                            patient.source === 'email' ? 'bg-cyan-100 text-cyan-800' :
-                            patient.source === 'crm_conversion' ? 'bg-emerald-100 text-emerald-800' :
-                            'bg-gray-100 text-gray-800'
+                            patient.source === 'phone' ? "bg-curai-selected text-curai-blue" :
+                            patient.source === 'walk_in' ? "bg-curai-positiveBg text-curai-positive" :
+                            patient.source === 'referral' ? "bg-curai-selected text-curai-blue" :
+                            patient.source === 'website' ? "bg-curai-selected text-curai-blue" :
+                            patient.source === 'social_media' || patient.source === 'social' ? "bg-curai-negativeBg text-curai-negative" :
+                            patient.source === 'advertising' ? "bg-curai-warningBg text-curai-warning" :
+                            patient.source === 'email' ? "bg-curai-selected text-curai-blue" :
+                            patient.source === 'crm_conversion' ? "bg-curai-positiveBg text-curai-positive" :
+                            "bg-curai-subtle text-curai-ink"
                           }`}>
                             {getSourceName(patient)}
                           </span>
@@ -311,33 +311,33 @@ const PatientsView = ({
                             return stats.totalCost > 0 ? (
                               <div className="space-y-2 min-w-[200px]">
                                 {/* Прогресс-бар */}
-                                <div className="w-full bg-gray-200 rounded-full h-2.5">
+                                <div className="w-full bg-curai-border rounded-full h-2.5">
                                   <div 
-                                    className="bg-gradient-to-r from-green-500 to-green-600 h-2.5 rounded-full transition-all duration-300"
+                                    className="bg-curai-positive h-2.5 rounded-full transition-all duration-300"
                                     style={{ width: `${stats.percentage}%` }}
                                   ></div>
                                 </div>
                                 
                                 {/* Статистика */}
                                 <div className="flex justify-between text-xs">
-                                  <div className="font-medium text-green-600">
+                                  <div className="font-medium text-curai-positive">
                                     ✓ {stats.totalPaid.toFixed(0)} ₸
                                   </div>
-                                  <div className="text-gray-500">
+                                  <div className="text-curai-muted">
                                     {stats.paidServices}/{stats.totalServices} услуг
                                   </div>
-                                  <div className="font-medium text-orange-600">
+                                  <div className="font-medium text-curai-warning">
                                     ⏳ {stats.remaining.toFixed(0)} ₸
                                   </div>
                                 </div>
                                 
                                 {/* Процент */}
-                                <div className="text-center text-xs font-semibold text-gray-700">
+                                <div className="text-center text-xs font-semibold text-curai-ink">
                                   {stats.percentage.toFixed(0)}% оплачено
                                 </div>
                               </div>
                             ) : (
-                              <div className="text-sm text-gray-400 italic">
+                              <div className="text-sm text-curai-muted italic">
                                 Нет планов лечения
                               </div>
                             );
@@ -347,13 +347,13 @@ const PatientsView = ({
                           <div className="flex flex-col space-y-1">
                             <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
                               patient.appointments_count > 0 
-                                ? 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200' 
-                                : 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'
+                                ? "bg-curai-selected text-curai-blue "
+                                : "bg-curai-positiveBg text-curai-positive "
                             }`}>
                               {patient.appointments_count > 0 ? '🔄 Повторный' : '✨ Новый'}
                               {patient.appointments_count > 0 && ` (${patient.appointments_count})`}
                             </span>
-                            <span className="text-xs text-gray-500 dark:text-gray-400">
+                            <span className="text-xs text-curai-muted ">
                               {new Date(patient.created_at).toLocaleDateString('ru-RU')}
                             </span>
                           </div>

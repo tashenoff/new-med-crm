@@ -1,9 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useDoctors } from '../hooks/useDoctors';
 import { useGlobalRefresh } from '../hooks/useGlobalRefresh';
 import { useModal } from '../context/ModalContext';
 import DoctorsView from '../components/doctors/DoctorsView';
 import DoctorCashbackWidget from '../components/loyalty/DoctorCashbackWidget';
+import { formatDoctorError } from '../utils/doctorErrors';
 import { initializeDoctorForm, buildDoctorPayload } from '../utils/doctorCompensation';
 
 const DoctorsPage = ({ user }) => {
@@ -18,6 +19,7 @@ const DoctorsPage = ({ user }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState(null);
+  const savePending = useRef(false);
 
   // Форма врача теперь управляется через ModalContext
 
@@ -42,30 +44,36 @@ const DoctorsPage = ({ user }) => {
 
   // Обработчики врачей
   const handleAddDoctor = () => {
+    setErrorMessage(null);
     openModal('doctor', {
       doctorForm: initializeDoctorForm(),
       setDoctorForm: (form) => updateModalProps('doctor', { doctorForm: form }),
       editingItem: null,
-      loading,
-      errorMessage,
+      loading: false,
+      errorMessage: null,
       onSave: handleSaveDoctor
     });
   };
 
   const handleEditDoctor = (doctor) => {
+    setErrorMessage(null);
     openModal('doctor', {
       doctorForm: initializeDoctorForm(doctor),
       setDoctorForm: (form) => updateModalProps('doctor', { doctorForm: form }),
       editingItem: doctor,
-      loading,
-      errorMessage,
+      loading: false,
+      errorMessage: null,
       onSave: handleSaveDoctor
     });
   };
 
   const handleSaveDoctor = async (e, doctorFormWithEditingItem) => {
     e.preventDefault();
+    if (savePending.current) return;
+    savePending.current = true;
     setLoading(true);
+    setErrorMessage(null);
+    updateModalProps('doctor', { loading: true, errorMessage: null });
 
     const { editingItem, ...doctorForm } = doctorFormWithEditingItem;
 
@@ -85,7 +93,7 @@ const DoctorsPage = ({ user }) => {
       }
       
       if (!result.success) {
-        throw new Error(result.error);
+        throw new Error(formatDoctorError(result.error));
       }
 
       // Триггерим глобальное обновление списка врачей для других компонентов (например, расписание)
@@ -94,10 +102,14 @@ const DoctorsPage = ({ user }) => {
       closeModal('doctor');
     } catch (error) {
       console.error('Ошибка при сохранении врача:', error);
-      const apiError = error.response?.data?.detail || error.message;
-      setErrorMessage(apiError || 'Произошла неизвестная ошибка');
+      const apiError = formatDoctorError(error);
+      setErrorMessage(apiError);
+      updateModalProps('doctor', { errorMessage: apiError });
+    } finally {
+      savePending.current = false;
+      setLoading(false);
+      updateModalProps('doctor', { loading: false });
     }
-    setLoading(false);
   };
 
   const handleDeleteDoctor = async (id) => {
@@ -124,11 +136,11 @@ const DoctorsPage = ({ user }) => {
     <div className="space-y-6">
       {/* Error Message */}
       {errorMessage && (
-        <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
+        <div className="bg-curai-negativeBg border border-curai-negative text-curai-negative px-4 py-3 rounded mb-4">
           {errorMessage}
           <button 
             onClick={() => setErrorMessage(null)}
-            className="float-right font-bold text-red-700 hover:text-red-900"
+            className="float-right font-semibold text-curai-negative hover:text-curai-negative"
           >
             ×
           </button>

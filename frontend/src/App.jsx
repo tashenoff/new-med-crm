@@ -8,6 +8,8 @@ import ErrorMessage from './components/layout/ErrorMessage';
 import InsightsBar from './components/insights/InsightsBar';
 import WhatsAppFloatingButton from './components/layout/WhatsAppFloatingButton';
 import WhatsAppInbox from './components/crm/telephony/WhatsAppInbox';
+
+
 import AIChatSidebar from './components/layout/AIChatSidebar';
 
 // Модальные компоненты перенесены в ModalManager
@@ -140,6 +142,7 @@ function ClinicApp() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [activeSection, setActiveSection] = useState('hms');
   const [aiChatSidebarOpen, setAiChatSidebarOpen] = useState(false);
+
   const [whatsAppInboxOpen, setWhatsAppInboxOpen] = useState(false);
   const [currentChatBadge, setCurrentChatBadge] = useState(null);
   const [showMaterialForm, setShowMaterialForm] = useState(false);
@@ -295,10 +298,9 @@ function ClinicApp() {
 
   return (
     <div
-      className="relative min-h-screen"
-      style={{ backgroundColor: 'rgb(2, 77, 189)' }}
+      className="curai-workspace relative min-h-screen"
     >
-      <div className="relative min-h-screen bg-white/10 backdrop-blur-2xl border border-white/20 shadow-inner">
+      <div className="curai-workspace-frame relative min-h-screen">
         {/* Sidebar Navigation */}
         <Navigation
           activeTab={activeTab}
@@ -314,7 +316,7 @@ function ClinicApp() {
         />
 
         {/* Main Content Area */}
-        <div className={`transition-all duration-300 ${sidebarOpen ? 'lg:ml-64' : 'lg:ml-0'} flex flex-col min-h-screen`}>
+        <div className={`curai-workspace-content ${sidebarOpen ? 'is-menu-expanded' : ''} flex flex-col min-h-screen`}>
           <Header 
             user={user} 
             onLogout={logout} 
@@ -332,7 +334,7 @@ function ClinicApp() {
             setErrorMessage={setErrorMessage} 
           />
 
-          <main className="flex-1 px-0 sm:px-6 lg:px-8 pt-[72px] lg:pt-8 pb-[5px] lg:pb-8">
+          <main className="curai-workspace-main flex-1 min-w-0">
             <Routes>
           <Route path="/" element={<CalendarPage user={user} />} />
           <Route path="/calendar" element={<CalendarPage user={user} />} />
@@ -404,6 +406,10 @@ function ClinicApp() {
           {/* Плавающая кнопка WhatsApp-инбокса (ИИ-консультант убран) */}
           <WhatsAppFloatingButton isOpen={whatsAppInboxOpen} onToggle={() => setWhatsAppInboxOpen(v => !v)} />
           <WhatsAppInbox isOpen={whatsAppInboxOpen} onClose={() => setWhatsAppInboxOpen(false)} />
+
+
+
+
 
           {/* AI Chat Sidebar */}
           <AIChatSidebar

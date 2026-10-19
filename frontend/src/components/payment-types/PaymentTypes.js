@@ -148,7 +148,7 @@ const PaymentTypes = ({ user }) => {
 
   return (
     <div className="space-y-6">
-      <div className={`calendar-container calendar-view-panel rounded-2xl`}>
+      <div className={`calendar-container calendar-view-panel rounded-md`}>
         <PanelHeader
           title="Типы оплат"
           subtitle="Управление способами оплаты и комиссиями"
@@ -156,23 +156,23 @@ const PaymentTypes = ({ user }) => {
           actionLabel="+ Добавить тип оплаты"
         />
 
-        <div className="bg-white dark:bg-gray-800 rounded-b-2xl border border-t-0 border-gray-200 dark:border-gray-700 p-4 space-y-4 shadow-sm">
+        <div className="bg-curai-surface rounded-b-md border border-t-0 border-curai-border p-4 space-y-4 shadow-none">
 
       {/* Сообщения */}
       {error && (
-        <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg">
+        <div className="bg-curai-negativeBg border border-curai-negative text-curai-negative px-4 py-3 rounded-md">
           {error}
         </div>
       )}
       
       {success && (
-        <div className="bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded-lg">
+        <div className="bg-curai-positiveBg border border-curai-positive text-curai-positive px-4 py-3 rounded-md">
           {success}
         </div>
       )}
 
       {/* Фильтры */}
-      <div className="bg-white p-4 rounded-lg shadow border">
+      <div className="bg-curai-surface p-4 rounded-md shadow-none border">
         <div className="flex gap-4">
           <div className="flex-1">
             <label className={labelClasses}>Поиск типов оплат</label>
@@ -189,110 +189,110 @@ const PaymentTypes = ({ user }) => {
 
       {/* Статистика */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-        <div className="bg-white p-6 rounded-lg shadow border-l-4 border-indigo-500">
+        <div className="bg-curai-surface p-6 rounded-md shadow-none border-l-4 border-curai-control">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-gray-600 text-sm font-medium">Всего типов оплат</p>
-              <p className="text-2xl font-bold text-indigo-600">{paymentTypes.length}</p>
+              <p className="text-curai-muted text-sm font-medium">Всего типов оплат</p>
+              <p className="text-2xl font-semibold text-curai-blue">{paymentTypes.length}</p>
             </div>
-            <div className="text-indigo-500 text-2xl">💳</div>
+            <div className="text-curai-blue text-2xl">💳</div>
           </div>
         </div>
         
-        <div className="bg-white p-6 rounded-lg shadow border-l-4 border-green-500">
+        <div className="bg-curai-surface p-6 rounded-md shadow-none border-l-4 border-curai-positive">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-gray-600 text-sm font-medium">Активных типов</p>
-              <p className="text-2xl font-bold text-green-600">{paymentTypes.filter(pt => pt.is_active).length}</p>
+              <p className="text-curai-muted text-sm font-medium">Активных типов</p>
+              <p className="text-2xl font-semibold text-curai-positive">{paymentTypes.filter(pt => pt.is_active).length}</p>
             </div>
-            <div className="text-green-500 text-2xl">✅</div>
+            <div className="text-curai-positive text-2xl">✅</div>
           </div>
         </div>
         
-        <div className="bg-white p-6 rounded-lg shadow border-l-4 border-orange-500">
+        <div className="bg-curai-surface p-6 rounded-md shadow-none border-l-4 border-curai-warning">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-gray-600 text-sm font-medium">Средняя комиссия</p>
-              <p className="text-2xl font-bold text-orange-600">
+              <p className="text-curai-muted text-sm font-medium">Средняя комиссия</p>
+              <p className="text-2xl font-semibold text-curai-warning">
                 {paymentTypes.length > 0 
                   ? (paymentTypes.reduce((sum, pt) => sum + pt.commission_rate, 0) / paymentTypes.length).toFixed(1)
                   : 0
                 }%
               </p>
             </div>
-            <div className="text-orange-500 text-2xl">📊</div>
+            <div className="text-curai-warning text-2xl">📊</div>
           </div>
         </div>
         
-        <div className="bg-white p-6 rounded-lg shadow border-l-4 border-purple-500">
+        <div className="bg-curai-surface p-6 rounded-md shadow-none border-l-4 border-curai-control">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-gray-600 text-sm font-medium">Найдено</p>
-              <p className="text-2xl font-bold text-purple-600">{filteredPaymentTypes.length}</p>
+              <p className="text-curai-muted text-sm font-medium">Найдено</p>
+              <p className="text-2xl font-semibold text-curai-blue">{filteredPaymentTypes.length}</p>
             </div>
-            <div className="text-purple-500 text-2xl">🔍</div>
+            <div className="text-curai-blue text-2xl">🔍</div>
           </div>
         </div>
       </div>
 
       {/* Таблица типов оплат */}
-      <div className="bg-white rounded-lg shadow overflow-hidden">
+      <div className="bg-curai-surface rounded-md shadow-none overflow-hidden">
         {loading ? (
           <div className="flex items-center justify-center h-64">
-            <div className="text-gray-500">Загружаем типы оплат...</div>
+            <div className="text-curai-muted">Загружаем типы оплат...</div>
           </div>
         ) : filteredPaymentTypes.length === 0 ? (
           <div className="flex items-center justify-center h-64">
-            <div className="text-center text-gray-500">
-              <div className="text-4xl mb-2">💳</div>
+            <div className="text-center text-curai-muted">
+              <div className="text-2xl mb-2">💳</div>
               <p>Типы оплат не найдены</p>
               <p className="text-sm mt-1">Добавьте первый тип оплаты для управления способами оплаты</p>
             </div>
           </div>
         ) : (
           <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
+            <table className="min-w-full divide-y divide-curai-border">
+              <thead className="bg-curai-subtle">
                 <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-6 py-3 text-left text-xs font-medium text-curai-muted uppercase tracking-wider">
                     Название типа оплаты
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-6 py-3 text-left text-xs font-medium text-curai-muted uppercase tracking-wider">
                     Комиссия (%)
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-6 py-3 text-left text-xs font-medium text-curai-muted uppercase tracking-wider">
                     Описание
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-6 py-3 text-left text-xs font-medium text-curai-muted uppercase tracking-wider">
                     Дата создания
                   </th>
                   {user?.role === 'admin' || user?.role === 'super_admin' && (
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th className="px-6 py-3 text-left text-xs font-medium text-curai-muted uppercase tracking-wider">
                       Действия
                     </th>
                   )}
                 </tr>
               </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
+              <tbody className="bg-curai-surface divide-y divide-curai-border">
                 {filteredPaymentTypes.map(paymentType => (
-                  <tr key={paymentType.id} className="hover:bg-gray-50">
+                  <tr key={paymentType.id} className="hover:bg-curai-subtle">
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="flex items-center">
                         <div className="text-2xl mr-3">💳</div>
-                        <div className="font-medium text-gray-900">{paymentType.name}</div>
+                        <div className="font-medium text-curai-ink">{paymentType.name}</div>
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-lg font-medium text-indigo-600">
+                      <div className="text-lg font-medium text-curai-blue">
                         {paymentType.commission_rate}%
                       </div>
                     </td>
-                    <td className="px-6 py-4 text-sm text-gray-500 max-w-xs">
+                    <td className="px-6 py-4 text-sm text-curai-muted max-w-xs">
                       <div className="truncate" title={paymentType.description}>
                         {paymentType.description || '—'}
                       </div>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-curai-muted">
                       {new Date(paymentType.created_at).toLocaleDateString('ru-RU')}
                     </td>
                     {user?.role === 'admin' || user?.role === 'super_admin' && (
@@ -300,13 +300,13 @@ const PaymentTypes = ({ user }) => {
                         <div className="flex gap-2">
                           <button
                             onClick={() => handleEdit(paymentType)}
-                            className="text-blue-600 hover:text-blue-900"
+                            className="text-curai-blue hover:text-curai-blue"
                           >
                             Изменить
                           </button>
                           <button
                             onClick={() => handleDelete(paymentType.id)}
-                            className="text-red-600 hover:text-red-900"
+                            className="text-curai-negative hover:text-curai-negative"
                           >
                             Удалить
                           </button>

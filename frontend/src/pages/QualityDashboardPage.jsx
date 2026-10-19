@@ -42,35 +42,35 @@ const QualityDashboardPage = ({ user }) => {
     } catch(e){alert('Error');}
   };
 
-  const rc = r=>({excellent:'text-green-500',good:'text-blue-500',satisfactory:'text-yellow-500',poor:'text-orange-500',very_poor:'text-red-500'}[r]||'text-gray-500');
-  const rb = r=>({excellent:'bg-green-500/20',good:'bg-blue-500/20',satisfactory:'bg-yellow-500/20',poor:'bg-orange-500/20',very_poor:'bg-red-500/20'}[r]||'bg-gray-500/20');
+  const rc = r=>({excellent:"text-curai-positive",good:"text-curai-blue",satisfactory:"text-curai-warning",poor:"text-curai-warning",very_poor:"text-curai-negative"}[r]||"text-curai-muted");
+  const rb = r=>({excellent:"bg-curai-positive",good:"bg-curai-blue",satisfactory:"bg-curai-warning",poor:"bg-curai-warning",very_poor:"bg-curai-negative"}[r]||"bg-curai-muted");
   const rl = r=>({excellent:'Отлично',good:'Хорошо',satisfactory:'Удовл.',poor:'Плохо',very_poor:'Плохо'}[r]||r);
   const cl = c=>({response_time:'Скорость',politeness:'Вежливость',helpfulness:'Полезность',professionalism:'Профессионализм',problem_resolution:'Решение',communication:'Общение'}[c]||c);
-  const sc = s=>s>=4.5?'text-green-500':s>=3.5?'text-blue-500':s>=2.5?'text-yellow-500':'text-red-500';
+  const sc = s=>s>=4.5?"text-curai-positive":s>=3.5?"text-curai-blue":s>=2.5?"text-curai-warning":"text-curai-negative";
 
-  if(!user||(user.role!=='admin'&&user.role!=='super_admin'))return<div className="p-6 text-red-500">Нет доступа</div>;
-  if(loading)return<div className="flex items-center justify-center h-full"><div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500"/></div>;
+  if(!user||(user.role!=='admin'&&user.role!=='super_admin'))return<div className="p-6 text-curai-negative">Нет доступа</div>;
+  if(loading)return<div className="flex items-center justify-center h-full"><div className="animate-spin rounded-full h-12 w-12 border-b-2 border-curai-control"/></div>;
 
   return(
     <div className="p-6 max-w-7xl mx-auto space-y-6">
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-        <div><h1 className="text-3xl font-bold text-white">🤖 AI-Анализ качества</h1><p className="text-white/60">Автоматический анализ WhatsApp</p></div>
+        <div><h1 className="text-2xl font-semibold text-white">🤖 AI-Анализ качества</h1><p className="text-white/60">Автоматический анализ WhatsApp</p></div>
         <div className="flex items-center gap-4">
-          <div className="flex items-center gap-2 bg-white/10 rounded-lg px-4 py-2">
+          <div className="flex items-center gap-2 bg-white/10 rounded-md px-4 py-2">
             <span className="text-white text-sm">AI:</span>
-            <button onClick={()=>toggleAi(!aiSettings?.ai_whatsapp_analysis_enabled)} className={`relative w-12 h-6 rounded-full ${aiSettings?.ai_whatsapp_analysis_enabled?'bg-green-500':'bg-gray-600'}`}>
-              <span className={`absolute top-0.5 w-5 h-5 bg-white rounded-full transition-transform ${aiSettings?.ai_whatsapp_analysis_enabled?'translate-x-6':'translate-x-0.5'}`}/>
+            <button onClick={()=>toggleAi(!aiSettings?.ai_whatsapp_analysis_enabled)} className={`relative w-12 h-6 rounded-full ${aiSettings?.ai_whatsapp_analysis_enabled?"bg-curai-positive":"bg-curai-muted"}`}>
+              <span className={`absolute top-0.5 w-5 h-5 bg-curai-surface rounded-full transition-transform ${aiSettings?.ai_whatsapp_analysis_enabled?'translate-x-6':'translate-x-0.5'}`}/>
             </button>
           </div>
-          <select value={selectedPeriod} onChange={e=>setSelectedPeriod(Number(e.target.value))} className="bg-white/10 text-white border border-white/20 rounded-lg px-3 py-2">
+          <select value={selectedPeriod} onChange={e=>setSelectedPeriod(Number(e.target.value))} className="bg-white/10 text-white border border-white/20 rounded-md px-3 py-2">
             <option value={7}>7 дней</option><option value={14}>14 дней</option><option value={30}>30 дней</option><option value={90}>90 дней</option>
           </select>
         </div>
       </div>
       {/* Tabs */}
       <div className="flex gap-2 border-b border-white/20 pb-2">
-        {[{id:'overview',l:'📊 Обзор'},{id:'operators',l:'👥 Операторы'},{id:'history',l:'📋 История'},{id:'settings',l:'⚙️ Настройки'}].map(t=><button key={t.id} onClick={()=>setActiveTab(t.id)} className={`px-4 py-2 rounded-t-lg font-medium ${activeTab===t.id?'bg-white/20 text-white':'text-white/60 hover:text-white'}`}>{t.l}</button>)}
+        {[{id:'overview',l:'📊 Обзор'},{id:'operators',l:'👥 Операторы'},{id:'history',l:'📋 История'},{id:'settings',l:'⚙️ Настройки'}].map(t=><button key={t.id} onClick={()=>setActiveTab(t.id)} className={`px-4 py-2 rounded-t-md font-medium ${activeTab===t.id?'bg-white/20 text-white':'text-white/60 hover:text-white'}`}>{t.l}</button>)}
       </div>
       {/* PLACEHOLDER */}
     </div>

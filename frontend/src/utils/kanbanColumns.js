@@ -12,7 +12,7 @@ export function configuredColumns(columns) {
 }
 
 export function cardColumnId(lead) {
-  return lead.status === 'new' ? lead.kanban_column_id || 'new' : lead.status;
+  return lead.status === 'new' || lead.kanban_override_source === 'whatsapp' ? lead.kanban_column_id || lead.status : lead.status;
 }
 
 export function manualColumn(column) {
@@ -37,3 +37,6 @@ export async function kanbanRequest(path = '/kanban/columns', method = 'GET', bo
   if (!response.ok) throw new Error(typeof data.detail === 'string' ? data.detail : 'Не удалось обновить колонки. Попробуйте снова.');
   return data;
 }
+
+export const KANBAN_CHANGED_EVENT = 'crm-kanban-changed';
+export function notifyKanbanChanged() { window.dispatchEvent(new window.Event(KANBAN_CHANGED_EVENT)); }

@@ -37,17 +37,17 @@ const ReportsView = ({ user }) => {
     <div className="space-y-6">
       {/* Header */}
       <div className="flex justify-between items-center">
-        <h1 className="text-2xl font-bold text-gray-900">📊 Финансовые отчеты</h1>
+        <h1 className="text-2xl font-semibold text-curai-ink">📊 Финансовые отчеты</h1>
         <div className="flex space-x-2">
           <button
             onClick={() => downloadReport('pdf')}
-            className="bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 transition-colors"
+            className="bg-curai-negative text-white px-4 py-2 rounded-md hover:bg-curai-negative transition-colors"
           >
             📄 PDF
           </button>
           <button
             onClick={() => downloadReport('excel')}
-            className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors"
+            className="bg-curai-positive text-white px-4 py-2 rounded-md hover:bg-curai-positive transition-colors"
           >
             📊 Excel
           </button>
@@ -55,14 +55,14 @@ const ReportsView = ({ user }) => {
       </div>
 
       {/* Report Settings */}
-      <div className="bg-white rounded-lg shadow p-6">
+      <div className="bg-curai-surface rounded-md shadow-none p-6">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Тип отчета</label>
+            <label className="block text-sm font-medium text-curai-ink mb-2">Тип отчета</label>
             <select
               value={reportType}
               onChange={(e) => setReportType(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+              className="w-full px-3 py-2 border border-curai-control rounded-md focus:ring-2 focus:ring-curai-focus"
             >
               <option value="daily">Ежедневный</option>
               <option value="weekly">Еженедельный</option>
@@ -71,18 +71,18 @@ const ReportsView = ({ user }) => {
             </select>
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Период</label>
+            <label className="block text-sm font-medium text-curai-ink mb-2">Период</label>
             <input
               type={reportType === 'monthly' ? 'month' : reportType === 'yearly' ? 'year' : 'date'}
               value={selectedPeriod}
               onChange={(e) => setSelectedPeriod(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+              className="w-full px-3 py-2 border border-curai-control rounded-md focus:ring-2 focus:ring-curai-focus"
             />
           </div>
           <div className="flex items-end">
             <button
               onClick={() => {/* TODO: Генерация отчета */}}
-              className="w-full bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700 transition-colors"
+              className="w-full bg-curai-blue text-white py-2 rounded-md hover:bg-curai-blue transition-colors"
             >
               📈 Создать отчет
             </button>
@@ -94,56 +94,56 @@ const ReportsView = ({ user }) => {
         <>
           {/* Summary Cards */}
           <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-            <div className="bg-white rounded-lg shadow p-6">
+            <div className="bg-curai-surface rounded-md shadow-none p-6">
               <div className="flex items-center">
-                <div className="p-3 rounded-full bg-green-100">
+                <div className="p-3 rounded-full bg-curai-positiveBg">
                   <span className="text-2xl">💰</span>
                 </div>
                 <div className="ml-4">
-                  <p className="text-sm font-medium text-gray-500">Общий доход</p>
-                  <p className="text-2xl font-bold text-gray-900">
+                  <p className="text-sm font-medium text-curai-muted">Общий доход</p>
+                  <p className="text-2xl font-semibold text-curai-ink">
                     {reportData.totalIncome.toLocaleString('ru-RU')} ₸
                   </p>
                 </div>
               </div>
             </div>
 
-            <div className="bg-white rounded-lg shadow p-6">
+            <div className="bg-curai-surface rounded-md shadow-none p-6">
               <div className="flex items-center">
-                <div className="p-3 rounded-full bg-red-100">
+                <div className="p-3 rounded-full bg-curai-negativeBg">
                   <span className="text-2xl">💳</span>
                 </div>
                 <div className="ml-4">
-                  <p className="text-sm font-medium text-gray-500">Общие расходы</p>
-                  <p className="text-2xl font-bold text-gray-900">
+                  <p className="text-sm font-medium text-curai-muted">Общие расходы</p>
+                  <p className="text-2xl font-semibold text-curai-ink">
                     {reportData.totalExpenses.toLocaleString('ru-RU')} ₸
                   </p>
                 </div>
               </div>
             </div>
 
-            <div className="bg-white rounded-lg shadow p-6">
+            <div className="bg-curai-surface rounded-md shadow-none p-6">
               <div className="flex items-center">
-                <div className="p-3 rounded-full bg-blue-100">
+                <div className="p-3 rounded-full bg-curai-selected">
                   <span className="text-2xl">📈</span>
                 </div>
                 <div className="ml-4">
-                  <p className="text-sm font-medium text-gray-500">Прибыль</p>
-                  <p className="text-2xl font-bold text-gray-900">
+                  <p className="text-sm font-medium text-curai-muted">Прибыль</p>
+                  <p className="text-2xl font-semibold text-curai-ink">
                     {reportData.profit.toLocaleString('ru-RU')} ₸
                   </p>
                 </div>
               </div>
             </div>
 
-            <div className="bg-white rounded-lg shadow p-6">
+            <div className="bg-curai-surface rounded-md shadow-none p-6">
               <div className="flex items-center">
-                <div className="p-3 rounded-full bg-yellow-100">
+                <div className="p-3 rounded-full bg-curai-warningBg">
                   <span className="text-2xl">📊</span>
                 </div>
                 <div className="ml-4">
-                  <p className="text-sm font-medium text-gray-500">Рентабельность</p>
-                  <p className="text-2xl font-bold text-gray-900">
+                  <p className="text-sm font-medium text-curai-muted">Рентабельность</p>
+                  <p className="text-2xl font-semibold text-curai-ink">
                     {reportData.profitMargin}%
                   </p>
                 </div>
@@ -154,15 +154,15 @@ const ReportsView = ({ user }) => {
           {/* Categories Breakdown */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             {/* Income Categories */}
-            <div className="bg-white rounded-lg shadow p-6">
+            <div className="bg-curai-surface rounded-md shadow-none p-6">
               <h3 className="text-lg font-semibold mb-4">💰 Структура доходов</h3>
               <div className="space-y-3">
                 {reportData.categories.income.map((category, index) => (
                   <div key={index} className="flex items-center justify-between">
-                    <span className="text-sm font-medium text-gray-700">{category.name}</span>
+                    <span className="text-sm font-medium text-curai-ink">{category.name}</span>
                     <div className="flex items-center space-x-2">
-                      <span className="text-sm text-gray-500">{category.percentage}%</span>
-                      <span className="text-sm font-bold text-green-600">
+                      <span className="text-sm text-curai-muted">{category.percentage}%</span>
+                      <span className="text-sm font-semibold text-curai-positive">
                         {category.amount.toLocaleString('ru-RU')} ₸
                       </span>
                     </div>
@@ -172,15 +172,15 @@ const ReportsView = ({ user }) => {
             </div>
 
             {/* Expense Categories */}
-            <div className="bg-white rounded-lg shadow p-6">
+            <div className="bg-curai-surface rounded-md shadow-none p-6">
               <h3 className="text-lg font-semibold mb-4">💳 Структура расходов</h3>
               <div className="space-y-3">
                 {reportData.categories.expenses.map((category, index) => (
                   <div key={index} className="flex items-center justify-between">
-                    <span className="text-sm font-medium text-gray-700">{category.name}</span>
+                    <span className="text-sm font-medium text-curai-ink">{category.name}</span>
                     <div className="flex items-center space-x-2">
-                      <span className="text-sm text-gray-500">{category.percentage}%</span>
-                      <span className="text-sm font-bold text-red-600">
+                      <span className="text-sm text-curai-muted">{category.percentage}%</span>
+                      <span className="text-sm font-semibold text-curai-negative">
                         {category.amount.toLocaleString('ru-RU')} ₸
                       </span>
                     </div>
@@ -191,10 +191,10 @@ const ReportsView = ({ user }) => {
           </div>
 
           {/* Chart Placeholder */}
-          <div className="bg-white rounded-lg shadow p-6">
+          <div className="bg-curai-surface rounded-md shadow-none p-6">
             <h3 className="text-lg font-semibold mb-4">📈 Динамика финансов</h3>
-            <div className="h-64 flex items-center justify-center bg-gray-50 rounded-lg">
-              <p className="text-gray-500">График динамики доходов и расходов (TODO: Интеграция Chart.js)</p>
+            <div className="h-64 flex items-center justify-center bg-curai-subtle rounded-md">
+              <p className="text-curai-muted">График динамики доходов и расходов (TODO: Интеграция Chart.js)</p>
             </div>
           </div>
         </>

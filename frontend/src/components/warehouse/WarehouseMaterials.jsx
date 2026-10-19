@@ -242,7 +242,7 @@ const WarehouseMaterials = ({ user, viewKey = 'warehouse-materials', onOpenAiCha
   return (
     <>
       <div className="space-y-6">
-        <div className={`calendar-container calendar-view-panel rounded-2xl ${themeClasses.shadow.default}`}>
+        <div className={`calendar-container calendar-view-panel rounded-md ${themeClasses.shadow.default}`}>
           <PanelHeader
             title="Материалы"
             subtitle="Список складских материалов, поступлений и остатков."
@@ -250,7 +250,7 @@ const WarehouseMaterials = ({ user, viewKey = 'warehouse-materials', onOpenAiCha
             actionLabel="+ Добавить материал"
           />
 
-          <div className="bg-white dark:bg-gray-800 rounded-b-2xl border border-t-0 border-gray-200 dark:border-gray-700 p-4 space-y-4 shadow-sm">
+          <div className="bg-curai-surface rounded-b-md border border-t-0 border-curai-border p-4 space-y-4 shadow-none">
             <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
               <div className="flex gap-3 flex-wrap">
                 <input
@@ -275,38 +275,38 @@ const WarehouseMaterials = ({ user, viewKey = 'warehouse-materials', onOpenAiCha
                 </button>
               </div>
               {loading && (
-                <div className="text-sm text-gray-500 dark:text-gray-400">Загружаем данные...</div>
+                <div className="text-sm text-curai-muted ">Загружаем данные...</div>
               )}
             </div>
 
             {error && (
-              <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg">
+              <div className="bg-curai-negativeBg border border-curai-negative text-curai-negative px-4 py-3 rounded-md">
                 {error}
               </div>
             )}
             {success && (
-              <div className="bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded-lg">
+              <div className="bg-curai-positiveBg border border-curai-positive text-curai-positive px-4 py-3 rounded-md">
                 {success}
               </div>
             )}
             {isDeletedView && (
-              <div className="text-sm text-gray-500 border border-dashed border-gray-200 rounded-lg p-3 bg-gray-50">
+              <div className="text-sm text-curai-muted border border-dashed border-curai-border rounded-md p-3 bg-curai-subtle">
                 Просмотр удалённых материалов — можно восстановить выбранные позиции.
               </div>
             )}
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div className="bg-gray-50 dark:bg-gray-900 p-4 rounded-xl text-center">
-                <p className="text-sm text-gray-500">Материалов</p>
-                <p className="text-2xl font-semibold text-gray-900 dark:text-white">{materials.length}</p>
+              <div className="bg-curai-subtle p-4 rounded-md text-center">
+                <p className="text-sm text-curai-muted">Материалов</p>
+                <p className="text-2xl font-semibold text-curai-ink ">{materials.length}</p>
               </div>
-              <div className="bg-gray-50 dark:bg-gray-900 p-4 rounded-xl text-center">
-                <p className="text-sm text-gray-500">Общий приход</p>
-                <p className="text-2xl font-semibold text-gray-900 dark:text-white">{stats.totalIncoming}</p>
+              <div className="bg-curai-subtle p-4 rounded-md text-center">
+                <p className="text-sm text-curai-muted">Общий приход</p>
+                <p className="text-2xl font-semibold text-curai-ink ">{stats.totalIncoming}</p>
               </div>
-              <div className="bg-gray-50 dark:bg-gray-900 p-4 rounded-xl text-center">
-                <p className="text-sm text-gray-500">Текущий остаток</p>
-                <p className="text-2xl font-semibold text-gray-900 dark:text-white">{stats.totalBalance}</p>
+              <div className="bg-curai-subtle p-4 rounded-md text-center">
+                <p className="text-sm text-curai-muted">Текущий остаток</p>
+                <p className="text-2xl font-semibold text-curai-ink ">{stats.totalBalance}</p>
               </div>
             </div>
 
@@ -351,7 +351,7 @@ const WarehouseMaterials = ({ user, viewKey = 'warehouse-materials', onOpenAiCha
                           isDeletedView ? (
                             <button
                               onClick={() => handleRestore(material.id)}
-                              className="text-green-600 hover:text-green-800 text-sm"
+                              className="text-curai-positive hover:text-curai-positive text-sm"
                             >
                               Восстановить
                             </button>
@@ -359,13 +359,13 @@ const WarehouseMaterials = ({ user, viewKey = 'warehouse-materials', onOpenAiCha
                             <>
                               <button
                                 onClick={() => handleEdit(material)}
-                                className="text-blue-600 hover:text-blue-800 text-sm"
+                                className="text-curai-blue hover:text-curai-blue text-sm"
                               >
                                 Изменить
                               </button>
                               <button
                                 onClick={() => handleDelete(material.id)}
-                                className="text-red-600 hover:text-red-800 text-sm"
+                                className="text-curai-negative hover:text-curai-negative text-sm"
                               >
                                 Удалить
                               </button>
@@ -378,7 +378,7 @@ const WarehouseMaterials = ({ user, viewKey = 'warehouse-materials', onOpenAiCha
                 </tbody>
               </table>
               {materials.length === 0 && !loading && (
-                <div className="py-10 text-center text-gray-500 dark:text-gray-400">Материалы не найдены</div>
+                <div className="py-10 text-center text-curai-muted ">Материалы не найдены</div>
               )}
             </div>
           </div>
@@ -413,9 +413,9 @@ const WarehouseMaterials = ({ user, viewKey = 'warehouse-materials', onOpenAiCha
               id="is_product"
               checked={formValues.is_product}
               onChange={(e) => setFormValues({ ...formValues, is_product: e.target.checked })}
-              className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+              className="w-4 h-4 rounded border-curai-control text-curai-blue focus:ring-curai-focus"
             />
-            <label htmlFor="is_product" className="text-sm text-gray-600 dark:text-gray-300">Это товар</label>
+            <label htmlFor="is_product" className="text-sm text-curai-muted ">Это товар</label>
           </div>
 
           <div className="grid grid-cols-2 gap-4">
@@ -457,7 +457,7 @@ const WarehouseMaterials = ({ user, viewKey = 'warehouse-materials', onOpenAiCha
               />
               <button
                 type="button"
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-curai-muted hover:text-curai-muted"
               >
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v16h16" />
@@ -466,18 +466,18 @@ const WarehouseMaterials = ({ user, viewKey = 'warehouse-materials', onOpenAiCha
             </div>
           </div>
 
-          <details className="border border-gray-200 dark:border-gray-700 rounded-lg">
-            <summary className="cursor-pointer px-4 py-3 font-medium text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-lg">
+          <details className="border border-curai-border rounded-md">
+            <summary className="cursor-pointer px-4 py-3 font-medium text-sm text-curai-ink hover:bg-curai-subtle rounded-md">
               Минимальные остатки
             </summary>
             <div className="px-4 pb-4 pt-2 space-y-3">
               {formValues.warehouses.map((warehouse, index) => (
                 <div key={warehouse.warehouse_name} className="grid grid-cols-2 gap-3 items-center">
-                  <label className="text-sm text-gray-600 dark:text-gray-400">
+                  <label className="text-sm text-curai-muted ">
                     {warehouse.warehouse_name}
                   </label>
                   <div className="relative flex items-center">
-                    <label className="text-sm text-gray-500 dark:text-gray-400 mr-2">Мин остаток</label>
+                    <label className="text-sm text-curai-muted mr-2">Мин остаток</label>
                     <input
                       type="number"
                       min="0"

@@ -156,15 +156,15 @@ const TelephonySection = () => {
   return (
     <div className="space-y-6">
       {/* Заголовок */}
-      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
+      <div className="bg-curai-surface rounded-md shadow-none border border-curai-border p-4">
         <div className="flex justify-between items-center">
           <div>
-            <h2 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
+            <h2 className="text-2xl font-semibold text-curai-ink flex items-center gap-2">
               📞 API Телефонии
             </h2>
-            <p className="text-gray-600 mt-1">Интеграция с телефонией для отслеживания звонков</p>
+            <p className="text-curai-muted mt-1">Интеграция с телефонией для отслеживания звонков</p>
           </div>
-          <button className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2">
+          <button className="bg-curai-blue text-white px-4 py-2 rounded-md hover:bg-curai-blue transition-colors flex items-center gap-2">
             <span>⚙️</span>
             Настройки API
           </button>
@@ -172,45 +172,45 @@ const TelephonySection = () => {
       </div>
       {/* Статистика */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <div className="bg-gradient-to-br from-blue-500 to-blue-600 rounded-lg shadow-md p-6 text-white">
+        <div className="bg-curai-blue rounded-md shadow-none p-6 text-white">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-blue-100 text-sm">Всего звонков</p>
-              <p className="text-3xl font-bold mt-1">{stats.totalCalls}</p>
+              <p className="text-curai-blue text-sm">Всего звонков</p>
+              <p className="text-2xl font-semibold mt-1">{stats.totalCalls}</p>
             </div>
-            <div className="text-4xl">📞</div>
+            <div className="text-2xl">📞</div>
           </div>
         </div>
-        <div className="bg-gradient-to-br from-red-500 to-red-600 rounded-lg shadow-md p-6 text-white">
+        <div className="bg-curai-negative rounded-md shadow-none p-6 text-white">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-red-100 text-sm">Пропущенных</p>
-              <p className="text-3xl font-bold mt-1">{stats.missedCalls}</p>
+              <p className="text-curai-negative text-sm">Пропущенных</p>
+              <p className="text-2xl font-semibold mt-1">{stats.missedCalls}</p>
             </div>
-            <div className="text-4xl">📵</div>
+            <div className="text-2xl">📵</div>
           </div>
         </div>
-        <div className="bg-gradient-to-br from-green-500 to-green-600 rounded-lg shadow-md p-6 text-white">
+        <div className="bg-curai-positive rounded-md shadow-none p-6 text-white">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-green-100 text-sm">Средняя длительность</p>
-              <p className="text-3xl font-bold mt-1">{stats.averageDuration}</p>
+              <p className="text-curai-positive text-sm">Средняя длительность</p>
+              <p className="text-2xl font-semibold mt-1">{stats.averageDuration}</p>
             </div>
-            <div className="text-4xl">⏱️</div>
+            <div className="text-2xl">⏱️</div>
           </div>
         </div>
       </div>
 
       {/* Вкладки */}
-      <div className="bg-white rounded-lg shadow-sm border border-gray-200">
-        <div className="border-b border-gray-200">
+      <div className="bg-curai-surface rounded-md shadow-none border border-curai-border">
+        <div className="border-b border-curai-border">
           <nav className="flex -mb-px">
             <button
               onClick={() => { setActiveTab('calls'); setSelectedContactKey(null); }}
               className={`py-4 px-6 font-medium text-sm border-b-2 transition-colors ${
                 activeTab === 'calls'
-                  ? 'border-blue-500 text-blue-600'
-                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                  ? "border-curai-control text-curai-blue"
+                  : "border-transparent text-curai-muted hover:text-curai-ink hover:border-curai-control"
               }`}
             >
               📋 История звонков
@@ -219,8 +219,8 @@ const TelephonySection = () => {
               onClick={() => { setActiveTab('settings'); setSelectedContactKey(null); }}
               className={`py-4 px-6 font-medium text-sm border-b-2 transition-colors ${
                 activeTab === 'settings'
-                  ? 'border-blue-500 text-blue-600'
-                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                  ? "border-curai-control text-curai-blue"
+                  : "border-transparent text-curai-muted hover:text-curai-ink hover:border-curai-control"
               }`}
             >
               ⚙️ Настройки
@@ -229,8 +229,8 @@ const TelephonySection = () => {
               onClick={() => { setActiveTab('widgets'); setSelectedContactKey(null); }}
               className={`py-4 px-6 font-medium text-sm border-b-2 transition-colors ${
                 activeTab === 'widgets'
-                  ? 'border-blue-500 text-blue-600'
-                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                  ? "border-curai-control text-curai-blue"
+                  : "border-transparent text-curai-muted hover:text-curai-ink hover:border-curai-control"
               }`}
             >
               🧩 Виджеты
@@ -248,51 +248,51 @@ const TelephonySection = () => {
                     <div>
                       <button
                         onClick={() => setSelectedContactKey(null)}
-                        className="text-blue-600 hover:text-blue-800 text-sm mb-1"
+                        className="text-curai-blue hover:text-curai-blue text-sm mb-1"
                       >
                         ← Назад к контактам
                       </button>
-                      <h3 className="text-xl font-bold text-gray-900">
+                      <h3 className="text-xl font-semibold text-curai-ink">
                         {selectedGroup.contactName || selectedGroup.phone || selectedGroup.normalizedPhone || 'Без номера'}
                       </h3>
                       {selectedGroup.contactName && (selectedGroup.phone || selectedGroup.normalizedPhone) && (
-                        <p className="text-gray-600 text-sm">{selectedGroup.phone || selectedGroup.normalizedPhone}</p>
+                        <p className="text-curai-muted text-sm">{selectedGroup.phone || selectedGroup.normalizedPhone}</p>
                       )}
                     </div>
-                    <div className="text-sm text-gray-500">
+                    <div className="text-sm text-curai-muted">
                       {selectedGroup.calls.length} {declineCalls(selectedGroup.calls.length)}
                     </div>
                   </div>
 
                   {selectedGroup.calls.length > 0 ? (
                     <div className="overflow-x-auto">
-                      <table className="min-w-full divide-y divide-gray-200">
-                        <thead className="bg-gray-50">
+                      <table className="min-w-full divide-y divide-curai-border">
+                        <thead className="bg-curai-subtle">
                           <tr>
-                            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Время</th>
-                            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Номер</th>
-                            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Направление</th>
-                            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Статус</th>
-                            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Длительность</th>
-                            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Запись</th>
+                            <th className="px-4 py-3 text-left text-xs font-medium text-curai-muted uppercase tracking-wider">Время</th>
+                            <th className="px-4 py-3 text-left text-xs font-medium text-curai-muted uppercase tracking-wider">Номер</th>
+                            <th className="px-4 py-3 text-left text-xs font-medium text-curai-muted uppercase tracking-wider">Направление</th>
+                            <th className="px-4 py-3 text-left text-xs font-medium text-curai-muted uppercase tracking-wider">Статус</th>
+                            <th className="px-4 py-3 text-left text-xs font-medium text-curai-muted uppercase tracking-wider">Длительность</th>
+                            <th className="px-4 py-3 text-left text-xs font-medium text-curai-muted uppercase tracking-wider">Запись</th>
                           </tr>
                         </thead>
-                        <tbody className="bg-white divide-y divide-gray-200">
+                        <tbody className="bg-curai-surface divide-y divide-curai-border">
                           {selectedGroup.calls.map((call) => (
-                            <tr key={call.id || `${call.created_at}-${call.phone_number}`} className="hover:bg-gray-50">
-                              <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">{formatDateTime(call.created_at)}</td>
-                              <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">
+                            <tr key={call.id || `${call.created_at}-${call.phone_number}`} className="hover:bg-curai-subtle">
+                              <td className="px-4 py-3 whitespace-nowrap text-sm text-curai-ink">{formatDateTime(call.created_at)}</td>
+                              <td className="px-4 py-3 whitespace-nowrap text-sm text-curai-ink">
                                 <div className="flex flex-col">
                                   <span className="font-medium">{call.contact_name || call.phone_number || call.normalized_phone || '—'}</span>
                                   {(call.contact_name && (call.phone_number || call.normalized_phone)) && (
-                                    <span className="text-gray-500 text-xs">{call.phone_number || call.normalized_phone}</span>
+                                    <span className="text-curai-muted text-xs">{call.phone_number || call.normalized_phone}</span>
                                   )}
                                 </div>
                               </td>
-                              <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">{directionLabel(call.direction)}</td>
-                              <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">{statusLabel(call.status, call.disposition)}</td>
-                              <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">{formatDuration(Number(call.duration) || 0)}</td>
-                              <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">
+                              <td className="px-4 py-3 whitespace-nowrap text-sm text-curai-ink">{directionLabel(call.direction)}</td>
+                              <td className="px-4 py-3 whitespace-nowrap text-sm text-curai-ink">{statusLabel(call.status, call.disposition)}</td>
+                              <td className="px-4 py-3 whitespace-nowrap text-sm text-curai-ink">{formatDuration(Number(call.duration) || 0)}</td>
+                              <td className="px-4 py-3 whitespace-nowrap text-sm text-curai-ink">
                                 {call.recording_url ? (
                                   <audio controls className="h-8 w-48" src={absMedia(call.recording_url)}>
                                     Ваш браузер не поддерживает аудио.
@@ -307,7 +307,7 @@ const TelephonySection = () => {
                       </table>
                     </div>
                   ) : (
-                    <div className="text-center py-12 text-gray-500">
+                    <div className="text-center py-12 text-curai-muted">
                       <p className="text-lg">Нет данных о звонках</p>
                     </div>
                   )}
@@ -320,7 +320,7 @@ const TelephonySection = () => {
                       <select
                         value={filter}
                         onChange={(e) => setFilter(e.target.value)}
-                        className="border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                        className="border border-curai-control rounded-md px-3 py-2 focus:ring-2 focus:ring-curai-focus focus:border-curai-control"
                       >
                         <option value="all">Все звонки</option>
                         <option value="inbound">Входящие</option>
@@ -329,7 +329,7 @@ const TelephonySection = () => {
                       </select>
                       <button
                         onClick={exportToCsv}
-                        className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors flex items-center gap-2"
+                        className="bg-curai-positive text-white px-4 py-2 rounded-md hover:bg-curai-positive transition-colors flex items-center gap-2"
                       >
                         <span>📊</span>
                         Экспорт в Excel
@@ -341,59 +341,59 @@ const TelephonySection = () => {
                         placeholder="Поиск по номеру или имени..."
                         value={searchQuery}
                         onChange={(e) => setSearchQuery(e.target.value)}
-                        className="w-full border border-gray-300 rounded-lg px-4 py-2 pl-10 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                        className="w-full border border-curai-control rounded-md px-4 py-2 pl-10 focus:ring-2 focus:ring-curai-focus focus:border-curai-control"
                       />
-                      <span className="absolute left-3 top-2.5 text-gray-400">🔍</span>
+                      <span className="absolute left-3 top-2.5 text-curai-muted">🔍</span>
                     </div>
                   </div>
 
                   {loading ? (
                     <div className="text-center py-12">
-                      <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-                      <p className="mt-2 text-gray-500">Загрузка журнала звонков...</p>
+                      <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-curai-control"></div>
+                      <p className="mt-2 text-curai-muted">Загрузка журнала звонков...</p>
                     </div>
                   ) : error ? (
-                    <div className="bg-red-50 border border-red-200 rounded-lg p-4 text-red-700">
+                    <div className="bg-curai-negativeBg border border-curai-negative rounded-md p-4 text-curai-negative">
                       <p className="font-semibold">Ошибка загрузки</p>
                       <p>{error}</p>
                     </div>
                   ) : visibleGroups.length > 0 ? (
                     <div className="overflow-x-auto">
-                      <table className="min-w-full divide-y divide-gray-200">
-                        <thead className="bg-gray-50">
+                      <table className="min-w-full divide-y divide-curai-border">
+                        <thead className="bg-curai-subtle">
                           <tr>
-                            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Контакт</th>
-                            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Звонков</th>
-                            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Последний</th>
-                            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Пропущенных</th>
+                            <th className="px-4 py-3 text-left text-xs font-medium text-curai-muted uppercase tracking-wider">Контакт</th>
+                            <th className="px-4 py-3 text-left text-xs font-medium text-curai-muted uppercase tracking-wider">Звонков</th>
+                            <th className="px-4 py-3 text-left text-xs font-medium text-curai-muted uppercase tracking-wider">Последний</th>
+                            <th className="px-4 py-3 text-left text-xs font-medium text-curai-muted uppercase tracking-wider">Пропущенных</th>
                           </tr>
                         </thead>
-                        <tbody className="bg-white divide-y divide-gray-200">
+                        <tbody className="bg-curai-surface divide-y divide-curai-border">
                           {visibleGroups.map((group) => (
                             <tr
                               key={group.key}
                               onClick={() => setSelectedContactKey(group.key)}
-                              className="hover:bg-blue-50 cursor-pointer"
+                              className="hover:bg-curai-selected cursor-pointer"
                             >
-                              <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">
+                              <td className="px-4 py-3 whitespace-nowrap text-sm text-curai-ink">
                                 <div className="flex flex-col">
                                   {group.contactName ? (
                                     <>
                                       <span className="font-medium">{group.contactName}</span>
-                                      <span className="text-gray-500 text-xs">{group.phone || group.normalizedPhone || 'Без номера'}</span>
+                                      <span className="text-curai-muted text-xs">{group.phone || group.normalizedPhone || 'Без номера'}</span>
                                     </>
                                   ) : (
                                     <span className="font-medium">{group.phone || group.normalizedPhone || 'Без номера'}</span>
                                   )}
                                 </div>
                               </td>
-                              <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">
+                              <td className="px-4 py-3 whitespace-nowrap text-sm text-curai-ink">
                                 {group.calls.length} {declineCalls(group.calls.length)}
                               </td>
-                              <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">{formatDateTime(group.lastCall?.created_at)}</td>
-                              <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">
+                              <td className="px-4 py-3 whitespace-nowrap text-sm text-curai-ink">{formatDateTime(group.lastCall?.created_at)}</td>
+                              <td className="px-4 py-3 whitespace-nowrap text-sm text-curai-ink">
                                 {group.missedCount > 0 ? (
-                                  <span className="text-red-600 font-semibold">{group.missedCount}</span>
+                                  <span className="text-curai-negative font-semibold">{group.missedCount}</span>
                                 ) : (
                                   '—'
                                 )}
@@ -404,7 +404,7 @@ const TelephonySection = () => {
                       </table>
                     </div>
                   ) : (
-                    <div className="text-center py-12 text-gray-500">
+                    <div className="text-center py-12 text-curai-muted">
                       <p className="text-lg">Нет данных о звонках</p>
                     </div>
                   )}
@@ -415,56 +415,56 @@ const TelephonySection = () => {
 
           {activeTab === 'settings' && (
             <div className="space-y-6">
-              <h3 className="text-lg font-semibold text-gray-900">Настройки телефонии</h3>
+              <h3 className="text-lg font-semibold text-curai-ink">Настройки телефонии</h3>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="border border-gray-200 rounded-lg p-4">
-                  <h4 className="font-medium text-gray-900 mb-3">API интеграция</h4>
+                <div className="border border-curai-border rounded-md p-4">
+                  <h4 className="font-medium text-curai-ink mb-3">API интеграция</h4>
                   <div className="space-y-3">
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">API ключ</label>
+                      <label className="block text-sm font-medium text-curai-ink mb-1">API ключ</label>
                       <input
                         type="text"
                         placeholder="Введите API ключ"
-                        className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                        className="w-full border border-curai-control rounded-md px-3 py-2 focus:ring-2 focus:ring-curai-focus focus:border-curai-control"
                       />
                     </div>
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Секретный ключ</label>
+                      <label className="block text-sm font-medium text-curai-ink mb-1">Секретный ключ</label>
                       <input
                         type="password"
                         placeholder="Введите секретный ключ"
-                        className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                        className="w-full border border-curai-control rounded-md px-3 py-2 focus:ring-2 focus:ring-curai-focus focus:border-curai-control"
                       />
                     </div>
                     <div className="flex items-center gap-2">
-                      <input type="checkbox" id="auto-record" className="rounded text-blue-600 focus:ring-blue-500" />
-                      <label htmlFor="auto-record" className="text-sm text-gray-700">Автоматически записывать звонки</label>
+                      <input type="checkbox" id="auto-record" className="rounded text-curai-blue focus:ring-curai-focus" />
+                      <label htmlFor="auto-record" className="text-sm text-curai-ink">Автоматически записывать звонки</label>
                     </div>
                   </div>
                 </div>
-                <div className="border border-gray-200 rounded-lg p-4">
-                  <h4 className="font-medium text-gray-900 mb-3">Маршрутизация</h4>
+                <div className="border border-curai-border rounded-md p-4">
+                  <h4 className="font-medium text-curai-ink mb-3">Маршрутизация</h4>
                   <div className="space-y-3">
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Номер для переадресации</label>
+                      <label className="block text-sm font-medium text-curai-ink mb-1">Номер для переадресации</label>
                       <input
                         type="text"
                         placeholder="+7 (999) 999-99-99"
-                        className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                        className="w-full border border-curai-control rounded-md px-3 py-2 focus:ring-2 focus:ring-curai-focus focus:border-curai-control"
                       />
                     </div>
                     <div className="flex items-center gap-2">
-                      <input type="checkbox" id="missed-notify" className="rounded text-blue-600 focus:ring-blue-500" />
-                      <label htmlFor="missed-notify" className="text-sm text-gray-700">Уведомлять о пропущенных</label>
+                      <input type="checkbox" id="missed-notify" className="rounded text-curai-blue focus:ring-curai-focus" />
+                      <label htmlFor="missed-notify" className="text-sm text-curai-ink">Уведомлять о пропущенных</label>
                     </div>
                   </div>
                 </div>
               </div>
               <div className="flex gap-3">
-                <button className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors">
+                <button className="bg-curai-blue text-white px-4 py-2 rounded-md hover:bg-curai-blue transition-colors">
                   Сохранить настройки
                 </button>
-                <button className="bg-gray-200 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-300 transition-colors">
+                <button className="bg-curai-border text-curai-ink px-4 py-2 rounded-md hover:bg-curai-control transition-colors">
                   Проверить подключение
                 </button>
               </div>
@@ -474,80 +474,80 @@ const TelephonySection = () => {
           {activeTab === 'widgets' && (
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               {/* Виджет цифровой клавиатуры */}
-              <div className="bg-gradient-to-br from-blue-50 to-blue-100 border border-blue-200 rounded-lg p-6">
-                <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
+              <div className="bg-curai-selected border border-curai-control rounded-md p-6">
+                <h3 className="text-lg font-semibold text-curai-ink mb-4 flex items-center gap-2">
                   <span>📱</span>
                   Набор номера
                 </h3>
-                <div className="bg-white rounded-lg p-4 shadow-sm">
-                  <div className="bg-gray-100 rounded-lg p-3 mb-3 text-center text-xl font-mono tracking-widest">
+                <div className="bg-curai-surface rounded-md p-4 shadow-none">
+                  <div className="bg-curai-subtle rounded-md p-3 mb-3 text-center text-xl font-mono tracking-widest">
                     +7 (9__) ___-__-__
                   </div>
                   <div className="grid grid-cols-3 gap-2">
                     {['1', '2', '3', '4', '5', '6', '7', '8', '9', '*', '0', '#'].map((num) => (
                       <button
                         key={num}
-                        className="bg-gray-100 hover:bg-gray-200 rounded-lg py-3 font-semibold text-lg"
+                        className="bg-curai-subtle hover:bg-curai-border rounded-md py-3 font-semibold text-lg"
                       >
                         {num}
                       </button>
                     ))}
                   </div>
-                  <button className="w-full bg-green-600 text-white py-3 rounded-lg mt-3 font-semibold hover:bg-green-700">
+                  <button className="w-full bg-curai-positive text-white py-3 rounded-md mt-3 font-semibold hover:bg-curai-positive">
                     📞 Позвонить
                   </button>
                 </div>
               </div>
 
               {/* Виджет активных звонков */}
-              <div className="bg-gradient-to-br from-purple-50 to-purple-100 border border-purple-200 rounded-lg p-6">
-                <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
+              <div className="bg-curai-selected border border-curai-control rounded-md p-6">
+                <h3 className="text-lg font-semibold text-curai-ink mb-4 flex items-center gap-2">
                   <span>🔊</span>
                   Активные звонки
                 </h3>
                 <div className="space-y-3">
-                  <div className="bg-gray-50 rounded-lg p-4 text-center text-gray-500">
-                    <span className="text-3xl">📵</span>
+                  <div className="bg-curai-subtle rounded-md p-4 text-center text-curai-muted">
+                    <span className="text-2xl">📵</span>
                     <p className="text-sm mt-2">Нет активных звонков</p>
                   </div>
                 </div>
               </div>
 
               {/* Виджет быстрых контактов */}
-              <div className="bg-gradient-to-br from-green-50 to-green-100 border border-green-200 rounded-lg p-6">
-                <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
+              <div className="bg-curai-positiveBg border border-curai-positive rounded-md p-6">
+                <h3 className="text-lg font-semibold text-curai-ink mb-4 flex items-center gap-2">
                   <span>⚡</span>
                   Быстрые контакты
                 </h3>
-                <div className="bg-gray-50 rounded-lg p-4 text-center text-gray-500">
-                  <span className="text-3xl">👥</span>
+                <div className="bg-curai-subtle rounded-md p-4 text-center text-curai-muted">
+                  <span className="text-2xl">👥</span>
                   <p className="text-sm mt-2">Нет быстрых контактов</p>
                 </div>
               </div>
 
               {/* Виджет статистики оператора */}
-              <div className="bg-gradient-to-br from-orange-50 to-orange-100 border border-orange-200 rounded-lg p-6">
-                <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
+              <div className="bg-curai-warningBg border border-curai-warning rounded-md p-6">
+                <h3 className="text-lg font-semibold text-curai-ink mb-4 flex items-center gap-2">
                   <span>📊</span>
                   Моя статистика (сегодня)
                 </h3>
                 <div className="space-y-3">
-                  <div className="bg-white rounded-lg p-3">
+                  <div className="bg-curai-surface rounded-md p-3">
                     <div className="flex justify-between items-center">
-                      <span className="text-sm text-gray-600">Обработано звонков</span>
-                      <span className="font-bold text-lg text-gray-900">0</span>
+                      <span className="text-sm text-curai-muted">Обработано звонков</span>
+                      <span className="font-semibold text-lg text-curai-ink">0</span>
                     </div>
                   </div>
-                  <div className="bg-white rounded-lg p-3">
+                  <div className="bg-curai-surface rounded-md p-3">
                     <div className="flex justify-between items-center">
-                      <span className="text-sm text-gray-600">Среднее время</span>
-                      <span className="font-bold text-lg text-gray-900">0:00</span>
+                      <span className="text-sm text-curai-muted">Среднее время</span>
+                      <span className="font-semibold text-lg text-curai-ink">0:00</span>
                     </div>
                   </div>
-                  <div className="bg-white rounded-lg p-3">
+                  <div className="bg-curai-surface rounded-md p-3">
                     <div className="flex justify-between items-center">
-                      <span className="text-sm text-gray-600">Пропущено</span>
-                      <span className="font-bold text-lg text-gray-900">0</span>
+                      <span className="text-sm text-curai-muted">Пропущено</span>
+                      <span className="font-semibold text-lg text-curai-ink">0</span>
                     </div>
                   </div>
                 </div>

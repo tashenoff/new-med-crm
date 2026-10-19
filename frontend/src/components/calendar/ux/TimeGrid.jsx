@@ -1,4 +1,5 @@
 import React from 'react';
+import RoomHeader from './RoomHeader';
 import TimeSlot from './TimeSlot';
 import AppointmentCard from './AppointmentCard';
 import { themeClasses } from '../../../hooks/useTheme';
@@ -71,6 +72,7 @@ const TimeGrid = ({
         const doctorName = doctor.full_name || doctor.name;
         return {
           name: doctorName,
+          color: doctor.calendar_color,
           startTime: s.start_time,
           endTime: s.end_time,
           label: `${doctorName} ${s.start_time}-${s.end_time}`
@@ -82,33 +84,11 @@ const TimeGrid = ({
   const doctorsInRoom = getDoctorsForRoom();
 
   return (
-    <div className={`flex-shrink-0 border-r ${themeClasses.border.light} last:border-r-0 calendar-room-column`} style={{ width: '180px', minWidth: '180px' }}>
-{/* Заголовок кабинета: отдельная строка для названия кабинета и отдельная — для врача */}
-      <div className={`h-16 border-b border-l ${themeClasses.border.default} ${themeClasses.bg.secondary} font-semibold ${themeClasses.text.primary} calendar-room-header overflow-hidden`}>
-        <div className={`h-8 flex items-center justify-center border-b ${themeClasses.border.default} calendar-room-name-row`}>
-          <span className="text-sm leading-tight text-center w-full px-1.5 block break-words line-clamp-1" title={room.name}>{room.name}</span>
-        </div>
-        <div className="h-8 flex items-center justify-center calendar-room-doctor-row">
-          {doctorsInRoom.length > 0 ? (
-            <div className="text-center w-full px-1.5">
-              {doctorsInRoom.map((doc, idx) => (
-                <span
-                  key={idx}
-                  className="text-xs font-medium text-blue-600 leading-tight block break-words line-clamp-1"
-                  title={doc.label}
-                >
-                  {doc.label}
-                </span>
-              ))}
-            </div>
-          ) : (
-            <span className="text-xs text-gray-400 dark:text-gray-500 leading-tight text-center w-full px-1.5 block break-words line-clamp-1">—</span>
-          )}
-        </div>
-      </div>
-      
+    <div className={`flex-shrink-0 border-r ${themeClasses.border.light} last:border-r-0 calendar-room-column`} >
+      <RoomHeader room={room} doctors={doctorsInRoom} />
+
       {/* Временные слоты */}
-      {timeSlots.map((time) => {
+      <div className="calendar-room-slots">{timeSlots.map((time) => {
         const availableDoctor = getAvailableDoctorForSlot(room, dateString, time);
         const appointment = getAppointmentForSlot(room.id, dateString, time);
         const isOccupied = isSlotOccupied(room.id, dateString, time);
@@ -149,7 +129,7 @@ const TimeGrid = ({
             )}
           </div>
         );
-      })}
+      })}</div>
     </div>
   );
 };

@@ -1,4 +1,3 @@
-import { paymentSummary } from '../../utils/paymentBalances';
 import React, { useState, useEffect, useCallback } from 'react';
 import Modal from './Modal';
 import { inputClasses, selectClasses, textareaClasses, labelClasses, buttonPrimaryClasses, buttonSecondaryClasses, buttonSuccessClasses, buttonDangerClasses, cardHeaderClasses, tabClasses, tableClasses, tableHeaderClasses, tableRowClasses } from './modalUtils';
@@ -6,6 +5,8 @@ import ServiceSelector from '../treatment/ServiceSelector';
 import ConsultationSheetForm from '../consultations/ConsultationSheetForm';
 import TreatmentPlanView from '../treatment/TreatmentPlanView';
 import ServicePaymentList from '../treatment/ServicePaymentList';
+import PatientPaymentWorkspace from '../treatment/PatientPaymentWorkspace';
+import PatientTreatmentWorkspace from '../treatment/PatientTreatmentWorkspace';
 import AppointmentsSchedule from '../treatment/AppointmentsSchedule';
 import LabAnalysisPicker from '../patients/LabAnalysisPicker';
 import WhatsAppSidebar from '../crm/telephony/WhatsAppSidebar';
@@ -14,27 +15,31 @@ import { useGlobalRefresh } from '../../hooks/useGlobalRefresh';
 import { usePhoneInput } from '../../hooks/usePhoneInput';
 
 const PatientModal = ({
-  show, 
-  onClose, 
-  onSave, 
-  patientForm = {}, 
-  setPatientForm = () => {}, 
-  editingItem = null, 
-  loading = false, 
-  errorMessage = null 
+  show,
+  onClose,
+  onSave,
+  patientForm = {},
+  setPatientForm = () => {},
+  editingItem = null,
+  loading = false,
+  errorMessage = null
 }) => {
   const [activeTab, setActiveTab] = useState('info');
   const [documents, setDocuments] = useState([]);
   const [treatmentPlans, setTreatmentPlans] = useState([]);
+  const [treatmentPatientId, setTreatmentPatientId] = useState(null);
   const [consultationSheets, setConsultationSheets] = useState([]);
   const [showConsultationForm, setShowConsultationForm] = useState(false);
   const [editingConsultation, setEditingConsultation] = useState(null);
   const [uploading, setUploading] = useState(false);
   const [selectedFile, setSelectedFile] = useState(null);
   const [documentDescription, setDocumentDescription] = useState('');
-  
+
   // Identity belongs to this opening's explicit edit target, never a previous form.
   const currentPatientId = editingItem ? (editingItem.id || editingItem._id) : null;
+  const treatmentPatientRef = React.useRef(currentPatientId);
+  treatmentPatientRef.current = currentPatientId;
+  const currentTreatmentPlans = treatmentPatientId === currentPatientId ? treatmentPlans : [];
 
     // При создании нового пациента (нет editingItem) всегда начинаем с вкладки "Информация",
     // иначе застрявшая с прошлого открытия вкладка (напр. "Оплата") даёт пустое окно
@@ -59,23 +64,23 @@ const PatientModal = ({
   const [hasCourseServices, setHasCourseServices] = useState(false);
   const [successMessage, setSuccessMessage] = useState('');
   const [showWhatsAppHistory, setShowWhatsAppHistory] = useState(false);
-  
+
   // Состояние загрузки страницы пациента (прелоадер при открытии)
   const [pageLoading, setPageLoading] = useState(false);
-  
+
   // Состояние для сворачивания/разворачивания консультаций (по умолчанию все развёрнуты)
   const [expandedConsultations, setExpandedConsultations] = useState({});
-  
+
   // Фильтры для счетов
   const [paymentFilter, setPaymentFilter] = useState('all'); // all, paid, unpaid
   const [procedureFilter, setProcedureFilter] = useState('all'); // all, procedures, non_procedures
-  
+
   // Источники (каналы привлечения)
   const [sources, setSources] = useState([]);
   const [loadingSources, setLoadingSources] = useState(false);
 
   const API = import.meta.env.VITE_BACKEND_URL;
-  
+
   const patientFormForSession = (form) => {
     const { id, _id, _editingItemId, ...fields } = form;
     return currentPatientId ? { ...fields, id: currentPatientId } : fields;
@@ -90,7 +95,7 @@ const PatientModal = ({
 
   // Глобальное обновление для синхронизации со страницей пациентов
   const { refreshTreatmentPlans } = useGlobalRefresh();
-  
+
   // Функция проверки — есть ли пациент с таким номером в базе (как в CRM)
   const checkPatientByPhone = useCallback(async (phone) => {
     console.log('🔍 checkPatientByPhone called with:', phone);
@@ -99,7 +104,7 @@ const PatientModal = ({
       const encodedPhone = encodeURIComponent(phone);
       const url = `${API}/api/crm/leads/check-phone/${encodedPhone}`;
       console.log('🔍 Checking URL:', url);
-      
+
       const response = await fetch(url, {
         method: 'GET',
         headers: {
@@ -107,13 +112,13 @@ const PatientModal = ({
           ...(token ? { Authorization: `Bearer ${token}` } : {}),
         },
       });
-      
+
       console.log('🔍 Response status:', response.status);
       if (!response.ok) {
         console.log('❌ Response not OK');
         return { patient: null, active_lead: null };
       }
-      
+
       const result = await response.json();
       console.log('✅ Check result:', result);
       return result;
@@ -132,7 +137,7 @@ const PatientModal = ({
     checkPatientByPhone,
     show ? setPatientForm : null
   );
-  
+
   const hasPhoneMatch = phoneHook.hasMatch && (!currentPatientId ||
     (phoneHook.foundData?.patient?.id || phoneHook.foundData?.patient?._id) !== currentPatientId);
 
@@ -147,7 +152,7 @@ const PatientModal = ({
       setPageLoading(true);
       // Всегда загружаем планы при открытии
       fetchTreatmentPlans();
-      
+
       if (activeTab === 'documents') {
         fetchDocuments();
       }
@@ -158,11 +163,14 @@ const PatientModal = ({
       setPageLoading(false);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [show]); // Только при открытии/закрытии модалки
-  
+  }, [show, currentPatientId]); // Только при открытии/закрытии модалки
+
   // Загрузка данных при переключении вкладок
   useEffect(() => {
     if (editingItem && show) {
+      if (activeTab === 'payment') {
+        fetchTreatmentPlans();
+      }
       if (activeTab === 'documents') {
         fetchDocuments();
       }
@@ -171,7 +179,7 @@ const PatientModal = ({
       }
     }
   }, [activeTab, editingItem, show]);
-  
+
   // Перезагрузить планы когда переключаемся на вкладку консультаций (могли создать новую)
   useEffect(() => {
     if (editingItem && activeTab === 'consultations') {
@@ -185,7 +193,7 @@ const PatientModal = ({
 
   const fetchDocuments = async () => {
     if (!editingItem) return;
-    
+
     try {
       const token = localStorage.getItem('token');
       const response = await fetch(`${API}/api/patients/${editingItem.id}/documents`, {
@@ -194,7 +202,7 @@ const PatientModal = ({
           'Content-Type': 'application/json'
         }
       });
-      
+
       if (response.ok) {
         const docs = await response.json();
         setDocuments(docs);
@@ -206,7 +214,8 @@ const PatientModal = ({
 
   const fetchTreatmentPlans = async () => {
     if (!editingItem) return;
-    
+    const requestedPatientId = currentPatientId;
+
     try {
       const token = localStorage.getItem('token');
       const response = await fetch(`${API}/api/patients/${editingItem.id}/treatment-plans`, {
@@ -215,13 +224,15 @@ const PatientModal = ({
           'Content-Type': 'application/json'
         }
       });
-      
+
       if (response.ok) {
         const plans = await response.json();
+        if (treatmentPatientRef.current !== requestedPatientId) return;
+        setTreatmentPatientId(requestedPatientId);
         setTreatmentPlans(plans);
-        
+
         // Проверить наличие курсовых услуг
-        const hasCourses = plans.some(plan => 
+        const hasCourses = plans.some(plan =>
           plan.services && plan.services.some(service => service.is_course)
         );
         setHasCourseServices(hasCourses);
@@ -229,13 +240,13 @@ const PatientModal = ({
     } catch (error) {
       console.error('Error fetching treatment plans:', error);
     } finally {
-      setPageLoading(false);
+      if (treatmentPatientRef.current === requestedPatientId) setPageLoading(false);
     }
   };
 
   const fetchConsultationSheets = async () => {
     if (!editingItem) return;
-    
+
     try {
       const token = localStorage.getItem('token');
       const response = await fetch(`${API}/api/patients/${editingItem.id}/consultation-sheets`, {
@@ -244,7 +255,7 @@ const PatientModal = ({
           'Content-Type': 'application/json'
         }
       });
-      
+
       if (response.ok) {
         const sheets = await response.json();
         setConsultationSheets(sheets);
@@ -291,7 +302,7 @@ const PatientModal = ({
       const url = editingConsultation
         ? `${API}/api/consultation-sheets/${editingConsultation.id}`
         : `${API}/api/patients/${editingItem.id}/consultation-sheets`;
-      
+
       const response = await fetch(url, {
         method: editingConsultation ? 'PUT' : 'POST',
         headers: {
@@ -418,67 +429,67 @@ const PatientModal = ({
 <meta charset="utf-8"/>
 <title>Консультационный лист</title>
 <style>
-  * { box-sizing: border-box; }
-  body {
-    font-family: 'Times New Roman', 'Arial', sans-serif;
-    font-size: 14px;
-    color: #000;
-    background: #fff;
-    margin: 0;
-    padding: 32px;
-  }
-  @page { size: A4; margin: 20mm; }
-  .header {
-    text-align: center;
-    border-bottom: 2px solid #000;
-    padding-bottom: 12px;
-    margin-bottom: 18px;
-  }
-  .header .clinic { font-size: 16px; font-weight: bold; }
-  .header .doc-title { font-size: 18px; font-weight: bold; margin-top: 6px; }
-  .header .doc-date { font-size: 12px; color: #444; margin-top: 4px; }
-  .info-table { width: 100%; margin-bottom: 16px; }
-  .info-table td { padding: 4px 10px; vertical-align: top; }
-  .info-table .label { font-weight: bold; color: #222; }
-  .info-table .label::after { content: ':'; }
-  .section { margin-bottom: 10px; page-break-inside: avoid; }
-  .section-title {
-    font-weight: bold;
-    font-size: 14px;
-    text-transform: uppercase;
-    letter-spacing: 0.3px;
-    margin-bottom: 4px;
-    border-bottom: 1px solid #999;
-    padding-bottom: 2px;
-  }
-  .value { white-space: normal; line-height: 1.5; margin-bottom: 6px; }
-  .comp-list { padding: 4px 6px; background: #f7f7f7; border: 1px dashed #aaa; }
-  .comp { display: flex; justify-content: space-between; gap: 12px; font-size: 12px; padding: 2px 0; }
-  .comp-meta { color: #333; font-weight: normal; }
-  .comp-meta i { color: #b00; font-style: italic; }
-  .services-table { width: 100%; border-collapse: collapse; margin-bottom: 8px; }
-  .services-table th, .services-table td {
-    border: 1px solid #333;
-    padding: 5px 8px;
-    font-size: 13px;
-  }
-  .services-table th { background: #eee; text-align: left; }
-  .num { text-align: right; }
-  .txt { text-align: left; }
-  .icd-item { border: 1px solid #333; padding: 4px 8px; margin: 3px 0; }
-  .signature { margin-top: 30px; }
-  .signature .line { border-bottom: 1px solid #000; width: 320px; height: 22px; display: inline-block; }
-  .signature .caption { font-size: 12px; margin-top: 4px; }
-  @media print {
-    body { padding: 0; }
-  }
+ * { box-sizing: border-box; }
+ body {
+ font-family: 'Times New Roman', 'Arial', sans-serif;
+ font-size: 14px;
+ color: #000;
+ background: #fff;
+ margin: 0;
+ padding: 32px;
+ }
+ @page { size: A4; margin: 20mm; }
+ .header {
+ text-align: center;
+ border-bottom: 2px solid #000;
+ padding-bottom: 12px;
+ margin-bottom: 18px;
+ }
+ .header .clinic { font-size: 16px; font-weight: bold; }
+ .header .doc-title { font-size: 18px; font-weight: bold; margin-top: 6px; }
+ .header .doc-date { font-size: 12px; color: #444; margin-top: 4px; }
+ .info-table { width: 100%; margin-bottom: 16px; }
+ .info-table td { padding: 4px 10px; vertical-align: top; }
+ .info-table .label { font-weight: bold; color: #222; }
+ .info-table .label::after { content: ':'; }
+ .section { margin-bottom: 10px; page-break-inside: avoid; }
+ .section-title {
+ font-weight: bold;
+ font-size: 14px;
+ text-transform: uppercase;
+ letter-spacing: 0.3px;
+ margin-bottom: 4px;
+ border-bottom: 1px solid #999;
+ padding-bottom: 2px;
+ }
+ .value { white-space: normal; line-height: 1.5; margin-bottom: 6px; }
+ .comp-list { padding: 4px 6px; background: #f7f7f7; border: 1px dashed #aaa; }
+ .comp { display: flex; justify-content: space-between; gap: 12px; font-size: 12px; padding: 2px 0; }
+ .comp-meta { color: #333; font-weight: normal; }
+ .comp-meta i { color: #b00; font-style: italic; }
+ .services-table { width: 100%; border-collapse: collapse; margin-bottom: 8px; }
+ .services-table th, .services-table td {
+ border: 1px solid #333;
+ padding: 5px 8px;
+ font-size: 13px;
+ }
+ .services-table th { background: #eee; text-align: left; }
+ .num { text-align: right; }
+ .txt { text-align: left; }
+ .icd-item { border: 1px solid #333; padding: 4px 8px; margin: 3px 0; }
+ .signature { margin-top: 30px; }
+ .signature .line { border-bottom: 1px solid #000; width: 320px; height: 22px; display: inline-block; }
+ .signature .caption { font-size: 12px; margin-top: 4px; }
+ @media print {
+ body { padding: 0; }
+ }
 </style>
 </head>
 <body>
-  <div class="header">
-    <div class="clinic">Медицинский центр</div>
-    <div class="doc-title">Консультационный лист</div>
-    <div class="doc-date">Дата консультации: ${escapeHtml(dateStr)}</div>
+ <div class="header">
+ <div class="clinic">Медицинский центр</div>
+ <div class="doc-title">Консультационный лист</div>
+ <div class="doc-date">Дата консультации: ${escapeHtml(dateStr)}</div>
   </div>
 
   <table class="info-table">
@@ -547,94 +558,7 @@ const PatientModal = ({
   };
 
   // Компонент сводки оплаты по всем планам лечения
-  const PaymentSummary = ({ plans }) => {
-    // Расчёт общих сумм по всем планам
-    const { totalAmount, paidAmount, remainingToPay, depositPaid, otherPaid, known } = paymentSummary(plans);
-    const totalServices = plans.reduce((sum, p) => sum + (p.services?.length || 0), 0);
-    const paidServices = plans.reduce((sum, p) => sum + (p.services?.filter(s => s.payment_status === 'paid' || (s.is_complex && (s.paid_amount || 0) > 0)).length || 0), 0);
-    const paymentProgress = totalAmount > 0 ? Math.round((paidAmount / totalAmount) * 100) : 0;
-    
-    // Депозит
-    const depositAmount = plans.reduce((sum, p) => sum + (p.deposit_amount || 0), 0);
-    const extraDeposit = plans.reduce((sum, p) => sum + (p.extra_deposit || 0), 0);
-    const appointmentDeposit = depositAmount - extraDeposit;
-    const depositBalance = depositAmount > totalAmount ? depositAmount - totalAmount : 0;
-    const depositDebt = depositAmount < totalAmount ? totalAmount - depositAmount : 0;
-    const actualRemainingToPay = remainingToPay;
-
-    return (
-      <div className="p-5 bg-white rounded-xl border border-gray-200 shadow-sm">
-        <div className="grid grid-cols-3 gap-4 mb-4">
-          <div className="text-center p-3 bg-gray-50 rounded-lg">
-            <div className="text-xs text-gray-500 uppercase tracking-wide font-medium">Всего к оплате</div>
-            <div className="text-2xl font-bold text-gray-900 mt-1">{totalAmount.toLocaleString()} ₸</div>
-            {totalServices > 0 && <div className="text-xs text-gray-400 mt-1">{totalServices} услуг</div>}
-          </div>
-          <div className="text-center p-3 bg-green-50 rounded-lg border border-green-200">
-            <div className="text-xs text-green-600 uppercase tracking-wide font-medium">✅ Оплачено</div>
-            <div className="text-2xl font-bold text-green-600 mt-1">{paidAmount.toLocaleString()} ₸</div>
-            <div className="text-xs text-green-600 mt-1">
-              Из них депозитом: {depositPaid.toLocaleString()} ₸{!known && ' (ledger: сумма неизвестна)'}
-              {known && <> · Другие платежи: {otherPaid.toLocaleString()} ₸</>}
-            </div>
-            {paidAmount > 0 && (
-              <div className="text-xs text-green-500 mt-1">{paidServices} из {totalServices} услуг</div>
-            )}
-          </div>
-          <div className={`text-center p-3 rounded-lg border ${actualRemainingToPay > 0 ? 'bg-red-50 border-red-200' : 'bg-green-50 border-green-200'}`}>
-            <div className={`text-xs uppercase tracking-wide font-medium ${actualRemainingToPay > 0 ? 'text-red-600' : 'text-green-600'}`}>
-              К оплате
-            </div>
-            <div className={`text-2xl font-bold mt-1 ${actualRemainingToPay > 0 ? 'text-red-600' : 'text-green-600'}`}>
-              {actualRemainingToPay.toLocaleString()} ₸
-            </div>
-            {actualRemainingToPay > 0 && (
-              <div className="text-xs text-red-500 mt-1">{totalServices - paidServices} услуг не оплачено</div>
-            )}
-          </div>
-        </div>
-
-        {totalAmount > 0 && (
-          <div className="mb-4">
-            <div className="flex justify-between text-xs text-gray-500 mb-1">
-              <span>Прогресс оплаты</span>
-              <span className="font-semibold">{paymentProgress}%</span>
-            </div>
-            <div className="w-full bg-gray-200 rounded-full h-4 overflow-hidden">
-              <div
-                className={`h-4 rounded-full transition-all duration-500 ${
-                  paymentProgress === 100
-                    ? 'bg-gradient-to-r from-green-400 to-green-600'
-                    : 'bg-gradient-to-r from-blue-400 to-blue-600'
-                }`}
-                style={{ width: `${paymentProgress}%` }}
-              />
-            </div>
-          </div>
-        )}
-
-        {depositAmount > 0 && (
-          <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-gray-600 bg-gray-50 rounded-lg p-3">
-            <span className="font-medium text-gray-700">💳 Депозит:</span>
-            {appointmentDeposit > 0 && <span className="text-blue-600">💰 {appointmentDeposit.toLocaleString()} ₸</span>}
-            {extraDeposit > 0 && <span className="text-green-600">➕ Доплата: {extraDeposit.toLocaleString()} ₸</span>}
-            <span className="font-medium">Итого: {depositAmount.toLocaleString()} ₸</span>
-            {depositBalance > 0 && <span className="text-green-600 font-medium">✓ Остаток: {depositBalance.toLocaleString()} ₸</span>}
-            {depositDebt > 0 && <span className="text-red-600 font-medium">✗ Непокрыто: {depositDebt.toLocaleString()} ₸</span>}
-          </div>
-        )}
-
-        {remainingToPay === 0 && paidAmount > 0 && (
-          <div className="mt-4 pt-4 border-t border-gray-200 text-center">
-            <div className="inline-flex items-center px-6 py-3 bg-green-100 text-green-700 rounded-lg font-semibold">
-              <span className="text-2xl mr-2">✅</span>
-              <span>Все планы лечения полностью оплачены</span>
-            </div>
-          </div>
-        )}
-      </div>
-    );
-  };
+  
 
   const handleFileUpload = async () => {
     if (!selectedFile || !editingItem) return;
@@ -878,10 +802,10 @@ const PatientModal = ({
 
     try {
       const token = localStorage.getItem('token');
-      const url = editingPlan 
+      const url = editingPlan
         ? `${API}/api/treatment-plans/${editingPlan.id}`
         : `${API}/api/patients/${editingItem.id}/treatment-plans`;
-      
+
       const response = await fetch(url, {
         method: editingPlan ? 'PUT' : 'POST',
         headers: {
@@ -1000,19 +924,18 @@ const PatientModal = ({
 
   return (
     <>
-    <Modal 
-      show={show} 
+    <Modal
+      show={show}
+      size={['payment','treatment'].includes(activeTab) ? 'max-w-[1240px]' : 'max-w-[1040px]'}
+      className={`curai-patient-dialog${['payment','treatment'].includes(activeTab) ? ' curai-patient-workspace-dialog' : ''}${activeTab === 'payment' ? ' curai-patient-payment-dialog' : ''}${activeTab === 'treatment' ? ' curai-patient-treatment-dialog' : ''}`}
       onClose={onClose}
-      title={editingItem ? 'Карточка пациента' : 'Новый пациент'}
+      title={editingItem ? (editingItem.full_name?.trim() || 'Карточка пациента') : 'Новый пациент'}
       errorMessage={errorMessage}
-    >
-
-        {/* Tabs */}
-        <div className="border-b border-gray-200 dark:border-gray-700 mb-4">
-          <nav className="-mb-px flex flex-wrap gap-x-8 gap-y-2">
+    subheader={activeTab === 'consultations' && showConsultationForm ? null : (<div className="curai-patient-tabbar">
+          <nav className="curai-patient-tabs" role="tablist" aria-label="Разделы карточки пациента">
             <button
               onClick={() => setActiveTab('info')}
-              className={tabClasses(activeTab === 'info')}
+              className={tabClasses(activeTab === 'info')} role="tab" aria-selected={activeTab === 'info'}
             >
               <span className="flex items-center gap-2">
                 <FaUser className="text-sm" />
@@ -1023,7 +946,7 @@ const PatientModal = ({
               <>
                 <button
                   onClick={() => setActiveTab('consultations')}
-                  className={tabClasses(activeTab === 'consultations')}
+                  className={tabClasses(activeTab === 'consultations')} role="tab" aria-selected={activeTab === 'consultations'}
                   data-guide="consultations-tab"
                 >
                   <span className="flex items-center gap-2">
@@ -1033,7 +956,7 @@ const PatientModal = ({
                 </button>
                 <button
                   onClick={() => setActiveTab('documents')}
-                  className={tabClasses(activeTab === 'documents')}
+                  className={tabClasses(activeTab === 'documents')} role="tab" aria-selected={activeTab === 'documents'}
                 >
                   <span className="flex items-center gap-2">
                     <FaFileAlt className="text-sm" />
@@ -1042,7 +965,7 @@ const PatientModal = ({
                 </button>
                 <button
                   onClick={() => setActiveTab('treatment')}
-                  className={tabClasses(activeTab === 'treatment')}
+                  className={tabClasses(activeTab === 'treatment')} role="tab" aria-selected={activeTab === 'treatment'}
                 >
                   <span className="flex items-center gap-2">
                     <FaClipboardList className="text-sm" />
@@ -1051,7 +974,7 @@ const PatientModal = ({
                 </button>
                 <button
                   onClick={() => setActiveTab('complex')}
-                  className={tabClasses(activeTab === 'complex')}
+                  className={tabClasses(activeTab === 'complex')} role="tab" aria-selected={activeTab === 'complex'}
                 >
                   <span className="flex items-center gap-2">
                     <FaPuzzlePiece className="text-sm" />
@@ -1060,7 +983,7 @@ const PatientModal = ({
                 </button>
                 <button
                   onClick={() => setActiveTab('analyzes')}
-                  className={tabClasses(activeTab === 'analyzes')}
+                  className={tabClasses(activeTab === 'analyzes')} role="tab" aria-selected={activeTab === 'analyzes'}
                 >
                   <span className="flex items-center gap-2">
                     <FaFlask className="text-sm" />
@@ -1069,7 +992,7 @@ const PatientModal = ({
                 </button>
                 <button
                   onClick={() => setActiveTab('payment')}
-                  className={tabClasses(activeTab === 'payment')}
+                  className={tabClasses(activeTab === 'payment')} role="tab" aria-selected={activeTab === 'payment'}
                 >
                   <span className="flex items-center gap-2">
                     <FaCreditCard className="text-sm" />
@@ -1079,7 +1002,7 @@ const PatientModal = ({
                 {hasCourseServices && (
                   <button
                     onClick={() => setActiveTab('appointments')}
-                    className={tabClasses(activeTab === 'appointments')}
+                    className={tabClasses(activeTab === 'appointments')} role="tab" aria-selected={activeTab === 'appointments'}
                   >
                     <span className="flex items-center gap-2">
                       <FaCalendarAlt className="text-sm" />
@@ -1090,13 +1013,18 @@ const PatientModal = ({
               </>
             )}
           </nav>
-        </div>
+        </div>)}
+    
+>
+
+        {/* Tabs */}
+
 
         {/* Прелоадер при загрузке данных пациента */}
         {pageLoading && editingItem ? (
           <div className="flex flex-col items-center justify-center py-20">
-            <div className="w-12 h-12 border-4 border-blue-200 border-t-blue-600 rounded-full animate-spin mb-4"></div>
-            <p className="text-gray-500 text-sm">Загрузка данных пациента...</p>
+            <div className="w-12 h-12 border-4 border-curai-control border-t-blue-600 rounded-full animate-spin mb-4"></div>
+            <p className="text-curai-muted text-sm">Загрузка данных пациента...</p>
           </div>
         ) : (
           <>
@@ -1124,7 +1052,7 @@ const PatientModal = ({
                 onChange={(e) => safeSetPatientForm({ iin: e.target.value })}
                 className={inputClasses}
               />
-              
+
               <input
                 type="date"
                 placeholder="Дата рождения"
@@ -1145,7 +1073,7 @@ const PatientModal = ({
                 <option value="female">Женский</option>
                 <option value="other">Другой</option>
               </select>
-              
+
               <div className="relative">
                 <input
                   {...phoneHook.phoneInputProps}
@@ -1156,7 +1084,7 @@ const PatientModal = ({
                 {editingItem && editingItem.phone && (
                   <div
                     onClick={() => setShowWhatsAppHistory(true)}
-                    className="absolute right-3 top-3 text-green-600 cursor-pointer"
+                    className="absolute right-3 top-3 text-curai-positive cursor-pointer"
                     style={{ width: '20px', height: '20px' }}
                     title="Открыть WhatsApp"
                   >
@@ -1165,7 +1093,7 @@ const PatientModal = ({
                 )}
                 {phoneHook.isChecking && (
                   <div className="absolute right-3 top-1/2 -translate-y-1/2">
-                    <div className="w-4 h-4 animate-spin rounded-full border-2 border-blue-500 border-t-transparent"></div>
+                    <div className="w-4 h-4 animate-spin rounded-full border-2 border-curai-control border-t-transparent"></div>
                   </div>
                 )}
               </div>
@@ -1173,16 +1101,16 @@ const PatientModal = ({
 
             {/* Блок с информацией о найденном пациенте/лиде */}
             {hasPhoneMatch && phoneHook.foundData && (
-              <div className="p-3 bg-orange-50 border border-orange-200 rounded-lg text-sm">
+              <div className="p-3 bg-curai-warningBg border border-curai-warning rounded-md text-sm">
                 {phoneHook.foundData.patient ? (
-                  <div className="flex items-center gap-2 text-orange-700">
+                  <div className="flex items-center gap-2 text-curai-warning">
                     <span>⚠️</span>
                     <span>
                       Пациент <strong>{phoneHook.foundData.patient.full_name}</strong> уже существует с таким номером телефона
                     </span>
                   </div>
                 ) : phoneHook.foundData.active_lead && (
-                  <div className="flex items-center gap-2 text-orange-700">
+                  <div className="flex items-center gap-2 text-curai-warning">
                     <span>ℹ️</span>
                     <span>
                       Активная заявка с таким номером: <strong>{phoneHook.foundData.active_lead.full_name}</strong>
@@ -1193,21 +1121,21 @@ const PatientModal = ({
             )}
 
             <div>
-              <label className="block text-sm text-gray-600 mb-1">Канал привлечения клиента</label>
+              <label className="block text-sm text-curai-muted mb-1">Канал привлечения клиента</label>
               <select
                 value={patientForm.source_id || ''}
                 onChange={(e) => {
                   const selectedValue = e.target.value;
                   const selectedSource = sources.find(s => s.id === selectedValue);
                   if (selectedSource) {
-                    safeSetPatientForm({ 
+                    safeSetPatientForm({
                       source_id: selectedValue,
-                      source: selectedSource.type 
+                      source: selectedSource.type
                     });
                   } else {
-                    safeSetPatientForm({ 
+                    safeSetPatientForm({
                       source_id: selectedValue,
-                      source: '' 
+                      source: ''
                     });
                   }
                 }}
@@ -1221,7 +1149,7 @@ const PatientModal = ({
                   </option>
                 ))}
               </select>
-              {loadingSources && <span className="text-xs text-gray-400 ml-2">Загрузка...</span>}
+              {loadingSources && <span className="text-xs text-curai-muted ml-2">Загрузка...</span>}
             </div>
 
             <textarea
@@ -1231,7 +1159,7 @@ const PatientModal = ({
               className={inputClasses}
               rows="3"
             />
-            
+
             <div className="flex space-x-3">
               <button
                 type="submit"
@@ -1267,7 +1195,7 @@ const PatientModal = ({
                     className={inputClasses}
                     accept=".pdf,.doc,.docx,.txt,.jpg,.jpeg,.png"
                   />
-                  <p className="text-sm text-gray-500 mt-1">
+                  <p className="text-sm text-curai-muted mt-1">
                     Поддерживаются файлы: PDF, Word, текст, изображения
                   </p>
                 </div>
@@ -1281,7 +1209,7 @@ const PatientModal = ({
                 <button
                   onClick={handleFileUpload}
                   disabled={!selectedFile || uploading}
-                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
+                  className="px-4 py-2 bg-curai-blue text-white rounded-md hover:bg-curai-blue disabled:opacity-50"
                 >
                   {uploading ? 'Загрузка...' : 'Загрузить документ'}
                 </button>
@@ -1292,23 +1220,23 @@ const PatientModal = ({
             <div>
               <h4 className="font-medium mb-3">Загруженные документы</h4>
               {documents.length === 0 ? (
-                <p className="text-gray-500 text-center py-4">
+                <p className="text-curai-muted text-center py-4">
                   Документы не найдены
                 </p>
               ) : (
                 <div className="space-y-2">
                   {documents.map((doc) => (
-                    <div key={doc.id} className="flex items-center justify-between p-3 border rounded-lg gap-3">
+                    <div key={doc.id} className="flex items-center justify-between p-3 border rounded-md gap-3">
                       <div className="flex-1 min-w-0">
                         <div className="font-medium truncate" title={doc.original_filename}>{doc.original_filename}</div>
-                        <div className="text-sm text-gray-500">
-                          Загружен {new Date(doc.created_at).toLocaleDateString('ru-RU')} 
+                        <div className="text-sm text-curai-muted">
+                          Загружен {new Date(doc.created_at).toLocaleDateString('ru-RU')}
                           {' '}пользователем {doc.uploaded_by_name}
                         </div>
                         {doc.description && (
-                          <div className="text-sm text-gray-600 truncate" title={doc.description}>{doc.description}</div>
+                          <div className="text-sm text-curai-muted truncate" title={doc.description}>{doc.description}</div>
                         )}
-                        <div className="text-xs text-gray-400">
+                        <div className="text-xs text-curai-muted">
                           Размер: {(doc.file_size / 1024).toFixed(1)} KB
                         </div>
                       </div>
@@ -1317,13 +1245,13 @@ const PatientModal = ({
                           href={`${API}/api/uploads/${doc.filename}`}
                           download={doc.original_filename}
                           title={doc.original_filename}
-                          className="px-3 py-1 text-blue-600 border border-blue-600 rounded hover:bg-blue-50 text-sm whitespace-nowrap"
+                          className="px-3 py-1 text-curai-blue border border-curai-control rounded hover:bg-curai-selected text-sm whitespace-nowrap"
                         >
                           Скачать
                         </a>
                         <button
                           onClick={() => handleDeleteDocument(doc.id)}
-                          className="px-3 py-1 text-red-600 border border-red-600 rounded hover:bg-red-50 text-sm whitespace-nowrap"
+                          className="px-3 py-1 text-curai-negative border border-curai-negative rounded hover:bg-curai-negativeBg text-sm whitespace-nowrap"
                         >
                           Удалить
                         </button>
@@ -1334,45 +1262,18 @@ const PatientModal = ({
               )}
             </div>
 
-            <div className="flex justify-end">
-              <button
-                type="button"
-                onClick={onClose}
-                className="px-6 py-2 bg-gray-300 text-gray-700 rounded-lg hover:bg-gray-400"
-              >
-                Закрыть
-              </button>
-            </div>
+            
           </div>
         )}
 
         {/* Treatment Plans Tab - управление планами */}
-        {activeTab === 'treatment' && editingItem && (
-          <div className="space-y-4">
-            <div className="bg-green-50 p-3 rounded-lg">
-              <h4 className="font-medium text-green-800">
-                Планы лечения для пациента: {editingItem.full_name}
-              </h4>
-              <p className="text-sm text-green-600 mt-1">
-                Создаются автоматически при заполнении консультационного листа или вручную
-              </p>
-            </div>
-
-            {/* Add/Edit Plan Form */}
-            {!editingPlan && (
-              <div className="bg-white p-3 rounded-lg border-2 border-dashed border-gray-300">
-                <p className="text-gray-500 text-center">
-                  Планы лечения создаются автоматически при заполнении консультационного листа
-                </p>
-              </div>
-            )}
-
-            {editingPlan && (
+        {activeTab === 'treatment' && editingItem && (<>
+{editingPlan && (
               <div className={cardHeaderClasses}>
               <h4 className="font-medium mb-3">
                 {editingPlan ? 'Редактировать счет' : 'Добавить счет на оплату'}
               </h4>
-              
+
               {/* Basic Plan Information */}
               <div className="space-y-3 mb-4">
                 <input
@@ -1390,7 +1291,7 @@ const PatientModal = ({
                   className={inputClasses}
                   rows="2"
                 />
-                
+
                 {/* Plan Status and Payment Info */}
                 <div className="grid grid-cols-2 gap-3">
                   <select
@@ -1403,7 +1304,7 @@ const PatientModal = ({
                     <option value="completed">Завершен</option>
                     <option value="cancelled">Отменен</option>
                   </select>
-                  
+
                   <select
                     value={planForm.execution_status}
                     disabled
@@ -1426,7 +1327,7 @@ const PatientModal = ({
                     <option value="partially_paid">Частично оплачено</option>
                     <option value="paid">Оплачено</option>
                   </select>
-                  
+
                   <input
                     type="number"
                     step="0.01"
@@ -1442,7 +1343,7 @@ const PatientModal = ({
               {/* Service Selector */}
               <div className="mb-4">
                 <h5 className="font-medium mb-2">Услуги к оплате:</h5>
-                <ServiceSelector 
+                <ServiceSelector
                   onServiceAdd={handleAddServiceToPlan}
                   selectedPatient={editingItem}
                 />
@@ -1451,10 +1352,10 @@ const PatientModal = ({
                 {planForm.services.length > 0 && (
                   <div className="mt-4">
                     <h5 className="font-medium mb-2">Выбранные услуги:</h5>
-                    <div className="border rounded-lg overflow-hidden">
+                    <div className="border rounded-md overflow-hidden">
                       <table className="min-w-full">
-                        <thead className="bg-gray-100">
-                          <tr className="text-xs text-gray-600">
+                        <thead className="bg-curai-subtle">
+                          <tr className="text-xs text-curai-muted">
                             <th className="py-2 px-3 text-left">Услуга</th>
                             <th className="py-2 px-2 text-center">Кол-во</th>
                             <th className="py-2 px-2 text-center">Цена за ед.</th>
@@ -1468,10 +1369,10 @@ const PatientModal = ({
                               <td className="py-2 px-3">
                                 <div className="font-medium">{service.service_name}</div>
                                 {service.category && (
-                                  <div className="text-gray-500">{service.category}</div>
+                                  <div className="text-curai-muted">{service.category}</div>
                                 )}
                                 {service.teeth_numbers && service.teeth_numbers.length > 0 && (
-                                  <div className="text-blue-600">
+                                  <div className="text-curai-blue">
                                     🦷 Зубы: {service.teeth_numbers.join(', ')}
                                   </div>
                                 )}
@@ -1497,7 +1398,7 @@ const PatientModal = ({
                                       total_cost: totalCost
                                     }));
                                   }}
-                                  className="text-red-500 hover:text-red-700"
+                                  className="text-curai-negative hover:text-curai-negative"
                                 >
                                   ✕
                                 </button>
@@ -1505,7 +1406,7 @@ const PatientModal = ({
                             </tr>
                           ))}
                         </tbody>
-                        <tfoot className="bg-gray-50">
+                        <tfoot className="bg-curai-subtle">
                           <tr className="text-sm font-medium">
                             <td colSpan="3" className="py-2 px-3 text-right">Общая стоимость:</td>
                             <td className="py-2 px-2 text-right">
@@ -1525,16 +1426,16 @@ const PatientModal = ({
                 placeholder="Дополнительные заметки"
                 value={planForm.notes}
                 onChange={(e) => setPlanForm({...planForm, notes: e.target.value})}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg mb-3"
+                className="w-full px-3 py-2 border border-curai-control rounded-md mb-3"
                 rows="2"
               />
-              
+
               {/* Form Actions */}
               <div className="flex gap-2">
                 <button
                   type="button"
                   onClick={handleSaveTreatmentPlan}
-                  className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700"
+                  className="px-4 py-2 bg-curai-positive text-white rounded-md hover:bg-curai-positive"
                 >
                   {editingPlan ? 'Обновить счет' : 'Создать счет'}
                 </button>
@@ -1556,7 +1457,7 @@ const PatientModal = ({
                         appointment_ids: []
                       });
                     }}
-                    className="px-4 py-2 bg-gray-300 text-gray-700 rounded-lg hover:bg-gray-400"
+                    className="px-4 py-2 bg-curai-control text-curai-ink rounded-md hover:bg-curai-disabled"
                   >
                     Отмена
                   </button>
@@ -1564,226 +1465,47 @@ const PatientModal = ({
               </div>
             </div>
             )}
-
-            {/* Treatment Plans List with Payment Tracking */}
-            <div>
-              <div className="flex items-center justify-between mb-3">
-                <h4 className="font-medium">Счета к оплате</h4>
-              </div>
-              
-              {/* Фильтры */}
-              {treatmentPlans.length > 0 && (
-                <div className="mb-4 space-y-3">
-                  {/* Фильтр по оплате */}
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Статус оплаты:</label>
-                    <div className="flex flex-wrap gap-2">
-                      <button
-                        type="button"
-                        onClick={() => setPaymentFilter('all')}
-                        className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                          paymentFilter === 'all'
-                            ? 'bg-blue-600 text-white'
-                            : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                        }`}
-                      >
-                        Все
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setPaymentFilter('paid')}
-                        className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                          paymentFilter === 'paid'
-                            ? 'bg-green-600 text-white'
-                            : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                        }`}
-                      >
-                        ✓ Оплачено
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setPaymentFilter('unpaid')}
-                        className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                          paymentFilter === 'unpaid'
-                            ? 'bg-red-600 text-white'
-                            : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                        }`}
-                      >
-                        ✗ Не оплачено
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* Фильтр по типу услуг */}
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Тип услуг:</label>
-                    <div className="flex flex-wrap gap-2">
-                      <button
-                        type="button"
-                        onClick={() => setProcedureFilter('all')}
-                        className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                          procedureFilter === 'all'
-                            ? 'bg-blue-600 text-white'
-                            : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                        }`}
-                      >
-                        Все
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setProcedureFilter('procedures')}
-                        className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                          procedureFilter === 'procedures'
-                            ? 'bg-purple-600 text-white'
-                            : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                        }`}
-                      >
-                        🔬 Процедуры
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setProcedureFilter('non_procedures')}
-                        className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                          procedureFilter === 'non_procedures'
-                            ? 'bg-orange-600 text-white'
-                            : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                        }`}
-                      >
-                        🦷 Не процедуры
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {treatmentPlans.length === 0 ? (
-                <p className="text-gray-500 text-center py-4">
-                  Счета не найдены
-                </p>
-              ) : (
-                <div className="space-y-4">
-                  {treatmentPlans
-                    .filter(plan => {
-                      // Проверяем, есть ли в плане услуги, соответствующие фильтрам
-                      if (!plan.services || plan.services.length === 0) return false;
-
-                      // Применяем фильтры к услугам
-                      const filteredServices = plan.services.filter(service => {
-                        // Фильтр по оплате
-                        if (paymentFilter === 'paid') {
-                          const isPaid = service.is_paid || (service.paid_amount && service.paid_amount >= service.total_price);
-                          if (!isPaid) return false;
-                        } else if (paymentFilter === 'unpaid') {
-                          const isPaid = service.is_paid || (service.paid_amount && service.paid_amount >= service.total_price);
-                          if (isPaid) return false;
-                        }
-
-                        // Фильтр по типу услуг
-                        if (procedureFilter === 'procedures') {
-                          if (!service.is_course) return false;
-                        } else if (procedureFilter === 'non_procedures') {
-                          if (service.is_course) return false;
-                        }
-
-                        return true;
-                      });
-
-                      // Показываем план только если есть услуги после фильтрации
-                      return filteredServices.length > 0;
-                    })
-                    .map((plan) => (
-                    <div key={plan.id}>
-                      <details className="mb-3">
-                        <summary className="cursor-pointer text-blue-700">Выполнение услуг</summary>
-                        <TreatmentPlanView plan={plan} onUpdate={async updatedPlan => {
-                          setTreatmentPlans(plans => plans.map(p => p.id === updatedPlan.id ? updatedPlan : p));
-                          refreshTreatmentPlans();
-                        }} />
-                      </details>
-                      <ServicePaymentList 
-                        plan={plan}
-                        paymentFilter={paymentFilter}
-                        procedureFilter={procedureFilter}
-                        onUpdate={(updatedPlan) => {
+<PatientTreatmentWorkspace plans={currentTreatmentPlans} patientId={currentPatientId} paymentFilter={paymentFilter} onPaymentFilter={setPaymentFilter} procedureFilter={procedureFilter} onProcedureFilter={setProcedureFilter}
+onUpdate={(updatedPlan) => {
                           // Обновить план в списке
-                          setTreatmentPlans(plans => 
+                          setTreatmentPlans(plans =>
                             plans.map(p => p.id === updatedPlan.id ? updatedPlan : p)
                           );
                           refreshTreatmentPlans();
-                        }}
-                      />
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-
-            <div className="flex justify-end">
-              <button
-                type="button"
-                onClick={onClose}
-                className="px-6 py-2 bg-gray-300 text-gray-700 rounded-lg hover:bg-gray-400"
-              >
-                Закрыть
-              </button>
-            </div>
-          </div>
-                  )}
+                        }} onCreatePlan={() => { setEditingConsultation(null); setShowConsultationForm(true); setActiveTab('consultations'); }}/></>)}
 
                   {/* Complex Services Tab - быстрый выбор комплексной услуги и разброс по календарю */}
                   {activeTab === 'complex' && editingItem && (
-                    <div className="space-y-4">
-                      <div className="space-y-4">
-                        <div className="bg-purple-50 p-3 rounded-lg">
-                          <h4 className="font-medium text-purple-800">
-                            Комплексные услуги для пациента: {editingItem.full_name}
-                          </h4>
-                          <p className="text-sm text-purple-600 mt-1">
-                            Выберите комплексную услугу, назначьте врача и расписание — записи раскидаются по календарю, счёт создастся сразу в «Планах лечения» и «Оплате»
-                          </p>
-                        </div>
-
-                        <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm">
-                          <ServiceSelector
+  <div className="curai-patient-complex">
+    
+    <div className="curai-patient-complex-intro"><h4>Комплексные услуги для пациента</h4><p>Выберите комплексную услугу, назначьте врача и расписание — записи появятся в календаре, счёт создастся сразу в «Планах лечения» и «Оплате».</p></div>
+    <ServiceSelector
                                                       onServiceAdd={handleAddComplexService}
                                                       selectedPatient={editingItem}
                                                       onlyComplex
                                                     />
-                                                  </div>
-
-                                                                          {successMessage && (
-                                                                            <div className="px-4 py-3 bg-green-50 border border-green-200 rounded-lg text-green-700 text-sm font-medium">
+    {successMessage && (
+                                                                            <div className="px-4 py-3 bg-curai-positiveBg border border-curai-positive rounded-md text-curai-positive text-sm font-medium">
                                                                               {successMessage}
                                                                             </div>
                                                                           )}
-
-                                                                          <div className="flex justify-end pt-4">
-                                                                            <button
-                                                                              type="button"
-                                                                              onClick={onClose}
-                                                                              className="px-6 py-2 bg-gray-300 text-gray-700 rounded-lg hover:bg-gray-400"
-                                                                            >
-                                                                              Закрыть
-                                                                            </button>
-                                                                          </div>
-                        
-                                                </div>
-                                              </div>
-                                          )}
+    
+  </div>
+)}
 
                                           {/* Analyzes Tab - выбор и добавление лабораторных анализов */}
                   {activeTab === 'analyzes' && editingItem && (
                     <div className="space-y-4">
-                      <div className="bg-purple-50 p-3 rounded-lg">
-                        <h4 className="font-medium text-purple-800">
-                          Анализы для пациента: {editingItem.full_name}
+                      <div className="bg-curai-selected p-3 rounded-md">
+                        <h4 className="font-medium text-curai-blue">
+                          Анализы
                         </h4>
-                        <p className="text-sm text-purple-600 mt-1">
+                        <p className="text-sm text-curai-blue mt-1">
                           Выберите несколько лабораторных анализов с поиском — они создадут счёт в «Планах лечения» и «Оплате»
                         </p>
                       </div>
 
-                      <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm">
+                      <div className="bg-curai-surface p-4 rounded-md border border-curai-border shadow-none">
                         <LabAnalysisPicker
                                                   onAdd={handleAddLabAnalyzes}
                                                   patientName={editingItem.full_name}
@@ -1791,99 +1513,43 @@ const PatientModal = ({
                                               </div>
 
                                                                     {successMessage && (
-                                                                      <div className="px-4 py-3 bg-green-50 border border-green-200 rounded-lg text-green-700 text-sm font-medium">
+                                                                      <div className="px-4 py-3 bg-curai-positiveBg border border-curai-positive rounded-md text-curai-positive text-sm font-medium">
                                                                         {successMessage}
                                                                       </div>
                                                                     )}
 
-                                                                    <div className="flex justify-end pt-4">
-                                                                      <button
-                                                                        type="button"
-                                                                        onClick={onClose}
-                                                                        className="px-6 py-2 bg-gray-300 text-gray-700 rounded-lg hover:bg-gray-400"
-                                              >
-                          Закрыть
-                        </button>
-                      </div>
+                                                                    
                     </div>
                   )}
 
                   {/* Payment Tab - поэтапная оплата */}
-        {activeTab === 'payment' && editingItem && (
-          <div className="space-y-4">
-            <div className="bg-blue-50 p-3 rounded-lg">
-              <h4 className="font-medium text-blue-800">
-                Оплата услуг для пациента: {editingItem.full_name}
-              </h4>
-              <p className="text-sm text-blue-600 mt-1">
-                Здесь можно отметить оплату отдельных услуг. Нажмите кнопку "Оплатить" рядом с услугой.
-              </p>
-            </div>
-
-            {/* Сводка оплаты по всем планам лечения */}
-            {treatmentPlans.length > 0 && (
-              <PaymentSummary plans={treatmentPlans} />
-            )}
-
-            {treatmentPlans.length === 0 ? (
-              <div className="text-center py-8">
-                <p className="text-gray-500 mb-2">Планы лечения не найдены</p>
-                <button
-                  onClick={() => setActiveTab('treatment')}
-                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
-                >
-                  Создать план лечения
-                </button>
-              </div>
-            ) : (
-              <div className="space-y-4">
-                {treatmentPlans.map((plan) => (
-                  <ServicePaymentList 
-                    key={plan.id}
-                    plan={plan} 
-                    onUpdate={(updatedPlan) => {
-                      setTreatmentPlans(plans => 
+        {activeTab === 'payment' && editingItem && (<PatientPaymentWorkspace patientId={currentPatientId} plans={currentTreatmentPlans} onUpdate={(updatedPlan) => {
+                      setTreatmentPlans(plans =>
                         plans.map(p => p.id === updatedPlan.id ? updatedPlan : p)
                       );
                       // после оплаты обновляем планы/статистику в списке пациентов
                       refreshTreatmentPlans();
-                    }}
-                  />
-                ))}
-              </div>
-            )}
-
-            <div className="flex justify-end pt-4">
-              <button
-                type="button"
-                onClick={onClose}
-                className="px-6 py-2 bg-gray-300 text-gray-700 rounded-lg hover:bg-gray-400"
-              >
-                Закрыть
-              </button>
-            </div>
-          </div>
-        )}
+                    }} onCreatePlan={() => setActiveTab('treatment')} />)}
 
         {/* Consultations Tab */}
         {activeTab === 'consultations' && editingItem && (
-          <div className="space-y-4">
+          <div className="curai-patient-consultations space-y-4">
             {!showConsultationForm ? (
               <>
-                <div className="flex justify-between items-center mb-4">
-                  <h4 className="font-medium text-gray-900">Консультационные листы пациента: {editingItem.full_name}</h4>
+                <div className="curai-consultations-heading flex justify-between items-center mb-4">
+                  <h4 className="font-medium text-curai-ink">Консультационные листы</h4>
                   <button
                     onClick={() => setShowConsultationForm(true)}
-                    className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 font-medium transition-colors"
+                    className="curai-button curai-button-primary"
                     data-guide="new-consultation-btn"
                   >
-                    Добавить
+                    + Добавить
                   </button>
                 </div>
 
                 {/* Consultation Sheets List */}
                 {consultationSheets.length === 0 ? (
-                  <p className="text-gray-500 text-center py-8">
+                  <p className="text-curai-muted text-center py-8">
                     Консультационные листы не найдены
                   </p>
                 ) : (
@@ -1891,56 +1557,56 @@ const PatientModal = ({
                     {consultationSheets.map((sheet) => {
                       const isExpanded = expandedConsultations[sheet.id] !== false; // по умолчанию развёрнуто
                       return (
-                        <div key={sheet.id} className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
+                        <div key={sheet.id} className="curai-consultation-card bg-curai-surface rounded-md shadow-none border border-curai-border overflow-hidden">
                           {/* Заголовок карточки - всегда видимый */}
-                          <button
-                            onClick={() => toggleConsultation(sheet.id)}
-                            className="w-full px-4 py-3 flex items-center justify-between bg-gradient-to-r from-gray-50 to-gray-100 hover:from-gray-100 hover:to-gray-200 transition-colors border-b border-gray-200"
+                          <div
+                            
+                            className="curai-consultation-card-header w-full px-4 py-3 flex items-center justify-between bg-curai-subtle transition-colors border-b border-curai-border"
                           >
-                            <div className="flex items-center space-x-3 min-w-0">
+                            <button type="button" onClick={() => toggleConsultation(sheet.id)} className="flex items-center space-x-3 min-w-0">
                               <div className={`transform transition-transform duration-200 ${isExpanded ? 'rotate-90' : ''}`}>
-                                <FaChevronRight className="text-gray-400 text-sm" />
+                                <FaChevronRight className="text-curai-muted text-sm" />
                               </div>
-                              <FaFileMedical className="text-blue-500" />
+                              <FaFileMedical className="text-curai-blue" />
                               <div className="text-left min-w-0">
-                                <h3 className="text-sm font-semibold text-gray-900 truncate">
+                                <h3 className="text-sm font-semibold text-curai-ink truncate">
                                   Консультация от {new Date(sheet.consultation_date).toLocaleDateString('ru-RU')}
                                 </h3>
-                                <div className="flex items-center space-x-2 text-xs text-gray-500 mt-0.5">
+                                <div className="flex items-center space-x-2 text-xs text-curai-muted mt-0.5">
                                   <span className="flex items-center">
-                                    <FaUserMd className="mr-1 text-gray-400" />
+                                    <FaUserMd className="mr-1 text-curai-muted" />
                                     {sheet.doctor_name}
                                   </span>
                                 </div>
                               </div>
-                            </div>
+                            </button>
                             <div className="flex items-center space-x-2 flex-shrink-0 ml-2">
-                              <span
+                              <button type="button"
                                 onClick={(e) => { e.stopPropagation(); handlePrintConsultation(sheet); }}
-                                className="px-2 py-1 text-gray-700 border border-gray-500 rounded hover:bg-gray-100 text-xs whitespace-nowrap"
+                                className="px-2 py-1 text-curai-ink border border-curai-control rounded hover:bg-curai-subtle text-xs whitespace-nowrap"
                                 title="Печать консультационного листа"
                               >
                                 Печать
-                              </span>
-                              <span
+                              </button>
+                              <button type="button"
                                 onClick={(e) => {
                                   e.stopPropagation();
                                   setEditingConsultation(sheet);
                                   setShowConsultationForm(true);
                                 }}
-                                className="px-2 py-1 text-blue-600 border border-blue-600 rounded hover:bg-blue-50 text-xs whitespace-nowrap"
+                                className="px-2 py-1 text-curai-blue border border-curai-control rounded hover:bg-curai-selected text-xs whitespace-nowrap"
                               >
                                 Редактировать
-                              </span>
-                              <span
+                              </button>
+                              <button type="button"
                                 onClick={(e) => { e.stopPropagation(); handleDeleteConsultation(sheet.id); }}
-                                className="px-2 py-1 text-red-600 border border-red-600 rounded hover:bg-red-50 text-xs whitespace-nowrap"
+                                className="px-2 py-1 text-curai-negative border border-curai-negative rounded hover:bg-curai-negativeBg text-xs whitespace-nowrap"
                               >
                                 Удалить
-                              </span>
-                              {isExpanded ? <FaChevronDown className="text-gray-400" /> : <FaChevronDown className="text-gray-400 rotate-180" />}
+                              </button>
+                              {isExpanded ? <FaChevronDown className="text-curai-muted" /> : <FaChevronDown className="text-curai-muted rotate-180" />}
                             </div>
-                          </button>
+                          </div>
 
                           {/* Детальное содержимое - отображается только при раскрытии */}
                           {isExpanded && (
@@ -1948,15 +1614,15 @@ const PatientModal = ({
                               {/* МКБ-10 коды */}
                               {sheet.icd10_codes && sheet.icd10_codes.length > 0 && (
                                 <div className="mb-4">
-                                  <div className="text-xs font-medium text-gray-700 mb-1">МКБ-10 коды:</div>
+                                  <div className="text-xs font-medium text-curai-ink mb-1">МКБ-10 коды:</div>
                                   <div className="flex flex-wrap gap-1">
                                     {sheet.icd10_codes.map((code) => (
-                                      <span 
+                                      <span
                                         key={code.code}
-                                        className="inline-flex items-center px-2 py-1 bg-blue-100 text-blue-800 rounded text-xs"
+                                        className="inline-flex items-center px-2 py-1 bg-curai-selected text-curai-blue rounded text-xs"
                                       >
                                         <span className="font-medium">{code.code}</span>
-                                        <span className="ml-1 text-blue-600">- {code.name}</span>
+                                        <span className="ml-1 text-curai-blue">- {code.name}</span>
                                       </span>
                                     ))}
                                   </div>
@@ -1964,115 +1630,116 @@ const PatientModal = ({
                               )}
 
                               {/* Все поля консультации */}
-                              <div className="grid grid-cols-1 gap-3">
-                                {sheet.complaints && (
-                                  <div className="bg-gray-50 rounded-lg p-3 border border-gray-200">
-                                    <div className="text-xs font-medium text-gray-700 mb-1 flex items-center">
-                                      <FaClipboardList className="mr-1 text-blue-500" />
+                              <div className="curai-consultation-fields grid grid-cols-1 gap-3">
+{sheet.complaints && (
+                                  <div className="bg-curai-subtle rounded-md p-3 border border-curai-border">
+                                    <div className="text-xs font-medium text-curai-ink mb-1 flex items-center">
+                                      <FaClipboardList className="mr-1 text-curai-blue" />
                                       Жалобы
                                     </div>
-                                    <div className="text-sm text-gray-800 whitespace-pre-wrap">{sheet.complaints}</div>
+                                    <div className="text-sm text-curai-ink whitespace-pre-wrap">{sheet.complaints}</div>
                                   </div>
                                 )}
-
-                                {sheet.anamnesis && (
-                                  <div className="bg-gray-50 rounded-lg p-3 border border-gray-200">
-                                    <div className="text-xs font-medium text-gray-700 mb-1 flex items-center">
-                                      <FaNotesMedical className="mr-1 text-green-500" />
+{sheet.anamnesis && (
+                                  <div className="bg-curai-subtle rounded-md p-3 border border-curai-border">
+                                    <div className="text-xs font-medium text-curai-ink mb-1 flex items-center">
+                                      <FaNotesMedical className="mr-1 text-curai-positive" />
                                       Анамнез
                                     </div>
-                                    <div className="text-sm text-gray-800 whitespace-pre-wrap">{sheet.anamnesis}</div>
+                                    <div className="text-sm text-curai-ink whitespace-pre-wrap">{sheet.anamnesis}</div>
                                   </div>
                                 )}
-
-                                {sheet.anamnesis_morbi && (
-                                  <div className="bg-gray-50 rounded-lg p-3 border border-gray-200">
-                                    <div className="text-xs font-medium text-gray-700 mb-1 flex items-center">
-                                      <FaNotesMedical className="mr-1 text-green-500" />
+{sheet.anamnesis_morbi && (
+                                  <div className="bg-curai-subtle rounded-md p-3 border border-curai-border">
+                                    <div className="text-xs font-medium text-curai-ink mb-1 flex items-center">
+                                      <FaNotesMedical className="mr-1 text-curai-positive" />
                                       Анамнез заболевания
                                     </div>
-                                    <div className="text-sm text-gray-800 whitespace-pre-wrap">{sheet.anamnesis_morbi}</div>
+                                    <div className="text-sm text-curai-ink whitespace-pre-wrap">{sheet.anamnesis_morbi}</div>
                                   </div>
                                 )}
-
-                                {sheet.anamnesis_vitae && (
-                                  <div className="bg-gray-50 rounded-lg p-3 border border-gray-200">
-                                    <div className="text-xs font-medium text-gray-700 mb-1 flex items-center">
-                                      <FaNotesMedical className="mr-1 text-green-500" />
+{sheet.anamnesis_vitae && (
+                                  <div className="bg-curai-subtle rounded-md p-3 border border-curai-border">
+                                    <div className="text-xs font-medium text-curai-ink mb-1 flex items-center">
+                                      <FaNotesMedical className="mr-1 text-curai-positive" />
                                       Анамнез жизни
                                     </div>
-                                    <div className="text-sm text-gray-800 whitespace-pre-wrap">{sheet.anamnesis_vitae}</div>
+                                    <div className="text-sm text-curai-ink whitespace-pre-wrap">{sheet.anamnesis_vitae}</div>
                                   </div>
                                 )}
-
-                                {sheet.local_status && (
-                                  <div className="bg-gray-50 rounded-lg p-3 border border-gray-200">
-                                    <div className="text-xs font-medium text-gray-700 mb-1 flex items-center">
-                                      <FaStethoscope className="mr-1 text-purple-500" />
+{sheet.local_status && (
+                                  <div className="bg-curai-subtle rounded-md p-3 border border-curai-border">
+                                    <div className="text-xs font-medium text-curai-ink mb-1 flex items-center">
+                                      <FaStethoscope className="mr-1 text-curai-blue" />
                                       Локальный статус
                                     </div>
-                                    <div className="text-sm text-gray-800 whitespace-pre-wrap">{sheet.local_status}</div>
+                                    <div className="text-sm text-curai-ink whitespace-pre-wrap">{sheet.local_status}</div>
                                   </div>
                                 )}
-
-                                {sheet.examination && (
-                                  <div className="bg-gray-50 rounded-lg p-3 border border-gray-200">
-                                    <div className="text-xs font-medium text-gray-700 mb-1 flex items-center">
-                                      <FaStethoscope className="mr-1 text-indigo-500" />
+{sheet.examination && (
+                                  <div className="bg-curai-subtle rounded-md p-3 border border-curai-border">
+                                    <div className="text-xs font-medium text-curai-ink mb-1 flex items-center">
+                                      <FaStethoscope className="mr-1 text-curai-blue" />
                                       Объективный осмотр
                                     </div>
-                                    <div className="text-sm text-gray-800 whitespace-pre-wrap">{sheet.examination}</div>
+                                    <div className="text-sm text-curai-ink whitespace-pre-wrap">{sheet.examination}</div>
                                   </div>
                                 )}
-
-                        {sheet.diagnosis && (
-                                  <div className="bg-gray-50 rounded-lg p-3 border border-gray-200">
-                                    <div className="text-xs font-medium text-gray-700 mb-1 flex items-center">
-                                      <FaUserMd className="mr-1 text-orange-500" />
+{sheet.diagnosis && (
+                                  <div className="bg-curai-subtle rounded-md p-3 border border-curai-border">
+                                    <div className="text-xs font-medium text-curai-ink mb-1 flex items-center">
+                                      <FaUserMd className="mr-1 text-curai-warning" />
                                       Диагноз
                                     </div>
-                                    <div className="text-sm text-gray-900 font-medium whitespace-pre-wrap">{sheet.diagnosis}</div>
+                                    <div className="text-sm text-curai-ink font-medium whitespace-pre-wrap">{sheet.diagnosis}</div>
                                   </div>
                                 )}
-
-                                {/* Назначенные услуги из прайса */}
-                                {sheet.treatment_services && sheet.treatment_services.length > 0 && (
-                                  <div className="bg-gray-50 rounded-lg p-3 border border-gray-200">
-                                    <div className="text-xs font-medium text-gray-700 mb-1 flex items-center">
-                                      <FaCreditCard className="mr-1 text-teal-500" />
+{sheet.treatment && (
+                                  <div className="bg-curai-subtle rounded-md p-3 border border-curai-border">
+                                    <div className="text-xs font-medium text-curai-ink mb-1 flex items-center">
+                                      <FaFileMedical className="mr-1 text-curai-negative" />
+                                      Назначенное лечение
+                                    </div>
+                                    <div className="text-sm text-curai-ink whitespace-pre-wrap">{sheet.treatment}</div>
+                                  </div>
+                                )}
+{sheet.treatment_services && sheet.treatment_services.length > 0 && (
+                                  <div className="curai-consultation-wide bg-curai-subtle rounded-md p-3 border border-curai-border">
+                                    <div className="text-xs font-medium text-curai-ink mb-1 flex items-center">
+                                      <FaCreditCard className="mr-1 text-curai-positive" />
                                       Назначенные услуги
                                     </div>
                                     <div className="overflow-x-auto">
                                       <table className="w-full text-sm">
                                         <thead>
-                                          <tr className="border-b border-gray-300">
-                                            <th className="text-left py-1 px-2 text-gray-600">Услуга</th>
-                                            <th className="text-center py-1 px-2 text-gray-600">Кол-во</th>
-                                            <th className="text-right py-1 px-2 text-gray-600">Цена</th>
-                                            <th className="text-right py-1 px-2 text-gray-600">Сумма</th>
+                                          <tr className="border-b border-curai-control">
+                                            <th className="text-left py-1 px-2 text-curai-muted">Услуга</th>
+                                            <th className="text-center py-1 px-2 text-curai-muted">Кол-во</th>
+                                            <th className="text-right py-1 px-2 text-curai-muted">Цена</th>
+                                            <th className="text-right py-1 px-2 text-curai-muted">Сумма</th>
                                           </tr>
                                         </thead>
                                         <tbody>
                                           {sheet.treatment_services.map((service, idx) => (
                                             <React.Fragment key={idx}>
-                                              <tr className="border-b border-gray-200 last:border-b-0">
-                                                <td className="py-1 px-2 text-gray-800">
+                                              <tr className="border-b border-curai-border last:border-b-0">
+                                                <td className="py-1 px-2 text-curai-ink">
                                                   {service.service_name}
-                                                  {service.is_complex && <span className="ml-1 text-[10px] bg-purple-100 text-purple-700 px-1 rounded align-middle">Комплекс</span>}
+                                                  {service.is_complex && <span className="ml-1 text-[10px] bg-curai-selected text-curai-blue px-1 rounded align-middle">Комплекс</span>}
                                                 </td>
-                                                <td className="text-center py-1 px-2 text-gray-800">{service.quantity}</td>
-                                                <td className="text-right py-1 px-2 text-gray-800">{Number(service.price_per_unit).toLocaleString('ru-RU')} ₸</td>
-                                                <td className="text-right py-1 px-2 text-gray-800 font-medium">
+                                                <td className="text-center py-1 px-2 text-curai-ink">{service.quantity}</td>
+                                                <td className="text-right py-1 px-2 text-curai-ink">{Number(service.price_per_unit).toLocaleString('ru-RU')} ₸</td>
+                                                <td className="text-right py-1 px-2 text-curai-ink font-medium">
                                                   {Number(service.total_price).toLocaleString('ru-RU')} ₸
                                                   {service.discount_amount > 0 && (
-                                                    <div className="text-[10px] text-red-500 font-normal">скидка −{Number(service.discount_amount).toLocaleString('ru-RU')} ₸</div>
+                                                    <div className="text-[10px] text-curai-negative font-normal">скидка −{Number(service.discount_amount).toLocaleString('ru-RU')} ₸</div>
                                                   )}
                                                 </td>
                                               </tr>
                                               {service.is_complex && service.components && service.components.length > 0 && (
-                                                <tr key={`${idx}-comps`} className="bg-purple-50/40 border-b border-gray-200">
+                                                <tr key={`${idx}-comps`} className="bg-curai-selected border-b border-curai-border">
                                                   <td colSpan={4} className="py-1 px-2">
-                                                    <div className="text-[11px] text-gray-500 mb-0.5">Что входит:</div>
+                                                    <div className="text-[11px] text-curai-muted mb-0.5">Что входит:</div>
                                                     {service.components.map((c, ci) => {
                                                       const unit = Number(c.price || 0);
                                                       const qty = Number(c.quantity || 1);
@@ -2080,8 +1747,8 @@ const PatientModal = ({
                                                       const d = c.discount_amount ? `−${Number(c.discount_amount).toLocaleString('ru-RU')} ₸` : (c.discount ? `${Number(c.discount)}%` : '');
                                                       return (
                                                         <div key={ci} className="flex justify-between text-xs py-0.5">
-                                                          <span className="text-gray-700">− {c.service_name} ×{qty}</span>
-                                                          <span className="text-gray-600">{sum.toLocaleString('ru-RU')} ₸{d ? <span className="text-red-500"> · скидка {d}</span> : ''}</span>
+                                                          <span className="text-curai-ink">− {c.service_name} ×{qty}</span>
+                                                          <span className="text-curai-muted">{sum.toLocaleString('ru-RU')} ₸{d ? <span className="text-curai-negative"> · скидка {d}</span> : ''}</span>
                                                         </div>
                                                       );
                                                     })}
@@ -2095,40 +1762,28 @@ const PatientModal = ({
                                     </div>
                                   </div>
                                 )}
-
-                                {sheet.treatment && (
-                                  <div className="bg-gray-50 rounded-lg p-3 border border-gray-200">
-                                    <div className="text-xs font-medium text-gray-700 mb-1 flex items-center">
-                                      <FaFileMedical className="mr-1 text-red-500" />
-                                      Назначенное лечение
-                                    </div>
-                                    <div className="text-sm text-gray-800 whitespace-pre-wrap">{sheet.treatment}</div>
-                                  </div>
-                                )}
-
-                                {sheet.recommendations && (
-                                  <div className="bg-gray-50 rounded-lg p-3 border border-gray-200">
-                                    <div className="text-xs font-medium text-gray-700 mb-1 flex items-center">
-                                      <FaClipboardList className="mr-1 text-yellow-600" />
+{sheet.recommendations && (
+                                  <div className="curai-consultation-wide bg-curai-subtle rounded-md p-3 border border-curai-border">
+                                    <div className="text-xs font-medium text-curai-ink mb-1 flex items-center">
+                                      <FaClipboardList className="mr-1 text-curai-warning" />
                                       Рекомендации
                                     </div>
-                                    <div className="text-sm text-gray-800 whitespace-pre-wrap">{sheet.recommendations}</div>
+                                    <div className="text-sm text-curai-ink whitespace-pre-wrap">{sheet.recommendations}</div>
                                   </div>
                                 )}
-
-                                {sheet.notes && (
-                                  <div className="bg-gray-50 rounded-lg p-3 border border-gray-200">
-                                    <div className="text-xs font-medium text-gray-700 mb-1 flex items-center">
-                                      <FaFileAlt className="mr-1 text-gray-500" />
+{sheet.notes && (
+                                  <div className="curai-consultation-wide bg-curai-subtle rounded-md p-3 border border-curai-border">
+                                    <div className="text-xs font-medium text-curai-ink mb-1 flex items-center">
+                                      <FaFileAlt className="mr-1 text-curai-muted" />
                                       Дополнительные заметки
                                     </div>
-                                    <div className="text-sm text-gray-800 whitespace-pre-wrap">{sheet.notes}</div>
+                                    <div className="text-sm text-curai-ink whitespace-pre-wrap">{sheet.notes}</div>
                                   </div>
                                 )}
-                              </div>
+</div>
 
-                              <div className="text-xs text-gray-400 mt-3 pt-2 border-t border-gray-100">
-                                Создано {new Date(sheet.created_at).toLocaleString('ru-RU')} 
+                              <div className="text-xs text-curai-muted mt-3 pt-2 border-t border-curai-border">
+                                Создано {new Date(sheet.created_at).toLocaleString('ru-RU')}
                                 {' '}пользователем {sheet.created_by_name}
                                 {sheet.updated_at && (
                                   <> · Обновлено {new Date(sheet.updated_at).toLocaleString('ru-RU')}</>
@@ -2144,9 +1799,7 @@ const PatientModal = ({
               </>
             ) : (
               <>
-                <h4 className="font-medium mb-3">
-                  {editingConsultation ? 'Редактировать консультационный лист' : 'Новый консультационный лист'}
-                </h4>
+                
                 <ConsultationSheetForm
                   patientId={editingItem.id}
                   editingSheet={editingConsultation}
@@ -2160,28 +1813,18 @@ const PatientModal = ({
               </>
             )}
 
-            {!showConsultationForm && (
-              <div className="flex justify-end pt-4">
-                <button
-                  type="button"
-                  onClick={onClose}
-                  className="px-6 py-2 bg-gray-300 text-gray-700 rounded-lg hover:bg-gray-400"
-                >
-                  Закрыть
-                </button>
-              </div>
-            )}
+            
           </div>
         )}
 
         {/* Appointments Tab - Календарная сетка назначений */}
         {activeTab === 'appointments' && editingItem && (
           <div className="space-y-4">
-            <div className="bg-purple-50 p-3 rounded-lg">
-              <h4 className="font-medium text-purple-800">
-                Назначения для пациента: {editingItem.full_name}
+            <div className="bg-curai-selected p-3 rounded-md">
+              <h4 className="font-medium text-curai-blue">
+                Назначения
               </h4>
-              <p className="text-sm text-purple-600 mt-1">
+              <p className="text-sm text-curai-blue mt-1">
                 Календарная сетка курсовых процедур. Нажимайте на ячейки для отметки выполнения.
               </p>
             </div>
@@ -2191,23 +1834,15 @@ const PatientModal = ({
               refreshTreatmentPlans();
             }} />
 
-            <div className="flex justify-end pt-4">
-              <button
-                type="button"
-                onClick={onClose}
-                className="px-6 py-2 bg-gray-300 text-gray-700 rounded-lg hover:bg-gray-400"
-              >
-                Закрыть
-              </button>
-            </div>
+            
           </div>
         )}
           </>
         )}
     </Modal>
-    
+
     {/* WhatsApp Sidebar */}
-    <WhatsAppSidebar 
+    <WhatsAppSidebar
       phone={editingItem?.phone}
       patientName={editingItem?.full_name}
       isOpen={showWhatsAppHistory}

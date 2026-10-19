@@ -77,6 +77,7 @@ async function mount(context, Component, props, options = {}) {
   };
   fixture.api = async (method, path, data) => {
     requests.push({ method, path, data });
+    if (options.api) { const result = await options.api(method, path, data); if (result !== undefined) return result; }
     if (method === 'PUT' && options.failSave) throw new Error('Ошибка сохранения');
     if (path === '/wazzup/chats') {
       const search = data?.params?.search?.toLowerCase();
@@ -99,6 +100,7 @@ async function mount(context, Component, props, options = {}) {
     setInterval: (callback, delay) => { const id = Symbol(); intervals.set(id, { callback, delay }); return id; },
     clearInterval: id => intervals.delete(id),
     fetch: async (url, init = {}) => {
+      if (options.fetch) { const response = await options.fetch(String(url), init); if (response !== undefined) return response; }
       const path = new URL(url).pathname;
       const data = init.body && JSON.parse(init.body);
       requests.push({ method: init.method || 'GET', path, data });
@@ -124,6 +126,7 @@ async function mount(context, Component, props, options = {}) {
     });
   };
   return { fixture, requests, opened, alerts, change, body: document.body,
+    render: async (View, props) => act(async () => root.render(React.createElement(View, props))),
     click: async element => { assert.ok(element, 'action exists'); await act(async () => element.click()); },
     submit: async () => act(async () => document.querySelector('form').dispatchEvent(new dom.window.Event('submit', { bubbles: true, cancelable: true }))),
     poll: async () => act(async () => { for (const { callback } of [...intervals.values()]) await callback(); }) };
@@ -271,13 +274,13 @@ test('WhatsApp uses effective names in list, search, selected header and full bo
   assert.match(ui.body.textContent, new RegExp(lead.full_name));
   await ui.change(ui.body.querySelector('input[placeholder="Поиск по имени или телефону…"]'), 'Иванова');
   await ui.click(chatButton(ui, lead.full_name));
-  await ui.click(button(ui, '📅 Записать'));
+  await ui.click(button(ui, 'Записать'));
   const props = ui.opened.at(-1).props;
   assert.equal(props.appointmentForm.lead_full_name, lead.full_name);
   assert.match(props.appointmentForm.notes, new RegExp(lead.full_name));
   await act(async () => props.onSave({ ...booking, patient_full_name: 'Официальное ФИО' }));
   assert.equal(ui.requests.find(r => r.method === 'POST').data.patient_full_name, 'Официальное ФИО');
-  assert.equal(ui.body.querySelector('.font-medium.text-gray-900.truncate').textContent, 'Официальное ФИО');
+  assert.equal(ui.body.querySelector('[aria-label="Контакт выбранного чата"]').textContent, 'Официальное ФИО');
   assert.equal(ui.fixture.chats[0].contact_name, chat.contact_name);
   assert.equal(ui.requests.some(r => r.data?.contact_name), false);
 });
@@ -287,8 +290,8 @@ test('WhatsApp polling refreshes selected canonical name and subsequent patient 
   await ui.click(chatButton(ui, 'Old official name'));
   ui.fixture.chats[0].patient_name = 'Renamed official name';
   await ui.poll();
-  assert.equal(ui.body.querySelector('.font-medium.text-gray-900.truncate').textContent, 'Renamed official name');
-  await ui.click(button(ui, '📅 Записать'));
+  assert.equal(ui.body.querySelector('[aria-label="Контакт выбранного чата"]').textContent, 'Renamed official name');
+  await ui.click(button(ui, 'Записать'));
   const props = ui.opened.at(-1).props;
   assert.equal(props.appointmentForm.patient_id, 'patient');
   assert.equal(props.patients[0].full_name, 'Renamed official name');
@@ -303,7 +306,7 @@ test('selected WhatsApp chat refreshes even when its renamed name no longer matc
   await ui.click(chatButton(ui, 'Search old name'));
   ui.fixture.chats[0].lead_name = 'Renamed lead';
   await ui.poll();
-  assert.equal(ui.body.querySelector('.font-medium.text-gray-900.truncate').textContent, 'Renamed lead');
+  assert.equal(ui.body.querySelector('[aria-label="Контакт выбранного чата"]').textContent, 'Renamed lead');
 });
 
 test('separate onCreatePatient flow submits selected patient without forwarding a stale name', async context => {
@@ -321,4 +324,82 @@ test('separate onCreatePatient flow submits selected patient without forwarding 
   assert.equal(saved.length, 1);
   assert.equal(saved[0].patient_id, 'created');
   assert.equal(Object.hasOwn(saved[0], 'patient_full_name'), false);
+});
+
+for (const link of [{patient_id:'patient'}, {linked_patient_id:'patient'}]) {
+ test(`WhatsApp patient booking passes doctors and existing appointments: ${Object.keys(link)[0]}`,async t=>{
+  const doctors=[{id:'doctor',full_name:'Fixture Doctor',is_active:true}],existing=[{id:'existing',doctor_id:'doctor'}];
+  const ui=await mount(t,Inbox,{isOpen:true},{chats:[{...chat,...link,patient_name:'Fixture Patient'}],api:async(method,path)=>path==='/doctors'?{data:doctors}:path==='/appointments'?{data:existing}:undefined});
+  await ui.click(chatButton(ui,'Fixture Patient'));await ui.click(button(ui,'Записать'));
+  const props=ui.opened.at(-1).props;assert.equal(props.appointmentForm.patient_id,'patient');assert.deepEqual(props.doctors,doctors);assert.deepEqual(props.appointments,existing);assert.equal(props.hideAddPlanForm,true);assert.equal(props.editingItem,null);
+  await ui.render(AppointmentModal,{...props,show:true,onSave:async()=>{}});
+  assert.equal(ui.body.querySelector('input[type="date"]').value,props.appointmentForm.appointment_date);
+ });
+}
+test('WhatsApp lead booking uses the same context and retains conversion endpoint',async t=>{
+ const doctors=[{id:'doctor',full_name:'Fixture Doctor'}];
+ const ui=await mount(t,Inbox,{isOpen:true},{api:async(method,path)=>method==='GET'&&path==='/doctors'?{data:{doctors}}:undefined});
+ await ui.click(chatButton(ui,lead.full_name));await ui.click(button(ui,'Записать'));const props=ui.opened.at(-1).props;
+ assert.deepEqual(props.doctors,doctors);assert.equal(props.hideAddPlanForm,true);assert.equal(props.hideCreatePatientButton,true);assert.equal(props.appointmentForm.showNewPatientForm,true);
+ await act(async()=>props.onSave(booking));assert.equal(ui.requests.find(r=>r.method==='POST').path,'/crm/leads/lead/schedule-appointment');
+});
+test('WhatsApp opening fails visibly when doctors cannot load, and does not open an empty form',async t=>{
+ const ui=await mount(t,Inbox,{isOpen:true},{api:async(method,path)=>{if(path==='/doctors')throw Error('Doctors unavailable');}});
+ await ui.click(chatButton(ui,lead.full_name));await ui.click(button(ui,'Записать'));assert.equal(ui.opened.length,0);assert.match(ui.body.textContent,/Doctors unavailable/);
+});
+test('WhatsApp ignores pending booking after chat switch and suppresses duplicate opening',async t=>{
+ let resolveDoctors;const waiting=new Promise(resolve=>{resolveDoctors=resolve;});
+ const ui=await mount(t,Inbox,{isOpen:true},{chats:[chat,{...chat,phone:'+70000000002',lead_name:'Other fixture'}],api:async(method,path)=>path==='/doctors'?waiting:undefined});
+ await ui.click(chatButton(ui,lead.full_name));await ui.click(button(ui,'Записать'));assert.equal(button(ui,'Записать').disabled,true);
+ await ui.click(chatButton(ui,'Other fixture'));await act(async()=>resolveDoctors({data:[{id:'doctor'}]}));assert.equal(ui.opened.length,0);assert.equal(ui.requests.filter(r=>r.path==='/doctors').length,1);
+});
+test('shared AppointmentModal resolves the scheduled doctor and ignores old room answers',async t=>{
+ const doctors=[{id:'doctor-a',full_name:'Doctor A'},{id:'doctor-b',full_name:'Doctor B'}];let resolveOld;
+ const old=new Promise(resolve=>{resolveOld=resolve;});
+ const schedules=id=>Array.from({length:7},(_,day_of_week)=>({doctor_id:id,day_of_week,is_active:true,start_time:'08:00',end_time:'18:00'}));
+ const ui=await mount(t,AppointmentModal,{show:true,appointmentForm:{...booking,doctor_id:'',patient_id:'patient'},patients:[{id:'patient',full_name:'Fixture Patient'}],doctors,onSave:async()=>{}},{fetch:async url=>{
+  if(url.endsWith('/rooms'))return{ok:true,json:async()=>[{id:'a',name:'Room A'},{id:'b',name:'Room B'}]};
+  if(url.endsWith('/rooms/a/schedule'))return old;
+  if(url.endsWith('/rooms/b/schedule'))return{ok:true,json:async()=>schedules('doctor-b')};
+  if(url.includes('/doctors/available/'))return{ok:true,json:async()=>doctors};
+ }});
+ const room=[...ui.body.querySelectorAll('select')].find(s=>[...s.options].some(o=>o.value==='a'));await ui.change(room,'a');await ui.change(room,'b');
+ assert.match(ui.body.textContent,/Doctor B/);assert.doesNotMatch(ui.body.textContent,/Врач не найден/);
+ await act(async()=>resolveOld({ok:true,json:async()=>schedules('doctor-a')}));
+ const doctor=[...ui.body.querySelectorAll('select')].find(s=>[...s.options].some(o=>o.value==='doctor-b'));assert.equal(doctor.value,'doctor-b');
+});
+test('shared appointment save failure stays open and displays a readable error',async t=>{
+ const ui=await mount(t,AppointmentModal,{show:true,appointmentForm:{...booking,patient_id:'patient'},patients:[{id:'patient',full_name:'Fixture Patient'}],doctors:[],onSave:async()=>{throw Error('Fixture save failed');}});
+ await ui.submit();assert.match(ui.body.textContent,/Fixture save failed/);assert.ok(ui.body.querySelector('form'));assert.equal(button(ui,'Создать').disabled,false);
+});
+
+const sharedPlan = id => ({id,title:`Shared plan ${id}`,created_at:'2026-10-19T09:40:00',created_by_name:'Fixture clinician',total_cost:1000,paid_amount:0,services:[{service_id:`service-${id}`,service_row_id:`row-${id}`,service_name:`Service ${id}`,total_price:1000,quantity_total:1,quantity_completed:0,occurrence_ids:[`occ-${id}`]}]});
+for(const mode of ['calendar-create','calendar-edit','whatsapp-patient','crm-create']) {
+ test(`existing payment and plan tabs use R21/R22 in ${mode} without adding consultations`,async t=>{
+  const plans=[sharedPlan('a'),sharedPlan('b')],manual=mode==='crm-create';
+  const ui=await mount(t,AppointmentModal,{show:true,appointmentForm:{...booking,patient_id:'patient'},patients:[{id:'patient',full_name:'Fixture Patient'}],doctors:[],editingItem:mode==='calendar-edit'?{id:'appointment',patient_name:'Fixture Patient'}:null,hideAddPlanForm:!manual,onSave:async()=>{}},{fetch:async url=>url.endsWith('/treatment-plans')?{ok:true,json:async()=>plans}:undefined});
+  assert.equal(ui.body.querySelectorAll('[role="tab"]').length,4);assert.equal(button(ui,'Консультации'),undefined);
+  await ui.click(button(ui,'План лечения'));assert.ok(ui.body.querySelector('.curai-plan-workspace-treatment'));assert.equal(ui.body.querySelectorAll('.curai-plan-option').length,2);
+  await ui.click(ui.body.querySelectorAll('.curai-plan-option')[1]);assert.equal(ui.body.querySelector('.curai-treatment-plan-details h4').textContent,'Shared plan b');
+  assert.equal(Boolean(button(ui,'Редактировать план')),manual);assert.equal(Boolean(button(ui,'Удалить план')),manual);
+  if(manual){await ui.click(button(ui,'Создать план лечения'));assert.ok(!ui.body.querySelector('.curai-plan-workspace-treatment'));await ui.click(button(ui,'К списку планов'));}
+  await ui.click(button(ui,'Оплата'));assert.ok(ui.body.querySelector('.curai-r21-payment-workspace'));assert.equal(ui.body.querySelectorAll('.curai-plan-option').length,2);
+  await ui.click(ui.body.querySelectorAll('.curai-plan-option')[1]);assert.equal(ui.body.querySelector('.curai-plan-details h4').textContent,'Shared plan b');
+  assert.equal(ui.requests.filter(r=>r.method==='POST'||r.method==='PUT').length,0);
+ });
+}
+test('new unlinked appointment has no patient-only tabs added',async t=>{
+ const ui=await mount(t,AppointmentModal,{show:true,appointmentForm:{...booking,patient_id:''},patients:[],doctors:[],hideAddPlanForm:true});assert.equal(ui.body.querySelectorAll('[role="tab"]').length,1);assert.equal(button(ui,'Оплата'),undefined);
+});
+test('appointment payment rejects stale patient results and shows no settled fallback while loading',async t=>{
+ let resolveOld;const old=new Promise(resolve=>{resolveOld=resolve;});const patients=[{id:'patient',full_name:'Patient A'},{id:'patient-b',full_name:'Patient B'}],doctors=[];
+ const props={show:true,appointmentForm:{...booking,patient_id:'patient'},patients,doctors,hideAddPlanForm:true};
+ const ui=await mount(t,AppointmentModal,props,{fetch:async url=>url.endsWith('/patient/treatment-plans')?old:url.endsWith('/patient-b/treatment-plans')?{ok:true,json:async()=>[sharedPlan('b')]}:undefined});
+ await ui.click(button(ui,'Оплата'));assert.match(ui.body.textContent,/Загрузка планов/);assert.equal(ui.body.querySelector('.curai-r21-total-due'),null);
+ await ui.render(AppointmentModal,{...props,appointmentForm:{...booking,patient_id:'patient-b'}});assert.equal(ui.body.querySelector('.curai-plan-details h4').textContent,'Shared plan b');
+ await act(async()=>resolveOld({ok:true,json:async()=>[sharedPlan('a')]}));assert.equal(ui.body.querySelector('.curai-plan-details h4').textContent,'Shared plan b');
+});
+test('appointment plan error and empty response never display a paid balance from zero fallback',async t=>{
+ const ui=await mount(t,AppointmentModal,{show:true,appointmentForm:{...booking,patient_id:'patient'},patients:[{id:'patient',full_name:'Fixture Patient'}],doctors:[],hideAddPlanForm:true},{fetch:async url=>url.endsWith('/treatment-plans')?{ok:false}:undefined});
+ await ui.click(button(ui,'Оплата'));assert.match(ui.body.textContent,/Не удалось загрузить планы/);assert.equal(ui.body.querySelector('.curai-r21-total-due'),null);
 });

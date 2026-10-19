@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { cardColumnId, configuredColumns, kanbanRequest } from '../utils/kanbanColumns';
+import { cardColumnId, configuredColumns, kanbanRequest, KANBAN_CHANGED_EVENT } from '../utils/kanbanColumns';
 
 export function useKanbanColumns(fetchLeads, applyLeadKanbanMove) {
   const [columns, setColumns] = useState([]);
@@ -35,6 +35,12 @@ export function useKanbanColumns(fetchLeads, applyLeadKanbanMove) {
     reload();
     return () => { generation.current += 1; };
   }, [reload]);
+
+  useEffect(() => {
+    const refresh = () => { reload(); fetchLeads(); };
+    window.addEventListener(KANBAN_CHANGED_EVENT, refresh);
+    return () => window.removeEventListener(KANBAN_CHANGED_EVENT, refresh);
+  }, [reload, fetchLeads]);
 
   const run = async operation => {
     if (locked.current) return false;

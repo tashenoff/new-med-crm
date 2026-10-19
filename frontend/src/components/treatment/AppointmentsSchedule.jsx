@@ -152,15 +152,15 @@ const AppointmentsSchedule = ({ patientId, onUpdate }) => {
   if (loading && appointments.length === 0) {
     return (
       <div className="flex justify-center items-center py-8">
-        <div className="animate-spin h-8 w-8 border-4 border-blue-600 border-t-transparent rounded-full"></div>
+        <div className="animate-spin h-8 w-8 border-4 border-curai-control border-t-transparent rounded-full"></div>
       </div>
     );
   }
 
   if (appointments.length === 0) {
     return (
-      <div className="bg-gray-50 rounded-lg p-8 text-center text-gray-500">
-        <div className="text-4xl mb-2">📅</div>
+      <div className="bg-curai-subtle rounded-md p-8 text-center text-curai-muted">
+        <div className="text-2xl mb-2">📅</div>
         <div className="font-medium">Нет назначений</div>
         <div className="text-sm">Курсовые процедуры будут отображаться здесь</div>
       </div>
@@ -177,7 +177,7 @@ const AppointmentsSchedule = ({ patientId, onUpdate }) => {
               type="checkbox"
               checked={showAll}
               onChange={(e) => setShowAll(e.target.checked)}
-              className="rounded border-gray-300"
+              className="rounded border-curai-control"
             />
             <span>Показать все</span>
           </label>
@@ -186,13 +186,13 @@ const AppointmentsSchedule = ({ patientId, onUpdate }) => {
         <div className="flex items-center space-x-2">
           <button
             onClick={goToToday}
-            className="px-3 py-1 text-sm bg-white border border-gray-300 rounded hover:bg-gray-50"
+            className="px-3 py-1 text-sm bg-curai-surface border border-curai-control rounded hover:bg-curai-subtle"
           >
             Сегодня
           </button>
           <button
             onClick={goToPreviousWeek}
-            className="px-3 py-2 bg-white border border-gray-300 rounded hover:bg-gray-50"
+            className="px-3 py-2 bg-curai-surface border border-curai-control rounded hover:bg-curai-subtle"
           >
             ◄
           </button>
@@ -201,7 +201,7 @@ const AppointmentsSchedule = ({ patientId, onUpdate }) => {
           </span>
           <button
             onClick={goToNextWeek}
-            className="px-3 py-2 bg-white border border-gray-300 rounded hover:bg-gray-50"
+            className="px-3 py-2 bg-curai-surface border border-curai-control rounded hover:bg-curai-subtle"
           >
             ►
           </button>
@@ -210,29 +210,29 @@ const AppointmentsSchedule = ({ patientId, onUpdate }) => {
 
       {/* Календарная сетка */}
       <div className="overflow-x-auto">
-        <table className="w-full border-collapse bg-white rounded-lg shadow">
+        <table className="w-full border-collapse bg-curai-surface rounded-md shadow-none">
           <thead>
-            <tr className="bg-gray-100">
-              <th className="border border-gray-300 px-4 py-3 text-left font-medium min-w-[200px]">
+            <tr className="bg-curai-subtle">
+              <th className="border border-curai-control px-4 py-3 text-left font-medium min-w-[200px]">
                 Назначения
               </th>
               {dates.map((date, index) => (
-                <th key={index} className="border border-gray-300 px-2 py-3 text-center min-w-[80px]">
+                <th key={index} className="border border-curai-control px-2 py-3 text-center min-w-[80px]">
                   <div className="font-medium">{formatDate(date)}</div>
-                  <div className="text-xs text-gray-500 font-normal">{formatWeekday(date)}</div>
+                  <div className="text-xs text-curai-muted font-normal">{formatWeekday(date)}</div>
                 </th>
               ))}
             </tr>
           </thead>
           <tbody>
             {appointments.map((service, serviceIndex) => (
-              <tr key={serviceIndex} className="hover:bg-gray-50">
-                <td className="border border-gray-300 px-4 py-3">
-                  <div className="font-medium text-gray-900">{service.service_name}</div>
-                  <div className="text-xs text-gray-500 mt-1">
+              <tr key={serviceIndex} className="hover:bg-curai-subtle">
+                <td className="border border-curai-control px-4 py-3">
+                  <div className="font-medium text-curai-ink">{service.service_name}</div>
+                  <div className="text-xs text-curai-muted mt-1">
                     👨‍⚕️ {service.doctorName}
                   </div>
-                  <div className="text-xs text-gray-500">
+                  <div className="text-xs text-curai-muted">
                     📊 {service.quantity_completed || 0} из {service.quantity_total} выполнено
                   </div>
                 </td>
@@ -245,10 +245,10 @@ const AppointmentsSchedule = ({ patientId, onUpdate }) => {
                   return (
                     <td 
                       key={dateIndex} 
-                      className={`border border-gray-300 px-2 py-3 text-center cursor-pointer transition-colors ${
-                        hasCompleted ? 'bg-green-100 hover:bg-green-200' : 
-                        procedures.length > 0 ? 'bg-yellow-100 hover:bg-yellow-200' : 
-                        'hover:bg-blue-50'
+                      className={`border border-curai-control px-2 py-3 text-center cursor-pointer transition-colors ${
+                        hasCompleted ? "bg-curai-positiveBg hover:bg-curai-positiveBg" :
+                        procedures.length > 0 ? "bg-curai-warningBg hover:bg-curai-warningBg" :
+                        "hover:bg-curai-selected"
                       }`}
                       title={hasCompleted ? 'Выполнено' : 'Выберите конкретный сеанс'}
                     >
@@ -257,14 +257,14 @@ const AppointmentsSchedule = ({ patientId, onUpdate }) => {
                           <div className="text-lg font-semibold">
                             {completedCount > 0 ? '✅' : '⏳'}
                           </div>
-                          <div className="text-xs text-gray-600">
+                          <div className="text-xs text-curai-muted">
                             {completedCount}/{expectedCount}
                           </div>
                           {procedures.map((session, sessionIndex) => (
                             <div key={session.session_id || session.id || sessionIndex} className="mt-2 space-y-1">
                               <div className="text-xs">Сеанс {sessionIndex + 1}</div>
-                              {!session.completed && <button type="button" disabled={commandLoading} className="block text-xs text-blue-700" onClick={() => markProcedureComplete(service, session)}>Завершить сеанс</button>}
-                              {!session.paid && !session.is_paid && session.payment_status !== 'paid' && <button type="button" disabled={commandLoading} className="block text-xs text-green-700" onClick={() => {
+                              {!session.completed && <button type="button" disabled={commandLoading} className="block text-xs text-curai-blue" onClick={() => markProcedureComplete(service, session)}>Завершить сеанс</button>}
+                              {!session.paid && !session.is_paid && session.payment_status !== 'paid' && <button type="button" disabled={commandLoading} className="block text-xs text-curai-positive" onClick={() => {
                                 try {
                                   requireSessionId(session);
                                   setSessionPayment({ service, session, operation_id: crypto.randomUUID() });
@@ -275,7 +275,7 @@ const AppointmentsSchedule = ({ patientId, onUpdate }) => {
                           ))}
                         </div>
                       ) : (
-                        <div className="text-gray-300">−</div>
+                        <div className="text-curai-disabled">−</div>
                       )}
                     </td>
                   );
@@ -286,25 +286,25 @@ const AppointmentsSchedule = ({ patientId, onUpdate }) => {
         </table>
       </div>
 
-      {sessionPayment && <div role="dialog" aria-label="Оплата сеанса" className="p-4 border rounded bg-white">
+      {sessionPayment && <div role="dialog" aria-label="Оплата сеанса" className="p-4 border rounded bg-curai-surface">
         <label className="block">Фактически получено за сеанс, ₸
           <input aria-label="Фактически получено за сеанс, ₸" type="number" min="0.01" step="0.01" required value={sessionAmount} disabled={commandLoading} onChange={event => setSessionAmount(event.target.value)} className="border rounded p-2" />
         </label>
-        <button type="button" disabled={commandLoading} onClick={markSessionPaid} className="p-2 text-green-700">Подтвердить оплату</button>
+        <button type="button" disabled={commandLoading} onClick={markSessionPaid} className="p-2 text-curai-positive">Подтвердить оплату</button>
         <button type="button" disabled={commandLoading} onClick={() => setSessionPayment(null)} className="p-2">Отмена</button>
       </div>}
       {/* Легенда */}
-      <div className="flex items-center justify-center space-x-6 text-sm text-gray-600">
+      <div className="flex items-center justify-center space-x-6 text-sm text-curai-muted">
         <div className="flex items-center space-x-2">
-          <div className="w-6 h-6 bg-green-100 border border-green-300 rounded"></div>
+          <div className="w-6 h-6 bg-curai-positiveBg border border-curai-positive rounded"></div>
           <span>Выполнено</span>
         </div>
         <div className="flex items-center space-x-2">
-          <div className="w-6 h-6 bg-yellow-100 border border-yellow-300 rounded"></div>
+          <div className="w-6 h-6 bg-curai-warningBg border border-curai-warning rounded"></div>
           <span>В процессе</span>
         </div>
         <div className="flex items-center space-x-2">
-          <div className="w-6 h-6 bg-white border border-gray-300 rounded"></div>
+          <div className="w-6 h-6 bg-curai-surface border border-curai-control rounded"></div>
           <span>Не назначено</span>
         </div>
       </div>

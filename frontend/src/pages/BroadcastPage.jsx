@@ -343,42 +343,42 @@ const BroadcastPage = ({ user }) => {
 
   return (
     <div className="space-y-6">
-      <div className="calendar-container calendar-view-panel rounded-2xl">
+      <div className="calendar-container calendar-view-panel rounded-md">
         <PanelHeader
           title="Рассылка WhatsApp"
           subtitle="Массовая отправка сообщений пациентам через WhatsApp"
         />
 
-        <div className="bg-white dark:bg-gray-800 rounded-b-2xl border border-t-0 border-gray-200 dark:border-gray-700 shadow-sm">
+        <div className="bg-curai-surface rounded-b-md border border-t-0 border-curai-border shadow-none">
           {/* Вкладки */}
-          <div className="border-b border-gray-200 dark:border-gray-700">
+          <div className="border-b border-curai-border ">
             <nav className="flex space-x-4 px-6 pt-6" aria-label="Tabs">
               <button
                 onClick={() => setActiveTab('broadcast')}
-                className={`px-4 py-2 text-sm font-medium rounded-t-lg transition-colors ${
+                className={`px-4 py-2 text-sm font-medium rounded-t-md transition-colors ${
                   activeTab === 'broadcast'
-                    ? 'bg-blue-50 text-blue-700 border-b-2 border-blue-600'
-                    : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300'
+                    ? "bg-curai-selected text-curai-blue border-b-2 border-curai-control"
+                    : "text-curai-muted hover:text-curai-ink "
                 }`}
               >
                 📤 Рассылка
               </button>
               <button
                 onClick={() => setActiveTab('rules')}
-                className={`px-4 py-2 text-sm font-medium rounded-t-lg transition-colors ${
+                className={`px-4 py-2 text-sm font-medium rounded-t-md transition-colors ${
                   activeTab === 'rules'
-                    ? 'bg-blue-50 text-blue-700 border-b-2 border-blue-600'
-                    : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300'
+                    ? "bg-curai-selected text-curai-blue border-b-2 border-curai-control"
+                    : "text-curai-muted hover:text-curai-ink "
                 }`}
               >
                 ⚙️ Уведомления
               </button>
               <button
                 onClick={() => setActiveTab('feedback')}
-                className={`px-4 py-2 text-sm font-medium rounded-t-lg transition-colors ${
+                className={`px-4 py-2 text-sm font-medium rounded-t-md transition-colors ${
                   activeTab === 'feedback'
-                    ? 'bg-blue-50 text-blue-700 border-b-2 border-blue-600'
-                    : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300'
+                    ? "bg-curai-selected text-curai-blue border-b-2 border-curai-control"
+                    : "text-curai-muted hover:text-curai-ink "
                 }`}
               >
                 📊 Фидбек пациентов
@@ -389,16 +389,16 @@ const BroadcastPage = ({ user }) => {
           <div className="p-6">
             {/* Сообщения об ошибках и успехе */}
             {errorMessage && (
-              <div className="mb-4 bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded">
+              <div className="mb-4 bg-curai-negativeBg border border-curai-negative text-curai-negative px-4 py-3 rounded">
                 {errorMessage}
-                <button onClick={() => setErrorMessage(null)} className="float-right font-bold">×</button>
+                <button onClick={() => setErrorMessage(null)} className="float-right font-semibold">×</button>
               </div>
             )}
 
             {successMessage && (
-              <div className="mb-4 bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded">
+              <div className="mb-4 bg-curai-positiveBg border border-curai-positive text-curai-positive px-4 py-3 rounded">
                 {successMessage}
-                <button onClick={() => setSuccessMessage(null)} className="float-right font-bold">×</button>
+                <button onClick={() => setSuccessMessage(null)} className="float-right font-semibold">×</button>
               </div>
             )}
 
@@ -407,11 +407,11 @@ const BroadcastPage = ({ user }) => {
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 {/* Левая колонка - Форма сообщения */}
                 <div className="space-y-4">
-                  <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Отправить сообщение</h3>
+                  <h3 className="text-lg font-semibold text-curai-ink ">Отправить сообщение</h3>
 
                   {/* Выбор шаблона */}
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    <label className="block text-sm font-medium text-curai-ink mb-2">
                       Выберите сообщение
                     </label>
                     <div className="flex flex-wrap gap-2">
@@ -419,10 +419,10 @@ const BroadcastPage = ({ user }) => {
                         <button
                           key={key}
                           onClick={() => handleTemplateChange(key)}
-                          className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                          className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
                             messageTemplate === key
-                              ? 'bg-blue-600 text-white'
-                              : 'bg-gray-100 text-gray-700 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600'
+                              ? "bg-curai-blue text-white"
+                              : "bg-curai-subtle text-curai-ink hover:bg-curai-border "
                           }`}
                         >
                           {template.label}
@@ -433,17 +433,17 @@ const BroadcastPage = ({ user }) => {
 
                   {/* Текст сообщения */}
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    <label className="block text-sm font-medium text-curai-ink mb-2">
                       Текст сообщения
                     </label>
                     <textarea
                       value={messageText}
                       onChange={(e) => setMessageText(e.target.value)}
                       rows={15}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                      className="w-full px-4 py-2 border border-curai-control rounded-md focus:ring-2 focus:ring-curai-focus "
                       placeholder="Введите текст сообщения..."
                     />
-                    <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
+                    <p className="mt-2 text-xs text-curai-muted ">
                       Доступные макросы: %name%, %doctor%, %time%, %date%, %cabinet%, %bonusTotal%, %paidSumm%, %zhaloba%, %zametki%
                     </p>
                   </div>
@@ -452,10 +452,10 @@ const BroadcastPage = ({ user }) => {
                   <button
                     onClick={handleSendMessages}
                     disabled={loading || selectedPatients.length === 0}
-                    className={`w-full py-3 rounded-lg font-medium transition-colors ${
+                    className={`w-full py-3 rounded-md font-medium transition-colors ${
                       loading || selectedPatients.length === 0
-                        ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                        : 'bg-blue-600 text-white hover:bg-blue-700'
+                        ? "bg-curai-control text-curai-muted cursor-not-allowed"
+                        : "bg-curai-blue text-white hover:bg-curai-blue"
                     }`}
                   >
                     {loading ? 'Отправка...' : `Отправить (${selectedPatients.length})`}
@@ -464,7 +464,7 @@ const BroadcastPage = ({ user }) => {
 
                 {/* Правая колонка - Список пациентов */}
                 <div className="space-y-4">
-                  <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+                  <h3 className="text-lg font-semibold text-curai-ink ">
                     Выберите получателей ({selectedPatients.length} выбрано)
                   </h3>
 
@@ -474,35 +474,35 @@ const BroadcastPage = ({ user }) => {
                     placeholder="Поиск по имени или телефону..."
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                    className="w-full px-4 py-2 border border-curai-control rounded-md focus:ring-2 focus:ring-curai-focus "
                   />
 
                   {/* Выбрать всех */}
-                  <div className="flex items-center space-x-2 p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
+                  <div className="flex items-center space-x-2 p-3 bg-curai-subtle rounded-md">
                     <input
                       type="checkbox"
                       id="select-all"
                       checked={selectedPatients.length === filteredPatients.length && filteredPatients.length > 0}
                       onChange={handleSelectAll}
-                      className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                      className="w-4 h-4 text-curai-blue border-curai-control rounded focus:ring-curai-focus"
                     />
-                    <label htmlFor="select-all" className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                    <label htmlFor="select-all" className="text-sm font-medium text-curai-ink ">
                       Выбрать всех ({filteredPatients.length})
                     </label>
                   </div>
 
                   {/* Список пациентов */}
-                  <div className="max-h-[600px] overflow-y-auto space-y-2 border border-gray-200 dark:border-gray-700 rounded-lg p-3">
+                  <div className="max-h-[600px] overflow-y-auto space-y-2 border border-curai-border rounded-md p-3">
                     {filteredPatients.length === 0 ? (
-                      <p className="text-center text-gray-500 py-8">Пациенты не найдены</p>
+                      <p className="text-center text-curai-muted py-8">Пациенты не найдены</p>
                     ) : (
                       filteredPatients.map(patient => (
                         <div
                           key={patient.id}
-                          className={`flex items-center space-x-3 p-3 rounded-lg cursor-pointer transition-colors ${
+                          className={`flex items-center space-x-3 p-3 rounded-md cursor-pointer transition-colors ${
                             selectedPatients.includes(patient.id)
-                              ? 'bg-blue-50 dark:bg-blue-900/20 border border-blue-300'
-                              : 'bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700'
+                              ? "bg-curai-selected border border-curai-control"
+                              : "bg-curai-surface border border-curai-border hover:bg-curai-subtle "
                           }`}
                           onClick={() => handleSelectPatient(patient.id)}
                         >
@@ -510,13 +510,13 @@ const BroadcastPage = ({ user }) => {
                             type="checkbox"
                             checked={selectedPatients.includes(patient.id)}
                             onChange={() => {}}
-                            className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                            className="w-4 h-4 text-curai-blue border-curai-control rounded focus:ring-curai-focus"
                           />
                           <div className="flex-1 min-w-0">
-                            <p className="font-medium text-gray-900 dark:text-white truncate">
+                            <p className="font-medium text-curai-ink truncate">
                               {patient.full_name}
                             </p>
-                            <p className="text-sm text-gray-500 dark:text-gray-400">
+                            <p className="text-sm text-curai-muted ">
                               {patient.phone}
                             </p>
                           </div>
@@ -532,10 +532,10 @@ const BroadcastPage = ({ user }) => {
             {activeTab === 'rules' && (
               <div className="space-y-4">
                 <div className="flex justify-between items-center">
-                  <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Правила уведомлений</h3>
+                  <h3 className="text-lg font-semibold text-curai-ink ">Правила уведомлений</h3>
                   <button
                     onClick={openCreateRuleModal}
-                    className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm"
+                    className="px-4 py-2 bg-curai-blue text-white rounded-md hover:bg-curai-blue text-sm"
                   >
                     + Добавить уведомление
                   </button>
@@ -543,57 +543,57 @@ const BroadcastPage = ({ user }) => {
 
                 {loadingRules ? (
                   <div className="text-center py-8">
-                    <div className="animate-spin w-10 h-10 border-4 border-blue-500 border-t-transparent rounded-full mx-auto"></div>
-                    <p className="mt-2 text-gray-600">Загрузка...</p>
+                    <div className="animate-spin w-10 h-10 border-4 border-curai-control border-t-transparent rounded-full mx-auto"></div>
+                    <p className="mt-2 text-curai-muted">Загрузка...</p>
                   </div>
                 ) : rules.length === 0 ? (
-                  <div className="text-center py-12 bg-gray-50 dark:bg-gray-700 rounded-lg">
-                    <p className="text-gray-500 mb-4">Нет настроенных правил уведомлений</p>
+                  <div className="text-center py-12 bg-curai-subtle rounded-md">
+                    <p className="text-curai-muted mb-4">Нет настроенных правил уведомлений</p>
                     <button
                       onClick={openCreateRuleModal}
-                      className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                      className="px-6 py-2 bg-curai-blue text-white rounded-md hover:bg-curai-blue"
                     >
                       Создать первое правило
                     </button>
                   </div>
                 ) : (
                   <div className="overflow-x-auto">
-                    <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
-                      <thead className="bg-pink-100 dark:bg-pink-900/20">
+                    <table className="min-w-full divide-y divide-curai-border ">
+                      <thead className="bg-curai-negativeBg ">
                         <tr>
-                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 dark:text-gray-300 uppercase tracking-wider">
+                          <th className="px-4 py-3 text-left text-xs font-medium text-curai-ink uppercase tracking-wider">
                             #
                           </th>
-                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 dark:text-gray-300 uppercase tracking-wider">
+                          <th className="px-4 py-3 text-left text-xs font-medium text-curai-ink uppercase tracking-wider">
                             Статус
                           </th>
-                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 dark:text-gray-300 uppercase tracking-wider">
+                          <th className="px-4 py-3 text-left text-xs font-medium text-curai-ink uppercase tracking-wider">
                             Кого уведомляем
                           </th>
-                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 dark:text-gray-300 uppercase tracking-wider">
+                          <th className="px-4 py-3 text-left text-xs font-medium text-curai-ink uppercase tracking-wider">
                             Тип уведомления
                           </th>
-                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 dark:text-gray-300 uppercase tracking-wider">
+                          <th className="px-4 py-3 text-left text-xs font-medium text-curai-ink uppercase tracking-wider">
                             Метод уведомления
                           </th>
-                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 dark:text-gray-300 uppercase tracking-wider">
+                          <th className="px-4 py-3 text-left text-xs font-medium text-curai-ink uppercase tracking-wider">
                             Сообщение
                           </th>
-                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 dark:text-gray-300 uppercase tracking-wider">
+                          <th className="px-4 py-3 text-left text-xs font-medium text-curai-ink uppercase tracking-wider">
                             Врачи
                           </th>
-                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 dark:text-gray-300 uppercase tracking-wider">
+                          <th className="px-4 py-3 text-left text-xs font-medium text-curai-ink uppercase tracking-wider">
                             Услуги
                           </th>
-                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-700 dark:text-gray-300 uppercase tracking-wider">
+                          <th className="px-4 py-3 text-left text-xs font-medium text-curai-ink uppercase tracking-wider">
                             Действия
                           </th>
                         </tr>
                       </thead>
-                      <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
+                      <tbody className="bg-curai-surface divide-y divide-curai-border ">
                         {rules.map((rule, index) => (
                           <tr key={rule.id || rule._id}>
-                            <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">
+                            <td className="px-4 py-4 whitespace-nowrap text-sm text-curai-ink ">
                               {index + 1}
                             </td>
                             <td className="px-4 py-4 whitespace-nowrap">
@@ -604,41 +604,41 @@ const BroadcastPage = ({ user }) => {
                                   onChange={() => toggleRuleStatus(rule.id || rule._id)}
                                   className="sr-only peer"
                                 />
-                                <div className="w-11 h-6 bg-gray-200 peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-green-600"></div>
+                                <div className="w-11 h-6 bg-curai-border peer-focus:ring-4 peer-focus:ring-curai-focus rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-curai-surface after:border-curai-control after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-curai-positive"></div>
                               </label>
                             </td>
-                            <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">
+                            <td className="px-4 py-4 whitespace-nowrap text-sm text-curai-ink ">
                               {getRecipientLabel(rule.recipient)}
                             </td>
-                            <td className="px-4 py-4 text-sm text-gray-900 dark:text-white">
+                            <td className="px-4 py-4 text-sm text-curai-ink ">
                               <div>{getTriggerLabel(rule.trigger)}</div>
-                              <div className="text-xs text-gray-500">Без ограничения по времени</div>
+                              <div className="text-xs text-curai-muted">Без ограничения по времени</div>
                             </td>
-                            <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">
+                            <td className="px-4 py-4 whitespace-nowrap text-sm text-curai-ink ">
                               {getMethodLabel(rule.method)}
                             </td>
-                            <td className="px-4 py-4 text-sm text-gray-900 dark:text-white max-w-md">
-                              <div className="whitespace-pre-wrap text-xs bg-gray-50 dark:bg-gray-700 p-2 rounded">
+                            <td className="px-4 py-4 text-sm text-curai-ink max-w-md">
+                              <div className="whitespace-pre-wrap text-xs bg-curai-subtle p-2 rounded">
                                 {rule.message_template}
                               </div>
                             </td>
-                            <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">
+                            <td className="px-4 py-4 whitespace-nowrap text-sm text-curai-ink ">
                               {rule.doctors ? rule.doctors.join(', ') : 'Все врачи'}
                             </td>
-                            <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">
+                            <td className="px-4 py-4 whitespace-nowrap text-sm text-curai-ink ">
                               {rule.services ? rule.services.join(', ') : 'Все услуги'}
                             </td>
-                            <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">
+                            <td className="px-4 py-4 whitespace-nowrap text-sm text-curai-ink ">
                               <div className="flex space-x-2">
                                 <button
                                   onClick={() => { setEditingRule(rule); setEditTemplate(rule.message_template || ''); }}
-                                  className="px-3 py-1.5 bg-blue-50 text-blue-700 rounded-lg hover:bg-blue-100 text-sm font-medium"
+                                  className="px-3 py-1.5 bg-curai-selected text-curai-blue rounded-md hover:bg-curai-selected text-sm font-medium"
                                 >
                                   ✏️ Изменить
                                 </button>
                                 <button
                                   onClick={() => deleteRule(rule.id || rule._id)}
-                                  className="px-3 py-1.5 bg-red-50 text-red-700 rounded-lg hover:bg-red-100 text-sm font-medium"
+                                  className="px-3 py-1.5 bg-curai-negativeBg text-curai-negative rounded-md hover:bg-curai-negativeBg text-sm font-medium"
                                 >
                                   🗑️ Удалить
                                 </button>
@@ -664,30 +664,30 @@ const BroadcastPage = ({ user }) => {
       {/* Модалка редактирования шаблона уведомления */}
       {editingRule && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={(e) => { if (e.target === e.currentTarget) setEditingRule(null); }}>
-          <div className="bg-white rounded-2xl shadow-xl w-full max-w-2xl p-6">
-            <h3 className="text-lg font-semibold text-gray-900">Редактировать шаблон уведомления</h3>
-            <p className="text-sm text-gray-500 mt-1">
+          <div className="bg-curai-surface rounded-md shadow-none w-full max-w-2xl p-6">
+            <h3 className="text-lg font-semibold text-curai-ink">Редактировать шаблон уведомления</h3>
+            <p className="text-sm text-curai-muted mt-1">
               {getTriggerLabel(editingRule.trigger)} · {getRecipientLabel(editingRule.recipient)} · {getMethodLabel(editingRule.method)}
             </p>
             <textarea
               value={editTemplate}
               onChange={(e) => setEditTemplate(e.target.value)}
               rows={12}
-              className="w-full mt-3 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white whitespace-pre-wrap"
+              className="w-full mt-3 px-4 py-2 border border-curai-control rounded-md focus:ring-2 focus:ring-curai-focus whitespace-pre-wrap"
             />
-            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+            <p className="text-xs text-curai-muted mt-1">
               Доступные макросы: %name%, %doctor%, %time%, %date%, %cabinet%
             </p>
             <div className="flex justify-end gap-3 mt-4">
               <button
                 onClick={() => setEditingRule(null)}
-                className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300"
+                className="px-4 py-2 bg-curai-border text-curai-ink rounded-md hover:bg-curai-control"
               >
                 Отмена
               </button>
               <button
                 onClick={saveRuleTemplate}
-                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                className="px-4 py-2 bg-curai-blue text-white rounded-md hover:bg-curai-blue"
               >
                 Сохранить
               </button>
@@ -699,16 +699,16 @@ const BroadcastPage = ({ user }) => {
       {/* Модалка создания правила уведомления */}
       {showCreateModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={(e) => { if (e.target === e.currentTarget) setShowCreateModal(false); }}>
-          <div className="bg-white rounded-2xl shadow-xl w-full max-w-2xl p-6 overflow-y-auto max-h-full">
-            <h3 className="text-lg font-semibold text-gray-900">Новое правило уведомления</h3>
+          <div className="bg-curai-surface rounded-md shadow-none w-full max-w-2xl p-6 overflow-y-auto max-h-full">
+            <h3 className="text-lg font-semibold text-curai-ink">Новое правило уведомления</h3>
 
             <div className="space-y-4 mt-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Кого уведомляем</label>
+                <label className="block text-sm font-medium text-curai-ink mb-1">Кого уведомляем</label>
                 <select
                   value={newRule.recipient}
                   onChange={(e) => setNewRule({ ...newRule, recipient: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 border border-curai-control rounded-md focus:ring-2 focus:ring-curai-focus"
                 >
                   <option value="patient">Пациент</option>
                   <option value="doctor">Врач</option>
@@ -716,11 +716,11 @@ const BroadcastPage = ({ user }) => {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Тип события</label>
+                <label className="block text-sm font-medium text-curai-ink mb-1">Тип события</label>
                 <select
                   value={newRule.trigger}
                   onChange={(e) => setNewRule({ ...newRule, trigger: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 border border-curai-control rounded-md focus:ring-2 focus:ring-curai-focus"
                 >
                   <option value="appointment_created">Создание записи</option>
                   <option value="appointment_reminder">Напоминание о записи</option>
@@ -732,36 +732,36 @@ const BroadcastPage = ({ user }) => {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Метод отправки</label>
+                <label className="block text-sm font-medium text-curai-ink mb-1">Метод отправки</label>
                 <select
                   value={newRule.method}
                   onChange={(e) => setNewRule({ ...newRule, method: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 border border-curai-control rounded-md focus:ring-2 focus:ring-curai-focus"
                 >
                   <option value="wazzup">Wazzup</option>
                 </select>
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Текст сообщения</label>
+                <label className="block text-sm font-medium text-curai-ink mb-1">Текст сообщения</label>
                 <textarea
                   value={newRule.message_template}
                   onChange={(e) => setNewRule({ ...newRule, message_template: e.target.value })}
                   rows={8}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 whitespace-pre-wrap"
+                  className="w-full px-4 py-2 border border-curai-control rounded-md focus:ring-2 focus:ring-curai-focus whitespace-pre-wrap"
                   placeholder="%name%, Ваша запись: Дата: %date% Время: %time% Врач: %doctor%"
                 />
-                <p className="text-xs text-gray-500 mt-1">
+                <p className="text-xs text-curai-muted mt-1">
                   Макросы: %name%, %doctor%, %time%, %date%, %cabinet%, %bonusTotal%, %paidSumm%, %zhaloba%, %zametki%
                 </p>
               </div>
             </div>
 
             <div className="flex justify-end gap-3 mt-4">
-              <button onClick={() => setShowCreateModal(false)} className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300">
+              <button onClick={() => setShowCreateModal(false)} className="px-4 py-2 bg-curai-border text-curai-ink rounded-md hover:bg-curai-control">
                 Отмена
               </button>
-              <button onClick={createRule} className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
+              <button onClick={createRule} className="px-4 py-2 bg-curai-blue text-white rounded-md hover:bg-curai-blue">
                 Создать
               </button>
             </div>

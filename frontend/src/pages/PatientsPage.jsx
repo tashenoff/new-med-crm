@@ -278,14 +278,14 @@ const PatientsPage = ({ user }) => {
       {errorMessage && (
         <div className={`border px-4 py-3 rounded mb-4 ${
           errorMessage.includes('✅') 
-            ? 'bg-green-100 border-green-400 text-green-700'
-            : 'bg-red-100 border-red-400 text-red-700'
+            ? "bg-curai-positiveBg border-curai-positive text-curai-positive"
+            : "bg-curai-negativeBg border-curai-negative text-curai-negative"
         }`}>
           {errorMessage}
           <button 
             onClick={() => setErrorMessage(null)}
-            className={`float-right font-bold hover:opacity-75 ${
-              errorMessage.includes('✅') ? 'text-green-700' : 'text-red-700'
+            className={`float-right font-semibold hover:opacity-75 ${
+              errorMessage.includes('✅') ? "text-curai-positive" : "text-curai-negative"
             }`}
           >
             ×

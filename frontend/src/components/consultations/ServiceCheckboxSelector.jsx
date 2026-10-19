@@ -4,7 +4,7 @@ import { nextWorkDate, autofillSlot, isBookableSlot, freeTimesFor, hasScheduleWi
 
 const PAGE_SIZE = 40;
 
-const ServiceCheckboxSelector = ({ onAddServices, alreadyAddedIds = [], disabled = false }) => {
+const ServiceCheckboxSelector = ({ onAddServices, alreadyAddedIds = [], disabled = false, onCancel }) => {
   const [allServices, setAllServices] = useState([]);
   const [query, setQuery] = useState('');
   const [debouncedQuery, setDebouncedQuery] = useState('');
@@ -371,10 +371,10 @@ const ServiceCheckboxSelector = ({ onAddServices, alreadyAddedIds = [], disabled
     setQuery('');
   };
   return (
-    <div className="space-y-3">
-      <div className="relative">
+    <div className="curai-clinical-service-selector space-y-3">
+      <div className="relative"><label htmlFor="curai-clinical-service-query">Поиск</label>
         <input
-          type="text"
+          id="curai-clinical-service-query" type="text"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           className={inputClasses}
@@ -383,20 +383,20 @@ const ServiceCheckboxSelector = ({ onAddServices, alreadyAddedIds = [], disabled
         />
         {loading && (
           <div className="absolute right-3 top-3">
-            <div className="animate-spin h-5 w-5 border-2 border-blue-600 border-t-transparent rounded-full"></div>
+            <div className="animate-spin h-5 w-5 border-2 border-curai-control border-t-transparent rounded-full"></div>
           </div>
         )}
       </div>
 
-      {error && <p className="text-sm text-red-600">{error}</p>}
+      {error && <p className="text-sm text-curai-negative">{error}</p>}
 
-      <div ref={listRef} className="border border-gray-200 rounded-lg max-h-64 overflow-y-auto">
+      <div ref={listRef} className="border border-curai-border rounded-md max-h-64 overflow-y-auto">
         {!loading && Object.keys(grouped).length === 0 && (
-          <div className="px-4 py-3 text-sm text-gray-500">Услуги не найдены.</div>
+          <div className="px-4 py-3 text-sm text-curai-muted">Услуги не найдены.</div>
         )}
         {Object.entries(grouped).map(([category, services]) => (
-          <div key={category} className="border-b border-gray-100 last:border-b-0">
-            <div className="px-3 py-1.5 bg-gray-50 text-xs font-semibold text-gray-600 uppercase tracking-wide sticky top-0">
+          <div key={category} className="border-b border-curai-border last:border-b-0">
+            <div className="px-3 py-1.5 bg-curai-subtle text-xs font-semibold text-curai-muted uppercase tracking-wide sticky top-0">
               {category}
             </div>
             {services.map((service) => {
@@ -405,8 +405,8 @@ const ServiceCheckboxSelector = ({ onAddServices, alreadyAddedIds = [], disabled
               return (
                 <label
                   key={service.id}
-                  className={`flex items-center justify-between px-3 py-2 hover:bg-blue-50 transition-colors cursor-pointer border-b border-gray-100 last:border-b-0 ${
-                    isAdded ? 'bg-gray-50 cursor-not-allowed' : ''
+                  className={`flex items-center justify-between px-3 py-2 hover:bg-curai-selected transition-colors cursor-pointer border-b border-curai-border last:border-b-0 ${
+                    isAdded ? "bg-curai-subtle cursor-not-allowed" : ''
                   }`}
                 >
                   <div className="flex items-center space-x-3 flex-1 min-w-0">
@@ -415,14 +415,14 @@ const ServiceCheckboxSelector = ({ onAddServices, alreadyAddedIds = [], disabled
                       checked={isChecked}
                       disabled={isAdded || disabled}
                       onChange={() => toggleService(service)}
-                      className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                      className="w-4 h-4 text-curai-blue border-curai-control rounded focus:ring-curai-focus"
                     />
                     <div className="flex-1 min-w-0">
-                      <div className={`font-medium text-gray-900 text-sm truncate ${isAdded ? 'line-through text-gray-400' : ''}`}>
+                      <div className={`font-medium text-curai-ink text-sm truncate ${isAdded ? "line-through text-curai-muted" : ''}`}>
                         {service.service_name}
                       </div>
                       {service.service_type === 'complex' && (
-                        <div className="text-xs text-purple-600">
+                        <div className="text-xs text-curai-blue">
                           <div>🧩 Комплекс:</div>
                           <ul className="list-disc pl-3 mt-0.5 space-y-0.5">
                             {service.components && service.components.length
@@ -436,15 +436,15 @@ const ServiceCheckboxSelector = ({ onAddServices, alreadyAddedIds = [], disabled
                         </div>
                       )}
                       {service.unit && (
-                        <div className="text-xs text-gray-500">{formatUnit(service.unit)}</div>
+                        <div className="text-xs text-curai-muted">{formatUnit(service.unit)}</div>
                       )}
                     </div>
                   </div>
                   <div className="text-right ml-3 shrink-0">
-                    <div className="font-semibold text-blue-600 text-sm">
+                    <div className="font-semibold text-curai-blue text-sm">
                       {service.price ? `${service.price.toLocaleString()} ₸` : 'Цена не указана'}
                     </div>
-                    {isAdded && <div className="text-xs text-green-600 font-medium">добавлена</div>}
+                    {isAdded && <div className="text-xs text-curai-positive font-medium">добавлена</div>}
                   </div>
                 </label>
               );
@@ -452,50 +452,50 @@ const ServiceCheckboxSelector = ({ onAddServices, alreadyAddedIds = [], disabled
           </div>
         ))}
         {hasMore && (
-          <div ref={sentinelRef} className="px-3 py-2 text-xs text-gray-500 text-center">
+          <div ref={sentinelRef} className="px-3 py-2 text-xs text-curai-muted text-center">
             Загрузка… {visibleServices.length} из {filteredServices.length}
           </div>
         )}
         {!hasMore && filteredServices.length > PAGE_SIZE && (
-          <div className="px-3 py-2 text-xs text-gray-400 text-center">
+          <div className="px-3 py-2 text-xs text-curai-muted text-center">
             Все услуги загружены ({filteredServices.length})
           </div>
         )}
       </div>
       {selectedCount > 0 && (
-        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 space-y-3">
-          <div className="font-medium text-gray-900">Выбранные услуги ({selectedCount})</div>
+        <div className="bg-curai-selected border border-curai-control rounded-md p-4 space-y-3">
+          <div className="font-medium text-curai-ink">Выбранные услуги ({selectedCount})</div>
           {selectedList.map((cfg) => {
             const count = getEffectiveCount(cfg);
             return (
-              <div key={cfg.service.id} className="bg-white border border-gray-200 rounded-lg p-3 space-y-2">
+              <div key={cfg.service.id} className="bg-curai-surface border border-curai-border rounded-md p-3 space-y-2">
                 <div className="flex items-start justify-between">
                   <div className="flex-1 min-w-0 pr-2">
-                    <div className="font-medium text-gray-900 text-sm">{cfg.service.service_name}</div>
-                    <div className="text-xs text-gray-500">
+                    <div className="font-medium text-curai-ink text-sm">{cfg.service.service_name}</div>
+                    <div className="text-xs text-curai-muted">
                       {cfg.service.price
                         ? `${cfg.service.price.toLocaleString()} ₸ × ${count} = ${getLineTotal(cfg).toLocaleString()} ₸`
                         : 'Цена не указана'}
                     </div>
                                         {cfg.service.service_type === 'complex' && (
-                      <div className="mt-1 bg-blue-50 border border-blue-200 rounded p-2 text-xs">
-                        <div className="font-medium text-gray-800">📅 Расписание специалистов — по каждой услуге своя дата и время</div>
+                      <div className="mt-1 bg-curai-selected border border-curai-control rounded p-2 text-xs">
+                        <div className="font-medium text-curai-ink">📅 Расписание специалистов — по каждой услуге своя дата и время</div>
                                                 <label className="flex items-center gap-1.5 mt-1 cursor-pointer select-none">
                                                   <input type="checkbox" checked={!!oneDoctorOn[cfg.service.id]}
                                                     onChange={(e) => setOneDoctorOn(prev => ({ ...prev, [cfg.service.id]: e.target.checked }))}
                                                     className="accent-blue-600" />
-                                                  <span className="text-[11px] text-gray-600">Весь комплекс одним специалистом (одна запись)</span>
+                                                  <span className="text-[11px] text-curai-muted">Весь комплекс одним специалистом (одна запись)</span>
                                                 </label>
                                                 {(() => {
                           const cid = cfg.service.id;
                           const today = new Date().toISOString().slice(0, 10);
                           const availAny = availByDate[`${cid}:${today}`] || Object.values(availByDate).find(a => a.complex_id === cid);
-                          if (!availAny) return <div className="text-gray-500 mt-1">Загрузка доступности…</div>;
+                          if (!availAny) return <div className="text-curai-muted mt-1">Загрузка доступности…</div>;
                           const services = availAny.services || [];
                                                     if (oneDoctorOn[cid]) {
                                                       const common = availAny.common_doctors || [];
                                                       if (common.length === 0)
-                                                        return <div className="text-amber-600 mt-1">Нет врача, который делает весь комплекс целиком — выключите режим «одним специалистом».</div>;
+                                                        return <div className="text-curai-warning mt-1">Нет врача, который делает весь комплекс целиком — выключите режим «одним специалистом».</div>;
                                                       const os = oneDocSlot[cid] || {};
                                                       const docId = os.doctor_id ?? common[0]?.doctor_id ?? '';
                                                       const date = os.date || nextWorkDate(common.find(doc => doc.doctor_id === docId), today);
@@ -503,14 +503,14 @@ const ServiceCheckboxSelector = ({ onAddServices, alreadyAddedIds = [], disabled
                                                       const doc = dateAvail?.common_doctors?.find(d => d.doctor_id === docId) || null;
                                                       const times = doc ? freeTimesFor(doc) : [];
                                                       return (
-                                                        <div className="space-y-1.5 mt-1 bg-white border border-gray-200 rounded p-1.5">
-                                                          <div className="text-gray-800 font-medium text-xs">{cfg.service.service_name} — весь комплекс</div>
+                                                        <div className="space-y-1.5 mt-1 bg-curai-surface border border-curai-border rounded p-1.5">
+                                                          <div className="text-curai-ink font-medium text-xs">{cfg.service.service_name} — весь комплекс</div>
                                                           <div className="flex items-center gap-2 flex-wrap">
-                                                            <label className="text-[10px] text-gray-500">Врач</label>
+                                                            <label className="text-[10px] text-curai-muted">Врач</label>
                                                             <select
                                                               value={docId}
                                                               onChange={(e) => setOneDocSlot(prev => ({ ...prev, [cid]: { doctor_id: e.target.value, date: nextWorkDate(common.find(doc => doc.doctor_id === e.target.value), today), start: '', end: '' } }))}
-                                                              className="flex-1 min-w-0 px-1.5 py-1 border border-gray-300 rounded text-sm"
+                                                              className="flex-1 min-w-0 px-1.5 py-1 border border-curai-control rounded text-sm"
                                                             >
                                                               <option value="">—</option>
                                                               {common.map(d => (
@@ -519,20 +519,20 @@ const ServiceCheckboxSelector = ({ onAddServices, alreadyAddedIds = [], disabled
                                                             </select>
                                                           </div>
                                                           <div className="grid grid-cols-3 gap-1 mt-1">
-                                                            <label className="text-[10px] text-gray-500">Дата</label>
-                                                            <label className="text-[10px] text-gray-500">С</label>
-                                                            <label className="text-[10px] text-gray-500">До</label>
+                                                            <label className="text-[10px] text-curai-muted">Дата</label>
+                                                            <label className="text-[10px] text-curai-muted">С</label>
+                                                            <label className="text-[10px] text-curai-muted">До</label>
                                                             <input
                                                               type="date"
                                                               value={date}
                                                               onChange={(e) => { const dd = e.target.value; setOneDocSlot(prev => ({ ...prev, [cid]: { doctor_id: docId, date: dd, start: '', end: '' } })); ensureAvailability(cid, dd); }}
-                                                              className="w-full px-1.5 py-1 border border-gray-300 rounded text-sm"
+                                                              className="w-full px-1.5 py-1 border border-curai-control rounded text-sm"
                                                             />
                                                             {doc && doc.has_schedule ? (
                                                               <select
                                                                 value={os.start || ''}
                                                                 onChange={(e) => setOneDocSlot(prev => ({ ...prev, [cid]: { ...(prev[cid] || {}), doctor_id: docId, start: e.target.value, end: defaultEndTime(e.target.value) } }))}
-                                                                className="w-full px-1.5 py-1 border border-gray-300 rounded text-sm"
+                                                                className="w-full px-1.5 py-1 border border-curai-control rounded text-sm"
                                                               >
                                                                 <option value="">—</option>
                                                                 {times.map(t => <option key={t} value={t}>{t}</option>)}
@@ -543,7 +543,7 @@ const ServiceCheckboxSelector = ({ onAddServices, alreadyAddedIds = [], disabled
                                                                 disabled
                                                                 value={os.start || ''}
                                                                 onChange={(e) => setOneDocSlot(prev => ({ ...prev, [cid]: { ...(prev[cid] || {}), doctor_id: docId, start: e.target.value, end: defaultEndTime(e.target.value) } }))}
-                                                                className="w-full px-1.5 py-1 border border-gray-300 rounded text-sm"
+                                                                className="w-full px-1.5 py-1 border border-curai-control rounded text-sm"
                                                               />
                                                             )}
                                                             <input
@@ -551,23 +551,23 @@ const ServiceCheckboxSelector = ({ onAddServices, alreadyAddedIds = [], disabled
                                                               disabled
                                                               value={os.end || defaultEndTime(os.start)}
                                                               onChange={(e) => setOneDocSlot(prev => ({ ...prev, [cid]: { ...(prev[cid] || {}), end: e.target.value } }))}
-                                                              className="w-full px-1.5 py-1 border border-gray-300 rounded text-sm"
+                                                              className="w-full px-1.5 py-1 border border-curai-control rounded text-sm"
                                                             />
                                                           </div>
                                                           {!dateAvail ? (
-                                                            <div className="text-[10px] text-amber-600 mt-0.5">Загрузка доступности… Время пока недоступно.</div>
+                                                            <div className="text-[10px] text-curai-warning mt-0.5">Загрузка доступности… Время пока недоступно.</div>
                                                           ) : !doc ? (
-                                                            <div className="text-[10px] text-amber-600 mt-0.5">Выбранный врач недоступен на {date}.</div>
+                                                            <div className="text-[10px] text-curai-warning mt-0.5">Выбранный врач недоступен на {date}.</div>
                                                           ) : doc.has_schedule ? (
-                                                            <div className="text-[10px] text-green-600 mt-0.5">окно {doc.schedule_start}-{doc.schedule_end}, занято: {doc.booked?.length || 0}</div>
+                                                            <div className="text-[10px] text-curai-positive mt-0.5">окно {doc.schedule_start}-{doc.schedule_end}, занято: {doc.booked?.length || 0}</div>
                                                           ) : (
-                                                            <div className="text-[10px] text-amber-600 mt-0.5">у врача нет расписания на {date} — выберите другого врача или дату</div>
+                                                            <div className="text-[10px] text-curai-warning mt-0.5">у врача нет расписания на {date} — выберите другого врача или дату</div>
                                                           )}
                                                         </div>
                                                       );
                                                     }
                                                     if (services.length === 0)
-                            return <div className="text-amber-600 mt-1">По услугам комплекса не найдены врачи — укажите врача вручную при записи.</div>;
+                            return <div className="text-curai-warning mt-1">По услугам комплекса не найдены врачи — укажите врача вручную при записи.</div>;
                           return (
                             <div className="space-y-1.5 mt-1">
                               {services.map((svc) => {
@@ -581,14 +581,14 @@ const ServiceCheckboxSelector = ({ onAddServices, alreadyAddedIds = [], disabled
                                 const doc = svcForDate?.doctors?.find(d => d.doctor_id === doctorId) || null;
                                 const times = doc ? freeTimesFor(doc) : [];
                                 return (
-                                  <div key={svc.service_id} className="bg-white border border-gray-200 rounded p-1.5">
-                                    <div className="text-gray-800 font-medium text-xs">{svc.service_name}{svc.quantity && svc.quantity > 1 ? ` ×${svc.quantity}` : ''}</div>
+                                  <div key={svc.service_id} className="bg-curai-surface border border-curai-border rounded p-1.5">
+                                    <div className="text-curai-ink font-medium text-xs">{svc.service_name}{svc.quantity && svc.quantity > 1 ? ` ×${svc.quantity}` : ''}</div>
                                     <div className="flex items-center gap-2 mt-1 flex-wrap">
-                                      <label className="text-[10px] text-gray-500">Врач</label>
+                                      <label className="text-[10px] text-curai-muted">Врач</label>
                                       <select
                                         value={doctorId}
                                         onChange={(e) => { const d = e.target.value; setSelDoctors(prev => ({ ...prev, [svcKey]: d })); setSelSlots(prev => ({ ...prev, [key]: { date: nextWorkDate(svc.doctors?.find(doc => doc.doctor_id === d), today), doctor_id: d, start: '', end: '' } })); }}
-                                        className="flex-1 min-w-0 px-1.5 py-1 border border-gray-300 rounded text-sm"
+                                        className="flex-1 min-w-0 px-1.5 py-1 border border-curai-control rounded text-sm"
                                       >
                                         <option value="">—</option>
                                         {(svc.doctors || []).map(doc => (
@@ -597,20 +597,20 @@ const ServiceCheckboxSelector = ({ onAddServices, alreadyAddedIds = [], disabled
                                       </select>
                                     </div>
                                     <div className="grid grid-cols-3 gap-1 mt-1">
-                                      <label className="text-[10px] text-gray-500">Дата</label>
-                                      <label className="text-[10px] text-gray-500">С</label>
-                                      <label className="text-[10px] text-gray-500">До</label>
+                                      <label className="text-[10px] text-curai-muted">Дата</label>
+                                      <label className="text-[10px] text-curai-muted">С</label>
+                                      <label className="text-[10px] text-curai-muted">До</label>
                                       <input
                                         type="date"
                                         value={date}
                                         onChange={(e) => { const dd = e.target.value; setSelSlots(prev => ({ ...prev, [key]: { doctor_id: doctorId, date: dd, start: '', end: '' } })); ensureAvailability(cid, dd); }}
-                                        className="w-full px-1.5 py-1 border border-gray-300 rounded text-sm"
+                                        className="w-full px-1.5 py-1 border border-curai-control rounded text-sm"
                                       />
                                       {doc && doc.has_schedule ? (
                                         <select
                                           value={sl.start || ''}
                                           onChange={(e) => setSelSlots(prev => ({ ...prev, [key]: { ...(prev[key] || {}), doctor_id: doctorId, start: e.target.value, end: defaultEndTime(e.target.value) } }))}
-                                          className="w-full px-1.5 py-1 border border-gray-300 rounded text-sm"
+                                          className="w-full px-1.5 py-1 border border-curai-control rounded text-sm"
                                         >
                                           <option value="">—</option>
                                           {times.map(t => <option key={t} value={t}>{t}</option>)}
@@ -621,7 +621,7 @@ const ServiceCheckboxSelector = ({ onAddServices, alreadyAddedIds = [], disabled
                                           value={sl.start || ''}
                                           disabled
                                           onChange={(e) => setSelSlots(prev => ({ ...prev, [key]: { ...(prev[key] || {}), doctor_id: doctorId, start: e.target.value, end: defaultEndTime(e.target.value) } }))}
-                                          className="w-full px-1.5 py-1 border border-gray-300 rounded text-sm"
+                                          className="w-full px-1.5 py-1 border border-curai-control rounded text-sm"
                                         />
                                       )}
                                       <input
@@ -629,17 +629,17 @@ const ServiceCheckboxSelector = ({ onAddServices, alreadyAddedIds = [], disabled
                                         value={sl.end || defaultEndTime(sl.start)}
                                         disabled
                                         onChange={(e) => setSelSlots(prev => ({ ...prev, [key]: { ...(prev[key] || {}), end: e.target.value } }))}
-                                        className="w-full px-1.5 py-1 border border-gray-300 rounded text-sm"
+                                        className="w-full px-1.5 py-1 border border-curai-control rounded text-sm"
                                       />
                                     </div>
                                     {!dateAvail ? (
-                                      <div className="text-[10px] text-amber-600 mt-0.5">Загрузка доступности… Время пока недоступно.</div>
+                                      <div className="text-[10px] text-curai-warning mt-0.5">Загрузка доступности… Время пока недоступно.</div>
                                     ) : !doc ? (
-                                      <div className="text-[10px] text-amber-600 mt-0.5">Выбранный врач недоступен на {date}.</div>
+                                      <div className="text-[10px] text-curai-warning mt-0.5">Выбранный врач недоступен на {date}.</div>
                                     ) : doc.has_schedule ? (
-                                                                          <div className="text-[10px] text-green-600 mt-0.5">окно {doc.schedule_start}-{doc.schedule_end}, занято: {doc.booked?.length || 0}</div>
+                                                                          <div className="text-[10px] text-curai-positive mt-0.5">окно {doc.schedule_start}-{doc.schedule_end}, занято: {doc.booked?.length || 0}</div>
                                                                         ) : (
-                                                                          <div className="text-[10px] text-amber-600 mt-0.5">у врача нет расписания на {date} — выберите другого врача или дату</div>
+                                                                          <div className="text-[10px] text-curai-warning mt-0.5">у врача нет расписания на {date} — выберите другого врача или дату</div>
                                                                         )}
                                   </div>
                                 );
@@ -653,26 +653,26 @@ const ServiceCheckboxSelector = ({ onAddServices, alreadyAddedIds = [], disabled
                   <button
                     type="button"
                     onClick={() => removeSelected(cfg.service.id)}
-                    className="text-gray-400 hover:text-red-600 text-sm shrink-0"
+                    className="text-curai-muted hover:text-curai-negative text-sm shrink-0"
                   >
                     ✕
                   </button>
                 </div>
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <label className="block text-xs font-medium text-gray-700 mb-1">Количество</label>
+                    <label className="block text-xs font-medium text-curai-ink mb-1">Количество</label>
                     <input
                       type="number"
                       min="1"
                       value={cfg.quantity}
                       disabled={cfg.isCourse}
                       onChange={(e) => updateSetting(cfg.service.id, 'quantity', parseInt(e.target.value) || 1)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm disabled:bg-gray-100"
+                      className="w-full px-3 py-2 border border-curai-control rounded-md text-sm disabled:bg-curai-subtle"
                     />
                   </div>
                   <div>
-                    <label className="block text-xs font-medium text-gray-700 mb-1">Итого</label>
-                    <div className="w-full px-3 py-2 bg-gray-100 border border-gray-300 rounded-lg text-sm font-medium">
+                    <label className="block text-xs font-medium text-curai-ink mb-1">Итого</label>
+                    <div className="w-full px-3 py-2 bg-curai-subtle border border-curai-control rounded-md text-sm font-medium">
                       {getLineTotal(cfg).toLocaleString()} ₸
                     </div>
                   </div>
@@ -683,45 +683,45 @@ const ServiceCheckboxSelector = ({ onAddServices, alreadyAddedIds = [], disabled
                     id={`isCourse-${cfg.service.id}`}
                     checked={cfg.isCourse}
                     onChange={(e) => updateSetting(cfg.service.id, 'isCourse', e.target.checked)}
-                    className="w-4 h-4 text-blue-600 border-gray-300 rounded"
+                    className="w-4 h-4 text-curai-blue border-curai-control rounded"
                   />
-                  <label htmlFor={`isCourse-${cfg.service.id}`} className="text-sm font-medium text-gray-700 cursor-pointer">
+                  <label htmlFor={`isCourse-${cfg.service.id}`} className="text-sm font-medium text-curai-ink cursor-pointer">
                     Это курс (несколько процедур)
                   </label>
                 </div>
 
                 {cfg.isCourse && (
-                  <div className="space-y-3 pl-2 border-l-2 border-blue-300">
+                  <div className="space-y-3 pl-2 border-l-2 border-curai-control">
                     <div className="grid grid-cols-2 gap-3">
                       <div>
-                        <label className="block text-xs font-medium text-gray-700 mb-1">Длительность (дней)</label>
+                        <label className="block text-xs font-medium text-curai-ink mb-1">Длительность (дней)</label>
                         <input
                           type="number"
                           min="1"
                           max="365"
                           value={cfg.durationDays}
                           onChange={(e) => updateSetting(cfg.service.id, 'durationDays', parseInt(e.target.value) || 1)}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                          className="w-full px-3 py-2 border border-curai-control rounded-md text-sm"
                         />
                       </div>
                       <div>
-                        <label className="block text-xs font-medium text-gray-700 mb-1">Раз в день</label>
+                        <label className="block text-xs font-medium text-curai-ink mb-1">Раз в день</label>
                         <input
                           type="number"
                           min="1"
                           max="10"
                           value={cfg.frequencyPerDay}
                           onChange={(e) => updateSetting(cfg.service.id, 'frequencyPerDay', parseInt(e.target.value) || 1)}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                          className="w-full px-3 py-2 border border-curai-control rounded-md text-sm"
                         />
                       </div>
                     </div>
                     <div>
-                      <label className="block text-xs font-medium text-gray-700 mb-1">Тип оплаты</label>
+                      <label className="block text-xs font-medium text-curai-ink mb-1">Тип оплаты</label>
                       <select
                         value={cfg.paymentType}
                         onChange={(e) => updateSetting(cfg.service.id, 'paymentType', e.target.value)}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                        className="w-full px-3 py-2 border border-curai-control rounded-md text-sm"
                       >
                         <option value="single">Оплата сразу за весь курс</option>
                         <option value="per_session">Оплата за каждую процедуру</option>
@@ -732,15 +732,15 @@ const ServiceCheckboxSelector = ({ onAddServices, alreadyAddedIds = [], disabled
               </div>
             );
           })}
-          <div className="flex items-center justify-between pt-2 border-t border-blue-200">
-            <div className="text-gray-700">
-              Итого: <span className="font-semibold text-blue-600">{totalPrice.toLocaleString()} ₸</span>
+          <div className="curai-clinical-picker-actions flex items-center justify-between pt-2 border-t border-curai-control">{onCancel && <button type="button" onClick={onCancel} className="curai-button curai-button-secondary">Отмена</button>}
+            <div className="text-curai-ink">
+              Итого: <span className="font-semibold text-curai-blue">{totalPrice.toLocaleString()} ₸</span>
             </div>
             <button
               type="button"
               onClick={handleAdd}
               disabled={disabled || schedulingBlocked}
-              className="bg-green-600 hover:bg-green-700 text-white font-medium py-2 px-4 rounded-lg disabled:opacity-50"
+              className="bg-curai-positive hover:bg-curai-positive text-white font-medium py-2 px-4 rounded-md disabled:opacity-50"
             >
               Добавить {selectedCount}
             </button>
@@ -748,13 +748,14 @@ const ServiceCheckboxSelector = ({ onAddServices, alreadyAddedIds = [], disabled
         </div>
       )}
       {!loading && selectedCount === 0 && (
-        <p className="text-xs text-gray-500">
+        <p className="text-xs text-curai-muted">
           Отметьте галочками нужные услуги из прайса — их можно добавить все сразу.
         </p>
       )}
       {loading && selectedCount === 0 && (
-        <p className="text-xs text-gray-500">Загрузка услуг из прайса...</p>
+        <p className="text-xs text-curai-muted">Загрузка услуг из прайса...</p>
       )}
+      {onCancel && selectedCount === 0 && <div className="curai-clinical-picker-actions"><button type="button" onClick={onCancel} className="curai-button curai-button-secondary">Отмена</button><button type="button" disabled className="curai-button curai-button-primary">Добавить выбранное</button></div>}
     </div>
   );
 };

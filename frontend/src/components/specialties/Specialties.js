@@ -141,8 +141,8 @@ const Specialties = ({ user }) => {
   );
 
   return (
-    <div className="space-y-6">
-      <div className={`calendar-container calendar-view-panel rounded-2xl`}>
+    <div className="curai-directory-page curai-specialties space-y-6">
+      <div className={`calendar-container calendar-view-panel rounded-md`}>
         <PanelHeader
           title="Специальности врачей"
           subtitle="Управление медицинскими специальностями"
@@ -150,23 +150,23 @@ const Specialties = ({ user }) => {
           actionLabel="+ Добавить специальность"
         />
 
-        <div className="bg-white dark:bg-gray-800 rounded-b-2xl border border-t-0 border-gray-200 dark:border-gray-700 p-4 space-y-4 shadow-sm">
+        <div className="bg-curai-surface rounded-b-md border border-t-0 border-curai-border p-4 space-y-4 shadow-none">
 
       {/* Сообщения */}
       {error && (
-        <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg">
+        <div className="bg-curai-negativeBg border border-curai-negative text-curai-negative px-4 py-3 rounded-md">
           {error}
         </div>
       )}
       
       {success && (
-        <div className="bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded-lg">
+        <div className="bg-curai-positiveBg border border-curai-positive text-curai-positive px-4 py-3 rounded-md">
           {success}
         </div>
       )}
 
       {/* Фильтры */}
-      <div className="bg-white p-4 rounded-lg shadow border">
+      <div className="curai-specialty-filter bg-curai-surface p-4 rounded-md shadow-none border">
         <div className="flex gap-4">
           <div className="flex-1">
             <label className={labelClasses}>Поиск специальностей</label>
@@ -182,88 +182,58 @@ const Specialties = ({ user }) => {
       </div>
 
       {/* Статистика специальностей */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <div className="bg-white p-6 rounded-lg shadow border-l-4 border-purple-500">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-gray-600 text-sm font-medium">Всего специальностей</p>
-              <p className="text-2xl font-bold text-purple-600">{specialties.length}</p>
-            </div>
-            <div className="text-purple-500 text-2xl">👨‍⚕️</div>
-          </div>
-        </div>
-        
-        <div className="bg-white p-6 rounded-lg shadow border-l-4 border-blue-500">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-gray-600 text-sm font-medium">Активных специальностей</p>
-              <p className="text-2xl font-bold text-blue-600">{specialties.filter(s => s.is_active).length}</p>
-            </div>
-            <div className="text-blue-500 text-2xl">✅</div>
-          </div>
-        </div>
-        
-        <div className="bg-white p-6 rounded-lg shadow border-l-4 border-green-500">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-gray-600 text-sm font-medium">Найдено</p>
-              <p className="text-2xl font-bold text-green-600">{filteredSpecialties.length}</p>
-            </div>
-            <div className="text-green-500 text-2xl">🔍</div>
-          </div>
-        </div>
-      </div>
+      <div className="curai-directory-counts"><span>Всего специальностей: {specialties.length}</span><span>Активных: {specialties.filter(s => s.is_active).length}</span><span>Найдено: {filteredSpecialties.length}</span></div>
 
       {/* Таблица специальностей */}
-      <div className="bg-white rounded-lg shadow overflow-hidden">
+      <div className="bg-curai-surface rounded-md shadow-none overflow-hidden">
         {loading ? (
           <div className="flex items-center justify-center h-64">
-            <div className="text-gray-500">Загружаем специальности...</div>
+            <div className="text-curai-muted">Загружаем специальности...</div>
           </div>
         ) : filteredSpecialties.length === 0 ? (
           <div className="flex items-center justify-center h-64">
-            <div className="text-center text-gray-500">
-              <div className="text-4xl mb-2">👨‍⚕️</div>
+            <div className="text-center text-curai-muted">
+              <div className="text-2xl mb-2">👨‍⚕️</div>
               <p>Специальности не найдены</p>
               <p className="text-sm mt-1">Добавьте первую специальность для врачей</p>
             </div>
           </div>
         ) : (
           <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
+            <table className="min-w-full divide-y divide-curai-border">
+              <thead className="bg-curai-subtle">
                 <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-6 py-3 text-left text-xs font-medium text-curai-muted uppercase tracking-wider">
                     Название специальности
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-6 py-3 text-left text-xs font-medium text-curai-muted uppercase tracking-wider">
                     Описание
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-6 py-3 text-left text-xs font-medium text-curai-muted uppercase tracking-wider">
                     Дата создания
                   </th>
                   {user?.role === 'admin' || user?.role === 'super_admin' && (
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th className="px-6 py-3 text-left text-xs font-medium text-curai-muted uppercase tracking-wider">
                       Действия
                     </th>
                   )}
                 </tr>
               </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
+              <tbody className="bg-curai-surface divide-y divide-curai-border">
                 {filteredSpecialties.map(specialty => (
-                  <tr key={specialty.id} className="hover:bg-gray-50">
+                  <tr key={specialty.id} className="hover:bg-curai-subtle">
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="flex items-center">
-                        <div className="text-2xl mr-3">👨‍⚕️</div>
-                        <div className="font-medium text-gray-900">{specialty.name}</div>
+                        
+                        <div className="font-medium text-curai-ink">{specialty.name}</div>
                       </div>
                     </td>
-                    <td className="px-6 py-4 text-sm text-gray-500 max-w-xs">
+                    <td className="px-6 py-4 text-sm text-curai-muted max-w-xs">
                       <div className="truncate" title={specialty.description}>
                         {specialty.description || '—'}
                       </div>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-curai-muted">
                       {new Date(specialty.created_at).toLocaleDateString('ru-RU')}
                     </td>
                     {user?.role === 'admin' || user?.role === 'super_admin' && (
@@ -271,13 +241,13 @@ const Specialties = ({ user }) => {
                         <div className="flex gap-2">
                           <button
                             onClick={() => handleEdit(specialty)}
-                            className="text-blue-600 hover:text-blue-900"
+                            className="text-curai-blue hover:text-curai-blue"
                           >
                             Изменить
                           </button>
                           <button
                             onClick={() => handleDelete(specialty.id)}
-                            className="text-red-600 hover:text-red-900"
+                            className="text-curai-negative hover:text-curai-negative"
                           >
                             Удалить
                           </button>
@@ -305,7 +275,7 @@ const Specialties = ({ user }) => {
         }}
         title={editingSpecialty ? 'Редактировать специальность' : 'Добавить новую специальность'}
         errorMessage={error}
-        size="max-w-md"
+        size="max-w-[600px]" className="curai-directory-dialog curai-specialty-dialog"
       >
             
             <form onSubmit={handleSubmit} className="space-y-4">

@@ -23,7 +23,7 @@ async function compile(path, mockServices = false, patientModal = false) {
     define: { 'import.meta.env': '{}' },
     plugins: mockServices ? [{ name: 'services', setup(builder) {
       if (patientModal) {
-        builder.onResolve({ filter: /\/useGlobalRefresh$|^\.\/Modal$/ }, args => ({ path: args.path, namespace: 'parent-mock' }));
+        builder.onResolve({ filter: /\/useGlobalRefresh$/ }, args => ({ path: args.path, namespace: 'parent-mock' }));
         builder.onLoad({ filter: /.*/, namespace: 'parent-mock' }, args => ({
           contents: args.path.endsWith('useGlobalRefresh')
             ? 'export const useGlobalRefresh = () => ({ refreshTreatmentPlans() {} });'
@@ -104,9 +104,30 @@ async function mount(context, Component, props = {}, request = null, priceList =
     assert.ok(element, 'button exists');
     await act(async () => element.dispatchEvent(new dom.window.MouseEvent('click', { bubbles: true })));
   };
-  return { container, alerts, change, click, dom };
+  return { container: Component === PatientModal || Component === ConsultationForm ? dom.window.document.body : container, alerts, change, click, dom };
 }
 const button = (container, text) => [...container.querySelectorAll('button')].find(element => element.textContent.includes(text));
+
+test('Escape dismisses only the clinical service picker and preserves the consultation form', async context => {
+  let patientClosed = 0;
+  let writes = 0;
+  const ui = await mount(context, PatientModal, { show: true, editingItem: { id: 'patient', full_name: 'Test Patient' }, onClose: () => { patientClosed += 1; } }, async () => { writes += 1; throw new Error('No writes allowed'); });
+  await ui.click(button(ui.container, 'Консультации'));
+  await ui.click(ui.container.querySelector('[data-guide="new-consultation-btn"]'));
+  const launch = button(ui.container, '+ Выбрать услуги');
+  await ui.click(launch);
+  assert.equal(ui.container.querySelectorAll('[role="dialog"]').length, 2);
+  const pickerControl = button(ui.container, 'Add fixture');
+  assert.equal(ui.dom.window.document.activeElement, pickerControl);
+  await act(async () => pickerControl.dispatchEvent(new ui.dom.window.KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true })));
+  assert.equal(patientClosed, 0);
+  assert.equal(writes, 0);
+  assert.equal(ui.container.querySelectorAll('[role="dialog"]').length, 1);
+  assert.equal(ui.dom.window.document.body.style.overflow, 'hidden', 'patient dialog keeps the background scroll locked');
+  assert.ok(ui.container.querySelector('form'));
+  assert.ok(!button(ui.container, 'Add fixture'));
+  assert.equal(ui.dom.window.document.activeElement, launch);
+});
 const doctorSelects = container => [...container.querySelectorAll('select')].filter(element => [...element.options].some(option => option.value === doctors[0].doctor_id));
 const timeSelects = container => [...container.querySelectorAll('select')].filter(element => [...element.options].some(option => /^\d{2}:\d{2}$/.test(option.value)));
 
@@ -584,6 +605,7 @@ async function formFixture(context, onSave, request, onSaved = () => {}) {
     quantity: 1, price_per_unit: 100, total_price: 100,
     scheduling: { slots: [{ doctor_id: doctors[0].doctor_id, service_id: service.id, date: '2026-10-09', start_time: '09:00' }] } }];
   const ui = await mount(context, ConsultationForm, { patientId: 'patient', onSave, onSaved }, request);
+  await ui.click(button(ui.container, '+ Выбрать услуги'));
   await ui.click(button(ui.container, 'Add fixture'));
   return { ...ui, submit: async () => {
     await act(async () => ui.container.querySelector('form').dispatchEvent(new ui.dom.window.Event('submit', { bubbles: true, cancelable: true })));
@@ -639,10 +661,11 @@ test('patient-card consultation save propagates HTTP failure without closing or 
   });
   await ui.click(button(ui.container, 'Консультации'));
   await ui.click(ui.container.querySelector('[data-guide="new-consultation-btn"]'));
+  await ui.click(button(ui.container, '+ Выбрать услуги'));
   await ui.click(button(ui.container, 'Add fixture'));
   await act(async () => ui.container.querySelector('form').dispatchEvent(new ui.dom.window.Event('submit', { bubbles: true, cancelable: true })));
   assert.equal(requests.length, 1);
   assert.ok(requests[0].endsWith('/consultation-sheets'));
   assert.match(ui.container.textContent, /Plan persistence failed/);
-  assert.ok(button(ui.container, 'Add fixture'), 'form remains open on failure');
+  assert.ok(button(ui.container, '+ Выбрать услуги'), 'form remains open on failure');
 });

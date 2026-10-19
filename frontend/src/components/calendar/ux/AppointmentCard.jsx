@@ -1,3 +1,5 @@
+import { APPOINTMENT_STATUSES, appointmentStatusReason } from '../../../utils/appointmentStatus';
+import { AppointmentStatusOptions } from './AppointmentStatusControl';
 import React, { useState, useRef, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 
@@ -105,15 +107,7 @@ const AppointmentCard = ({
   const cardLabel = [patientName, doctorName, timeRange, appointment.reason].filter(Boolean).join('; ');
 
   // Возможные статусы
-  const STATUSES = [
-    { value: 'unconfirmed', label: 'Не подтверждено', color: 'bg-yellow-400' },
-    { value: 'confirmed', label: 'Подтверждено', color: 'bg-green-500' },
-    { value: 'arrived', label: 'Пришел', color: 'bg-blue-500' },
-    { value: 'in_progress', label: 'На приеме', color: 'bg-indigo-500' },
-    { value: 'completed', label: 'Завершен', color: 'bg-gray-500' },
-    { value: 'cancelled', label: 'Отменен', color: 'bg-red-500' },
-    { value: 'no_show', label: 'Не явился', color: 'bg-orange-500' }
-  ];
+  const STATUSES = APPOINTMENT_STATUSES;
 
   const getStatusDot = (status) => {
     const s = STATUSES.find(s => s.value === status);
@@ -128,6 +122,7 @@ const AppointmentCard = ({
   const handleStatusSelect = (e, newStatus) => {
     e.stopPropagation();
     setShowStatusMenu(false);
+    if (!canEdit || appointmentStatusReason(appointment, newStatus)) return;
     const id = appointment._id || appointment.id;
     console.log('📌 Статус выбран:', { id, newStatus, hasCallback: !!onStatusChange });
     if (onStatusChange && id) {
@@ -135,22 +130,6 @@ const AppointmentCard = ({
     }
   };
 
-  // Конвертируем hex в rgba с прозрачностью для фона
-  const hexToRgba = (hex, alpha = 0.15) => {
-    const r = parseInt(hex.slice(1, 3), 16);
-    const g = parseInt(hex.slice(3, 5), 16);
-    const b = parseInt(hex.slice(5, 7), 16);
-    return `rgba(${r}, ${g}, ${b}, ${alpha})`;
-  };
-
-  // Вычисляем цвет текста на основе яркости фона
-  const getTextColor = (hex) => {
-    const r = parseInt(hex.slice(1, 3), 16);
-    const g = parseInt(hex.slice(3, 5), 16);
-    const b = parseInt(hex.slice(5, 7), 16);
-    const brightness = (r * 299 + g * 587 + b * 114) / 1000;
-    return brightness > 128 ? '#1F2937' : '#FFFFFF';
-  };
   const handleDragStart = (e) => {
     console.log(` DRAG START: appointmentId=${appointment._id || appointment.id}, patient=${patient?.name}`);
 
@@ -211,24 +190,16 @@ const AppointmentCard = ({
           if (!e.repeat) handleClick(e);
         }
       }}
-      className="absolute top-1 left-1 right-1 min-w-0 rounded text-xs cursor-move z-50 transition-none overflow-hidden focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-blue-600"
+      className="curai-appointment-card absolute top-1 left-1 right-1 min-w-0 rounded text-xs cursor-move z-50 transition-none overflow-hidden focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-blue-600"
       style={{
         height: `${cardHeight}px`,
-        backgroundColor: hexToRgba(doctorColor, 0.15),
-        color: '#111827',
-        padding: '4px 8px 4px 10px'
+        backgroundColor: 'var(--curai-color-surface)',
+        color: 'var(--curai-color-ink)',
+        padding: '4px 8px',
+        '--doctor-color': doctorColor
       }}
       onClick={handleClick}
     >
-      {/* Цветная полоска слева */}
-      <div
-        className="absolute top-0 left-0 bottom-0"
-        style={{
-          width: '4px',
-          backgroundColor: doctorColor
-        }}
-      />
-
       {/* Иконка статуса */}
       <div className="absolute top-1 right-1 z-50">
         <div
@@ -256,33 +227,13 @@ const AppointmentCard = ({
             <div className="px-3 py-1.5 text-xs font-medium text-gray-500 uppercase tracking-wider border-b border-gray-100">
               Статус записи
             </div>
-            {STATUSES.map((s) => (
-              <button
-                key={s.value}
-                onMouseDown={(e) => {
-                  e.preventDefault();
-                  e.stopPropagation();
-                  console.log('🖱️ MouseDown на статус:', s.value);
-                  handleStatusSelect(e, s.value);
-                }}
-                className={`w-full px-3 py-2 text-left text-xs flex items-center gap-2 hover:bg-gray-50 ${
-                  appointment.status === s.value ? 'font-semibold text-gray-900' : 'text-gray-700'
-                }`}
-              >
-                <span className={`w-2 h-2 rounded-full ${s.color}`} />
-                {s.label}
-                {appointment.status === s.value && (
-                  <span className="ml-auto text-blue-600"></span>
-                )}
-              </button>
-            ))}
-            </div>
+            <AppointmentStatusOptions appointment={appointment} onSelect={handleStatusSelect} disabled={!canEdit}/>            </div>
           </div>,
           document.body
         )}
       </div>
 
-      <div className="flex h-full min-w-0 flex-col gap-0.5 overflow-hidden">
+      <div className="flex h-full min-w-0 flex-col overflow-hidden">
         <div
           className={`min-w-0 shrink-0 overflow-hidden pr-3 font-semibold leading-4 ${
             allowTwoPatientLines ? 'line-clamp-2 break-words' : 'truncate'
@@ -292,8 +243,13 @@ const AppointmentCard = ({
         </div>
 
         <div className="flex min-w-0 shrink-0 items-center gap-1 text-[11px] leading-[14px]">
-          <span className="min-w-0 flex-1 truncate opacity-75">{doctorName}</span>
-          <span className="shrink-0 whitespace-nowrap tabular-nums opacity-75">{timeRange}</span>
+          <span className="curai-appointment-doctor min-w-0 flex-1 truncate opacity-75"><span className="curai-doctor-marker" aria-hidden="true" />{doctorName}</span>
+
+        </div>
+
+        <div className="curai-appointment-meta flex min-w-0 shrink-0 items-center gap-1 text-[11px] leading-[14px]">
+          <span className="shrink-0 whitespace-nowrap tabular-nums">{timeRange}</span>
+          <span className="min-w-0 flex-1 truncate text-right" title={getStatusLabel(appointment.status)}>{getStatusLabel(appointment.status)}</span>
         </div>
 
         {showReason && (

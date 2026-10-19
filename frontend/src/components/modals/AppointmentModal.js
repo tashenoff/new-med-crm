@@ -1,4 +1,3 @@
-import { paymentSummary } from '../../utils/paymentBalances';
 import React, { useState, useEffect, useRef } from 'react';
 import { formatPhoneChange } from '../../hooks/phoneFormatter';
 import { appointmentPayment } from '../../utils/accountingLedger';
@@ -6,7 +5,9 @@ import SignatureCanvas from 'react-signature-canvas';
 import Modal from './Modal';
 import { inputClasses, selectClasses, textareaClasses, buttonPrimaryClasses, buttonSecondaryClasses, buttonSuccessClasses, cardHeaderClasses, tabClasses } from './modalUtils';
 import ServiceSelector from '../treatment/ServiceSelector';
-import ServicePaymentList from '../treatment/ServicePaymentList';
+import PatientPaymentWorkspace from '../treatment/PatientPaymentWorkspace';
+import PatientTreatmentWorkspace from '../treatment/PatientTreatmentWorkspace';
+import { PlanEmptyState } from '../treatment/shared/PatientPlanWorkspace';
 import AppointmentTimeFields from './appointment/AppointmentTimeFields';
 import {
   MIN_APPOINTMENT_DURATION,
@@ -18,63 +19,7 @@ import {
 import { CONSENT_DOCUMENTS, getRequiredConsents } from '../../config/consentDocuments';
 
 // Сводка оплаты по всем планам лечения (вкладка «Оплата» в календаре — дубль из карточки пациента)
-const PaymentSummary = ({ plans }) => {
-  const { totalAmount, paidAmount, remainingToPay, depositPaid, otherPaid, known } = paymentSummary(plans);
-  const totalServices = plans.reduce((sum, p) => sum + (p.services?.length || 0), 0);
-  const paidServices = plans.reduce((sum, p) => sum + (p.services?.filter(s => s.payment_status === 'paid' || (s.is_complex && (s.paid_amount || 0) > 0)).length || 0), 0);
-  const paymentProgress = totalAmount > 0 ? Math.round((paidAmount / totalAmount) * 100) : 0;
-  return (
-    <div className="p-5 bg-white rounded-xl border border-gray-200 shadow-sm">
-      <div className="grid grid-cols-3 gap-4 mb-4">
-        <div className="text-center p-3 bg-gray-50 rounded-lg">
-          <div className="text-xs text-gray-500 uppercase tracking-wide font-medium">Всего к оплате</div>
-          <div className="text-2xl font-bold text-gray-900 mt-1">{totalAmount.toLocaleString()} ₸</div>
-          {totalServices > 0 && <div className="text-xs text-gray-400 mt-1">{totalServices} услуг</div>}
-        </div>
-        <div className="text-center p-3 bg-green-50 rounded-lg border border-green-200">
-          <div className="text-xs text-green-600 uppercase tracking-wide font-medium">✅ Оплачено</div>
-          <div className="text-2xl font-bold text-green-600 mt-1">{paidAmount.toLocaleString()} ₸</div>
-            <div className="text-xs text-green-600 mt-1">
-              Из них депозитом: {depositPaid.toLocaleString()} ₸{!known && ' (ledger: сумма неизвестна)'}
-              {known && <> · Другие платежи: {otherPaid.toLocaleString()} ₸</>}
-            </div>
-          {paidAmount > 0 && (
-            <div className="text-xs text-green-500 mt-1">{paidServices} из {totalServices} услуг</div>
-          )}
-        </div>
-        <div className={`text-center p-3 rounded-lg border ${remainingToPay > 0 ? 'bg-red-50 border-red-200' : 'bg-green-50 border-green-200'}`}>
-          <div className={`text-xs uppercase tracking-wide font-medium ${remainingToPay > 0 ? 'text-red-600' : 'text-green-600'}`}>К оплате</div>
-          <div className={`text-2xl font-bold mt-1 ${remainingToPay > 0 ? 'text-red-600' : 'text-green-600'}`}>{remainingToPay.toLocaleString()} ₸</div>
-          {remainingToPay > 0 && (
-            <div className="text-xs text-red-500 mt-1">{totalServices - paidServices} услуг не оплачено</div>
-          )}
-        </div>
-      </div>
-      {totalAmount > 0 && (
-        <div className="mb-4">
-          <div className="flex justify-between text-xs text-gray-500 mb-1">
-            <span>Прогресс оплаты</span>
-            <span className="font-semibold">{paymentProgress}%</span>
-          </div>
-          <div className="w-full bg-gray-200 rounded-full h-4 overflow-hidden">
-            <div
-              className={`h-4 rounded-full transition-all duration-500 ${paymentProgress === 100 ? 'bg-gradient-to-r from-green-400 to-green-600' : 'bg-gradient-to-r from-blue-400 to-blue-600'}`}
-              style={{ width: `${paymentProgress}%` }}
-            />
-          </div>
-        </div>
-      )}
-      {remainingToPay === 0 && paidAmount > 0 && (
-        <div className="mt-4 pt-4 border-t border-gray-200 text-center">
-          <div className="inline-flex items-center px-6 py-3 bg-green-100 text-green-700 rounded-lg font-semibold">
-            <span className="text-2xl mr-2">✅</span>
-            <span>Все планы лечения полностью оплачены</span>
-          </div>
-        </div>
-      )}
-    </div>
-  );
-};
+
 
 const AppointmentModal = ({
   show,
@@ -118,12 +63,19 @@ const AppointmentModal = ({
   const [activeTab, setActiveTab] = useState('appointment');
   const [documents, setDocuments] = useState([]);
   const [treatmentPlans, setTreatmentPlans] = useState([]);
+  const [plansPatientId, setPlansPatientId] = useState(null);
+  const [plansLoading, setPlansLoading] = useState(false);
+  const [plansError, setPlansError] = useState('');
+  const [showPlanForm, setShowPlanForm] = useState(false);
+  const [paymentFilter, setPaymentFilter] = useState('all');
+  const [procedureFilter, setProcedureFilter] = useState('all');
   const [uploading, setUploading] = useState(false);
   const [selectedFile, setSelectedFile] = useState(null);
   const [documentDescription, setDocumentDescription] = useState('');
   const [availableDoctors, setAvailableDoctors] = useState([]);
   const [loadingDoctors, setLoadingDoctors] = useState(false);
   const [scheduleMessage, setScheduleMessage] = useState('');
+  const doctorRequestRef = useRef(0);
   const [rooms, setRooms] = useState([]);
   const [loadingRooms, setLoadingRooms] = useState(false);
   const [paymentTypes, setPaymentTypes] = useState([]);
@@ -141,7 +93,8 @@ const [sources, setSources] = useState([]);
 
   const [appointmentSourceError, setAppointmentSourceError] = useState('');
   const [hasSignature, setHasSignature] = useState(false);
-  const [submitting, setSubmitting] = useState(false); // Локальный прелоадер для защиты от двойного нажатия
+  const [submitting, setSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState(''); // Локальный прелоадер для защиты от двойного нажатия
   const signaturePadRef = useRef(null);
   const [acceptedConsents, setAcceptedConsents] = useState({});
   const [requiredConsents, setRequiredConsents] = useState([CONSENT_DOCUMENTS.base]);
@@ -185,6 +138,11 @@ const [sources, setSources] = useState([]);
     full_name: editingItem.patient_name || 'Пациент',
     phone: editingItem.patient_phone || ''
   } : null);
+  const planPatientRef = useRef(null);
+  planPatientRef.current = show ? selectedPatient?.id : null;
+  const currentTreatmentPlans = plansPatientId === selectedPatient?.id ? treatmentPlans : [];
+  const planDataPending = plansLoading || (!plansError && plansPatientId !== selectedPatient?.id);
+
 
   // Простая функция проверки пересечения времени
   const doTimesOverlap = (start1, end1, start2, end2) => {
@@ -255,6 +213,8 @@ const [sources, setSources] = useState([]);
 
   // Функция для получения врачей, работающих в выбранном кабинете
   const fetchAvailableDoctors = async (date, time = null, roomId = null) => {
+    const requestId = ++doctorRequestRef.current;
+    const isCurrent = () => requestId === doctorRequestRef.current;
     setScheduleMessage('');
 
     if (!date) {
@@ -277,8 +237,10 @@ const [sources, setSources] = useState([]);
               }
             }
           );
+          if (!isCurrent()) return;
           if (response.ok) {
             const availableDoctorsData = await response.json();
+            if (!isCurrent()) return;
             setAvailableDoctors(availableDoctorsData);
             if (availableDoctorsData.length > 0) {
               // Авто-выбор врача, у которого есть расписание на это время
@@ -294,11 +256,12 @@ const [sources, setSources] = useState([]);
             setScheduleMessage('Кабинет не выбран - доступны все врачи');
           }
         } catch (error) {
+          if (!isCurrent()) return;
           console.error('Error fetching available doctors:', error);
           setAvailableDoctors(doctors);
           setScheduleMessage('Кабинет не выбран - доступны все врачи');
         } finally {
-          setLoadingDoctors(false);
+          if (isCurrent()) setLoadingDoctors(false);
         }
       } else {
         setAvailableDoctors(doctors);
@@ -321,8 +284,10 @@ const [sources, setSources] = useState([]);
         }
       });
 
-      if (response.ok) {
+      if (!isCurrent()) return;
+          if (response.ok) {
         const schedules = await response.json();
+        if (!isCurrent()) return;
 
         // Определяем день недели (0 = Понедельник)
         const dayOfWeek = new Date(date).getDay();
@@ -389,10 +354,11 @@ if (timeSchedule) {
         setScheduleMessage('Ошибка при получении расписания кабинета');
       }
     } catch (error) {
+          if (!isCurrent()) return;
       console.error('Error fetching room schedule:', error);
       setScheduleMessage('Ошибка подключения к серверу');
     } finally {
-      setLoadingDoctors(false);
+      if (isCurrent()) setLoadingDoctors(false);
     }
   };
 
@@ -540,6 +506,7 @@ if (timeSchedule) {
       // Если дата не выбрана, но модал открыт - показать всех врачей
       setAvailableDoctors(doctors);
     }
+    return () => { doctorRequestRef.current += 1; };
   }, [show, appointmentForm?.appointment_date, appointmentForm?.appointment_time, appointmentForm?.room_id, doctors]);
 
   // Поиск пациентов
@@ -627,10 +594,12 @@ if (timeSchedule) {
   useEffect(() => {
     if (!show) {
       // Сбрасываем все внутренние состояния модала
+      setSubmitError('');
       setActiveTab('appointment');
       setShowNewPatientForm(false);
       setDocuments([]);
-      setTreatmentPlans([]);
+      setTreatmentPlans([]); setPlansPatientId(null); setPlansLoading(false); setPlansError('');
+      setShowPlanForm(false); setPaymentFilter('all'); setProcedureFilter('all');
       setUploading(false);
       setSelectedFile(null);
       setDocumentDescription('');
@@ -698,7 +667,7 @@ if (timeSchedule) {
       if (selectedPatient && (activeTab === 'plans' || activeTab === 'payment')) {
         fetchTreatmentPlans();
       }
-    }, [selectedPatient, activeTab]);
+    }, [selectedPatient?.id, activeTab]);
 
   // Автоматическое определение необходимых согласий на основе планов лечения пациента
   useEffect(() => {
@@ -744,23 +713,20 @@ if (timeSchedule) {
   };
 
   const fetchTreatmentPlans = async () => {
-    if (!selectedPatient) return;
-
+    const patientId = selectedPatient?.id;
+    if (!patientId) return;
+    setPlansLoading(true); setPlansError('');
     try {
-      const token = localStorage.getItem('token');
-      const response = await fetch(`${API}/api/patients/${selectedPatient.id}/treatment-plans`, {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        }
-      });
-
-      if (response.ok) {
-        const plans = await response.json();
-        setTreatmentPlans(plans);
-      }
+      const response = await fetch(`${API}/api/patients/${patientId}/treatment-plans`, { headers: { Authorization: `Bearer ${localStorage.getItem('token')}` } });
+      if (!response.ok) throw new Error('Не удалось загрузить планы лечения');
+      const plans = await response.json();
+      if (!Array.isArray(plans)) throw new Error('Некорректный ответ при загрузке планов');
+      if (planPatientRef.current !== patientId) return;
+      setTreatmentPlans(plans); setPlansPatientId(patientId);
     } catch (error) {
-      console.error('Error fetching treatment plans:', error);
+      if (planPatientRef.current === patientId) setPlansError(error.message || 'Не удалось загрузить планы лечения');
+    } finally {
+      if (planPatientRef.current === patientId) setPlansLoading(false);
     }
   };
 
@@ -891,7 +857,7 @@ if (timeSchedule) {
           execution_status: 'pending',
           appointment_ids: []
         });
-        setEditingPlan(null);
+        setEditingPlan(null); setShowPlanForm(false);
         fetchTreatmentPlans(); // Refresh plans list
       } else {
         console.error('Error saving treatment plan');
@@ -1116,7 +1082,11 @@ const handleCreateNewPatient = async (e) => {
     // Передаём управление родительскому обработчику
     // Передаём данные формы, а не event
     try {
+      setSubmitError('');
       await onSave(payload);
+    } catch (error) {
+      const detail = error?.response?.data?.detail;
+      setSubmitError(typeof detail === 'string' ? detail : error?.message || 'Не удалось сохранить запись');
     } finally {
       setSubmitting(false);
     }
@@ -1129,18 +1099,13 @@ const handleCreateNewPatient = async (e) => {
       show={show}
       onClose={onClose}
       title={editingItem ? 'Редактировать запись' : 'Новая запись на прием'}
-      errorMessage={errorMessage}
-    >
-
-      {/* Tabs */}
-      <div className="border-b border-gray-200 mb-4">
-        <nav className="-mb-px flex flex-wrap gap-x-8 gap-y-2">
+      errorMessage={submitError || errorMessage}
+      className={`curai-patient-dialog curai-appointment-dialog${['plans','payment'].includes(activeTab) && !(activeTab === 'plans' && !hideAddPlanForm && (showPlanForm || editingPlan)) ? ' curai-patient-workspace-dialog' : ''}`}
+      size={['plans','payment'].includes(activeTab) ? 'max-w-[1240px]' : 'max-w-4xl'}
+      subheader={<div className="curai-patient-tabbar"><nav className="curai-patient-tabs" role="tablist" aria-label="Разделы записи">
           <button
             onClick={() => setActiveTab('appointment')}
-            className={`py-2 px-1 border-b-2 font-medium text-sm ${activeTab === 'appointment'
-                ? 'border-blue-500 text-blue-600'
-                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-              }`}
+            className={tabClasses(activeTab === 'appointment')} role="tab" aria-selected={activeTab === 'appointment'}
           >
             Запись на прием
           </button>
@@ -1148,41 +1113,35 @@ const handleCreateNewPatient = async (e) => {
             <>
               <button
                 onClick={() => setActiveTab('documents')}
-                className={`py-2 px-1 border-b-2 font-medium text-sm ${activeTab === 'documents'
-                    ? 'border-blue-500 text-blue-600'
-                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                  }`}
+                className={tabClasses(activeTab === 'documents')} role="tab" aria-selected={activeTab === 'documents'}
               >
                 Документы пациента
               </button>
               <button
                 onClick={() => setActiveTab('plans')}
-                className={`py-2 px-1 border-b-2 font-medium text-sm ${activeTab === 'plans'
-                    ? 'border-blue-500 text-blue-600'
-                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                  }`}
+                className={tabClasses(activeTab === 'plans')} role="tab" aria-selected={activeTab === 'plans'}
               >
                 План лечения
               </button>
               <button
                 onClick={() => setActiveTab('payment')}
-                className={`py-2 px-1 border-b-2 font-medium text-sm ${activeTab === 'payment'
-                    ? 'border-blue-500 text-blue-600'
-                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                  }`}
+                className={tabClasses(activeTab === 'payment')} role="tab" aria-selected={activeTab === 'payment'}
               >
                 Оплата
               </button>
             </>
           )}
-        </nav>
-      </div>
+        </nav></div>}
+    >
+
+      {/* Tabs */}
+      
 
       {/* Appointment Tab Content */}
       {activeTab === 'appointment' && (
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Пациент *</label>
+            <label className="block text-sm font-medium text-curai-ink mb-1">Пациент *</label>
             <div className="flex gap-2">
               <div className="flex-1 relative patient-search-container">
                 {/* Поисковое поле */}
@@ -1197,7 +1156,7 @@ const handleCreateNewPatient = async (e) => {
                       }
                     }}
                     placeholder="Начните вводить имя, телефон или ИИН пациента..."
-                    className="w-full px-3 py-2 pr-8 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    className="w-full px-3 py-2 pr-8 border border-curai-control rounded-md focus:ring-2 focus:ring-curai-focus focus:border-curai-control"
                     required={!appointmentForm.patient_id && !showNewPatientForm}
                     disabled={showNewPatientForm}
                   />
@@ -1207,12 +1166,12 @@ const handleCreateNewPatient = async (e) => {
                     <button
                       type="button"
                       onClick={handleClearPatient}
-                      className="absolute right-2 top-2 text-gray-400 hover:text-gray-600"
+                      className="absolute right-2 top-2 text-curai-muted hover:text-curai-muted"
                     >
                       ✕
                     </button>
                   ) : (
-                    <div className="absolute right-2 top-2 text-gray-400">
+                    <div className="absolute right-2 top-2 text-curai-muted">
                       🔍
                     </div>
                   )}
@@ -1220,21 +1179,21 @@ const handleCreateNewPatient = async (e) => {
 
                 {/* Выпадающий список результатов */}
                 {showPatientDropdown && filteredPatients.length > 0 && (
-                  <div className="absolute z-50 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-60 overflow-y-auto">
+                  <div className="absolute z-50 w-full mt-1 bg-curai-surface border border-curai-control rounded-md shadow-none max-h-60 overflow-y-auto">
                     {filteredPatients.map(patient => (
                       <div
                         key={patient.id}
                         onClick={() => handlePatientSelect(patient)}
-                        className="px-4 py-3 hover:bg-blue-50 cursor-pointer border-b border-gray-100 last:border-b-0"
+                        className="px-4 py-3 hover:bg-curai-selected cursor-pointer border-b border-curai-border last:border-b-0"
                       >
-                        <div className="font-medium text-gray-900">{patient.full_name}</div>
-                        <div className="text-sm text-gray-600">
+                        <div className="font-medium text-curai-ink">{patient.full_name}</div>
+                        <div className="text-sm text-curai-muted">
                           {patient.phone && `📞 ${patient.phone}`}
                           {patient.phone && patient.birth_date && ' • '}
                           {patient.birth_date && `🎂 ${patient.birth_date}`}
                         </div>
                         {patient.iin && (
-                          <div className="text-xs text-gray-500">ИИН: {patient.iin}</div>
+                          <div className="text-xs text-curai-muted">ИИН: {patient.iin}</div>
                         )}
                       </div>
                     ))}
@@ -1243,7 +1202,7 @@ const handleCreateNewPatient = async (e) => {
 
                 {/* Показать сообщение если ничего не найдено */}
                 {patientSearch && filteredPatients.length === 0 && patientSearch.length >= 2 && !appointmentForm.patient_id && (
-                  <div className="absolute z-50 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg p-4 text-center text-gray-500">
+                  <div className="absolute z-50 w-full mt-1 bg-curai-surface border border-curai-control rounded-md shadow-none p-4 text-center text-curai-muted">
                     <div className="text-sm">Пациенты не найдены</div>
                     <div className="text-xs mt-1">Попробуйте изменить поисковый запрос</div>
                   </div>
@@ -1254,7 +1213,7 @@ const handleCreateNewPatient = async (e) => {
                 <button
                   type="button"
                   onClick={() => setShowNewPatientForm(!showNewPatientForm)}
-                  className="px-3 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 text-sm"
+                  className="px-3 py-2 bg-curai-positive text-white rounded-md hover:bg-curai-positive text-sm"
                 >
                   {showNewPatientForm ? 'Отмена' : '+ Новый'}
                 </button>
@@ -1263,11 +1222,11 @@ const handleCreateNewPatient = async (e) => {
 
             {/* Выбранный пациент */}
             {appointmentForm.patient_id && selectedPatient && (
-              <div className="mt-2 p-3 bg-green-50 border border-green-200 rounded-lg">
+              <div className="mt-2 p-3 bg-curai-positiveBg border border-curai-positive rounded-md">
                 <div className="flex items-center justify-between">
                   <div>
-                    <div className="font-medium text-green-800">✓ Выбран: {selectedPatient.full_name}</div>
-                    <div className="text-sm text-green-600">
+                    <div className="font-medium text-curai-positive">✓ Выбран: {selectedPatient.full_name}</div>
+                    <div className="text-sm text-curai-positive">
                       {selectedPatient.phone && `📞 ${selectedPatient.phone}`}
                       {selectedPatient.phone && selectedPatient.birth_date && ' • '}
                       {selectedPatient.birth_date && `🎂 ${selectedPatient.birth_date}`}
@@ -1276,7 +1235,7 @@ const handleCreateNewPatient = async (e) => {
                   <button
                     type="button"
                     onClick={handleClearPatient}
-                    className="text-green-600 hover:text-green-800 text-sm"
+                    className="text-curai-positive hover:text-curai-positive text-sm"
                   >
                     Изменить
                   </button>
@@ -1294,33 +1253,33 @@ const handleCreateNewPatient = async (e) => {
                   placeholder="ФИО *"
                   value={newPatientForm.full_name}
                   onChange={(e) => setNewPatientForm({ ...newPatientForm, full_name: e.target.value })}
-                  className="px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                  className="px-3 py-2 border border-curai-control rounded-md text-sm"
                 />
                 <input
                   type="tel"
                   placeholder="Телефон *"
                   value={newPatientForm.phone || appointmentForm.lead_phone || ''}
                   onChange={(e) => setNewPatientForm({ ...newPatientForm, phone: formatPhoneChange(e.target.value) })}
-                  className="px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                  className="px-3 py-2 border border-curai-control rounded-md text-sm"
                 />
                 <input
                   type="text"
                   placeholder="ИИН"
                   value={newPatientForm.iin}
                   onChange={(e) => setNewPatientForm({ ...newPatientForm, iin: e.target.value })}
-                  className="px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                  className="px-3 py-2 border border-curai-control rounded-md text-sm"
                 />
                 <input
                   type="date"
                   placeholder="Дата рождения"
                   value={newPatientForm.birth_date}
                   onChange={(e) => setNewPatientForm({ ...newPatientForm, birth_date: e.target.value })}
-                  className="px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                  className="px-3 py-2 border border-curai-control rounded-md text-sm"
                 />
                 <select
                   value={newPatientForm.gender}
                   onChange={(e) => setNewPatientForm({ ...newPatientForm, gender: e.target.value })}
-                  className="px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                  className="px-3 py-2 border border-curai-control rounded-md text-sm"
                 >
                   <option value="">Пол</option>
                   <option value="male">Мужской</option>
@@ -1334,7 +1293,7 @@ const handleCreateNewPatient = async (e) => {
                   placeholder="Кто направил"
                   value={newPatientForm.referrer}
                   onChange={(e) => setNewPatientForm({ ...newPatientForm, referrer: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                  className="w-full px-3 py-2 border border-curai-control rounded-md text-sm"
                 />
               </div>
               <div className="mt-3">
@@ -1343,14 +1302,14 @@ const handleCreateNewPatient = async (e) => {
                   placeholder="Email"
                   value={newPatientForm.email || appointmentForm.lead_email || ''}
                   onChange={(e) => setNewPatientForm({ ...newPatientForm, email: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                  className="w-full px-3 py-2 border border-curai-control rounded-md text-sm"
                 />
               </div>
               {!hideCreatePatientButton && (
                 <button
                   type="button"
                   onClick={handleCreateNewPatient}
-                  className="mt-3 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm"
+                  className="mt-3 px-4 py-2 bg-curai-blue text-white rounded-md hover:bg-curai-blue text-sm"
                 >
                   Создать пациента
                 </button>
@@ -1368,15 +1327,15 @@ const handleCreateNewPatient = async (e) => {
 
           {/* Предупреждение о конфликте времени */}
           {timeConflictMessage && (
-            <div className="bg-red-50 border border-red-200 rounded-md p-3 text-red-800 text-sm">
+            <div className="bg-curai-negativeBg border border-curai-negative rounded-md p-3 text-curai-negative text-sm">
               {timeConflictMessage}
             </div>
           )}
 
           {/* Выбор кабинета */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Кабинет <span className="text-gray-500 text-xs">(опционально)</span>
+            <label className="block text-sm font-medium text-curai-ink mb-1">
+              Кабинет <span className="text-curai-muted text-xs">(опционально)</span>
             </label>
             <select
               value={appointmentForm.room_id || ''}
@@ -1390,20 +1349,20 @@ const handleCreateNewPatient = async (e) => {
                 </option>
               ))}
             </select>
-            <p className="text-xs text-gray-500 mt-1">
+            <p className="text-xs text-curai-muted mt-1">
               Выберите кабинет для фильтрации врачей по расписанию или оставьте пустым
             </p>
           </div>
 
           {/* Выбор врача с учетом расписания */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
+            <label className="block text-sm font-medium text-curai-ink mb-1">
               Врач *
-              {loadingDoctors && <span className="text-blue-500 ml-2">Загружаем доступных врачей...</span>}
+              {loadingDoctors && <span className="text-curai-blue ml-2">Загружаем доступных врачей...</span>}
             </label>
 
             {scheduleMessage && (
-              <div className={`mb-2 p-2 rounded text-sm ${availableDoctors.length === 0 ? 'bg-red-50 text-red-700' : 'bg-green-50 text-green-700'
+              <div className={`mb-2 p-2 rounded text-sm ${availableDoctors.length === 0 ? "bg-curai-negativeBg text-curai-negative" : "bg-curai-positiveBg text-curai-positive"
                 }`}>
                 {scheduleMessage}
               </div>
@@ -1445,8 +1404,8 @@ const handleCreateNewPatient = async (e) => {
 
             {/* Показываем расписание выбранного врача */}
             {appointmentForm.doctor_id && availableDoctors.length > 0 && (
-              <div className="mt-2 p-3 bg-blue-50 rounded-lg">
-                <div className="text-sm text-blue-700">
+              <div className="mt-2 p-3 bg-curai-selected rounded-md">
+                <div className="text-sm text-curai-blue">
                   <strong>Расписание врача:</strong>
                   {availableDoctors.find(d => d.id === appointmentForm.doctor_id)?.schedule?.map(schedule => (
                     <div key={schedule.id} className="ml-2">
@@ -1461,10 +1420,10 @@ const handleCreateNewPatient = async (e) => {
 
 {/* Выбор источника (канал привлечения) */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
+            <label className="block text-sm font-medium text-curai-ink mb-1">
               Канал привлечения
-              {!editingItem && <span className="text-red-500">*</span>}
-              {loadingSources && <span className="text-gray-400 ml-2 text-xs">Загрузка...</span>}
+              {!editingItem && <span className="text-curai-negative">*</span>}
+              {loadingSources && <span className="text-curai-muted ml-2 text-xs">Загрузка...</span>}
             </label>
             <select
               value={appointmentForm.source_id || ''}
@@ -1486,7 +1445,7 @@ const handleCreateNewPatient = async (e) => {
                 }
                 setAppointmentSourceError('');
               }}
-              className={`w-full border rounded-lg px-3 py-2 text-sm ${appointmentSourceError ? 'border-red-400' : 'border-gray-300'}`}
+              className={`w-full border rounded-md px-3 py-2 text-sm ${appointmentSourceError ? "border-curai-negative" : "border-curai-control"}`}
               disabled={loadingSources}
             >
               <option value="">Выберите источник</option>
@@ -1497,7 +1456,7 @@ const handleCreateNewPatient = async (e) => {
               ))}
             </select>
             {appointmentSourceError && (
-              <p className="text-xs text-red-600 mt-1">{appointmentSourceError}</p>
+              <p className="text-xs text-curai-negative mt-1">{appointmentSourceError}</p>
             )}
           </div>
 
@@ -1540,8 +1499,8 @@ const handleCreateNewPatient = async (e) => {
             </div>
 
             {/* Секция депозита */}
-            <div className="border-2 rounded-lg p-4 border-blue-200 bg-blue-50">
-              <h4 className="font-medium text-blue-900 mb-3">Депозит</h4>
+            <div className="border-2 rounded-md p-4 border-curai-control bg-curai-selected">
+              <h4 className="font-medium text-curai-blue mb-3">Депозит</h4>
               <label className="block text-sm font-medium">Депозит
                 <select value={appointmentForm.deposit_type || ''}
                   onChange={event => setAppointmentForm({ ...appointmentForm, deposit_type: event.target.value, deposit: '' })}
@@ -1589,7 +1548,7 @@ const handleCreateNewPatient = async (e) => {
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Причина обращения</label>
+            <label className="block text-sm font-medium text-curai-ink mb-1">Причина обращения</label>
             <input
               type="text"
               placeholder="Причина визита"
@@ -1601,7 +1560,7 @@ const handleCreateNewPatient = async (e) => {
 
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Заметки о записи</label>
+              <label className="block text-sm font-medium text-curai-ink mb-1">Заметки о записи</label>
               <textarea
                 placeholder="Заметки о записи"
                 value={appointmentForm.notes}
@@ -1612,7 +1571,7 @@ const handleCreateNewPatient = async (e) => {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Заметки о пациенте</label>
+              <label className="block text-sm font-medium text-curai-ink mb-1">Заметки о пациенте</label>
               <textarea
                 placeholder="Заметки о пациенте"
                 value={appointmentForm.patient_notes || ''}
@@ -1738,7 +1697,7 @@ const handleCreateNewPatient = async (e) => {
             <button
               type="submit"
               disabled={loading || uploadingConsent || submitting}
-              className="flex-1 bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700 disabled:opacity-50 flex items-center justify-center gap-2"
+              className="flex-1 bg-curai-blue text-white py-2 rounded-md hover:bg-curai-blue disabled:opacity-50 flex items-center justify-center gap-2"
               data-guide="save-appointment-btn"
             >
               {(loading || uploadingConsent || submitting) && (
@@ -1752,7 +1711,7 @@ const handleCreateNewPatient = async (e) => {
             <button
               type="button"
               onClick={onClose}
-              className="flex-1 bg-gray-300 text-gray-700 py-2 rounded-lg hover:bg-gray-400"
+              className="flex-1 bg-curai-control text-curai-ink py-2 rounded-md hover:bg-curai-disabled"
             >
               Отмена
             </button>
@@ -1763,8 +1722,8 @@ const handleCreateNewPatient = async (e) => {
       {/* Documents Tab Content */}
       {activeTab === 'documents' && selectedPatient && (
         <div className="space-y-4">
-          <div className="bg-blue-50 p-3 rounded-lg">
-            <h4 className="font-medium text-blue-800">
+          <div className="bg-curai-selected p-3 rounded-md">
+            <h4 className="font-medium text-curai-blue">
               Документы для пациента: {selectedPatient.full_name}
             </h4>
           </div>
@@ -1781,7 +1740,7 @@ const handleCreateNewPatient = async (e) => {
                   className={inputClasses}
                   accept=".pdf,.doc,.docx,.txt,.jpg,.jpeg,.png"
                 />
-                <p className="text-sm text-gray-500 mt-1">
+                <p className="text-sm text-curai-muted mt-1">
                   Поддерживаются файлы: PDF, Word, текст, изображения
                 </p>
               </div>
@@ -1796,7 +1755,7 @@ const handleCreateNewPatient = async (e) => {
                 type="button"
                 onClick={handleFileUpload}
                 disabled={!selectedFile || uploading}
-                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
+                className="px-4 py-2 bg-curai-blue text-white rounded-md hover:bg-curai-blue disabled:opacity-50"
               >
                 {uploading ? 'Загрузка...' : 'Загрузить документ'}
               </button>
@@ -1807,23 +1766,23 @@ const handleCreateNewPatient = async (e) => {
           <div>
             <h4 className="font-medium mb-3">Загруженные документы</h4>
             {documents.length === 0 ? (
-              <p className="text-gray-500 text-center py-4">
+              <p className="text-curai-muted text-center py-4">
                 Документы не найдены
               </p>
             ) : (
               <div className="space-y-2">
                 {documents.map((doc) => (
-                  <div key={doc.id} className="flex items-center justify-between p-3 border rounded-lg">
+                  <div key={doc.id} className="flex items-center justify-between p-3 border rounded-md">
                     <div className="flex-1">
                       <div className="font-medium">{doc.original_filename}</div>
-                      <div className="text-sm text-gray-500">
+                      <div className="text-sm text-curai-muted">
                         Загружен {new Date(doc.created_at).toLocaleDateString('ru-RU')}
                         {' '}пользователем {doc.uploaded_by_name}
                       </div>
                       {doc.description && (
-                        <div className="text-sm text-gray-600">{doc.description}</div>
+                        <div className="text-sm text-curai-muted">{doc.description}</div>
                       )}
-                      <div className="text-xs text-gray-400">
+                      <div className="text-xs text-curai-muted">
                         Размер: {(doc.file_size / 1024).toFixed(1)} KB
                       </div>
                     </div>
@@ -1831,13 +1790,13 @@ const handleCreateNewPatient = async (e) => {
                       <a
                         href={`${API}/api/uploads/${doc.filename}`}
                         download={doc.original_filename}
-                        className="px-3 py-1 text-blue-600 border border-blue-600 rounded hover:bg-blue-50 text-sm"
+                        className="px-3 py-1 text-curai-blue border border-curai-control rounded hover:bg-curai-selected text-sm"
                       >
                         Скачать
                       </a>
                       <button
                         onClick={() => handleDeleteDocument(doc.id)}
-                        className="px-3 py-1 text-red-600 border border-red-600 rounded hover:bg-red-50 text-sm"
+                        className="px-3 py-1 text-curai-negative border border-curai-negative rounded hover:bg-curai-negativeBg text-sm"
                       >
                         Удалить
                       </button>
@@ -1852,7 +1811,7 @@ const handleCreateNewPatient = async (e) => {
             <button
               type="button"
               onClick={onClose}
-              className="px-6 py-2 bg-gray-300 text-gray-700 rounded-lg hover:bg-gray-400"
+              className="px-6 py-2 bg-curai-control text-curai-ink rounded-md hover:bg-curai-disabled"
             >
               Закрыть
             </button>
@@ -1861,16 +1820,9 @@ const handleCreateNewPatient = async (e) => {
       )}
 
       {/* Treatment Plans Tab Content */}
-      {activeTab === 'plans' && selectedPatient && (
-        <div className="space-y-4">
-          <div className="bg-green-50 p-3 rounded-lg">
-            <h4 className="font-medium text-green-800">
-              План лечения для пациента: {selectedPatient.full_name}
-            </h4>
-          </div>
-
-          {/* Add/Edit Plan Form - скрываем в календаре */}
-          {!hideAddPlanForm && (
+      {activeTab === 'plans' && selectedPatient && (<>
+        {!hideAddPlanForm && (showPlanForm || editingPlan) && <button type="button" className="curai-button curai-button-secondary" onClick={() => { setEditingPlan(null); setShowPlanForm(false); }}>К списку планов</button>}
+        {!hideAddPlanForm && (showPlanForm || editingPlan) && (
           <div className={cardHeaderClasses}>
             <h4 className="font-medium mb-3">
               {editingPlan ? 'Редактировать план лечения' : 'Добавить план лечения'}
@@ -1910,7 +1862,7 @@ const handleCreateNewPatient = async (e) => {
 
               {/* Services Table */}
               {planForm.services.length > 0 && (
-                <div className="bg-white p-4 rounded-lg border">
+                <div className="bg-curai-surface p-4 rounded-md border">
                   <h5 className="font-medium mb-3">Выбранные услуги</h5>
                   <div className="overflow-x-auto">
                     <table className="w-full text-sm">
@@ -1942,7 +1894,7 @@ const handleCreateNewPatient = async (e) => {
                                   const totalCost = updatedServices.reduce((sum, svc) => sum + (svc.total_price || 0), 0);
                                   setPlanForm(prev => ({ ...prev, services: updatedServices, total_cost: totalCost }));
                                 }}
-                                className="text-red-600 hover:text-red-800 text-xs"
+                                className="text-curai-negative hover:text-curai-negative text-xs"
                               >
                                 Удалить
                               </button>
@@ -1953,7 +1905,7 @@ const handleCreateNewPatient = async (e) => {
                       <tfoot>
                         <tr className="border-t font-medium">
                           <td colSpan="5" className="py-2 text-right">Общая стоимость:</td>
-                          <td className="py-2 text-right text-lg text-green-600">
+                          <td className="py-2 text-right text-lg text-curai-positive">
                             {(planForm.total_cost || 0).toFixed(0)} ₸
                           </td>
                           <td></td>
@@ -1966,7 +1918,7 @@ const handleCreateNewPatient = async (e) => {
 
               <div className="grid grid-cols-3 gap-3">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Статус плана</label>
+                  <label className="block text-sm font-medium text-curai-ink mb-1">Статус плана</label>
                   <select
                     value={planForm.status}
                     onChange={(e) => setPlanForm({ ...planForm, status: e.target.value })}
@@ -1981,7 +1933,7 @@ const handleCreateNewPatient = async (e) => {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Статус выполнения</label>
+                  <label className="block text-sm font-medium text-curai-ink mb-1">Статус выполнения</label>
                   <select
                     value={planForm.execution_status}
                     onChange={(e) => setPlanForm({ ...planForm, execution_status: e.target.value })}
@@ -1996,7 +1948,7 @@ const handleCreateNewPatient = async (e) => {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Статус оплаты</label>
+                  <label className="block text-sm font-medium text-curai-ink mb-1">Статус оплаты</label>
                   <select
                     value={planForm.payment_status}
                     onChange={(e) => setPlanForm({ ...planForm, payment_status: e.target.value })}
@@ -2012,14 +1964,14 @@ const handleCreateNewPatient = async (e) => {
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Сумма к оплате</label>
-                  <div className="px-3 py-2 bg-gray-100 border border-gray-300 rounded-lg font-medium">
+                  <label className="block text-sm font-medium text-curai-ink mb-1">Сумма к оплате</label>
+                  <div className="px-3 py-2 bg-curai-subtle border border-curai-control rounded-md font-medium">
                     {(planForm.total_cost || 0).toFixed(0)} ₸
                   </div>
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Оплачено</label>
+                  <label className="block text-sm font-medium text-curai-ink mb-1">Оплачено</label>
                   <input
                     type="number"
                     step="0.01"
@@ -2045,7 +1997,7 @@ const handleCreateNewPatient = async (e) => {
                 <button
                   type="button"
                   onClick={handleSaveTreatmentPlan}
-                  className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700"
+                  className="px-4 py-2 bg-curai-positive text-white rounded-md hover:bg-curai-positive"
                 >
                   {editingPlan ? 'Обновить план' : 'Создать план'}
                 </button>
@@ -2067,7 +2019,7 @@ const handleCreateNewPatient = async (e) => {
                         appointment_ids: []
                       });
                     }}
-                    className="px-4 py-2 bg-gray-300 text-gray-700 rounded-lg hover:bg-gray-400"
+                    className="px-4 py-2 bg-curai-control text-curai-ink rounded-md hover:bg-curai-disabled"
                   >
                     Отмена
                   </button>
@@ -2076,171 +2028,32 @@ const handleCreateNewPatient = async (e) => {
             </div>
           </div>
           )}
-
-          {/* Treatment Plans List */}
-          <div>
-            <h4 className="font-medium mb-3">Планы лечения</h4>
-            {treatmentPlans.length === 0 ? (
-              <p className="text-gray-500 text-center py-4">
-                Планы лечения не найдены
-              </p>
-            ) : (
-              <div className="space-y-4">
-                {/* В календаре показываем ServicePaymentList для оплаты */}
-                {hideAddPlanForm ? (
-                  treatmentPlans.map((plan) => (
-                    <ServicePaymentList
-                      key={plan.id}
-                      plan={plan}
-                      onUpdate={(updatedPlan) => {
-                        // Обновляем план в локальном состоянии
-                        setTreatmentPlans(prev => 
-                          prev.map(p => p.id === updatedPlan.id ? updatedPlan : p)
-                        );
-                      }}
-                    />
-                  ))
-                ) : (
-                  /* В разделе пациентов показываем обычный список с кнопками редактирования */
-                  treatmentPlans.map((plan) => (
-                    <div key={plan.id} className="border rounded-lg p-4">
-                      <div className="flex items-start justify-between">
-                        <div className="flex-1">
-                          <div className="font-medium text-lg">{plan.title}</div>
-                          {plan.description && (
-                            <div className="text-gray-600 mt-1">{plan.description}</div>
-                          )}
-                          <div className="text-sm text-gray-500 mt-2">
-                            Создан {new Date(plan.created_at).toLocaleDateString('ru-RU')}
-                            {' '}пользователем {plan.created_by_name}
-                          </div>
-                          <div className="flex items-center gap-4 mt-2 flex-wrap">
-                            <span className={`px-2 py-1 text-xs rounded font-medium ${plan.status === 'draft' ? 'bg-gray-100 text-gray-800' :
-                                plan.status === 'approved' ? 'bg-blue-100 text-blue-800' :
-                                  plan.status === 'completed' ? 'bg-green-100 text-green-800' :
-                                    'bg-red-100 text-red-800'
-                              }`}>
-                              {plan.status === 'draft' ? 'Черновик' :
-                                plan.status === 'approved' ? 'Утвержден' :
-                                  plan.status === 'completed' ? 'Завершен' :
-                                    'Отменен'}
-                            </span>
-                            {/* Статус оплаты */}
-                            <span className={`px-2 py-1 text-xs rounded font-medium ${
-                              plan.payment_status === 'paid' ? 'bg-green-100 text-green-800' :
-                              plan.payment_status === 'partially_paid' ? 'bg-yellow-100 text-yellow-800' :
-                              plan.payment_status === 'overdue' ? 'bg-red-100 text-red-800' :
-                              'bg-gray-100 text-gray-800'
-                            }`}>
-                              {plan.payment_status === 'paid' ? '✅ Оплачено' :
-                                plan.payment_status === 'partially_paid' ? '⏳ Частично оплачено' :
-                                plan.payment_status === 'overdue' ? '⚠️ Просрочено' :
-                                '❌ Не оплачено'}
-                            </span>
-                            {plan.total_cost > 0 && (
-                              <span className="text-green-600 font-medium">
-                                💰 {plan.total_cost} ₸
-                              </span>
-                            )}
-                            {plan.paid_amount > 0 && plan.paid_amount < plan.total_cost && (
-                              <span className="text-orange-600 font-medium text-sm">
-                                (внесено {plan.paid_amount} ₸)
-                              </span>
-                            )}
-                          </div>
-                          {plan.notes && (
-                            <div className="text-sm text-gray-600 mt-2">
-                              Заметки: {plan.notes}
-                            </div>
-                          )}
-                        </div>
-                        <div className="flex flex-col space-y-2">
-                          <button
-                            onClick={() => handleEditTreatmentPlan(plan)}
-                            className="px-3 py-1 text-blue-600 border border-blue-600 rounded hover:bg-blue-50 text-sm"
-                          >
-                            Редактировать
-                          </button>
-                          <button
-                            onClick={() => handleDeleteTreatmentPlan(plan.id)}
-                            className="px-3 py-1 text-red-600 border border-red-600 rounded hover:bg-red-50 text-sm"
-                          >
-                            Удалить
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-                  ))
-                )}
-              </div>
-            )}
-          </div>
-
-          <div className="flex justify-end">
-            <button
-              type="button"
-              onClick={onClose}
-              className="px-6 py-2 bg-gray-300 text-gray-700 rounded-lg hover:bg-gray-400"
-            >
-              Закрыть
-            </button>
-          </div>
-        </div>
-      )}
+        {!(!hideAddPlanForm && (showPlanForm || editingPlan)) && (planDataPending || plansError ? <PlanEmptyState title={plansError || 'Загрузка планов лечения…'} action={plansError && <button type="button" className="curai-button curai-button-secondary" onClick={fetchTreatmentPlans}>Повторить</button>}/> : <PatientTreatmentWorkspace includeEmptyPlans={!hideAddPlanForm} patientId={selectedPatient.id} plans={currentTreatmentPlans} paymentFilter={paymentFilter} onPaymentFilter={setPaymentFilter} procedureFilter={procedureFilter} onProcedureFilter={setProcedureFilter} onUpdate={updated => setTreatmentPlans(plans => plans.map(plan => plan.id === updated.id ? updated : plan))} onCreatePlan={hideAddPlanForm ? undefined : () => { setEditingPlan(null); setPlanForm({
+    title: '',
+    description: '',
+    services: [],
+    total_cost: 0,
+    status: 'draft',
+    notes: '',
+    payment_status: 'unpaid',
+    paid_amount: 0,
+    execution_status: 'pending',
+    appointment_ids: []
+  }); setShowPlanForm(true); }} createLabel="Создать план лечения" createEmptyLabel="Создать план лечения" creationHint={hideAddPlanForm ? 'Планы формируются из услуг консультационного листа.' : 'Планы лечения пациента'} emptyDescription={hideAddPlanForm ? 'Добавьте услуги в консультационный лист в карточке пациента.' : 'Создайте план лечения для выбранного пациента.'} planActions={hideAddPlanForm ? undefined : plan => <><button type="button" className="curai-button curai-button-secondary" onClick={() => handleEditTreatmentPlan(plan)}>Редактировать план</button><button type="button" className="curai-button curai-button-secondary" onClick={() => handleDeleteTreatmentPlan(plan.id)}>Удалить план</button></>}/>)}</>)}
 
       {/* Payment Tab - поэтапная оплата (дубль из карточки пациента) */}
-      {activeTab === 'payment' && selectedPatient && (
-        <div className="space-y-4">
-          <div className="bg-blue-50 p-3 rounded-lg">
-            <h4 className="font-medium text-blue-800">
-              Оплата услуг для пациента: {selectedPatient.full_name}
-            </h4>
-            <p className="text-sm text-blue-600 mt-1">
-              Здесь можно отметить оплату отдельных услуг. Нажмите кнопку &quot;Оплатить&quot; рядом с услугой.
-            </p>
-          </div>
-
-                    {treatmentPlans.length > 0 && (
-                      <PaymentSummary plans={treatmentPlans} />
-                    )}
-
-          {treatmentPlans.length === 0 ? (
-            <div className="text-center py-8">
-              <p className="text-gray-500 mb-2">Планы лечения не найдены</p>
-              <button
-                onClick={() => setActiveTab('plans')}
-                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
-              >
-                Создать план лечения
-              </button>
-            </div>
-          ) : (
-            <div className="space-y-4">
-              {treatmentPlans.map((plan) => (
-                <ServicePaymentList
-                  key={plan.id}
-                  plan={plan}
-                  onUpdate={(updatedPlan) => {
-                    setTreatmentPlans(plans =>
-                      plans.map(p => p.id === updatedPlan.id ? updatedPlan : p)
-                    );
-                  }}
-                />
-              ))}
-            </div>
-          )}
-
-          <div className="flex justify-end pt-4">
-            <button
-              type="button"
-              onClick={onClose}
-              className="px-6 py-2 bg-gray-300 text-gray-700 rounded-lg hover:bg-gray-400"
-            >
-              Закрыть
-            </button>
-          </div>
-        </div>
-      )}
+      {activeTab === 'payment' && selectedPatient && (planDataPending || plansError ? <PlanEmptyState title={plansError || 'Загрузка планов лечения…'} action={plansError && <button type="button" className="curai-button curai-button-secondary" onClick={fetchTreatmentPlans}>Повторить</button>}/> : <PatientPaymentWorkspace plans={currentTreatmentPlans} patientId={selectedPatient.id} onUpdate={updated => setTreatmentPlans(plans => plans.map(plan => plan.id === updated.id ? updated : plan))} onCreatePlan={hideAddPlanForm ? undefined : () => { setActiveTab('plans'); setEditingPlan(null); setPlanForm({
+    title: '',
+    description: '',
+    services: [],
+    total_cost: 0,
+    status: 'draft',
+    notes: '',
+    payment_status: 'unpaid',
+    paid_amount: 0,
+    execution_status: 'pending',
+    appointment_ids: []
+  }); setShowPlanForm(true); }}/>)}
     </Modal>
   );
 };

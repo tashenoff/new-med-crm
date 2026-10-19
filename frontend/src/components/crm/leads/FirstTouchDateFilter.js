@@ -4,7 +4,7 @@ import { firstTouchDatePresets } from '../../../utils/firstTouchDateFilter';
 
 const FirstTouchDateFilter = ({ value, onChange }) => {
   const invalidRange = value.preset === 'custom' && value.from && value.to && value.from > value.to;
-  const inputClass = cn('w-full min-w-0 rounded-lg border px-3 py-2 text-sm', themeClasses.input.default, themeClasses.input.focus);
+  const inputClass = cn("w-full min-w-0 rounded-md border px-3 py-2 text-sm", themeClasses.input.default, themeClasses.input.focus);
 
   return (
     <fieldset className="min-w-0 space-y-2">
@@ -49,7 +49,7 @@ const FirstTouchDateFilter = ({ value, onChange }) => {
           </div>
         )}
       </div>
-      {invalidRange && <p id="first-touch-range-error" role="alert" className="text-xs text-red-600 dark:text-red-400">Дата «С» должна быть не позже даты «По».</p>}
+      {invalidRange && <p id="first-touch-range-error" role="alert" className="text-xs text-curai-negative ">Дата «С» должна быть не позже даты «По».</p>}
     </fieldset>
   );
 };

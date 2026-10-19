@@ -1,0 +1,48 @@
+/* Patient revision 14: scene 55028 and its Empty/Loading/NoSchedule variants.
+   Scheduling data, fields, disabled states and callbacks remain in JSX. */
+.curai-patient-dialog .curai-dialog-header { flex: 0 0 68px; height: 68px; padding: 19px 23px 16px; }
+.curai-patient-dialog .curai-dialog-body { padding: 19px 23px; }
+.curai-patient-tabbar { flex: 0 0 52px; height: 52px; border-bottom: 1px solid var(--curai-color-border); }
+.curai-patient-dialog .curai-patient-tabs { height: 51px; flex-wrap: nowrap; overflow-x: auto; padding: 7px 13px 8px; border: 0; gap: 0; }
+.curai-patient-dialog .curai-patient-tabs > button { flex-shrink: 0; }
+.curai-patient-complex { display: flex; flex-direction: column; gap: 24px; }
+.curai-patient-context { min-height: 56px; padding: 8px 16px; background: var(--curai-color-subtle); border-radius: 4px; }
+.curai-patient-context h4 { font-size: 14px; line-height: 20px; font-weight: 600; }
+.curai-patient-context p { margin-top: 4px; font-size: 12px; line-height: 18px; color: var(--curai-color-muted); }
+.curai-patient-complex-intro h4 { font-size: 20px; line-height: 28px; font-weight: 600; }
+.curai-patient-complex-intro p { margin-top: 6px; font-size: 14px; line-height: 22px; color: var(--curai-color-muted); }
+.curai-complex-selector > * + * { margin-top: 24px; }
+.curai-complex-selector .curai-service-details { display: grid; grid-template-columns: minmax(0,1fr); gap: 0; background: transparent; border: 0; padding: 0; }
+.curai-complex-selector .curai-service-details > h5 { margin: 0; padding: 16px 16px 12px; background: var(--curai-color-subtle); color: var(--curai-color-ink); border: 1px solid var(--curai-color-border); border-bottom: 0; border-radius: 6px 6px 0 0; font-size: 16px; line-height: 24px; font-weight: 600; }
+.curai-complex-selector .curai-complex-schedule { margin: 0; padding: 0 16px 24px; border-color: var(--curai-color-border); border-top: 0; border-radius: 0 0 6px 6px; background: var(--curai-color-subtle); }
+.curai-complex-selector .curai-complex-row { padding: 16px; border-radius: 6px; display: grid; grid-template-columns: minmax(0,2.1fr) minmax(0,1fr) minmax(0,.54fr) minmax(0,.54fr); column-gap: 16px; row-gap: 6px; }
+.curai-complex-selector .curai-complex-row > div:first-child { grid-column: 1 / -1; margin-bottom: 2px; font-size: 14px; line-height: 20px; font-weight: 600; }
+.curai-complex-selector .curai-complex-doctor, .curai-complex-selector .curai-complex-dates { display: contents; }
+.curai-complex-selector .curai-complex-doctor > label { grid-column: 1; grid-row: 2; }
+.curai-complex-selector .curai-complex-doctor > select { grid-column: 1; grid-row: 3; }
+.curai-complex-selector .curai-complex-dates > :nth-child(1) { grid-column: 2; grid-row: 2; }
+.curai-complex-selector .curai-complex-dates > :nth-child(2) { grid-column: 3; grid-row: 2; }
+.curai-complex-selector .curai-complex-dates > :nth-child(3) { grid-column: 4; grid-row: 2; }
+.curai-complex-selector .curai-complex-dates > :nth-child(4) { grid-column: 2; grid-row: 3; }
+.curai-complex-selector .curai-complex-dates > :nth-child(5) { grid-column: 3; grid-row: 3; }
+.curai-complex-selector .curai-complex-dates > :nth-child(6) { grid-column: 4; grid-row: 3; }
+.curai-complex-selector .curai-complex-row > div:last-child { grid-column: 1 / -1; font-size: 11px; line-height: 18px; }
+.curai-service-actions { display: contents; }
+.curai-complex-selector .curai-service-actions { display: flex; gap: 16px; align-items: center; justify-content: space-between; background: var(--curai-color-subtle); padding: 11px 16px; border-radius: 4px; min-height: 72px; margin-top: 24px; }
+.curai-complex-selector .curai-service-actions > div > div > div { background: transparent; padding: 0; border: 0; font-size: 20px; line-height: 28px; font-weight: 600; }
+.curai-complex-selector .curai-service-actions > button { margin-top: 0; min-width: 240px; }
+.curai-patient-complex-footer { display: flex; justify-content: flex-end; padding-top: 16px; border-top: 1px solid var(--curai-color-border); }
+.curai-patient-complex-footer > button { min-width: 176px; }
+@media (max-width: 767px) {
+  .curai-complex-selector .curai-complex-row { grid-template-columns: minmax(0,1fr) minmax(0,1fr) minmax(0,1fr); gap: 6px 12px; }
+  .curai-complex-selector .curai-complex-doctor > label { grid-column: 1 / -1; grid-row: 2; }
+  .curai-complex-selector .curai-complex-doctor > select { grid-column: 1 / -1; grid-row: 3; }
+  .curai-complex-selector .curai-complex-dates > :nth-child(1) { grid-column: 1; grid-row: 4; }
+  .curai-complex-selector .curai-complex-dates > :nth-child(2) { grid-column: 2; grid-row: 4; }
+  .curai-complex-selector .curai-complex-dates > :nth-child(3) { grid-column: 3; grid-row: 4; }
+  .curai-complex-selector .curai-complex-dates > :nth-child(4) { grid-column: 1; grid-row: 5; }
+  .curai-complex-selector .curai-complex-dates > :nth-child(5) { grid-column: 2; grid-row: 5; }
+  .curai-complex-selector .curai-complex-dates > :nth-child(6) { grid-column: 3; grid-row: 5; }
+  .curai-complex-selector .curai-service-actions { flex-wrap: wrap; }
+  .curai-complex-selector .curai-service-actions > button { min-width: 0; width: 100%; }
+}

@@ -106,50 +106,50 @@ const TaskStatuses = ({ user }) => {
 
   return (
     <div className="space-y-6">
-      <div className={cn("rounded-2xl", themeClasses.bg.card)}>
+      <div className={cn("rounded-md", themeClasses.bg.card)}>
         <PanelHeader title="Статусы задач" subtitle="Управление статусами задач CRM"
           onAction={isAdmin ? () => { setFormData(prev => ({...prev, order: statuses.length})); setShowModal(true); } : undefined}
           actionLabel="+ Добавить статус" />
         
-        {error && <div className="mx-6 mb-4 p-3 bg-red-100 text-red-700 rounded-lg">{error}</div>}
-        {success && <div className="mx-6 mb-4 p-3 bg-green-100 text-green-700 rounded-lg">{success}</div>}
+        {error && <div className="mx-6 mb-4 p-3 bg-curai-negativeBg text-curai-negative rounded-md">{error}</div>}
+        {success && <div className="mx-6 mb-4 p-3 bg-curai-positiveBg text-curai-positive rounded-md">{success}</div>}
 
         <div className="px-6 pb-4">
           <div className="relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-curai-muted w-5 h-5" />
             <input type="text" placeholder="Поиск статусов..." value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className={cn("w-full pl-10 pr-4 py-2 rounded-lg border", themeClasses.input.default, themeClasses.input.focus)} />
+              className={cn("w-full pl-10 pr-4 py-2 rounded-md border", themeClasses.input.default, themeClasses.input.focus)} />
           </div>
         </div>
 
         <div className="px-6 pb-6">
-          {loading ? <div className="text-center py-8 text-gray-500">Загрузка...</div>
-           : filteredStatuses.length === 0 ? <div className="text-center py-8 text-gray-500">Статусы не найдены</div>
+          {loading ? <div className="text-center py-8 text-curai-muted">Загрузка...</div>
+           : filteredStatuses.length === 0 ? <div className="text-center py-8 text-curai-muted">Статусы не найдены</div>
            : (
             <div className="space-y-2">
               {filteredStatuses.map((status) => (
-                <div key={status.id} className={cn("flex items-center gap-4 p-4 rounded-lg border transition-all hover:shadow-md", themeClasses.bg.card, themeClasses.border.default)}>
-                  <GripVertical className="w-5 h-5 text-gray-400 cursor-move" />
-                  <div className="w-10 h-10 rounded-lg flex items-center justify-center text-xl" style={{ backgroundColor: status.color + '20', color: status.color }}>{status.icon || '📋'}</div>
+                <div key={status.id} className={cn("flex items-center gap-4 p-4 rounded-md border transition-all hover:shadow-none", themeClasses.bg.card, themeClasses.border.default)}>
+                  <GripVertical className="w-5 h-5 text-curai-muted cursor-move" />
+                  <div className="w-10 h-10 rounded-md flex items-center justify-center text-xl" style={{ backgroundColor: status.color + '20', color: status.color }}>{status.icon || '📋'}</div>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">
                       <span className={cn("font-medium", themeClasses.text.primary)}>{status.name}</span>
-                      {status.is_system && <Lock className="w-4 h-4 text-gray-400" title="Системный" />}
-                      {status.is_default && <span className="px-2 py-0.5 text-xs bg-blue-100 text-blue-700 rounded-full">По умолчанию</span>}
-                      {status.is_completed && <span className="px-2 py-0.5 text-xs bg-green-100 text-green-700 rounded-full">Завершён</span>}
-                      {status.is_cancelled && <span className="px-2 py-0.5 text-xs bg-red-100 text-red-700 rounded-full">Отменён</span>}
+                      {status.is_system && <Lock className="w-4 h-4 text-curai-muted" title="Системный" />}
+                      {status.is_default && <span className="px-2 py-0.5 text-xs bg-curai-selected text-curai-blue rounded-full">По умолчанию</span>}
+                      {status.is_completed && <span className="px-2 py-0.5 text-xs bg-curai-positiveBg text-curai-positive rounded-full">Завершён</span>}
+                      {status.is_cancelled && <span className="px-2 py-0.5 text-xs bg-curai-negativeBg text-curai-negative rounded-full">Отменён</span>}
                     </div>
                     <div className={cn("text-sm", themeClasses.text.secondary)}>
-                      <span className="font-mono bg-gray-100 dark:bg-gray-700 px-1.5 py-0.5 rounded">{status.code}</span>
+                      <span className="font-mono bg-curai-subtle px-1.5 py-0.5 rounded">{status.code}</span>
                       {status.description && <span className="ml-2">{status.description}</span>}
                     </div>
                   </div>
                   <div className="w-6 h-6 rounded-full border-2" style={{ backgroundColor: status.color }} title={status.color} />
                   {isAdmin && (
                     <div className="flex gap-2">
-                      <button onClick={() => handleEdit(status)} className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg" title="Редактировать"><Edit2 className="w-4 h-4" /></button>
-                      {!status.is_system && <button onClick={() => handleDelete(status)} className="p-2 text-red-600 hover:bg-red-50 rounded-lg" title="Удалить"><Trash2 className="w-4 h-4" /></button>}
+                      <button onClick={() => handleEdit(status)} className="p-2 text-curai-blue hover:bg-curai-selected rounded-md" title="Редактировать"><Edit2 className="w-4 h-4" /></button>
+                      {!status.is_system && <button onClick={() => handleDelete(status)} className="p-2 text-curai-negative hover:bg-curai-negativeBg rounded-md" title="Удалить"><Trash2 className="w-4 h-4" /></button>}
                     </div>
                   )}
                 </div>
@@ -177,17 +177,17 @@ const TaskStatuses = ({ user }) => {
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className={labelClasses}>Иконка</label>
-              <div className="flex flex-wrap gap-2 p-2 border rounded-lg">
+              <div className="flex flex-wrap gap-2 p-2 border rounded-md">
                 {PRESET_ICONS.map((icon) => (
-                  <button key={icon} type="button" onClick={() => setFormData({...formData, icon})} className={cn("w-8 h-8 rounded flex items-center justify-center", formData.icon === icon ? "bg-blue-100 ring-2 ring-blue-500" : "hover:bg-gray-100")}>{icon}</button>
+                  <button key={icon} type="button" onClick={() => setFormData({...formData, icon})} className={cn("w-8 h-8 rounded flex items-center justify-center", formData.icon === icon ? "bg-curai-selected ring-2 ring-curai-focus" : "hover:bg-curai-subtle")}>{icon}</button>
                 ))}
               </div>
             </div>
             <div>
               <label className={labelClasses}>Цвет</label>
-              <div className="flex flex-wrap gap-2 p-2 border rounded-lg">
+              <div className="flex flex-wrap gap-2 p-2 border rounded-md">
                 {PRESET_COLORS.map((color) => (
-                  <button key={color} type="button" onClick={() => setFormData({...formData, color})} className={cn("w-6 h-6 rounded-full", formData.color === color ? "ring-2 ring-offset-2 ring-blue-500" : "")} style={{ backgroundColor: color }} />
+                  <button key={color} type="button" onClick={() => setFormData({...formData, color})} className={cn("w-6 h-6 rounded-full", formData.color === color ? "ring-2 ring-offset-2 ring-curai-focus" : "")} style={{ backgroundColor: color }} />
                 ))}
               </div>
               <input type="color" value={formData.color} onChange={(e) => setFormData({...formData, color: e.target.value})} className="mt-2 w-full h-8" />
@@ -199,8 +199,8 @@ const TaskStatuses = ({ user }) => {
             <label className="flex items-center gap-3"><input type="checkbox" checked={formData.is_cancelled} onChange={(e) => setFormData({...formData, is_cancelled: e.target.checked, is_completed: false})} className="w-4 h-4" /><span className="text-sm">Отменённый статус</span></label>
           </div>
           <div className="flex justify-end gap-3 pt-4 border-t">
-            <button type="button" onClick={handleCloseModal} className="px-4 py-2 text-gray-600">Отмена</button>
-            <button type="submit" className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700">{editingStatus ? 'Сохранить' : 'Создать'}</button>
+            <button type="button" onClick={handleCloseModal} className="px-4 py-2 text-curai-muted">Отмена</button>
+            <button type="submit" className="bg-curai-blue text-white px-4 py-2 rounded-md hover:bg-curai-blue">{editingStatus ? 'Сохранить' : 'Создать'}</button>
           </div>
         </form>
       </Modal>

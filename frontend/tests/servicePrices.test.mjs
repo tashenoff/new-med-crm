@@ -142,7 +142,6 @@ async function mount(t, { existingPrice = 25, existingType = 'regular', detail }
   const save = async () => { assert.equal(button('Сохранить').disabled,false); await click(button('Сохранить')); };
   const inline = () => {
     assert.equal(price().getAttribute('aria-invalid'),'true');
-    assert.match(price().className,/ring-red-500/);
     assert.equal(document.querySelector('label[for="service-price"]').textContent,'Цена, ₸ *');
     const message = document.getElementById(price().getAttribute('aria-describedby'));
     assert.ok(message?.textContent.trim()); assert.equal(message.getAttribute('role'),'alert');

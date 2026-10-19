@@ -1,0 +1,130 @@
+/* Approved R21: frame 63626; 1240×720 dialog and independently scrolling plan/detail panes. */
+.curai-dialog.curai-patient-workspace-dialog {width:1240px;max-width:calc(100vw - 32px);height:720px;max-height:calc(100dvh - 48px);}
+.curai-patient-workspace-dialog>.curai-dialog-body {padding:15px 23px 23px;overflow:hidden;min-height:0;}
+.curai-patient-workspace-dialog .curai-patient-tabs {padding-left:15px;}
+.curai-patient-workspace-dialog .curai-patient-tabs>button {padding:8px 10px;text-align:left;justify-content:flex-start;}
+.curai-patient-workspace-dialog .curai-patient-tabs>button:nth-child(1) {width:110px;}
+.curai-patient-workspace-dialog .curai-patient-tabs>button:nth-child(2) {width:126px;}
+.curai-patient-workspace-dialog .curai-patient-tabs>button:nth-child(3) {width:106px;}
+.curai-patient-workspace-dialog .curai-patient-tabs>button:nth-child(4) {width:138px;}
+.curai-patient-workspace-dialog .curai-patient-tabs>button:nth-child(5) {width:180px;}
+.curai-patient-workspace-dialog .curai-patient-tabs>button:nth-child(6) {width:90px;}
+.curai-patient-workspace-dialog .curai-patient-tabs>button:nth-child(7) {width:90px;}
+.curai-patient-workspace-dialog .curai-patient-tabs>button:nth-child(8) {width:126px;}
+.curai-plan-workspace {height:100%;min-height:0;display:flex;flex-direction:column;gap:24px;}
+/* Shared baseline grid from FigCraft component 99640. */
+.curai-r21-payment-workspace {gap:var(--curai-space-16);}
+.curai-r21-totals {flex:0 0 auto;min-height:108px;display:grid;grid-template-columns:minmax(0,216fr) minmax(0,240fr) minmax(0,344fr) minmax(0,272fr);grid-template-rows:20px 46px auto auto;column-gap:var(--curai-space-24);background:var(--curai-color-canvas);border:0;border-radius:var(--curai-radius-6);padding:var(--curai-space-8) var(--curai-space-24);}
+.curai-r21-totals>div {display:grid;grid-row:span 3;grid-template-rows:subgrid;align-items:first baseline;min-width:0;}
+.curai-r21-totals>div>span {font-size:var(--curai-type-size-12);line-height:var(--curai-type-line-18);color:var(--curai-color-muted);}
+.curai-r21-totals>div>strong {font-size:var(--curai-type-size-28);line-height:var(--curai-type-line-40);font-weight:600;color:var(--curai-color-ink);white-space:nowrap;}
+.curai-r21-totals>.curai-r21-total-due {text-align:right;}
+.curai-r21-totals>.curai-r21-total-due>span {font-size:var(--curai-type-size-13);line-height:var(--curai-type-line-20);font-weight:600;}
+.curai-r21-totals>.curai-r21-total-due>strong {font-size:var(--curai-type-size-32);line-height:var(--curai-type-line-46);color:var(--curai-color-blue);}
+.curai-r21-deposit-details {align-self:start;display:flex;flex-direction:column;gap:var(--curai-space-4);padding-top:var(--curai-space-2);min-width:0;}
+.curai-r21-deposit-details small {font-size:var(--curai-type-size-11);line-height:var(--curai-type-line-18);color:var(--curai-color-muted);overflow-wrap:anywhere;}
+.curai-r21-deposit-retry {color:var(--curai-color-blue);text-decoration:underline;}
+.curai-r21-totals>p {grid-column:1/-1;margin:var(--curai-space-8) 0 0;font-size:var(--curai-type-size-11);line-height:var(--curai-type-line-18);color:var(--curai-color-muted);}
+.curai-plan-workspace-panes {flex:1;min-height:0;display:grid;grid-template-columns:312px minmax(0,1fr);gap:24px;}
+.curai-plan-pane {min-width:0;min-height:0;border:1px solid var(--curai-color-border);border-radius:6px;background:var(--curai-color-surface);display:flex;flex-direction:column;overflow:hidden;}
+.curai-plan-list-header {flex:0 0 71px;height:71px;padding:23px;border-bottom:1px solid var(--curai-color-border);display:flex;align-items:flex-start;justify-content:space-between;gap:16px;}
+.curai-plan-list-header h4 {font-size:16px;line-height:24px;font-weight:600;}
+.curai-plan-list-header>div>span {font-size:13px;line-height:20px;color:var(--curai-color-muted);font-weight:600;}
+.curai-plan-list-scroll {min-height:0;flex:1;overflow-y:auto;overscroll-behavior:contain;scrollbar-width:thin;}
+.curai-plan-list-scroll>div+div {margin-top:16px;}
+.curai-plan-option {width:100%;min-height:112px;padding:20px 22px 12px;text-align:left;display:flex;flex-direction:column;border:1px solid transparent;border-bottom-color:var(--curai-color-border);border-radius:2px;gap:8px;}
+.curai-plan-option:hover {background:var(--curai-color-hover);}
+.curai-plan-option.is-selected {background:var(--curai-color-selected);border-color:var(--curai-color-blue);}
+.curai-plan-option>strong {font-size:13px;line-height:20px;font-weight:600;overflow-wrap:anywhere;}
+.curai-plan-option-meta,.curai-plan-option-balance {display:flex;align-items:center;justify-content:space-between;gap:12px;min-width:0;width:100%;}
+.curai-plan-option-meta {font-size:11px;line-height:18px;color:var(--curai-color-muted);}
+.curai-plan-option-balance>strong {font-size:13px;line-height:20px;white-space:nowrap;font-weight:600;}
+.curai-r21-status {display:inline-flex;align-items:center;min-width:164px;min-height:24px;padding:3px 8px;font-size:12px;line-height:18px;font-weight:500;border-radius:4px;white-space:nowrap;}
+.curai-r21-status-paid {color:var(--curai-color-positive);background:var(--curai-color-positiveBg);}
+.curai-r21-status-partial {color:var(--curai-color-warning);background:var(--curai-color-warningBg);}
+.curai-r21-status-unpaid {color:var(--curai-color-muted);background:var(--curai-color-subtle);}
+.curai-plan-details-header {flex-shrink:0;padding:23px 23px 24px;}
+.curai-plan-details-header h4 {font-size:20px;line-height:28px;font-weight:600;overflow-wrap:anywhere;}
+.curai-plan-details-meta {font-size:12px;line-height:18px;color:var(--curai-color-muted);margin:8px 0 0;}
+.curai-r21-plan-balance {margin:18px 0 0;font-size:13px;line-height:20px;font-weight:600;display:flex;flex-wrap:wrap;gap:0 8px;}
+.curai-plan-details-note {margin:8px 0 0;font-size:11px;line-height:18px;color:var(--curai-color-muted);}
+.curai-plan-content-scroll {flex:1;min-height:0;margin:0 23px;overflow:auto;overscroll-behavior:contain;scrollbar-width:thin;}
+.curai-r21-service-scroll :is(table,.curai-r21-service-table) {width:100%;table-layout:fixed;border:0;border-spacing:0;border-collapse:collapse;border-radius:0;margin:0;background:transparent;}
+.curai-r21-col-name {width:34.653465%;}.curai-r21-col-money {width:13.861386%;}.curai-r21-col-action {width:23.762376%;}
+.curai-r21-service-scroll thead {position:sticky;top:0;z-index:2;background:var(--curai-color-subtle);}
+.curai-r21-service-scroll table table thead {z-index:3;}
+.curai-r21-service-scroll th {height:40px;padding:10px 12px;font-size:12px;line-height:18px;font-weight:400;text-transform:none;letter-spacing:0;color:var(--curai-color-muted);background:var(--curai-color-subtle);border:0;text-align:right;}
+.curai-r21-service-scroll th:first-child {text-align:left;padding-left:16px;}
+.curai-r21-service-scroll td {padding:16px 12px;font-size:13px;line-height:20px;color:var(--curai-color-ink);border:0;border-bottom:1px solid var(--curai-color-border);vertical-align:middle;text-align:right;overflow-wrap:anywhere;}
+.curai-r21-service-scroll td:first-child {padding-left:16px;padding-right:8px;text-align:left;}
+.curai-r21-service-scroll td:last-child {padding-right:16px;padding-left:8px;}
+.curai-r21-service-row {height:104px;}
+.curai-r21-service-row>td:first-child>strong,.curai-plan-disclosure {font-size:13px;line-height:20px;font-weight:600;}
+.curai-plan-disclosure {display:flex;align-items:flex-start;justify-content:space-between;gap:8px;text-align:left;width:100%;}
+.curai-plan-disclosure>span {color:var(--curai-color-muted);flex-shrink:0;}
+.curai-r21-service-meta {font-size:11px;line-height:18px;color:var(--curai-color-muted);margin:6px 0 0;font-weight:400;}
+.curai-r21-service-status {font-size:11px;line-height:18px;margin-top:4px;color:var(--curai-color-muted);}
+.curai-r21-service-status.is-paid,.curai-r21-service-scroll .curai-r21-paid-amount {color:var(--curai-color-positive);}
+.curai-r21-service-status.is-partial {color:var(--curai-color-warning);}
+.curai-r21-pay-action {height:36px;min-height:36px;width:100%;padding:7px 12px;text-align:center;}
+.curai-r21-service-row .curai-r21-pay-action,.curai-r21-pay-action.is-secondary {background:var(--curai-color-surface);color:var(--curai-color-blue);border-color:var(--curai-color-control);font-weight:500;}
+
+.curai-r21-pay-action:disabled {opacity:.5;cursor:not-allowed;}
+.curai-r21-service-scroll .curai-r21-expanded-row>td {padding:16px 0 0;text-align:left;}
+.curai-r21-expanded-row table th {height:32px;padding-top:7px;padding-bottom:7px;}
+.curai-r21-expanded-row table td {height:64px;font-size:12px;line-height:18px;font-weight:400;}
+.curai-r21-table-note {padding:16px;font-size:11px;line-height:18px;color:var(--curai-color-muted);}
+.curai-r21-course-action {font-size:12px;line-height:18px;color:var(--curai-color-blue);margin:0 16px 16px;text-decoration:underline;}
+.curai-r21-plan-notes {padding:16px;font-size:12px;line-height:18px;color:var(--curai-color-muted);}
+.curai-r21-plan-notes summary {cursor:pointer;color:var(--curai-color-blue);}
+.curai-r21-plan-notes p {margin-top:8px;white-space:pre-wrap;}
+.curai-r21-selected-plan-action {position:relative;flex:0 0 87px;min-height:87px;display:flex;align-items:center;justify-content:space-between;gap:24px;padding:16px 23px 20px;background:var(--curai-color-surface);}
+.curai-r21-selected-plan-action::before {content:'';position:absolute;top:0;left:23px;right:23px;height:1px;background:var(--curai-color-border);}
+.curai-r21-selected-plan-action>div {display:flex;flex-direction:column;gap:6px;min-width:0;}
+.curai-r21-selected-plan-action>div>span {font-size:12px;line-height:18px;color:var(--curai-color-muted);}
+.curai-r21-selected-plan-action>div>strong {font-size:20px;line-height:28px;font-weight:600;}
+.curai-r21-selected-plan-action>.curai-r21-pay-action {width:256px;flex-shrink:0;}
+.curai-r21-plan-settled {font-size:13px;line-height:20px;color:var(--curai-color-positive);}
+.curai-plan-empty {flex:1;min-height:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;text-align:center;}
+.curai-plan-empty h4 {font-size:20px;line-height:28px;font-weight:600;}.curai-plan-empty p {font-size:13px;color:var(--curai-color-muted);}
+@media(max-width:1100px){.curai-plan-workspace-panes {grid-template-columns:260px minmax(0,1fr);gap:16px;}.curai-plan-option {padding-left:16px;padding-right:16px;}.curai-r21-status {min-width:0;}.curai-r21-service-table {min-width:720px;}.curai-r21-selected-plan-action {gap:16px;}.curai-r21-selected-plan-action>.curai-r21-pay-action {width:auto;min-width:208px;}}
+@media(max-width:760px){.curai-dialog.curai-patient-workspace-dialog {max-width:calc(100vw - 16px);max-height:calc(100dvh - 16px);height:900px;}.curai-patient-workspace-dialog>.curai-dialog-body {padding:12px;overflow:auto;}.curai-plan-workspace {height:auto;min-height:720px;gap:16px;}.curai-plan-workspace-panes {flex:none;display:flex;flex-direction:column;gap:16px;}.curai-plan-list {flex:0 0 168px;}.curai-plan-list-header {height:48px;flex-basis:48px;padding:11px 15px;}.curai-plan-list-scroll {display:flex;overflow:auto;}.curai-plan-list-scroll>div {flex:0 0 240px;}.curai-plan-list-scroll>div+div {margin:0;}.curai-plan-option {min-height:112px;}.curai-plan-details {flex:0 0 460px;height:460px;min-height:460px;}.curai-plan-details-header {padding:15px;}.curai-plan-details-header h4 {font-size:18px;line-height:24px;}.curai-r21-plan-balance {margin-top:12px;}.curai-plan-content-scroll {margin:0 15px;min-height:104px;}.curai-r21-selected-plan-action {padding:12px 15px;gap:12px;flex-wrap:wrap;flex-basis:auto;min-height:100px;}.curai-r21-selected-plan-action::before {left:15px;right:15px;}.curai-r21-selected-plan-action>.curai-r21-pay-action {min-width:0;width:100%;flex:1 0 100%;}.curai-r21-plan-settled {max-width:180px;}}
+
+.curai-plan-list-header>div {display:flex;align-items:flex-start;justify-content:space-between;gap:16px;width:100%;}
+.curai-plan-list-empty {padding:24px;font-size:13px;line-height:20px;color:var(--curai-color-muted);}
+
+/* The payment table owns the remaining pane height on desktop. */
+.curai-r21-payment-panes .curai-r21-plan-details-header {padding:12px 23px 8px;}
+.curai-r21-payment-panes .curai-plan-details-meta {margin-top:4px;}
+.curai-r21-payment-panes .curai-r21-plan-balance {margin-top:6px;}
+.curai-r21-payment-panes .curai-r21-plan-details-note {margin:4px 0 0;font-size:11px;line-height:16px;color:var(--curai-color-muted);}
+.curai-r21-payment-panes .curai-r21-selected-plan-action {flex-basis:64px;min-height:64px;padding-top:8px;padding-bottom:8px;}
+.curai-r21-payment-panes .curai-r21-service-row {height:88px;}
+.curai-r21-payment-panes .curai-r21-service-row>td {padding-top:10px;padding-bottom:10px;}
+
+
+
+/* On short screens, scroll the detail pane as a whole, avoiding a tiny nested table viewport. */
+@media(min-width:761px) and (max-height:740px), (min-width:761px) and (max-width:1100px){
+  .curai-r21-payment-workspace {gap:16px;}
+  .curai-r21-payment-panes .curai-r21-plan-details {overflow:auto;overscroll-behavior:contain;scrollbar-width:thin;}
+  .curai-r21-payment-panes .curai-r21-service-scroll {flex:none;overflow:visible;}
+}
+/* The modal body is the vertical scroll owner in the stacked mobile layout. */
+@media(max-width:760px){
+  .curai-r21-payment-panes .curai-r21-plan-details {display:block;flex:none;height:auto;min-height:0;}
+
+  .curai-r21-payment-panes .curai-r21-service-scroll {flex:none;min-height:0;}
+  .curai-r21-payment-panes .curai-r21-plan-details-header {padding:15px;}
+}
+
+@media(max-width:1100px){
+  .curai-r21-totals {grid-template-columns:repeat(2,minmax(0,1fr));grid-template-rows:20px 46px auto;}
+  .curai-r21-totals>div:nth-of-type(n+3)>span {margin-top:var(--curai-space-16);}
+}
+@media(max-width:600px){
+  .curai-r21-totals {grid-template-columns:minmax(0,1fr);padding-left:var(--curai-space-16);padding-right:var(--curai-space-16);}
+  .curai-r21-totals>div:nth-of-type(n+2)>span {margin-top:var(--curai-space-16);}
+  .curai-r21-totals>div>strong {font-size:var(--curai-type-size-24);}
+  .curai-r21-totals>.curai-r21-total-due>strong {font-size:var(--curai-type-size-28);}
+}

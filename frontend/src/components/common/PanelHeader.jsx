@@ -5,24 +5,20 @@ const PanelHeader = ({
   subtitle,
   onAction,
   actionLabel,
-  actionClass = 'calendar-new-appointment-btn bg-green-600 hover:bg-green-700 text-white rounded-lg px-4 py-2 transition-colors',
+  actionClass = "calendar-new-appointment-btn bg-curai-positive hover:bg-curai-positive text-white rounded-md px-4 py-2 transition-colors",
   actions,
   className = ''
 }) => (
   <div
-    className={`calendar-date-nav flex flex-col md:flex-row md:items-center md:justify-between gap-4 border-none px-4 py-4 rounded-t-2xl ${className}`}
-    style={{
-      background: 'rgba(255, 255, 255, 0.14)',
-      borderBottom: '1px solid rgba(255, 255, 255, 0.35)'
-    }}
+    className={`curai-panel-header ${className}`}
   >
     <div>
-      <h2 className="text-xl font-semibold text-white calendar-date-title">{title}</h2>
-      <p className="text-sm text-sky-100 calendar-date-subtitle">{subtitle}</p>
+      <h2 className="curai-panel-title">{title}</h2>
+      <p className="curai-panel-subtitle">{subtitle}</p>
     </div>
     {actions}
     {onAction && actionLabel && (
-      <button onClick={onAction} className={actionClass}>
+      <button onClick={onAction} className={`curai-button curai-button-primary ${actionClass}`}>
         {actionLabel}
       </button>
     )}

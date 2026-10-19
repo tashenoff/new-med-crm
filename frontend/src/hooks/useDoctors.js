@@ -1,5 +1,6 @@
 import { useState, useCallback, useEffect } from 'react';
 import axios from 'axios';
+import { formatDoctorError } from '../utils/doctorErrors';
 
 const BACKEND_URL = import.meta.env.VITE_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
@@ -58,7 +59,7 @@ export const useDoctors = () => {
         });
       }
       
-      const errorMessage = error.response?.data?.detail || 'Ошибка при создании врача';
+      const errorMessage = formatDoctorError(error, 'Ошибка при создании врача');
       return { success: false, error: errorMessage };
     }
   }, []);
@@ -85,7 +86,7 @@ export const useDoctors = () => {
       return { success: true, data: response.data };
     } catch (error) {
       console.error('Ошибка при обновлении врача:', error);
-      const errorMessage = error.response?.data?.detail || 'Ошибка при обновлении врача';
+      const errorMessage = formatDoctorError(error, 'Ошибка при обновлении врача');
       return { success: false, error: errorMessage };
     }
   }, []);

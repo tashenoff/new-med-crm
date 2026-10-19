@@ -29,14 +29,14 @@ const FinanceDashboard = ({ user }) => {
   }, []);
 
   const StatCard = ({ title, value, icon, color, isPrice = false }) => (
-    <div className="bg-white rounded-lg shadow p-6">
+    <div className="bg-curai-surface rounded-md shadow-none p-6">
       <div className="flex items-center">
         <div className={`p-3 rounded-full ${color}`}>
           <span className="text-2xl">{icon}</span>
         </div>
         <div className="ml-4">
-          <p className="text-sm font-medium text-gray-500">{title}</p>
-          <p className="text-2xl font-bold text-gray-900">
+          <p className="text-sm font-medium text-curai-muted">{title}</p>
+          <p className="text-2xl font-semibold text-curai-ink">
             {isPrice ? `${value.toLocaleString('ru-RU')} ₸` : value}
           </p>
         </div>
@@ -46,7 +46,7 @@ const FinanceDashboard = ({ user }) => {
 
   return (
     <div className="space-y-6">
-      <div className={`calendar-container calendar-view-panel rounded-2xl`}>
+      <div className={`calendar-container calendar-view-panel rounded-md`}>
         <PanelHeader
           title="💰 Финансовый дашборд"
           subtitle="Анализ финансовой деятельности клиники"
@@ -54,10 +54,10 @@ const FinanceDashboard = ({ user }) => {
           actionLabel="➕ Добавить транзакцию"
         />
 
-        <div className="bg-white dark:bg-gray-800 rounded-b-2xl border border-t-0 border-gray-200 dark:border-gray-700 p-4 space-y-4 shadow-sm">
+        <div className="bg-curai-surface rounded-b-md border border-t-0 border-curai-border p-4 space-y-4 shadow-none">
           {/* Дополнительные кнопки */}
           <div className="flex justify-end">
-            <button className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors">
+            <button className="bg-curai-blue text-white px-4 py-2 rounded-md hover:bg-curai-blue transition-colors">
               📊 Создать отчет
             </button>
           </div>
@@ -68,28 +68,28 @@ const FinanceDashboard = ({ user }) => {
           title="Общая выручка"
           value={stats.totalRevenue}
           icon="💰"
-          color="bg-green-100"
+          color="bg-curai-positiveBg"
           isPrice={true}
         />
         <StatCard
           title="Расходы"
           value={stats.totalExpenses}
           icon="💳"
-          color="bg-red-100"
+          color="bg-curai-negativeBg"
           isPrice={true}
         />
         <StatCard
           title="Прибыль"
           value={stats.profit}
           icon="📈"
-          color="bg-blue-100"
+          color="bg-curai-selected"
           isPrice={true}
         />
         <StatCard
           title="К получению"
           value={stats.pendingPayments}
           icon="⏳"
-          color="bg-yellow-100"
+          color="bg-curai-warningBg"
           isPrice={true}
         />
       </div>
@@ -97,46 +97,46 @@ const FinanceDashboard = ({ user }) => {
       {/* Charts Section */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Revenue Chart */}
-        <div className="bg-white rounded-lg shadow p-6">
+        <div className="bg-curai-surface rounded-md shadow-none p-6">
           <h3 className="text-lg font-semibold mb-4">📊 Выручка по месяцам</h3>
-          <div className="h-64 flex items-center justify-center bg-gray-50 rounded-lg">
-            <p className="text-gray-500">График выручки (TODO: Интеграция Chart.js)</p>
+          <div className="h-64 flex items-center justify-center bg-curai-subtle rounded-md">
+            <p className="text-curai-muted">График выручки (TODO: Интеграция Chart.js)</p>
           </div>
         </div>
 
         {/* Expenses Chart */}
-        <div className="bg-white rounded-lg shadow p-6">
+        <div className="bg-curai-surface rounded-md shadow-none p-6">
           <h3 className="text-lg font-semibold mb-4">📉 Структура расходов</h3>
-          <div className="h-64 flex items-center justify-center bg-gray-50 rounded-lg">
-            <p className="text-gray-500">Диаграмма расходов (TODO: Интеграция Chart.js)</p>
+          <div className="h-64 flex items-center justify-center bg-curai-subtle rounded-md">
+            <p className="text-curai-muted">Диаграмма расходов (TODO: Интеграция Chart.js)</p>
           </div>
         </div>
       </div>
 
       {/* Recent Transactions */}
-      <div className="bg-white rounded-lg shadow">
-        <div className="px-6 py-4 border-b border-gray-200">
+      <div className="bg-curai-surface rounded-md shadow-none">
+        <div className="px-6 py-4 border-b border-curai-border">
           <h3 className="text-lg font-semibold">🔄 Последние транзакции</h3>
         </div>
         <div className="p-6">
           <div className="space-y-4">
             {recentTransactions.map((transaction) => (
-              <div key={transaction.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+              <div key={transaction.id} className="flex items-center justify-between p-3 bg-curai-subtle rounded-md">
                 <div className="flex items-center">
                   <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
-                    transaction.type === 'income' ? 'bg-green-100' : 'bg-red-100'
+                    transaction.type === 'income' ? "bg-curai-positiveBg" : "bg-curai-negativeBg"
                   }`}>
                     <span className="text-lg">
                       {transaction.type === 'income' ? '💰' : '💳'}
                     </span>
                   </div>
                   <div className="ml-3">
-                    <p className="font-medium text-gray-900">{transaction.description}</p>
-                    <p className="text-sm text-gray-500">{new Date(transaction.date).toLocaleDateString('ru-RU')}</p>
+                    <p className="font-medium text-curai-ink">{transaction.description}</p>
+                    <p className="text-sm text-curai-muted">{new Date(transaction.date).toLocaleDateString('ru-RU')}</p>
                   </div>
                 </div>
                 <div className={`font-semibold ${
-                  transaction.amount > 0 ? 'text-green-600' : 'text-red-600'
+                  transaction.amount > 0 ? "text-curai-positive" : "text-curai-negative"
                 }`}>
                   {transaction.amount > 0 ? '+' : ''}{transaction.amount.toLocaleString('ru-RU')} ₸
                 </div>
@@ -144,7 +144,7 @@ const FinanceDashboard = ({ user }) => {
             ))}
           </div>
           <div className="mt-4 text-center">
-            <button className="text-blue-600 hover:text-blue-800 text-sm font-medium">
+            <button className="text-curai-blue hover:text-curai-blue text-sm font-medium">
               Показать все транзакции →
             </button>
           </div>

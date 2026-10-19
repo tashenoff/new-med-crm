@@ -36,7 +36,7 @@ const ManagersView = ({ user }) => {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-curai-control"></div>
       </div>
     );
   }
@@ -45,59 +45,59 @@ const ManagersView = ({ user }) => {
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">👨‍💼 Менеджеры</h1>
-          <p className="text-gray-600 mt-1">Управление командой менеджеров</p>
+          <h1 className="text-2xl font-semibold text-curai-ink">👨‍💼 Менеджеры</h1>
+          <p className="text-curai-muted mt-1">Управление командой менеджеров</p>
         </div>
-        <button className="bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700 transition-colors">
+        <button className="bg-curai-blue text-white px-4 py-2 rounded-md hover:bg-curai-blue transition-colors">
           + Новый менеджер
         </button>
       </div>
 
-      <div className="bg-white rounded-lg shadow-sm border border-gray-200">
+      <div className="bg-curai-surface rounded-md shadow-none border border-curai-border">
         {managers.length === 0 ? (
-          <div className="text-center py-8 text-gray-500">
+          <div className="text-center py-8 text-curai-muted">
             <p>Менеджеры не найдены</p>
           </div>
         ) : (
           <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
+            <table className="min-w-full divide-y divide-curai-border">
+              <thead className="bg-curai-subtle">
                 <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-6 py-3 text-left text-xs font-medium text-curai-muted uppercase tracking-wider">
                     Менеджер
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-6 py-3 text-left text-xs font-medium text-curai-muted uppercase tracking-wider">
                     Контакты
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-6 py-3 text-left text-xs font-medium text-curai-muted uppercase tracking-wider">
                     Активные заявки
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-6 py-3 text-left text-xs font-medium text-curai-muted uppercase tracking-wider">
                     Конверсия
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-6 py-3 text-left text-xs font-medium text-curai-muted uppercase tracking-wider">
                     Статус
                   </th>
                 </tr>
               </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
+              <tbody className="bg-curai-surface divide-y divide-curai-border">
                 {managers.map((manager) => (
-                  <tr key={manager.id} className="hover:bg-gray-50">
+                  <tr key={manager.id} className="hover:bg-curai-subtle">
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="font-medium text-gray-900">{manager.name}</div>
+                      <div className="font-medium text-curai-ink">{manager.name}</div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm text-gray-900">{manager.phone}</div>
-                      <div className="text-sm text-gray-500">{manager.email}</div>
+                      <div className="text-sm text-curai-ink">{manager.phone}</div>
+                      <div className="text-sm text-curai-muted">{manager.email}</div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm text-gray-900">{manager.active_leads}</div>
+                      <div className="text-sm text-curai-ink">{manager.active_leads}</div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm text-green-600">{manager.conversion_rate}%</div>
+                      <div className="text-sm text-curai-positive">{manager.conversion_rate}%</div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <span className="px-2 py-1 text-xs rounded-full font-medium bg-green-100 text-green-800">
+                      <span className="px-2 py-1 text-xs rounded-full font-medium bg-curai-positiveBg text-curai-positive">
                         Активен
                       </span>
                     </td>

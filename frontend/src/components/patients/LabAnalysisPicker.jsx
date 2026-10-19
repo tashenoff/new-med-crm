@@ -140,27 +140,27 @@ const LabAnalysisPicker = memo(({ onAdd, disabled = false }) => {
           type="text"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
-          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 text-sm"
+          className="w-full px-3 py-2 border border-curai-control rounded-md focus:ring-2 focus:ring-curai-focus text-sm"
           placeholder="Поиск по названию анализа..."
           disabled={disabled}
         />
         {loading && (
           <div className="absolute right-3 top-3">
-            <div className="animate-spin h-5 w-5 border-2 border-blue-600 border-t-transparent rounded-full"></div>
+            <div className="animate-spin h-5 w-5 border-2 border-curai-control border-t-transparent rounded-full"></div>
           </div>
         )}
       </div>
 
-      {error && <p className="text-sm text-red-600">{error}</p>}
+      {error && <p className="text-sm text-curai-negative">{error}</p>}
 
       {/* Список анализов с ленивой подгрузкой */}
-      <div ref={listRef} className="border border-gray-200 rounded-lg max-h-64 overflow-y-auto">
+      <div ref={listRef} className="border border-curai-border rounded-md max-h-64 overflow-y-auto">
         {!loading && Object.keys(grouped).length === 0 && (
-          <div className="px-4 py-3 text-sm text-gray-500">Анализы не найдены.</div>
+          <div className="px-4 py-3 text-sm text-curai-muted">Анализы не найдены.</div>
         )}
         {Object.entries(grouped).map(([labName, services]) => (
-          <div key={labName} className="border-b border-gray-100 last:border-b-0">
-            <div className="px-3 py-1.5 bg-gray-50 text-xs font-semibold text-gray-600 uppercase tracking-wide sticky top-0">
+          <div key={labName} className="border-b border-curai-border last:border-b-0">
+            <div className="px-3 py-1.5 bg-curai-subtle text-xs font-semibold text-curai-muted uppercase tracking-wide sticky top-0">
               🧪 {labName}
             </div>
             {services.map((service) => {
@@ -168,7 +168,7 @@ const LabAnalysisPicker = memo(({ onAdd, disabled = false }) => {
               return (
                 <label
                   key={service.id}
-                  className="flex items-center justify-between px-3 py-2 hover:bg-blue-50 transition-colors cursor-pointer border-b border-gray-100 last:border-b-0"
+                  className="flex items-center justify-between px-3 py-2 hover:bg-curai-selected transition-colors cursor-pointer border-b border-curai-border last:border-b-0"
                 >
                   <div className="flex items-center space-x-3 flex-1 min-w-0">
                     <input
@@ -176,17 +176,17 @@ const LabAnalysisPicker = memo(({ onAdd, disabled = false }) => {
                       checked={isChecked}
                       disabled={disabled}
                       onChange={() => toggleService(service)}
-                      className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                      className="w-4 h-4 text-curai-blue border-curai-control rounded focus:ring-curai-focus"
                     />
                     <div className="flex-1 min-w-0">
-                      <div className="font-medium text-gray-900 text-sm truncate">{service.service_name}</div>
+                      <div className="font-medium text-curai-ink text-sm truncate">{service.service_name}</div>
                       {service.unit && (
-                        <div className="text-xs text-gray-500">за {service.unit}</div>
+                        <div className="text-xs text-curai-muted">за {service.unit}</div>
                       )}
                     </div>
                   </div>
                   <div className="text-right ml-3 shrink-0">
-                    <div className="font-semibold text-blue-600 text-sm">
+                    <div className="font-semibold text-curai-blue text-sm">
                       {service.price ? `${service.price.toLocaleString()} ₸` : 'Цена не указана'}
                     </div>
                   </div>
@@ -196,12 +196,12 @@ const LabAnalysisPicker = memo(({ onAdd, disabled = false }) => {
           </div>
         ))}
         {hasMore && (
-          <div ref={sentinelRef} className="px-3 py-2 text-xs text-gray-500 text-center">
+          <div ref={sentinelRef} className="px-3 py-2 text-xs text-curai-muted text-center">
             Загрузка… {visible.length} из {filtered.length}
           </div>
         )}
         {!hasMore && filtered.length > PAGE_SIZE && (
-          <div className="px-3 py-2 text-xs text-gray-400 text-center">
+          <div className="px-3 py-2 text-xs text-curai-muted text-center">
             Все анализы загружены ({filtered.length})
           </div>
         )}
@@ -209,36 +209,36 @@ const LabAnalysisPicker = memo(({ onAdd, disabled = false }) => {
 
       {/* Выбранные анализы + Итого */}
       {selectedCount > 0 && (
-        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 space-y-3">
-          <div className="font-medium text-gray-900">Выбранные анализы ({selectedCount})</div>
+        <div className="bg-curai-selected border border-curai-control rounded-md p-4 space-y-3">
+          <div className="font-medium text-curai-ink">Выбранные анализы ({selectedCount})</div>
           {selectedList.map((a) => (
-            <div key={a.id} className="bg-white border border-gray-200 rounded-lg p-3">
+            <div key={a.id} className="bg-curai-surface border border-curai-border rounded-md p-3">
               <div className="flex items-start justify-between">
                 <div className="flex-1 min-w-0 pr-2">
-                  <div className="font-medium text-gray-900 text-sm">{a.service_name}</div>
-                  <div className="text-xs text-gray-500">
+                  <div className="font-medium text-curai-ink text-sm">{a.service_name}</div>
+                  <div className="text-xs text-curai-muted">
                     {(a.price || 0).toLocaleString()} ₸{a.laboratory_name ? ` · ${a.laboratory_name}` : ''}
                   </div>
                 </div>
                 <button
                   type="button"
                   onClick={() => removeSelected(a.id)}
-                  className="text-gray-400 hover:text-red-600 text-sm shrink-0"
+                  className="text-curai-muted hover:text-curai-negative text-sm shrink-0"
                 >
                   ✕
                 </button>
               </div>
             </div>
           ))}
-          <div className="flex items-center justify-between pt-2 border-t border-blue-200">
-            <div className="text-gray-700">
-              Итого: <span className="font-semibold text-blue-600">{totalPrice.toLocaleString()} ₸</span>
+          <div className="flex items-center justify-between pt-2 border-t border-curai-control">
+            <div className="text-curai-ink">
+              Итого: <span className="font-semibold text-curai-blue">{totalPrice.toLocaleString()} ₸</span>
             </div>
             <button
               type="button"
               onClick={handleAdd}
               disabled={disabled}
-              className="bg-green-600 hover:bg-green-700 text-white font-medium py-2 px-4 rounded-lg disabled:opacity-50"
+              className="bg-curai-positive hover:bg-curai-positive text-white font-medium py-2 px-4 rounded-md disabled:opacity-50"
             >
               Добавить {selectedCount}
             </button>
@@ -246,12 +246,12 @@ const LabAnalysisPicker = memo(({ onAdd, disabled = false }) => {
         </div>
       )}
       {!loading && selectedCount === 0 && (
-        <p className="text-xs text-gray-500">
+        <p className="text-xs text-curai-muted">
           Отметьте галочками нужные анализы из прайса лаборатории — их можно добавить все сразу.
         </p>
       )}
       {loading && selectedCount === 0 && (
-        <p className="text-xs text-gray-500">Загрузка анализов из лабораторий...</p>
+        <p className="text-xs text-curai-muted">Загрузка анализов из лабораторий...</p>
       )}
     </div>
   );

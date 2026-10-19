@@ -8,7 +8,10 @@ const Modal = ({
   children, 
   size = 'max-w-4xl',
   dialogLabel,
+  className = '',
   onKeyDown,
+  footer = null,
+  subheader = null,
   errorMessage = null 
 }) => {
   useEffect(() => {
@@ -25,32 +28,32 @@ const Modal = ({
 
     return () => {
       document.removeEventListener('keydown', handleEscapeKey);
-      document.body.style.overflow = 'unset';
+      document.body.style.overflow = document.querySelector('.curai-dialog[role="dialog"]') ? 'hidden' : 'unset';
     };
   }, [show, onClose]);
 
   if (!show) return null;
 
   const modalContent = (
-    <div className="modal-wrapper">
+    <div className="modal-wrapper curai-surface-root">
       <div 
-        className="modal-overlay"
+        className="modal-overlay curai-dialog-backdrop"
         onClick={onClose}
       />
       <div 
-        className={`modal-content bg-white dark:bg-gray-800 rounded-lg w-full ${size} max-h-[90vh] flex flex-col relative`}
-        role={dialogLabel ? "dialog" : undefined}
-        aria-modal={dialogLabel ? true : undefined}
-        aria-label={dialogLabel}
+        className={`modal-content curai-dialog bg-curai-surface rounded-md w-full ${size} max-h-[90vh] flex flex-col relative ${className}`}
+        role="dialog"
+        aria-modal="true"
+        aria-label={dialogLabel || title}
         onKeyDown={onKeyDown}
         onClick={(e) => e.stopPropagation()}
       >
         {/* Фиксированная шапка модального окна */}
-        <div className="flex-shrink-0 p-6 pb-4 border-b border-gray-200 dark:border-gray-700">
+        <div className="curai-dialog-header flex-shrink-0">
           {/* Кнопка закрытия (крестик) */}
           <button
             onClick={onClose}
-            className="absolute top-4 right-4 z-10 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500 rounded-full p-1"
+            className="curai-dialog-close z-10"
             aria-label="Закрыть"
           >
             <svg 
@@ -69,19 +72,20 @@ const Modal = ({
           </button>
 
           {title && (
-            <h3 className="text-lg font-semibold text-gray-900 dark:text-white pr-8">
+            <h3 className="text-lg font-semibold text-curai-ink pr-8">
               {title}
             </h3>
           )}
         </div>
 
+        {subheader}
         {/* Прокручиваемое содержимое */}
-        <div className="flex-1 overflow-y-auto p-6">
+        <div className="curai-dialog-body flex-1 overflow-y-auto">
           {errorMessage && (
             <div className={`border px-4 py-3 rounded mb-4 ${
               typeof errorMessage === 'string' && errorMessage.startsWith('✅') 
-                ? 'bg-green-100 dark:bg-green-900 border-green-400 dark:border-green-600 text-green-700 dark:text-green-300'
-                : 'bg-red-100 dark:bg-red-900 border-red-400 dark:border-red-600 text-red-700 dark:text-red-300'
+                ? "bg-curai-positiveBg border-curai-positive text-curai-positive "
+                : "bg-curai-negativeBg border-curai-negative text-curai-negative "
             }`}>
               <span className="block">{errorMessage}</span>
             </div>
@@ -89,6 +93,7 @@ const Modal = ({
 
           {children}
         </div>
+        {footer && <div className="curai-dialog-footer">{footer}</div>}
       </div>
     </div>
   );

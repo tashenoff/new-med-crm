@@ -101,23 +101,23 @@ const DoctorStatistics = () => {
   };
 
   const StatCard = ({ title, value, subtitle, color = "blue", icon, tooltip }) => (
-    <div className={`bg-white p-6 rounded-lg shadow border-l-4 border-${color}-500 relative group`}>
+    <div className={`bg-curai-surface p-6 rounded-md shadow-none border-l-4 border-${color}-500 relative group`}>
       <div className="flex items-center justify-between">
         <div>
           <div className="flex items-center">
-            <p className="text-gray-600 text-sm font-medium">{title}</p>
+            <p className="text-curai-muted text-sm font-medium">{title}</p>
             {tooltip && (
               <div className="ml-2 relative">
-                <div className="w-4 h-4 text-gray-400 cursor-help">ℹ️</div>
-                <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-3 py-2 bg-gray-800 text-white text-xs rounded-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 whitespace-nowrap z-10 max-w-xs">
+                <div className="w-4 h-4 text-curai-muted cursor-help">ℹ️</div>
+                <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-3 py-2 bg-curai-ink text-white text-xs rounded-md opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 whitespace-nowrap z-10 max-w-xs">
                   {tooltip}
                   <div className="absolute top-full left-1/2 transform -translate-x-1/2 border-4 border-transparent border-t-gray-800"></div>
                 </div>
               </div>
             )}
           </div>
-          <p className={`text-2xl font-bold text-${color}-600`}>{value}</p>
-          {subtitle && <p className="text-gray-500 text-xs mt-1">{subtitle}</p>}
+          <p className={`text-2xl font-semibold text-${color}-600`}>{value}</p>
+          {subtitle && <p className="text-curai-muted text-xs mt-1">{subtitle}</p>}
         </div>
         {icon && (
           <div className={`text-${color}-500 text-2xl`}>
@@ -133,11 +133,11 @@ const DoctorStatistics = () => {
     
     return (
       <div className="mb-4">
-        <div className="flex justify-between text-sm font-medium text-gray-700 mb-1">
+        <div className="flex justify-between text-sm font-medium text-curai-ink mb-1">
           <span>{label}</span>
           <span>{value} из {total} ({percentage}%)</span>
         </div>
-        <div className="w-full bg-gray-200 rounded-full h-2">
+        <div className="w-full bg-curai-border rounded-full h-2">
           <div 
             className={`bg-${color}-600 h-2 rounded-full transition-all duration-300`}
             style={{ width: `${percentage}%` }}
@@ -151,8 +151,8 @@ const DoctorStatistics = () => {
     return (
       <div className="flex items-center justify-center h-64">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto mb-4"></div>
-          <p className="text-gray-600">Загрузка статистики врачей...</p>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-curai-control mx-auto mb-4"></div>
+          <p className="text-curai-muted">Загрузка статистики врачей...</p>
         </div>
       </div>
     );
@@ -160,7 +160,7 @@ const DoctorStatistics = () => {
 
   if (error) {
     return (
-      <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded">
+      <div className="bg-curai-negativeBg border border-curai-negative text-curai-negative px-4 py-3 rounded">
         <p>{error}</p>
       </div>
     );
@@ -168,56 +168,56 @@ const DoctorStatistics = () => {
 
   return (
     <div className="space-y-6">
-      <div className={`calendar-container calendar-view-panel rounded-2xl`}>
+      <div className={`calendar-container calendar-view-panel rounded-md`}>
         <PanelHeader
           title="Статистика врачей"
           subtitle="Аналитика работы врачей и эффективности приемов"
         />
 
-        <div className="bg-white dark:bg-gray-800 rounded-b-2xl border border-t-0 border-gray-200 dark:border-gray-700 p-4 space-y-4 shadow-sm">
+        <div className="bg-curai-surface rounded-b-md border border-t-0 border-curai-border p-4 space-y-4 shadow-none">
           {/* Date Filter */}
           <div className="flex items-center justify-end space-x-4">
             <div className="flex items-center space-x-2">
-              <label className="text-sm font-medium text-gray-700">От:</label>
+              <label className="text-sm font-medium text-curai-ink">От:</label>
               <input
                 type="date"
                 value={dateFrom}
                 onChange={(e) => setDateFrom(e.target.value)}
-                className="px-3 py-1 border border-gray-300 rounded text-sm"
+                className="px-3 py-1 border border-curai-control rounded text-sm"
               />
             </div>
             <div className="flex items-center space-x-2">
-              <label className="text-sm font-medium text-gray-700">До:</label>
+              <label className="text-sm font-medium text-curai-ink">До:</label>
               <input
                 type="date"
                 value={dateTo}
                 onChange={(e) => setDateTo(e.target.value)}
-                className="px-3 py-1 border border-gray-300 rounded text-sm"
+                className="px-3 py-1 border border-curai-control rounded text-sm"
               />
             </div>
             <button
               onClick={handleDateFilter}
-              className="px-4 py-1 bg-blue-600 text-white rounded text-sm hover:bg-blue-700"
+              className="px-4 py-1 bg-curai-blue text-white rounded text-sm hover:bg-curai-blue"
             >
               Применить
             </button>
             <button
               onClick={resetDateFilter}
-              className="px-4 py-1 bg-gray-300 text-gray-700 rounded text-sm hover:bg-gray-400"
+              className="px-4 py-1 bg-curai-control text-curai-ink rounded text-sm hover:bg-curai-disabled"
             >
               Сбросить
             </button>
           </div>
 
       {/* Tabs */}
-      <div className="border-b border-gray-200">
+      <div className="border-b border-curai-border">
         <nav className="-mb-px flex space-x-8">
           <button
             onClick={() => setActiveTab('overview')}
             className={`py-2 px-1 border-b-2 font-medium text-sm ${
               activeTab === 'overview'
-                ? 'border-blue-500 text-blue-600'
-                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                ? "border-curai-control text-curai-blue"
+                : "border-transparent text-curai-muted hover:text-curai-ink hover:border-curai-control"
             }`}
           >
             Обзор
@@ -226,8 +226,8 @@ const DoctorStatistics = () => {
             onClick={() => setActiveTab('doctors')}
             className={`py-2 px-1 border-b-2 font-medium text-sm ${
               activeTab === 'doctors'
-                ? 'border-blue-500 text-blue-600'
-                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                ? "border-curai-control text-curai-blue"
+                : "border-transparent text-curai-muted hover:text-curai-ink hover:border-curai-control"
             }`}
           >
             По врачам
@@ -236,8 +236,8 @@ const DoctorStatistics = () => {
             onClick={() => setActiveTab('monthly')}
             className={`py-2 px-1 border-b-2 font-medium text-sm ${
               activeTab === 'monthly'
-                ? 'border-blue-500 text-blue-600'
-                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                ? "border-curai-control text-curai-blue"
+                : "border-transparent text-curai-muted hover:text-curai-ink hover:border-curai-control"
             }`}
           >
             По месяцам
@@ -347,11 +347,11 @@ const DoctorStatistics = () => {
           )}
 
           {/* Performance Metrics */}
-          <div className="bg-white p-6 rounded-lg shadow">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">Показатели эффективности</h3>
+          <div className="bg-curai-surface p-6 rounded-md shadow-none">
+            <h3 className="text-lg font-semibold text-curai-ink mb-4">Показатели эффективности</h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div>
-                <h4 className="font-medium text-gray-700 mb-3">Статистика приемов</h4>
+                <h4 className="font-medium text-curai-ink mb-3">Статистика приемов</h4>
                 <ProgressBar
                   label="Завершено"
                   value={doctorStats.overview.completed_appointments}
@@ -373,18 +373,18 @@ const DoctorStatistics = () => {
               </div>
 
               <div>
-                <h4 className="font-medium text-gray-700 mb-3">Финансовые показатели</h4>
+                <h4 className="font-medium text-curai-ink mb-3">Финансовые показатели</h4>
                 <div className="space-y-3">
                   <div className="flex justify-between">
-                    <span className="text-sm text-gray-600">Средняя нагрузка врача:</span>
+                    <span className="text-sm text-curai-muted">Средняя нагрузка врача:</span>
                     <span className="font-medium">{doctorStats.overview.avg_appointments_per_doctor} приемов</span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-sm text-gray-600">Эффективность сбора:</span>
+                    <span className="text-sm text-curai-muted">Эффективность сбора:</span>
                     <span className="font-medium">{doctorStats.overview.revenue_efficiency}%</span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-sm text-gray-600">Процент отмен:</span>
+                    <span className="text-sm text-curai-muted">Процент отмен:</span>
                     <span className="font-medium">{doctorStats.overview.cancellation_rate}%</span>
                   </div>
                 </div>
@@ -398,16 +398,16 @@ const DoctorStatistics = () => {
       {activeTab === 'doctors' && individualDoctorStats && (
         <div className="space-y-6">
           {/* Search Bar */}
-          <div className="bg-white p-4 rounded-lg shadow">
+          <div className="bg-curai-surface p-4 rounded-md shadow-none">
             <div className="relative">
               <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                <svg className="h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg className="h-5 w-5 text-curai-muted" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                 </svg>
               </div>
               <input
                 type="text"
-                className="block w-full pl-10 pr-10 py-2 border border-gray-300 rounded-md leading-5 bg-white placeholder-gray-500 focus:outline-none focus:placeholder-gray-400 focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+                className="block w-full pl-10 pr-10 py-2 border border-curai-control rounded-md leading-5 bg-curai-surface placeholder-curai-muted focus:outline-none focus:placeholder-curai-muted focus:ring-1 focus:ring-curai-focus focus:border-curai-control"
                 placeholder="Поиск по имени врача, специальности или телефону..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
@@ -417,7 +417,7 @@ const DoctorStatistics = () => {
                   onClick={() => setSearchTerm('')}
                   className="absolute inset-y-0 right-0 pr-3 flex items-center"
                 >
-                  <svg className="h-5 w-5 text-gray-400 hover:text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <svg className="h-5 w-5 text-curai-muted hover:text-curai-muted" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                   </svg>
                 </button>
@@ -457,11 +457,11 @@ const DoctorStatistics = () => {
           </div>
 
           {/* Doctors Table */}
-          <div className="bg-white rounded-lg shadow overflow-hidden">
-            <div className="px-6 py-4 border-b border-gray-200">
+          <div className="bg-curai-surface rounded-md shadow-none overflow-hidden">
+            <div className="px-6 py-4 border-b border-curai-border">
               <div className="flex justify-between items-center">
-                <h3 className="text-lg font-semibold text-gray-900">Детализация по врачам</h3>
-                <span className="text-sm text-gray-500">
+                <h3 className="text-lg font-semibold text-curai-ink">Детализация по врачам</h3>
+                <span className="text-sm text-curai-muted">
                   {(() => {
                     const filteredCount = individualDoctorStats.doctor_statistics.filter(doctor => 
                       !searchTerm || 
@@ -486,11 +486,11 @@ const DoctorStatistics = () => {
                 if (filteredDoctors.length === 0) {
                   return (
                     <div className="no-results">
-                      <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" className="mx-auto mb-4 w-12 h-12 text-gray-400">
+                      <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" className="mx-auto mb-4 w-12 h-12 text-curai-muted">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                       </svg>
-                      <p className="text-lg font-medium text-gray-900 mb-2">Врачи не найдены</p>
-                      <p className="text-gray-500">Попробуйте изменить критерии поиска</p>
+                      <p className="text-lg font-medium text-curai-ink mb-2">Врачи не найдены</p>
+                      <p className="text-curai-muted">Попробуйте изменить критерии поиска</p>
                     </div>
                   );
                 }
@@ -498,103 +498,103 @@ const DoctorStatistics = () => {
                 return null;
               })()}
               
-              <table className="min-w-full divide-y divide-gray-200 searchable-table">
-                <thead className="bg-gray-50">
+              <table className="min-w-full divide-y divide-curai-border searchable-table">
+                <thead className="bg-curai-subtle">
                   <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th className="px-6 py-3 text-left text-xs font-medium text-curai-muted uppercase tracking-wider">
                       <div className="flex items-center">
                         Врач
                         <div className="ml-1 relative group">
-                          <span className="cursor-help text-gray-400">ℹ️</span>
-                          <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-3 py-2 bg-gray-800 text-white text-xs rounded-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 whitespace-nowrap z-10">
+                          <span className="cursor-help text-curai-muted">ℹ️</span>
+                          <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-3 py-2 bg-curai-ink text-white text-xs rounded-md opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 whitespace-nowrap z-10">
                             ФИО врача, специальность и телефон
                           </div>
                         </div>
                       </div>
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th className="px-6 py-3 text-left text-xs font-medium text-curai-muted uppercase tracking-wider">
                       <div className="flex items-center">
                         Приемов
                         <div className="ml-1 relative group">
-                          <span className="cursor-help text-gray-400">ℹ️</span>
-                          <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-3 py-2 bg-gray-800 text-white text-xs rounded-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 whitespace-nowrap z-10">
+                          <span className="cursor-help text-curai-muted">ℹ️</span>
+                          <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-3 py-2 bg-curai-ink text-white text-xs rounded-md opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 whitespace-nowrap z-10">
                             Общее количество записей на прием за период
                           </div>
                         </div>
                       </div>
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th className="px-6 py-3 text-left text-xs font-medium text-curai-muted uppercase tracking-wider">
                       <div className="flex items-center">
                         Завершено
                         <div className="ml-1 relative group">
-                          <span className="cursor-help text-gray-400">ℹ️</span>
-                          <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-3 py-2 bg-gray-800 text-white text-xs rounded-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 whitespace-nowrap z-10">
+                          <span className="cursor-help text-curai-muted">ℹ️</span>
+                          <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-3 py-2 bg-curai-ink text-white text-xs rounded-md opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 whitespace-nowrap z-10">
                             Количество успешно проведенных приемов и % от общего
                           </div>
                         </div>
                       </div>
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th className="px-6 py-3 text-left text-xs font-medium text-curai-muted uppercase tracking-wider">
                       <div className="flex items-center">
                         Рабочих часов
                         <div className="ml-1 relative group">
-                          <span className="cursor-help text-gray-400">ℹ️</span>
-                          <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-3 py-2 bg-gray-800 text-white text-xs rounded-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 whitespace-nowrap z-10">
+                          <span className="cursor-help text-curai-muted">ℹ️</span>
+                          <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-3 py-2 bg-curai-ink text-white text-xs rounded-md opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 whitespace-nowrap z-10">
                             Отработанные часы из запланированных. Считается время завершенных приемов
                           </div>
                         </div>
                       </div>
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th className="px-6 py-3 text-left text-xs font-medium text-curai-muted uppercase tracking-wider">
                       <div className="flex items-center">
                         % загруженности
                         <div className="ml-1 relative group">
-                          <span className="cursor-help text-gray-400">ℹ️</span>
-                          <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-3 py-2 bg-gray-800 text-white text-xs rounded-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 whitespace-nowrap z-10">
+                          <span className="cursor-help text-curai-muted">ℹ️</span>
+                          <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-3 py-2 bg-curai-ink text-white text-xs rounded-md opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 whitespace-nowrap z-10">
                             (Отработанные часы / Запланированные часы) × 100. Показывает эффективность использования времени
                           </div>
                         </div>
                       </div>
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th className="px-6 py-3 text-left text-xs font-medium text-curai-muted uppercase tracking-wider">
                       <div className="flex items-center">
                         Не пришли
                         <div className="ml-1 relative group">
-                          <span className="cursor-help text-gray-400">ℹ️</span>
-                          <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-3 py-2 bg-gray-800 text-white text-xs rounded-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 whitespace-nowrap z-10">
+                          <span className="cursor-help text-curai-muted">ℹ️</span>
+                          <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-3 py-2 bg-curai-ink text-white text-xs rounded-md opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 whitespace-nowrap z-10">
                             Количество неявок пациентов и % от общего числа записей
                           </div>
                         </div>
                       </div>
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th className="px-6 py-3 text-left text-xs font-medium text-curai-muted uppercase tracking-wider">
                       <div className="flex items-center">
                         Выручка
                         <div className="ml-1 relative group">
-                          <span className="cursor-help text-gray-400">ℹ️</span>
-                          <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-3 py-2 bg-gray-800 text-white text-xs rounded-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 whitespace-nowrap z-10">
+                          <span className="cursor-help text-curai-muted">ℹ️</span>
+                          <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-3 py-2 bg-curai-ink text-white text-xs rounded-md opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 whitespace-nowrap z-10">
                             Общий доход от завершенных приемов за период
                           </div>
                         </div>
                       </div>
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th className="px-6 py-3 text-left text-xs font-medium text-curai-muted uppercase tracking-wider">
                       <div className="flex items-center">
                         Средний доход
                         <div className="ml-1 relative group">
-                          <span className="cursor-help text-gray-400">ℹ️</span>
-                          <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-3 py-2 bg-gray-800 text-white text-xs rounded-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 whitespace-nowrap z-10">
+                          <span className="cursor-help text-curai-muted">ℹ️</span>
+                          <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-3 py-2 bg-curai-ink text-white text-xs rounded-md opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 whitespace-nowrap z-10">
                             Средний доход за прием и за час работы
                           </div>
                         </div>
                       </div>
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th className="px-6 py-3 text-left text-xs font-medium text-curai-muted uppercase tracking-wider">
                       <div className="flex items-center">
                         % завершений
                         <div className="ml-1 relative group">
-                          <span className="cursor-help text-gray-400">ℹ️</span>
-                          <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-3 py-2 bg-gray-800 text-white text-xs rounded-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 whitespace-nowrap z-10">
+                          <span className="cursor-help text-curai-muted">ℹ️</span>
+                          <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-3 py-2 bg-curai-ink text-white text-xs rounded-md opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 whitespace-nowrap z-10">
                             (Завершенные приемы / Все приемы) × 100. Показатель качества работы
                           </div>
                         </div>
@@ -602,7 +602,7 @@ const DoctorStatistics = () => {
                     </th>
                   </tr>
                 </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
+                <tbody className="bg-curai-surface divide-y divide-curai-border">
                   {individualDoctorStats.doctor_statistics
                     .filter(doctor => 
                       !searchTerm || 
@@ -612,39 +612,39 @@ const DoctorStatistics = () => {
                     )
                     .slice(0, 20)
                     .map((doctor, index) => (
-                    <tr key={doctor.doctor_id} className="hover:bg-gray-50">
+                    <tr key={doctor.doctor_id} className="hover:bg-curai-subtle">
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div>
-                          <div className="text-sm font-medium text-gray-900">
+                          <div className="text-sm font-medium text-curai-ink">
                             {doctor.doctor_name}
                           </div>
-                          <div className="text-sm text-gray-500">
+                          <div className="text-sm text-curai-muted">
                             {doctor.doctor_specialty}
                           </div>
                           {doctor.doctor_phone && (
-                            <div className="text-sm text-gray-400">
+                            <div className="text-sm text-curai-muted">
                               {doctor.doctor_phone}
                             </div>
                           )}
                         </div>
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-curai-ink">
                         {doctor.total_appointments}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm">
-                        <span className="text-green-600 font-medium">
+                        <span className="text-curai-positive font-medium">
                           {doctor.completed_appointments}
                         </span>
-                        <span className="text-gray-500 ml-1">
+                        <span className="text-curai-muted ml-1">
                           ({doctor.completion_rate.toFixed(1)}%)
                         </span>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm">
                         <div className="flex items-center">
-                          <span className="text-blue-600 font-medium">
+                          <span className="text-curai-blue font-medium">
                             {doctor.total_worked_hours.toFixed(1)}ч
                           </span>
-                          <div className="text-xs text-gray-500 ml-2">
+                          <div className="text-xs text-curai-muted ml-2">
                             из {doctor.total_scheduled_hours.toFixed(1)}ч
                           </div>
                         </div>
@@ -652,16 +652,16 @@ const DoctorStatistics = () => {
                       <td className="px-6 py-4 whitespace-nowrap text-sm">
                         <div className="flex items-center">
                           <span className={`font-medium ${
-                            doctor.utilization_rate >= 80 ? 'text-green-600' : 
-                            doctor.utilization_rate >= 60 ? 'text-yellow-600' : 'text-red-600'
+                            doctor.utilization_rate >= 80 ? "text-curai-positive" :
+                            doctor.utilization_rate >= 60 ? "text-curai-warning" : "text-curai-negative"
                           }`}>
                             {doctor.utilization_rate.toFixed(1)}%
                           </span>
-                          <div className="ml-2 flex-1 bg-gray-200 rounded-full h-2">
+                          <div className="ml-2 flex-1 bg-curai-border rounded-full h-2">
                             <div 
                               className={`h-2 rounded-full ${
-                                doctor.utilization_rate >= 80 ? 'bg-green-500' : 
-                                doctor.utilization_rate >= 60 ? 'bg-yellow-500' : 'bg-red-500'
+                                doctor.utilization_rate >= 80 ? "bg-curai-positive" :
+                                doctor.utilization_rate >= 60 ? "bg-curai-warning" : "bg-curai-negative"
                               }`}
                               style={{ width: `${Math.min(doctor.utilization_rate, 100)}%` }}
                             ></div>
@@ -669,28 +669,28 @@ const DoctorStatistics = () => {
                         </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm">
-                        <span className="text-red-600 font-medium">
+                        <span className="text-curai-negative font-medium">
                           {doctor.no_show_appointments}
                         </span>
-                        <span className="text-gray-500 ml-1">
+                        <span className="text-curai-muted ml-1">
                           ({doctor.no_show_rate.toFixed(1)}%)
                         </span>
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-green-600 font-medium">
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-curai-positive font-medium">
                         {doctor.total_revenue.toLocaleString()} ₸
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-curai-ink">
                         <div>
                           <div>{doctor.avg_revenue_per_appointment.toFixed(0)} ₸ / прием</div>
-                          <div className="text-xs text-gray-500">
+                          <div className="text-xs text-curai-muted">
                             {doctor.avg_revenue_per_hour > 0 ? `${doctor.avg_revenue_per_hour.toFixed(0)} ₸ / час` : '—'}
                           </div>
                         </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm">
                         <span className={`font-medium ${
-                          doctor.completion_rate >= 80 ? 'text-green-600' : 
-                          doctor.completion_rate >= 60 ? 'text-yellow-600' : 'text-red-600'
+                          doctor.completion_rate >= 80 ? "text-curai-positive" :
+                          doctor.completion_rate >= 60 ? "text-curai-warning" : "text-curai-negative"
                         }`}>
                           {doctor.completion_rate.toFixed(1)}%
                         </span>
@@ -707,70 +707,70 @@ const DoctorStatistics = () => {
       {/* Monthly Statistics */}
       {activeTab === 'monthly' && doctorStats && doctorStats.monthly_statistics && (
         <div className="space-y-6">
-          <div className="bg-white rounded-lg shadow overflow-hidden">
-            <div className="px-6 py-4 border-b border-gray-200">
-              <h3 className="text-lg font-semibold text-gray-900">Статистика врачей по месяцам</h3>
+          <div className="bg-curai-surface rounded-md shadow-none overflow-hidden">
+            <div className="px-6 py-4 border-b border-curai-border">
+              <h3 className="text-lg font-semibold text-curai-ink">Статистика врачей по месяцам</h3>
             </div>
             <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-gray-200">
-                <thead className="bg-gray-50">
+              <table className="min-w-full divide-y divide-curai-border">
+                <thead className="bg-curai-subtle">
                   <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th className="px-6 py-3 text-left text-xs font-medium text-curai-muted uppercase tracking-wider">
                       Месяц
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th className="px-6 py-3 text-left text-xs font-medium text-curai-muted uppercase tracking-wider">
                       Всего приемов
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th className="px-6 py-3 text-left text-xs font-medium text-curai-muted uppercase tracking-wider">
                       Завершено
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th className="px-6 py-3 text-left text-xs font-medium text-curai-muted uppercase tracking-wider">
                       Отменено
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th className="px-6 py-3 text-left text-xs font-medium text-curai-muted uppercase tracking-wider">
                       Не пришли
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th className="px-6 py-3 text-left text-xs font-medium text-curai-muted uppercase tracking-wider">
                       Выручка
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th className="px-6 py-3 text-left text-xs font-medium text-curai-muted uppercase tracking-wider">
                       % завершений
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th className="px-6 py-3 text-left text-xs font-medium text-curai-muted uppercase tracking-wider">
                       Средний доход
                     </th>
                   </tr>
                 </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
+                <tbody className="bg-curai-surface divide-y divide-curai-border">
                   {doctorStats.monthly_statistics.map((month, index) => (
-                    <tr key={month.month} className="hover:bg-gray-50">
-                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                    <tr key={month.month} className="hover:bg-curai-subtle">
+                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-curai-ink">
                         {month.month}
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-curai-ink">
                         {month.total_appointments}
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-green-600">
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-curai-positive">
                         {month.completed_appointments}
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-yellow-600">
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-curai-warning">
                         {month.cancelled_appointments}
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-red-600">
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-curai-negative">
                         {month.no_show_appointments}
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-green-600">
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-curai-positive">
                         {month.total_revenue.toLocaleString()} ₸
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm">
                         <span className={`font-medium ${
-                          month.completion_rate >= 70 ? 'text-green-600' : 
-                          month.completion_rate >= 50 ? 'text-yellow-600' : 'text-red-600'
+                          month.completion_rate >= 70 ? "text-curai-positive" :
+                          month.completion_rate >= 50 ? "text-curai-warning" : "text-curai-negative"
                         }`}>
                           {month.completion_rate}%
                         </span>
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-curai-ink">
                         {month.avg_revenue_per_appointment.toFixed(0)} ₸
                       </td>
                     </tr>

@@ -1,290 +1,58 @@
-.calendar-container.calendar-view-panel {
-  width: 100%;
-  background: transparent;
-  border-radius: 1rem;
-  box-shadow: 0 25px 45px rgba(15, 23, 42, 0.12);
-  overflow: visible;
-  padding: 0;
-  margin: 0;
+/* Shared calendar presentation; scheduling, dates, drag/drop and permissions stay in JS. */
+/* Curai owns grid borders in both document themes. This scoped specificity
+   overrides legacy Tailwind dark:border utilities without changing other pages. */
+:is(.calendar-view-panel, .curai-calendar-fullscreen) :is(.calendar-grid, .calendar-time-column-sticky, .calendar-time-header, .calendar-time-label, .calendar-room-column, .calendar-timeslot) {
+  border-color: var(--curai-color-border);
 }
 
-.calendar-date-nav {
-  background-color: rgba(255, 255, 255, 0.14);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.15);
-  color: #fff;
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
-}
-
-.calendar-nav-controls {
-  gap: 0.3rem;
-}
-
-.calendar-nav-btn {
-  background: rgba(59, 130, 246, 0.1);
-  border-radius: 999px;
-  padding: 0.4rem;
-  border: 1px solid rgba(59, 130, 246, 0.3);
-  color: #3b82f6;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  transition: all 0.2s ease;
-}
-
-.calendar-nav-btn:hover {
-  background: rgba(59, 130, 246, 0.2);
-  border-color: rgba(59, 130, 246, 0.5);
-  color: #2563eb;
-  transform: scale(1.05);
-}
-
-.calendar-date-pill {
-  background: rgba(59, 130, 246, 0.1);
-  color: #3b82f6;
-  padding: 0.35rem 0.95rem;
-  border-radius: 999px;
-  font-size: 0.85rem;
-  font-weight: 600;
-  border: 1px solid rgba(59, 130, 246, 0.3);
-  transition: all 0.2s ease;
-}
-
-.calendar-date-pill:hover {
-  background: rgba(59, 130, 246, 0.2);
-  border-color: rgba(59, 130, 246, 0.5);
-  color: #2563eb;
-}
-
-.calendar-nav-date-block {
-  flex: 1;
-}
-
-.calendar-date-heading {
-  text-align: center;
-}
-
-.calendar-date-title,
-.calendar-date-subtitle {
-  margin: 0;
-}
-
-.calendar-date-actions {
-  gap: 0.75rem;
-}
-
-.calendar-date-actions .calendar-date-input {
-  min-width: 150px;
-}
-
-.calendar-date-input {
-  background: rgba(255, 255, 255, 0.9) !important;
-  border-radius: 0.75rem;
-  border-color: rgba(15, 23, 42, 0.1) !important;
-  color: #0f1b3d;
-}
-
-.calendar-new-appointment-btn {
-  box-shadow: 0 10px 30px rgba(37, 99, 235, 0.35);
-}
-
-/* Основной скролл-контейнер (вертикальный + горизонтальный) */
-.calendar-main-scroll {
-  scrollbar-width: thin;
-  scrollbar-color: #c7d2fe #f1f5f9;
-}
-
-.calendar-main-scroll::-webkit-scrollbar {
-  width: 6px;
-  height: 8px;
-}
-
-.calendar-main-scroll::-webkit-scrollbar-track {
-  background: #f1f5f9;
-  border-radius: 4px;
-}
-
-.calendar-main-scroll::-webkit-scrollbar-thumb {
-  background: #c7d2fe;
-  border-radius: 4px;
-}
-
-.calendar-main-scroll::-webkit-scrollbar-thumb:hover {
-  background: #818cf8;
-}
-
-.calendar-main-scroll::-webkit-scrollbar-corner {
-  background: #f1f5f9;
-}
-
-.calendar-grid {
-  border-color: rgba(148, 163, 184, 0.8);
-}
-
-/* Фиксированная колонка времени */
-.calendar-time-column-sticky {
-  position: sticky;
-  left: 0;
-  z-index: 10;
-  box-shadow: 2px 0 8px rgba(15, 23, 42, 0.08);
-}
-
-.calendar-time-column {
-  background: linear-gradient(180deg, #e1e8ff, #f0f4ff);
-}
-
-.calendar-time-header {
-  background: #e5ecff;
-  color: #1e2a78;
-}
-
-.calendar-time-label {
-  color: #1e2a78;
-}
-
-.calendar-rooms-wrapper {
-  background: #fdfdff;
-}
-
-.calendar-no-rooms {
-  color: #94a3b8;
-}
-
-.calendar-room-column {
-  background: #fff;
-}
-
-.calendar-room-header {
-  background: #f2f5ff;
-  color: #1f2f63;
-}
-
-.calendar-timeslot {
-  background: #fdfdff;
-  transition: background 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
-}
-
-.calendar-timeslot-available {
-  background: #ffffff;
-}
-
-.calendar-timeslot-empty {
-  background: #eef2ff;
-  color: #94a3b8;
-}
-
-.calendar-timeslot-dragover {
-  border-color: #60a5fa !important;
-  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.25);
-}
-
-.calendar-slot-doctor {
-  color: #0f172a;
-  font-weight: 500;
-}
-
-.calendar-slot-empty {
-  color: #94a3b8;
-}
-
-@media (max-width: 768px) {
-  .calendar-container.calendar-view-panel {
-    padding: 1rem;
-    border-radius: 1.25rem;
-  }
-
-  .calendar-date-nav {
-    flex-direction: column;
-    align-items: stretch;
-    gap: 0.75rem;
-  }
-
-  .calendar-nav-date-block {
-    justify-content: flex-start;
-  }
-
-  .calendar-date-actions {
-      justify-content: center;
-    }
-  }
-
-  /* ==================== Мобильная адаптация календаря ==================== */
-    /* Тот же порог, что и window.innerWidth < 1024 в CalendarView.js */
-    @media (max-width: 1023px) {
-      /* Высота ячеек времени: h-16 (64px) -> 40px */
-      .calendar-timeslot {
-        height: 40px !important;
-      }
-      .calendar-time-label,
-      .calendar-time-header {
-        height: 36px !important;
-      }
-      .calendar-room-header {
-        height: 40px !important;
-      }
-      .calendar-room-name-row,
-      .calendar-room-doctor-row {
-        height: 16px !important;
-      }
-
-      /* Убираем крупную тень-«подложку» белого блока на мобиле */
-            .calendar-container.calendar-view-panel {
-              box-shadow: none;
-            }
-
-            /* Колонка кабинета — «резиновая»: растягивается на всю доступную ширину
-                     вместо фиксированных 180px (TimeGrid width/minWidth) */
-                  .calendar-main-scroll {
-                    overflow-x: hidden !important;
-                  }
-                  .calendar-grid {
-                                      width: 100% !important;
-                                      min-width: 100% !important;
-                                    }
-                                    .calendar-rooms-wrapper {
-                                      width: auto !important;
-                                      min-width: 0 !important;
-                                      flex: 1 1 100% !important;
-                                    }
-                                    .calendar-room-column {
-                                                                          width: auto !important;
-                                                                          min-width: 0 !important;
-                                                                          flex: 1 1 100% !important;
-                                                                        }
-
-                                              }
-
-/* Allow schedule actions to wrap inside the header at any available width. */
-.calendar-schedule-header {
-  flex-direction: row;
-  flex-wrap: wrap;
-  align-items: center;
-}
-
-.calendar-schedule-header > div:first-child {
-  flex: 1 1 20rem;
-  min-width: 0;
-  overflow-wrap: anywhere;
-}
-
-.calendar-header-controls {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: flex-end;
-  gap: 0.5rem;
-  max-width: 100%;
-  min-width: 0;
-  margin-left: auto;
-}
-
-.calendar-normal-scroll {
-  max-height: calc(100vh - 216px);
-}
-
+.calendar-container.calendar-view-panel { width: 100%; padding: 0; margin: 0; background: transparent; border-radius: 0; box-shadow: none; overflow: visible; }
+.curai-calendar-header { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--curai-space-16); padding: 0 0 var(--curai-space-32); background: var(--curai-color-canvas); color: var(--curai-color-ink); }
+.curai-calendar-header > div:first-child { flex: 1 1 20rem; min-width: 0; overflow-wrap: anywhere; }
+.curai-calendar-header h2 { margin: 0; color: var(--curai-color-ink); font-size: var(--curai-type-size-20); line-height: 29px; font-weight: 600; }
+.curai-calendar-header p { margin: var(--curai-space-4) 0 0; color: var(--curai-color-muted); font-size: var(--curai-type-size-12); line-height: var(--curai-type-line-18); }
+.calendar-header-controls, .curai-calendar-actions { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: var(--curai-space-16); max-width: 100%; min-width: 0; margin-left: auto; }
+.calendar-header-controls > button[aria-haspopup="dialog"], .curai-calendar-actions > button[aria-haspopup="dialog"] { min-height: var(--curai-control-default); border: 1px solid var(--curai-color-control); border-radius: var(--curai-radius-6); background: var(--curai-color-surface); color: var(--curai-color-blue); box-shadow: none; }
+.calendar-new-appointment-btn { box-shadow: none; }
+.curai-calendar-body { background: var(--curai-color-surface); border: 1px solid var(--curai-color-border); border-radius: var(--curai-radius-6); overflow: hidden; }
+.calendar-main-scroll { scrollbar-width: thin; scrollbar-color: var(--curai-color-control) var(--curai-color-subtle); isolation: isolate; }
+.calendar-main-scroll::-webkit-scrollbar { width: var(--curai-space-8); height: var(--curai-space-8); }
+.calendar-main-scroll::-webkit-scrollbar-track, .calendar-main-scroll::-webkit-scrollbar-corner { background: var(--curai-color-subtle); }
+.calendar-main-scroll::-webkit-scrollbar-thumb { background: var(--curai-color-control); border-radius: var(--curai-radius-2); }
+.calendar-main-scroll::-webkit-scrollbar-thumb:hover { background: var(--curai-color-muted); }
+.calendar-normal-scroll { max-height: calc(100vh - 240px); }
+.calendar-grid { min-width: 100%; width: max-content; border-color: var(--curai-color-border); }
+.calendar-time-column-sticky { position: sticky; left: 0; z-index: 30; width: var(--curai-calendar-time-width); background: var(--curai-color-surface); border-color: var(--curai-color-border); }
+.calendar-time-header { position: sticky; top: 0; z-index: 31; height: var(--curai-calendar-header-height); background: var(--curai-color-surface); color: var(--curai-color-muted); justify-content: flex-start; align-items: flex-start; padding: var(--curai-space-16) var(--curai-space-12); font-size: var(--curai-type-size-11); font-weight: 400; border-color: var(--curai-color-border); border-left: 0; }
+.calendar-time-label { height: var(--curai-calendar-slot-height); align-items: flex-start; justify-content: flex-start; padding: var(--curai-space-8) var(--curai-space-12); color: var(--curai-color-muted); background: var(--curai-color-surface); font-size: var(--curai-type-size-11); font-weight: 400; border-color: var(--curai-color-border); border-left: 0; }
+.calendar-rooms-wrapper { flex: 1; min-width: 0; background: var(--curai-color-surface); }
+.calendar-no-rooms { min-width: var(--curai-calendar-cabinet-width); color: var(--curai-color-muted); }
+.calendar-room-column { width: var(--curai-calendar-cabinet-width); min-width: var(--curai-calendar-cabinet-width); flex: 1 0 var(--curai-calendar-cabinet-width); background: var(--curai-color-surface); border-color: var(--curai-color-border); }
+/* Keep the entire room body below sticky headers/time, including elevated cards.
+   One context per room preserves cards spanning multiple time slots. Portalled
+   status menus and dialogs remain outside this local context. */
+.calendar-room-slots { position: relative; isolation: isolate; z-index: 0; }
+.calendar-room-header { position: sticky; top: 0; z-index: 20; height: var(--curai-calendar-header-height); padding: var(--curai-space-8) var(--curai-space-12); background: var(--curai-color-surface); color: var(--curai-color-ink); border-bottom: 1px solid var(--curai-color-border); overflow-y: auto; }
+.calendar-room-name-row { font-size: var(--curai-type-size-13); font-weight: 600; line-height: var(--curai-type-line-20); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.calendar-room-doctor-row { margin-top: var(--curai-space-8); display: flex; flex-direction: column; gap: var(--curai-space-4); }
+.curai-room-shift { display: flex; align-items: center; gap: var(--curai-space-8); min-width: 0; font-size: var(--curai-type-size-11); line-height: var(--curai-type-line-18); }
+.curai-room-doctor-name, .curai-room-doctor-time { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.curai-room-doctor-time, .curai-room-no-doctor { color: var(--curai-color-muted); font-size: var(--curai-type-size-11); }
+.calendar-timeslot { height: var(--curai-calendar-slot-height); border-color: var(--curai-color-border); border-left: 0; background: var(--curai-color-subtle); transition: background-color 150ms ease; }
+.calendar-timeslot-available { background: var(--curai-color-selected); }
+.calendar-timeslot-available:hover { background: var(--curai-color-hover); }
+.calendar-timeslot-empty { background: var(--curai-color-subtle); color: var(--curai-color-muted); }
+.calendar-timeslot-dragover { outline: 2px solid var(--curai-color-focus); outline-offset: -2px; background: var(--curai-color-hover); }
+.curai-appointment-card { border: 1px solid var(--curai-color-border); border-radius: var(--curai-radius-4); background: var(--curai-color-surface); color: var(--curai-color-ink); }
+.curai-appointment-doctor { display: flex; align-items: center; gap: var(--curai-space-4); }
+.curai-appointment-doctor .curai-doctor-marker { height: var(--curai-space-12); }
+.curai-calendar-fullscreen { background: var(--curai-color-canvas); color: var(--curai-color-ink); font-family: var(--curai-type-family), ui-sans-serif, system-ui, sans-serif; }
+.curai-calendar-fullscreen-header { padding: var(--curai-space-16) var(--curai-space-24); border-bottom: 1px solid var(--curai-color-border); }
+.calendar-mobile-toolbar { padding: var(--curai-space-8); border-bottom: 1px solid var(--curai-color-border); }
 @media (max-width: 1023px) {
-  /* Keep room for the wrapped header and the mobile room selector. */
-  .calendar-normal-scroll {
-    max-height: calc(100vh - 280px);
-  }
+  .calendar-normal-scroll { max-height: calc(100vh - 300px); }
+  .calendar-header-controls, .curai-calendar-actions { gap: var(--curai-space-8); }
+  .curai-calendar-header { padding-bottom: var(--curai-space-16); }
+  .calendar-grid { width: 100%; }
+  .calendar-rooms-wrapper { width: 0; flex: 1 1 0; }
+  .calendar-room-column { width: auto; min-width: 0; flex: 1 1 0; }
 }

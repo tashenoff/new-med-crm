@@ -12,13 +12,17 @@ test('patient create, edit and reset forms omit API counts without changing the 
   };
   let props;
   let resetForm;
+  let creates = 0, updates = 0;
   const patient = { id: 'patient', full_name: 'Patient', appointments_count: 7, records_count: 9 };
   const original = { ...patient };
   const { add, edit, reset, save } = new Function(
     'openModal', 'updateModalProps', 'loading', 'errorMessage', 'setShowPatientModal',
     'setEditingItem', 'setPatientForm', 'getModalProps', 'patientsHook', 'setLoading',
-    'setErrorMessage', 'closeModal', 'console',
-    `${handlers('handleAddPatient', 'const handleSavePatient =')}
+    'setErrorMessage', 'closeModal', 'console', 'setTimeout',
+    `const patientSessionRef = { current: null };
+     const patientSaveRef = { current: false };
+     ${handlers('openPatientModal', '// UI состояния')}
+     ${handlers('handleAddPatient', 'const handleSavePatient =')}
      ${handlers('handleSavePatient', 'const handleDeletePatient =')}
      ${handlers('handleClosePatientModal', 'return (')}
      return { add: handleAddPatient, edit: handleEditPatient, reset: handleClosePatientModal, save: handleSavePatient };`
@@ -26,10 +30,10 @@ test('patient create, edit and reset forms omit API counts without changing the 
     (_type, value) => { props = value; }, () => {}, false, null, () => {}, () => {},
     form => { resetForm = form; }, () => props,
     {
-      createPatient: async data => { checkCounts(data); return { success: true }; },
-      updatePatient: async (id, data) => { assert.equal(id, patient.id); checkCounts(data); return { success: true }; },
+      createPatient: async data => { creates++; checkCounts(data); return { success: true }; },
+      updatePatient: async (id, data) => { updates++; assert.equal(id, patient.id); checkCounts(data); return { success: true }; },
       fetchPatients: async () => {}
-    }, () => {}, () => {}, () => {}, { log() {}, error: assert.fail }
+    }, () => {}, () => {}, () => {}, { log() {}, error: assert.fail }, () => {}
   );
   function checkCounts(form) {
     assert.equal(Object.hasOwn(form, 'appointments_count'), false);
@@ -37,14 +41,16 @@ test('patient create, edit and reset forms omit API counts without changing the 
   }
   add();
   checkCounts(props.patientForm);
-  await save({ preventDefault() {} });
+  await props.onSave({ preventDefault() {} });
   edit(patient);
   checkCounts(props.patientForm);
   assert.equal(props.editingItem, patient);
-  await save({ preventDefault() {} });
+  await props.onSave({ preventDefault() {} });
   reset();
   checkCounts(resetForm);
   assert.deepEqual(patient, original);
+  assert.equal(creates, 1);
+  assert.equal(updates, 1);
 });
 
 test('patient modal has no count inputs', async () => {

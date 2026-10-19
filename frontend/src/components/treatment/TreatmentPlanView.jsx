@@ -1,12 +1,13 @@
 import React, { useState } from 'react';
 import { paymentDiscount, paymentSummary } from '../../utils/paymentBalances';
-import { completionRequest, ledgerFetch } from '../../utils/accountingLedger';
+import { useTreatmentExecution } from './shared/useTreatmentExecution';
 
 const TreatmentPlanView = ({ plan, onUpdate }) => {
-  const [loading, setLoading] = useState(false);
+  const { loading, markProcedureCompleted, executionCounts, progress } = useTreatmentExecution(plan, onUpdate);
+  
   // Раскрытие списка «Что входит» для комплексных услуг, по индексу услуги
   const [openComps, setOpenComps] = useState({});
-  const API = import.meta.env.VITE_BACKEND_URL;
+  
 
   const toggleComps = (index) =>
     setOpenComps(prev => ({ ...prev, [index]: !prev[index] }));
@@ -18,27 +19,14 @@ const TreatmentPlanView = ({ plan, onUpdate }) => {
   const totalPlanDiscount = () =>
     (plan.services || []).reduce((sum, service) => sum + paymentDiscount(service), 0);
 
-  const markProcedureCompleted = async (service, component) => {
-    if (loading) return;
-    try {
-      setLoading(true);
-      const { path, payload } = completionRequest(plan, service, component);
-      const updatedPlan = await ledgerFetch(`${API}${path}`, payload);
-      if (onUpdate) await onUpdate(updatedPlan.plan || updatedPlan);
-    } catch (error) {
-      console.error('Error marking procedure completed:', error);
-      alert('Ошибка при отметке процедуры: ' + error.message);
-    } finally {
-      setLoading(false);
-    }
-  };
+  
 
   const getStatusBadge = (status) => {
     const badges = {
-      'pending': { bg: 'bg-gray-100', text: 'text-gray-700', label: 'Ожидает' },
-      'in_progress': { bg: 'bg-blue-100', text: 'text-blue-700', label: 'В процессе' },
-      'completed': { bg: 'bg-green-100', text: 'text-green-700', label: 'Завершено' },
-      'cancelled': { bg: 'bg-red-100', text: 'text-red-700', label: 'Отменено' }
+      'pending': { bg: "bg-curai-subtle", text: "text-curai-ink", label: 'Ожидает' },
+      'in_progress': { bg: "bg-curai-selected", text: "text-curai-blue", label: 'В процессе' },
+      'completed': { bg: "bg-curai-positiveBg", text: "text-curai-positive", label: 'Завершено' },
+      'cancelled': { bg: "bg-curai-negativeBg", text: "text-curai-negative", label: 'Отменено' }
     };
     const badge = badges[status] || badges['pending'];
     return (
@@ -50,9 +38,9 @@ const TreatmentPlanView = ({ plan, onUpdate }) => {
 
   const getPaymentStatusBadge = (status) => {
     const badges = {
-      'unpaid': { bg: 'bg-red-100', text: 'text-red-700', label: 'Не оплачено' },
-      'partially_paid': { bg: 'bg-yellow-100', text: 'text-yellow-700', label: 'Частично оплачено' },
-      'paid': { bg: 'bg-green-100', text: 'text-green-700', label: 'Оплачено' }
+      'unpaid': { bg: "bg-curai-negativeBg", text: "text-curai-negative", label: 'Не оплачено' },
+      'partially_paid': { bg: "bg-curai-warningBg", text: "text-curai-warning", label: 'Частично оплачено' },
+      'paid': { bg: "bg-curai-positiveBg", text: "text-curai-positive", label: 'Оплачено' }
     };
     const badge = badges[status] || badges['unpaid'];
     return (
@@ -62,36 +50,18 @@ const TreatmentPlanView = ({ plan, onUpdate }) => {
     );
   };
 
-  const executionCounts = service => {
-    if (service.is_complex) {
-      return (service.components || []).reduce((sum, part) => ({
-        total: sum.total + (part.occurrence_ids?.length || part.quantity || 1),
-        completed: sum.completed + (part.quantity_completed || 0)
-      }), { total: 0, completed: 0 });
-    }
-    if (service.is_course || service.payment_type === 'per_session') {
-      return { total: (service.sessions || []).length,
-        completed: (service.sessions || []).filter(session => session.completed).length };
-    }
-    return { total: service.occurrence_ids?.length || service.quantity_total || service.quantity || 1,
-      completed: service.quantity_completed || 0 };
-  };
-  const calculateProgress = () => {
-    const counts = plan.services.map(executionCounts).reduce((sum, part) => ({
-      total: sum.total + part.total, completed: sum.completed + part.completed
-    }), { total: 0, completed: 0 });
-    return { ...counts, percentage: counts.total ? Math.round(counts.completed / counts.total * 100) : 0 };
-  };
+  
+  
 
-  const progress = calculateProgress();
+  
 
   return (
-    <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+    <div className="bg-curai-surface rounded-md shadow-none border border-curai-border p-6">
       {/* Заголовок */}
       <div className="flex justify-between items-start mb-4">
         <div className="flex-1">
-          <h3 className="text-lg font-semibold text-gray-900">{plan.title}</h3>
-          <p className="text-sm text-gray-600 mt-1">{plan.description}</p>
+          <h3 className="text-lg font-semibold text-curai-ink">{plan.title}</h3>
+          <p className="text-sm text-curai-muted mt-1">{plan.description}</p>
         </div>
         <div className="flex flex-col items-end">
           {/* Показываем только статус оплаты */}
@@ -101,51 +71,51 @@ const TreatmentPlanView = ({ plan, onUpdate }) => {
 
       {/* Общий прогресс */}
       <div className="mb-4">
-        <div className="flex justify-between text-sm text-gray-600 mb-2">
+        <div className="flex justify-between text-sm text-curai-muted mb-2">
           <span>Общий прогресс: {progress.completed} из {progress.total} процедур</span>
           <span className="font-medium">{progress.percentage}%</span>
         </div>
-        <div className="w-full bg-gray-200 rounded-full h-2">
+        <div className="w-full bg-curai-border rounded-full h-2">
           <div
-            className="bg-blue-600 h-2 rounded-full transition-all duration-300"
+            className="bg-curai-blue h-2 rounded-full transition-all duration-300"
             style={{ width: `${progress.percentage}%` }}
           />
         </div>
       </div>
 
       {/* Финансовая информация */}
-      <div className="grid grid-cols-5 gap-4 mb-4 p-3 bg-gray-50 rounded-lg">
+      <div className="grid grid-cols-5 gap-4 mb-4 p-3 bg-curai-subtle rounded-md">
         <div>
-          <div className="text-xs text-gray-500">Стоимость плана</div>
-          <div className="text-lg font-semibold text-gray-900">
+          <div className="text-xs text-curai-muted">Стоимость плана</div>
+          <div className="text-lg font-semibold text-curai-ink">
             {(plan.total_cost || 0).toLocaleString()} ₸
           </div>
         </div>
         <div>
-          <div className="text-xs text-gray-500">Депозит</div>
-          <div className="text-lg font-semibold text-blue-600">
+          <div className="text-xs text-curai-muted">Депозит</div>
+          <div className="text-lg font-semibold text-curai-blue">
             {(plan.deposit_amount || 0).toLocaleString()} ₸
           </div>
           {(plan.deposit_amount || 0) > 0 && (
-            <div className="text-xs text-blue-500">из записей</div>
+            <div className="text-xs text-curai-blue">из записей</div>
           )}
         </div>
         <div>
-          <div className="text-xs text-gray-500">Оплачено</div>
-          <div className="text-lg font-semibold text-green-600">
+          <div className="text-xs text-curai-muted">Оплачено</div>
+          <div className="text-lg font-semibold text-curai-positive">
             {paidAmount.toLocaleString()} ₸
           </div>
         </div>
         <div>
-          <div className="text-xs text-gray-500">Остаток</div>
-          <div className="text-lg font-semibold text-red-600">
+          <div className="text-xs text-curai-muted">Остаток</div>
+          <div className="text-lg font-semibold text-curai-negative">
             {remainingToPay.toLocaleString()} ₸
           </div>
         </div>
         {/* Денежные скидки строк без повторного учёта скидок компонентов */}
         <div>
-          <div className="text-xs text-gray-500">Скидка</div>
-          <div className="text-lg font-semibold text-red-500">
+          <div className="text-xs text-curai-muted">Скидка</div>
+          <div className="text-lg font-semibold text-curai-negative">
             −{totalPlanDiscount().toLocaleString()} ₸
           </div>
         </div>
@@ -153,7 +123,7 @@ const TreatmentPlanView = ({ plan, onUpdate }) => {
 
       {/* Список услуг */}
       <div className="space-y-3">
-        <h4 className="font-medium text-gray-900">Назначенные услуги:</h4>
+        <h4 className="font-medium text-curai-ink">Назначенные услуги:</h4>
         
         {plan.services.map((service, index) => {
           const { total, completed } = executionCounts(service);
@@ -163,36 +133,36 @@ const TreatmentPlanView = ({ plan, onUpdate }) => {
           return (
             <div
               key={index}
-              className={`border rounded-lg p-4 ${
-                isCompleted ? 'bg-green-50 border-green-200' : 'bg-white border-gray-200'
+              className={`border rounded-md p-4 ${
+                isCompleted ? "bg-curai-positiveBg border-curai-positive" : "bg-curai-surface border-curai-border"
               }`}
             >
               <div className="flex items-start justify-between">
                 <div className="flex-1">
                   <div className="flex items-center space-x-2">
-                    {isCompleted && <span className="text-green-600 text-xl">✓</span>}
+                    {isCompleted && <span className="text-curai-positive text-xl">✓</span>}
                     {!isCompleted && completed > 0 && (
-                      <span className="text-blue-600 text-xl">⏳</span>
+                      <span className="text-curai-blue text-xl">⏳</span>
                     )}
-                    <h5 className="font-medium text-gray-900">{service.service_name}</h5>
+                    <h5 className="font-medium text-curai-ink">{service.service_name}</h5>
                     {service.is_complex && (
-                      <span className="ml-2 px-2 py-0.5 bg-purple-100 text-purple-700 text-xs rounded-full">🧩 Комплекс</span>
+                      <span className="ml-2 px-2 py-0.5 bg-curai-selected text-curai-blue text-xs rounded-full">🧩 Комплекс</span>
                     )}
                   </div>
                   
                   <div className="mt-2 space-y-1">
-                    <div className="text-sm text-gray-600">
+                    <div className="text-sm text-curai-muted">
                       Выполнено: <span className="font-medium">
                         {completed} из {total}
                       </span>
                     </div>
-                    <div className="text-sm text-gray-600">
+                    <div className="text-sm text-curai-muted">
                       Сумма: <span className="font-medium">
                         {(service.total_price || 0).toLocaleString()} ₸
                       </span>
                     </div>
                     {(Number(service.discount_amount) || 0) > 0 && (
-                      <div className="text-sm text-red-500">
+                      <div className="text-sm text-curai-negative">
                         Скидка: −{(Number(service.discount_amount) || 0).toLocaleString()} ₸
                       </div>
                     )}
@@ -200,7 +170,7 @@ const TreatmentPlanView = ({ plan, onUpdate }) => {
                       <button
                         type="button"
                         onClick={() => toggleComps(index)}
-                        className="text-xs text-purple-600 flex items-center gap-1 hover:underline focus:outline-none"
+                        className="text-xs text-curai-blue flex items-center gap-1 hover:underline focus:outline-none"
                       >
                         <svg
                           className={`w-3 h-3 transform transition-transform ${openComps[index] ? 'rotate-90' : ''}`}
@@ -213,7 +183,7 @@ const TreatmentPlanView = ({ plan, onUpdate }) => {
                       </button>
                     )}
                     {service.is_complex && openComps[index] && (
-                      <div className="text-xs text-purple-600 mt-1">
+                      <div className="text-xs text-curai-blue mt-1">
                         <ul className="list-disc pl-3 mt-0.5 space-y-0.5">
                           {service.components && service.components.length
                             ? service.components.map(c => {
@@ -222,11 +192,11 @@ const TreatmentPlanView = ({ plan, onUpdate }) => {
                                   <li key={c.component_id || c.service_id || c.service_name}>
                                     {c.service_name}{c.quantity && c.quantity > 1 ? ` ×${c.quantity}` : ''}{c.price ? ` — ${c.price.toLocaleString()} ₸` : ''}
                                     {compDiscount > 0 && (
-                                      <span className="text-red-500"> — скидка {compDiscount.toLocaleString()} ₸</span>
+                                      <span className="text-curai-negative"> — скидка {compDiscount.toLocaleString()} ₸</span>
                                     )}
                                     {c.status !== 'completed' && (
                                       <button type="button" disabled={loading} onClick={() => markProcedureCompleted(service, c)}
-                                        className="ml-2 text-blue-700 underline disabled:opacity-50">Отметить выполнение</button>
+                                        className="ml-2 text-curai-blue underline disabled:opacity-50">Отметить выполнение</button>
                                     )}
                                   </li>
                                 );
@@ -238,10 +208,10 @@ const TreatmentPlanView = ({ plan, onUpdate }) => {
                     
                     {/* Прогресс-бар для отдельной услуги */}
                     <div className="mt-2">
-                      <div className="w-full bg-gray-200 rounded-full h-1.5">
+                      <div className="w-full bg-curai-border rounded-full h-1.5">
                         <div
                           className={`h-1.5 rounded-full transition-all duration-300 ${
-                            isCompleted ? 'bg-green-600' : 'bg-blue-600'
+                            isCompleted ? "bg-curai-positive" : "bg-curai-blue"
                           }`}
                           style={{
                             width: `${Math.round(
@@ -260,13 +230,13 @@ const TreatmentPlanView = ({ plan, onUpdate }) => {
                     <button
                       onClick={() => markProcedureCompleted(service)}
                       disabled={loading}
-                      className="px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed text-sm font-medium transition-colors"
+                      className="px-3 py-2 bg-curai-blue text-white rounded-md hover:bg-curai-blue disabled:opacity-50 disabled:cursor-not-allowed text-sm font-medium transition-colors"
                     >
                       {loading ? '...' : '+ Отметить'}
                     </button>
                   )}
                   {isCompleted && (
-                    <div className="px-3 py-2 bg-green-100 text-green-700 rounded-lg text-sm font-medium">
+                    <div className="px-3 py-2 bg-curai-positiveBg text-curai-positive rounded-md text-sm font-medium">
                       Завершено
                     </div>
                   )}
@@ -279,14 +249,14 @@ const TreatmentPlanView = ({ plan, onUpdate }) => {
 
       {/* Примечания */}
       {plan.notes && (
-        <div className="mt-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
-          <div className="text-sm font-medium text-gray-700 mb-1">Примечания:</div>
-          <div className="text-sm text-gray-600 whitespace-pre-wrap">{plan.notes}</div>
+        <div className="mt-4 p-3 bg-curai-warningBg border border-curai-warning rounded-md">
+          <div className="text-sm font-medium text-curai-ink mb-1">Примечания:</div>
+          <div className="text-sm text-curai-muted whitespace-pre-wrap">{plan.notes}</div>
         </div>
       )}
 
       {/* Информация о создании */}
-      <div className="mt-4 pt-4 border-t border-gray-200 text-xs text-gray-500">
+      <div className="mt-4 pt-4 border-t border-curai-border text-xs text-curai-muted">
         Создано: {new Date(plan.created_at).toLocaleString('ru-RU')} • {plan.created_by_name}
       </div>
     </div>

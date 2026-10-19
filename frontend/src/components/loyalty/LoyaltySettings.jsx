@@ -69,12 +69,12 @@ const LoyaltySettings = () => {
 
   return (
     <div className="max-w-2xl mx-auto p-6">
-      <h2 className="text-2xl font-bold mb-6">Настройки программы лояльности</h2>
+      <h2 className="text-2xl font-semibold mb-6">Настройки программы лояльности</h2>
 
       <form onSubmit={handleSubmit} className="space-y-6">
         {/* Процент начисления бонусов */}
-        <div className="bg-white rounded-lg shadow p-6">
-          <label className="block text-sm font-medium text-gray-700 mb-2">
+        <div className="bg-curai-surface rounded-md shadow-none p-6">
+          <label className="block text-sm font-medium text-curai-ink mb-2">
             Процент начисления бонусов
           </label>
           <div className="flex items-center gap-4">
@@ -85,18 +85,18 @@ const LoyaltySettings = () => {
               step="0.1"
               value={settings.earning_rate}
               onChange={(e) => setSettings({...settings, earning_rate: parseFloat(e.target.value)})}
-              className="border border-gray-300 rounded-lg px-4 py-2 w-32"
+              className="border border-curai-control rounded-md px-4 py-2 w-32"
             />
-            <span className="text-gray-600">%</span>
+            <span className="text-curai-muted">%</span>
           </div>
-          <p className="text-sm text-gray-500 mt-2">
+          <p className="text-sm text-curai-muted mt-2">
             Процент от суммы оплаты, который начисляется пациенту в виде бонусов
           </p>
         </div>
 
         {/* Максимум использования бонусов */}
-        <div className="bg-white rounded-lg shadow p-6">
-          <label className="block text-sm font-medium text-gray-700 mb-2">
+        <div className="bg-curai-surface rounded-md shadow-none p-6">
+          <label className="block text-sm font-medium text-curai-ink mb-2">
             Максимум использования бонусов при оплате
           </label>
           <div className="flex items-center gap-4">
@@ -107,36 +107,36 @@ const LoyaltySettings = () => {
               step="1"
               value={settings.max_usage_percent}
               onChange={(e) => setSettings({...settings, max_usage_percent: parseFloat(e.target.value)})}
-              className="border border-gray-300 rounded-lg px-4 py-2 w-32"
+              className="border border-curai-control rounded-md px-4 py-2 w-32"
             />
-            <span className="text-gray-600">%</span>
+            <span className="text-curai-muted">%</span>
           </div>
-          <p className="text-sm text-gray-500 mt-2">
+          <p className="text-sm text-curai-muted mt-2">
             Максимальный процент от суммы услуги, который можно оплатить бонусами
           </p>
         </div>
 
         {/* Активность программы */}
-        <div className="bg-white rounded-lg shadow p-6">
+        <div className="bg-curai-surface rounded-md shadow-none p-6">
           <label className="flex items-center cursor-pointer">
             <input
               type="checkbox"
               checked={settings.is_active}
               onChange={(e) => setSettings({...settings, is_active: e.target.checked})}
-              className="w-5 h-5 text-blue-600 rounded focus:ring-blue-500"
+              className="w-5 h-5 text-curai-blue rounded focus:ring-curai-focus"
             />
-            <span className="ml-3 text-sm font-medium text-gray-700">
+            <span className="ml-3 text-sm font-medium text-curai-ink">
               Программа лояльности активна
             </span>
           </label>
-          <p className="text-sm text-gray-500 mt-2">
+          <p className="text-sm text-curai-muted mt-2">
             Когда программа неактивна, бонусы не начисляются и не могут быть использованы
           </p>
         </div>
 
         {/* Сообщение */}
         {message && (
-          <div className={`rounded-lg p-4 ${message.includes('успешно') ? 'bg-green-50 text-green-800' : 'bg-red-50 text-red-800'}`}>
+          <div className={`rounded-md p-4 ${message.includes('успешно') ? "bg-curai-positiveBg text-curai-positive" : "bg-curai-negativeBg text-curai-negative"}`}>
             {message}
           </div>
         )}
@@ -145,16 +145,16 @@ const LoyaltySettings = () => {
         <button
           type="submit"
           disabled={saving}
-          className="w-full bg-blue-600 text-white py-3 rounded-lg hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed font-medium transition-colors"
+          className="w-full bg-curai-blue text-white py-3 rounded-md hover:bg-curai-blue disabled:bg-curai-disabled disabled:cursor-not-allowed font-medium transition-colors"
         >
           {saving ? 'Сохранение...' : 'Сохранить настройки'}
         </button>
       </form>
 
       {/* Информационный блок */}
-      <div className="mt-8 bg-blue-50 rounded-lg p-4">
-        <h3 className="font-semibold text-blue-900 mb-2">ℹ️ Как работает программа лояльности</h3>
-        <ul className="text-sm text-blue-800 space-y-1">
+      <div className="mt-8 bg-curai-selected rounded-md p-4">
+        <h3 className="font-semibold text-curai-blue mb-2">ℹ️ Как работает программа лояльности</h3>
+        <ul className="text-sm text-curai-blue space-y-1">
           <li>• Бонусы начисляются автоматически после оплаты услуг</li>
           <li>• Бонусы не сгорают и не имеют срока действия</li>
           <li>• При отмене приема бонусы возвращаются</li>

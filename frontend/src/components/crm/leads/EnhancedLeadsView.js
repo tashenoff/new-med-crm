@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   Users, Phone, Mail, Calendar, Clock, CheckCircle, AlertCircle,
   UserPlus, MessageSquare, PhoneCall, Eye, Edit, Trash2,
-  Target, Plus, Filter, Search, MoreHorizontal, FileText,
+  Target, Plus, Filter, MoreHorizontal, FileText,
   Star, Flag, ArrowRight, CheckSquare, PlayCircle, DollarSign,
   User, Building, Loader2, UserCheck, AlertTriangle
 } from 'lucide-react';
@@ -50,7 +50,7 @@ const InquiryHistoryDetails = ({ lead }) => {
   // Keep the canonical inquiry first and preserve every supplied linked entry in order.
   const inquiries = lead ? [lead, ...(Array.isArray(lead.linked_inquiries) ? lead.linked_inquiries : [])] : [];
   return (
-    <section aria-label="Подробная история обращений" className="text-gray-900 dark:text-gray-100">
+    <section aria-label="Подробная история обращений" className="text-curai-ink ">
       <h3 className="text-lg font-semibold mb-4">Подробная история обращений</h3>
       <ol className="space-y-4">
         {inquiries.map((entry, index) => {
@@ -71,12 +71,12 @@ const InquiryHistoryDetails = ({ lead }) => {
             ['ID записи на приём', inquiry.converted_to_appointment_id]
           ];
           return (
-            <li key={index} className="rounded-lg border border-gray-200 bg-gray-50 p-4 dark:border-gray-700 dark:bg-gray-900/40">
+            <li key={index} className="rounded-md border border-curai-border bg-curai-subtle p-4 ">
               <h4 className="font-semibold text-sm mb-3">{index === 0 ? 'Первое обращение' : 'Повторное обращение'}</h4>
               <dl className="grid grid-cols-1 gap-3 sm:grid-cols-2 text-sm">
                 {fields.map(([label, value]) => (
                   <div key={label} className={label === 'Описание' || label === 'Заметки' ? 'sm:col-span-2 min-w-0' : 'min-w-0'}>
-                    <dt className="font-medium text-gray-500 dark:text-gray-400">{label}</dt>
+                    <dt className="font-medium text-curai-muted ">{label}</dt>
                     <dd className="whitespace-pre-wrap break-words [overflow-wrap:anywhere]">{inquiryText(value)}</dd>
                   </div>
                 ))}
@@ -85,14 +85,14 @@ const InquiryHistoryDetails = ({ lead }) => {
           );
         })}
       </ol>
-      {!inquiries.length && <p className="text-sm text-gray-500 dark:text-gray-400">Обращения не найдены</p>}
+      {!inquiries.length && <p className="text-sm text-curai-muted ">Обращения не найдены</p>}
     </section>
   );
 };
 
 const EnhancedLeadsView = ({ user }) => {
   const [filteredLeads, setFilteredLeads] = useState([]);
-  const [searchTerm, setSearchTerm] = useState('');
+
   const [dateFilter, setDateFilter] = useState({ preset: 'all', from: '', to: '' });
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [selectedLead, setSelectedLead] = useState(null);
@@ -181,61 +181,61 @@ const EnhancedLeadsView = ({ user }) => {
   const leadStatuses = {
     new: { 
       label: 'Новая', 
-      color: 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200', 
+      color: "bg-curai-selected text-curai-blue ",
       icon: <Target className="w-4 h-4" />,
-      badge: 'bg-blue-500'
+      badge: "bg-curai-blue"
     },
     contacted: { 
       label: 'Связались', 
-      color: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200', 
+      color: "bg-curai-warningBg text-curai-warning ",
       icon: <PhoneCall className="w-4 h-4" />,
-      badge: 'bg-yellow-500'
+      badge: "bg-curai-warning"
     },
     in_progress: { 
       label: 'В работе', 
-      color: 'bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200', 
+      color: "bg-curai-warningBg text-curai-warning ",
       icon: <Clock className="w-4 h-4" />,
-      badge: 'bg-orange-500'
+      badge: "bg-curai-warning"
     },
     converted: { 
       label: 'Конвертирована', 
-      color: 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200', 
+      color: "bg-curai-positiveBg text-curai-positive ",
       icon: <CheckCircle className="w-4 h-4" />,
-      badge: 'bg-green-500'
+      badge: "bg-curai-positive"
     },
     rejected: { 
       label: 'Отказ', 
-      color: 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200', 
+      color: "bg-curai-negativeBg text-curai-negative ",
       icon: <AlertCircle className="w-4 h-4" />,
-      badge: 'bg-red-500'
+      badge: "bg-curai-negative"
     },
     closed: { 
       label: 'Оплачено', 
-      color: 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900 dark:text-emerald-200', 
+      color: "bg-curai-positiveBg text-curai-positive ",
       icon: <DollarSign className="w-4 h-4" />,
-      badge: 'bg-emerald-600'
+      badge: "bg-curai-positive"
     },
     qualified: {
       label: 'Квалифицирован',
-      color: 'bg-indigo-100 text-indigo-800',
+      color: "bg-curai-selected text-curai-blue",
       icon: <UserCheck className="w-4 h-4" />,
-      badge: 'bg-indigo-500'
+      badge: "bg-curai-blue"
     },
     lost: {
       label: 'Потерян',
-      color: 'bg-gray-100 text-gray-800',
+      color: "bg-curai-subtle text-curai-ink",
       icon: <AlertCircle className="w-4 h-4" />,
-      badge: 'bg-gray-500'
+      badge: "bg-curai-muted"
     }
   };
 
   // Типы заданий
   const taskTypes = {
-    call: { label: 'Звонок', icon: <PhoneCall className="w-4 h-4" />, color: 'bg-blue-500' },
-    email: { label: 'Письмо', icon: <Mail className="w-4 h-4" />, color: 'bg-green-500' },
-    meeting: { label: 'Встреча', icon: <Calendar className="w-4 h-4" />, color: 'bg-purple-500' },
-    follow_up: { label: 'Дозвон', icon: <Clock className="w-4 h-4" />, color: 'bg-orange-500' },
-    note: { label: 'Заметка', icon: <FileText className="w-4 h-4" />, color: 'bg-gray-500' }
+    call: { label: 'Звонок', icon: <PhoneCall className="w-4 h-4" />, color: "bg-curai-blue" },
+    email: { label: 'Письмо', icon: <Mail className="w-4 h-4" />, color: "bg-curai-positive" },
+    meeting: { label: 'Встреча', icon: <Calendar className="w-4 h-4" />, color: "bg-curai-blue" },
+    follow_up: { label: 'Дозвон', icon: <Clock className="w-4 h-4" />, color: "bg-curai-warning" },
+    note: { label: 'Заметка', icon: <FileText className="w-4 h-4" />, color: "bg-curai-muted" }
   };
 
   // Загрузка врачей, пациентов, кабинетов и записей при монтировании
@@ -364,21 +364,13 @@ const EnhancedLeadsView = ({ user }) => {
 
   useEffect(() => {
     filterLeads();
-  }, [leads, searchTerm, dateFilter]);
+  }, [leads, dateFilter]);
 
   const filterLeads = () => {
     const dateRange = firstTouchDateRange(dateFilter.preset, dateFilter);
-    let filtered = leads.filter(lead => matchesFirstTouchDate(lead, dateRange));
+    const filtered = leads.filter(lead => matchesFirstTouchDate(lead, dateRange));
     
-    if (searchTerm) {
-      filtered = filtered.filter(lead => [lead, ...(lead.linked_inquiries || [])].some(touch =>
-        touch.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        touch.full_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        touch.phone?.includes(searchTerm) ||
-        touch.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        (touch.first_name + ' ' + (touch.last_name || '')).toLowerCase().includes(searchTerm.toLowerCase())
-      ));
-    }
+    
     
     setFilteredLeads(filtered);
   };
@@ -641,25 +633,25 @@ const EnhancedLeadsView = ({ user }) => {
           <div 
             key={task.id}
             className={cn(
-              "flex items-center space-x-3 p-3 rounded-lg border",
+              "flex items-center space-x-3 p-3 rounded-md border",
               task.completed 
-                ? "bg-green-50 border-green-200 dark:bg-green-900/20 dark:border-green-800" 
-                : "bg-gray-50 border-gray-200 dark:bg-gray-800 dark:border-gray-600"
+                ? "bg-curai-positiveBg border-curai-positive "
+                : "bg-curai-subtle border-curai-border "
             )}
           >
-            <div className={cn("p-2 rounded-lg", taskTypes[task.type].color)}>
+            <div className={cn("p-2 rounded-md", taskTypes[task.type].color)}>
               {taskTypes[task.type].icon}
             </div>
             <div className="flex-1 min-w-0">
               <div className="flex items-center space-x-2">
-                <p className={cn("text-sm font-medium", task.completed ? "line-through text-gray-500" : themeClasses.text.primary)}>
+                <p className={cn("text-sm font-medium", task.completed ? "line-through text-curai-muted" : themeClasses.text.primary)}>
                   {task.title}
                 </p>
                 <span className={cn(
                   "px-2 py-1 text-xs rounded-full",
-                  task.priority === 'high' ? 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200' :
-                  task.priority === 'medium' ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200' :
-                  'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200'
+                  task.priority === 'high' ? "bg-curai-negativeBg text-curai-negative " :
+                  task.priority === 'medium' ? "bg-curai-warningBg text-curai-warning " :
+                  "bg-curai-subtle text-curai-ink "
                 )}>
                   {task.priority === 'high' ? 'Высокий' : task.priority === 'medium' ? 'Средний' : 'Низкий'}
                 </span>
@@ -671,8 +663,8 @@ const EnhancedLeadsView = ({ user }) => {
               </p>
             </div>
             {!task.completed && (
-              <button className="p-1 hover:bg-gray-200 dark:hover:bg-gray-600 rounded">
-                <CheckSquare className="w-4 h-4 text-green-600" />
+              <button className="p-1 hover:bg-curai-border rounded">
+                <CheckSquare className="w-4 h-4 text-curai-positive" />
               </button>
             )}
           </div>
@@ -953,29 +945,29 @@ const EnhancedLeadsView = ({ user }) => {
         onDragStart={(e) => handleDragStart(e, lead)}
         onClick={() => handleShowLeadHmsData(lead)}
         className={cn(
-          "bg-white dark:bg-gray-800 rounded-lg p-4 mb-3 border border-gray-200 dark:border-gray-600",
-          "hover:shadow-md transition-all cursor-pointer",
+          "curai-lead-card bg-curai-surface rounded-md p-4 mb-3 border border-curai-border ",
+          "hover:shadow-none transition-all cursor-pointer",
           themeClasses.shadow.sm
         )}
       >
         {/* Header */}
         <div className="flex items-start justify-between mb-3">
           <div className="flex-1 min-w-0">
-            <h4 className={cn("font-medium text-sm truncate", themeClasses.text.primary)}>
+            <h4 className={cn("font-semibold text-sm truncate", themeClasses.text.primary)}>
               {lead.full_name || `${lead.first_name} ${lead.last_name}`}
             </h4>
             <p className={cn("text-xs mt-1", themeClasses.text.muted)}>
               {leadSources[lead.source] || 'Источник'}
             </p>
             {lead.linked_inquiries?.length > 0 && (
-              <p className="text-xs mt-1 text-blue-600 dark:text-blue-400">
+              <p className="text-xs mt-1 text-curai-blue ">
                 Связанных обращений: {lead.linked_inquiries.length} · {[...new Set(lead.linked_inquiries.map(touch => leadSources[touch.source] || touch.source))].join(', ')}
               </p>
             )}
           </div>
           <div className="flex items-center space-x-1 ml-2">
             {urgentTasks > 0 && (
-              <div className="w-2 h-2 bg-red-500 rounded-full"></div>
+              <div className="w-2 h-2 bg-curai-negative rounded-full"></div>
             )}
             <button
               type="button"
@@ -983,38 +975,38 @@ const EnhancedLeadsView = ({ user }) => {
               title="Редактировать имя"
               draggable={false}
               onClick={(e) => { e.stopPropagation(); editLeadName(lead); }}
-              className={cn("p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-700")}
+              className={cn("p-1 rounded hover:bg-curai-subtle ")}
             >
-              <Edit className="w-3 h-3" />
+              <Edit className="w-[14px] h-[14px]" />
             </button>
           </div>
         </div>
 
         {/* Amount */}
         <div className="mb-3">
-          <span className={cn("text-lg font-bold", themeClasses.text.primary)}>
+          <span className={cn("text-xl font-semibold", themeClasses.text.primary)}>
             {leadAmount.toLocaleString()} ₸
           </span>
           {/* Показываем депозит если есть */}
           {depositAmount > 0 && (
             <div className="mt-1 space-y-0.5">
-              <span className="text-sm font-medium text-blue-600">
+              <span className="text-sm font-medium text-curai-blue">
                 💰 Депозит: {appointmentDeposit.toLocaleString()} ₸
               </span>
               {extraDeposit > 0 && (
-                <span className="text-xs font-medium text-green-600 block">
+                <span className="text-xs font-medium text-curai-positive block">
                   💳 +{extraDeposit.toLocaleString()} ₸ доплата
                 </span>
               )}
               {(appointmentDeposit > 0 && extraDeposit > 0) && (
-                <span className="text-xs text-gray-500 block">
+                <span className="text-xs text-curai-muted block">
                   Итого: {depositAmount.toLocaleString()} ₸
                 </span>
               )}
               {/* Показываем остаток депозита или долг */}
               {depositBalance !== null && depositBalance !== undefined && depositBalance > 0 && (
                 <div className="mt-1">
-                  <span className="text-sm font-medium text-green-600">
+                  <span className="text-sm font-medium text-curai-positive">
                     💵 Остаток: {depositBalance.toLocaleString()} ₸
                   </span>
                 </div>
@@ -1022,7 +1014,7 @@ const EnhancedLeadsView = ({ user }) => {
               {/* Показываем долг если депозит < стоимости */}
               {patientDebt !== null && patientDebt !== undefined && patientDebt > 0 && (
                 <div className="mt-1">
-                  <span className="text-sm font-medium text-red-600">
+                  <span className="text-sm font-medium text-curai-negative">
                     ⚠️ Долг: {patientDebt.toLocaleString()} ₸
                   </span>
                 </div>
@@ -1030,7 +1022,7 @@ const EnhancedLeadsView = ({ user }) => {
               {/* Если депозит полностью использован (остаток = 0) */}
               {depositBalance === 0 && !patientDebt && (
                 <div className="mt-1">
-                  <span className="text-sm font-medium text-gray-500">
+                  <span className="text-sm font-medium text-curai-muted">
                     ✅ Использован
                   </span>
                 </div>
@@ -1040,7 +1032,7 @@ const EnhancedLeadsView = ({ user }) => {
           {/* Показываем цену записи если есть */}
           {appointmentPrice > 0 && depositAmount === 0 && (
             <div className="mt-1">
-              <span className="text-xs text-gray-500">
+              <span className="text-xs text-curai-muted">
                 Запись: {appointmentPrice.toLocaleString()} ₸
               </span>
             </div>
@@ -1050,7 +1042,7 @@ const EnhancedLeadsView = ({ user }) => {
         {/* Contact */}
         <div className="space-y-1 mb-3">
           <div className="flex items-center space-x-2">
-            <Phone className="w-3 h-3 text-blue-500" />
+            <Phone className="w-[14px] h-[14px] text-curai-blue" />
             <span className={cn("text-xs truncate", themeClasses.text.secondary)}>
               {lead.phone}
             </span>
@@ -1062,16 +1054,16 @@ const EnhancedLeadsView = ({ user }) => {
                   setWhatsAppLeadName(lead.full_name || [lead.first_name, lead.last_name, lead.middle_name].filter(Boolean).join(' '));
                   setShowWhatsAppSidebar(true);
                 }}
-                className="text-green-500 hover:text-green-600 transition-colors"
+                className="curai-lead-whatsapp text-curai-blue hover:underline"
                 title="Открыть WhatsApp"
               >
-                <FaWhatsapp className="w-4 h-4" />
+                WhatsApp
               </button>
             )}
           </div>
           {lead.email && (
             <div className="flex items-center space-x-2">
-              <Mail className="w-3 h-3 text-green-500" />
+              <Mail className="w-[14px] h-[14px] text-curai-positive" />
               <span className={cn("text-xs truncate", themeClasses.text.secondary)}>
                 {lead.email}
               </span>
@@ -1092,7 +1084,7 @@ const EnhancedLeadsView = ({ user }) => {
         <div className="space-y-2">
           {tasks.length > 0 && (
             <div className="flex items-center space-x-2 text-xs">
-              <CheckSquare className="w-3 h-3 text-gray-400" />
+              <CheckSquare className="w-[14px] h-[14px] text-curai-muted" />
               <span className={themeClasses.text.muted}>
                 {tasks.filter(t => t.status === 'completed').length}/{tasks.length} заданий
               </span>
@@ -1108,9 +1100,9 @@ const EnhancedLeadsView = ({ user }) => {
                   e.stopPropagation();
                   handleScheduleAppointment(lead);
                 }}
-                className="w-full px-2 py-1 text-xs bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors flex items-center justify-center space-x-1"
+                className="w-full px-2 py-1 text-xs bg-curai-blue text-white rounded hover:bg-curai-blue transition-colors flex items-center justify-center space-x-1"
               >
-                <Calendar className="w-3 h-3" />
+                <Calendar className="w-[14px] h-[14px]" />
                 <span>Назначить прием</span>
               </button>
             )}
@@ -1122,18 +1114,18 @@ const EnhancedLeadsView = ({ user }) => {
                 setSelectedLead(lead);
                 setShowTaskModal(true);
               }}
-              className="w-full px-2 py-1 text-xs bg-purple-600 text-white rounded hover:bg-purple-700 transition-colors flex items-center justify-center space-x-1"
+              className="curai-button curai-button-secondary w-full"
             >
-              <CheckSquare className="w-3 h-3" />
+              <CheckSquare className="w-[14px] h-[14px]" />
               <span>Создать задачу</span>
             </button>
           </div>
         </div>
 
         {/* Footer */}
-        <div className="flex items-center justify-between mt-3 pt-3 border-t border-gray-100 dark:border-gray-700">
+        <div className="flex items-center justify-between mt-3 pt-3 border-t border-curai-border ">
           <div className="flex items-center space-x-2">
-            <User className="w-3 h-3 text-gray-400" />
+            <User className="w-[14px] h-[14px] text-curai-muted" />
             <span className={cn("text-xs", themeClasses.text.muted)}>
               {lead.manager_name || 'Не назначен'}
             </span>
@@ -1173,14 +1165,14 @@ const EnhancedLeadsView = ({ user }) => {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-curai-control"></div>
       </div>
     );
   }
 
   return (
     <div className="space-y-6">
-      <div className={`calendar-container calendar-view-panel rounded-2xl ${themeClasses.shadow.default}`}>
+      <div className={`calendar-container calendar-view-panel rounded-md ${themeClasses.shadow.default}`}>
         <PanelHeader
           title="Сделки"
           subtitle="Управление заявками и сделками"
@@ -1188,7 +1180,7 @@ const EnhancedLeadsView = ({ user }) => {
           actionLabel="+ Добавить"
         />
 
-        <div className="bg-white dark:bg-gray-800 rounded-b-2xl border border-t-0 border-gray-200 dark:border-gray-700 p-4 space-y-4 shadow-sm">
+        <div className="bg-curai-surface rounded-b-md border border-t-0 border-curai-border p-4 space-y-4 shadow-none">
           {/* Controls */}
           <div className="flex flex-col gap-3 lg:flex-row lg:flex-wrap lg:items-end lg:justify-between">
             <div className="flex min-w-0 flex-1 flex-wrap items-end gap-2">
@@ -1207,19 +1199,7 @@ const EnhancedLeadsView = ({ user }) => {
               </button>
             </div>
 
-            <div className="flex min-w-0 items-center">
-              {/* Search */}
-              <div className="relative w-full lg:w-64">
-                <Search className="w-4 h-4 absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
-                <input
-                  type="text"
-                  placeholder="Поиск..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className={cn("pl-9 pr-4 py-2 text-sm rounded-lg w-full", themeClasses.input.default)}
-                />
-              </div>
-            </div>
+            
           </div>
 
       {/* Kanban Board */}
@@ -1228,7 +1208,7 @@ const EnhancedLeadsView = ({ user }) => {
         {columnEditMode && <p className={cn("text-sm mb-3", themeClasses.text.muted)}>Перемещать можно только пользовательские колонки. Системные колонки сохраняют свой относительный порядок.</p>}
         {columnConfig.loading && <p role="status" className={themeClasses.text.secondary}>Загрузка колонок…</p>}
         {columnConfig.busy && <p role="status" className={themeClasses.text.secondary}>Сохранение изменений…</p>}
-        {columnConfig.error && <div role="alert" className="mb-3 p-3 rounded-lg bg-red-50 text-red-800 dark:bg-red-900/30 dark:text-red-200">
+        {columnConfig.error && <div role="alert" className="mb-3 p-3 rounded-md bg-curai-negativeBg text-curai-negative ">
           {columnConfig.error}
           <button type="button" onClick={columnConfig.reload} disabled={columnConfig.busy} className="ml-3 underline">Обновить колонки</button>
         </div>}
@@ -1238,10 +1218,10 @@ const EnhancedLeadsView = ({ user }) => {
           const stats = getColumnStats(column.id);
           const columnLeads = groupedLeads[column.id] || [];
           const background = column.is_system
-            ? { new: 'bg-gray-50 dark:bg-gray-800', contacted: 'bg-blue-50 dark:bg-blue-900/20',
-                in_progress: 'bg-yellow-50 dark:bg-yellow-900/20', converted: 'bg-purple-50 dark:bg-purple-900/20',
-                closed: 'bg-green-50 dark:bg-green-900/20' }[column.id]
-            : 'bg-slate-50 dark:bg-slate-900/30';
+            ? { new: "bg-curai-subtle ", contacted: "bg-curai-selected ",
+                in_progress: "bg-curai-warningBg ", converted: "bg-curai-selected ",
+                closed: "bg-curai-positiveBg " }[column.id]
+            : "bg-curai-subtle ";
           
           return (
             <div 
@@ -1263,12 +1243,12 @@ const EnhancedLeadsView = ({ user }) => {
                     {column.name}
                   </h3>
                   <div className="flex flex-wrap items-center gap-1 my-2">
-                    {column.is_system && <span className="text-xs px-2 py-1 rounded bg-white/70 dark:bg-gray-700">Системная</span>}
+                    {column.is_system && <span className="text-xs px-2 py-1 rounded bg-white/70 ">Системная</span>}
                     {columnEditMode && !column.is_system && <>
                     <button type="button" aria-label={`Переместить «${column.name}» влево`} disabled={index === 0 || columnConfig.busy || columnConfig.loading}
-                      onClick={() => handleReorderColumn(column, -1)} className="p-1 rounded hover:bg-white/50 dark:hover:bg-gray-600 disabled:opacity-30">←</button>
+                      onClick={() => handleReorderColumn(column, -1)} className="p-1 rounded hover:bg-white/50 disabled:opacity-30">←</button>
                     <button type="button" aria-label={`Переместить «${column.name}» вправо`} disabled={index === kanbanColumns.length - 1 || columnConfig.busy || columnConfig.loading}
-                      onClick={() => handleReorderColumn(column, 1)} className="p-1 rounded hover:bg-white/50 dark:hover:bg-gray-600 disabled:opacity-30">→</button>
+                      onClick={() => handleReorderColumn(column, 1)} className="p-1 rounded hover:bg-white/50 disabled:opacity-30">→</button>
                     </>}
                     {!column.is_system && <>
                     <button 
@@ -1276,7 +1256,7 @@ const EnhancedLeadsView = ({ user }) => {
                       aria-label={`Переименовать «${column.name}»`}
                       disabled={columnConfig.busy || columnConfig.loading}
                       onClick={() => handleEditColumn(column)}
-                      className="p-1 hover:bg-white/50 dark:hover:bg-gray-600 rounded"
+                      className="p-1 hover:bg-white/50 rounded"
                       title="Редактировать колонку"
                     >
                       <Edit className="w-3 h-3" />
@@ -1286,7 +1266,7 @@ const EnhancedLeadsView = ({ user }) => {
                       aria-label={`Удалить «${column.name}»`}
                       disabled={columnConfig.busy || columnConfig.loading}
                       onClick={() => columnConfig.remove(column)}
-                      className="p-1 hover:bg-white/50 dark:hover:bg-gray-600 rounded"
+                      className="p-1 hover:bg-white/50 rounded"
                       title="Удалить колонку"
                     >
                       <Trash2 className="w-3 h-3" />
@@ -1295,7 +1275,7 @@ const EnhancedLeadsView = ({ user }) => {
                   </div>
                 </div>
                 
-                <div className={cn("text-2xl font-bold mb-1", themeClasses.text.primary)}>
+                <div className={cn("text-2xl font-semibold mb-1", themeClasses.text.primary)}>
                   {stats.totalAmount.toLocaleString()} ₸
                 </div>
                 
@@ -1391,7 +1371,7 @@ const EnhancedLeadsView = ({ user }) => {
               />
               {isCheckingPhone && (
                 <div className="absolute right-3 top-1/2 -translate-y-1/2">
-                  <Loader2 className="w-4 h-4 animate-spin text-blue-500" />
+                  <Loader2 className="w-4 h-4 animate-spin text-curai-blue" />
                 </div>
               )}
             </div>
@@ -1399,14 +1379,14 @@ const EnhancedLeadsView = ({ user }) => {
 
           {/* Блок с информацией о найденном пациенте */}
           {foundPatient && (
-            <div className="p-4 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg">
+            <div className="p-4 bg-curai-positiveBg border border-curai-positive rounded-md">
               <div className="flex items-start gap-3">
-                <UserCheck className="w-5 h-5 text-green-600 dark:text-green-400 mt-0.5 flex-shrink-0" />
+                <UserCheck className="w-5 h-5 text-curai-positive mt-0.5 flex-shrink-0" />
                 <div className="flex-1">
-                  <p className="text-sm font-medium text-green-800 dark:text-green-200">
+                  <p className="text-sm font-medium text-curai-positive ">
                     Пациент найден в базе! Данные подставлены автоматически.
                   </p>
-                  <div className="mt-2 space-y-1 text-sm text-green-700 dark:text-green-300">
+                  <div className="mt-2 space-y-1 text-sm text-curai-positive ">
                     <p><span className="font-medium">ФИО:</span> {foundPatient.full_name}</p>
                     <p><span className="font-medium">Телефон:</span> {foundPatient.phone}</p>
                     {foundPatient.email && <p><span className="font-medium">Email:</span> {foundPatient.email}</p>}
@@ -1426,14 +1406,14 @@ const EnhancedLeadsView = ({ user }) => {
 
           {/* Предупреждение об активном лиде */}
           {foundActiveLead && !foundPatient && (
-            <div className="p-4 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg">
+            <div className="p-4 bg-curai-warningBg border border-curai-warning rounded-md">
               <div className="flex items-start gap-3">
-                <AlertTriangle className="w-5 h-5 text-yellow-600 dark:text-yellow-400 mt-0.5 flex-shrink-0" />
+                <AlertTriangle className="w-5 h-5 text-curai-warning mt-0.5 flex-shrink-0" />
                 <div className="flex-1">
-                  <p className="text-sm font-medium text-yellow-800 dark:text-yellow-200">
+                  <p className="text-sm font-medium text-curai-warning ">
                     Активная заявка с таким телефоном уже существует! Данные подставлены.
                   </p>
-                  <div className="mt-2 space-y-1 text-sm text-yellow-700 dark:text-yellow-300">
+                  <div className="mt-2 space-y-1 text-sm text-curai-warning ">
                     <p><span className="font-medium">ФИО:</span> {foundActiveLead.full_name}</p>
                     <p><span className="font-medium">Статус:</span> {
                       foundActiveLead.status === 'new' ? 'Новая' :
@@ -1516,14 +1496,14 @@ const EnhancedLeadsView = ({ user }) => {
               setFoundPatient(null);
               setFoundActiveLead(null);
             }}
-            className="px-4 py-2 text-gray-600 hover:text-gray-800 transition-colors"
+            className="px-4 py-2 text-curai-muted hover:text-curai-ink transition-colors"
           >
             Отмена
           </button>
           <button
             onClick={handleCreateLead}
             disabled={!newLead.first_name || !newLead.phone}
-            className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors"
+            className="bg-curai-blue text-white px-4 py-2 rounded-md hover:bg-curai-blue disabled:bg-curai-control disabled:cursor-not-allowed transition-colors"
           >
             Создать
           </button>
@@ -1622,7 +1602,7 @@ const EnhancedLeadsView = ({ user }) => {
               )}
             </select>
             {taskStatuses.length > 0 && (
-              <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+              <p className="mt-1 text-xs text-curai-muted ">
                 Статусы настраиваются в разделе "Справочники → Статусы задач"
               </p>
             )}
@@ -1632,14 +1612,14 @@ const EnhancedLeadsView = ({ user }) => {
         <div className="flex justify-end gap-3 mt-6">
           <button
             onClick={() => setShowTaskModal(false)}
-            className="px-4 py-2 text-gray-600 hover:text-gray-800 transition-colors"
+            className="px-4 py-2 text-curai-muted hover:text-curai-ink transition-colors"
           >
             Отмена
           </button>
           <button
             onClick={handleCreateTask}
             disabled={!newTask.title}
-            className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors"
+            className="bg-curai-blue text-white px-4 py-2 rounded-md hover:bg-curai-blue disabled:bg-curai-control disabled:cursor-not-allowed transition-colors"
           >
             Создать задание
           </button>
@@ -1671,21 +1651,21 @@ const EnhancedLeadsView = ({ user }) => {
             />
           </div>
           
-          {columnConfig.error && <p role="alert" className="text-red-600 dark:text-red-300">{columnConfig.error}</p>}
+          {columnConfig.error && <p role="alert" className="text-curai-negative ">{columnConfig.error}</p>}
         
         <div className="flex justify-end gap-3 mt-6">
           <button
             type="button"
             disabled={columnConfig.busy}
             onClick={() => setShowColumnModal(false)}
-            className="px-4 py-2 text-gray-600 hover:text-gray-800 transition-colors"
+            className="px-4 py-2 text-curai-muted hover:text-curai-ink transition-colors"
           >
             Отмена
           </button>
           <button
             type="submit"
             disabled={columnConfig.busy || !newColumnName.trim()}
-            className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors"
+            className="bg-curai-blue text-white px-4 py-2 rounded-md hover:bg-curai-blue disabled:bg-curai-control disabled:cursor-not-allowed transition-colors"
           >
             {columnConfig.busy ? 'Сохранение…' : editingColumn ? 'Сохранить' : 'Создать'}
           </button>
@@ -1702,8 +1682,8 @@ const EnhancedLeadsView = ({ user }) => {
       >
         {loadingHmsData ? (
           <div className="flex justify-center items-center py-8">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-            <span className="ml-2 text-gray-600">Загрузка...</span>
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-curai-control"></div>
+            <span className="ml-2 text-curai-muted">Загрузка...</span>
           </div>
         ) : (
           <div className="space-y-6">
@@ -1712,52 +1692,52 @@ const EnhancedLeadsView = ({ user }) => {
             <div>
               <h3 className="text-lg font-semibold mb-4">📋 Планы лечения</h3>
               {hmsData.treatmentPlans.length > 0 ? (
-                <table className="min-w-full divide-y divide-gray-200">
-                  <thead className="bg-gray-50"><tr>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">План</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Статус плана</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Статус оплаты</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Стоимость</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Оплачено</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Дата создания</th>
+                <table className="min-w-full divide-y divide-curai-border">
+                  <thead className="bg-curai-subtle"><tr>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-curai-muted uppercase">План</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-curai-muted uppercase">Статус плана</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-curai-muted uppercase">Статус оплаты</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-curai-muted uppercase">Стоимость</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-curai-muted uppercase">Оплачено</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-curai-muted uppercase">Дата создания</th>
                   </tr></thead>
-                  <tbody className="divide-y divide-gray-200">
+                  <tbody className="divide-y divide-curai-border">
                     {hmsData.treatmentPlans.map((plan, i) => (
                       <tr key={plan.id || i}>
-                        <td className="px-4 py-3 text-sm"><div className="font-medium">{plan.title || `План ${i+1}`}</div>{plan.doctor_name && <div className="text-xs text-gray-500">Врач: {plan.doctor_name}</div>}</td>
-                        <td className="px-4 py-3"><span className={`px-2 py-1 text-xs rounded-full ${plan.status === 'approved' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'}`}>{historyStatusLabel('plan', plan.status)}</span></td>
-                        <td className="px-4 py-3"><span className={`px-2 py-1 text-xs rounded-full ${plan.payment_status === 'paid' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>{historyStatusLabel('payment', plan.payment_status)}</span></td>
+                        <td className="px-4 py-3 text-sm"><div className="font-medium">{plan.title || `План ${i+1}`}</div>{plan.doctor_name && <div className="text-xs text-curai-muted">Врач: {plan.doctor_name}</div>}</td>
+                        <td className="px-4 py-3"><span className={`px-2 py-1 text-xs rounded-full ${plan.status === 'approved' ? "bg-curai-positiveBg text-curai-positive" : "bg-curai-warningBg text-curai-warning"}`}>{historyStatusLabel('plan', plan.status)}</span></td>
+                        <td className="px-4 py-3"><span className={`px-2 py-1 text-xs rounded-full ${plan.payment_status === 'paid' ? "bg-curai-positiveBg text-curai-positive" : "bg-curai-negativeBg text-curai-negative"}`}>{historyStatusLabel('payment', plan.payment_status)}</span></td>
                         <td className="px-4 py-3 text-sm">{plan.total_cost?.toLocaleString() || 0} ₸</td>
                         <td className="px-4 py-3 text-sm">{plan.paid_amount?.toLocaleString() || 0} ₸</td>
-                        <td className="px-4 py-3 text-sm text-gray-500">{plan.created_at ? new Date(plan.created_at).toLocaleDateString('ru-RU') : '-'}</td>
+                        <td className="px-4 py-3 text-sm text-curai-muted">{plan.created_at ? new Date(plan.created_at).toLocaleDateString('ru-RU') : '-'}</td>
                       </tr>
                     ))}
                   </tbody>
                 </table>
-              ) : <div className="text-gray-500 text-center py-4">Планы лечения не найдены</div>}
+              ) : <div className="text-curai-muted text-center py-4">Планы лечения не найдены</div>}
             </div>
             <div>
               <h3 className="text-lg font-semibold mb-4">📅 Приемы</h3>
               {hmsData.appointments.length > 0 ? (
-                <table className="min-w-full divide-y divide-gray-200">
-                  <thead className="bg-gray-50"><tr>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Дата и время</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Врач</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Статус</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Заметки</th>
+                <table className="min-w-full divide-y divide-curai-border">
+                  <thead className="bg-curai-subtle"><tr>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-curai-muted uppercase">Дата и время</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-curai-muted uppercase">Врач</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-curai-muted uppercase">Статус</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-curai-muted uppercase">Заметки</th>
                   </tr></thead>
-                  <tbody className="divide-y divide-gray-200">
+                  <tbody className="divide-y divide-curai-border">
                     {hmsData.appointments.map((a, i) => (
                       <tr key={a.id || i}>
                         <td className="px-4 py-3 text-sm">{a.appointment_date ? new Date(a.appointment_date).toLocaleDateString('ru-RU') + ', ' + (a.appointment_time || a.start_time || '') : '-'}</td>
                         <td className="px-4 py-3 text-sm">{a.doctor_name || 'Не указан'}</td>
-                        <td className="px-4 py-3"><span className={`px-2 py-1 text-xs rounded-full ${a.status === 'completed' ? 'bg-green-100 text-green-800' : a.status === 'confirmed' ? 'bg-blue-100 text-blue-800' : 'bg-yellow-100 text-yellow-800'}`}>{historyStatusLabel('appointment', a.status)}</span></td>
-                        <td className="px-4 py-3 text-sm text-gray-500">{a.notes || 'Нет заметок'}</td>
+                        <td className="px-4 py-3"><span className={`px-2 py-1 text-xs rounded-full ${a.status === 'completed' ? "bg-curai-positiveBg text-curai-positive" : a.status === 'confirmed' ? "bg-curai-selected text-curai-blue" : "bg-curai-warningBg text-curai-warning"}`}>{historyStatusLabel('appointment', a.status)}</span></td>
+                        <td className="px-4 py-3 text-sm text-curai-muted">{a.notes || 'Нет заметок'}</td>
                       </tr>
                     ))}
                   </tbody>
                 </table>
-              ) : <div className="text-gray-500 text-center py-4">Приемы не найдены</div>}
+              ) : <div className="text-curai-muted text-center py-4">Приемы не найдены</div>}
             </div>
 
             {/* Раздел задач */}
@@ -1769,7 +1749,7 @@ const EnhancedLeadsView = ({ user }) => {
                     setSelectedLead(selectedLeadForHms);
                     setShowTaskModal(true);
                   }}
-                  className="bg-purple-600 text-white px-3 py-1.5 text-sm rounded-lg hover:bg-purple-700 transition-colors flex items-center gap-1"
+                  className="bg-curai-blue text-white px-3 py-1.5 text-sm rounded-md hover:bg-curai-blue transition-colors flex items-center gap-1"
                 >
                   <Plus className="w-4 h-4" />
                   Создать задачу
@@ -1780,15 +1760,15 @@ const EnhancedLeadsView = ({ user }) => {
                   {leadTasks[selectedLeadForHms.id].map((task) => {
                     const statusInfo = taskStatuses.find(s => s.code === task.status) || { icon: '📋', name: task.status, color: '#6B7280' };
                     return (
-                      <div key={task.id} className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700 rounded-lg border border-gray-200 dark:border-gray-600">
+                      <div key={task.id} className="flex items-center justify-between p-3 bg-curai-subtle rounded-md border border-curai-border ">
                         <div className="flex items-center gap-3">
                           <span className="text-lg">{statusInfo.icon}</span>
                           <div>
                             <div className="font-medium text-sm">{task.title}</div>
-                            <div className="text-xs text-gray-500 flex items-center gap-2">
+                            <div className="text-xs text-curai-muted flex items-center gap-2">
                               <span>{taskTypes[task.type]?.label || task.type}</span>
                               {task.due_date && (
-                                <span className={task.status === 'overdue' ? 'text-red-500' : ''}>
+                                <span className={task.status === 'overdue' ? "text-curai-negative" : ''}>
                                   • До {new Date(task.due_date).toLocaleDateString('ru-RU')}
                                 </span>
                               )}
@@ -1803,8 +1783,8 @@ const EnhancedLeadsView = ({ user }) => {
                             {statusInfo.name}
                           </span>
                           <span className={`px-2 py-1 text-xs rounded-full ${
-                            task.priority === 'high' || task.priority === 'urgent' ? 'bg-red-100 text-red-800' :
-                            task.priority === 'medium' ? 'bg-yellow-100 text-yellow-800' : 'bg-gray-100 text-gray-800'
+                            task.priority === 'high' || task.priority === 'urgent' ? "bg-curai-negativeBg text-curai-negative" :
+                            task.priority === 'medium' ? "bg-curai-warningBg text-curai-warning" : "bg-curai-subtle text-curai-ink"
                           }`}>
                             {task.priority === 'high' ? 'Высокий' : task.priority === 'urgent' ? 'Срочный' : task.priority === 'medium' ? 'Средний' : 'Низкий'}
                           </span>
@@ -1814,13 +1794,13 @@ const EnhancedLeadsView = ({ user }) => {
                   })}
                 </div>
               ) : (
-                <div className="text-gray-500 text-center py-4 bg-gray-50 dark:bg-gray-700 rounded-lg">
+                <div className="text-curai-muted text-center py-4 bg-curai-subtle rounded-md">
                   Задач пока нет. Нажмите "Создать задачу" чтобы добавить.
                 </div>
               )}
             </div>
 
-            <div className="flex justify-end pt-4"><button onClick={() => setShowHmsDataModal(false)} className="px-4 py-2 text-gray-600 hover:text-gray-800">Закрыть</button></div>
+            <div className="flex justify-end pt-4"><button onClick={() => setShowHmsDataModal(false)} className="px-4 py-2 text-curai-muted hover:text-curai-ink">Закрыть</button></div>
           </div>
         )}
       </Modal>

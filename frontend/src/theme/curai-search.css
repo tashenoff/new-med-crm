@@ -1,0 +1,40 @@
+/* Native Curai: palettes 2830/2884; navbar 12638; states 14559/14564/14569. */
+.curai-search-trigger { position: relative; width: 220px; height: 36px; flex: 0 0 220px; border: 0; background: var(--curai-color-surface); color: var(--curai-color-blue); font-size: 13px; line-height: 20px; font-weight: 600; gap: 8px; }
+.curai-search-trigger > .curai-icon { position: absolute; left: 8px; color: var(--curai-color-muted); }
+.curai-search-trigger:hover { background: var(--curai-color-selected); }
+.curai-navbar .curai-search-trigger:focus-visible { outline: 2px solid var(--curai-color-focus); outline-offset: -2px; }
+.curai-search-label, .curai-search-shortcut { display: inline; }
+.curai-section-search.curai-dialog { width: 640px; max-width: 100%; height: 544px; max-height: calc(100dvh - 48px); border-radius: 8px; }
+.curai-section-search .curai-dialog-header { flex: 0 0 79px; min-height: 79px; border: 0; padding: 21px 23px 0; }
+.curai-section-search .curai-dialog-header h3 { font-size: 20px; line-height: 28px; }
+.curai-section-search .curai-dialog-close { top: 19px; right: 19px; padding: 4px; }
+.curai-section-search .curai-dialog-close svg { width: 20px; height: 24px; stroke-width: 1.75; }
+.curai-section-search .curai-dialog-body { display: flex; flex-direction: column; min-height: 0; padding: 0; overflow: hidden; }
+.curai-search-panel { display: flex; flex-direction: column; flex: 1; min-height: 0; }
+.curai-search-field { padding: 0 23px; }
+.curai-search-field label { display: block; font-size: 12px; line-height: 18px; font-weight: 400; margin-bottom: 6px; }
+.curai-section-search input.curai-search-input { width: 100%; height: 36px; min-height: 36px; padding: 6px 12px; border-radius: 6px; font-size: 13px; line-height: 20px; }
+.curai-section-search input.curai-search-input:focus { outline: none; border: 2px solid var(--curai-color-focus); box-shadow: none; }
+.curai-search-status { flex-shrink: 0; margin: 18px 23px; color: var(--curai-color-muted); font-size: 12px; line-height: 18px; }
+.curai-search-results { flex: 1; min-height: 0; overflow-y: auto; margin: 0 11px; display: flex; flex-direction: column; gap: 4px; padding: 0 0 24px; list-style: none; }
+.curai-search-results.is-empty { display: none; }
+.curai-search-result { flex: 0 0 auto; min-height: 52px; padding: 5px 13px; border: 1px solid transparent; border-radius: 4px; background: var(--curai-color-surface); color: var(--curai-color-ink); cursor: pointer; text-align: left; }
+.curai-search-result:hover { background: var(--curai-color-hover); }
+.curai-search-result[aria-selected='true'] { background: var(--curai-color-selected); border-color: var(--curai-color-focus); }
+.curai-search-result-title { display: block; font-size: 14px; line-height: 20px; font-weight: 600; }
+.curai-search-result[aria-selected='true'] .curai-search-result-title { color: var(--curai-color-blue); }
+.curai-search-result-category { display: block; margin-top: 2px; color: var(--curai-color-muted); font-size: 12px; line-height: 18px; }
+.curai-search-empty { flex: 1; padding: 30px 23px 0; }
+.curai-search-empty h4 { font-size: 20px; line-height: 28px; font-weight: 600; }
+.curai-search-empty p { margin-top: 12px; font-size: 14px; line-height: 20px; color: var(--curai-color-muted); }
+.curai-section-search .curai-dialog-footer { flex: 0 0 47px; height: 47px; border-top: 1px solid var(--curai-color-border); padding: 16px 23px 12px; }
+.curai-search-keyboard { display: flex; flex-wrap: wrap; gap: 16px; color: var(--curai-color-muted); font-size: 12px; line-height: 18px; }
+@media (max-width: 1279px) {
+  .curai-search-trigger { width: 40px; flex-basis: 40px; padding: 0; }
+  .curai-search-trigger > .curai-icon { position: static; }
+  .curai-search-label, .curai-search-shortcut { display: none; }
+}
+@media (max-width: 639px) {
+  .curai-section-search.curai-dialog { max-height: calc(100dvh - 16px); }
+  .curai-search-keyboard { gap: 10px; font-size: 11px; }
+}

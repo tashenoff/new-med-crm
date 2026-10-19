@@ -516,11 +516,11 @@ const CalendarPage = ({ user }) => {
     <div className="space-y-6">
       {/* Error Message */}
       {errorMessage && (
-        <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
+        <div className="bg-curai-negativeBg border border-curai-negative text-curai-negative px-4 py-3 rounded mb-4">
           {errorMessage}
           <button 
             onClick={() => setErrorMessage(null)}
-            className="float-right font-bold text-red-700 hover:text-red-900"
+            className="float-right font-semibold text-curai-negative hover:text-curai-negative"
           >
             ×
           </button>

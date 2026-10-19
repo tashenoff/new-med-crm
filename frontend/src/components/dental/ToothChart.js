@@ -36,10 +36,10 @@ const ToothChart = ({ selectedTeeth = [], onTeethSelect, multiSelect = false, di
       disabled={disabled}
       className={`w-8 h-12 border-2 rounded text-xs font-medium transition-colors ${
         disabled 
-          ? 'bg-gray-200 text-gray-400 border-gray-300 cursor-not-allowed'
+          ? "bg-curai-border text-curai-muted border-curai-control cursor-not-allowed"
           : isSelected 
-            ? 'bg-blue-500 text-white border-blue-600 shadow-md' 
-            : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50 hover:border-gray-400'
+            ? "bg-curai-blue text-white border-curai-control shadow-none"
+            : "bg-curai-surface text-curai-ink border-curai-control hover:bg-curai-subtle hover:border-curai-control"
       }`}
       title={disabled ? 'Выберите услугу с единицей "зуб"' : `Зуб ${toothNumber} ${isSelected ? '(выбран)' : ''}`}
     >
@@ -48,25 +48,25 @@ const ToothChart = ({ selectedTeeth = [], onTeethSelect, multiSelect = false, di
   );
 
   return (
-    <div className={`bg-gray-50 p-4 rounded-lg border ${disabled ? 'opacity-60' : ''}`}>
+    <div className={`bg-curai-subtle p-4 rounded-md border ${disabled ? 'opacity-60' : ''}`}>
       <div className="flex justify-between items-center mb-3">
         <h4 className="font-medium text-center flex-1">Стоматологическая карта</h4>
         {selectedTeeth.length > 0 && (
-          <div className="text-sm text-blue-600 font-medium">
+          <div className="text-sm text-curai-blue font-medium">
             Выбрано: {selectedTeeth.length} {selectedTeeth.length === 1 ? 'зуб' : 'зубов'}
           </div>
         )}
       </div>
       
       {multiSelect && !disabled && (
-        <div className="text-xs text-gray-600 mb-3 text-center bg-blue-50 p-2 rounded">
+        <div className="text-xs text-curai-muted mb-3 text-center bg-curai-selected p-2 rounded">
           💡 Выберите зубы для лечения. Цена будет умножена на количество зубов.
         </div>
       )}
       
       {/* Upper jaw */}
       <div className="mb-4">
-        <div className="text-sm text-gray-600 mb-2 text-center">Верхняя челюсть</div>
+        <div className="text-sm text-curai-muted mb-2 text-center">Верхняя челюсть</div>
         <div className="flex justify-center gap-1 flex-wrap">
           {upperTeeth.map(tooth => (
             <ToothButton 
@@ -80,14 +80,14 @@ const ToothChart = ({ selectedTeeth = [], onTeethSelect, multiSelect = false, di
 
       {/* Gap between jaws */}
       <div className="flex justify-center my-4">
-        <div className="w-16 h-8 border-2 border-gray-300 rounded-lg bg-pink-100 flex items-center justify-center">
-          <span className="text-xs text-gray-500">👄</span>
+        <div className="w-16 h-8 border-2 border-curai-control rounded-md bg-curai-negativeBg flex items-center justify-center">
+          <span className="text-xs text-curai-muted">👄</span>
         </div>
       </div>
 
       {/* Lower jaw */}
       <div className="mb-4">
-        <div className="text-sm text-gray-600 mb-2 text-center">Нижняя челюсть</div>
+        <div className="text-sm text-curai-muted mb-2 text-center">Нижняя челюсть</div>
         <div className="flex justify-center gap-1 flex-wrap">
           {lowerTeeth.map(tooth => (
             <ToothButton 
@@ -101,21 +101,21 @@ const ToothChart = ({ selectedTeeth = [], onTeethSelect, multiSelect = false, di
       
       {/* Selected teeth summary */}
       {selectedTeeth.length > 0 && (
-        <div className="mt-4 p-3 bg-white rounded border">
-          <div className="text-sm font-medium text-gray-700 mb-1">
+        <div className="mt-4 p-3 bg-curai-surface rounded border">
+          <div className="text-sm font-medium text-curai-ink mb-1">
             Выбранные зубы ({selectedTeeth.length}):
           </div>
           <div className="flex flex-wrap gap-1">
             {selectedTeeth.sort((a, b) => parseInt(a) - parseInt(b)).map(tooth => (
               <span 
                 key={tooth}
-                className="inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-blue-100 text-blue-800"
+                className="inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-curai-selected text-curai-blue"
               >
                 #{tooth}
                 {!disabled && (
                   <button
                     onClick={() => handleToothClick(tooth)}
-                    className="ml-1 text-blue-600 hover:text-blue-800"
+                    className="ml-1 text-curai-blue hover:text-curai-blue"
                     title="Убрать зуб"
                   >
                     ×

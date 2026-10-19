@@ -1,11 +1,15 @@
+import { PlanDisclosure } from './shared/PatientPlanWorkspace';
+import TreatmentPlanDetails from './TreatmentPlanDetails';
+import PaymentPlanDetails from './payment/PaymentPlanDetails';
 import { discountedPaymentAmount, planRemainingToPay } from '../../utils/paymentBalances';
 import { ledgerFetch, requireSessionId } from '../../utils/accountingLedger';
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
+import { settleLegacyPlan } from '../../utils/settleLegacyPlan';
 import { FaChevronDown, FaChevronRight, FaStethoscope, FaClipboardList, FaNotesMedical, FaUserMd, FaFileMedical, FaCreditCard } from 'react-icons/fa';
 
 const PaymentModal = ({ show, loading, onClose, paymentTypes, loadingPaymentTypes,
   selectedPaymentType, setSelectedPaymentType, discountInput, setDiscountInput,
-  discountType, setDiscountType, total, onPay, discountLocked = false, autoCompletion = false }) => {
+  discountType, setDiscountType, total, onPay, caption, discountLocked = false, autoCompletion = false }) => {
   if (!show) return null;
   const raw = Math.max(0, Number(discountInput) || 0);
   const disc = discountType === 'percent'
@@ -13,95 +17,86 @@ const PaymentModal = ({ show, loading, onClose, paymentTypes, loadingPaymentType
     : Math.min(raw, total);
   const finalAmt = Math.max(0, Math.round((total - disc) * 100) / 100);
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50" onClick={onClose}>
-      <div className="bg-white rounded-xl shadow-2xl p-6 w-full max-w-md mx-4" onClick={e => e.stopPropagation()}>
+    <div className="curai-payment-overlay fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50" onClick={onClose}>
+      <div role="dialog" aria-modal="true" aria-label="Оплата услуги" className="curai-payment-dialog bg-curai-surface rounded-md shadow-none p-6 w-full max-w-md mx-4" onClick={e => e.stopPropagation()}>
         <div className="flex items-center justify-between mb-4">
-          <h3 className="text-lg font-semibold text-gray-900 flex items-center">
-            <svg className="w-5 h-5 mr-2 text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M7 15h2m4 0h2M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>
-            Способ оплаты
+          <h3 className="text-lg font-semibold text-curai-ink flex items-center">
+            <svg className="w-5 h-5 mr-2 text-curai-blue" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M7 15h2m4 0h2M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>
+            Оплата услуги
           </h3>
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 text-2xl leading-none">&times;</button>
+          {caption && <p className="curai-payment-caption">{caption}</p>}
+          <button onClick={onClose} className="text-curai-muted hover:text-curai-muted text-2xl leading-none">&times;</button>
         </div>
 
-        <div className="space-y-2 max-h-72 overflow-y-auto">
+        <div className="curai-payment-methods space-y-2 max-h-72 overflow-y-auto"><h4>Способ оплаты *</h4>
           {loadingPaymentTypes ? (
-            <div className="text-center py-8 text-gray-500">
-              <div className="w-8 h-8 border-4 border-blue-200 border-t-blue-600 rounded-full animate-spin mx-auto mb-2"></div>
+            <div className="text-center py-8 text-curai-muted">
+              <div className="w-8 h-8 border-4 border-curai-control border-t-blue-600 rounded-full animate-spin mx-auto mb-2"></div>
               Загрузка способов оплаты...
             </div>
           ) : paymentTypes.length === 0 ? (
-            <div className="text-center py-8 text-gray-500">
+            <div className="text-center py-8 text-curai-muted">
               <p>Нет доступных способов оплаты</p>
               <p className="text-xs mt-1">Добавьте их в разделе "Тип оплаты" в справочнике</p>
             </div>
           ) : (
             paymentTypes.map(pt => (
               <label key={pt.id}
-                className={`flex items-center gap-3 w-full px-3 py-2.5 rounded-lg border cursor-pointer transition-all ${selectedPaymentType && selectedPaymentType.id === pt.id ? 'border-blue-400 bg-blue-50' : 'border-gray-200 bg-gray-50 hover:bg-blue-50'}`}>
+                className={`flex items-center gap-3 w-full px-3 py-2.5 rounded-md border cursor-pointer transition-all ${selectedPaymentType && selectedPaymentType.id === pt.id ? "border-curai-control bg-curai-selected" : "border-curai-border bg-curai-subtle hover:bg-curai-selected"}`}>
                 <input type="radio" name="paymethod" checked={selectedPaymentType && selectedPaymentType.id === pt.id}
                   onChange={() => setSelectedPaymentType(pt)} className="accent-blue-600" />
-                <div className="w-9 h-9 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 font-bold text-sm">
-                  {pt.name.charAt(0).toUpperCase()}
-                </div>
+
                 <div className="flex-1 min-w-0">
-                  <div className="font-medium text-gray-900 text-sm">{pt.name}</div>
-                  {pt.description && <div className="text-xs text-gray-500">{pt.description}</div>}
+                  <div className="font-medium text-curai-ink text-sm">{pt.name}</div>
+                  {pt.description && <div className="text-xs text-curai-muted">{pt.description}</div>}
                 </div>
               </label>
             ))
           )}
         </div>
 
-        <div className="mt-4 pt-3 border-t space-y-2">
-          <div key="total" className="flex justify-between text-sm text-gray-600">
-            <span>К оплате</span><span className="font-medium text-gray-900">{total.toLocaleString()} ₸</span>
+        <div className="curai-payment-calculation mt-4 pt-3 border-t space-y-2">
+          <div key="total" className="flex justify-between text-sm text-curai-muted">
+            <span>До скидки</span><span className="font-medium text-curai-ink">{total.toLocaleString()} ₸</span>
           </div>
-          <div key="discline" className={`flex justify-between text-sm ${disc > 0.001 ? 'text-green-600' : 'text-gray-400'}`}>
+          <div key="discline" className={`flex justify-between text-sm ${disc > 0.001 ? "text-curai-positive" : "text-curai-muted"}`}>
             <span>Скидка</span><span>− {disc > 0.001 ? disc.toLocaleString() : '0'} ₸</span>
           </div>
-          <div key="discinput">
-            <div className="flex items-center justify-between mb-1">
-              <span className="text-sm text-gray-600">Скидка</span>
-              <div className="flex rounded-lg overflow-hidden border border-gray-300">
-                <button type="button" onClick={() => setDiscountType('fixed')}
-                  className={`px-3 py-1.5 text-xs ${discountType === 'fixed' ? 'bg-blue-600 text-white' : 'bg-white text-gray-600'}`}>фикс. ₸</button>
-                <button type="button" onClick={() => setDiscountType('percent')}
-                  className={`px-3 py-1.5 text-xs ${discountType === 'percent' ? 'bg-blue-600 text-white' : 'bg-white text-gray-600'}`}>%</button>
-              </div>
-            </div>
-            <input type="number" min="0" step="0.01" value={discountInput} disabled={discountLocked}
+          <div key="discinput" className="curai-payment-discount">
+            <label>Тип скидки<select aria-label="Тип скидки" value={discountType} onChange={e => setDiscountType(e.target.value)} disabled={discountLocked}><option value="fixed">Фиксированная, ₸</option><option value="percent">Процент, %</option></select></label><label>Размер скидки<input type="number" min="0" step="0.01" value={discountInput} disabled={discountLocked}
               onChange={(e) => setDiscountInput(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder={discountType === 'percent' ? 'Процент скидки' : 'Сумма скидки, ₸'} />
+              className="w-full px-3 py-2 border border-curai-control rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-curai-focus" placeholder={discountType === 'percent' ? 'Процент скидки' : 'Сумма скидки, ₸'} /></label><p>Доступные варианты: сумма в ₸ или процент (%)</p>
           </div>
           <div key="final" className="flex justify-between text-base font-semibold">
-            <span>Итого к оплате</span><span className="text-blue-600">{finalAmt.toLocaleString()} ₸</span>
+            <span>Итого к оплате</span><span className="text-curai-blue">{finalAmt.toLocaleString()} ₸</span>
           </div>
         </div>
 
-        {autoCompletion && <p className="mt-3 text-sm text-blue-700">Полная оплата автоматически отметит выполнение оплачиваемых услуг или сеансов.</p>}
-        {discountLocked && <p className="mt-2 text-xs text-gray-600">Скидку можно задать при отдельной оплате услуги.</p>}
-        <button onClick={() => onPay(selectedPaymentType, disc)} disabled={loading || !selectedPaymentType}
-          className="w-full mt-4 px-4 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 font-medium">
+        {autoCompletion && <p className="mt-3 text-sm text-curai-blue">Полная оплата автоматически отметит выполнение оплачиваемых услуг или сеансов.</p>}
+        {discountLocked && <p className="mt-2 text-xs text-curai-muted">Скидку можно задать при отдельной оплате услуги.</p>}
+        <div className="curai-payment-dialog-footer"><button type="button" onClick={onClose} className="curai-button curai-button-secondary">Отмена</button><button onClick={() => onPay(selectedPaymentType, disc)} disabled={loading || !selectedPaymentType}
+          className="w-full mt-4 px-4 py-3 bg-curai-blue text-white rounded-md hover:bg-curai-blue disabled:opacity-50 font-medium">
           {loading ? 'Обработка...' : `Оплатить ${finalAmt.toLocaleString()} ₸`}
-        </button>
+        </button></div>
       </div>
     </div>
   );
 };
 
-const ServicePaymentList = ({ plan, onUpdate, onEdit, paymentFilter = 'all', procedureFilter = 'all' }) => {
+const ServicePaymentList = ({ plan, onUpdate, onEdit, paymentFilter = 'all', procedureFilter = 'all', layout = 'legacy', contextActions }) => {
   const [loading, setLoading] = useState(false);
+  const paymentInFlight = useRef(false);
   const [consultation, setConsultation] = useState(null);
   const [consultationLoading, setConsultationLoading] = useState(false);
   const [expandedSections, setExpandedSections] = useState({});
   const [isCollapsed, setIsCollapsed] = useState(true); // По умолчанию свёрнуто
   const API = import.meta.env.VITE_BACKEND_URL;
   const autoCompletion = plan.payment_completion_policy === 'full_payment_v1';
-  
+
   // Способы оплаты
   const [paymentTypes, setPaymentTypes] = useState([]);
   const [loadingPaymentTypes, setLoadingPaymentTypes] = useState(false);
-  
+
   // Модальное окно выбора способа оплаты
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [pendingPaymentData, setPendingPaymentData] = useState(null); // { type: 'service' | 'remaining', serviceId: string | null }
@@ -137,7 +132,7 @@ const ServicePaymentList = ({ plan, onUpdate, onEdit, paymentFilter = 'all', pro
       try {
         setConsultationLoading(true);
         const token = localStorage.getItem('token');
-        
+
         // Пробуем получить консультацию через API плана
         const response = await fetch(
           `${API}/api/treatment-plans/${plan.id}/consultation`,
@@ -177,11 +172,11 @@ const ServicePaymentList = ({ plan, onUpdate, onEdit, paymentFilter = 'all', pro
   const filteredServices = plan.services.filter(service => {
     // Фильтр по оплате
     if (paymentFilter === 'paid') {
-      const isPaid = service.is_paid || service.payment_status === 'paid' || 
+      const isPaid = service.is_paid || service.payment_status === 'paid' ||
                      (service.paid_amount && service.paid_amount >= service.total_price);
       if (!isPaid) return false;
     } else if (paymentFilter === 'unpaid') {
-      const isPaid = service.is_paid || service.payment_status === 'paid' || 
+      const isPaid = service.is_paid || service.payment_status === 'paid' ||
                      (service.paid_amount && service.paid_amount >= service.total_price);
       if (isPaid) return false;
     }
@@ -252,8 +247,9 @@ const ServicePaymentList = ({ plan, onUpdate, onEdit, paymentFilter = 'all', pro
 
   // Выполнить оплату с выбранным способом оплаты и скидкой
   const executePayment = async (paymentType, discount = 0) => {
-    if (!pendingPaymentData || !paymentType) return;
-    
+    if (!pendingPaymentData || !paymentType || paymentInFlight.current) return;
+    paymentInFlight.current = true;
+
     try {
       setLoading(true);
       setShowPaymentModal(false);
@@ -384,47 +380,8 @@ const ServicePaymentList = ({ plan, onUpdate, onEdit, paymentFilter = 'all', pro
         if (onUpdate) onUpdate(updated);
         alert('✅ Комплекс оплачен полностью');
       } else if (pendingPaymentData.type === 'remaining') {
-        // Оплата остатка - помечаем все неоплаченные услуги;
-        // скидка распределяется равномерно по неоплаченным простым услугам (по ТЗ)
-        const unpaidServices = plan.services.filter(s => s.payment_status !== 'paid');
-        const simpleUnpaid = unpaidServices.filter(s => !s.is_complex);
-        const discPer = simpleUnpaid.length && discount > 0.001
-          ? Math.round((discount / simpleUnpaid.length) * 100) / 100 : 0;
-
-        for (const service of unpaidServices) {
-          const pd = { ...paymentData };
-          if (discPer > 0.001 && !service.is_complex) {
-            pd.amount = Math.max(0, (service.total_price || 0) - discPer);
-          }
-          const response = await fetch(
-            `${API}/api/treatment-plans/${plan.id}/services/${service.service_id}/mark-paid`,
-            {
-              method: 'POST',
-              headers: {
-                'Authorization': `Bearer ${token}`,
-                'Content-Type': 'application/json'
-              },
-              body: JSON.stringify(pd)
-            }
-          );
-
-          if (!response.ok) {
-            throw new Error(`Ошибка при оплате услуги ${service.service_name}`);
-          }
-        }
-
-        // Обновляем план после оплаты всех услуг
-        const planResponse = await fetch(`${API}/api/treatment-plans/${plan.id}`, {
-          headers: { 'Authorization': `Bearer ${token}` }
-        });
-
-        if (planResponse.ok) {
-          const updatedPlan = await planResponse.json();
-          if (onUpdate) {
-            onUpdate(updatedPlan);
-          }
-          alert(`✅ План лечения полностью оплачен! (${paymentType ? paymentType.name : 'без указания способа'})`);
-        }
+        await settleLegacyPlan({ plan, API, paymentData, discount, complexShares, ledgerFetch, requireSessionId, onUpdate });
+        alert('✅ Остаток плана оплачен');
       }
     } catch (error) {
       console.error('Error executing payment:', error);
@@ -433,6 +390,7 @@ const ServicePaymentList = ({ plan, onUpdate, onEdit, paymentFilter = 'all', pro
       setLoading(false);
       setPendingPaymentData(null);
       resetPaymentModal();
+      paymentInFlight.current = false;
     }
   };
 
@@ -450,13 +408,13 @@ const ServicePaymentList = ({ plan, onUpdate, onEdit, paymentFilter = 'all', pro
   const getPaymentStatusBadge = (status) => {
     if (status === 'paid') {
       return (
-        <span className="px-3 py-1.5 bg-green-100 text-green-700 rounded-lg text-sm font-medium">
+        <span className="px-3 py-1.5 bg-curai-positiveBg text-curai-positive rounded-md text-sm font-medium">
           ✅ Оплачено
         </span>
       );
     }
     return (
-      <span className="px-3 py-1.5 bg-red-100 text-red-700 rounded-lg text-sm font-medium">
+      <span className="px-3 py-1.5 bg-curai-negativeBg text-curai-negative rounded-md text-sm font-medium">
         ❌ Не оплачено
       </span>
     );
@@ -473,13 +431,13 @@ const ServicePaymentList = ({ plan, onUpdate, onEdit, paymentFilter = 'all', pro
         : 0)), 0);
   const totalAmount = plan.total_cost || 0;
   const paymentProgress = totalAmount > 0 ? Math.round((paidAmount / totalAmount) * 100) : 0;
-  
+
   // Депозит: общая сумма внесённых депозитов (deposit_amount = депозит из записей + extra_deposit)
   const depositAmount = plan.deposit_amount || 0;
   const extraDeposit = plan.extra_deposit || 0;
   // Депозит только из записей (без доплат)
   const appointmentDeposit = depositAmount - extraDeposit;
-  
+
   // Расчет баланса и долга
   // Если depositAmount >= totalAmount: есть остаток депозита
   // Если depositAmount < totalAmount: есть недоплата/долг
@@ -533,23 +491,25 @@ const ServicePaymentList = ({ plan, onUpdate, onEdit, paymentFilter = 'all', pro
   // Компонент раскрывающейся секции
   const AccordionSection = ({ title, icon, content, sectionKey, color = "blue" }) => {
     if (!content) return null;
-    
+
     const isExpanded = expandedSections[sectionKey];
+    if (layout === 'treatment') return <div className="curai-plan-clinical-section"><PlanDisclosure expanded={Boolean(isExpanded)} label={title} onToggle={() => toggleSection(sectionKey)}/>{isExpanded && <div>{content}</div>}</div>;
     const colorClasses = {
-      blue: "bg-blue-50 border-blue-200 text-blue-700 hover:bg-blue-100",
-      green: "bg-green-50 border-green-200 text-green-700 hover:bg-green-100",
-      purple: "bg-purple-50 border-purple-200 text-purple-700 hover:bg-purple-100",
-      indigo: "bg-indigo-50 border-indigo-200 text-indigo-700 hover:bg-indigo-100",
-      teal: "bg-teal-50 border-teal-200 text-teal-700 hover:bg-teal-100",
-      pink: "bg-pink-50 border-pink-200 text-pink-700 hover:bg-pink-100",
-      orange: "bg-orange-50 border-orange-200 text-orange-700 hover:bg-orange-100",
-      gray: "bg-gray-50 border-gray-200 text-gray-700 hover:bg-gray-100",
-      yellow: "bg-yellow-50 border-yellow-200 text-yellow-700 hover:bg-yellow-100"
+      blue: "bg-curai-selected border-curai-control text-curai-blue hover:bg-curai-selected",
+      green: "bg-curai-positiveBg border-curai-positive text-curai-positive hover:bg-curai-positiveBg",
+      purple: "bg-curai-selected border-curai-control text-curai-blue hover:bg-curai-selected",
+      indigo: "bg-curai-selected border-curai-control text-curai-blue hover:bg-curai-selected",
+      teal: "bg-curai-positiveBg border-curai-positive text-curai-positive hover:bg-curai-positiveBg",
+      pink: "bg-curai-negativeBg border-curai-negative text-curai-negative hover:bg-curai-negativeBg",
+      orange: "bg-curai-warningBg border-curai-warning text-curai-warning hover:bg-curai-warningBg",
+      gray: "bg-curai-subtle border-curai-border text-curai-ink hover:bg-curai-subtle",
+      yellow: "bg-curai-warningBg border-curai-warning text-curai-warning hover:bg-curai-warningBg"
     };
-    
+
     return (
-      <div className={`border rounded-lg mb-2 overflow-hidden ${colorClasses[color].split(' ').slice(1, 2).join(' ')}`}>
+      <div className={`curai-plan-clinical-section border rounded-md mb-2 overflow-hidden ${colorClasses[color].split(' ').slice(1, 2).join(' ')}`}>
         <button
+          aria-expanded={Boolean(isExpanded)}
           onClick={() => toggleSection(sectionKey)}
           className={`w-full px-4 py-3 flex items-center justify-between transition-colors ${colorClasses[color]}`}
         >
@@ -557,10 +517,10 @@ const ServicePaymentList = ({ plan, onUpdate, onEdit, paymentFilter = 'all', pro
             <span className="text-lg">{icon}</span>
             <span className="font-medium text-sm">{title}</span>
           </div>
-          {isExpanded ? <FaChevronDown className="text-gray-400" /> : <FaChevronRight className="text-gray-400" />}
+          {isExpanded ? <FaChevronDown className="text-curai-muted" /> : <FaChevronRight className="text-curai-muted" />}
         </button>
         {isExpanded && (
-          <div className="px-4 py-3 bg-white border-t text-sm text-gray-700 whitespace-pre-wrap">
+          <div className="px-4 py-3 bg-curai-surface border-t text-sm text-curai-ink whitespace-pre-wrap">
             {content}
           </div>
         )}
@@ -619,212 +579,7 @@ const ServicePaymentList = ({ plan, onUpdate, onEdit, paymentFilter = 'all', pro
 
   const resetPaymentModal = () => { setSelectedPaymentType(null); setDiscountInput(''); setDiscountType('fixed'); };
 
-  return (
-    <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
-      {/* Заголовок карточки - всегда видимый */}
-      <button
-        onClick={() => setIsCollapsed(!isCollapsed)}
-        className="w-full px-4 py-3 flex items-center justify-between bg-gradient-to-r from-gray-50 to-gray-100 hover:from-gray-100 hover:to-gray-200 transition-colors border-b border-gray-200"
-      >
-        <div className="flex items-center space-x-3 min-w-0">
-          <div className={`transform transition-transform duration-200 ${isCollapsed ? '' : 'rotate-90'}`}>
-            <FaChevronRight className="text-gray-400 text-sm" />
-          </div>
-          <div className="text-left min-w-0">
-            <h3 className="text-sm font-semibold text-gray-900 truncate">{plan.title}</h3>
-            <div className="flex items-center space-x-2 text-xs text-gray-500 mt-0.5">
-              <span>{new Date(plan.created_at).toLocaleDateString('ru-RU')}</span>
-              {plan.created_by_name && (
-                <>
-                  <span>•</span>
-                  <span className="flex items-center">
-                    <FaUserMd className="mr-1 text-gray-400" />
-                    {plan.created_by_name}
-                  </span>
-                </>
-              )}
-            </div>
-          </div>
-        </div>
-        <div className="flex items-center space-x-2 flex-shrink-0 ml-2">
-          {onEdit && (
-            <button
-              onClick={(e) => { e.stopPropagation(); onEdit(plan); }}
-              className="px-2 py-1 text-blue-600 border border-blue-600 rounded hover:bg-blue-50 text-xs whitespace-nowrap"
-              title="Редактировать"
-            >
-              ✏️
-            </button>
-          )}
-          <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${
-            plan.payment_status === 'paid' 
-              ? 'bg-green-100 text-green-700' 
-              : plan.payment_status === 'partially_paid'
-                ? 'bg-yellow-100 text-yellow-700'
-                : 'bg-red-100 text-red-700'
-          }`}>
-            {plan.payment_status === 'paid' ? '✓ Оплачено' : 
-             plan.payment_status === 'partially_paid' ? '⚠ Частично' : '✗ Не оплачено'}
-          </span>
-          {isCollapsed ? <FaChevronDown className="text-gray-400" /> : <FaChevronDown className="text-gray-400 rotate-180" />}
-        </div>
-      </button>
-
-      {/* Детальное содержимое - отображается только при раскрытии */}
-      {!isCollapsed && (
-        <div className="p-4">
-          {/* Описание */}
-          {plan.description && (
-            <p className="text-sm text-gray-600 mb-4">{plan.description}</p>
-          )}
-
-          {/* Детали консультации (аккордеон) */}
-          {consultationLoading ? (
-            <div className="mb-4 p-4 bg-gray-50 rounded-lg text-center text-gray-500">
-              <span className="animate-pulse">Загрузка данных консультации...</span>
-            </div>
-          ) : consultation ? (
-            <div className="mb-4">
-              <div className="flex items-center justify-between mb-3">
-                <h4 className="font-medium text-gray-800 flex items-center">
-                  <FaFileMedical className="mr-2 text-blue-500" />
-                  Данные консультации от {new Date(consultation.consultation_date).toLocaleDateString('ru-RU')}
-                </h4>
-                <span className="text-xs text-gray-500">
-                  Врач: {consultation.doctor_name}
-                </span>
-              </div>
-              
-              <div className="space-y-1">
-                <AccordionSection
-                  title="Жалобы"
-                  icon={<FaClipboardList />}
-                  content={consultation.complaints}
-                  sectionKey="complaints"
-                  color="blue"
-                />
-                
-                <AccordionSection
-                  title="Анамнез"
-                  icon={<FaNotesMedical />}
-                  content={consultation.anamnesis}
-                  sectionKey="anamnesis"
-                  color="purple"
-                />
-                
-                <AccordionSection
-                  title="Анамнез заболевания"
-                  icon={<FaNotesMedical />}
-                  content={consultation.anamnesis_morbi}
-                  sectionKey="anamnesis_morbi"
-                  color="indigo"
-                />
-                
-                <AccordionSection
-                  title="Анамнез жизни"
-                  icon={<FaNotesMedical />}
-                  content={consultation.anamnesis_vitae}
-                  sectionKey="anamnesis_vitae"
-                  color="teal"
-                />
-                
-                <AccordionSection
-                  title="Локальный статус"
-                  icon={<FaStethoscope />}
-                  content={consultation.local_status}
-                  sectionKey="local_status"
-                  color="pink"
-                />
-                
-                <AccordionSection
-                  title="Объективный осмотр"
-                  icon={<FaStethoscope />}
-                  content={consultation.examination}
-                  sectionKey="examination"
-                  color="green"
-                />
-                
-                <AccordionSection
-                  title={`Диагноз${consultation.icd10_codes?.length > 0 ? ` (МКБ-10: ${consultation.icd10_codes.map(c => c.code).join(', ')})` : ''}`}
-                  icon={<FaUserMd />}
-                  content={consultation.diagnosis}
-                  sectionKey="diagnosis"
-                  color="orange"
-                />
-                
-                <AccordionSection
-                  title="Рекомендации"
-                  icon="📋"
-                  content={consultation.recommendations}
-                  sectionKey="recommendations"
-                  color="yellow"
-                />
-                
-                <AccordionSection
-                  title="Дополнительные заметки"
-                  icon="📝"
-                  content={consultation.notes}
-                  sectionKey="consultationNotes"
-                  color="gray"
-                />
-              </div>
-            </div>
-          ) : null}
-
-          {/* Кнопка оплаты остатка если есть недоплата */}
-          {actualRemainingToPay > 0 && (
-            <div className="mt-4 pt-4 border-t border-gray-200">
-              <div className="flex items-center justify-between">
-                <div className="text-sm text-gray-600">
-                  {depositAmount > 0 && depositDebt > 0 && (
-                    <span className="text-orange-600">
-                      ⚠️ Депозита недостаточно. Требуется доплата: <strong>{depositDebt.toLocaleString()} ₸</strong>
-                    </span>
-                  )}
-                </div>
-                <button
-                  onClick={payRemainingDebt}
-                  disabled={loading}
-                  className="px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed font-semibold transition-all shadow-md hover:shadow-lg flex items-center space-x-2"
-                >
-                  {loading ? (
-                    <span>Обработка...</span>
-                  ) : (
-                    <>
-                      <span>💳</span>
-                      <span>Оплатить остаток</span>
-                      <span className="ml-2 px-2 py-1 bg-green-700 rounded text-sm">
-                        {actualRemainingToPay.toLocaleString()} ₸
-                      </span>
-                    </>
-                  )}
-                </button>
-              </div>
-            </div>
-          )}
-          
-          {/* Показываем статус если всё оплачено */}
-          {remainingToPay === 0 && paidAmount > 0 && (
-            <div className="mt-4 pt-4 border-t border-gray-200 text-center">
-              <div className="inline-flex items-center px-6 py-3 bg-green-100 text-green-700 rounded-lg font-semibold">
-                <span className="text-2xl mr-2">✅</span>
-                <span>План лечения полностью оплачен</span>
-              </div>
-              {depositDebt > 0 && (
-                <div className="text-xs text-gray-500 mt-2">
-                  Депозит: {depositAmount.toLocaleString()} ₸ · С депозита оплачено: {plan.services.reduce((sum, s) => sum + (s.paid_from_deposit || 0), 0).toLocaleString()} ₸ · Наличными/терминалом: {(paidAmount - plan.services.reduce((sum, s) => sum + (s.paid_from_deposit || 0), 0)).toLocaleString()} ₸
-                </div>
-              )}
-            </div>
-          )}
-        </div>
-        )}
-
-        {/* Список услуг */}
-          <div className="space-y-3">
-            <h4 className="font-medium text-gray-900 mb-3">Услуги в счете:</h4>
-            
-            {filteredServices.map((service, index) => {
+  const servicePaymentView = service => {
               const isPaid = service.payment_status === 'paid';
               const isCourse = service.is_course;
               // для комплексной услуги — фактические остаток/общая по оплаченным долям
@@ -841,11 +596,11 @@ const ServicePaymentList = ({ plan, onUpdate, onEdit, paymentFilter = 'all', pro
               const paidShown = service.is_complex ? cPaid : (service.paid_amount || cTotal);
               const discShown = service.is_complex ? cDisc : (service.discount_amount || 0);
               const paymentType = service.payment_type || 'single';
-              
+
               // Для курсов с поэтапной оплатой
               const isPerSession = isCourse && paymentType === 'per_session';
-              const paidSessions = isPerSession && service.sessions 
-                ? service.sessions.filter(s => s.paid).length 
+              const paidSessions = isPerSession && service.sessions
+                ? service.sessions.filter(s => s.paid).length
                 : 0;
               const totalSessions = autoCompletion ? (service.sessions || []).length : service.quantity_total || 1;
               const nextSession = (service.sessions || []).find(s => sessionRemaining(service, s) > 0);
@@ -853,26 +608,260 @@ const ServicePaymentList = ({ plan, onUpdate, onEdit, paymentFilter = 'all', pro
               const sessionDue = autoCompletion && nextSession ? sessionRemaining(service, nextSession) : sessionPrice;
               const coursePaidAmount = autoCompletion ? (service.sessions || []).reduce((sum, s) => sum + Number(s.paid_amount || 0), 0) : paidSessions * sessionPrice;
               const courseRemaining = autoCompletion ? rowRemaining(service) : (totalSessions - paidSessions) * sessionPrice;
+
               
-              return (
+ return {isPaid, isCourse, cShares, cPaid, cTotal, cDisc, cDue, cRemaining, cFully, isPartially, paidShown, discShown, paymentType, isPerSession, paidSessions, totalSessions, nextSession, sessionPrice, sessionDue, coursePaidAmount, courseRemaining};
+};
+
+const consultationContent = (consultationLoading ? (
+            <div className="mb-4 p-4 bg-curai-subtle rounded-md text-center text-curai-muted">
+              <span className="animate-pulse">Загрузка данных консультации...</span>
+            </div>
+          ) : consultation ? (
+            <div className="mb-4">
+              <div className="flex items-center justify-between mb-3">
+                <h4 className="font-medium text-curai-ink flex items-center">
+                  <FaFileMedical className="mr-2 text-curai-blue" />
+                  Данные консультации от {new Date(consultation.consultation_date).toLocaleDateString('ru-RU')}
+                </h4>
+                <span className="text-xs text-curai-muted">
+                  Врач: {consultation.doctor_name}
+                </span>
+              </div>
+
+              <div className="space-y-1">
+                <AccordionSection
+                  title="Жалобы"
+                  icon={<FaClipboardList />}
+                  content={consultation.complaints}
+                  sectionKey="complaints"
+                  color="blue"
+                />
+
+                <AccordionSection
+                  title="Анамнез"
+                  icon={<FaNotesMedical />}
+                  content={consultation.anamnesis}
+                  sectionKey="anamnesis"
+                  color="purple"
+                />
+
+                <AccordionSection
+                  title="Анамнез заболевания"
+                  icon={<FaNotesMedical />}
+                  content={consultation.anamnesis_morbi}
+                  sectionKey="anamnesis_morbi"
+                  color="indigo"
+                />
+
+                <AccordionSection
+                  title="Анамнез жизни"
+                  icon={<FaNotesMedical />}
+                  content={consultation.anamnesis_vitae}
+                  sectionKey="anamnesis_vitae"
+                  color="teal"
+                />
+
+                <AccordionSection
+                  title="Локальный статус"
+                  icon={<FaStethoscope />}
+                  content={consultation.local_status}
+                  sectionKey="local_status"
+                  color="pink"
+                />
+
+                <AccordionSection
+                  title="Объективный осмотр"
+                  icon={<FaStethoscope />}
+                  content={consultation.examination}
+                  sectionKey="examination"
+                  color="green"
+                />
+
+                <AccordionSection
+                  title={`Диагноз${consultation.icd10_codes?.length > 0 ? ` (МКБ-10: ${consultation.icd10_codes.map(c => c.code).join(', ')})` : ''}`}
+                  icon={<FaUserMd />}
+                  content={consultation.diagnosis}
+                  sectionKey="diagnosis"
+                  color="orange"
+                />
+
+                <AccordionSection
+                  title="Рекомендации"
+                  icon="📋"
+                  content={consultation.recommendations}
+                  sectionKey="recommendations"
+                  color="yellow"
+                />
+
+                <AccordionSection
+                  title="Дополнительные заметки"
+                  icon="📝"
+                  content={consultation.notes}
+                  sectionKey="consultationNotes"
+                  color="gray"
+                />
+              </div>
+            </div>
+          ) : null);
+const paymentModal = (<PaymentModal
+        caption={plan.services.find(s => pendingPaymentData?.serviceRowId ? s.service_row_id === pendingPaymentData.serviceRowId : s.service_id === pendingPaymentData?.serviceId)?.service_name || plan.title}
+        show={showPaymentModal}
+        loading={loading}
+        onClose={() => { resetPaymentModal(); setShowPaymentModal(false); }}
+        paymentTypes={paymentTypes}
+        loadingPaymentTypes={loadingPaymentTypes}
+        selectedPaymentType={selectedPaymentType}
+        setSelectedPaymentType={setSelectedPaymentType}
+        discountInput={discountInput}
+        setDiscountInput={setDiscountInput}
+        discountType={discountType}
+        setDiscountType={setDiscountType}
+        autoCompletion={autoCompletion}
+        discountLocked={pendingPaymentData?.type === 'session' || (autoCompletion && (pendingPaymentData?.type === 'remaining' || pendingPaymentData?.type === 'complex-remaining' || (pendingPaymentData?.type === 'service' && plan.services.find(s => s.service_row_id === pendingPaymentData.serviceRowId)?.is_course)))}
+        total={payableTarget()}
+        onPay={(pType, d) => executePayment(pType, d)}
+      />);
+const presentation = { plan, services: filteredServices, paidAmount, totalAmount, remainingToPay: actualRemainingToPay, loading, autoCompletion, servicePaymentView, sessionRemaining,
+onPayRemaining: payRemainingDebt, onPayService: markServicePaid, onPayComplex: openPaymentModalForComplexRemaining, onPayComponent: openPaymentModalForComponent, onPaySession: openSessionPayment, consultationContent, paymentModal };
+if (layout === 'workspace') return <PaymentPlanDetails {...presentation}/>;
+if (layout === 'treatment') return <TreatmentPlanDetails {...presentation} onUpdate={onUpdate} contextActions={contextActions}/>;
+return (
+    <div className="curai-payment-plan bg-curai-surface rounded-md shadow-none border border-curai-border overflow-hidden">
+      {/* Заголовок карточки - всегда видимый */}
+      <button
+        onClick={() => setIsCollapsed(!isCollapsed)}
+        className="curai-payment-plan-header w-full px-4 py-3 flex items-center justify-between bg-curai-subtle transition-colors border-b border-curai-border"
+      >
+        <div className="flex items-center space-x-3 min-w-0">
+          <div className={`transform transition-transform duration-200 ${isCollapsed ? '' : 'rotate-90'}`}>
+            <FaChevronRight className="text-curai-muted text-sm" />
+          </div>
+          <div className="text-left min-w-0">
+            <h3 className="text-sm font-semibold text-curai-ink truncate">{plan.title}</h3>
+            <div className="flex items-center space-x-2 text-xs text-curai-muted mt-0.5">
+              <span>{new Date(plan.created_at).toLocaleDateString('ru-RU')}</span>
+              {plan.created_by_name && (
+                <>
+                  <span>•</span>
+                  <span className="flex items-center">
+                    <FaUserMd className="mr-1 text-curai-muted" />
+                    {plan.created_by_name}
+                  </span>
+                </>
+              )}
+            </div>
+          </div>
+        </div>
+        <div className="flex items-center space-x-2 flex-shrink-0 ml-2">
+          {onEdit && (
+            <button
+              onClick={(e) => { e.stopPropagation(); onEdit(plan); }}
+              className="px-2 py-1 text-curai-blue border border-curai-control rounded hover:bg-curai-selected text-xs whitespace-nowrap"
+              title="Редактировать"
+            >
+              ✏️
+            </button>
+          )}
+          <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${
+            plan.payment_status === 'paid'
+              ? "bg-curai-positiveBg text-curai-positive"
+              : plan.payment_status === 'partially_paid'
+                ? "bg-curai-warningBg text-curai-warning"
+                : "bg-curai-negativeBg text-curai-negative"
+          }`}>
+            {plan.payment_status === 'paid' ? '✓ Оплачено' :
+             plan.payment_status === 'partially_paid' ? '⚠ Частично' : '✗ Не оплачено'}
+          </span>
+          {isCollapsed ? <FaChevronDown className="text-curai-muted" /> : <FaChevronDown className="text-curai-muted rotate-180" />}
+        </div>
+      </button>
+
+      {/* Детальное содержимое - отображается только при раскрытии */}
+      {!isCollapsed && (
+        <div className="p-4">
+          {/* Описание */}
+          {plan.description && (
+            <p className="text-sm text-curai-muted mb-4">{plan.description}</p>
+          )}
+
+          {/* Детали консультации (аккордеон) */}
+          {consultationContent}
+
+          {/* Кнопка оплаты остатка если есть недоплата */}
+          {actualRemainingToPay > 0 && (
+            <div className="mt-4 pt-4 border-t border-curai-border">
+              <div className="flex items-center justify-between">
+                <div className="text-sm text-curai-muted">
+                  {depositAmount > 0 && depositDebt > 0 && (
+                    <span className="text-curai-warning">
+                      ⚠️ Депозита недостаточно. Требуется доплата: <strong>{depositDebt.toLocaleString()} ₸</strong>
+                    </span>
+                  )}
+                </div>
+                <button
+                  onClick={payRemainingDebt}
+                  disabled={loading}
+                  className="px-6 py-3 bg-curai-positive text-white rounded-md hover:bg-curai-positive disabled:opacity-50 disabled:cursor-not-allowed font-semibold transition-all shadow-none hover:shadow-none flex items-center space-x-2"
+                >
+                  {loading ? (
+                    <span>Обработка...</span>
+                  ) : (
+                    <>
+                      <span>💳</span>
+                      <span>Оплатить остаток</span>
+                      <span className="ml-2 px-2 py-1 bg-curai-positive rounded text-sm">
+                        {actualRemainingToPay.toLocaleString()} ₸
+                      </span>
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Показываем статус если всё оплачено */}
+          {remainingToPay === 0 && paidAmount > 0 && (
+            <div className="mt-4 pt-4 border-t border-curai-border text-center">
+              <div className="inline-flex items-center px-6 py-3 bg-curai-positiveBg text-curai-positive rounded-md font-semibold">
+                <span className="text-2xl mr-2">✅</span>
+                <span>План лечения полностью оплачен</span>
+              </div>
+              {depositDebt > 0 && (
+                <div className="text-xs text-curai-muted mt-2">
+                  Депозит: {depositAmount.toLocaleString()} ₸ · С депозита оплачено: {plan.services.reduce((sum, s) => sum + (s.paid_from_deposit || 0), 0).toLocaleString()} ₸ · Наличными/терминалом: {(paidAmount - plan.services.reduce((sum, s) => sum + (s.paid_from_deposit || 0), 0)).toLocaleString()} ₸
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+        )}
+
+        {/* Список услуг */}
+          <div className="curai-payment-services space-y-3">
+            <h4 className="font-medium text-curai-ink mb-3">Услуги в счете:</h4>
+
+            {filteredServices.map((service, index) => {
+ const { isPaid, isCourse, cShares, cPaid, cTotal, cDisc, cDue, cRemaining, cFully, isPartially, paidShown, discShown, paymentType, isPerSession, paidSessions, totalSessions, nextSession, sessionPrice, sessionDue, coursePaidAmount, courseRemaining } = servicePaymentView(service);
+return (
             <div
               key={index}
-              className={`border rounded-lg overflow-hidden transition-all ${
-                isPaid ? 'border-green-300' : 'border-gray-200'
+              className={`curai-payment-service border rounded-md overflow-hidden transition-all ${
+                isPaid ? "border-curai-positive" : "border-curai-border"
               }`}
             >
               {/* Заголовок услуги */}
-              <div className="bg-gradient-to-r from-gray-50 to-gray-100 px-4 py-3 border-b border-gray-200">
+              <div className="curai-payment-service-header bg-curai-subtle px-4 py-3 border-b border-curai-border">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center space-x-3">
-                    <h5 className="font-semibold text-gray-900 text-lg">{service.service_name}</h5>
+                    <h5 className="font-semibold text-curai-ink text-lg">{service.service_name}</h5>
                     {service.is_complex && (
-                      <span className="px-3 py-1 bg-blue-100 text-blue-700 rounded-full text-xs font-semibold">
+                      <span className="px-3 py-1 bg-curai-selected text-curai-blue rounded-full text-xs font-semibold">
                         🧩 Комплекс
                       </span>
                     )}
                     {isCourse && (
-                      <span className="px-3 py-1 bg-purple-100 text-purple-700 rounded-full text-xs font-semibold">
+                      <span className="px-3 py-1 bg-curai-selected text-curai-blue rounded-full text-xs font-semibold">
                         🔄 Курс
                       </span>
                     )}
@@ -885,14 +874,14 @@ const ServicePaymentList = ({ plan, onUpdate, onEdit, paymentFilter = 'all', pro
                 {service.is_complex && ((() => {
                   const shares = complexShares(service);
                   return (
-                    <div className="mb-2 border border-blue-200 rounded-lg overflow-hidden">
-                      <div className="px-3 py-2 bg-blue-50 text-xs font-semibold text-blue-800">Оплата по услугам комплекса</div>
-                      <div className="divide-y divide-gray-100">
+                    <div className="curai-complex-payment mb-2 border border-curai-control rounded-md overflow-hidden">
+                      <div className="px-3 py-2 bg-curai-selected text-xs font-semibold text-curai-blue">Оплата по услугам комплекса</div>
+                      <div className="divide-y divide-curai-border">
                         {shares.map(c => (
                           <div key={c.component_id || c.service_id} className="flex items-center justify-between px-3 py-2 text-sm">
                             <div>
-                              <div className="text-gray-900 font-medium">{c.service_name}</div>
-                              <div className="text-xs text-gray-500">
+                              <div className="text-curai-ink font-medium">{c.service_name}</div>
+                              <div className="text-xs text-curai-muted">
                                 {(c.price || 0).toLocaleString()} ₸ → доля {(c.share || 0).toLocaleString()} ₸
                                 {(c.discount || 0) > 0 ? ` · скидка ${c.discount}%` : ''}
                                 {c.paid ? (c.discount_amount > 0 ? ' · оплачено со скидкой' : ' · оплачено') : ''}
@@ -900,12 +889,12 @@ const ServicePaymentList = ({ plan, onUpdate, onEdit, paymentFilter = 'all', pro
                             </div>
                             {c.paid ? (
                               <span className="text-right">
-                                <div className="text-green-600 text-xs font-medium">✅ {(c.paid_amount || 0).toLocaleString()} ₸</div>
-                                {c.discount_amount > 0 && <div className="text-gray-400 text-[10px]">скидка −{(c.discount_amount || 0).toLocaleString()} ₸</div>}
+                                <div className="text-curai-positive text-xs font-medium">✅ {(c.paid_amount || 0).toLocaleString()} ₸</div>
+                                {c.discount_amount > 0 && <div className="text-curai-muted text-[10px]">скидка −{(c.discount_amount || 0).toLocaleString()} ₸</div>}
                               </span>
                             ) : (
                               <button type="button" onClick={() => openPaymentModalForComponent(service.service_id, c.service_id, service.service_row_id, c.component_id)}
-                                className="px-3 py-1 bg-blue-600 text-white rounded-lg text-xs hover:bg-blue-700">Оплатить</button>
+                                className="px-3 py-1 bg-curai-blue text-white rounded-md text-xs hover:bg-curai-blue">Оплатить</button>
                             )}
                           </div>
                         ))}
@@ -915,45 +904,45 @@ const ServicePaymentList = ({ plan, onUpdate, onEdit, paymentFilter = 'all', pro
                 })())}
                 {isPerSession ? (
                   /* Курс с поэтапной оплатой */
-                  <div className="space-y-4">
+                  <div className="curai-payment-course space-y-4">
                     {/* Информация о курсе */}
                     <div className="grid grid-cols-2 gap-4">
-                      <div className="bg-blue-50 rounded-lg p-3">
-                        <div className="text-xs text-blue-600 font-medium mb-1">ТИП ОПЛАТЫ</div>
-                        <div className="text-sm font-semibold text-blue-900">
+                      <div className="bg-curai-selected rounded-md p-3">
+                        <div className="text-xs text-curai-blue font-medium mb-1">ТИП ОПЛАТЫ</div>
+                        <div className="text-sm font-semibold text-curai-blue">
                           За каждую процедуру
                         </div>
-                        <div className="text-xs text-blue-700 mt-1">
+                        <div className="text-xs text-curai-blue mt-1">
                           {sessionPrice.toLocaleString()} ₸ за 1 процедуру
                         </div>
                       </div>
-                      
-                      <div className="bg-purple-50 rounded-lg p-3">
-                        <div className="text-xs text-purple-600 font-medium mb-1">ВСЕГО ПРОЦЕДУР</div>
-                        <div className="text-sm font-semibold text-purple-900">
+
+                      <div className="bg-curai-selected rounded-md p-3">
+                        <div className="text-xs text-curai-blue font-medium mb-1">ВСЕГО ПРОЦЕДУР</div>
+                        <div className="text-sm font-semibold text-curai-blue">
                           {totalSessions} процедур
                         </div>
-                        <div className="text-xs text-purple-700 mt-1">
+                        <div className="text-xs text-curai-blue mt-1">
                           на сумму {(autoCompletion ? service.total_price : totalSessions * sessionPrice).toLocaleString()} ₸
                         </div>
                       </div>
                     </div>
 
                     {/* Статус оплаты */}
-                    <div className="bg-gray-50 rounded-lg p-4">
+                    <div className="bg-curai-subtle rounded-md p-4">
                       <div className="flex items-center justify-between mb-3">
                         <div>
-                          <div className="text-xs text-gray-500 font-medium mb-1">ОПЛАЧЕНО ПРОЦЕДУР</div>
-                          <div className="text-2xl font-bold text-gray-900">
-                            {paidSessions} <span className="text-lg text-gray-500">из {totalSessions}</span>
+                          <div className="text-xs text-curai-muted font-medium mb-1">ОПЛАЧЕНО ПРОЦЕДУР</div>
+                          <div className="text-2xl font-semibold text-curai-ink">
+                            {paidSessions} <span className="text-lg text-curai-muted">из {totalSessions}</span>
                           </div>
                         </div>
                         <div className="text-right">
-                          <div className="text-xs text-gray-500 font-medium mb-1">ОПЛАЧЕНО ДЕНЕГ</div>
-                          <div className="text-xl font-bold text-green-600">
+                          <div className="text-xs text-curai-muted font-medium mb-1">ОПЛАЧЕНО ДЕНЕГ</div>
+                          <div className="text-xl font-semibold text-curai-positive">
                             {coursePaidAmount.toLocaleString()} ₸
                           </div>
-                          <div className="text-xs text-gray-500">
+                          <div className="text-xs text-curai-muted">
                             осталось {courseRemaining.toLocaleString()} ₸
                           </div>
                         </div>
@@ -961,13 +950,13 @@ const ServicePaymentList = ({ plan, onUpdate, onEdit, paymentFilter = 'all', pro
 
                       {/* Прогресс-бар */}
                       <div className="relative">
-                        <div className="w-full bg-gray-200 rounded-full h-3 overflow-hidden">
+                        <div className="w-full bg-curai-border rounded-full h-3 overflow-hidden">
                           <div
-                            className="bg-gradient-to-r from-green-500 to-green-600 h-3 rounded-full transition-all duration-500"
+                            className="bg-curai-positive h-3 rounded-full transition-all duration-500"
                             style={{ width: `${(paidSessions / totalSessions) * 100}%` }}
                           />
                         </div>
-                        <div className="text-center text-xs font-semibold text-gray-600 mt-1">
+                        <div className="text-center text-xs font-semibold text-curai-muted mt-1">
                           {Math.round((paidSessions / totalSessions) * 100)}% оплачено
                         </div>
                       </div>
@@ -976,13 +965,13 @@ const ServicePaymentList = ({ plan, onUpdate, onEdit, paymentFilter = 'all', pro
                     {/* Кнопка оплаты */}
                     {autoCompletion && paidSessions < totalSessions && <button type="button" disabled={loading}
                       onClick={() => openPaymentModalForComplexRemaining(service.service_id, service.service_row_id)}
-                      className="text-blue-700 underline">Оплатить весь курс</button>}
+                      className="text-curai-blue underline">Оплатить весь курс</button>}
                     <div className="flex justify-end">
                       {paidSessions < totalSessions ? (
                         <button
                           onClick={() => openSessionPayment(service)}
                           disabled={loading}
-                          className="px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed font-medium transition-all shadow-md hover:shadow-lg"
+                          className="px-6 py-3 bg-curai-positive text-white rounded-md hover:bg-curai-positive disabled:opacity-50 disabled:cursor-not-allowed font-medium transition-all shadow-none hover:shadow-none"
                         >
                           {loading ? (
                             <span>Обработка...</span>
@@ -990,14 +979,14 @@ const ServicePaymentList = ({ plan, onUpdate, onEdit, paymentFilter = 'all', pro
                             <span className="flex items-center space-x-2">
                               <span>💳</span>
                               <span>Оплатить 1 процедуру</span>
-                              <span className="ml-2 px-2 py-0.5 bg-green-700 rounded">
+                              <span className="ml-2 px-2 py-0.5 bg-curai-positive rounded">
                                 {sessionDue.toLocaleString()} ₸
                               </span>
                             </span>
                           )}
                         </button>
                       ) : (
-                        <div className="px-6 py-3 bg-green-100 border-2 border-green-300 text-green-700 rounded-lg font-semibold flex items-center space-x-2">
+                        <div className="px-6 py-3 bg-curai-positiveBg border-2 border-curai-positive text-curai-positive rounded-md font-semibold flex items-center space-x-2">
                           <span className="text-xl">✅</span>
                           <span>Все процедуры оплачены</span>
                         </div>
@@ -1006,53 +995,53 @@ const ServicePaymentList = ({ plan, onUpdate, onEdit, paymentFilter = 'all', pro
                   </div>
                 ) : (
                   /* Обычная услуга или курс с единовременной оплатой */
-                  <div className="space-y-4">
+                  <div className="curai-payment-service-balance space-y-4">
                     {/* Цена и статус */}
                     <div className="flex items-center justify-between">
                       <div className="flex items-center space-x-6">
                         <div>
-                          <div className="text-xs text-gray-500 font-medium mb-1">{service.is_complex ? 'ОБЩАЯ СУММА / ОСТАТОК' : 'СТОИМОСТЬ'}</div>
-                          <div className="text-2xl font-bold text-gray-900">
+                          <div className="text-xs text-curai-muted font-medium mb-1">{service.is_complex ? 'ОБЩАЯ СУММА / ОСТАТОК' : 'СТОИМОСТЬ'}</div>
+                          <div className="text-2xl font-semibold text-curai-ink">
                             {cTotal.toLocaleString()} ₸
                           </div>
                           {service.is_complex && !cFully && (
-                            <div className="text-sm font-semibold text-amber-600">Остаток: {cRemaining.toLocaleString()} ₸</div>
+                            <div className="text-sm font-semibold text-curai-warning">Остаток: {cRemaining.toLocaleString()} ₸</div>
                           )}
                         </div>
-                        
+
                         {service.quantity_total > 1 && (
                           <div>
-                            <div className="text-xs text-gray-500 font-medium mb-1">КОЛИЧЕСТВО</div>
-                            <div className="text-xl font-bold text-gray-900">
+                            <div className="text-xs text-curai-muted font-medium mb-1">КОЛИЧЕСТВО</div>
+                            <div className="text-xl font-semibold text-curai-ink">
                               {service.quantity_total}
                             </div>
                           </div>
                         )}
                       </div>
-                      
+
                       <div className="text-right">
                         {isPaid || cFully ? (
-                          <div className="inline-flex items-center px-4 py-2 bg-green-100 border-2 border-green-300 text-green-700 rounded-lg font-semibold">
+                          <div className="inline-flex items-center px-4 py-2 bg-curai-positiveBg border-2 border-curai-positive text-curai-positive rounded-md font-semibold">
                             <span className="text-lg mr-2">✅</span>
                             <div>
                               <div>Оплачено</div>
-                              <div className="text-xs text-green-500">{paidShown.toLocaleString()} ₸{discShown > 0 ? ` · скидка ${discShown.toLocaleString()} ₸` : ''}</div>
+                              <div className="text-xs text-curai-positive">{paidShown.toLocaleString()} ₸{discShown > 0 ? ` · скидка ${discShown.toLocaleString()} ₸` : ''}</div>
                             </div>
                           </div>
                         ) : isPartially ? (
-                          <div className="inline-flex items-center px-4 py-2 bg-amber-100 border-2 border-amber-300 text-amber-700 rounded-lg font-semibold">
+                          <div className="inline-flex items-center px-4 py-2 bg-curai-warningBg border-2 border-curai-warning text-curai-warning rounded-md font-semibold">
                             <span className="text-lg mr-2">🕐</span>
                             <div>
                               <div>Частично</div>
-                              <div className="text-xs text-amber-600">{cPaid.toLocaleString()} / {cDue.toLocaleString()} ₸{cDisc > 0 ? ` · скидка ${cDisc.toLocaleString()} ₸` : ''}</div>
+                              <div className="text-xs text-curai-warning">{cPaid.toLocaleString()} / {cDue.toLocaleString()} ₸{cDisc > 0 ? ` · скидка ${cDisc.toLocaleString()} ₸` : ''}</div>
                             </div>
                           </div>
                         ) : (
-                          <div className="inline-flex items-center px-4 py-2 bg-red-100 border-2 border-red-300 text-red-700 rounded-lg font-semibold">
+                          <div className="inline-flex items-center px-4 py-2 bg-curai-negativeBg border-2 border-curai-negative text-curai-negative rounded-md font-semibold">
                             <span className="text-lg mr-2">❌</span>
                             <div>
                               <div>Не оплачено</div>
-                              <div className="text-xs text-red-500">{cTotal.toLocaleString()} ₸</div>
+                              <div className="text-xs text-curai-negative">{cTotal.toLocaleString()} ₸</div>
                             </div>
                           </div>
                         )}
@@ -1061,8 +1050,8 @@ const ServicePaymentList = ({ plan, onUpdate, onEdit, paymentFilter = 'all', pro
 
                     {/* Способ оплаты (если уже оплачено) */}
                     {isPaid && service.payment_method_name && (
-                      <div className="text-xs text-gray-500">
-                        Способ оплаты: <span className="font-medium text-gray-700">{service.payment_method_name}</span>
+                      <div className="text-xs text-curai-muted">
+                        Способ оплаты: <span className="font-medium text-curai-ink">{service.payment_method_name}</span>
                       </div>
                     )}
 
@@ -1074,7 +1063,7 @@ const ServicePaymentList = ({ plan, onUpdate, onEdit, paymentFilter = 'all', pro
                             ? openPaymentModalForComplexRemaining(service.service_id, service.service_row_id)
                             : markServicePaid(service.service_id, service.service_row_id)}
                           disabled={loading}
-                          className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed font-medium transition-all shadow-md hover:shadow-lg flex items-center space-x-2"
+                          className="px-6 py-3 bg-curai-blue text-white rounded-md hover:bg-curai-blue disabled:opacity-50 disabled:cursor-not-allowed font-medium transition-all shadow-none hover:shadow-none flex items-center space-x-2"
                         >
                           {loading ? (
                             <span>Обработка...</span>
@@ -1082,7 +1071,7 @@ const ServicePaymentList = ({ plan, onUpdate, onEdit, paymentFilter = 'all', pro
                             <>
                               <span>💳</span>
                               <span>{service.is_complex ? 'Оплатить всё' : 'Оплатить'}</span>
-                              <span className="ml-2 px-2 py-0.5 bg-blue-700 rounded text-sm">
+                              <span className="ml-2 px-2 py-0.5 bg-curai-blue rounded text-sm">
                                 {cRemaining.toLocaleString()} ₸
                               </span>
                             </>
@@ -1100,35 +1089,19 @@ const ServicePaymentList = ({ plan, onUpdate, onEdit, paymentFilter = 'all', pro
 
       {/* Примечания */}
           {plan.notes && (
-            <div className="mt-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
-              <div className="text-sm font-medium text-gray-700 mb-1">Примечания:</div>
-              <div className="text-sm text-gray-600 whitespace-pre-wrap">{plan.notes}</div>
+            <div className="mt-4 p-3 bg-curai-warningBg border border-curai-warning rounded-md">
+              <div className="text-sm font-medium text-curai-ink mb-1">Примечания:</div>
+              <div className="text-sm text-curai-muted whitespace-pre-wrap">{plan.notes}</div>
             </div>
           )}
 
           {/* Информация о создании */}
-          <div className="mt-4 pt-4 border-t border-gray-200 text-xs text-gray-500">
+          <div className="mt-4 pt-4 border-t border-curai-border text-xs text-curai-muted">
             Создано: {new Date(plan.created_at).toLocaleString('ru-RU')} • {plan.created_by_name}
           </div>
-      
+
       {/* Модальное окно выбора способа оплаты */}
-      <PaymentModal
-        show={showPaymentModal}
-        loading={loading}
-        onClose={() => { resetPaymentModal(); setShowPaymentModal(false); }}
-        paymentTypes={paymentTypes}
-        loadingPaymentTypes={loadingPaymentTypes}
-        selectedPaymentType={selectedPaymentType}
-        setSelectedPaymentType={setSelectedPaymentType}
-        discountInput={discountInput}
-        setDiscountInput={setDiscountInput}
-        discountType={discountType}
-        setDiscountType={setDiscountType}
-        autoCompletion={autoCompletion}
-        discountLocked={pendingPaymentData?.type === 'session' || (autoCompletion && (pendingPaymentData?.type === 'remaining' || pendingPaymentData?.type === 'complex-remaining' || (pendingPaymentData?.type === 'service' && plan.services.find(s => s.service_row_id === pendingPaymentData.serviceRowId)?.is_course)))}
-        total={payableTarget()}
-        onPay={(pType, d) => executePayment(pType, d)}
-      />
+      {paymentModal}
     </div>
   );
 };

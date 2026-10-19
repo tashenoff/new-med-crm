@@ -707,7 +707,7 @@ const ServicePrices = ({ user }) => {
 
   return (
     <div className="space-y-6">
-      <div className={`calendar-container calendar-view-panel rounded-2xl`}>
+      <div className={`calendar-container calendar-view-panel rounded-md`}>
         <PanelHeader
           title="Прайс-лист услуг"
           subtitle="Управление ценами и категориями медицинских услуг"
@@ -715,13 +715,13 @@ const ServicePrices = ({ user }) => {
           actionLabel="+ Добавить услугу"
         />
 
-        <div className="bg-white dark:bg-gray-800 rounded-b-2xl border border-t-0 border-gray-200 dark:border-gray-700 p-4 space-y-4 shadow-sm">
+        <div className="bg-curai-surface rounded-b-md border border-t-0 border-curai-border p-4 space-y-4 shadow-none">
           
           {/* Category Management Section */}
           {(user?.role === 'admin' || user?.role === 'super_admin' || user?.role === 'marketer') && (
-            <div className="bg-gray-50 dark:bg-gray-700 p-4 rounded-lg">
+            <div className="bg-curai-subtle p-4 rounded-md">
               <div className="flex items-center justify-between mb-3">
-                <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+                <h3 className="text-lg font-semibold text-curai-ink ">
                   Категории услуг
                 </h3>
                 <div className="flex gap-2">
@@ -755,14 +755,14 @@ const ServicePrices = ({ user }) => {
                   categories.map((category) => (
                     <div
                       key={category.id}
-                      className="inline-flex items-center bg-white dark:bg-gray-800 px-3 py-1.5 rounded-full border border-gray-300 dark:border-gray-600"
+                      className="inline-flex items-center bg-curai-surface px-3 py-1.5 rounded-full border border-curai-control "
                     >
-                      <span className="text-sm text-gray-700 dark:text-gray-300">
+                      <span className="text-sm text-curai-ink ">
                         {category.name}
                       </span>
                       <button
                         onClick={() => handleDeleteCategory(category.id)}
-                        className="ml-2 text-red-500 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300"
+                        className="ml-2 text-curai-negative hover:text-curai-negative "
                         title="Удалить категорию"
                       >
                         ×
@@ -770,7 +770,7 @@ const ServicePrices = ({ user }) => {
                     </div>
                   ))
                 ) : (
-                  <p className="text-sm text-gray-500 dark:text-gray-400">
+                  <p className="text-sm text-curai-muted ">
                     Категории не добавлены
                   </p>
                 )}
@@ -779,7 +779,7 @@ const ServicePrices = ({ user }) => {
           )}
 
       {error && (
-        <div className="mb-4 p-4 bg-red-100 border border-red-400 text-red-700 rounded dark:bg-red-900 dark:border-red-600 dark:text-red-300">
+        <div className="mb-4 p-4 bg-curai-negativeBg border border-curai-negative text-curai-negative rounded ">
           {error}
         </div>
       )}
@@ -807,20 +807,20 @@ const ServicePrices = ({ user }) => {
             ))}
           </select>
         </div>
-        <label className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300 cursor-pointer select-none">
+        <label className="flex items-center gap-2 text-sm text-curai-ink cursor-pointer select-none">
           <input type="checkbox" checked={packagesOnly}
             onChange={(e) => { setPackagesOnly(e.target.checked); setCurrentPage(1); }}
             className="accent-blue-600" />
           Показать только пакеты услуг
         </label>
-        <div className="text-sm text-gray-500 dark:text-gray-400">
+        <div className="text-sm text-curai-muted ">
           Найдено: {filteredServices.length} из {servicePrices.length}
         </div>
       </div>
 
       {loading && (
         <div className="text-center py-4">
-          <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900 dark:border-white"></div>
+          <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-curai-control "></div>
         </div>
       )}
 
@@ -842,11 +842,11 @@ const ServicePrices = ({ user }) => {
                 <td className="px-6 py-4 font-medium">
                   {price.service_name}
                   {price.service_type === 'complex' && (
-                    <span className="ml-2 inline-block bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-100 text-xs font-semibold px-2 py-0.5 rounded">Комплекс</span>
+                    <span className="ml-2 inline-block bg-curai-selected text-curai-blue text-xs font-semibold px-2 py-0.5 rounded">Комплекс</span>
                   )}
                   {price.service_type === 'complex' && (
                     <button type="button" onClick={() => setExpandId(expandId === price.id ? null : price.id)}
-                      className="ml-2 text-xs text-blue-600 hover:text-blue-800 dark:text-blue-400" title="Показать состав">
+                      className="ml-2 text-xs text-curai-blue hover:text-curai-blue " title="Показать состав">
                       {expandId === price.id ? '▲ скрыть состав' : '▼ что входит'}
                     </button>
                   )}
@@ -860,14 +860,14 @@ const ServicePrices = ({ user }) => {
                       <>
                         <button
                           onClick={() => handleEdit(price)}
-                          className="text-yellow-600 hover:text-yellow-800 dark:text-yellow-400 dark:hover:text-yellow-300"
+                          className="text-curai-warning hover:text-curai-warning "
                           title="Редактировать"
                         >
                           ✏️
                         </button>
                         <button
                           onClick={() => handleDelete(price.id)}
-                          className="text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300"
+                          className="text-curai-negative hover:text-curai-negative "
                           title="Удалить"
                         >
                           🗑️
@@ -879,8 +879,8 @@ const ServicePrices = ({ user }) => {
               </tr>
               {price.service_type === 'complex' && expandId === price.id && (
                 <tr>
-                  <td colSpan="5" className="px-6 py-3 bg-gray-50 dark:bg-gray-700">
-                    <div className="text-xs text-gray-600 dark:text-gray-300">
+                  <td colSpan="5" className="px-6 py-3 bg-curai-subtle ">
+                    <div className="text-xs text-curai-muted ">
                       <b>Что входит:</b> {price.components && price.components.length
                         ? price.components.map(c => `${c.service_name}${(c.quantity || 1) > 1 ? ' ×' + c.quantity : ''}`).join('; ')
                         : '—'}
@@ -892,7 +892,7 @@ const ServicePrices = ({ user }) => {
             ))}
             {paginatedServices.length === 0 && !loading && (
               <tr>
-                <td colSpan="5" className="px-6 py-4 text-center text-gray-500">
+                <td colSpan="5" className="px-6 py-4 text-center text-curai-muted">
                   {searchQuery || selectedCategory ? 'Ничего не найдено' : 'Услуги не добавлены'}
                 </td>
               </tr>
@@ -905,11 +905,11 @@ const ServicePrices = ({ user }) => {
       {totalPages > 1 && (
         <div className="flex flex-wrap items-center justify-between gap-4 pt-4">
           <div className="flex items-center gap-2">
-            <span className="text-sm text-gray-600 dark:text-gray-400">Показать:</span>
+            <span className="text-sm text-curai-muted ">Показать:</span>
             <select
               value={itemsPerPage}
               onChange={(e) => { setItemsPerPage(Number(e.target.value)); setCurrentPage(1); }}
-              className="border border-gray-300 dark:border-gray-600 rounded px-2 py-1 text-sm bg-white dark:bg-gray-700"
+              className="border border-curai-control rounded px-2 py-1 text-sm bg-curai-surface "
             >
               <option value={25}>25</option>
               <option value={50}>50</option>
@@ -922,14 +922,14 @@ const ServicePrices = ({ user }) => {
             <button
               onClick={() => setCurrentPage(1)}
               disabled={currentPage === 1}
-              className="px-2 py-1 text-sm border rounded disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-100 dark:hover:bg-gray-700"
+              className="px-2 py-1 text-sm border rounded disabled:opacity-50 disabled:cursor-not-allowed hover:bg-curai-subtle "
             >
               ««
             </button>
             <button
               onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
               disabled={currentPage === 1}
-              className="px-2 py-1 text-sm border rounded disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-100 dark:hover:bg-gray-700"
+              className="px-2 py-1 text-sm border rounded disabled:opacity-50 disabled:cursor-not-allowed hover:bg-curai-subtle "
             >
               «
             </button>
@@ -941,20 +941,20 @@ const ServicePrices = ({ user }) => {
             <button
               onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
               disabled={currentPage === totalPages}
-              className="px-2 py-1 text-sm border rounded disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-100 dark:hover:bg-gray-700"
+              className="px-2 py-1 text-sm border rounded disabled:opacity-50 disabled:cursor-not-allowed hover:bg-curai-subtle "
             >
               »
             </button>
             <button
               onClick={() => setCurrentPage(totalPages)}
               disabled={currentPage === totalPages}
-              className="px-2 py-1 text-sm border rounded disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-100 dark:hover:bg-gray-700"
+              className="px-2 py-1 text-sm border rounded disabled:opacity-50 disabled:cursor-not-allowed hover:bg-curai-subtle "
             >
               »»
             </button>
           </div>
           
-          <div className="text-sm text-gray-600 dark:text-gray-400">
+          <div className="text-sm text-curai-muted ">
             {startIndex + 1}-{Math.min(startIndex + itemsPerPage, filteredServices.length)} из {filteredServices.length}
           </div>
         </div>
@@ -994,7 +994,7 @@ const ServicePrices = ({ user }) => {
                 className={inputClasses}
                 placeholder="Терапевт консультациясы"
               />
-              <p className="text-xs text-gray-500 mt-1">
+              <p className="text-xs text-curai-muted mt-1">
                 Не обязательно к заполнению, только в случае если есть документы с шаблоном с казахским языком
               </p>
             </div>
@@ -1010,7 +1010,7 @@ const ServicePrices = ({ user }) => {
                 className={inputClasses}
                 placeholder="001"
               />
-              <p className="text-xs text-gray-500 mt-1">
+              <p className="text-xs text-curai-muted mt-1">
                 Используется для внутреннего учета
               </p>
             </div>
@@ -1039,14 +1039,14 @@ const ServicePrices = ({ user }) => {
               onChange={(e) => setFormData(prev => ({ ...prev, service_type: e.target.checked ? 'complex' : 'regular' }))}
               className="w-4 h-4 accent-blue-600"
             />
-            <label htmlFor="is-complex" className="text-sm font-medium text-gray-700 dark:text-gray-300">
+            <label htmlFor="is-complex" className="text-sm font-medium text-curai-ink ">
               Комплексная услуга (пакет из нескольких услуг прайса)
             </label>
           </div>
 
           {formData.service_type === 'complex' && (
-            <div className="mt-3 border border-blue-300 dark:border-blue-600 rounded-lg p-3 bg-blue-50 dark:bg-blue-950">
-              <div className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">Состав комплекса</div>
+            <div className="mt-3 border border-curai-control rounded-md p-3 bg-curai-selected ">
+              <div className="text-sm font-semibold text-curai-ink mb-2">Состав комплекса</div>
 
               <div className="relative">
                 <input
@@ -1057,15 +1057,15 @@ const ServicePrices = ({ user }) => {
                   placeholder="Найдите услугу, чтобы добавить в состав"
                 />
                 {componentSearch && filteredComponents.length > 0 && (
-                  <div className="absolute z-50 w-full mt-1 bg-white dark:bg-gray-800 border-2 border-blue-500 dark:border-blue-400 rounded-lg shadow-xl max-h-60 overflow-y-auto">
-                    <div className="px-3 py-2 bg-blue-50 dark:bg-blue-900 text-xs font-semibold text-blue-900 dark:text-blue-100">
+                  <div className="absolute z-50 w-full mt-1 bg-curai-surface border-2 border-curai-control rounded-md shadow-none max-h-60 overflow-y-auto">
+                    <div className="px-3 py-2 bg-curai-selected text-xs font-semibold text-curai-blue ">
                       Услуг найдено: {filteredComponents.length}
                     </div>
                     {filteredComponents.slice(0, 10).map((service) => (
                       <div key={service.id} onClick={() => addComponent(service)}
-                        className="px-4 py-2 hover:bg-blue-50 dark:hover:bg-gray-700 cursor-pointer border-b border-gray-200 dark:border-gray-600">
-                        <div className="font-medium text-gray-900 dark:text-white">{service.service_name}</div>
-                        <div className="text-xs text-gray-600 dark:text-gray-400">
+                        className="px-4 py-2 hover:bg-curai-selected cursor-pointer border-b border-curai-border ">
+                        <div className="font-medium text-curai-ink ">{service.service_name}</div>
+                        <div className="text-xs text-curai-muted ">
                           {(service.category || 'Без категории')} · {(service.price || 0).toLocaleString()} ₸
                         </div>
                       </div>
@@ -1073,16 +1073,16 @@ const ServicePrices = ({ user }) => {
                   </div>
                 )}
                 {componentSearch && filteredComponents.length === 0 && (
-                  <div className="absolute z-50 w-full mt-1 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg shadow-lg p-3">
-                    <p className="text-sm text-gray-500 text-center">Услуги по запросу не найдены</p>
+                  <div className="absolute z-50 w-full mt-1 bg-curai-surface border border-curai-control rounded-md shadow-none p-3">
+                    <p className="text-sm text-curai-muted text-center">Услуги по запросу не найдены</p>
                   </div>
                 )}
               </div>
 
-              <div className="mt-3 border border-gray-300 dark:border-gray-600 rounded-lg p-3 bg-gray-50 dark:bg-gray-700">
-                <div className="mb-2 text-sm font-semibold text-gray-700 dark:text-gray-300">Состав комплекса</div>
+              <div className="mt-3 border border-curai-control rounded-md p-3 bg-curai-subtle ">
+                <div className="mb-2 text-sm font-semibold text-curai-ink ">Состав комплекса</div>
                 {formData.components.length === 0 ? (
-                  <p className="text-sm text-gray-500 text-center py-4">Состав пуст. Добавьте услуги поиском выше.</p>
+                  <p className="text-sm text-curai-muted text-center py-4">Состав пуст. Добавьте услуги поиском выше.</p>
                 ) : (
                   <div className="space-y-2">
                     {formData.components.map((c) => {
@@ -1091,28 +1091,28 @@ const ServicePrices = ({ user }) => {
                       const specialists = specialistsFor(c.service_id);
                       const sh = componentShares().items.find(i => i.service_id === c.service_id);
                       return (
-                        <div key={c.service_id} className="bg-white dark:bg-gray-800 rounded-lg p-3 border border-gray-200 dark:border-gray-600">
+                        <div key={c.service_id} className="bg-curai-surface rounded-md p-3 border border-curai-border ">
                           <div className="flex items-center justify-between">
-                            <span className="text-sm font-medium text-gray-900 dark:text-white truncate flex-1 min-w-0">{c.service_name}</span>
+                            <span className="text-sm font-medium text-curai-ink truncate flex-1 min-w-0">{c.service_name}</span>
                             <button type="button" onClick={() => removeComponent(c.service_id)}
-                              className="text-red-500 hover:text-red-700 text-lg leading-none" title="Убрать">×</button>
+                              className="text-curai-negative hover:text-curai-negative text-lg leading-none" title="Убрать">×</button>
                           </div>
                           <div className="grid grid-cols-3 gap-2 mt-1">
                             <div>
-                              <label className="block text-[10px] text-gray-500">Кол-во</label>
+                              <label className="block text-[10px] text-curai-muted">Кол-во</label>
                               <input type="number" min="1" value={c.quantity}
                                 onChange={(e) => updateComponent(c.service_id, 'quantity', e.target.value)}
-                                className="w-full px-2 py-1 border border-gray-300 dark:border-gray-600 rounded text-sm" />
+                                className="w-full px-2 py-1 border border-curai-control rounded text-sm" />
                             </div>
                             <div>
-                              <label className="block text-[10px] text-gray-500">Прайс (за шт)</label>
-                              <div className="w-full px-2 py-1 bg-gray-100 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded text-sm text-right">
+                              <label className="block text-[10px] text-curai-muted">Прайс (за шт)</label>
+                              <div className="w-full px-2 py-1 bg-curai-subtle border border-curai-control rounded text-sm text-right">
                                 {unitPrice.toLocaleString()} ₸
                               </div>
                             </div>
                             <div>
-                              <label className="block text-[10px] text-gray-500">Доля</label>
-                              <div className="w-full px-2 py-1 bg-gray-100 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded text-sm text-right">
+                              <label className="block text-[10px] text-curai-muted">Доля</label>
+                              <div className="w-full px-2 py-1 bg-curai-subtle border border-curai-control rounded text-sm text-right">
                                 {(sh?.share || 0).toLocaleString()} ₸
                               </div>
                             </div>
@@ -1125,12 +1125,12 @@ const ServicePrices = ({ user }) => {
               </div>
 
               {formData.components.length > 0 && (
-                <div className="mt-2 text-xs text-gray-600 dark:text-gray-300">
+                <div className="mt-2 text-xs text-curai-muted ">
                   {(() => { const s = complexSummary(); const sh = componentShares(); return (
                     <div>
                       <span>По отдельности: <b>{s.sum.toLocaleString()} ₸</b></span>
                       {' '}· Пакетом: <b>{s.packagePrice.toLocaleString()} ₸</b>
-                      {' '}· Экономия: <b className={s.economy >= 0 ? 'text-green-600' : 'text-red-600'}>{s.economy.toLocaleString()} ₸</b>
+                      {' '}· Экономия: <b className={s.economy >= 0 ? "text-curai-positive" : "text-curai-negative"}>{s.economy.toLocaleString()} ₸</b>
                       <div className="mt-1">
                         Коэффициент комплекса: <b>{sh.coefficient.toFixed(4)}</b>
                         {' '}· Сумма долей: <b>{sh.sumShares.toLocaleString()} ₸</b>
@@ -1153,7 +1153,7 @@ const ServicePrices = ({ user }) => {
                   setFormData(prev => ({ ...prev, price: e.target.value }));
                   setPriceError('');
                 }}
-                className={`${inputClasses} ${priceError ? 'border-red-500 dark:border-red-400 ring-1 ring-red-500' : ''}`}
+                className={`${inputClasses} ${priceError ? "border-curai-negative ring-1 ring-curai-negative" : ''}`}
                 aria-invalid={Boolean(priceError)}
                 aria-describedby={priceError ? 'service-price-error' : undefined}
                 placeholder="1500"
@@ -1162,7 +1162,7 @@ const ServicePrices = ({ user }) => {
                 required
               />
               {priceError && (
-                <p id="service-price-error" role="alert" className="mt-1 text-sm text-red-600 dark:text-red-400">
+                <p id="service-price-error" role="alert" className="mt-1 text-sm text-curai-negative ">
                   {priceError}
                 </p>
               )}
@@ -1207,18 +1207,18 @@ const ServicePrices = ({ user }) => {
               
               {/* Выпадающий список материалов при поиске */}
               {materialSearch && filteredMaterials.length > 0 && (
-                <div className="absolute z-50 w-full mt-1 bg-white dark:bg-gray-800 border-2 border-blue-500 dark:border-blue-400 rounded-lg shadow-xl max-h-60 overflow-y-auto">
-                  <div className="px-3 py-2 bg-blue-50 dark:bg-blue-900 text-xs font-semibold text-blue-900 dark:text-blue-100">
+                <div className="absolute z-50 w-full mt-1 bg-curai-surface border-2 border-curai-control rounded-md shadow-none max-h-60 overflow-y-auto">
+                  <div className="px-3 py-2 bg-curai-selected text-xs font-semibold text-curai-blue ">
                     Найдено материалов: {filteredMaterials.length}
                   </div>
                   {filteredMaterials.slice(0, 10).map((material) => (
                     <div
                       key={material.id}
                       onClick={() => addMaterial(material)}
-                      className="px-4 py-2 hover:bg-blue-50 dark:hover:bg-gray-700 cursor-pointer border-b border-gray-200 dark:border-gray-600 last:border-0"
+                      className="px-4 py-2 hover:bg-curai-selected cursor-pointer border-b border-curai-border last:border-0"
                     >
-                      <div className="font-medium text-gray-900 dark:text-white">{material.name}</div>
-                      <div className="text-xs text-gray-600 dark:text-gray-400">
+                      <div className="font-medium text-curai-ink ">{material.name}</div>
+                      <div className="text-xs text-curai-muted ">
                         Остаток: <span className="font-semibold">{material.balance}</span> {material.unit || 'шт'}
                       </div>
                     </div>
@@ -1228,8 +1228,8 @@ const ServicePrices = ({ user }) => {
               
               {/* Сообщение если материалы не найдены */}
               {materialSearch && filteredMaterials.length === 0 && materials.length > 0 && (
-                <div className="absolute z-50 w-full mt-1 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg shadow-lg p-3">
-                  <p className="text-sm text-gray-500 text-center">
+                <div className="absolute z-50 w-full mt-1 bg-curai-surface border border-curai-control rounded-md shadow-none p-3">
+                  <p className="text-sm text-curai-muted text-center">
                     Материалы не найдены. Попробуйте другой запрос.
                   </p>
                 </div>
@@ -1237,16 +1237,16 @@ const ServicePrices = ({ user }) => {
               
               {/* Показать если материалы вообще не загружены */}
               {materialSearch && materials.length === 0 && (
-                <div className="absolute z-50 w-full mt-1 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg shadow-lg p-3">
-                  <p className="text-sm text-red-500 text-center">
+                <div className="absolute z-50 w-full mt-1 bg-curai-surface border border-curai-control rounded-md shadow-none p-3">
+                  <p className="text-sm text-curai-negative text-center">
                     Материалы не загружены. Проверьте подключение к серверу.
                   </p>
                 </div>
               )}
             </div>
 
-            <div className="mt-3 border border-gray-300 dark:border-gray-600 rounded-lg p-3 bg-gray-50 dark:bg-gray-700">
-              <div className="grid grid-cols-12 gap-2 mb-2 text-xs font-semibold text-gray-700 dark:text-gray-300">
+            <div className="mt-3 border border-curai-control rounded-md p-3 bg-curai-subtle ">
+              <div className="grid grid-cols-12 gap-2 mb-2 text-xs font-semibold text-curai-ink ">
                 <div className="col-span-5">Материал</div>
                 <div className="col-span-2">Остаток</div>
                 <div className="col-span-2">Количество</div>
@@ -1255,17 +1255,17 @@ const ServicePrices = ({ user }) => {
               </div>
               
               {formData.materials.length === 0 ? (
-                <p className="text-sm text-gray-500 text-center py-4">
+                <p className="text-sm text-curai-muted text-center py-4">
                   Материалы не добавлены. Используйте поиск выше для добавления.
                 </p>
               ) : (
                 <div className="space-y-2">
                   {formData.materials.map((material) => (
-                    <div key={material.material_id} className="grid grid-cols-12 gap-2 items-center bg-white dark:bg-gray-800 p-2 rounded">
-                      <div className="col-span-5 text-sm font-medium text-gray-900 dark:text-white">
+                    <div key={material.material_id} className="grid grid-cols-12 gap-2 items-center bg-curai-surface p-2 rounded">
+                      <div className="col-span-5 text-sm font-medium text-curai-ink ">
                         {material.material_name}
                       </div>
-                      <div className="col-span-2 text-sm text-gray-600 dark:text-gray-400">
+                      <div className="col-span-2 text-sm text-curai-muted ">
                         {material.available_balance}
                       </div>
                       <div className="col-span-2">
@@ -1275,17 +1275,17 @@ const ServicePrices = ({ user }) => {
                           step="0.01"
                           value={material.quantity}
                           onChange={(e) => updateMaterialQuantity(material.material_id, e.target.value)}
-                          className="w-full px-2 py-1 border border-gray-300 dark:border-gray-600 rounded text-sm"
+                          className="w-full px-2 py-1 border border-curai-control rounded text-sm"
                         />
                       </div>
-                      <div className="col-span-2 text-sm text-gray-600 dark:text-gray-400">
+                      <div className="col-span-2 text-sm text-curai-muted ">
                         {material.unit}
                       </div>
                       <div className="col-span-1 text-center">
                         <button
                           type="button"
                           onClick={() => removeMaterial(material.material_id)}
-                          className="text-red-500 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300"
+                          className="text-curai-negative hover:text-curai-negative "
                           title="Удалить"
                         >
                           ×
@@ -1368,36 +1368,36 @@ const ServicePrices = ({ user }) => {
                   type="file"
                   accept=".xls,.xlsx"
                   onChange={handleFileSelect}
-                  className="block w-full text-sm text-gray-500 dark:text-gray-400 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 dark:file:bg-blue-900 dark:file:text-blue-300"
+                  className="block w-full text-sm text-curai-muted file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-curai-selected file:text-curai-blue hover:file:bg-curai-selected "
                 />
-                <p className="mt-1 text-xs text-gray-500">Колонки: Название, Цена (обязательные), Специальность, Код, Скидка, Статус</p>
+                <p className="mt-1 text-xs text-curai-muted">Колонки: Название, Цена (обязательные), Специальность, Код, Скидка, Статус</p>
               </div>
 
               {importLoading && (
                 <div className="text-center py-4">
-                  <div className="inline-block animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600"></div>
-                  <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">Анализ файла...</p>
+                  <div className="inline-block animate-spin rounded-full h-6 w-6 border-b-2 border-curai-control"></div>
+                  <p className="mt-2 text-sm text-curai-muted ">Анализ файла...</p>
                 </div>
               )}
 
               {importError && (
-                <div className="p-3 bg-red-100 border border-red-400 text-red-700 rounded dark:bg-red-900 dark:text-red-300 text-sm">
+                <div className="p-3 bg-curai-negativeBg border border-curai-negative text-curai-negative rounded text-sm">
                   {importError}
                 </div>
               )}
 
               {importPreview && !importLoading && (
                 <div className="space-y-3">
-                  <div className="bg-blue-50 dark:bg-blue-900/30 p-3 rounded-lg">
-                    <h4 className="font-medium text-blue-800 dark:text-blue-300 mb-2">Предпросмотр</h4>
+                  <div className="bg-curai-selected p-3 rounded-md">
+                    <h4 className="font-medium text-curai-blue mb-2">Предпросмотр</h4>
                     <div className="grid grid-cols-2 gap-2 text-sm">
                       <div>Услуг в файле: <b>{importPreview.total_services}</b></div>
-                      <div>Новых: <b className="text-green-600">{importPreview.services_preview?.new_count || 0}</b></div>
-                      <div>Дубликатов: <b className="text-yellow-600">{importPreview.services_preview?.duplicate_count || 0}</b></div>
+                      <div>Новых: <b className="text-curai-positive">{importPreview.services_preview?.new_count || 0}</b></div>
+                      <div>Дубликатов: <b className="text-curai-warning">{importPreview.services_preview?.duplicate_count || 0}</b></div>
                       <div>Категорий: <b>{importPreview.categories?.total || 0}</b></div>
                     </div>
                     {importPreview.categories?.new?.length > 0 && (
-                      <p className="mt-2 pt-2 border-t border-blue-200 text-sm text-blue-700 dark:text-blue-400">
+                      <p className="mt-2 pt-2 border-t border-curai-control text-sm text-curai-blue ">
                         Новые категории: {importPreview.categories.new.join(', ')}
                       </p>
                     )}
@@ -1405,11 +1405,11 @@ const ServicePrices = ({ user }) => {
                   <div className="space-y-2">
                     <label className="flex items-center gap-2 text-sm">
                       <input type="checkbox" checked={importOptions.update_existing} onChange={(e) => setImportOptions({...importOptions, update_existing: e.target.checked})} className="rounded"/>
-                      <span className="text-gray-700 dark:text-gray-300">Обновлять существующие услуги</span>
+                      <span className="text-curai-ink ">Обновлять существующие услуги</span>
                     </label>
                     <label className="flex items-center gap-2 text-sm">
                       <input type="checkbox" checked={importOptions.skip_duplicates} onChange={(e) => setImportOptions({...importOptions, skip_duplicates: e.target.checked})} className="rounded"/>
-                      <span className="text-gray-700 dark:text-gray-300">Пропускать дубликаты</span>
+                      <span className="text-curai-ink ">Пропускать дубликаты</span>
                     </label>
                   </div>
                 </div>
@@ -1418,9 +1418,9 @@ const ServicePrices = ({ user }) => {
           )}
 
           {importResult && (
-            <div className="p-4 bg-green-50 dark:bg-green-900/30 rounded-lg">
-              <h4 className="font-medium text-green-800 dark:text-green-300 mb-2">✅ Импорт завершён!</h4>
-              <div className="grid grid-cols-2 gap-2 text-sm text-green-700 dark:text-green-400">
+            <div className="p-4 bg-curai-positiveBg rounded-md">
+              <h4 className="font-medium text-curai-positive mb-2">✅ Импорт завершён!</h4>
+              <div className="grid grid-cols-2 gap-2 text-sm text-curai-positive ">
                 <div>Создано: <b>{importResult.services?.created || 0}</b></div>
                 <div>Обновлено: <b>{importResult.services?.updated || 0}</b></div>
                 <div>Пропущено: <b>{importResult.services?.skipped || 0}</b></div>
@@ -1451,14 +1451,14 @@ const ServicePrices = ({ user }) => {
       >
         <div className="space-y-4">
           {priceStats && (
-            <div className="bg-yellow-50 dark:bg-yellow-900/30 p-4 rounded-lg border border-yellow-200 dark:border-yellow-700">
-              <h4 className="font-medium text-yellow-800 dark:text-yellow-300 mb-2">Текущая статистика:</h4>
-              <div className="text-sm space-y-1 text-yellow-700 dark:text-yellow-400">
+            <div className="bg-curai-warningBg p-4 rounded-md border border-curai-warning ">
+              <h4 className="font-medium text-curai-warning mb-2">Текущая статистика:</h4>
+              <div className="text-sm space-y-1 text-curai-warning ">
                 <div>• Услуг в прайсе: <b>{priceStats.service_prices?.active || 0}</b></div>
                 <div>• Категорий услуг: <b>{priceStats.service_categories?.active || 0}</b></div>
                 <div>• Специальностей врачей: <b>{priceStats.specialties?.active || 0}</b></div>
                 {priceStats.service_prices?.categories_list?.length > 0 && (
-                  <div className="mt-2 pt-2 border-t border-yellow-200">
+                  <div className="mt-2 pt-2 border-t border-curai-warning">
                     <span className="text-xs">Категории: {priceStats.service_prices.categories_list.slice(0, 5).join(', ')}{priceStats.service_prices.categories_list.length > 5 ? '...' : ''}</span>
                   </div>
                 )}
@@ -1466,11 +1466,11 @@ const ServicePrices = ({ user }) => {
             </div>
           )}
 
-          <div className="bg-red-50 dark:bg-red-900/30 p-4 rounded-lg border border-red-200 dark:border-red-700">
-            <p className="text-red-700 dark:text-red-300 text-sm">
+          <div className="bg-curai-negativeBg p-4 rounded-md border border-curai-negative ">
+            <p className="text-curai-negative text-sm">
               ⚠️ <b>Внимание!</b> Будут удалены все услуги из прайса и категории услуг.
             </p>
-            <p className="text-red-600 dark:text-red-400 text-xs mt-2">
+            <p className="text-curai-negative text-xs mt-2">
               Специальности врачей по умолчанию НЕ удаляются (они могут быть привязаны к врачам).
             </p>
           </div>
@@ -1486,7 +1486,7 @@ const ServicePrices = ({ user }) => {
             <button
               onClick={() => handleClearPrices(true)}
               disabled={clearLoading}
-              className="w-full px-4 py-2 text-sm border-2 border-red-500 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/30 rounded-lg transition"
+              className="w-full px-4 py-2 text-sm border-2 border-curai-negative text-curai-negative hover:bg-curai-negativeBg rounded-md transition"
             >
               🗑️ Очистить прайс + импортированные специальности
             </button>

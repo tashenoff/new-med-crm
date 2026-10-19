@@ -328,8 +328,8 @@ const Rooms = ({ user }) => {
   };
 
   return (
-    <div className="space-y-6">
-      <div className={`calendar-container calendar-view-panel rounded-2xl`}>
+    <div className="curai-directory-page curai-rooms space-y-6">
+      <div className={`calendar-container calendar-view-panel rounded-md`}>
         <PanelHeader
           title="Кабинеты"
           subtitle="Управление медицинскими кабинетами и их расписанием"
@@ -337,17 +337,17 @@ const Rooms = ({ user }) => {
           actionLabel="+ Добавить кабинет"
         />
 
-        <div className="bg-white dark:bg-gray-800 rounded-b-2xl border border-t-0 border-gray-200 dark:border-gray-700 p-4 space-y-4 shadow-sm">
+        <div className="bg-curai-surface rounded-b-md border border-t-0 border-curai-border p-4 space-y-4 shadow-none">
 
       {error && (
-        <div className="mb-4 p-4 bg-red-100 border border-red-400 text-red-700 rounded dark:bg-red-900 dark:border-red-600 dark:text-red-300">
+        <div className="mb-4 p-4 bg-curai-negativeBg border border-curai-negative text-curai-negative rounded ">
           {error}
         </div>
       )}
 
       {loading && (
         <div className="text-center py-4">
-          <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900 dark:border-white"></div>
+          <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-curai-control "></div>
         </div>
       )}
 
@@ -378,33 +378,33 @@ const Rooms = ({ user }) => {
                       ))}
                     </div>
                   ) : (
-                    <span className="text-gray-500">Не настроено</span>
+                    <span className="text-curai-muted">Не настроено</span>
                   )}
                 </td>
                 <td className="px-6 py-4">
                   <div className="flex space-x-2">
                     <button
                       onClick={() => handleManageSchedule(room)}
-                      className="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300"
+                      className="text-curai-blue hover:text-curai-blue "
                       title="Управление расписанием"
                     >
-                      📅
+                      График
                     </button>
                     {user?.role === 'admin' || user?.role === 'super_admin' && (
                       <>
                         <button
                           onClick={() => handleEditRoom(room)}
-                          className="text-yellow-600 hover:text-yellow-800 dark:text-yellow-400 dark:hover:text-yellow-300"
+                          className="text-curai-warning hover:text-curai-warning "
                           title="Редактировать"
                         >
-                          ✏️
+                          Правка
                         </button>
                         <button
                           onClick={() => handleDeleteRoom(room.id)}
-                          className="text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300"
+                          className="text-curai-negative hover:text-curai-negative "
                           title="Удалить"
                         >
-                          🗑️
+                          Удалить
                         </button>
                       </>
                     )}
@@ -414,7 +414,7 @@ const Rooms = ({ user }) => {
             ))}
             {rooms.length === 0 && !loading && (
               <tr>
-                <td colSpan="5" className="px-6 py-4 text-center text-gray-500">
+                <td colSpan="5" className="px-6 py-4 text-center text-curai-muted">
                   Кабинеты не найдены
                 </td>
               </tr>
@@ -428,6 +428,7 @@ const Rooms = ({ user }) => {
         show={showRoomModal}
         onClose={() => setShowRoomModal(false)}
         title={editingRoom ? 'Редактировать кабинет' : 'Новый кабинет'}
+        size="max-w-[600px]" className="curai-directory-dialog curai-room-dialog"
       >
         <div className="space-y-4">
           <div>
@@ -487,11 +488,11 @@ const Rooms = ({ user }) => {
         show={showScheduleModal}
         onClose={() => setShowScheduleModal(false)}
         title={`Расписание: ${selectedRoom?.name}`}
-        size="lg"
+        size="max-w-[1000px]" className="curai-directory-dialog curai-room-schedule-dialog"
       >
         <div className="space-y-6">
           {/* Add Schedule Form */}
-          <div className="bg-gray-50 dark:bg-gray-800 p-4 rounded-lg">
+          <div className="bg-curai-subtle p-4 rounded-md">
             <h3 className="text-lg font-medium mb-4">Добавить расписание</h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
@@ -584,10 +585,10 @@ const Rooms = ({ user }) => {
                         <td className="px-4 py-2">
                           <button
                             onClick={() => handleDeleteSchedule(schedule.id)}
-                            className="text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300"
+                            className="text-curai-negative hover:text-curai-negative "
                             title="Удалить"
                           >
-                            🗑️
+                            Удалить
                           </button>
                         </td>
                       </tr>
@@ -596,7 +597,7 @@ const Rooms = ({ user }) => {
                 </table>
               </div>
             ) : (
-              <p className="text-gray-500">Расписание не настроено</p>
+              <p className="text-curai-muted">Расписание не настроено</p>
             )}
           </div>
 

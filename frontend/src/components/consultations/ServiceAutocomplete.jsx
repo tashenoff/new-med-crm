@@ -132,30 +132,30 @@ const ServiceAutocomplete = ({ onAddService }) => {
         
         {loading && (
           <div className="absolute right-3 top-3">
-            <div className="animate-spin h-5 w-5 border-2 border-blue-600 border-t-transparent rounded-full"></div>
+            <div className="animate-spin h-5 w-5 border-2 border-curai-control border-t-transparent rounded-full"></div>
           </div>
         )}
         
         {showDropdown && services.length > 0 && !selectedService && (
-          <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-60 overflow-y-auto">
+          <div className="absolute z-10 w-full mt-1 bg-curai-surface border border-curai-control rounded-md shadow-none max-h-60 overflow-y-auto">
             {services.map((service) => (
               <button
                 key={service.id}
                 type="button"
                 onClick={() => handleSelectService(service)}
-                className="w-full text-left px-4 py-3 hover:bg-blue-50 border-b border-gray-100 last:border-b-0 transition-colors"
+                className="w-full text-left px-4 py-3 hover:bg-curai-selected border-b border-curai-border last:border-b-0 transition-colors"
               >
                 <div className="flex justify-between items-start">
                   <div className="flex-1">
-                    <div className="font-medium text-gray-900">{service.service_name}</div>
+                    <div className="font-medium text-curai-ink">{service.service_name}</div>
                     {service.category && (
-                      <div className="text-xs text-gray-500 mt-1">
+                      <div className="text-xs text-curai-muted mt-1">
                         {service.category}
                       </div>
                     )}
                   </div>
                   <div className="text-right ml-4">
-                    <div className="font-semibold text-blue-600">
+                    <div className="font-semibold text-curai-blue">
                       {service.price ? `${service.price.toLocaleString()} ₸` : 'Цена не указана'}
                     </div>
                   </div>
@@ -166,7 +166,7 @@ const ServiceAutocomplete = ({ onAddService }) => {
         )}
         
         {showDropdown && query.length >= 2 && services.length === 0 && !loading && !selectedService && (
-          <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg px-4 py-3 text-gray-500 text-sm">
+          <div className="absolute z-10 w-full mt-1 bg-curai-surface border border-curai-control rounded-md shadow-none px-4 py-3 text-curai-muted text-sm">
             Услуги не найдены. Попробуйте изменить запрос.
           </div>
         )}
@@ -174,18 +174,18 @@ const ServiceAutocomplete = ({ onAddService }) => {
 
       {/* Форма настройки услуги */}
       {selectedService && (
-        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 space-y-3">
+        <div className="bg-curai-selected border border-curai-control rounded-md p-4 space-y-3">
           <div className="flex items-center justify-between">
             <div>
-              <div className="font-medium text-gray-900">{selectedService.service_name}</div>
-              <div className="text-sm text-gray-600">
+              <div className="font-medium text-curai-ink">{selectedService.service_name}</div>
+              <div className="text-sm text-curai-muted">
                 {selectedService.price ? `${selectedService.price.toLocaleString()} ₸ за процедуру` : 'Цена не указана'}
               </div>
             </div>
             <button
               type="button"
               onClick={handleCancel}
-              className="text-gray-400 hover:text-red-600"
+              className="text-curai-muted hover:text-curai-negative"
               title="Отменить"
             >
               ✕
@@ -199,19 +199,19 @@ const ServiceAutocomplete = ({ onAddService }) => {
               id="isCourse"
               checked={courseSettings.isCourse}
               onChange={(e) => setCourseSettings({ ...courseSettings, isCourse: e.target.checked })}
-              className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+              className="w-4 h-4 text-curai-blue border-curai-control rounded focus:ring-curai-focus"
             />
-            <label htmlFor="isCourse" className="text-sm font-medium text-gray-700 cursor-pointer">
+            <label htmlFor="isCourse" className="text-sm font-medium text-curai-ink cursor-pointer">
               🔄 Это курс (несколько процедур)
             </label>
           </div>
 
           {/* Настройки курса */}
           {courseSettings.isCourse && (
-            <div className="space-y-3 pl-6 border-l-2 border-blue-300">
+            <div className="space-y-3 pl-6 border-l-2 border-curai-control">
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs font-medium text-gray-700 mb-1">
+                  <label className="block text-xs font-medium text-curai-ink mb-1">
                     Длительность (дней)
                   </label>
                   <input
@@ -220,11 +220,11 @@ const ServiceAutocomplete = ({ onAddService }) => {
                     max="365"
                     value={courseSettings.durationDays}
                     onChange={(e) => setCourseSettings({ ...courseSettings, durationDays: parseInt(e.target.value) || 1 })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    className="w-full px-3 py-2 border border-curai-control rounded-md focus:ring-2 focus:ring-curai-focus focus:border-curai-control"
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-medium text-gray-700 mb-1">
+                  <label className="block text-xs font-medium text-curai-ink mb-1">
                     Раз в день
                   </label>
                   <input
@@ -233,28 +233,28 @@ const ServiceAutocomplete = ({ onAddService }) => {
                     max="10"
                     value={courseSettings.frequencyPerDay}
                     onChange={(e) => setCourseSettings({ ...courseSettings, frequencyPerDay: parseInt(e.target.value) || 1 })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    className="w-full px-3 py-2 border border-curai-control rounded-md focus:ring-2 focus:ring-curai-focus focus:border-curai-control"
                   />
                 </div>
               </div>
 
               <div>
-                <label className="block text-xs font-medium text-gray-700 mb-1">
+                <label className="block text-xs font-medium text-curai-ink mb-1">
                   Тип оплаты
                 </label>
                 <select
                   value={courseSettings.paymentType}
                   onChange={(e) => setCourseSettings({ ...courseSettings, paymentType: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  className="w-full px-3 py-2 border border-curai-control rounded-md focus:ring-2 focus:ring-curai-focus focus:border-curai-control"
                 >
                   <option value="single">Оплата сразу за весь курс</option>
                   <option value="per_session">Оплата за каждую процедуру</option>
                 </select>
               </div>
 
-              <div className="bg-white rounded p-2 text-sm">
-                <div className="text-gray-600">Всего процедур: <span className="font-semibold text-gray-900">{totalProcedures}</span></div>
-                <div className="text-gray-600">Стоимость курса: <span className="font-semibold text-blue-600">{totalPrice.toLocaleString()} ₸</span></div>
+              <div className="bg-curai-surface rounded p-2 text-sm">
+                <div className="text-curai-muted">Всего процедур: <span className="font-semibold text-curai-ink">{totalProcedures}</span></div>
+                <div className="text-curai-muted">Стоимость курса: <span className="font-semibold text-curai-blue">{totalPrice.toLocaleString()} ₸</span></div>
               </div>
             </div>
           )}
@@ -263,7 +263,7 @@ const ServiceAutocomplete = ({ onAddService }) => {
           <button
             type="button"
             onClick={handleAddService}
-            className="w-full bg-green-600 hover:bg-green-700 text-white font-medium py-2 px-4 rounded-lg transition-colors"
+            className="w-full bg-curai-positive hover:bg-curai-positive text-white font-medium py-2 px-4 rounded-md transition-colors"
           >
             ✓ Добавить {courseSettings.isCourse ? 'курс' : 'услугу'}
           </button>

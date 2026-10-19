@@ -265,7 +265,7 @@ const Laboratories = ({ user }) => {
   if (loading) {
     return (
       <div className="flex items-center justify-center py-12">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-curai-control"></div>
       </div>
     );
   }
@@ -273,19 +273,19 @@ const Laboratories = ({ user }) => {
   return (
     <div className="space-y-6">
       {/* Заголовок */}
-      <div className="bg-gradient-to-r from-blue-600 to-purple-600 rounded-lg shadow-lg p-6 text-white">
-        <h2 className="text-2xl font-bold mb-2">Управление лабораториями</h2>
-        <p className="text-blue-100">Добавляйте лаборатории и управляйте их прайслистами</p>
+      <div className="bg-curai-blue rounded-md shadow-none p-6 text-white">
+        <h2 className="text-2xl font-semibold mb-2">Управление лабораториями</h2>
+        <p className="text-curai-blue">Добавляйте лаборатории и управляйте их прайслистами</p>
       </div>
 
       {/* Табы */}
-      <div className="flex space-x-2 border-b border-gray-200">
+      <div className="flex space-x-2 border-b border-curai-border">
         <button
           onClick={() => setActiveTab('labs')}
           className={`px-4 py-2 font-medium ${
             activeTab === 'labs'
-              ? 'text-blue-600 border-b-2 border-blue-600'
-              : 'text-gray-500 hover:text-gray-700'
+              ? "text-curai-blue border-b-2 border-curai-control"
+              : "text-curai-muted hover:text-curai-ink"
           }`}
         >
           Лаборатории и прайслисты
@@ -294,8 +294,8 @@ const Laboratories = ({ user }) => {
           onClick={() => setActiveTab('report')}
           className={`px-4 py-2 font-medium ${
             activeTab === 'report'
-              ? 'text-blue-600 border-b-2 border-blue-600'
-              : 'text-gray-500 hover:text-gray-700'
+              ? "text-curai-blue border-b-2 border-curai-control"
+              : "text-curai-muted hover:text-curai-ink"
           }`}
         >
           Отчет по лабораториям
@@ -306,8 +306,8 @@ const Laboratories = ({ user }) => {
       {activeTab === 'labs' && (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {/* Левая колонка - список лабораторий */}
-          <div className="bg-white rounded-lg shadow-md">
-            <div className="px-6 py-4 border-b border-gray-200 flex justify-between items-center">
+          <div className="bg-curai-surface rounded-md shadow-none">
+            <div className="px-6 py-4 border-b border-curai-border flex justify-between items-center">
               <h3 className="text-lg font-semibold">Лаборатории</h3>
               <button
                 onClick={() => {
@@ -315,7 +315,7 @@ const Laboratories = ({ user }) => {
                   setLabForm({ name: '', description: '', address: '', phone: '', email: '', contact_person: '' });
                   setShowLabModal(true);
                 }}
-                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                className="px-4 py-2 bg-curai-blue text-white rounded-md hover:bg-curai-blue"
               >
                 + Добавить лабораторию
               </button>
@@ -325,10 +325,10 @@ const Laboratories = ({ user }) => {
               {laboratories.map((lab) => (
                 <div
                   key={lab.id}
-                  className={`p-4 border rounded-lg cursor-pointer transition-all ${
+                  className={`p-4 border rounded-md cursor-pointer transition-all ${
                     selectedLab?.id === lab.id
-                      ? 'border-blue-600 bg-blue-50'
-                      : 'border-gray-200 hover:border-blue-300'
+                      ? "border-curai-control bg-curai-selected"
+                      : "border-curai-border hover:border-curai-control"
                   }`}
                   onClick={() => {
                     setSelectedLab(lab);
@@ -337,12 +337,12 @@ const Laboratories = ({ user }) => {
                 >
                   <div className="flex justify-between items-start">
                     <div className="flex-1">
-                      <h4 className="font-semibold text-gray-900">{lab.name}</h4>
+                      <h4 className="font-semibold text-curai-ink">{lab.name}</h4>
                       {lab.address && (
-                        <p className="text-sm text-gray-600 mt-1">{lab.address}</p>
+                        <p className="text-sm text-curai-muted mt-1">{lab.address}</p>
                       )}
                       {lab.phone && (
-                        <p className="text-sm text-gray-600">{lab.phone}</p>
+                        <p className="text-sm text-curai-muted">{lab.phone}</p>
                       )}
                     </div>
                     <div className="flex space-x-2">
@@ -351,7 +351,7 @@ const Laboratories = ({ user }) => {
                           e.stopPropagation();
                           handleEditLab(lab);
                         }}
-                        className="text-blue-600 hover:text-blue-800 p-1"
+                        className="text-curai-blue hover:text-curai-blue p-1"
                       >
                         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
@@ -362,7 +362,7 @@ const Laboratories = ({ user }) => {
                           e.stopPropagation();
                           handleDeleteLab(lab.id);
                         }}
-                        className="text-red-600 hover:text-red-800 p-1"
+                        className="text-curai-negative hover:text-curai-negative p-1"
                       >
                         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
@@ -374,7 +374,7 @@ const Laboratories = ({ user }) => {
               ))}
               
               {laboratories.length === 0 && (
-                <div className="text-center py-8 text-gray-500">
+                <div className="text-center py-8 text-curai-muted">
                   Нет добавленных лабораторий
                 </div>
               )}
@@ -382,8 +382,8 @@ const Laboratories = ({ user }) => {
           </div>
 
           {/* Правая колонка - прайслист выбранной лаборатории */}
-          <div className="bg-white rounded-lg shadow-md">
-            <div className="px-6 py-4 border-b border-gray-200 flex justify-between items-center">
+          <div className="bg-curai-surface rounded-md shadow-none">
+            <div className="px-6 py-4 border-b border-curai-border flex justify-between items-center">
               <h3 className="text-lg font-semibold">
                 {selectedLab ? `Прайслист: ${selectedLab.name}` : 'Выберите лабораторию'}
               </h3>
@@ -399,13 +399,13 @@ const Laboratories = ({ user }) => {
                   <button
                     onClick={() => fileInputRef.current?.click()}
                     disabled={importing}
-                    className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
+                    className="px-4 py-2 bg-curai-blue text-white rounded-md hover:bg-curai-blue disabled:opacity-50"
                   >
                     {importing ? 'Загрузка...' : '📥 Загрузить прайс'}
                   </button>
                   <button
                     onClick={() => handleAddServiceToLab(selectedLab)}
-                    className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700"
+                    className="px-4 py-2 bg-curai-positive text-white rounded-md hover:bg-curai-positive"
                   >
                     + Добавить услугу
                   </button>
@@ -422,7 +422,7 @@ const Laboratories = ({ user }) => {
                     placeholder="🔍 Поиск услуги..."
                     value={labServiceSearch}
                     onChange={(e) => { setLabServiceSearch(e.target.value); setServicePage(0); }}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 text-sm"
+                    className="w-full px-3 py-2 border border-curai-control rounded-md focus:ring-2 focus:ring-curai-focus text-sm"
                   />
                   {servicePrices.length > 0 ? (
                     (() => {
@@ -433,33 +433,33 @@ const Laboratories = ({ user }) => {
                       const pageItems = filtered.slice(safePage * PAGE_SIZE, safePage * PAGE_SIZE + PAGE_SIZE);
                       return (
                         <>
-                          <div className="text-xs text-gray-500">
+                          <div className="text-xs text-curai-muted">
                             Показано {filtered.length === 0 ? 0 : safePage * PAGE_SIZE + 1}–
                             {Math.min(filtered.length, safePage * PAGE_SIZE + PAGE_SIZE)} из {filtered.length} услуг
                           </div>
                           {pageItems.length > 0 ? (
-                            <table className="min-w-full divide-y divide-gray-200">
-                              <thead className="bg-gray-50">
+                            <table className="min-w-full divide-y divide-curai-border">
+                              <thead className="bg-curai-subtle">
                                 <tr>
-                                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Услуга</th>
-                                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Категория</th>
-                                  <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Цена</th>
-                                  <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase">Действия</th>
+                                  <th className="px-4 py-3 text-left text-xs font-medium text-curai-muted uppercase">Услуга</th>
+                                  <th className="px-4 py-3 text-left text-xs font-medium text-curai-muted uppercase">Категория</th>
+                                  <th className="px-4 py-3 text-right text-xs font-medium text-curai-muted uppercase">Цена</th>
+                                  <th className="px-4 py-3 text-center text-xs font-medium text-curai-muted uppercase">Действия</th>
                                 </tr>
                               </thead>
-                              <tbody className="bg-white divide-y divide-gray-200">
+                              <tbody className="bg-curai-surface divide-y divide-curai-border">
                                 {pageItems.map((service) => (
-                                  <tr key={service.id} className="hover:bg-gray-50">
-                                    <td className="px-4 py-3 text-sm text-gray-900">{service.service_name}</td>
-                                    <td className="px-4 py-3 text-sm text-gray-600">{service.category}</td>
-                                    <td className="px-4 py-3 text-sm text-right font-semibold text-gray-900">
+                                  <tr key={service.id} className="hover:bg-curai-subtle">
+                                    <td className="px-4 py-3 text-sm text-curai-ink">{service.service_name}</td>
+                                    <td className="px-4 py-3 text-sm text-curai-muted">{service.category}</td>
+                                    <td className="px-4 py-3 text-sm text-right font-semibold text-curai-ink">
                                       {formatPrice(service.price)}
                                     </td>
                                     <td className="px-4 py-3 text-center">
                                       <div className="flex justify-center space-x-2">
                                         <button
                                           onClick={() => handleEditService(service)}
-                                          className="text-blue-600 hover:text-blue-800 p-1"
+                                          className="text-curai-blue hover:text-curai-blue p-1"
                                         >
                                           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
@@ -467,7 +467,7 @@ const Laboratories = ({ user }) => {
                                         </button>
                                         <button
                                           onClick={() => handleDeleteService(service.id)}
-                                          className="text-red-600 hover:text-red-800 p-1"
+                                          className="text-curai-negative hover:text-curai-negative p-1"
                                         >
                                           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
@@ -480,7 +480,7 @@ const Laboratories = ({ user }) => {
                               </tbody>
                             </table>
                           ) : (
-                            <div className="text-center py-8 text-gray-500">
+                            <div className="text-center py-8 text-curai-muted">
                               Не найдено услуг по запросу
                             </div>
                           )}
@@ -489,15 +489,15 @@ const Laboratories = ({ user }) => {
                               <button
                                 onClick={() => setServicePage(Math.max(0, safePage - 1))}
                                 disabled={safePage === 0}
-                                className="px-3 py-1.5 text-sm border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-40"
+                                className="px-3 py-1.5 text-sm border border-curai-control rounded-md hover:bg-curai-subtle disabled:opacity-40"
                               >
                                 ← Назад
                               </button>
-                              <span className="text-xs text-gray-500">Стр. {safePage + 1} / {totalPages}</span>
+                              <span className="text-xs text-curai-muted">Стр. {safePage + 1} / {totalPages}</span>
                               <button
                                 onClick={() => setServicePage(Math.min(totalPages - 1, safePage + 1))}
                                 disabled={safePage >= totalPages - 1}
-                                className="px-3 py-1.5 text-sm border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-40"
+                                className="px-3 py-1.5 text-sm border border-curai-control rounded-md hover:bg-curai-subtle disabled:opacity-40"
                               >
                                 Вперед →
                               </button>
@@ -507,14 +507,14 @@ const Laboratories = ({ user }) => {
                       );
                     })()
                   ) : (
-                    <div className="text-center py-8 text-gray-500">
+                    <div className="text-center py-8 text-curai-muted">
                       Нет добавленных услуг для этой лаборатории
                     </div>
                   )}
                 </div>
               ) : (
-                <div className="text-center py-12 text-gray-400">
-                  <svg className="w-16 h-16 mx-auto mb-4 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <div className="text-center py-12 text-curai-muted">
+                  <svg className="w-16 h-16 mx-auto mb-4 text-curai-disabled" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
                   </svg>
                   Выберите лабораторию слева для просмотра прайслиста
@@ -530,28 +530,28 @@ const Laboratories = ({ user }) => {
         <div className="space-y-6">
           {/* Общая статистика */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div className="bg-white rounded-lg shadow-md p-6 border-l-4 border-blue-500">
+            <div className="bg-curai-surface rounded-md shadow-none p-6 border-l-4 border-curai-control">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-gray-600 mb-1">Всего услуг</p>
-                  <p className="text-3xl font-bold text-gray-900">{statistics.total_services}</p>
+                  <p className="text-sm text-curai-muted mb-1">Всего услуг</p>
+                  <p className="text-2xl font-semibold text-curai-ink">{statistics.total_services}</p>
                 </div>
-                <div className="bg-blue-100 rounded-full p-3">
-                  <svg className="w-8 h-8 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <div className="bg-curai-selected rounded-full p-3">
+                  <svg className="w-8 h-8 text-curai-blue" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
                   </svg>
                 </div>
               </div>
             </div>
 
-            <div className="bg-white rounded-lg shadow-md p-6 border-l-4 border-green-500">
+            <div className="bg-curai-surface rounded-md shadow-none p-6 border-l-4 border-curai-positive">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-gray-600 mb-1">Общая стоимость</p>
-                  <p className="text-3xl font-bold text-gray-900">{formatPrice(statistics.total_cost)}</p>
+                  <p className="text-sm text-curai-muted mb-1">Общая стоимость</p>
+                  <p className="text-2xl font-semibold text-curai-ink">{formatPrice(statistics.total_cost)}</p>
                 </div>
-                <div className="bg-green-100 rounded-full p-3">
-                  <svg className="w-8 h-8 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <div className="bg-curai-positiveBg rounded-full p-3">
+                  <svg className="w-8 h-8 text-curai-positive" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1" />
                   </svg>
                 </div>
@@ -560,39 +560,39 @@ const Laboratories = ({ user }) => {
           </div>
 
           {/* Детальная статистика по лабораториям */}
-          <div className="bg-white rounded-lg shadow-md overflow-hidden">
-            <div className="px-6 py-4 bg-gray-50 border-b border-gray-200">
+          <div className="bg-curai-surface rounded-md shadow-none overflow-hidden">
+            <div className="px-6 py-4 bg-curai-subtle border-b border-curai-border">
               <h3 className="text-lg font-semibold">Статистика по лабораториям</h3>
             </div>
             
             <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-gray-200">
-                <thead className="bg-gray-50">
+              <table className="min-w-full divide-y divide-curai-border">
+                <thead className="bg-curai-subtle">
                   <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Лаборатория</th>
-                    <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Количество услуг</th>
-                    <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Общая стоимость</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-curai-muted uppercase">Лаборатория</th>
+                    <th className="px-6 py-3 text-right text-xs font-medium text-curai-muted uppercase">Количество услуг</th>
+                    <th className="px-6 py-3 text-right text-xs font-medium text-curai-muted uppercase">Общая стоимость</th>
                   </tr>
                 </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
+                <tbody className="bg-curai-surface divide-y divide-curai-border">
                   {Object.entries(statistics.laboratories).map(([labId, labData]) => {
                     const labInfo = statistics.laboratories_info[labId];
                     return (
-                      <tr key={labId} className="hover:bg-gray-50">
+                      <tr key={labId} className="hover:bg-curai-subtle">
                         <td className="px-6 py-4">
                           <div>
-                            <p className="text-sm font-medium text-gray-900">
+                            <p className="text-sm font-medium text-curai-ink">
                               {labInfo ? labInfo.name : 'Не указано'}
                             </p>
                             {labInfo?.address && (
-                              <p className="text-xs text-gray-500">{labInfo.address}</p>
+                              <p className="text-xs text-curai-muted">{labInfo.address}</p>
                             )}
                           </div>
                         </td>
-                        <td className="px-6 py-4 text-right text-sm text-gray-900">
+                        <td className="px-6 py-4 text-right text-sm text-curai-ink">
                           {labData.service_count}
                         </td>
-                        <td className="px-6 py-4 text-right text-sm font-semibold text-green-600">
+                        <td className="px-6 py-4 text-right text-sm font-semibold text-curai-positive">
                           {formatPrice(labData.total_cost)}
                         </td>
                       </tr>
@@ -608,8 +608,8 @@ const Laboratories = ({ user }) => {
       {/* Модальное окно: Лаборатория */}
       {showLabModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
-            <div className="px-6 py-4 border-b border-gray-200 flex justify-between items-center">
+          <div className="bg-curai-surface rounded-md shadow-none max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
+            <div className="px-6 py-4 border-b border-curai-border flex justify-between items-center">
               <h3 className="text-lg font-semibold">
                 {editingLab ? 'Редактировать лабораторию' : 'Новая лаборатория'}
               </h3>
@@ -618,7 +618,7 @@ const Laboratories = ({ user }) => {
                   setShowLabModal(false);
                   setEditingLab(null);
                 }}
-                className="text-gray-400 hover:text-gray-600"
+                className="text-curai-muted hover:text-curai-muted"
               >
                 <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -628,68 +628,68 @@ const Laboratories = ({ user }) => {
             
             <form onSubmit={handleLabSubmit} className="p-6 space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="block text-sm font-medium text-curai-ink mb-1">
                   Название лаборатории *
                 </label>
                 <input
                   type="text"
                   value={labForm.name}
                   onChange={(e) => setLabForm({ ...labForm, name: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 border border-curai-control rounded-md focus:ring-2 focus:ring-curai-focus"
                   required
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Описание</label>
+                <label className="block text-sm font-medium text-curai-ink mb-1">Описание</label>
                 <textarea
                   value={labForm.description}
                   onChange={(e) => setLabForm({ ...labForm, description: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 border border-curai-control rounded-md focus:ring-2 focus:ring-curai-focus"
                   rows="3"
                 />
               </div>
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Адрес</label>
+                  <label className="block text-sm font-medium text-curai-ink mb-1">Адрес</label>
                   <input
                     type="text"
                     value={labForm.address}
                     onChange={(e) => setLabForm({ ...labForm, address: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                    className="w-full px-3 py-2 border border-curai-control rounded-md focus:ring-2 focus:ring-curai-focus"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Телефон</label>
+                  <label className="block text-sm font-medium text-curai-ink mb-1">Телефон</label>
                   <input
                     type="text"
                     value={labForm.phone}
                     onChange={(e) => setLabForm({ ...labForm, phone: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                    className="w-full px-3 py-2 border border-curai-control rounded-md focus:ring-2 focus:ring-curai-focus"
                   />
                 </div>
               </div>
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
+                  <label className="block text-sm font-medium text-curai-ink mb-1">Email</label>
                   <input
                     type="email"
                     value={labForm.email}
                     onChange={(e) => setLabForm({ ...labForm, email: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                    className="w-full px-3 py-2 border border-curai-control rounded-md focus:ring-2 focus:ring-curai-focus"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Контактное лицо</label>
+                  <label className="block text-sm font-medium text-curai-ink mb-1">Контактное лицо</label>
                   <input
                     type="text"
                     value={labForm.contact_person}
                     onChange={(e) => setLabForm({ ...labForm, contact_person: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                    className="w-full px-3 py-2 border border-curai-control rounded-md focus:ring-2 focus:ring-curai-focus"
                   />
                 </div>
               </div>
@@ -701,13 +701,13 @@ const Laboratories = ({ user }) => {
                     setShowLabModal(false);
                     setEditingLab(null);
                   }}
-                  className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50"
+                  className="px-4 py-2 border border-curai-control text-curai-ink rounded-md hover:bg-curai-subtle"
                 >
                   Отмена
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                  className="px-4 py-2 bg-curai-blue text-white rounded-md hover:bg-curai-blue"
                 >
                   {editingLab ? 'Сохранить' : 'Создать'}
                 </button>
@@ -720,8 +720,8 @@ const Laboratories = ({ user }) => {
       {/* Модальное окно: Услуга */}
       {showServiceModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-start sm:items-center justify-center z-50 overflow-y-auto p-4">
-          <div className="bg-white rounded-lg shadow-xl max-w-xl w-full my-auto max-h-[90vh] overflow-y-auto">
-            <div className="px-6 py-4 border-b border-gray-200 flex justify-between items-center">
+          <div className="bg-curai-surface rounded-md shadow-none max-w-xl w-full my-auto max-h-[90vh] overflow-y-auto">
+            <div className="px-6 py-4 border-b border-curai-border flex justify-between items-center">
               <h3 className="text-lg font-semibold">
                 {editingService ? 'Редактировать услугу' : 'Новая услуга'}
               </h3>
@@ -730,7 +730,7 @@ const Laboratories = ({ user }) => {
                   setShowServiceModal(false);
                   setEditingService(null);
                 }}
-                className="text-gray-400 hover:text-gray-600"
+                className="text-curai-muted hover:text-curai-muted"
               >
                 <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -740,42 +740,42 @@ const Laboratories = ({ user }) => {
             
             <form onSubmit={handleServiceSubmit} className="p-6 space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="block text-sm font-medium text-curai-ink mb-1">
                   Название услуги *
                 </label>
                 <input
                   type="text"
                   value={serviceForm.service_name}
                   onChange={(e) => setServiceForm({ ...serviceForm, service_name: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 border border-curai-control rounded-md focus:ring-2 focus:ring-curai-focus"
                   required
                 />
               </div>
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Категория</label>
+                  <label className="block text-sm font-medium text-curai-ink mb-1">Категория</label>
                   <input
                     type="text"
                     value={serviceForm.category}
                     onChange={(e) => setServiceForm({ ...serviceForm, category: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                    className="w-full px-3 py-2 border border-curai-control rounded-md focus:ring-2 focus:ring-curai-focus"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Единица измерения</label>
+                  <label className="block text-sm font-medium text-curai-ink mb-1">Единица измерения</label>
                   <input
                     type="text"
                     value={serviceForm.unit}
                     onChange={(e) => setServiceForm({ ...serviceForm, unit: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                    className="w-full px-3 py-2 border border-curai-control rounded-md focus:ring-2 focus:ring-curai-focus"
                   />
                 </div>
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="block text-sm font-medium text-curai-ink mb-1">
                   Цена (₸) *
                 </label>
                 <input
@@ -783,7 +783,7 @@ const Laboratories = ({ user }) => {
                   step="0.01"
                   value={serviceForm.price}
                   onChange={(e) => setServiceForm({ ...serviceForm, price: parseFloat(e.target.value) })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 border border-curai-control rounded-md focus:ring-2 focus:ring-curai-focus"
                   required
                 />
               </div>
@@ -795,13 +795,13 @@ const Laboratories = ({ user }) => {
                     setShowServiceModal(false);
                     setEditingService(null);
                   }}
-                  className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50"
+                  className="px-4 py-2 border border-curai-control text-curai-ink rounded-md hover:bg-curai-subtle"
                 >
                   Отмена
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700"
+                  className="px-4 py-2 bg-curai-positive text-white rounded-md hover:bg-curai-positive"
                 >
                   {editingService ? 'Сохранить' : 'Добавить'}
                 </button>

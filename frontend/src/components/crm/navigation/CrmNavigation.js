@@ -45,9 +45,9 @@ const CrmNavigation = ({ activeTab, setActiveTab, user }) => {
   }
 
   return (
-    <div className="h-full bg-gradient-to-b from-blue-50 to-indigo-100">
+    <div className="h-full bg-curai-selected ">
       <div className="p-4">
-        <h2 className="text-xl font-bold text-gray-800 mb-6">
+        <h2 className="text-xl font-semibold text-curai-ink mb-6">
           🏢 CRM Система
         </h2>
         
@@ -56,22 +56,22 @@ const CrmNavigation = ({ activeTab, setActiveTab, user }) => {
             <button
               key={item.key}
               onClick={() => setActiveTab(item.key)}
-              className={`w-full text-left p-3 rounded-lg transition-all duration-200 group ${
+              className={`w-full text-left p-3 rounded-md transition-all duration-200 group ${
                 activeTab === item.key
-                  ? 'bg-blue-600 text-white shadow-lg'
-                  : 'text-gray-700 hover:bg-white hover:shadow-md'
+                  ? "bg-curai-blue text-white shadow-none"
+                  : "text-curai-ink hover:bg-curai-surface hover:shadow-none"
               }`}
             >
               <div className="flex items-center space-x-3">
                 <span className="text-lg">{item.icon}</span>
                 <div>
                   <div className={`font-medium ${
-                    activeTab === item.key ? 'text-white' : 'text-gray-800'
+                    activeTab === item.key ? 'text-white' : "text-curai-ink"
                   }`}>
                     {item.label.replace(/^.+ /, '')}
                   </div>
                   <div className={`text-xs ${
-                    activeTab === item.key ? 'text-blue-100' : 'text-gray-500'
+                    activeTab === item.key ? "text-curai-blue" : "text-curai-muted"
                   }`}>
                     {item.description}
                   </div>
@@ -81,18 +81,18 @@ const CrmNavigation = ({ activeTab, setActiveTab, user }) => {
           ))}
         </nav>
         
-        <div className="mt-8 p-4 bg-blue-100 rounded-lg">
-          <h3 className="font-semibold text-blue-800 mb-2">💡 Быстрые действия</h3>
+        <div className="mt-8 p-4 bg-curai-selected rounded-md">
+          <h3 className="font-semibold text-curai-blue mb-2">💡 Быстрые действия</h3>
           <div className="space-y-2">
             <button 
               onClick={() => setActiveTab('crm-leads')}
-              className="w-full text-left text-sm text-blue-700 hover:text-blue-900"
+              className="w-full text-left text-sm text-curai-blue hover:text-curai-blue"
             >
               + Новая заявка
             </button>
             <button 
               onClick={() => setActiveTab('crm-deals')}
-              className="w-full text-left text-sm text-blue-700 hover:text-blue-900"
+              className="w-full text-left text-sm text-curai-blue hover:text-curai-blue"
             >
               + Новая сделка
             </button>

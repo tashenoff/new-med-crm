@@ -1,21 +1,12 @@
+import PatientAppointments from './PatientAppointments';
+import WhatsAppAudio from './WhatsAppAudio';
+import CuraiIcon from '../../common/CuraiIcon';
+import CuraiButton from '../../common/CuraiButton';
+import ChatCrmStage from './ChatCrmStage';
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { apiClient, handleApiError, API_BASE_URL } from '../../../api/config';
 import { useModal } from '../../../context/ModalContext';
-
-// Этапы воронки лидов (реюз семантики «сделок» в CRM) — цветовая схема как в FunnelView.
-const FUNNEL_STAGES = [
-  { status: 'new',          label: 'Новые заявки',       badge: 'bg-blue-500' },
-  { status: 'in_progress',  label: 'В работе',           badge: 'bg-indigo-500' },
-  { status: 'contacted',    label: 'Контакт установлен', badge: 'bg-violet-500' },
-  { status: 'qualified',    label: 'Квалифицированы',    badge: 'bg-purple-500' },
-  { status: 'converted',    label: 'Конвертированы',     badge: 'bg-green-500' },
-  { status: 'rejected',     label: 'Отказ',              badge: 'bg-orange-400' },
-  { status: 'lost',         label: 'Потеряны',           badge: 'bg-red-400' },
-];
-
-const stageLabel = (s) => FUNNEL_STAGES.find(x => x.status === s)?.label || 'Без статуса';
-const stageBadge = (s) => FUNNEL_STAGES.find(x => x.status === s)?.badge || 'bg-gray-400';
 
 const contactNameMeta = (c) => c.patient_name || c.lead_name || c.contact_name || c.phone || 'Клиент';
 const absMedia = (u) => u && u.startsWith('/') ? `${import.meta.env.VITE_BACKEND_URL}${u}` : u;
@@ -29,6 +20,11 @@ const formatTime = (value) => {
     return d.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
   }
   return d.toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit' });
+};
+
+const formatMessageTime = value => {
+  const date = new Date(value);
+  return value && !Number.isNaN(date.getTime()) ? date.toLocaleTimeString('ru-RU', { timeZone: 'Asia/Bishkek', hour: '2-digit', minute: '2-digit' }) : '';
 };
 
 const WhatsAppInbox = ({ isOpen, onClose }) => {
@@ -45,6 +41,13 @@ const WhatsAppInbox = ({ isOpen, onClose }) => {
   const [typeFilter, setTypeFilter] = useState('all'); // all | chat | lead | patient
   const [error, setError] = useState(null);
   const [statusDirty, setStatusDirty] = useState(false);
+  const [appointmentsRevision, setAppointmentsRevision] = useState(0);
+  const messageGeneration = useRef(0);
+  const chatOpenRef = useRef(isOpen); chatOpenRef.current = isOpen;
+  const bookingPendingRef = useRef(false);
+  const bookingChatRef = useRef(null);
+  bookingChatRef.current = isOpen ? selected : null;
+  const [openingBooking, setOpeningBooking] = useState(false);
   const [uploadingFile, setUploadingFile] = useState(false);
   const [attachMenuOpen, setAttachMenuOpen] = useState(false);
   const [patientDocs, setPatientDocs] = useState([]);
@@ -91,17 +94,20 @@ const WhatsAppInbox = ({ isOpen, onClose }) => {
   }, [isOpen, fetchChats]);
 
   const fetchMessages = useCallback(async (phone) => {
+    const request = ++messageGeneration.current;
+    const current = () => request === messageGeneration.current && selectedPhoneRef.current === phone && chatOpenRef.current;
     try {
       setLoadingMessages(true);
       const { data } = await apiClient.get(`/wazzup/messages/history/${phone}`, { params: { limit: 100 } });
       const msgs = (data.messages || []).slice();
       // API отдаёт историю новые-сверху; в UI нужен хронологический порядок (старые сверху).
+      if (!current()) return;
       setMessages(msgs.reverse());
       setError(null);
     } catch (err) {
-      setError(handleApiError(err));
+      if (current()) setError(handleApiError(err));
     } finally {
-      setLoadingMessages(false);
+      if (current()) setLoadingMessages(false);
     }
   }, []);
 
@@ -267,27 +273,20 @@ const WhatsAppInbox = ({ isOpen, onClose }) => {
   };
 
 
-  const changeStatus = async (status) => {
-    if (!selected) return;
-    try {
-      await apiClient.patch(`/wazzup/chats/${encodeURIComponent(selected.phone)}`, { status });
-      setSelected({ ...selected, status });
-      setStatusDirty(false);
-      await fetchChats();
-    } catch (err) {
-      setError(handleApiError(err));
-    }
-  };
+
 
   // Сохранение записи из модала: создать через /appointments, закрыть, обновить список чатов.
   const bookAppointment = async (form) => {
     try {
-      await apiClient.post('/appointments', form);
+      const result = await apiClient.post('/appointments', form);
       closeModal('appointment');
       setStatusDirty(true);
+      setAppointmentsRevision(value => value + 1);
       await fetchChats();
+      return result.data;
     } catch (err) {
       setError(handleApiError(err));
+      throw err;
     }
   };
 
@@ -296,20 +295,23 @@ const WhatsAppInbox = ({ isOpen, onClose }) => {
   // Если это лид без пациента — переиспользуем механизм CRM «Сделки»:
   // /api/crm/leads/{id}/schedule-appointment создаст пациента, запись и пометит лид.
   const handleBook = async () => {
-    if (!selected) return;
-    const isLead = selected.linked_lead_id && !selected.patient_id;
+    if (!selected || bookingPendingRef.current) return;
+    const bookingChat = selected;
+    bookingPendingRef.current = true;
+    setOpeningBooking(true);
+    setError(null);
+    try {
+    const [{ data: doctorData }, { data: appointmentData }] = await Promise.all([apiClient.get('/doctors'), apiClient.get('/appointments')]);
+    if (bookingChatRef.current !== bookingChat) return;
+    const doctorsList = (Array.isArray(doctorData) ? doctorData : doctorData?.doctors || []).filter(doctor => doctor.is_active !== false).map(doctor => ({ ...doctor, id: doctor.id || doctor._id }));
+    const appointmentsList = Array.isArray(appointmentData) ? appointmentData : appointmentData?.appointments || [];
+    const patientId = selected.patient_id || selected.linked_patient_id || '';
+    const isLead = selected.linked_lead_id && !patientId;
 
     // Лид без пациента: переиспользуем конвертацию из раздела «Сделки».
     if (isLead) {
       const lead = selected;
       // Подгружаем врачей, иначе модал не предложит врача при выборе кабинета.
-      let doctorsList = [];
-      try {
-        const { data } = await apiClient.get('/doctors');
-        doctorsList = Array.isArray(data) ? data : (data?.doctors || []);
-      } catch (e) {
-        console.warn('Не удалось загрузить врачей:', e);
-      }
       openModal('appointment', {
         appointmentForm: {
           patient_id: '',
@@ -338,6 +340,8 @@ const WhatsAppInbox = ({ isOpen, onClose }) => {
           showNewPatientForm: true,
         },
         doctors: doctorsList,
+        appointments: appointmentsList,
+        hideAddPlanForm: true,
         patients: [],
         editingItem: null,
         loading: false,
@@ -360,6 +364,7 @@ const WhatsAppInbox = ({ isOpen, onClose }) => {
             });
             closeModal('appointment');
             setStatusDirty(true);
+      setAppointmentsRevision(value => value + 1);
             await fetchChats();
             return res.data;
           } catch (err) {
@@ -371,13 +376,27 @@ const WhatsAppInbox = ({ isOpen, onClose }) => {
       return;
     }
 
-    const patients = selected.patient_id
-      ? [{ id: selected.patient_id, full_name: contactNameMeta(selected), phone: selected.patient_phone || selected.phone }]
+    const patients = patientId
+      ? [{ id: patientId, full_name: contactNameMeta(selected), phone: selected.patient_phone || selected.phone }]
       : [];
     openModal('appointment', {
+      doctors: doctorsList,
+      appointments: appointmentsList,
+      editingItem: null,
+      errorMessage: null,
       patients,
       appointmentForm: {
-        patient_id: selected.patient_id || '',
+        patient_id: patientId,
+        doctor_id: '',
+        appointment_time: '10:00',
+        end_time: '10:30',
+        room_id: '',
+        reason: 'Консультация',
+        price: 0,
+        deposit: 0,
+        deposit_type: '',
+        source: selected.source || 'phone',
+        source_id: selected.source_id || '',
         patient_name: contactNameMeta(selected),
         patient_phone: selected.patient_phone || selected.phone,
         appointment_date: new Date().toISOString().split('T')[0],
@@ -386,18 +405,25 @@ const WhatsAppInbox = ({ isOpen, onClose }) => {
       hideAddPlanForm: true,
       onSave: bookAppointment,
     });
+    } catch (err) {
+      if (bookingChatRef.current === bookingChat) setError(handleApiError(err));
+    } finally {
+      bookingPendingRef.current = false;
+      setOpeningBooking(false);
+    }
   };
 
   const openPatientCard = () => {
-    if (!selected?.patient_id) return;
+    const patientId = selected?.patient_id || selected?.linked_patient_id;
+    if (!patientId) return;
     openModal('patient', {
       editingItem: {
-        id: selected.patient_id,
+        id: patientId,
         full_name: contactNameMeta(selected),
         phone: selected.patient_phone || selected.phone,
       },
       patientForm: {
-        id: selected.patient_id,
+        id: patientId,
         full_name: contactNameMeta(selected),
         phone: selected.patient_phone || selected.phone,
       },
@@ -421,43 +447,53 @@ const WhatsAppInbox = ({ isOpen, onClose }) => {
 
   return createPortal(
     <div
-      className="fixed bottom-0 right-0 top-0 z-[60] flex flex-col bg-white shadow-2xl border-l border-gray-200"
+      className={`curai-surface-root curai-whatsapp${selected ? ' has-selection' : ''}`}
       style={{ width: 'min(880px, 96vw)' }}
     >
       {/* Шапка */}
-      <div className="flex-shrink-0 flex items-center justify-between px-4 py-3 bg-gradient-to-r from-green-500 to-green-600 text-white">
+      <div className="curai-whatsapp-title">
         <div className="flex items-center gap-2">
-          <span className="text-xl">💬</span>
+          {selected && <CuraiButton variant="ghost" iconOnly className="curai-chat-back" aria-label="К списку чатов" onClick={() => setSelected(null)}><CuraiIcon name="arrow-left"/></CuraiButton>}
+          <span className="curai-chat-online" aria-hidden="true"/>
           <h3 className="font-semibold">WhatsApp чаты</h3>
-          {loadingChats && <span className="text-xs text-green-100">обновление…</span>}
+          {loadingChats && <span className="text-xs text-curai-blue">обновление…</span>}
         </div>
-        <button onClick={onClose} className="p-1 hover:bg-white/20 rounded-lg" title="Закрыть">
-          ✖️
+        <button onClick={onClose} className="curai-button curai-button-ghost curai-button-icon" title="Закрыть" aria-label="Закрыть WhatsApp">
+          <CuraiIcon name="close"/>
         </button>
       </div>
 
+      {error && (
+        <div className="flex-shrink-0 mx-3 mt-2 px-3 py-2 bg-curai-negativeBg border border-curai-negative rounded-md text-sm text-curai-negative">
+          ⚠️ {error}
+        </div>
+      )}
+
+      <div className="flex-1 min-h-0 flex">
+        {/* Список чатов */}
+        <div className="curai-chat-sidebar">
       {/* Поиск и фильтр */}
-      <div className="flex-shrink-0 px-3 py-2 bg-gray-50 border-b border-gray-200">
+      <div className="curai-chat-search">
         <input
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           placeholder="Поиск по имени или телефону…"
-          className="w-full px-3 py-1.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-green-500 focus:border-transparent"
+          className="w-full px-3 py-1.5 border border-curai-control rounded-md text-sm focus:ring-2 focus:ring-curai-focus focus:border-transparent"
         />
         <div className="flex items-center gap-1 mt-2">
           {[
             { key: 'all', label: 'Все' },
-            { key: 'chat', label: 'Чаты' },
             { key: 'lead', label: 'Лиды' },
             { key: 'patient', label: 'Пациенты' },
           ].map((f) => (
             <button
               key={f.key}
               onClick={() => setTypeFilter(f.key)}
+              aria-pressed={typeFilter === f.key}
               className={`px-2.5 py-1 rounded-full text-xs font-medium transition-colors ${
                 typeFilter === f.key
-                  ? 'bg-green-600 text-white'
-                  : 'bg-white text-gray-600 border border-gray-300 hover:bg-gray-100'
+                  ? "bg-curai-blue text-white"
+                  : "bg-curai-surface text-curai-muted border border-curai-control hover:bg-curai-subtle"
               }`}
             >
               {f.label}
@@ -466,18 +502,10 @@ const WhatsAppInbox = ({ isOpen, onClose }) => {
         </div>
       </div>
 
-      {error && (
-        <div className="flex-shrink-0 mx-3 mt-2 px-3 py-2 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">
-          ⚠️ {error}
-        </div>
-      )}
 
-      <div className="flex-1 min-h-0 flex">
-        {/* Список чатов */}
-        <div className="w-72 flex-shrink-0 border-r border-gray-200 flex flex-col min-h-0">
           <div className="flex-1 overflow-y-auto">
             {filteredChats.length === 0 && !loadingChats && (
-              <div className="p-6 text-center text-gray-400 text-sm">
+              <div className="p-6 text-center text-curai-muted text-sm">
                 Чатов нет
               </div>
             )}
@@ -485,97 +513,64 @@ const WhatsAppInbox = ({ isOpen, onClose }) => {
               <button
                 key={c.phone}
                 onClick={() => selectChat(c)}
-                className={`w-full text-left px-3 py-3 border-b border-gray-100 hover:bg-gray-50 transition-colors ${
-                  selected?.phone === c.phone ? 'bg-green-50' : ''
+                className={`w-full text-left px-3 py-3 border-b border-curai-border hover:bg-curai-subtle transition-colors ${
+                  selected?.phone === c.phone ? "bg-curai-selected" : ''
                 }`}
               >
                 <div className="flex items-center justify-between">
-                  <span className="font-medium text-sm text-gray-900 truncate">
+                  <span className="font-medium text-sm text-curai-ink truncate">
                     {contactNameMeta(c)}
                   </span>
-                  <span className="text-xs text-gray-400 flex-shrink-0 ml-2">{formatTime(c.last_message_time)}</span>
+                  <span className="text-xs text-curai-muted flex-shrink-0 ml-2">{formatTime(c.last_message_time)}</span>
                 </div>
                 <div className="flex items-center justify-between mt-0.5">
-                  <span className="text-xs text-gray-500 truncate">{c.source === 'lead' && !c.last_message ? 'Начать переписку — нажмите' : (c.last_message || '')}</span>
+                  <span className="text-xs text-curai-muted truncate">{c.source === 'lead' && !c.last_message ? 'Начать переписку — нажмите' : (c.last_message || '')}</span>
                   {c.unread_count > 0 && (
-                    <span className="ml-2 flex-shrink-0 min-w-[18px] h-[18px] px-1 rounded-full bg-green-500 text-white text-[11px] flex items-center justify-center">
+                    <span className="ml-2 flex-shrink-0 min-w-[18px] h-[18px] px-1 rounded-full bg-curai-blue text-white text-[11px] flex items-center justify-center">
                       {c.unread_count}
                     </span>
                   )}
                 </div>
-                <div className="flex items-center gap-1.5 mt-1.5">
-                  <span className={`w-2 h-2 rounded-full ${stageBadge(c.status)}`} />
-                  <span className="text-[11px] text-gray-500">{stageLabel(c.status)}</span>
-                  {c.linked_lead_id && <span className="text-[10px] text-blue-500 ml-auto">{c.source === 'lead' ? 'лид (CRM)' : 'лид'}</span>}
-                  {c.linked_patient_id && <span className="text-[10px] text-indigo-500 ml-1">пациент</span>}
-                </div>
+                <div className="curai-chat-contact-type">{chatIsPatient(c) ? 'Пациент' : chatIsLead(c) ? 'Лид CRM' : 'Контакт'}</div>
               </button>
             ))}
           </div>
         </div>
 
         {/* Переписка */}
-        <div className="flex-1 min-h-0 flex flex-col">
+        <div className="curai-chat-thread">
           {!selected ? (
-            <div className="flex-1 flex flex-col items-center justify-center text-gray-400">
-              <span className="text-5xl mb-3">💬</span>
+            <div className="flex-1 flex flex-col items-center justify-center text-curai-muted">
+              <span className="text-2xl mb-3">💬</span>
               <p className="text-sm font-medium">Выберите чат слева</p>
             </div>
           ) : (
             <>
-              {/* Шапка чата: статус + запись */}
-              <div className="flex-shrink-0 px-4 py-2.5 bg-gray-50 border-b border-gray-200 space-y-2">
-                <div className="min-w-0">
-                  <div className="font-medium text-gray-900 truncate">{contactNameMeta(selected)}</div>
-                  <div className="text-xs text-gray-500">{selected.phone}</div>
+              <div className="curai-chat-header">
+                <div className="curai-chat-person" aria-label="Контакт выбранного чата"><CuraiIcon name="person"/>{selected.patient_id || selected.linked_patient_id ? <button type="button" className="curai-patient-link" onClick={openPatientCard} title={contactNameMeta(selected)}>{contactNameMeta(selected)}</button> : <strong title={contactNameMeta(selected)}>{contactNameMeta(selected)}</strong>}</div>
+                <div className="curai-chat-header-actions">
+                  <PatientAppointments key={selected.phone} patientId={selected.patient_id || selected.linked_patient_id} patientName={contactNameMeta(selected)} revision={appointmentsRevision} onBook={handleBook} booking={openingBooking} onChanged={fetchChats}/>
+                  <ChatCrmStage phone={selected.phone} revision={selected} onChanged={fetchChats} variant="menu"/>
+                  <CuraiButton variant="primary" onClick={handleBook} disabled={openingBooking} aria-busy={openingBooking} title="Назначить запись">Записать</CuraiButton>
                 </div>
-
-                <div className="flex items-center gap-2 flex-wrap">
-                  {selected.patient_id && (
-                    <button
-                      onClick={openPatientCard}
-                      className="h-9 px-3 whitespace-nowrap border border-gray-300 hover:bg-white bg-white text-gray-700 text-sm rounded-lg font-medium"
-                      title="Открыть карточку пациента"
-                    >
-                      👤 Карточка пациента
-                    </button>
-                  )}
-
-                  <select
-                    value={selected.status || ''}
-                    onChange={(e) => changeStatus(e.target.value)}
-                    className="h-9 px-2 border border-gray-300 rounded-lg text-sm bg-white focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                  >
-                    <option value="">Без статуса</option>
-                    {FUNNEL_STAGES.map(s => (
-                      <option key={s.status} value={s.status}>{s.label}</option>
-                    ))}
-                  </select>
-
-                  <button
-                    onClick={handleBook}
-                    className="h-9 px-3 whitespace-nowrap bg-blue-600 hover:bg-blue-700 text-white text-sm rounded-lg font-medium"
-                    title="Назначить запись"
-                  >
-                    📅 Записать
-                  </button>
-                </div>
+                <div className="curai-chat-phone">{selected.phone}</div>
+                {(selected.deal_title || selected.lead_title) && <div className="curai-chat-deal-title">Сделка: {selected.deal_title || selected.lead_title}</div>}
               </div>
 
               {/* Сообщения */}
-              <div ref={messagesRef} className="flex-1 min-h-0 overflow-y-auto p-4 space-y-2 bg-gray-50">
+              <div ref={messagesRef} className="curai-chat-messages">
                 {loadingMessages && messages.length === 0 && (
-                  <div className="text-center text-gray-400 text-sm py-10">Загрузка…</div>
+                  <div className="text-center text-curai-muted text-sm py-10">Загрузка…</div>
                 )}
                 {messages.length === 0 && !loadingMessages && (
-                  <div className="text-center text-gray-400 text-sm py-10">Сообщений пока нет</div>
+                  <div className="text-center text-curai-muted text-sm py-10">Сообщений пока нет</div>
                 )}
                 {messages.map((m, i) => {
                   // Служебное сообщение (системная запись в переписку менеджера).
                   if (m.system) {
                     return (
                       <div key={i} className="flex justify-center">
-                        <span className="text-[11px] text-gray-400 bg-gray-100 px-2 py-0.5 rounded-full my-0.5">
+                        <span className="text-[11px] text-curai-muted bg-curai-subtle px-2 py-0.5 rounded-full my-0.5">
                           {m.text}
                         </span>
                       </div>
@@ -585,27 +580,26 @@ const WhatsAppInbox = ({ isOpen, onClose }) => {
                   const fname = m.metadata?.filename || (m.media_url ? m.media_url.split('?')[0].split('/').pop() : '') || 'Файл';
                   return (
                     <div key={i} className={`flex ${outgoing ? 'justify-end' : 'justify-start'}`}>
-                      <div className={`max-w-[75%] rounded-lg px-3 py-2 shadow-sm break-words ${
-                        outgoing ? 'bg-green-500 text-white rounded-br-none' : 'bg-white text-gray-900 border border-gray-200 rounded-bl-none'
-                      }`}>
+                      <div className={`curai-chat-bubble${outgoing ? ' is-outgoing' : ''}${m.message_type === 'audio' ? ' has-audio' : ''}`}>
+
                         {m.text && <div className="text-sm whitespace-pre-wrap">{m.text}</div>}
                         {m.media_url && m.message_type === 'image' && (
                           <a href={absMedia(m.media_url)} target="_blank" rel="noopener noreferrer" className="block mt-1">
-                            <img src={absMedia(m.media_url)} alt={fname} className="max-w-full max-h-56 rounded-lg border border-gray-200" />
-                            <div className={`text-xs mt-1 truncate max-w-[220px] ${outgoing ? 'text-green-100' : 'text-gray-500'}`} title={fname}>
-                              📎 {fname}
+                            <img src={absMedia(m.media_url)} alt={fname} className="max-w-full max-h-56 rounded-md border border-curai-border" />
+                            <div className={`text-xs mt-1 truncate max-w-[220px] ${outgoing ? "text-curai-blue" : "text-curai-muted"}`} title={fname}>
+                              <CuraiIcon name="file" className="curai-inline-icon"/> {fname}
                             </div>
                           </a>
                         )}
                         {m.media_url && m.message_type === 'audio' && (
                           <div className="mt-1">
-                            <audio controls src={absMedia(m.media_url)} className="max-w-full h-9" preload="none" />
+                            <WhatsAppAudio key={absMedia(m.media_url)} src={absMedia(m.media_url)}/>
                           </div>
                         )}
                         {m.media_url && m.message_type !== 'image' && m.message_type !== 'audio' && (
                           <a href={absMedia(m.media_url)} target="_blank" rel="noopener noreferrer"
-                             className={`text-xs underline mt-1 inline-block ${outgoing ? 'text-green-100' : 'text-blue-600'}`}>
-                            📎 {fname}
+                             className="curai-chat-file">
+                            <CuraiIcon name="file" className="curai-inline-icon"/> {fname}
                           </a>
                         )}
 
@@ -615,21 +609,21 @@ const WhatsAppInbox = ({ isOpen, onClose }) => {
                             onClick={() => saveMediaToPatient(m)}
                             disabled={uploadingFile}
                             title="Сохранить документ в карточке пациента"
-                            className={`mt-1 text-xs flex items-center gap-1 rounded px-1.5 py-0.5 border border-gray-300 hover:bg-gray-50 ${
-                              outgoing ? 'text-green-100' : 'text-gray-600'
+                            className={`mt-1 text-xs flex items-center gap-1 rounded px-1.5 py-0.5 border border-curai-control hover:bg-curai-subtle ${
+                              outgoing ? "text-curai-blue" : "text-curai-muted"
                             }`}
                           >
-                            <span>💾</span> Сохранить в карточке
+                            <CuraiIcon name="save-file" className="curai-save-icon"/> Сохранить в карточке
                           </button>
                         )}
                         {m.media_url && !outgoing && m.message_type !== 'audio' && m.metadata?.saved_to_patient && (
-                          <div className="mt-1 text-[11px] text-green-600 flex items-center gap-1">
+                          <div className="mt-1 text-[11px] text-curai-blue flex items-center gap-1">
                             <span>✓</span> Сохранено в карточке
                           </div>
                         )}
 
-                        <div className={`text-xs mt-1 flex justify-end ${outgoing ? 'text-green-100' : 'text-gray-400'}`}>
-                          {formatTime(m.sent_at)}
+                        <div className="curai-message-time">
+                          {formatMessageTime(m.sent_at)}
                           {outgoing && <span className="ml-1">{m.status === 'read' ? '✓✓' : m.status === 'delivered' ? '✓✓' : '✓'}</span>}
                         </div>
                       </div>
@@ -638,7 +632,7 @@ const WhatsAppInbox = ({ isOpen, onClose }) => {
                 })}
                 {sysNotes.map((n) => (
                   <div key={n.id} className="flex justify-center">
-                    <span className="text-[11px] text-gray-400 bg-gray-100 px-2 py-0.5 rounded-full my-0.5">
+                    <span className="text-[11px] text-curai-muted bg-curai-subtle px-2 py-0.5 rounded-full my-0.5">
                       {n.text}
                     </span>
                   </div>
@@ -646,7 +640,7 @@ const WhatsAppInbox = ({ isOpen, onClose }) => {
               </div>
 
               {/* Ввод */}
-              <div className="flex-shrink-0 p-3 bg-white border-t border-gray-200 flex items-end gap-2">
+              <div className="curai-chat-compose">
                 <input
                   ref={fileInputRef}
                   type="file"
@@ -658,36 +652,36 @@ const WhatsAppInbox = ({ isOpen, onClose }) => {
                     onClick={toggleAttachMenu}
                     disabled={uploadingFile || !selected}
                     title={uploadingFile ? 'Загрузка файла…' : 'Вложить файл'}
-                    className="w-10 h-10 flex items-center justify-center rounded-lg border border-gray-300 text-gray-500 hover:bg-gray-100 disabled:opacity-50 text-lg"
+                    className="w-10 h-10 flex items-center justify-center rounded-md border border-curai-control text-curai-muted hover:bg-curai-subtle disabled:opacity-50 text-lg"
                   >
-                    {uploadingFile ? '…' : '📎'}
+                    {uploadingFile ? '…' : <CuraiIcon name="paperclip"/>}
                   </button>
 
                   {attachMenuOpen && (
                     <div
                       ref={attachMenuRef}
-                      className="absolute bottom-12 left-0 w-72 bg-white border border-gray-200 rounded-lg shadow-xl z-50 overflow-hidden"
+                      className="absolute bottom-12 left-0 w-72 bg-curai-surface border border-curai-border rounded-md shadow-none z-50 overflow-hidden"
                     >
-                      <div className="px-3 py-2 text-xs font-semibold text-gray-500 border-b border-gray-100">
+                      <div className="px-3 py-2 text-xs font-semibold text-curai-muted border-b border-curai-border">
                         Вложить файл
                       </div>
 
-                      <div className="px-3 py-2 text-xs font-medium text-gray-600 flex items-center gap-2">
+                      <div className="px-3 py-2 text-xs font-medium text-curai-muted flex items-center gap-2">
                         <span>📁</span> Из документов клиента
                       </div>
 
                       {loadingDocs && patientDocs.length === 0 && (
-                        <div className="px-4 py-2 text-xs text-gray-400">Загрузка документов…</div>
+                        <div className="px-4 py-2 text-xs text-curai-muted">Загрузка документов…</div>
                       )}
 
                       {!loadingDocs && patientDocs.length > 0 && (
-                        <div className="max-h-48 overflow-y-auto border-t border-gray-100">
+                        <div className="max-h-48 overflow-y-auto border-t border-curai-border">
                           {patientDocs.map((doc) => (
                             <button
                               key={doc.id || doc.filename}
                               onClick={() => sendExistingDoc(doc)}
                               disabled={uploadingFile}
-                              className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50 flex items-center gap-2 border-b border-gray-50"
+                              className="w-full text-left px-3 py-2 text-sm hover:bg-curai-subtle flex items-center gap-2 border-b border-curai-border"
                               title={doc.original_filename || doc.filename}
                             >
                               <span className="flex-shrink-0">📄</span>
@@ -698,19 +692,19 @@ const WhatsAppInbox = ({ isOpen, onClose }) => {
                       )}
 
                       {!loadingDocs && patientDocs.length === 0 && (
-                        <div className="px-3 py-2 text-xs text-gray-400 border-t border-gray-100">
+                        <div className="px-3 py-2 text-xs text-curai-muted border-t border-curai-border">
                           Нет документов в карточке клиента
                         </div>
                       )}
 
                       <button
                         onClick={() => { setAttachMenuOpen(false); handleAttachClick(); }}
-                        className="w-full text-left px-3 py-2.5 text-sm hover:bg-gray-50 flex items-center gap-2 border-t border-gray-100"
+                        className="w-full text-left px-3 py-2.5 text-sm hover:bg-curai-subtle flex items-center gap-2 border-t border-curai-border"
                       >
                         <span>💻</span>
                         <span>
                           С компьютера
-                          <span className="block text-xs text-gray-400 font-normal">выбрать и загрузить новый файл</span>
+                          <span className="block text-xs text-curai-muted font-normal">выбрать и загрузить новый файл</span>
                         </span>
                       </button>
                     </div>
@@ -727,12 +721,12 @@ const WhatsAppInbox = ({ isOpen, onClose }) => {
                   }}
                   placeholder="Введите сообщение…"
                   rows="1"
-                  className="flex-1 px-3 py-2 border border-gray-300 rounded-lg resize-none focus:ring-2 focus:ring-green-500 focus:border-transparent text-sm"
+                  className="flex-1 px-3 py-2 border border-curai-control rounded-md resize-none focus:ring-2 focus:ring-curai-focus focus:border-transparent text-sm"
                 />
                 <button
                   onClick={sendMessage}
                   disabled={sending || !newMessage.trim()}
-                  className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg font-medium disabled:opacity-50"
+                  className="px-4 py-2 bg-curai-positive hover:bg-curai-blue text-white rounded-md font-medium disabled:opacity-50"
                 >
                   {sending ? '…' : 'Отправить'}
                 </button>

@@ -1,0 +1,125 @@
+/* Curai • Primitives · Light */
+:root {
+  --curai-neutral-0: #FFFFFF;
+  --curai-palette-canvas: #F4F7FB;
+  --curai-palette-surface: #FFFFFF;
+  --curai-palette-subtle: #EDF2F8;
+  --curai-palette-hover: #E5EDF7;
+  --curai-palette-selected: #E8F0FC;
+  --curai-palette-border: #CCD6E3;
+  --curai-palette-control: #7C8DA3;
+  --curai-palette-ink: #18283E;
+  --curai-palette-muted: #52637A;
+  --curai-palette-disabled: #728096;
+  --curai-palette-blue: #315F9F;
+  --curai-palette-blueHover: #254E88;
+  --curai-palette-bluePressed: #1B3E70;
+  --curai-palette-focus: #4778B9;
+  --curai-palette-positive: #236448;
+  --curai-palette-positiveBg: #EDF7F1;
+  --curai-palette-warning: #805616;
+  --curai-palette-warningBg: #FFF5DF;
+  --curai-palette-negative: #A53440;
+  --curai-palette-negativeBg: #FCEFF1;
+  --curai-palette-info: #315F9F;
+  --curai-palette-infoBg: #EAF1FC;
+}
+/* Curai • Semantic · Light */
+:root {
+  --curai-color-canvas: var(--curai-palette-canvas);
+  --curai-color-surface: var(--curai-palette-surface);
+  --curai-color-subtle: var(--curai-palette-subtle);
+  --curai-color-hover: var(--curai-palette-hover);
+  --curai-color-selected: var(--curai-palette-selected);
+  --curai-color-border: var(--curai-palette-border);
+  --curai-color-control: var(--curai-palette-control);
+  --curai-color-ink: var(--curai-palette-ink);
+  --curai-color-muted: var(--curai-palette-muted);
+  --curai-color-disabled: var(--curai-palette-disabled);
+  --curai-color-blue: var(--curai-palette-blue);
+  --curai-color-blueHover: var(--curai-palette-blueHover);
+  --curai-color-bluePressed: var(--curai-palette-bluePressed);
+  --curai-color-focus: var(--curai-palette-focus);
+  --curai-color-positive: var(--curai-palette-positive);
+  --curai-color-positiveBg: var(--curai-palette-positiveBg);
+  --curai-color-warning: var(--curai-palette-warning);
+  --curai-color-warningBg: var(--curai-palette-warningBg);
+  --curai-color-negative: var(--curai-palette-negative);
+  --curai-color-negativeBg: var(--curai-palette-negativeBg);
+  --curai-color-info: var(--curai-palette-info);
+  --curai-color-infoBg: var(--curai-palette-infoBg);
+}
+/* Curai • Metrics · Default */
+:root {
+  --curai-space-2: 2px;
+  --curai-space-4: 4px;
+  --curai-space-6: 6px;
+  --curai-space-8: 8px;
+  --curai-space-12: 12px;
+  --curai-space-16: 16px;
+  --curai-space-20: 20px;
+  --curai-space-24: 24px;
+  --curai-space-32: 32px;
+  --curai-space-40: 40px;
+  --curai-space-48: 48px;
+  --curai-radius-2: 2px;
+  --curai-radius-4: 4px;
+  --curai-radius-6: 6px;
+  --curai-radius-8: 8px;
+  --curai-type-family: "Inter";
+  --curai-type-size-11: 11px;
+  --curai-type-size-12: 12px;
+  --curai-type-size-13: 13px;
+  --curai-type-size-14: 14px;
+  --curai-type-size-16: 16px;
+  --curai-type-size-20: 20px;
+  --curai-type-size-24: 24px;
+  --curai-type-size-28: 28px;
+  --curai-type-size-32: 32px;
+  --curai-type-line-18: 18px;
+  --curai-type-line-20: 20px;
+  --curai-type-line-24: 24px;
+  --curai-type-line-28: 28px;
+  --curai-type-line-32: 32px;
+  --curai-type-line-40: 40px;
+  --curai-type-line-46: 46px;
+  --curai-control-compact: 32px;
+  --curai-control-default: 36px;
+  --curai-control-comfortable: 40px;
+  --curai-calendar-slot-height: 64px;
+  --curai-calendar-cabinet-width: 200px;
+  --curai-calendar-header-height: 112px;
+  --curai-calendar-time-width: 80px;
+  --curai-icon-size: 20px;
+  --curai-icon-stroke: 1.75;
+  --curai-icon-lead-glyph-size: 14px;
+  --curai-icon-lead-stroke: 1.25;
+}
+/* Curai • User status presets · Light */
+:root {
+  --curai-data-statusPreset-1: #3B82F6;
+  --curai-data-statusPreset-2: #10B981;
+  --curai-data-statusPreset-3: #F59E0B;
+  --curai-data-statusPreset-4: #EF4444;
+  --curai-data-statusPreset-5: #8B5CF6;
+  --curai-data-statusPreset-6: #EC4899;
+  --curai-data-statusPreset-7: #06B6D4;
+  --curai-data-statusPreset-8: #84CC16;
+  --curai-data-statusPreset-9: #F97316;
+  --curai-data-statusPreset-10: #6366F1;
+  --curai-data-statusPreset-11: #14B8A6;
+  --curai-data-statusPreset-12: #A855F7;
+  --curai-data-statusPreset-13: #DC2626;
+  --curai-data-statusPreset-14: #6B7280;
+  --curai-data-statusPreset-15: #0EA5E9;
+}
+
+/* Component dimensions read from the matching native export, not inferred. */
+:root {
+  --curai-navbar-height: 64px;
+  --curai-rail-width: 56px;
+  --curai-menu-width: 312px;
+  --curai-navigation-item-height: 40px;
+  --curai-workspace-tab-width: 92px;
+  --curai-brand-slot-width: 120px;
+}

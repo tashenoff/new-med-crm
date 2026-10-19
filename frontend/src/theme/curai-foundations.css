@@ -1,0 +1,130 @@
+/* Shared Curai form, table and dialog presentation. Clinical fields and actions
+   are kept by the existing components; no data or permission decisions here. */
+@font-face {
+  font-family: Inter;
+  font-style: normal;
+  font-weight: 100 900;
+  font-display: swap;
+  src: url('/fonts/inter/InterVariable.woff2') format('woff2');
+}
+@font-face {
+  font-family: Inter;
+  font-style: italic;
+  font-weight: 100 900;
+  font-display: swap;
+  src: url('/fonts/inter/InterVariable-Italic.woff2') format('woff2');
+}
+:is(.curai-workspace, .curai-surface-root, .curai-calendar-fullscreen) {
+  font-family: var(--curai-type-family), ui-sans-serif, system-ui, sans-serif;
+  font-feature-settings: 'liga' 1, 'calt' 1;
+  font-size: var(--curai-type-size-14);
+  line-height: var(--curai-type-line-20);
+  color: var(--curai-color-ink);
+  color-scheme: light;
+}
+:is(.curai-workspace, .curai-surface-root) :is(input, select, textarea, button) { font-family: inherit; }
+:is(.curai-workspace-main, .curai-surface-root) :is(input:not([type='checkbox']):not([type='radio']):not([type='color']):not([type='range']):not([type='file']), select, textarea) {
+  min-height: var(--curai-control-default);
+  border-radius: var(--curai-radius-6);
+  border: 1px solid var(--curai-color-control);
+  background-color: var(--curai-color-surface);
+  color: var(--curai-color-ink);
+  font-size: var(--curai-type-size-13);
+  line-height: var(--curai-type-line-20);
+  padding: var(--curai-space-6) var(--curai-space-12);
+}
+:is(.curai-workspace-main, .curai-surface-root) textarea { min-height: 5rem; resize: vertical; }
+:is(.curai-workspace-main, .curai-surface-root) :is(input, select, textarea):focus-visible {
+  outline: 2px solid var(--curai-color-focus); outline-offset: 2px; box-shadow: none;
+}
+:is(.curai-workspace-main, .curai-surface-root) :is(input, select, textarea):disabled {
+  color: var(--curai-color-disabled); background-color: var(--curai-color-subtle); cursor: not-allowed;
+}
+:is(.curai-workspace-main, .curai-surface-root) [aria-invalid='true'] { border-color: var(--curai-color-negative); }
+:is(.curai-workspace-main, .curai-surface-root) ::placeholder { color: var(--curai-color-muted); opacity: 1; }
+:is(.curai-workspace-main, .curai-surface-root) input:is([type='checkbox'], [type='radio']) { accent-color: var(--curai-color-blue); width: 18px; height: 18px; flex-shrink: 0; }
+:is(.curai-workspace-main, .curai-surface-root) label { color: var(--curai-color-muted); font-size: var(--curai-type-size-12); line-height: var(--curai-type-line-18); }
+.curai-panel-header { display: flex; flex-wrap: wrap; align-items: flex-start; justify-content: space-between; gap: var(--curai-space-16); padding: 0 0 var(--curai-space-32); background: transparent; }
+.curai-panel-header h2 { font-size: var(--curai-type-size-24); line-height: var(--curai-type-line-32); font-weight: 600; color: var(--curai-color-ink); }
+.curai-panel-header p { margin-top: var(--curai-space-4); font-size: var(--curai-type-size-13); color: var(--curai-color-muted); }
+.curai-panel-header + .bg-curai-surface { background: transparent; padding: 0; border: 0; border-radius: 0; }
+:is(.curai-workspace-main, .curai-surface-root) table {
+  width: 100%; border-collapse: separate; border-spacing: 0;
+  border: 1px solid var(--curai-color-border); border-radius: var(--curai-radius-6);
+  background: var(--curai-color-surface); font-size: var(--curai-type-size-13);
+}
+:is(.curai-workspace-main, .curai-surface-root) th {
+  background: var(--curai-color-subtle); color: var(--curai-color-muted);
+  font-size: var(--curai-type-size-12); font-weight: 400; text-transform: none; letter-spacing: normal;
+  padding: var(--curai-space-12); line-height: var(--curai-type-line-18); vertical-align: middle;
+}
+:is(.curai-workspace-main, .curai-surface-root) td {
+  padding: var(--curai-space-16) var(--curai-space-12); vertical-align: top;
+  border-color: var(--curai-color-border); line-height: var(--curai-type-line-20);
+}
+:is(.curai-workspace-main, .curai-surface-root) tbody tr + tr > td { border-top: 1px solid var(--curai-color-border); }
+:is(.curai-workspace-main, .curai-surface-root) button { transform: none; box-shadow: none; }
+:is(.curai-workspace-main, .curai-surface-root) button:is(.bg-curai-blue, .bg-curai-positive, .bg-curai-negative) {
+  min-height: var(--curai-control-default); border-radius: var(--curai-radius-6);
+  font-size: var(--curai-type-size-13); font-weight: 600; line-height: var(--curai-type-line-20);
+}
+:is(.curai-workspace-main, .curai-surface-root) button:disabled { cursor: not-allowed; }
+:is(.curai-workspace-main, .curai-surface-root) button:focus-visible { outline: 2px solid var(--curai-color-focus); outline-offset: 2px; }
+.curai-dialog.modal-content {
+  width: 100%; border: 1px solid var(--curai-color-border); border-radius: var(--curai-radius-6);
+  background: var(--curai-color-surface); color: var(--curai-color-ink); box-shadow: none;
+}
+.curai-dialog-header { padding: var(--curai-space-20) var(--curai-space-24); border-bottom: 1px solid var(--curai-color-border); }
+.curai-dialog-header h3 { font-size: var(--curai-type-size-24); line-height: var(--curai-type-line-32); font-weight: 600; }
+.curai-dialog-body { padding: var(--curai-space-20) var(--curai-space-24); }
+.curai-dialog-close { position: absolute; top: var(--curai-space-20); right: var(--curai-space-24); color: var(--curai-color-muted); border-radius: var(--curai-radius-6); padding: var(--curai-space-4); }
+.curai-dialog-close:hover { background: var(--curai-color-hover); }
+.curai-dialog-backdrop { position: fixed; inset: 0; background: rgba(24,40,62,.24); backdrop-filter: none; }
+.curai-patient-tabs { display: flex; gap: var(--curai-space-4); flex-wrap: wrap; padding-bottom: var(--curai-space-8); border-bottom: 1px solid var(--curai-color-border); }
+.curai-patient-tabs > button { display: inline-flex; align-items: center; min-height: var(--curai-control-default); padding: var(--curai-space-8) var(--curai-space-12); color: var(--curai-color-muted); border: 0; border-radius: var(--curai-radius-4); font-size: var(--curai-type-size-12); }
+.curai-patient-tabs > button[aria-selected='true'] { background: var(--curai-color-selected); color: var(--curai-color-blue); font-weight: 600; }
+.curai-patient-tabs > button:hover { background: var(--curai-color-hover); }
+.curai-patient-tabs > button svg { display: none; }
+:is(.curai-workspace-main, .curai-surface-root) button.bg-curai-positive { background: var(--curai-color-blue); }
+:is(.curai-workspace-main, .curai-surface-root) button.bg-curai-positive:hover { background: var(--curai-color-blueHover); }
+.curai-color-field { display: grid; grid-template-columns: 96px minmax(0,1fr); gap: var(--curai-space-16); }
+.curai-color-swatch-column { position: relative; }
+.curai-color-field label { display: flex; flex-direction: column; gap: var(--curai-space-6); }
+.curai-color-trigger { display: flex; width: 80px; height: var(--curai-control-default); align-items: center; justify-content: space-around; border: 1px solid var(--curai-color-control); border-radius: var(--curai-radius-6); margin-top: var(--curai-space-6); }
+.curai-color-trigger > span:first-child { width: 20px; height: 20px; border-radius: var(--curai-radius-4); }
+.curai-color-palette { position: absolute; top: 100%; left: 0; margin-top: var(--curai-space-4); display: grid; grid-template-columns: repeat(5,24px); padding: var(--curai-space-12); gap: var(--curai-space-8); background: var(--curai-color-surface); border: 1px solid var(--curai-color-border); border-radius: var(--curai-radius-6); z-index: 50; }
+.curai-color-palette > button { width: 24px; height: 24px; border-radius: var(--curai-radius-4); }
+.curai-color-palette > button[aria-pressed='true'] { outline: 2px solid var(--curai-color-ink); outline-offset: 2px; }
+.curai-color-palette .curai-color-custom { grid-column: 1 / -1; }
+.curai-color-custom input { width: 100%; height: 32px; }
+.curai-selection-toolbar { display: flex; flex-direction: column; gap: var(--curai-space-12); margin-bottom: var(--curai-space-8); }
+.curai-selection-toolbar label { display: flex; flex-direction: column; gap: var(--curai-space-6); }
+.curai-selection-tabs { display: flex; gap: var(--curai-space-12); }
+.curai-selection-tabs button { min-height: var(--curai-control-default); padding: var(--curai-space-8) var(--curai-space-16); font-size: var(--curai-type-size-13); color: var(--curai-color-blue); border-radius: var(--curai-radius-6); }
+.curai-selection-tabs button[aria-pressed='true'] { background: var(--curai-color-selected); font-weight: 600; }
+.curai-doctor-dialog fieldset, .curai-doctor-dialog form > section, .curai-doctor-dialog form > .bg-curai-warningBg { background: var(--curai-color-surface); border: 0; border-top: 1px solid var(--curai-color-border); border-radius: 0; padding: var(--curai-space-24) 0; }
+.curai-doctor-dialog form > .flex:last-child { justify-content: flex-end; border-top: 1px solid var(--curai-color-border); padding-top: var(--curai-space-16); }
+.curai-doctor-dialog form > .flex:last-child > button { flex: 0 1 160px; }
+@media (max-width: 639px) {
+  .curai-surface-root.modal-wrapper { padding: var(--curai-space-8); }
+  .curai-dialog-header, .curai-dialog-body { padding: var(--curai-space-16); }
+  .curai-dialog-header h3 { font-size: var(--curai-type-size-20); line-height: var(--curai-type-line-28); }
+  .curai-panel-header { padding-bottom: var(--curai-space-24); }
+  .curai-patient-tabs { flex-wrap: nowrap; overflow-x: auto; }
+  .curai-patient-tabs > button { white-space: nowrap; }
+}
+@media print {
+  .curai-surface-root.modal-wrapper { position: static; padding: 0; }
+  .curai-dialog-backdrop, .curai-dialog-close { display: none; }
+  .curai-dialog.modal-content { max-height: none; border: 0; }
+}
+
+/* Existing forms share the same button and tab variants as the workspace. */
+.curai-button-danger { background: var(--curai-color-surface); color: var(--curai-color-negative); border-color: var(--curai-color-negative); }
+.curai-button-danger:hover { background: var(--curai-color-negativeBg); }
+.curai-tab { min-height: var(--curai-control-default); padding: var(--curai-space-8) var(--curai-space-12); border: 0; border-radius: var(--curai-radius-4); color: var(--curai-color-muted); font-size: var(--curai-type-size-12); }
+.curai-tab.is-active { color: var(--curai-color-blue); background: var(--curai-color-selected); font-weight: 600; }
+.curai-tab:hover { background: var(--curai-color-hover); }
+.curai-dialog form > .flex:last-child { justify-content: flex-end; border-top: 1px solid var(--curai-color-border); padding-top: var(--curai-space-16); gap: var(--curai-space-16); }
+.curai-dialog form > .flex:last-child > button { flex: 0 1 160px; margin-left: 0; }
+.curai-dialog form > .flex:last-child > button[type='submit'] { order: 2; }

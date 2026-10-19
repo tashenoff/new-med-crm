@@ -492,7 +492,7 @@ test('individual services enable the main scheme only while an override is unset
   assert.equal(mainScheme().disabled, false, 'clearing an override restores inheritance');
   await click(selectAll(ui));
   assert.equal(mainScheme().disabled, true, 'no selected services need the main scheme');
-  await click(ui.container.querySelector('input[value="general"]'));
+  await ui.change(ui.container.querySelector('[aria-label="Режим настройки комиссий"]'), 'general');
   assert.equal(mainScheme().disabled, false, 'general mode enables the main scheme');
 });
 
@@ -503,7 +503,7 @@ for (const editing of [false, true]) {
       hybrid_percentage_value: 10, consultation_compensation_mode: 'none' };
     const ui = await modal(context, editing ? { ...original, id: 'a' } : null, original, catalogResponse);
     await click(selectAll(ui));
-    await click(ui.container.querySelector('input[value="individual"]'));
+    await ui.change(ui.container.querySelector('[aria-label="Режим настройки комиссий"]'), 'individual');
     for (const service of mixedServices) {
       assert.equal(serviceType(ui, service.service_name).value, 'inherit');
       assert.equal(serviceValue(ui, service.service_name).value, '');
@@ -527,10 +527,10 @@ for (const editing of [false, true]) {
       { service_id: 'therapy-fixed', commission_type: 'fixed', commission_value: 500, commission_currency: 'KZT' },
       { service_id: 'surgery-percent', commission_type: 'percentage', commission_value: 20, commission_currency: 'KZT' },
       { service_id: 'surgery-zero', commission_type: 'percentage', commission_value: 0, commission_currency: 'KZT' }]);
-    await click(ui.container.querySelector('input[value="general"]'));
+    await ui.change(ui.container.querySelector('[aria-label="Режим настройки комиссий"]'), 'general');
     await ui.submit();
     assert.deepEqual(ui.saved.at(-1).services, mixedServices.map(service => service.id));
-    await click(ui.container.querySelector('input[value="individual"]'));
+    await ui.change(ui.container.querySelector('[aria-label="Режим настройки комиссий"]'), 'individual');
     await ui.submit();
     assert.deepEqual(ui.saved.at(-1).services, mixed.services, 'temporary mode switch preserves explicit overrides including zero');
     await ui.render({ editingItem: { ...mixed, id: 'reopened-mixed' } });
@@ -679,4 +679,44 @@ test('an older salary response cannot overwrite Finance after a patient-save ref
   await act(async () => resolveOld(salaryResponse({ salary_data: [], summary: {}, compensation_complete: true })));
   assert.match(ui.container.textContent, /Current salary doctor/);
   assert.equal(calls, 2);
+});
+
+test('doctor search selects only found services and preserves selections and commissions outside search', async context => {
+  const ui = await modal(context, doctor, {}, async url => ({ ok: true, json: async () => String(url).includes('specialties')
+    ? [{id:'specialty',name:'Therapy'}]
+    : [{id:'service',service_name:'Alpha service',category:'Therapy',price:10000}, {id:'second',service_name:'Beta service',category:'Therapy',price:5000}] }));
+  await ui.change(ui.container.querySelector('[aria-label="Поиск услуг"]'), 'Beta');
+  const selectAll = [...ui.container.querySelectorAll('label')].find(label => label.textContent.includes('Выбрать все найденные')).querySelector('input');
+  await act(async () => selectAll.click());
+  await ui.submit();
+  assert.equal(ui.saved.length,1);
+  assert.deepEqual(ui.saved[0].services.map(service => typeof service === 'string' ? service : service.service_id).sort(),['second','service']);
+  const existing=ui.saved[0].services.find(service => service.service_id==='service');
+  assert.equal(existing.commission_value,800,'search and bulk selection preserve an existing explicit commission');
+});
+
+test('doctor selected-only view and an empty search do not discard checked services', async context => {
+  const ui = await modal(context, doctor);
+  const selectedOnly=[...ui.container.querySelectorAll('button')].find(button => button.textContent.startsWith('Выбранные ('));
+  await act(async () => selectedOnly.click());
+  await ui.change(ui.container.querySelector('[aria-label="Поиск услуг"]'), 'No match');
+  assert.match(ui.container.textContent,/Выбор вне поиска сохранён/);
+  const selectAll=[...ui.container.querySelectorAll('label')].find(label=>label.textContent.includes('Выбрать все найденные')).querySelector('input');
+  assert.equal(selectAll.disabled,true);
+  await ui.submit();
+  assert.deepEqual(ui.saved[0].services.map(service=>service.service_id),['service']);
+  assert.equal(ui.saved[0].services[0].commission_value,800);
+});
+
+test('doctor HEX input validates a draft and saves the same valid calendar color', async context => {
+  const ui = await modal(context, doctor);
+  const hex=ui.container.querySelector('[aria-label="HEX цвета календаря"]');
+  await ui.change(hex,'#BAD');
+  assert.equal(hex.getAttribute('aria-invalid'),'true');
+  assert.equal(hex.checkValidity(),false);
+  assert.equal(ui.saved.length,0);
+  await ui.change(hex,'#123456');
+  assert.equal(hex.checkValidity(),true);
+  await ui.submit();
+  assert.equal(ui.saved[0].calendar_color,'#123456');
 });

@@ -261,7 +261,7 @@ test('Kanban first-touch presets filter cards and default to all dates', async c
   assert.equal(preset.value, 'all');
   assert.deepEqual([...preset.options].map(option => option.value), ['all', 'today', 'yesterday', '7days', '30days', 'custom']);
   assert.equal(view.container.querySelector('input[type="date"]'), null);
-  assert.equal(view.container.querySelectorAll('[placeholder="Поиск..."]').length, 1);
+  assert.equal(view.container.querySelectorAll('[placeholder="Поиск..."]').length, 0);
   assert.deepEqual(visibleCards(view.container), leads.map(item => item.full_name).sort());
   const expected = {
     today: ['today-end', 'today-start'],
@@ -279,20 +279,14 @@ test('Kanban first-touch presets filter cards and default to all dates', async c
 test('Kanban custom first-touch dates include boundaries and support open and invalid ranges', async context => {
   const leads = dateFixture();
   const view = await mountView(context, leads);
-  const dayKey = offset => {
-    const date = new Date(dateAt(offset));
-    return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
-  };
+  const dayKey = offset => { const date = new Date(dateAt(offset)); return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`; };
   await changeControl(view, 'Период первого касания', 'custom');
   assert.deepEqual(visibleCards(view.container), leads.map(item => item.full_name).sort());
   await changeControl(view, 'Первое касание: с', dayKey(-7));
   await changeControl(view, 'Первое касание: по', dayKey(-1));
   assert.deepEqual(visibleCards(view.container), ['day6', 'day7', 'yesterday-end', 'yesterday-start']);
-  await changeControl(view, 'Поиск...', 'day7');
-  assert.deepEqual(visibleCards(view.container), ['day7']);
   await changeControl(view, 'Первое касание: с', dayKey(-6));
-  assert.deepEqual(visibleCards(view.container), []);
-  await changeControl(view, 'Поиск...', '');
+  assert.deepEqual(visibleCards(view.container), ['day6', 'yesterday-end', 'yesterday-start']);
   await changeControl(view, 'Первое касание: с', dayKey(0));
   assert.deepEqual(visibleCards(view.container), []);
   assert.equal(view.container.querySelector('[aria-label="Первое касание: с"]').getAttribute('aria-invalid'), 'true');
@@ -304,30 +298,25 @@ test('Kanban custom first-touch dates include boundaries and support open and in
   assert.deepEqual(visibleCards(view.container), ['future', 'today-end', 'today-start']);
 });
 
-test('date filter precedes edit and add column controls beside search in either edit mode', async context => {
+test('date filter and column controls remain together without a search region in either edit mode', async context => {
   const view = await mountView(context, [], { columns: [customColumn, ...systemColumns()] });
-  const search = view.container.querySelector('[placeholder="Поиск..."]');
   const board = view.container.querySelector('[aria-label="Колонки Канбан"]');
-  assert.ok(search, 'Search remains present in the toolbar');
   for (const editing of [false, true, false]) {
+    assert.equal(view.container.querySelector('[placeholder="Поиск..."]'), null);
     const editLabel = editing ? 'Готово' : 'Редактировать колонки';
+    const editButton = buttonWithLabel(view, editLabel), addButton = buttonWithLabel(view, 'Добавить колонку');
     for (const label of [editLabel, 'Добавить колонку']) {
       const buttons = [...view.container.querySelectorAll('button')].filter(button => button.textContent.trim() === label);
-      assert.equal(buttons.length, 1, `${label} must appear exactly once`);
-      assert.equal(board.contains(buttons[0]), false, 'Controls belong in the main controls row, not the board header');
-      assert.equal(buttons[0].parentElement.parentElement.contains(search), true, 'Controls share a row with search');
+      assert.equal(buttons.length, 1);
+      assert.equal(board.contains(buttons[0]), false);
+      assert.equal(buttons[0].parentElement.parentElement.children.length, 1, 'No empty reserved search region');
     }
-    const editButton = buttonWithLabel(view, editLabel);
-    const addButton = buttonWithLabel(view, 'Добавить колонку');
     for (const preset of ['all', 'custom']) {
       await changeControl(view, 'Период первого касания', preset);
       const dateFilter = view.container.querySelector('[aria-label="Период первого касания"]');
-      assert.equal(editButton.parentElement.contains(dateFilter), true, 'Date filter shares the column controls group');
-      assert.ok(dateFilter.compareDocumentPosition(editButton) & view.dom.window.Node.DOCUMENT_POSITION_FOLLOWING,
-        'Date filter must precede edit columns in DOM order');
-      assert.ok(editButton.compareDocumentPosition(addButton) & view.dom.window.Node.DOCUMENT_POSITION_FOLLOWING,
-        'Edit columns must precede add column in DOM order');
-      assert.equal(editButton.parentElement.parentElement.contains(search), true, 'Search remains in the same toolbar');
+      assert.equal(editButton.parentElement.contains(dateFilter), true);
+      assert.ok(dateFilter.compareDocumentPosition(editButton) & view.dom.window.Node.DOCUMENT_POSITION_FOLLOWING);
+      assert.ok(editButton.compareDocumentPosition(addButton) & view.dom.window.Node.DOCUMENT_POSITION_FOLLOWING);
     }
     assert.equal(editButton.getAttribute('aria-pressed'), String(editing));
     assert.equal(buttonWithLabel(view, editing ? 'Редактировать колонки' : 'Готово'), undefined);
@@ -335,31 +324,16 @@ test('date filter precedes edit and add column controls beside search in either 
   }
 });
 
-test('Kanban date filter uses only canonical first touch and composes with linked-inquiry search', async context => {
+test('Kanban date filter uses only canonical first touch and preserves linked inquiries', async context => {
   const linked = { ...lead, id: 'linked', full_name: 'Linked Search', source: 'telegram', created_at: dateAt(-30) };
   const current = { ...lead, full_name: 'Canonical Today', created_at: dateAt(0), linked_inquiries: [linked] };
   const old = { ...lead, id: 'canonical-old', full_name: 'Canonical Old', created_at: dateAt(-30), linked_inquiries: [{ ...linked, created_at: dateAt(0) }] };
   const snapshot = JSON.stringify([current, old]);
   const view = await mountView(context, [current, old]);
-  assert.deepEqual(visibleCards(view.container), ['Canonical Old', 'Canonical Today']);
-  const search = view.container.querySelector('[placeholder="Поиск..."]');
-  await act(async () => {
-    Object.getOwnPropertyDescriptor(view.dom.window.HTMLInputElement.prototype, 'value').set.call(search, 'Linked Search');
-    search.dispatchEvent(new view.dom.window.Event('input', { bubbles: true }));
-  });
+  assert.equal(view.container.querySelector('[placeholder="Поиск..."]'), null);
   assert.deepEqual(visibleCards(view.container), ['Canonical Old', 'Canonical Today']);
   assert.match(view.container.querySelector('[draggable="true"]').textContent, /Связанных обращений: 1/);
   await changeControl(view, 'Период первого касания', 'today');
-  assert.deepEqual(visibleCards(view.container), ['Canonical Today']);
-  await changeControl(view, 'Период первого касания', 'all');
-  assert.deepEqual(visibleCards(view.container), ['Canonical Old', 'Canonical Today']);
-  await changeControl(view, 'Период первого касания', 'today');
-  await act(async () => {
-    Object.getOwnPropertyDescriptor(view.dom.window.HTMLInputElement.prototype, 'value').set.call(search, 'No Such Patient');
-    search.dispatchEvent(new view.dom.window.Event('input', { bubbles: true }));
-  });
-  assert.deepEqual(visibleCards(view.container), []);
-  await changeControl(view, 'Поиск...', '');
   assert.deepEqual(visibleCards(view.container), ['Canonical Today']);
   await changeControl(view, 'Период первого касания', 'all');
   assert.deepEqual(visibleCards(view.container), ['Canonical Old', 'Canonical Today']);
@@ -624,8 +598,8 @@ test('column edit mode and reorder controls are disabled throughout a pending mu
 test('delete confirms freshly fetched backend affected_count, supports cancel and reports actual result', async context => {
   const assigned = { ...lead, kanban_column_id: customColumn.id, full_name: 'Manual card' };
   const view = await mountView(context, [assigned], { columns: [...systemColumns(), customColumn] });
-  await changeControl(view, 'Поиск...', 'No Such Patient');
-  assert.equal(view.container.querySelector('[data-lead-id]'), null, 'Search-filtered count is not used');
+  await changeControl(view, 'Период первого касания', 'today');
+  assert.equal(view.container.querySelector('[data-lead-id]'), null, 'Date-filtered count is not used');
   const confirmations = [];
   view.dom.window.confirm = text => { confirmations.push(text); return false; };
   view.columnState.columns.at(-1).affected_count = 17;
@@ -642,7 +616,7 @@ test('delete confirms freshly fetched backend affected_count, supports cancel an
   assert.equal(view.apiRequests.filter(request => request.method === 'DELETE').length, 1);
   assert.ok(!columnIds(view).includes(customColumn.id));
   assert.match(view.container.textContent, /возвращено в «Неразобранные»: 18/);
-  await changeControl(view, 'Поиск...', '');
+  await changeControl(view, 'Период первого касания', 'all');
   assert.equal(view.container.querySelector('[data-lead-id]').closest('[data-column-id]').dataset.columnId, 'new');
   assert.equal(assigned.status, 'new');
 });
@@ -723,27 +697,24 @@ test('each column renders newest creation first with stable ties and invalid dat
   assert.equal(JSON.stringify(leads), snapshot);
 });
 
-test('text search filters system and custom columns regardless of creation date', async context => {
+test('all-date Kanban retains system and custom cards without local text search', async context => {
   const leads = [
     { ...lead, id: 'today-custom', full_name: 'Matching Today', kanban_column_id: customColumn.id, created_at: dateAt(0) },
-    { ...lead, id: 'old-custom', full_name: 'Matching Old', kanban_column_id: customColumn.id, created_at: dateAt(-30) },
-    { ...lead, id: 'today-new', full_name: 'Matching New', created_at: dateAt(0) }
+    { ...lead, id: 'old-custom', full_name: 'Different Old', kanban_column_id: customColumn.id, created_at: dateAt(-30) },
+    { ...lead, id: 'today-new', full_name: 'Unrelated New', created_at: dateAt(0) }
   ];
   const view = await mountView(context, leads, { columns: [...systemColumns(), customColumn] });
-  assert.deepEqual(visibleCards(view.container), ['Matching New', 'Matching Old', 'Matching Today']);
-  await changeControl(view, 'Поиск...', 'oLd');
-  assert.deepEqual(visibleCards(view.container), ['Matching Old']);
+  assert.equal(view.container.querySelector('[placeholder="Поиск..."]'), null);
+  assert.deepEqual(visibleCards(view.container), ['Different Old', 'Matching Today', 'Unrelated New']);
   assert.equal(view.container.querySelector('[data-lead-id="old-custom"]').closest('[data-column-id]').dataset.columnId, customColumn.id);
-  await changeControl(view, 'Поиск...', 'New');
-  assert.deepEqual(visibleCards(view.container), ['Matching New']);
   assert.equal(view.container.querySelector('[data-lead-id="today-new"]').closest('[data-column-id]').dataset.columnId, 'new');
-  await changeControl(view, 'Поиск...', 'No Such Patient');
-  assert.deepEqual(visibleCards(view.container), []);
-  await changeControl(view, 'Поиск...', '');
-  assert.deepEqual(visibleCards(view.container), ['Matching New', 'Matching Old', 'Matching Today']);
+  await changeControl(view, 'Период первого касания', 'today');
+  assert.deepEqual(visibleCards(view.container), ['Matching Today', 'Unrelated New']);
+  await changeControl(view, 'Период первого касания', 'all');
+  assert.deepEqual(visibleCards(view.container), ['Different Old', 'Matching Today', 'Unrelated New']);
 });
 
-test('delete failure preserves column and cards; successful delete preserves text search', async context => {
+test('delete failure preserves column and cards; successful delete returns cards to the board', async context => {
   let fail = true;
   const assigned = { ...lead, kanban_column_id: customColumn.id };
   const view = await mountView(context, [assigned], { columns: [...systemColumns(), customColumn],
@@ -751,14 +722,14 @@ test('delete failure preserves column and cards; successful delete preserves tex
       ? { ok: false, json: async () => ({ detail: 'Удаление недоступно' }) } : undefined
   });
   view.dom.window.confirm = () => true;
-  await changeControl(view, 'Поиск...', 'First Click');
+
   await clickButton(view, 'Удалить «Перезвонить»');
   assert.match(view.container.querySelector('[role="alert"]').textContent, /Удаление недоступно/);
   assert.ok(columnIds(view).includes(customColumn.id));
   assert.equal(assigned.kanban_column_id, customColumn.id);
   fail = false;
   await clickButton(view, 'Удалить «Перезвонить»');
-  assert.equal(view.container.querySelector('[placeholder="Поиск..."]').value, 'First Click');
+  assert.equal(view.container.querySelector('[placeholder="Поиск..."]'), null);
   assert.equal(view.container.querySelector('[data-lead-id]').closest('[data-column-id]').dataset.columnId, 'new');
 });
 
@@ -788,7 +759,7 @@ test('successful card drag updates real CRM state without lead refresh, page loa
     apiFetch: request => request.path.endsWith('/kanban-column')
       ? new Promise(resolve => { resolveMove = resolve; }) : undefined
   });
-  await changeControl(view, 'Поиск...', 'Patient');
+
   view.fixture.loadingStates.length = 0;
   view.fixture.apiLoadingTransitions.length = 0;
   const untouchedState = view.fixture.crm.leads.find(item => item.id === untouched.id);
@@ -811,7 +782,8 @@ test('successful card drag updates real CRM state without lead refresh, page loa
   assert.equal(view.container.querySelector('.animate-spin'), null);
   assert.equal(view.container.querySelector('[data-column-id="new"]'), board);
   assert.equal(view.dom.window.location.href, url);
-  assert.equal(view.container.querySelector('[placeholder="Поиск..."]').value, 'Patient');
+  assert.equal(view.container.querySelector('[placeholder="Поиск..."]'), null);
+  assert.equal(view.container.querySelectorAll('[data-lead-id]').length, 2);
   assert.equal(view.fixture.crm.leads.find(item => item.id === untouched.id), untouchedState);
   assert.equal(view.fixture.crm.leads[0].status, 'new');
   assert.deepEqual(view.fixture.crm.leads[0].linked_inquiries, manual.linked_inquiries);

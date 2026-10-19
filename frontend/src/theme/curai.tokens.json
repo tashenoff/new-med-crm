@@ -1,0 +1,173 @@
+{
+  "neutral": {
+    "0": "#FFFFFF"
+  },
+  "palette": {
+    "selected": "#E8F0FC",
+    "border": "#CCD6E3",
+    "control": "#7C8DA3",
+    "ink": "#18283E",
+    "muted": "#52637A",
+    "canvas": "#F4F7FB",
+    "disabled": "#728096",
+    "blue": "#315F9F",
+    "blueHover": "#254E88",
+    "bluePressed": "#1B3E70",
+    "focus": "#4778B9",
+    "positive": "#236448",
+    "positiveBg": "#EDF7F1",
+    "warning": "#805616",
+    "warningBg": "#FFF5DF",
+    "negative": "#A53440",
+    "surface": "#FFFFFF",
+    "negativeBg": "#FCEFF1",
+    "info": "#315F9F",
+    "infoBg": "#EAF1FC",
+    "subtle": "#EDF2F8",
+    "hover": "#E5EDF7"
+  },
+  "data": {
+    "statusPreset": {
+      "1": "#3B82F6",
+      "2": "#10B981",
+      "3": "#F59E0B",
+      "4": "#EF4444",
+      "5": "#8B5CF6",
+      "6": "#EC4899",
+      "7": "#06B6D4",
+      "8": "#84CC16",
+      "9": "#F97316",
+      "10": "#6366F1",
+      "11": "#14B8A6",
+      "12": "#A855F7",
+      "13": "#DC2626",
+      "14": "#6B7280",
+      "15": "#0EA5E9"
+    }
+  },
+  "icon": {
+    "lead-glyph-size": 14,
+    "lead-stroke": 1.25,
+    "size": 20,
+    "stroke": 1.75
+  },
+  "color": {
+    "selected": "var(--curai-palette-selected)",
+    "border": "var(--curai-palette-border)",
+    "control": "var(--curai-palette-control)",
+    "ink": "var(--curai-palette-ink)",
+    "muted": "var(--curai-palette-muted)",
+    "disabled": "var(--curai-palette-disabled)",
+    "blue": "var(--curai-palette-blue)",
+    "blueHover": "var(--curai-palette-blueHover)",
+    "bluePressed": "var(--curai-palette-bluePressed)",
+    "focus": "var(--curai-palette-focus)",
+    "canvas": "var(--curai-palette-canvas)",
+    "positive": "var(--curai-palette-positive)",
+    "positiveBg": "var(--curai-palette-positiveBg)",
+    "warning": "var(--curai-palette-warning)",
+    "warningBg": "var(--curai-palette-warningBg)",
+    "negative": "var(--curai-palette-negative)",
+    "negativeBg": "var(--curai-palette-negativeBg)",
+    "info": "var(--curai-palette-info)",
+    "infoBg": "var(--curai-palette-infoBg)",
+    "surface": "var(--curai-palette-surface)",
+    "subtle": "var(--curai-palette-subtle)",
+    "hover": "var(--curai-palette-hover)"
+  },
+  "space": {
+    "2": 2,
+    "4": 4,
+    "6": 6,
+    "8": 8,
+    "12": 12,
+    "16": 16,
+    "20": 20,
+    "24": 24,
+    "32": 32,
+    "40": 40,
+    "48": 48
+  },
+  "radius": {
+    "2": 2,
+    "4": 4,
+    "6": 6,
+    "8": 8
+  },
+  "type": {
+    "family": "Inter",
+    "size": {
+      "11": 11,
+      "12": 12,
+      "13": 13,
+      "14": 14,
+      "16": 16,
+      "20": 20,
+      "24": 24,
+      "28": 28,
+      "32": 32
+    },
+    "line": {
+      "18": 18,
+      "20": 20,
+      "24": 24,
+      "28": 28,
+      "32": 32,
+      "40": 40,
+      "46": 46
+    }
+  },
+  "control": {
+    "compact": 32,
+    "default": 36,
+    "comfortable": 40
+  },
+  "calendar": {
+    "slot-height": 64,
+    "cabinet-width": 200,
+    "header-height": 112,
+    "time-width": 80
+  },
+  "component": {
+    "navbarHeight": 64,
+    "railWidth": 56,
+    "menuWidth": 312,
+    "navigationItemHeight": 40,
+    "workspaceTabWidth": 92,
+    "brandSlotWidth": 120
+  },
+  "textStyles": {
+    "title": {
+      "fontSize": 28,
+      "lineHeight": 41,
+      "fontWeight": 600
+    },
+    "section": {
+      "fontSize": 20,
+      "lineHeight": 29,
+      "fontWeight": 600
+    },
+    "body": {
+      "fontSize": 14,
+      "lineHeight": 20,
+      "fontWeight": 400
+    },
+    "label": {
+      "fontSize": 13,
+      "lineHeight": 19,
+      "fontWeight": 600
+    },
+    "caption": {
+      "fontSize": 12,
+      "lineHeight": 17,
+      "fontWeight": 400
+    }
+  },
+  "source": {
+    "document": "Curai-MedCRM-Design-System-v1.figcraft",
+    "variables": "Curai.variables.json",
+    "variableCount": 103,
+    "nativeSha256": "b05e7159173389e89f7489355738507619583ade0495e6e0f7be70f6d8da0ff7",
+    "note": "Light mode only. Numeric dimensions are pixels. Inter font assets are not included in the supplied export."
+  }
+}

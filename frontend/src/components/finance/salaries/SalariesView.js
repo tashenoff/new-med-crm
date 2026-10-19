@@ -108,38 +108,38 @@ const SalariesView = ({ user, refreshVersion = 0 }) => {
       {/* Header */}
       <div className="flex justify-between items-center">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900 dark:text-white">👨‍⚕️ Зарплата врачей</h1>
-          <p className="text-gray-600 dark:text-gray-400 mt-1">Расчет заработной платы врачей на основе выполненных услуг</p>
+          <h1 className="text-2xl font-semibold text-curai-ink ">👨‍⚕️ Зарплата врачей</h1>
+          <p className="text-curai-muted mt-1">Расчет заработной платы врачей на основе выполненных услуг</p>
         </div>
       </div>
 
       {/* Date Filter */}
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-4">
-        <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">📅 Период расчета</h3>
+      <div className="bg-curai-surface rounded-md shadow-none border border-curai-border p-4">
+        <h3 className="text-lg font-semibold text-curai-ink mb-4">📅 Период расчета</h3>
         <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Дата с</label>
+            <label className="block text-sm font-medium text-curai-ink mb-1">Дата с</label>
             <input
               type="date"
               value={dateFrom}
               onChange={(e) => setDateFrom(e.target.value)}
-              className="w-full border border-gray-300 dark:border-gray-600 rounded-md px-3 py-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+              className="w-full border border-curai-control rounded-md px-3 py-2 bg-curai-surface text-curai-ink "
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Дата по</label>
+            <label className="block text-sm font-medium text-curai-ink mb-1">Дата по</label>
             <input
               type="date"
               value={dateTo}
               onChange={(e) => setDateTo(e.target.value)}
-              className="w-full border border-gray-300 dark:border-gray-600 rounded-md px-3 py-2 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+              className="w-full border border-curai-control rounded-md px-3 py-2 bg-curai-surface text-curai-ink "
             />
           </div>
           <div className="md:col-span-2 flex items-end">
             <button
               onClick={fetchSalaryData}
               disabled={loading}
-              className="w-full bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 disabled:bg-gray-400 transition-colors"
+              className="w-full bg-curai-blue text-white px-4 py-2 rounded-md hover:bg-curai-blue disabled:bg-curai-disabled transition-colors"
             >
               {loading ? 'Загрузка...' : '🔄 Обновить'}
             </button>
@@ -148,7 +148,7 @@ const SalariesView = ({ user, refreshVersion = 0 }) => {
       </div>
 
       {(reportError || accountingBlockers.length > 0) && (
-        <div role="alert" className="rounded-lg border border-red-300 bg-red-50 p-4 text-red-800 dark:border-red-700 dark:bg-red-900/20 dark:text-red-200">
+        <div role="alert" className="rounded-md border border-curai-negative bg-curai-negativeBg p-4 text-curai-negative ">
           <p>{reportError}</p>
           {accountingBlockers.length > 0 && (
             <ul className="mt-2 list-disc space-y-1 pl-5">
@@ -161,50 +161,50 @@ const SalariesView = ({ user, refreshVersion = 0 }) => {
       {/* Summary Cards */}
       {summary && (
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 border border-gray-200 dark:border-gray-700">
+          <div className="bg-curai-surface rounded-md shadow-none p-6 border border-curai-border ">
             <div className="flex items-center">
-              <div className="p-3 rounded-full bg-blue-100 dark:bg-blue-900">
+              <div className="p-3 rounded-full bg-curai-selected ">
                 <span className="text-2xl">👨‍⚕️</span>
               </div>
               <div className="ml-4">
-                <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Всего врачей</p>
-                <p className="text-2xl font-bold text-gray-900 dark:text-white">{summary.total_doctors || 0}</p>
+                <p className="text-sm font-medium text-curai-muted ">Всего врачей</p>
+                <p className="text-2xl font-semibold text-curai-ink ">{summary.total_doctors || 0}</p>
               </div>
             </div>
           </div>
 
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 border border-gray-200 dark:border-gray-700">
+          <div className="bg-curai-surface rounded-md shadow-none p-6 border border-curai-border ">
             <div className="flex items-center">
-              <div className="p-3 rounded-full bg-green-100 dark:bg-green-900">
+              <div className="p-3 rounded-full bg-curai-positiveBg ">
                 <span className="text-2xl">💰</span>
               </div>
               <div className="ml-4">
-                <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Общая выручка</p>
-                <p className="text-2xl font-bold text-gray-900 dark:text-white">{formatCurrency(summary.total_revenue || 0)}</p>
+                <p className="text-sm font-medium text-curai-muted ">Общая выручка</p>
+                <p className="text-2xl font-semibold text-curai-ink ">{formatCurrency(summary.total_revenue || 0)}</p>
               </div>
             </div>
           </div>
 
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 border border-gray-200 dark:border-gray-700">
+          <div className="bg-curai-surface rounded-md shadow-none p-6 border border-curai-border ">
             <div className="flex items-center">
-              <div className="p-3 rounded-full bg-orange-100 dark:bg-orange-900">
+              <div className="p-3 rounded-full bg-curai-warningBg ">
                 <span className="text-2xl">💳</span>
               </div>
               <div className="ml-4">
-                <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Общая зарплата</p>
-                <p className="text-2xl font-bold text-gray-900 dark:text-white">{formatCurrency(summary.total_salary || 0)}</p>
+                <p className="text-sm font-medium text-curai-muted ">Общая зарплата</p>
+                <p className="text-2xl font-semibold text-curai-ink ">{formatCurrency(summary.total_salary || 0)}</p>
               </div>
             </div>
           </div>
 
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 border border-gray-200 dark:border-gray-700">
+          <div className="bg-curai-surface rounded-md shadow-none p-6 border border-curai-border ">
             <div className="flex items-center">
-              <div className="p-3 rounded-full bg-purple-100 dark:bg-purple-900">
+              <div className="p-3 rounded-full bg-curai-selected ">
                 <span className="text-2xl">📊</span>
               </div>
               <div className="ml-4">
-                <p className="text-sm font-medium text-gray-500 dark:text-gray-400">% от выручки</p>
-                <p className="text-2xl font-bold text-gray-900 dark:text-white">{summary.salary_percentage || 0}%</p>
+                <p className="text-sm font-medium text-curai-muted ">% от выручки</p>
+                <p className="text-2xl font-semibold text-curai-ink ">{summary.salary_percentage || 0}%</p>
               </div>
             </div>
           </div>
@@ -212,98 +212,98 @@ const SalariesView = ({ user, refreshVersion = 0 }) => {
       )}
 
       {/* Salary Table */}
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700">
-        <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
-          <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Детализация по врачам</h3>
+      <div className="bg-curai-surface rounded-md shadow-none border border-curai-border ">
+        <div className="px-6 py-4 border-b border-curai-border ">
+          <h3 className="text-lg font-semibold text-curai-ink ">Детализация по врачам</h3>
         </div>
         
         {loading ? (
           <div className="flex justify-center items-center py-8">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-            <span className="ml-2 text-gray-600 dark:text-gray-400">Загрузка данных...</span>
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-curai-control"></div>
+            <span className="ml-2 text-curai-muted ">Загрузка данных...</span>
           </div>
         ) : salaryData.length > 0 ? (
           <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
-              <thead className="bg-gray-50 dark:bg-gray-900">
+            <table className="min-w-full divide-y divide-curai-border ">
+              <thead className="bg-curai-subtle ">
                 <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                  <th className="px-6 py-3 text-left text-xs font-medium text-curai-muted uppercase tracking-wider">
                     Врач
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                  <th className="px-6 py-3 text-left text-xs font-medium text-curai-muted uppercase tracking-wider">
                     Тип оплаты
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                  <th className="px-6 py-3 text-left text-xs font-medium text-curai-muted uppercase tracking-wider">
                     Размер оплаты
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                  <th className="px-6 py-3 text-left text-xs font-medium text-curai-muted uppercase tracking-wider">
                     Записи
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                  <th className="px-6 py-3 text-left text-xs font-medium text-curai-muted uppercase tracking-wider">
                     Выручка записей
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                  <th className="px-6 py-3 text-left text-xs font-medium text-curai-muted uppercase tracking-wider">
                     Выручка планов
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                  <th className="px-6 py-3 text-left text-xs font-medium text-curai-muted uppercase tracking-wider">
                     Общая выручка
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                  <th className="px-6 py-3 text-left text-xs font-medium text-curai-muted uppercase tracking-wider">
                     Услуги
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                  <th className="px-6 py-3 text-left text-xs font-medium text-curai-muted uppercase tracking-wider">
                     Зарплата
                   </th>
                 </tr>
               </thead>
-              <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
+              <tbody className="bg-curai-surface divide-y divide-curai-border ">
                 {salaryData.map((doctor) => (
-                  <tr key={doctor.doctor_id} className="hover:bg-gray-50 dark:hover:bg-gray-700">
+                  <tr key={doctor.doctor_id} className="hover:bg-curai-subtle ">
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div>
-                        <div className="text-sm font-medium text-gray-900 dark:text-white">{doctor.doctor_name}</div>
-                        <div className="text-sm text-gray-500 dark:text-gray-400">{doctor.doctor_specialty}</div>
+                        <div className="text-sm font-medium text-curai-ink ">{doctor.doctor_name}</div>
+                        <div className="text-sm text-curai-muted ">{doctor.doctor_specialty}</div>
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <span className={`inline-flex items-center px-2 py-1 text-xs font-semibold rounded-full ${
                         doctor.payment_type === 'fixed' 
-                          ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300'
-                          : 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300'
+                          ? "bg-curai-positiveBg text-curai-positive "
+                          : "bg-curai-selected text-curai-blue "
                       }`}>
                         {getPaymentTypeIcon(doctor.payment_type)} {getPaymentTypeLabel(doctor.payment_type)}
                       </span>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-curai-ink ">
                       <div>{doctor.payment_mode === 'individual' ? 'Услуги плана: индивидуальные комиссии' : formatCompensation(doctor.payment_type, doctor.payment_value, doctor.hybrid_percentage_value, doctor.currency || 'KZT')}</div>
-                      {doctor.payment_mode === 'individual' && <div className="text-xs text-gray-500">Основная схема: {formatCompensation(doctor.payment_type, doctor.payment_value, doctor.hybrid_percentage_value, doctor.currency || 'KZT')}</div>}
-                      <div className="text-xs text-gray-500">{formatConsultationCompensation(doctor)}</div>
+                      {doctor.payment_mode === 'individual' && <div className="text-xs text-curai-muted">Основная схема: {formatCompensation(doctor.payment_type, doctor.payment_value, doctor.hybrid_percentage_value, doctor.currency || 'KZT')}</div>}
+                      <div className="text-xs text-curai-muted">{formatConsultationCompensation(doctor)}</div>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-curai-ink ">
                       <div>
                         <div>Всего: {doctor.total_appointments}</div>
-                        <div className="text-xs text-gray-500 dark:text-gray-400">
+                        <div className="text-xs text-curai-muted ">
                           Завершено: {doctor.completed_appointments}
                         </div>
                       </div>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-curai-ink ">
                       {formatCurrency(doctor.appointments_revenue || 0)}
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-curai-ink ">
                       {formatCurrency(doctor.treatment_plans_revenue || 0)}
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-white">
+                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-curai-ink ">
                       {formatCurrency(doctor.total_revenue)}
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-curai-ink ">
                       <div className="flex items-center">
                         {doctor.has_services ? (
-                          <span className="inline-flex items-center px-2 py-1 text-xs font-semibold rounded-full bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300">
+                          <span className="inline-flex items-center px-2 py-1 text-xs font-semibold rounded-full bg-curai-positiveBg text-curai-positive ">
                             ✅ {doctor.services_count} услуг
                           </span>
                         ) : (
-                          <span className="inline-flex items-center px-2 py-1 text-xs font-semibold rounded-full bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-300">
+                          <span className="inline-flex items-center px-2 py-1 text-xs font-semibold rounded-full bg-curai-subtle text-curai-ink ">
                             ❌ Не настроены
                           </span>
                         )}
@@ -311,7 +311,7 @@ const SalariesView = ({ user, refreshVersion = 0 }) => {
 
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <span className="text-lg font-bold text-green-600 dark:text-green-400">
+                      <span className="text-lg font-semibold text-curai-positive ">
                         {formatCurrency(doctor.calculated_salary)}
                       </span>
                     </td>
@@ -321,7 +321,7 @@ const SalariesView = ({ user, refreshVersion = 0 }) => {
             </table>
           </div>
         ) : (
-          <div className="text-center py-8 text-gray-500 dark:text-gray-400">
+          <div className="text-center py-8 text-curai-muted ">
             <p>Данные не найдены за выбранный период</p>
           </div>
         )}

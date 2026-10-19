@@ -127,21 +127,21 @@ const LabServiceCashbackSettings = () => {
 
   return (
     <div className="max-w-4xl mx-auto p-6">
-      <h2 className="text-2xl font-bold mb-6">Настройка кэшбэка для анализов</h2>
+      <h2 className="text-2xl font-semibold mb-6">Настройка кэшбэка для анализов</h2>
 
       {/* Форма добавления */}
-      <div className="bg-white rounded-lg shadow p-6 mb-6">
+      <div className="bg-curai-surface rounded-md shadow-none p-6 mb-6">
         <h3 className="text-lg font-semibold mb-4">Добавить кэшбэк для услуги</h3>
         
         <form onSubmit={handleAddCashback} className="space-y-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+            <label className="block text-sm font-medium text-curai-ink mb-2">
               Выберите услугу (анализ)
             </label>
             <select
               value={selectedService}
               onChange={(e) => setSelectedService(e.target.value)}
-              className="w-full border border-gray-300 rounded-lg px-4 py-2"
+              className="w-full border border-curai-control rounded-md px-4 py-2"
               required
             >
               <option value="">-- Выберите услугу --</option>
@@ -154,7 +154,7 @@ const LabServiceCashbackSettings = () => {
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+            <label className="block text-sm font-medium text-curai-ink mb-2">
               Процент кэшбэка врачу
             </label>
             <div className="flex items-center gap-4">
@@ -165,18 +165,18 @@ const LabServiceCashbackSettings = () => {
                 step="0.1"
                 value={cashbackRate}
                 onChange={(e) => setCashbackRate(parseFloat(e.target.value))}
-                className="border border-gray-300 rounded-lg px-4 py-2 w-32"
+                className="border border-curai-control rounded-md px-4 py-2 w-32"
                 required
               />
-              <span className="text-gray-600">%</span>
+              <span className="text-curai-muted">%</span>
             </div>
-            <p className="text-sm text-gray-500 mt-1">
+            <p className="text-sm text-curai-muted mt-1">
               Процент от стоимости услуги, который получит врач после оплаты
             </p>
           </div>
 
           {message && (
-            <div className={`rounded-lg p-4 ${message.includes('успешно') || message.includes('сохранены') ? 'bg-green-50 text-green-800' : 'bg-red-50 text-red-800'}`}>
+            <div className={`rounded-md p-4 ${message.includes('успешно') || message.includes('сохранены') ? "bg-curai-positiveBg text-curai-positive" : "bg-curai-negativeBg text-curai-negative"}`}>
               {message}
             </div>
           )}
@@ -184,7 +184,7 @@ const LabServiceCashbackSettings = () => {
           <button
             type="submit"
             disabled={saving}
-            className="w-full bg-blue-600 text-white py-3 rounded-lg hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed font-medium transition-colors"
+            className="w-full bg-curai-blue text-white py-3 rounded-md hover:bg-curai-blue disabled:bg-curai-disabled disabled:cursor-not-allowed font-medium transition-colors"
           >
             {saving ? 'Сохранение...' : 'Добавить настройку кэшбэка'}
           </button>
@@ -192,11 +192,11 @@ const LabServiceCashbackSettings = () => {
       </div>
 
       {/* Список услуг с кэшбэком */}
-      <div className="bg-white rounded-lg shadow p-6">
+      <div className="bg-curai-surface rounded-md shadow-none p-6">
         <h3 className="text-lg font-semibold mb-4">Услуги с настроенным кэшбэком</h3>
         
         {labServices.length === 0 ? (
-          <div className="text-center text-gray-500 py-8">
+          <div className="text-center text-curai-muted py-8">
             Нет настроенных услуг. Добавьте первую услугу выше.
           </div>
         ) : (
@@ -207,15 +207,15 @@ const LabServiceCashbackSettings = () => {
               return (
                 <div
                   key={labService.id}
-                  className="border border-gray-200 rounded-lg p-4 hover:bg-gray-50 transition-colors"
+                  className="border border-curai-border rounded-md p-4 hover:bg-curai-subtle transition-colors"
                 >
                   <div className="flex items-center justify-between">
                     <div className="flex-1">
-                      <div className="font-medium text-gray-900">
+                      <div className="font-medium text-curai-ink">
                         {labService.service_name}
                       </div>
                       {fullService && (
-                        <div className="text-sm text-gray-500">
+                        <div className="text-sm text-curai-muted">
                           Стоимость: {fullService.price} ₸
                         </div>
                       )}
@@ -230,14 +230,14 @@ const LabServiceCashbackSettings = () => {
                           step="0.1"
                           value={labService.cashback_rate}
                           onChange={(e) => handleUpdateRate(labService.service_id, parseFloat(e.target.value))}
-                          className="border border-gray-300 rounded px-3 py-1 w-20 text-sm"
+                          className="border border-curai-control rounded px-3 py-1 w-20 text-sm"
                         />
-                        <span className="text-sm text-gray-600">%</span>
+                        <span className="text-sm text-curai-muted">%</span>
                       </div>
 
                       <button
                         onClick={() => handleDeactivate(labService.service_id)}
-                        className="text-red-600 hover:text-red-700 text-sm font-medium"
+                        className="text-curai-negative hover:text-curai-negative text-sm font-medium"
                       >
                         Удалить
                       </button>
@@ -245,7 +245,7 @@ const LabServiceCashbackSettings = () => {
                   </div>
                   
                   {fullService && (
-                    <div className="text-xs text-green-600 mt-2">
+                    <div className="text-xs text-curai-positive mt-2">
                       Врач получит: {(fullService.price * labService.cashback_rate / 100).toFixed(0)} ₸ за направление
                     </div>
                   )}
@@ -257,9 +257,9 @@ const LabServiceCashbackSettings = () => {
       </div>
 
       {/* Информационный блок */}
-      <div className="mt-6 bg-blue-50 rounded-lg p-4">
-        <h3 className="font-semibold text-blue-900 mb-2">ℹ️ Как это работает</h3>
-        <ul className="text-sm text-blue-800 space-y-1">
+      <div className="mt-6 bg-curai-selected rounded-md p-4">
+        <h3 className="font-semibold text-curai-blue mb-2">ℹ️ Как это работает</h3>
+        <ul className="text-sm text-curai-blue space-y-1">
           <li>• Врач направляет пациента на анализ</li>
           <li>• Пациент оплачивает анализ</li>
           <li>• Врач автоматически получает кэшбэк</li>
