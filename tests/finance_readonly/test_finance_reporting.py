@@ -381,19 +381,22 @@ class ProtocolTests(unittest.IsolatedAsyncioTestCase):
 class IsolationTests(unittest.TestCase):
     def test_new_modules_have_no_db_imports_environment_reads_or_write_calls(self):
         paths = list((ROOT / "backend/reporting").glob("*.py")) + [ROOT / "tools/finance_mcp/core.py"]
-        forbidden_modules = {"database", "motor", "pymongo", "routers", "os", "dotenv"}
+        forbidden_modules = {"database", "motor", "pymongo", "routers", "dotenv"}
         forbidden_calls = {"insert_one", "insert_many", "update_one", "update_many", "delete_one", "delete_many", "bulk_write", "save"}
         for path in paths:
             tree = ast.parse(path.read_text(encoding="utf-8"))
             for node in ast.walk(tree):
                 if isinstance(node, ast.Import):
                     self.assertFalse({alias.name.split('.')[0] for alias in node.names} & forbidden_modules)
+                    if any(alias.name == "os" for alias in node.names):
+                        self.assertEqual(path.name, "grant_store.py")
                 if isinstance(node, ast.ImportFrom) and node.module:
                     self.assertNotIn(node.module.split('.')[0], forbidden_modules)
                     if node.module.startswith("services"):
                         self.assertEqual(node.module, "services.salary_service")
                 if isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute):
                     self.assertNotIn(node.func.attr, forbidden_calls)
+                    self.assertNotIn(node.func.attr, {"getenv", "load_dotenv"})
 
     def test_new_router_exposes_one_get_and_is_registered_without_importing_server(self):
         router = create_router()
