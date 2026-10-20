@@ -122,9 +122,13 @@ from routers.staff import router as staff_router
 from routers.settings import router as settings_router
 from routers.service_quality import router as service_quality_router
 from routers.price_import import price_import_router
+from reporting.api import router as finance_reporting_router
+from reporting.payroll_api import router as payroll_reporting_router
 
 # Include all API routers with /api prefix
 app.include_router(auth_router, prefix="/api")
+app.include_router(finance_reporting_router)
+app.include_router(payroll_reporting_router)
 app.include_router(live_events_router, prefix="/api")
 app.include_router(patients_router, prefix="/api")
 app.include_router(doctors_router, prefix="/api")

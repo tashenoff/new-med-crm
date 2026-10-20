@@ -1,0 +1,9 @@
+{
+  "mcpServers": {
+    "medcrm-readonly": {
+      "command": "python",
+      "args": ["-B", "tools/finance_mcp/server.py"],
+      "cwd": "C:/path/to/new-med-crm"
+    }
+  }
+}
