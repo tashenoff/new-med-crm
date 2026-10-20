@@ -18,7 +18,7 @@ import WhatsAppSidebar from '../telephony/WhatsAppSidebar';
 import { normalizeIdentityPhone } from '../../../utils/leadIdentity';
 import { loadLeadHmsData } from '../../../utils/leadHmsData';
 import LeadHistory from './LeadHistoryTimeline';
-import { historyDate, historySources, historyStatusLabel } from '../../../utils/leadHistory';
+import { historyStatusLabel } from '../../../utils/leadHistory';
 import { useKanbanColumns } from '../../../hooks/useKanbanColumns';
 import { cardColumnId, canMoveCard, manualColumn } from '../../../utils/kanbanColumns';
 import FirstTouchDateFilter from './FirstTouchDateFilter';
@@ -38,56 +38,6 @@ const fetchHistoryCalls = async ({ phone, limit, offset }) => {
   });
   if (!response.ok) throw new Error('Не удалось загрузить звонки');
   return response.json();
-};
-
-const inquiryText = (value, fallback = '—') => {
-  if (typeof value === 'string' && value.trim()) return value;
-  if (typeof value === 'number' && Number.isFinite(value)) return String(value);
-  return fallback;
-};
-
-const InquiryHistoryDetails = ({ lead }) => {
-  // Keep the canonical inquiry first and preserve every supplied linked entry in order.
-  const inquiries = lead ? [lead, ...(Array.isArray(lead.linked_inquiries) ? lead.linked_inquiries : [])] : [];
-  return (
-    <section aria-label="Подробная история обращений" className="text-curai-ink ">
-      <h3 className="text-lg font-semibold mb-4">Подробная история обращений</h3>
-      <ol className="space-y-4">
-        {inquiries.map((entry, index) => {
-          const inquiry = entry || {};
-          const source = inquiryText(inquiry.source, '');
-          const sourceLabel = inquiryText(historySources[source], source);
-          const status = inquiryText(inquiry.status, '');
-          const name = inquiryText(inquiry.full_name, '') || inquiryText(inquiry.name, '') ||
-            [inquiry.first_name, inquiry.middle_name, inquiry.last_name].map(value => inquiryText(value, '')).filter(Boolean).join(' ');
-          const fields = [
-            ['Дата и время', historyDate(inquiryText(inquiry.created_at, ''))],
-            ['Имя', name],
-            ['Канал / источник', sourceLabel && sourceLabel !== source ? `${sourceLabel} (${source})` : source],
-            ['ID источника', inquiry.source_id],
-            ['Статус CRM', status ? `${inquiryText(historyStatusLabel('lead', status))} (${status})` : historyStatusLabel('lead', '')],
-            ['Телефон', inquiry.phone], ['Email', inquiry.email],
-            ['Описание', inquiry.description], ['Заметки', inquiry.notes],
-            ['ID записи на приём', inquiry.converted_to_appointment_id]
-          ];
-          return (
-            <li key={index} className="rounded-md border border-curai-border bg-curai-subtle p-4 ">
-              <h4 className="font-semibold text-sm mb-3">{index === 0 ? 'Первое обращение' : 'Повторное обращение'}</h4>
-              <dl className="grid grid-cols-1 gap-3 sm:grid-cols-2 text-sm">
-                {fields.map(([label, value]) => (
-                  <div key={label} className={label === 'Описание' || label === 'Заметки' ? 'sm:col-span-2 min-w-0' : 'min-w-0'}>
-                    <dt className="font-medium text-curai-muted ">{label}</dt>
-                    <dd className="whitespace-pre-wrap break-words [overflow-wrap:anywhere]">{inquiryText(value)}</dd>
-                  </div>
-                ))}
-              </dl>
-            </li>
-          );
-        })}
-      </ol>
-      {!inquiries.length && <p className="text-sm text-curai-muted ">Обращения не найдены</p>}
-    </section>
-  );
 };
 
 const EnhancedLeadsView = ({ user }) => {
@@ -1688,7 +1638,6 @@ const EnhancedLeadsView = ({ user }) => {
         ) : (
           <div className="space-y-6">
             <LeadHistory lead={selectedLeadForHms} fetchCalls={fetchHistoryCalls} />
-            <InquiryHistoryDetails lead={selectedLeadForHms} />
             <div>
               <h3 className="text-lg font-semibold mb-4">📋 Планы лечения</h3>
               {hmsData.treatmentPlans.length > 0 ? (

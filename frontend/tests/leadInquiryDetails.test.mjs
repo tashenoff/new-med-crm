@@ -5,7 +5,7 @@ import { fileURLToPath } from 'node:url';
 import React, { act } from 'react';
 import { build } from 'esbuild';
 import { JSDOM } from 'jsdom';
-import { historyDate, historyPhones } from '../src/utils/leadHistory.js';
+import { historyPhones } from '../src/utils/leadHistory.js';
 
 const bootstrap = new JSDOM('<html><body></body></html>');
 globalThis.window = bootstrap.window;
@@ -105,70 +105,19 @@ async function openHistory(context, lead) {
   const modal = document.querySelector('.modal-content');
   assert.ok(modal, 'the existing History and Data modal must open');
   const section = modal.querySelector('[aria-label="Подробная история обращений"]');
-  assert.ok(section, 'the modal must contain detailed inquiry history');
+  assert.equal(section, null, 'detailed inquiry history must stay hidden in the card');
   assert.deepEqual(requests.slice(initialRequests).map(request => new URL(request.url).pathname).sort(), [
     '/api/appointments', '/api/patients/patient/treatment-plans',
     ...historyPhones(lead).map(() => '/api/telephony/calls')
-  ].sort(), 'details must reuse supplied inquiries without extra requests');
-  return { modal, section };
+  ].sort(), 'opening the card must keep its existing read-only requests');
+  return { modal };
 }
 
-const field = (entry, label) => [...entry.querySelectorAll('dt')]
-  .find(term => term.textContent === label)?.nextElementSibling.textContent;
-
-test('HMS modal shows every inquiry field and keeps the call timeline and current features', async context => {
-  const { modal, section } = await openHistory(context, { ...primary, linked_inquiries: [repeat] });
-  const entries = [...section.querySelectorAll('li')];
-  assert.equal(entries.length, 2);
-  assert.match(entries[0].textContent, /Первое обращение/);
-  assert.match(entries[1].textContent, /Повторное обращение/);
-  for (const [index, inquiry] of [primary, repeat].entries()) {
-    const entry = entries[index];
-    assert.equal(field(entry, 'Дата и время'), historyDate(inquiry.created_at));
-    assert.equal(field(entry, 'Имя'), inquiry.full_name || inquiry.name);
-    assert.match(field(entry, 'Канал / источник'), new RegExp(index ? 'WhatsApp' : 'Сайт'));
-    assert.equal(field(entry, 'ID источника'), inquiry.source_id);
-    assert.match(field(entry, 'Статус CRM'), new RegExp(index ? 'Связались' : 'Новое обращение'));
-    for (const [label, key] of Object.entries({ Телефон: 'phone', Email: 'email', Описание: 'description', Заметки: 'notes', 'ID записи на приём': 'converted_to_appointment_id' })) {
-      assert.equal(field(entry, label), inquiry[key]);
-    }
-  }
+test('HMS card hides detailed inquiry history and keeps the timeline and current features', async context => {
+  const { modal } = await openHistory(context, { ...primary, linked_inquiries: [repeat] });
   assert.ok(modal.querySelector('[aria-label="Хронология обращений"]'), 'existing LeadHistory stays mounted');
   assert.match(modal.textContent, /Звонки: 0/);
   for (const feature of ['Планы лечения', 'Приемы', 'Задачи', 'Создать задачу', 'Закрыть']) {
     assert.ok(modal.textContent.includes(feature), `${feature} remains available`);
   }
-});
-
-test('details preserve the canonical first inquiry and every supplied entry, including duplicate IDs and missing dates', async context => {
-  const linked = [
-    { ...repeat, created_at: null },
-    { ...repeat, name: 'Более раннее имя', created_at: '2026-09-01T10:00:00Z' },
-    { ...repeat, id: undefined, name: 'Без ID', created_at: repeat.created_at }
-  ];
-  const { section } = await openHistory(context, { ...primary, linked_inquiries: linked });
-  assert.deepEqual([...section.querySelectorAll('li')].map(entry => field(entry, 'Имя')), [
-    primary.full_name, ...linked.map(inquiry => inquiry.name)
-  ]);
-  assert.equal(field(section.querySelectorAll('li')[1], 'Дата и время'), 'Дата не указана');
-});
-
-test('details handle absent fields, invalid dates, unknown codes and HTML-like content safely', async context => {
-  const hostile = '<img src=x onerror="alert(1)">';
-  const { section } = await openHistory(context, {
-    id: primary.id, patient_id: 'patient', full_name: hostile, phone: primary.phone,
-    status: 'future_status', source: 'future_channel', created_at: 'bad-date',
-    description: hostile, notes: 'Строка 1\nСтрока 2'
-  });
-  const entry = section.querySelector('li');
-  assert.equal(section.querySelectorAll('li').length, 1);
-  assert.equal(field(entry, 'Дата и время'), 'Дата не указана');
-  for (const label of ['ID источника', 'Email', 'ID записи на приём']) assert.equal(field(entry, label), '—');
-  assert.match(field(entry, 'Канал / источник'), /future_channel/);
-  assert.match(field(entry, 'Статус CRM'), /future_status/);
-  assert.equal(field(entry, 'Имя'), hostile);
-  assert.equal(field(entry, 'Описание'), hostile);
-  assert.equal(field(entry, 'Заметки'), 'Строка 1\nСтрока 2');
-  assert.equal(section.querySelector('img, script, a'), null);
-  assert.doesNotMatch(section.textContent, /Invalid Date|undefined|\[object Object\]/);
 });
