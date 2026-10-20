@@ -126,7 +126,7 @@
 
 /* Curai R30: title-bar glass only; all content surfaces remain opaque. */
 :root {
-  --curai-glass-header-background: rgb(255 255 255 / 80%);
+  --curai-glass-header-background: rgb(255 255 255 / 60%);
   --curai-glass-header-fallback: var(--curai-color-surface);
   --curai-glass-header-border: rgb(204 214 227 / 80%);
   --curai-glass-header-blur: 12px;
