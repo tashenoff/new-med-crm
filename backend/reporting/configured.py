@@ -1,5 +1,6 @@
 """Explicit construction only. Not imported/mounted by server.py in this release."""
 from .api import create_router
+from .access_api import create_access_router
 from .contract import PATH as FINANCE_PATH
 from .live_access import LiveResolver
 from .live_source import LiveReadAdapter
@@ -10,7 +11,10 @@ from .payroll_api import create_payroll_router
 def build_bound_routers(db, binding, grant_store):
     binding.verify(db)
     source = LiveReadAdapter(db, binding)
+    finance = LiveResolver(db, binding, grant_store, FINANCE_PATH)
+    payroll = LiveResolver(db, binding, grant_store, PAYROLL_PATH)
     return (
-        create_router(LiveResolver(db, binding, grant_store, FINANCE_PATH), source.finance),
-        create_payroll_router(LiveResolver(db, binding, grant_store, PAYROLL_PATH), source.payroll),
+        create_router(finance, source.finance),
+        create_payroll_router(payroll, source.payroll),
+        create_access_router(finance, payroll),
     )

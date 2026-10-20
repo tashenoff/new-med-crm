@@ -1,5 +1,9 @@
 # MedCRM read-only reporting MCP
 
+Local, not activated follow-up: see [HTTP-DEPLOYMENT-REVIEW.md](HTTP-DEPLOYMENT-REVIEW.md)
+for the implemented Streamable HTTP sidecar, verified tests and remaining metadata/
+access approvals. The deployed/default configuration described below remains closed.
+
 Two stdio tools, one local MCP process. This release is deliberately **unconnected**
 to production data. Deploying these source files does not install an agent, issue a
 credential, grant access, or start a persistent MCP service.

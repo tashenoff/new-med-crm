@@ -1,5 +1,10 @@
 # Local resolver/read-adapter review — not deployed or activated
 
+Follow-up: Streamable HTTP is now implemented and tested locally; see
+[HTTP-DEPLOYMENT-REVIEW.md](HTTP-DEPLOYMENT-REVIEW.md). User supplied login alex and
+clinic name curai after this resolver review; canonical owner ID/database namespace
+remain unverified. Historical transport TODOs below are superseded by that follow-up.
+
 Base: published `be7f09d26cd5ae02638c2d991005ac86c0ee3997`.
 Local branch: `feat/reporting-live-adapters`. Existing `server.py` registration is
 unchanged: production/default routes remain closed. No credentials, grant files,

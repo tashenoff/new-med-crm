@@ -76,6 +76,9 @@ class Adapter:
     def __init__(self, api=None, payroll_api=None):
         self.api, self.payroll_api = api, payroll_api
 
+    async def list_names(self):
+        return (TOOL_NAME, PAYROLL_TOOL)
+
     async def call(self, name, arguments):
         if name not in (TOOL_NAME, PAYROLL_TOOL):
             raise ReportError("UNKNOWN_TOOL")

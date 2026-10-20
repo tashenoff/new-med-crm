@@ -21,25 +21,34 @@ from tools.finance_mcp.core import Adapter, FinanceApi, PayrollApi, INPUT_SCHEMA
 from reporting.payroll import SCOPE as PAYROLL_SCOPE, PERMISSION as PAYROLL_PERMISSION
 
 
-def build_server(adapter, demo=False):
+def build_server(adapter, demo=False, *, connected=False):
     server = Server("new-med-finance-readonly", version="0.1.0")
 
     @server.list_tools()
     async def list_tools():
-        return [types.Tool(name=TOOL_NAME,
-            description=("SYNTHETIC DEMO ONLY. " if demo else "UNCONNECTED. Real access is disabled. ")
+        prefix = "SYNTHETIC DEMO ONLY. " if demo else ("SERVER AUTHORIZED READ-ONLY. " if connected else "UNCONNECTED. Real access is disabled. ")
+        tools = [types.Tool(name=TOOL_NAME,
+            description=prefix
                 + "Gross recorded direct service receipts and plan advances in KZT by occurred_at, inclusive local dates in Asia/Bishkek. "
                 + "Not total clinic cashflow, profit, refunds or payroll. Missing source coverage returns an error without amounts.",
             inputSchema=INPUT_SCHEMA,
             annotations={"readOnlyHint": True, "destructiveHint": False, "idempotentHint": True, "openWorldHint": False}),
             types.Tool(name=PAYROLL_TOOL,
-                description=("SYNTHETIC DEMO ONLY. " if demo else "UNCONNECTED. Real access is disabled. ")
+                description=prefix
                     + "Accrued doctor compensation using existing SalaryService with inclusive Asia/Bishkek dates. "
                     + "Separate payroll scope required. Doctor IDs and accrued KZT only; paid/outstanding are unavailable, never inferred.",
                 inputSchema=INPUT_SCHEMA,
                 annotations={"readOnlyHint": True, "destructiveHint": False, "idempotentHint": True, "openWorldHint": False})]
+        allowed = await adapter.list_names()
+        return [tool for tool in tools if tool.name in allowed]
 
-    @server.call_tool()
+    # Our closed contract validates input and emits fixed errors on both SDK versions.
+    try:
+        tool_handler = server.call_tool(validate_input=False)
+    except TypeError:  # SDK 1.5 has no validate_input option.
+        tool_handler = server.call_tool()
+
+    @tool_handler
     async def call_tool(name, arguments):
         try:
             report = await adapter.call(name, arguments)
