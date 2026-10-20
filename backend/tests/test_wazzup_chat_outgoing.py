@@ -61,8 +61,8 @@ async def test_send_media_records_history_and_chat(chirp, clean_db):
     assert msg["media_url"] == "http://test/uploads/wazzup_x.pdf"
 
 
-async def test_send_media_adds_to_patient_documents(chirp, clean_db, monkeypatch):
-    """Исходящий файл из чата, связанного с пациентом, попадает в его Документы."""
+async def test_send_media_does_not_add_to_patient_documents(chirp, clean_db, monkeypatch):
+    """Исходящий файл остаётся в переписке до явного сохранения в карточку."""
     import os
     from datetime import datetime
     from models.wazzup import MessageType
@@ -91,8 +91,4 @@ async def test_send_media_adds_to_patient_documents(chirp, clean_db, monkeypatch
             os.remove("uploads/wazzup_doc1.pdf")
 
     doc = await clean_db.documents.find_one({"patient_id": "p-doc"})
-    assert doc is not None, "файл должен попасть в документы пациента"
-    assert doc["filename"] == "wazzup_doc1.pdf"
-    assert doc["file_type"] == "document"
-    assert doc["uploaded_by_name"] == "WhatsApp-отправка"
-
+    assert doc is None, "без ручного клика файл не должен попасть в документы пациента"

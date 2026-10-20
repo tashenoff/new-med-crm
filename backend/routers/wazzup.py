@@ -795,10 +795,10 @@ async def save_media_to_patient(
     message_id: str,
     current_user: User = Depends(get_current_user),
 ):
-    """Сохранить входящее медиа-сообщение в Документы пациента (по клику менеджера).
+    """Сохранить вложение любого направления в Документы пациента по клику.
 
-    Медиа НЕ сохраняется автоматически (решение alex): входящий файл локализуется
-    для проигрывания в переписке, а в карточку переносится только по этому вызову.
+    Файл хранится для доставки/отображения в переписке, а в карточку
+    добавляется только по этому вызову.
     Находит пациента по номеру телефона чата и кладёт файл в раздел «Документы».
     """
     from pathlib import Path
@@ -810,8 +810,8 @@ async def save_media_to_patient(
     msg = await db.wazzup_messages.find_one({"message_id": message_id})
     if not msg:
         raise HTTPException(status_code=404, detail="Сообщение не найдено")
-    if msg.get("direction") != "incoming" or not msg.get("media_url"):
-        raise HTTPException(status_code=400, detail="Только входящее медиа можно сохранить")
+    if msg.get("direction") not in ("incoming", "outgoing") or not msg.get("media_url"):
+        raise HTTPException(status_code=400, detail="Только медиа из переписки можно сохранить")
 
     phone = msg.get("phone") or (msg.get("chat_id") or "").split("@")[0]
     chat = await WazzupChatService(db).get_chat(phone)

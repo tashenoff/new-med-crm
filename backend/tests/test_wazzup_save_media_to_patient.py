@@ -76,7 +76,8 @@ async def test_incoming_media_not_saved_automatically(save_client, clean_db):
     assert docs is None, "без ручного клика документ НЕ должен создаваться"
 
 
-async def test_save_media_to_patient_creates_document(save_client, clean_db, monkeypatch, tmp_path):
+@pytest.mark.parametrize("direction", ["incoming", "outgoing"])
+async def test_save_media_to_patient_creates_document(save_client, clean_db, monkeypatch, tmp_path, direction):
     """Ручное сохранение кладёт файл в документы пациента и ставит флаг saved_to_patient."""
     # Подменяем add_patient_file, чтобы не трогать реальный диск (файла нет).
     saved = {}
@@ -94,7 +95,7 @@ async def test_save_media_to_patient_creates_document(save_client, clean_db, mon
 
     pid = await _seed_patient(clean_db, "+77051234567")
     await _seed_chat(clean_db, "+77051234567", pid)
-    await _seed_message(clean_db, "m2", "+77051234567")
+    await _seed_message(clean_db, "m2", "+77051234567", direction=direction)
 
     async with save_client as c:
         r = await c.post("/api/wazzup/messages/m2/save-to-patient")
@@ -109,10 +110,11 @@ async def test_save_media_to_patient_creates_document(save_client, clean_db, mon
     assert msg.get("saved_to_patient") is True
 
 
-async def test_save_media_without_patient_returns_400(save_client, clean_db):
+@pytest.mark.parametrize("direction", ["incoming", "outgoing"])
+async def test_save_media_without_patient_returns_400(save_client, clean_db, direction):
     """Если к чату не привязан пациент — 400, файл не сохраняется."""
     await _seed_patient(clean_db, "+77051234567")  # пациент есть, но чат НЕ привязан
-    await _seed_message(clean_db, "m3", "+77051234567")
+    await _seed_message(clean_db, "m3", "+77051234567", direction=direction)
     async with save_client as c:
         r = await c.post("/api/wazzup/messages/m3/save-to-patient")
     assert r.status_code == 400

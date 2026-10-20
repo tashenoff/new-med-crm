@@ -10,6 +10,7 @@ import uuid
 import os
 import logging
 from bson import ObjectId
+from pymongo.errors import DuplicateKeyError
 
 from models.document import Document
 
@@ -99,6 +100,7 @@ class DocumentService:
 
         Используется для WhatsApp: файл уже на диске (наша загрузка или скачанный
         входящий) — добавляем запись в коллекцию documents без повторного аплоада.
+        Повторное сохранение того же файла возвращает существующий документ.
         Возвращает None, если файла на диске нет или пациент не найден.
         """
         file_path = self.upload_dir / src_filename
@@ -110,7 +112,18 @@ class DocumentService:
                 return None
         except Exception:
             return None
+        # Учитываем и документы, созданные прежним автосохранением WhatsApp.
+        existing = await self.db.documents.find_one({
+            "patient_id": patient_id, "filename": src_filename,
+        })
+        if existing:
+            return Document(**existing)
+
+        # Уникальный _id MongoDB защищает от дублей между процессами и при
+        # повторном запросе после потери ответа. Дополнительный индекс не нужен.
+        document_id = str(uuid.uuid5(uuid.NAMESPACE_URL, repr(("whatsapp-file", patient_id, src_filename))))
         document = Document(
+            id=document_id,
             patient_id=patient_id,
             filename=src_filename,
             original_filename=original_filename or src_filename,
@@ -121,9 +134,18 @@ class DocumentService:
             uploaded_by_name=uploaded_by_name,
             description=description,
         )
-        await self.db.documents.insert_one(document.dict())
-        logger.info(f"WhatsApp file {src_filename} added to patient {patient_id} documents")
-        return document
+        try:
+            await self.db.documents.update_one(
+                {"_id": document_id},
+                {"$setOnInsert": document.dict()},
+                upsert=True,
+            )
+        except DuplicateKeyError:
+            # Другой запрос успел создать документ с тем же _id.
+            pass
+        saved = await self.db.documents.find_one({"_id": document_id})
+        logger.info(f"WhatsApp file {src_filename} saved to patient {patient_id} documents")
+        return Document(**saved)
 
     async def get_patient_documents(self, patient_id: str) -> List[Document]:
         """Get all documents for a patient"""
