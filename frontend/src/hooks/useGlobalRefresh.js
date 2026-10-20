@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useCallback } from 'react';
+import React, { createContext, useContext, useState, useCallback, useEffect } from 'react';
 
 // Контекст для глобального обновления данных между HMS и CRM
 const GlobalRefreshContext = createContext();
@@ -27,6 +27,10 @@ export const GlobalRefreshProvider = ({ children }) => {
   // Специальные функции для удобства
   const refreshPatients = useCallback(() => triggerRefresh('patients'), [triggerRefresh]);
   const refreshAppointments = useCallback(() => triggerRefresh('appointments'), [triggerRefresh]);
+  useEffect(() => {
+    window.addEventListener('crm-appointments-changed', refreshAppointments);
+    return () => window.removeEventListener('crm-appointments-changed', refreshAppointments);
+  }, [refreshAppointments]);
   const refreshDoctors = useCallback(() => triggerRefresh('doctors'), [triggerRefresh]);
   const refreshCrmClients = useCallback(() => triggerRefresh('crmClients'), [triggerRefresh]);
   const refreshCrmLeads = useCallback(() => triggerRefresh('crmLeads'), [triggerRefresh]);

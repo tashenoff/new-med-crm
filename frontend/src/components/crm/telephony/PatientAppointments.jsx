@@ -55,7 +55,7 @@ export default function PatientAppointments({ patientId, patientName, revision, 
     locked.current = true; setBusy(id); setError('');
     try {
       await sendAppointmentStatus(id, status, body => apiClient.patch(`/appointments/${encodeURIComponent(id)}/status`, body), appointment);
-      if (currentPatient.current === activePatient) { await reload(); await onChanged?.(); }
+      if (currentPatient.current === activePatient) await onChanged?.();
     } catch (failure) { if (currentPatient.current === activePatient) setError(handleApiError(failure)); }
     finally { locked.current = false; if (currentPatient.current === activePatient) setBusy(null); }
   };
