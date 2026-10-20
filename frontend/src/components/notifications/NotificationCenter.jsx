@@ -14,7 +14,7 @@ export default function NotificationCenter() {
   const panel = useRef(null);
   useDialogFocus(panel, isOpen, closePanel);
   if (!isOpen) return null;
-  return <div className="curai-surface-root">
+  return <div className="curai-surface-root curai-glass-modal-layer curai-notification-modal-layer">
     <div className="curai-notification-backdrop" onClick={closePanel} aria-hidden="true"/>
     <aside ref={panel} role="dialog" aria-modal="true" aria-label="Уведомления" tabIndex={-1} className="curai-notification-drawer curai-glass-shell">
       <header className="curai-notification-header curai-glass-header"><div><h2>Уведомления</h2>{notifications.length > 0 && <p>{unreadCount ? `${unreadCount} непрочитанных` : 'Все прочитаны'}</p>}</div><CuraiButton variant="ghost" iconOnly onClick={closePanel} aria-label="Закрыть уведомления"><CuraiIcon name="close"/></CuraiButton></header>

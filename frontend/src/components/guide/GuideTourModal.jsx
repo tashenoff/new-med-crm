@@ -22,7 +22,7 @@ const GuideTourModal = () => {
   };
 
   const modalContent = (
-    <div className="guide-modal-overlay">
+    <div className="guide-modal-overlay curai-glass-modal-layer">
       <div className="guide-modal-backdrop" onClick={handleClose} />
       <div className="guide-modal-container">
         <div className="guide-modal-content curai-glass-shell">

@@ -17,7 +17,7 @@ const PaymentModal = ({ show, loading, onClose, paymentTypes, loadingPaymentType
     : Math.min(raw, total);
   const finalAmt = Math.max(0, Math.round((total - disc) * 100) / 100);
   return (
-    <div className="curai-payment-overlay fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50" onClick={onClose}>
+    <div className="curai-payment-overlay fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 curai-glass-modal-layer" onClick={onClose}>
       <div role="dialog" aria-modal="true" aria-label="Оплата услуги" className="curai-payment-dialog bg-curai-surface rounded-md shadow-none w-full max-w-md mx-4 curai-glass-shell curai-custom-dialog" onClick={e => e.stopPropagation()}>
         <div className="flex items-center justify-between curai-glass-header">
           <h3 className="text-lg font-semibold text-curai-ink flex items-center">

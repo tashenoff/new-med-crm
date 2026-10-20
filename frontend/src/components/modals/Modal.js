@@ -35,7 +35,7 @@ const Modal = ({
   if (!show) return null;
 
   const modalContent = (
-    <div className="modal-wrapper curai-surface-root">
+    <div className="modal-wrapper curai-surface-root curai-glass-modal-layer">
       <div 
         className="modal-overlay curai-dialog-backdrop"
         onClick={onClose}

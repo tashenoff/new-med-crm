@@ -388,7 +388,7 @@ const SettingsPage = ({ user }) => {
 
       {/* Модальное окно подтверждения */}
       {showConfirmModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 curai-glass-modal-layer">
           <div className="bg-curai-ink rounded-md max-w-md mx-4 shadow-none curai-glass-shell curai-custom-dialog curai-glass-dark">
             <div className="flex items-center gap-3 curai-glass-header curai-modal-glass-heading">
               <div className="w-12 h-12 bg-curai-negative rounded-full flex items-center justify-center">

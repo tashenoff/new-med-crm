@@ -92,3 +92,32 @@
     backdrop-filter: none;
   }
 }
+
+/* Paint the modal scrim outside the window, never behind its glass title bar.
+   The existing hit layer still handles outside clicks. A zero-blur spread is
+   the scrim, not a decorative shadow, and does not create a backdrop root.
+   Unlike a full-screen fill it leaves the window's rounded border box clear. */
+.curai-glass-modal-layer {
+  --curai-modal-scrim: rgb(0 0 0 / 50%);
+  background: transparent;
+}
+.modal-wrapper.curai-glass-modal-layer { --curai-modal-scrim: rgb(24 40 62 / 24%); }
+.curai-glass-modal-layer.curai-modal-scrim-soft { --curai-modal-scrim: rgb(0 0 0 / 40%); }
+.curai-payment-overlay.curai-glass-modal-layer { --curai-modal-scrim: rgb(24 42 68 / 35%); }
+.guide-modal-overlay.curai-glass-modal-layer {
+  --curai-modal-scrim: rgb(0 0 0 / 60%);
+  --curai-modal-existing-shadow: 0 25px 50px -12px rgb(0 0 0 / 25%), 0 0 0 1px rgb(255 255 255 / 10%);
+}
+.curai-notification-modal-layer { --curai-modal-scrim: rgb(19 36 58 / 12%); }
+.curai-glass-modal-layer > .curai-dialog-backdrop,
+.curai-glass-modal-layer > .guide-modal-backdrop,
+.curai-glass-modal-layer > .curai-notification-backdrop { background: transparent; }
+.curai-glass-modal-layer > .curai-glass-shell,
+.curai-glass-modal-layer > .guide-modal-container > .curai-glass-shell {
+  box-shadow: var(--curai-modal-existing-shadow, 0 0 0 0 transparent),
+    0 0 0 100vmax var(--curai-modal-scrim);
+}
+@media print {
+  .curai-glass-modal-layer > .curai-glass-shell,
+  .curai-glass-modal-layer > .guide-modal-container > .curai-glass-shell { box-shadow: none; }
+}

@@ -187,7 +187,7 @@ const ExpensesView = ({ user }) => {
 
       {/* Add Expense Modal */}
       {showModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 curai-glass-modal-layer">
           <div className="bg-curai-surface rounded-md w-full max-w-md mx-4 curai-glass-shell curai-custom-dialog">
             <div className="curai-glass-header curai-modal-glass-heading has-title-gap"><h3 className="text-lg font-semibold mb-4">➕ Добавить расход</h3></div><div className="curai-glass-body curai-glass-body-padded">
             

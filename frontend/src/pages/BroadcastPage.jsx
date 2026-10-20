@@ -663,7 +663,7 @@ const BroadcastPage = ({ user }) => {
 
       {/* Модалка редактирования шаблона уведомления */}
       {editingRule && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={(e) => { if (e.target === e.currentTarget) setEditingRule(null); }}>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 curai-glass-modal-layer curai-modal-scrim-soft" onClick={(e) => { if (e.target === e.currentTarget) setEditingRule(null); }}>
           <div className="bg-curai-surface rounded-md shadow-none w-full max-w-2xl curai-glass-shell curai-custom-dialog">
             <div className="curai-glass-header curai-modal-glass-heading"><h3 className="text-lg font-semibold text-curai-ink">Редактировать шаблон уведомления</h3></div><div className="curai-glass-body curai-glass-body-padded">
             <p className="text-sm text-curai-muted mt-1">
@@ -698,7 +698,7 @@ const BroadcastPage = ({ user }) => {
 
       {/* Модалка создания правила уведомления */}
       {showCreateModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={(e) => { if (e.target === e.currentTarget) setShowCreateModal(false); }}>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 curai-glass-modal-layer curai-modal-scrim-soft" onClick={(e) => { if (e.target === e.currentTarget) setShowCreateModal(false); }}>
           <div className="bg-curai-surface rounded-md shadow-none w-full max-w-2xl overflow-y-auto max-h-full curai-glass-shell curai-custom-dialog">
             <div className="curai-glass-header curai-modal-glass-heading"><h3 className="text-lg font-semibold text-curai-ink">Новое правило уведомления</h3></div><div className="curai-glass-body curai-glass-body-padded">
 
