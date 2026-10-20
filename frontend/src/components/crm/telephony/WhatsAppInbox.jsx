@@ -8,6 +8,7 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { apiClient, handleApiError, API_BASE_URL } from '../../../api/config';
 import { useModal } from '../../../context/ModalContext';
+import { useGlobalRefresh } from '../../../hooks/useGlobalRefresh';
 
 const contactNameMeta = (c) => c.patient_name || c.lead_name || c.contact_name || c.phone || 'Клиент';
 const absMedia = (u) => u && u.startsWith('/') ? `${import.meta.env.VITE_BACKEND_URL}${u}` : u;
@@ -30,6 +31,7 @@ const formatMessageTime = value => {
 
 const WhatsAppInbox = ({ isOpen, onClose }) => {
   const { openModal, closeModal } = useModal();
+  const { refreshAppointments } = useGlobalRefresh();
 
   const [chats, setChats] = useState([]);
   const [loadingChats, setLoadingChats] = useState(false);
@@ -59,6 +61,7 @@ const WhatsAppInbox = ({ isOpen, onClose }) => {
   const msgTimer = useRef(null);
   const messagesRef = useRef(null);
   const fileInputRef = useRef(null);
+  const savingMediaRef = useRef(new Set());
   const attachMenuRef = useRef(null);
   const selectedPhoneRef = useRef(null);
   selectedPhoneRef.current = selected?.phone;
@@ -193,12 +196,15 @@ const WhatsAppInbox = ({ isOpen, onClose }) => {
     }
   };
 
-  // Сохранить входящее медиа в Документы пациента (по клику «💾»).
+  // Сохранить вложение в Документы пациента по явному клику в любом направлении.
   const saveMediaToPatient = async (m) => {
-    if (!m?.id || uploadingFile) return;
+    if (!m?.id || uploadingFile || m.metadata?.saved_to_patient || savingMediaRef.current.has(m.id)) return;
+    savingMediaRef.current.add(m.id);
+    const activePhone = selectedPhoneRef.current;
     setUploadingFile(true);
     try {
       await apiClient.post(`/wazzup/messages/${m.id}/save-to-patient`);
+      if (selectedPhoneRef.current !== activePhone) return;
       // Помечаем сообщение сохранённым локально.
       setMessages(prev =>
         prev.map(x => (x.id === m.id ? { ...x, metadata: { ...x.metadata, saved_to_patient: true } } : x))
@@ -207,8 +213,9 @@ const WhatsAppInbox = ({ isOpen, onClose }) => {
       setSysNotes(prev => [...prev, { id: `sys-saved-${m.id}-${Date.now()}`, text: '💾 Документ сохранён в карточке пациента' }]);
       setError(null);
     } catch (err) {
-      setError(handleApiError(err));
+      if (selectedPhoneRef.current === activePhone) setError(handleApiError(err));
     } finally {
+      savingMediaRef.current.delete(m.id);
       setUploadingFile(false);
     }
   };
@@ -280,6 +287,7 @@ const WhatsAppInbox = ({ isOpen, onClose }) => {
   const bookAppointment = async (form) => {
     try {
       const result = await apiClient.post('/appointments', form);
+      refreshAppointments();
       closeModal('appointment');
       setStatusDirty(true);
       setAppointmentsRevision(value => value + 1);
@@ -363,6 +371,7 @@ const WhatsAppInbox = ({ isOpen, onClose }) => {
               deposit: appointmentData.deposit || null,
               deposit_type: appointmentData.deposit_type || null,
             });
+            refreshAppointments();
             closeModal('appointment');
             setStatusDirty(true);
       setAppointmentsRevision(value => value + 1);
@@ -550,7 +559,7 @@ const WhatsAppInbox = ({ isOpen, onClose }) => {
               <div className="curai-chat-header">
                 <div className="curai-chat-person" aria-label="Контакт выбранного чата"><CuraiIcon name="person"/>{selected.patient_id || selected.linked_patient_id ? <button type="button" className="curai-patient-link" onClick={openPatientCard} title={contactNameMeta(selected)}>{contactNameMeta(selected)}</button> : <strong title={contactNameMeta(selected)}>{contactNameMeta(selected)}</strong>}</div>
                 <div className="curai-chat-header-actions">
-                  <PatientAppointments key={selected.phone} patientId={selected.patient_id || selected.linked_patient_id} patientName={contactNameMeta(selected)} revision={appointmentsRevision} onBook={handleBook} booking={openingBooking} onChanged={fetchChats}/>
+                  <PatientAppointments key={selected.phone} patientId={selected.patient_id || selected.linked_patient_id} patientName={contactNameMeta(selected)} revision={appointmentsRevision} onBook={handleBook} booking={openingBooking} onChanged={fetchChats} showBookAction={false}/>
                   <ChatCrmStage phone={selected.phone} revision={selected} onChanged={fetchChats} variant="menu"/>
                   <CuraiButton variant="primary" onClick={handleBook} disabled={openingBooking} aria-busy={openingBooking} title="Назначить запись">Записать</CuraiButton>
                 </div>
@@ -604,8 +613,8 @@ const WhatsAppInbox = ({ isOpen, onClose }) => {
                           </a>
                         )}
 
-                        {/* Сохранение входящего медиа в карточку пациента (по клику). */}
-                        {m.media_url && !outgoing && m.message_type !== 'audio' && !m.metadata?.saved_to_patient && (
+                        {/* Сохранение вложения в карточку пациента в обоих направлениях. */}
+                        {m.media_url && m.message_type !== 'audio' && !m.metadata?.saved_to_patient && (
                           <button
                             onClick={() => saveMediaToPatient(m)}
                             disabled={uploadingFile}
@@ -617,7 +626,7 @@ const WhatsAppInbox = ({ isOpen, onClose }) => {
                             <CuraiIcon name="save-file" className="curai-save-icon"/> Сохранить в карточке
                           </button>
                         )}
-                        {m.media_url && !outgoing && m.message_type !== 'audio' && m.metadata?.saved_to_patient && (
+                        {m.media_url && m.message_type !== 'audio' && m.metadata?.saved_to_patient && (
                           <div className="mt-1 text-[11px] text-curai-blue flex items-center gap-1">
                             <span>✓</span> Сохранено в карточке
                           </div>

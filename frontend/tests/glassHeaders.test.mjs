@@ -12,6 +12,7 @@ const { createRoot } = await import('react-dom/client');
 delete globalThis.window; delete globalThis.document; boot.window.close();
 const compiled = await build({
   stdin: { contents: `export { default as Inbox } from './src/components/crm/telephony/WhatsAppInbox.jsx';
+    export { GlobalRefreshProvider } from './src/hooks/useGlobalRefresh.js';
     export { wazzupConnectionStatus as status } from './src/hooks/useWazzupConnection.js';
     export { default as Income } from './src/components/finance/income/IncomeView.js';
     export { default as Expenses } from './src/components/finance/expenses/ExpensesView.js';`,
@@ -29,7 +30,7 @@ const compiled = await build({
 });
 const loaded = { exports: {} };
 new Function('require', 'module', 'exports', compiled.outputFiles[0].text)(createRequire(import.meta.url), loaded, loaded.exports);
-const { Inbox, status, Income, Expenses } = loaded.exports;
+const { Inbox, status, Income, Expenses, GlobalRefreshProvider } = loaded.exports;
 const deferred = () => { let resolve, reject; const promise = new Promise((a,b) => {resolve=a;reject=b;}); return { promise, resolve, reject }; };
 async function mount(t, readChannels, Component = Inbox) {
   const dom = new JSDOM('<div id="root"></div>', { url: 'https://fixture.invalid' });
@@ -45,7 +46,7 @@ async function mount(t, readChannels, Component = Inbox) {
     previous.set(key, Object.getOwnPropertyDescriptor(globalThis,key)); Object.defineProperty(globalThis,key,{configurable:true,writable:true,value});
   }
   const root = createRoot(document.getElementById('root'));
-  const render = async open => act(async () => root.render(React.createElement(Component,{isOpen:open,onClose(){},user:{role:'super_admin'}})));
+  const render = async open => act(async () => root.render(React.createElement(GlobalRefreshProvider,null,React.createElement(Component,{isOpen:open,onClose(){},user:{role:'super_admin'}}))));
   t.after(async () => { await act(async()=>root.unmount());dom.window.close();for(const[key,d]of previous){if(d)Object.defineProperty(globalThis,key,d);else delete globalThis[key];} });
   await render(true);
   return { requests, render, body: document.body, poll: async ms => act(async()=>{for(const t of timers.values())if(t.ms===ms)t.fn();}),

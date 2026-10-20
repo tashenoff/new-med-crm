@@ -12,10 +12,10 @@ const dateLabel = value => {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(value || '')) return 'Дата неизвестна';
   return new Intl.DateTimeFormat('ru-RU', { day: '2-digit', month: 'short', year: 'numeric' }).format(new Date(`${value}T12:00:00`));
 };
-function AppointmentsDialog({ state, patientName, reload, onClose, onBook, booking, onStatus, busy, error, canEdit }) {
+function AppointmentsDialog({ state, patientName, reload, onClose, onBook, booking, showBookAction, onStatus, busy, error, canEdit }) {
   const body = useRef(null);
   useDialogFocus(body, true, onClose);
-  return <Modal show onClose={onClose} dialogLabel="Приёмы пациента" title="Приёмы пациента" className="curai-appointments-dialog" size="max-w-[960px]" subheader={<div className="curai-appointments-subheader"><span>{patientName}{state.records && <> · {state.records.length} записей</>}</span><CuraiButton variant="primary" disabled={booking} onClick={onBook}>Записать</CuraiButton></div>}>
+  return <Modal show onClose={onClose} dialogLabel="Приёмы пациента" title="Приёмы пациента" className="curai-appointments-dialog" size="max-w-[960px]" subheader={<div className="curai-appointments-subheader"><span>{patientName}{state.records && <> · {state.records.length} записей</>}</span>{showBookAction && <CuraiButton variant="primary" disabled={booking} onClick={onBook}>Записать</CuraiButton>}</div>}>
     <div ref={body}>
       {(error || state.error) && <p role="alert" className="curai-communication-error">{error || state.error} {state.error && <CuraiButton onClick={reload}>Повторить</CuraiButton>}</p>}
       {state.loading ? <p role="status">Загрузка приёмов…</p> : state.records?.length ? <table className="curai-appointments-table"><thead><tr><th>Дата и время</th><th>Врач / компонент</th><th>Статус записи</th><th>Действие</th></tr></thead><tbody>
@@ -27,7 +27,7 @@ function AppointmentsDialog({ state, patientName, reload, onClose, onBook, booki
     </div>
   </Modal>;
 }
-export default function PatientAppointments({ patientId, patientName, revision, onBook, booking, onChanged }) {
+export default function PatientAppointments({ patientId, patientName, revision, onBook, booking, onChanged, showBookAction = true }) {
   const user = useContext(AuthContext)?.user;
   const [state, setState] = useState({ patientId, loading: Boolean(patientId), records: null, error: '' });
   const [open, setOpen] = useState(false), [busy, setBusy] = useState(null), [error, setError] = useState('');
@@ -61,6 +61,6 @@ export default function PatientAppointments({ patientId, patientName, revision, 
   };
   const visible = state.patientId === patientId ? state : { loading: true, records: null };
   return <><CuraiButton variant="ghost" className="curai-chat-action" disabled={!patientId} onClick={() => { setOpen(true); reload(); }}>Приёмы{patientId && (visible.loading ? ' · …' : visible.records ? ` · ${visible.records.length}` : '')}</CuraiButton>
-    {open && patientId && <AppointmentsDialog state={visible} patientName={patientName} onClose={close} reload={reload} onBook={() => { close(); onBook(); }} booking={booking} onStatus={onStatus} busy={busy} error={error} canEdit={canEditCalendar(user)}/>}
+    {open && patientId && <AppointmentsDialog state={visible} patientName={patientName} onClose={close} reload={reload} onBook={() => { close(); onBook(); }} booking={booking} showBookAction={showBookAction} onStatus={onStatus} busy={busy} error={error} canEdit={canEditCalendar(user)}/>}
   </>;
 }

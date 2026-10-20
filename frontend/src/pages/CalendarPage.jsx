@@ -41,18 +41,16 @@ const CalendarPage = ({ user }) => {
 
   // Загрузка данных при монтировании
   useEffect(() => {
-    appointmentsHook.fetchAppointments();
     patientsHook.fetchPatients();
     doctorsHook.fetchDoctors();
     roomsHook.fetchRooms();
-  }, [appointmentsHook.fetchAppointments, patientsHook.fetchPatients, doctorsHook.fetchDoctors, roomsHook.fetchRooms]);
+  }, [patientsHook.fetchPatients, doctorsHook.fetchDoctors, roomsHook.fetchRooms]);
 
 
-  // Слушаем глобальные триггеры для обновления данных (отключено для drag & drop)
-  // useEffect(() => {
-  //   console.log('🔄 Получен триггер обновления записей, перезагружаем список');
-  //   appointmentsHook.fetchAppointments();
-  // }, [refreshTriggers.appointments, appointmentsHook.fetchAppointments]);
+  // Initial load and bookings outside the calendar share one refresh path.
+  useEffect(() => {
+    appointmentsHook.fetchAppointments();
+  }, [refreshTriggers.appointments, appointmentsHook.fetchAppointments]);
 
   useEffect(() => {
     patientsHook.fetchPatients();

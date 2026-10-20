@@ -19,7 +19,8 @@ async function compile(path) {
     stdin: { contents: `import React from 'react';
       import View from ${JSON.stringify(fileURLToPath(new URL(path, import.meta.url)))};
       import { ThemeProvider } from './src/hooks/useTheme.js';
-      export default props => <ThemeProvider><View {...props} /></ThemeProvider>;`,
+      import { GlobalRefreshProvider } from './src/hooks/useGlobalRefresh.js';
+      export default props => <ThemeProvider><GlobalRefreshProvider><View {...props} /></GlobalRefreshProvider></ThemeProvider>;`,
       resolveDir: fileURLToPath(new URL('..', import.meta.url)), loader: 'jsx' },
     bundle: true, write: false,
     platform: 'node', format: 'cjs', external: ['react', 'react-dom'], loader: { '.js': 'jsx' },

@@ -1,6 +1,7 @@
 import PatientFundingSummary from './payment/PatientFundingSummary';
 import { PaymentDue, hasCalculatedPlanBalance } from './payment/PaymentDue';
 import React from 'react';
+import { notifyKanbanChanged } from '../../utils/kanbanColumns';
 import { paymentDiscount, paymentSummary } from '../../utils/paymentBalances';
 import ServicePaymentList from './ServicePaymentList';
 import { money } from './payment/PaymentPresentation';
@@ -19,7 +20,11 @@ export function PatientPaymentTotals({ plans, patientId }) {
 }
 export default function PatientPaymentWorkspace({ plans, patientId, onUpdate, onCreatePlan }) {
  const [selectedPlan, selectPlan] = usePlanSelection(plans, patientId);
+ const paymentUpdated = updated => {
+  notifyKanbanChanged();
+  return onUpdate?.(updated);
+ };
  return <PlanWorkspace top={<PatientPaymentTotals plans={plans} patientId={patientId}/>} list={selectedPlan ? <PlanList plans={plans} selectedId={selectedPlan.id} onSelect={selectPlan}/> : null} empty={<PlanEmptyState className="curai-r21-payment-empty" title="Планы лечения не созданы" action={onCreatePlan && <button type="button" className="curai-button curai-button-primary" onClick={onCreatePlan}>Создать план лечения</button>}>Для оплаты сначала создайте план лечения.</PlanEmptyState>}>
-  {selectedPlan && <ServicePaymentList key={(patientId ?? '') + ':' + selectedPlan.id} layout="workspace" plan={selectedPlan} onUpdate={onUpdate}/>}
+  {selectedPlan && <ServicePaymentList key={(patientId ?? '') + ':' + selectedPlan.id} layout="workspace" plan={selectedPlan} onUpdate={paymentUpdated}/>}
  </PlanWorkspace>;
 }

@@ -12,9 +12,14 @@ const compiled=await build({stdin:{contents:`import React from 'react';
  import Inbox from './src/components/crm/telephony/WhatsAppInbox.jsx';
  import Appointments from './src/components/crm/telephony/PatientAppointments.jsx';
  import Audio from './src/components/crm/telephony/WhatsAppAudio.jsx';
+ import Stage from './src/components/crm/telephony/ChatCrmStage.jsx';
+ import PaymentWorkspace from './src/components/treatment/PatientPaymentWorkspace.jsx';
  import Notifications from './src/components/notifications/NotificationCenter.jsx';
  import Auth from './src/context/AuthContext.jsx';
- export function Harness({mode,props}){const [,update]=React.useState(0);globalThis.communicationFixture.refresh=()=>update(n=>n+1);const View={inbox:Inbox,appointments:Appointments,audio:Audio,notifications:Notifications}[mode];return <Auth.Provider value={{user:globalThis.communicationFixture.user}}><View {...props}/></Auth.Provider>}`,resolveDir:fileURLToPath(new URL('..',import.meta.url)),loader:'jsx'},bundle:true,write:false,platform:'node',format:'cjs',external:['react','react-dom','react-dom/client'],loader:{'.js':'jsx','.css':'empty'},define:{'import.meta.env':'{"VITE_BACKEND_URL":"https://fixture.invalid"}'},plugins:[{name:'isolated-communication',setup(b){b.onResolve({filter:/\/api\/config$|\/context\/(AuthContext(\.jsx)?|ModalContext|NotificationContext)$/},args=>({path:args.path.includes('AuthContext')?'AuthContext':args.path,namespace:'boundary'}));b.onLoad({filter:/.*/,namespace:'boundary'},args=>({loader:'jsx',contents:args.path.includes('AuthContext')?"import React from 'react';export default React.createContext(null);":args.path.includes('ModalContext')?"export const useModal=()=>globalThis.communicationFixture.modals;":args.path.includes('NotificationContext')?"export const useNotifications=()=>globalThis.communicationFixture.notificationState;":"export const apiClient={get:(p,o)=>globalThis.communicationFixture.api('GET',p,o),post:(p,b)=>globalThis.communicationFixture.api('POST',p,b),patch:(p,b)=>globalThis.communicationFixture.api('PATCH',p,b)};export const API_BASE_URL='https://fixture.invalid/api';export const handleApiError=e=>e.response?.data?.detail||e.message;"}));}}]});
+ import { GlobalRefreshProvider, useGlobalRefresh } from './src/hooks/useGlobalRefresh.js';
+ function PaymentStage({phone}){const f=globalThis.communicationFixture;return <><Stage phone={phone} variant="menu"/><PaymentWorkspace plans={[f.paymentPlan]} patientId="patient" onUpdate={updated=>{f.paymentPlan=updated;f.refresh();}}/></>;}
+ function Inner({mode,props}){const refresh=useGlobalRefresh();globalThis.communicationFixture.refreshTreatmentPlans=refresh.refreshTreatmentPlans;const [,update]=React.useState(0);globalThis.communicationFixture.refresh=()=>update(n=>n+1);const View={inbox:Inbox,appointments:Appointments,audio:Audio,notifications:Notifications,stage:Stage,paymentStage:PaymentStage}[mode];return <Auth.Provider value={{user:globalThis.communicationFixture.user}}><View {...props}/></Auth.Provider>}
+ export function Harness(props){return <GlobalRefreshProvider><Inner {...props}/></GlobalRefreshProvider>}`,resolveDir:fileURLToPath(new URL('..',import.meta.url)),loader:'jsx'},bundle:true,write:false,platform:'node',format:'cjs',external:['react','react-dom','react-dom/client'],loader:{'.js':'jsx','.css':'empty'},define:{'import.meta.env':'{"VITE_BACKEND_URL":"https://fixture.invalid"}'},plugins:[{name:'isolated-communication',setup(b){b.onResolve({filter:/\/api\/config$|\/context\/(AuthContext(\.jsx)?|ModalContext|NotificationContext)$/},args=>({path:args.path.includes('AuthContext')?'AuthContext':args.path,namespace:'boundary'}));b.onLoad({filter:/.*/,namespace:'boundary'},args=>({loader:'jsx',contents:args.path.includes('AuthContext')?"import React from 'react';export default React.createContext(null);":args.path.includes('ModalContext')?"export const useModal=()=>globalThis.communicationFixture.modals;":args.path.includes('NotificationContext')?"export const useNotifications=()=>globalThis.communicationFixture.notificationState;":"export const apiClient={get:(p,o)=>globalThis.communicationFixture.api('GET',p,o),post:(p,b)=>globalThis.communicationFixture.api('POST',p,b),patch:(p,b)=>globalThis.communicationFixture.api('PATCH',p,b)};export const API_BASE_URL='https://fixture.invalid/api';export const handleApiError=e=>e.response?.data?.detail||e.message;"}));}}]});
 const loaded={exports:{}};new Function('require','module','exports',compiled.outputFiles[0].text)(createRequire(import.meta.url),loaded,loaded.exports);
 const today=clinicDate(),tomorrow='2099-10-20';
 const rows=()=>['unconfirmed','confirmed','arrived','in_progress','completed','confirmed'].map((status,i)=>({id:`visit-${i}`,patient_id:'patient',appointment_date:i===0||i===5?tomorrow:today,appointment_time:`${String(9+i).padStart(2,'0')}:00`,end_time:`${String(9+i).padStart(2,'0')}:30`,doctor_name:`Врач ${i}`,reason:`Компонент ${i}`,status,deal_id:i%2?'other-deal':'deal'}));
@@ -39,7 +44,7 @@ async function mount(t,mode,props={},options={}){
    markAllAsRead:()=>{f.notificationState.notifications=f.notificationState.notifications.map(n=>({...n,read:true}));f.notificationState.unreadCount=0;f.refresh();},
    removeNotification:id=>{f.notificationState.notifications=f.notificationState.notifications.filter(n=>n.id!==id);f.notificationState.unreadCount=f.notificationState.notifications.filter(n=>!n.read).length;f.refresh();},
    clearAll:()=>{f.notificationState.notifications=[];f.notificationState.unreadCount=0;f.refresh();},closePanel:()=>{f.notificationState.isOpen=false;f.refresh();}};
- const globals={window:dom.window,document:dom.window.document,localStorage:dom.window.localStorage,communicationFixture:f,IS_REACT_ACT_ENVIRONMENT:true,alert(){},setInterval:()=>1,clearInterval(){},fetch:async(url,init={})=>{requests.push({method:init.method||'GET',path:String(url),body:init.body&&JSON.parse(init.body)});if(init.method==='PATCH'){f.stage.current_column_id=JSON.parse(init.body).column_id;}return {ok:true,json:async()=>structuredClone(f.stage)};}};
+ const globals={window:dom.window,document:dom.window.document,localStorage:dom.window.localStorage,communicationFixture:f,IS_REACT_ACT_ENVIRONMENT:true,alert(){},setInterval:()=>1,clearInterval(){},fetch:async(url,init={})=>{requests.push({method:init.method||'GET',path:String(url),body:init.body&&JSON.parse(init.body)});if(options.fetch){const result=await options.fetch(url,init,f);if(result!==undefined)return result;}const phone=new URL(url).searchParams.get('phone');const stage=f.stages?.[phone]||f.stage;if(init.method==='PATCH'){stage.current_column_id=JSON.parse(init.body).column_id;stage.current_label=stage.columns.find(c=>c.id===stage.current_column_id)?.name;}return {ok:true,json:async()=>structuredClone(stage)};}};
  for(const [key,value]of Object.entries(globals)){previous.set(key,Object.getOwnPropertyDescriptor(globalThis,key));Object.defineProperty(globalThis,key,{configurable:true,writable:true,value});}
  const root=createRoot(document.getElementById('root')),body=document.body;
  const render=async next=>act(async()=>root.render(React.createElement(loaded.exports.Harness,{mode,props:next||props})));
@@ -57,8 +62,8 @@ test('WhatsApp has three filters, real patient link, independent appointments an
  assert.ok(ui.button('Все'));assert.ok(ui.button('Лиды'));assert.ok(ui.button('Пациенты'));assert.equal(ui.button('Чаты'),undefined);
  await ui.click(ui.button('Анна ДемоПациент'));
  await ui.click(ui.body.querySelector('.curai-patient-link'));assert.equal(ui.opened[0].type,'patient');assert.equal(ui.opened[0].props.editingItem.id,'patient');
- assert.ok(ui.button('Приёмы · 6'));assert.ok(ui.button('Этап сделки'));assert.equal(ui.button('Карточка пациента'),undefined);
- await ui.click(ui.button('Этап сделки'));assert.ok(ui.button('Ждём ответ'));assert.equal(ui.body.querySelector('[role="menu"] [disabled]'),null);
+ assert.ok(ui.button('Приёмы · 6'));assert.ok(ui.button('Новые'));assert.equal(ui.button('Карточка пациента'),undefined);
+ await ui.click(ui.button('Новые'));assert.ok(ui.button('Ждём ответ'));assert.equal(ui.body.querySelector('[role="menu"] [disabled]'),null);
  await ui.click(ui.button('Ждём ответ'));const patch=ui.requests.find(r=>r.method==='PATCH');assert.equal(patch.body.lead_id,'deal');assert.equal(patch.body.column_id,'custom_wait');
  assert.equal(ui.requests.some(r=>r.path.includes('/messages/send')),false);
 });
@@ -94,6 +99,124 @@ test('incoming document has a save caption and audio never gets a save action',a
  assert.ok(ui.body.querySelector('.curai-save-icon'));await ui.click(ui.button('Сохранить в карточке'));
  assert.equal(ui.requests.filter(r=>r.method==='POST')[0].path,'/wazzup/messages/doc/save-to-patient');
  assert.equal(ui.requests.some(r=>r.path.includes('/messages/send')),false);
+});
+for(const direction of ['incoming','outgoing'])test(`${direction} file saves explicitly, blocks a double click and displays saved state`,async t=>{
+ const ui=await mount(t,'inbox',{isOpen:true,onClose(){}},{messages:[{id:'file',message_type:'document',media_url:'/doc.pdf',metadata:{filename:'document.pdf'},direction}]});
+ await ui.click([...ui.body.querySelectorAll('.curai-chat-sidebar button')].find(b=>b.textContent.includes('Анна Демо')));
+ assert.equal(ui.requests.some(r=>r.method==='POST'),false);
+ const save=ui.button('Сохранить в карточке');await act(async()=>{save.click();save.click();});
+ assert.equal(ui.requests.filter(r=>r.method==='POST').length,1);
+ assert.equal(ui.button('Сохранить в карточке'),undefined);assert.match(text(ui.body),/Сохранено в карточке/);
+});
+test('failed file save without patient retains the action and never reports saved',async t=>{
+ const ui=await mount(t,'inbox',{isOpen:true,onClose(){}},{messages:[{id:'file',message_type:'document',media_url:'/doc.pdf',direction:'outgoing'}],api:async(method,path)=>{if(method==='POST'&&path.endsWith('/save-to-patient'))throw {response:{data:{detail:'К этому чату не привязан пациент'}}};}});
+ await ui.click([...ui.body.querySelectorAll('.curai-chat-sidebar button')].find(b=>b.textContent.includes('Лид Демо')));
+ await ui.click(ui.button('Сохранить в карточке'));assert.ok(ui.button('Сохранить в карточке'));
+ assert.match(text(ui.body),/К этому чату не привязан пациент/);assert.doesNotMatch(text(ui.body),/Сохранено в карточке/);
+});
+test('saved outgoing history keeps the saved caption after reopening the chat',async t=>{
+ const ui=await mount(t,'inbox',{isOpen:true,onClose(){}},{messages:[{id:'file',message_type:'document',media_url:'/doc.pdf',direction:'outgoing',metadata:{saved_to_patient:true}}]});
+ await ui.click([...ui.body.querySelectorAll('.curai-chat-sidebar button')].find(b=>b.textContent.includes('Анна Демо')));
+ assert.match(text(ui.body),/Сохранено в карточке/);assert.equal(ui.button('Сохранить в карточке'),undefined);
+});
+test('WhatsApp appointment list has no duplicate booking action and keeps status changes',async t=>{
+ const ui=await mount(t,'inbox',{isOpen:true,onClose(){}});
+ await ui.click([...ui.body.querySelectorAll('.curai-chat-sidebar button')].find(b=>b.textContent.includes('Анна Демо')));
+ assert.ok(ui.body.querySelector('.curai-chat-header-actions').textContent.includes('Записать'));
+ await ui.click(ui.button('Приёмы · 6'));
+ const dialog=ui.body.querySelector('[role="dialog"][aria-label="Приёмы пациента"]');assert.ok(dialog);
+ assert.equal([...dialog.querySelectorAll('button')].some(b=>text(b)==='Записать'),false);
+ assert.equal(dialog.querySelectorAll('tbody tr').length,6);
+ await ui.click(dialog.querySelectorAll('tbody tr')[1].querySelector('td:last-child button'));
+ assert.equal(ui.requests.filter(r=>r.method==='PATCH'&&r.path.includes('/appointments/')).length,1);
+ assert.ok(ui.body.querySelector('.curai-chat-header-actions').textContent.includes('Записать'));
+});
+test('shared appointment list retains its booking action by default',async t=>{
+ let booked=0;const ui=await mount(t,'appointments',{patientId:'patient',patientName:'Анна',onBook(){booked++;}});
+ await ui.click(ui.button('Приёмы · 6'));await ui.click(ui.button('Записать'));assert.equal(booked,1);
+});
+test('stage shows long current label, common chevron and a checkmark for current custom column',async t=>{
+ const long='Очень длинное название пользовательской колонки для проверки интерфейса';const stage=context();stage.current_column_id='custom_wait';stage.current_label=long;stage.columns[2].name=long;
+ const ui=await mount(t,'stage',{phone:patientChat.phone,variant:'menu'},{stage});
+ const trigger=ui.body.querySelector('.curai-chat-stage>.curai-chat-action');assert.equal(text(trigger),long);assert.equal(trigger.title,long);
+ assert.ok(trigger.querySelector('.curai-icon'));assert.ok(trigger.querySelector('.curai-chat-stage-label'));
+ await ui.click(trigger);const selected=ui.body.querySelector('[role="menuitemradio"][aria-checked="true"]');
+ assert.equal(text(selected),long);assert.ok(selected.querySelector('.curai-icon'));assert.equal(ui.requests.some(r=>r.method==='PATCH'),false);
+});
+test('stage label and check update after successful save; failed save keeps old selection',async t=>{
+ let fail=false;const ui=await mount(t,'stage',{phone:patientChat.phone,variant:'menu'},{fetch:async(url,init)=>{if(init.method==='PATCH'&&fail)return {ok:false,json:async()=>({detail:'Fixture stage conflict'})};}});
+ await ui.click(ui.button('Новые'));await ui.click(ui.button('Ждём ответ'));assert.equal(text(ui.body.querySelector('.curai-chat-stage>.curai-chat-action')),'Ждём ответ');
+ await ui.click(ui.button('Ждём ответ'));assert.equal(text(ui.body.querySelector('[aria-checked="true"]')),'Ждём ответ');
+ await ui.click(ui.body.querySelector('.curai-chat-stage>.curai-chat-action'));
+ // A second allowed custom column makes a meaningful failing move.
+ ui.f.stage.columns.push({id:'custom_other',name:'Другой этап',is_system:false,manual_move_allowed:true});
+ await act(async()=>ui.f.refreshTreatmentPlans());fail=true;
+ await ui.click(ui.body.querySelector('.curai-chat-stage>.curai-chat-action'));await ui.click(ui.button('Другой этап'));
+ assert.equal(text(ui.body.querySelector('.curai-chat-stage>.curai-chat-action')),'Ждём ответ');assert.match(text(ui.body),/Fixture stage conflict/);
+});
+test('payment invalidation refreshes the open stage and selected check without reopening',async t=>{
+ const ui=await mount(t,'stage',{phone:patientChat.phone,variant:'menu'});
+ assert.equal(text(ui.body.querySelector('.curai-chat-stage>.curai-chat-action')),'Новые');
+ ui.f.stage.current_column_id='closed';ui.f.stage.current_label='Оплачено';
+ await act(async()=>ui.f.refreshTreatmentPlans());
+ assert.equal(text(ui.body.querySelector('.curai-chat-stage>.curai-chat-action')),'Оплачено');
+ await ui.click(ui.button('Оплачено'));const selected=ui.body.querySelector('[aria-checked="true"]');assert.equal(text(selected),'Оплачено');assert.equal(selected.querySelectorAll('.curai-icon').length,2);
+ assert.equal(ui.requests.filter(r=>r.method!=='GET').length,0);
+});
+for(const fail of [false,true])test(`shared calendar payment workspace ${fail?'failure preserves':'success refreshes'} the open WhatsApp stage`,async t=>{
+ const paymentPlan={id:`cross-payment-${fail}`,patient_id:'patient',title:'План',total_cost:1000,paid_amount:0,accounting_events:[],services:[{service_id:'service',service_row_id:'row',service_name:'Услуга',total_price:1000,paid_amount:0,payment_status:'unpaid',quantity_total:1}]};
+ const ui=await mount(t,'paymentStage',{phone:patientChat.phone},{paymentPlan,fetch:async(url,init,f)=>{
+  if(url.includes('/whatsapp/kanban-stage'))return undefined;
+  if(url.endsWith('/payment-types'))return {ok:true,json:async()=>[{id:'cash',name:'Касса'}]};
+  if(init.method==='POST'){
+   assert.ok(url.endsWith(`/api/treatment-plans/${paymentPlan.id}/service-rows/row/receipts`));
+   if(fail)return {ok:false,status:409,json:async()=>({detail:'Fixture payment rejected'})};
+   f.stage.current_column_id='closed';f.stage.current_label='Оплачено';
+   return {ok:true,json:async()=>({plan:{...paymentPlan,paid_amount:1000,services:[{...paymentPlan.services[0],paid_amount:1000,payment_status:'paid'}]}})};
+  }
+  return {ok:true,json:async()=>url.endsWith('/consultation')?null:{}};
+ }});
+ await ui.click(ui.button('Новые'));
+ const before=ui.requests.filter(r=>r.path.includes('/whatsapp/kanban-stage')).length;
+ await ui.click(ui.body.querySelector('[aria-label="Оплатить услугу: Услуга"]'));
+ await ui.click(ui.body.querySelector('input[type="radio"]'));
+ const final=[...ui.body.querySelectorAll('.curai-payment-dialog button')].find(b=>text(b).startsWith('Оплатить'));
+ await ui.click(final);
+ assert.equal(ui.requests.filter(r=>r.method==='POST').length,1);
+ assert.equal(text(ui.body.querySelector('.curai-chat-stage>.curai-chat-action')),fail?'Новые':'Оплачено');
+ assert.equal(text(ui.body.querySelector('[aria-checked="true"]')),fail?'Новые':'Оплачено');
+ const after=ui.requests.filter(r=>r.path.includes('/whatsapp/kanban-stage')).length;
+ assert.equal(after, before+(fail?0:1));
+ assert.equal(ui.requests.some(r=>r.method==='PATCH'),false);
+});
+test('late stage response and open menu cannot follow a switch to another chat',async t=>{
+ let release;const late=new Promise(resolve=>release=resolve);let delayed=false;
+ const other=context();other.current_column_id='closed';other.current_label='Оплачено';
+ const ui=await mount(t,'stage',{phone:patientChat.phone,variant:'menu'},{stages:{[patientChat.phone]:context(),[leadChat.phone]:other},fetch:async(url)=>{if(delayed&&new URL(url).searchParams.get('phone')===patientChat.phone)return late;}});
+ await ui.click(ui.button('Новые'));assert.ok(ui.body.querySelector('[role="menu"]'));delayed=true;
+ await act(async()=>ui.f.refreshTreatmentPlans());await ui.render({phone:leadChat.phone,variant:'menu'});
+ assert.equal(ui.body.querySelector('[role="menu"]'),null);
+ await act(async()=>release({ok:true,json:async()=>context()}));assert.equal(text(ui.body.querySelector('.curai-chat-stage>.curai-chat-action')),'Оплачено');
+});
+test('payment finishing after a chat switch refreshes the newly selected deal without copying the paid stage',async t=>{
+ let release;const gate=new Promise(resolve=>release=resolve);
+ const other=context();other.current_column_id='custom_wait';other.current_label='Ждём ответ';
+ const paymentPlan={id:'switch-payment',patient_id:'patient',title:'План',total_cost:1000,paid_amount:0,accounting_events:[],services:[{service_id:'service',service_row_id:'row',service_name:'Услуга',total_price:1000,paid_amount:0,payment_status:'unpaid',quantity_total:1}]};
+ const ui=await mount(t,'paymentStage',{phone:patientChat.phone},{paymentPlan,stages:{[patientChat.phone]:context(),[leadChat.phone]:other},fetch:async(url,init,f)=>{
+  if(url.includes('/whatsapp/kanban-stage'))return undefined;
+  if(url.endsWith('/payment-types'))return {ok:true,json:async()=>[{id:'cash',name:'Касса'}]};
+  if(init.method==='POST'){
+   await gate;f.stages[patientChat.phone].current_column_id='closed';f.stages[patientChat.phone].current_label='Оплачено';
+   return {ok:true,json:async()=>({plan:{...paymentPlan,paid_amount:1000,services:[{...paymentPlan.services[0],paid_amount:1000,payment_status:'paid'}]}})};
+  }
+  return {ok:true,json:async()=>url.endsWith('/consultation')?null:{}};
+ }});
+ await ui.click(ui.body.querySelector('[aria-label="Оплатить услугу: Услуга"]'));await ui.click(ui.body.querySelector('input[type="radio"]'));
+ await ui.click([...ui.body.querySelectorAll('.curai-payment-dialog button')].find(b=>text(b).startsWith('Оплатить')));
+ await ui.render({phone:leadChat.phone});assert.equal(text(ui.body.querySelector('.curai-chat-stage>.curai-chat-action')),'Ждём ответ');
+ await act(async()=>release());assert.equal(text(ui.body.querySelector('.curai-chat-stage>.curai-chat-action')),'Ждём ответ');
+ await ui.click(ui.body.querySelector('.curai-chat-stage>.curai-chat-action'));assert.equal(text(ui.body.querySelector('[aria-checked="true"]')),'Ждём ответ');
+ assert.equal(ui.requests.filter(r=>r.method==='POST').length,1);assert.equal(ui.requests.some(r=>r.method==='PATCH'),false);
 });
 test('no patient produces neither a false link nor a zero count',async t=>{
  const ui=await mount(t,'inbox',{isOpen:true,onClose(){}});await ui.click([...ui.body.querySelectorAll('.curai-chat-sidebar button')].find(b=>b.textContent.includes('Лид Демо')));
