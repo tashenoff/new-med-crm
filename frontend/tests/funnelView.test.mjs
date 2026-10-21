@@ -66,6 +66,7 @@ async function mount(context, overrides = {}) {
   install('localStorage', dom.window.localStorage);
   install('IS_REACT_ACT_ENVIRONMENT', true);
   localStorage.setItem('token', 'synthetic-token');
+  for (const [key, value] of Object.entries(state.storage || {})) localStorage.setItem(key, value);
   install('funnelFixture', { axios: async config => {
     const path = new URL(config.url).pathname;
     requests.push({ path, method: config.method, headers: config.headers });
@@ -92,10 +93,15 @@ async function mount(context, overrides = {}) {
       else delete globalThis[key];
     }
   });
-  await act(async () => root.render(React.createElement(View, { user: { role: 'manager' } })));
+  let instance = 0;
+  let user = state.user || { role: 'manager' };
+  const render = () => root.render(React.createElement(View, { key: instance, user }));
+  await act(async () => render());
   const click = async element => { assert.ok(element, 'click target exists'); await act(async () => element.click()); };
   const refresh = async () => act(async () => window.dispatchEvent(new window.Event('crm-kanban-changed')));
-  return { container, state, requests, click, refresh };
+  const remount = () => act(async () => { instance += 1; render(); });
+  const changeUser = value => act(async () => { user = value; render(); });
+  return { container, state, requests, click, refresh, remount, changeUser };
 }
 
 const rows = container => [...container.querySelectorAll('[data-funnel-stage]')];
@@ -107,6 +113,13 @@ const selectSource = async (f, id) => act(async () => {
   const select = f.container.querySelector('#funnel-source');
   select.value = id;
   select.dispatchEvent(new window.Event('change', { bubbles: true }));
+});
+const changeReportControl = async (f, label, value) => act(async () => {
+  const control = f.container.querySelector(`[aria-label="${label}"]`);
+  assert.ok(control, `report control ${label}`);
+  const proto = control.tagName === 'SELECT' ? window.HTMLSelectElement.prototype : window.HTMLInputElement.prototype;
+  Object.getOwnPropertyDescriptor(proto, 'value').set.call(control, value);
+  control.dispatchEvent(new window.Event('change', { bubbles: true }));
 });
 
 test('current stages follow shared kanban order and names, including empty custom and paid stages', async context => {
@@ -213,8 +226,8 @@ test('one stage view and source-ID dropdown replace old mode/channel buttons', a
   assert.match(f.container.textContent, /По этапам/);
   assert.ok(!buttonWith(f.container, 'Рассылка WhatsApp'));
   assert.ok(!buttonWith(f.container, 'Повторные посещения'));
-  assert.equal(f.container.querySelectorAll('select').length, 1);
-  assert.deepEqual([...f.container.querySelector('select').options].map(option => [option.value, option.textContent]),
+  assert.equal(f.container.querySelectorAll('select').length, 2);
+  assert.deepEqual([...f.container.querySelector('#funnel-source').options].map(option => [option.value, option.textContent]),
     [['all', 'Все'], ['source-web', 'Сайт'], ['source-phone', '2GIS']]);
   await selectSource(f, 'source-web');
   assert.equal(Object.values(counts(f.container)).reduce((a, b) => a + b, 0), 1,
@@ -224,8 +237,95 @@ test('one stage view and source-ID dropdown replace old mode/channel buttons', a
 test('source catalog is read beyond default 50 and 100-row limits', async context => {
   const sources = Array.from({ length: 123 }, (_, index) => ({ id: `source-${index}`, name: `Источник ${index}`, type: 'phone' }));
   const f = await mount(context, { sources, leads: [lead('last-source', 'new', { source_id: 'source-122' })] });
-  assert.equal(f.container.querySelector('select').options.length, 124);
+  assert.equal(f.container.querySelector('#funnel-source').options.length, 124);
   await selectSource(f, 'source-122');
   assert.equal(counts(f.container).new, 1);
   assert.match(f.container.textContent, /источник: Источник 122/);
+});
+
+test('report comparison uses all source IDs within the common period and explicit denominator', async context => {
+  const cards = [
+    lead('a-arrived', 'converted', { source_id: 'a', created_at: '2026-10-02' }),
+    lead('a-new', 'new', { source_id: 'a', created_at: '2026-10-03' }),
+    lead('b-arrived', 'converted', { source_id: 'b', created_at: '2026-10-03' }),
+    lead('b-lost', 'lost', { source_id: 'b', created_at: '2026-10-04' }),
+    lead('missing', 'new', { source_id: null, created_at: '2026-10-05' }),
+    lead('unknown', 'closed', { source_id: 'deleted', created_at: '2026-10-06' }),
+    lead('outside', 'converted', { source_id: 'a', created_at: '2026-09-30' })
+  ];
+  const sources = [{ id: 'a', name: 'Первый', type: 'phone' }, { id: 'b', name: 'Второй', type: 'phone' }, { id: 'zero', name: 'Пустой', type: 'phone' }];
+  const f = await mount(context, { leads: cards, sources });
+  await changeReportControl(f, 'Период первого касания', 'custom');
+  await changeReportControl(f, 'Первое касание: с', '2026-10-01');
+  await changeReportControl(f, 'Первое касание: по', '2026-10-31');
+  await selectSource(f, 'a');
+  assert.match(f.container.textContent, /2 заявок/);
+  await f.click(buttonWith(f.container, 'Сравнение источников'));
+  assert.equal(f.container.querySelector('#funnel-source'), null);
+  assert.match(f.container.textContent, /Все источники за выбранный период/);
+  assert.match(f.container.textContent, /6 заявок/);
+  const row = key => f.container.querySelector(`[data-source-comparison-key="${key}"]`);
+  const metrics = key => [...row(key).querySelectorAll('[data-comparison-metric]')].map(node => node.textContent);
+  assert.deepEqual(metrics('source:a'), ['2', '1', '50%', '0', '1']);
+  assert.deepEqual(metrics('source:b'), ['2', '1', '50%', '1', '0']);
+  assert.deepEqual(metrics('source:zero'), ['0', '0', '—', '0', '0']);
+  assert.deepEqual(metrics('missing-source'), ['1', '0', '0%', '0', '1']);
+  assert.deepEqual(metrics('unavailable-source'), ['1', '0', '0%', '0', '0']);
+  assert.deepEqual(metrics('total'), ['6', '2', '33%', '1', '2']);
+  assert.match(f.container.textContent, /все обращения строки/);
+  assert.equal(f.container.querySelectorAll('[data-funnel-stage]').length, 0);
+  await f.click(buttonWith(f.container, 'По этапам'));
+  assert.equal(f.container.querySelector('#funnel-source').value, 'a');
+  assert.match(f.container.textContent, /2 заявок/);
+});
+
+test('report hiding stages preserves totals, original predecessor ratios and canonical order', async context => {
+  const f = await mount(context);
+  const summaries = () => [...f.container.querySelectorAll('[data-funnel-summary]')].map(node => node.textContent);
+  const before = summaries();
+  await f.click(f.container.querySelector('input[data-stage-visibility="custom_z"]'));
+  await f.click(f.container.querySelector('input[data-stage-visibility="converted"]'));
+  assert.deepEqual(rows(f.container).map(row => row.dataset.funnelStage), columns().filter(column => !['custom_z', 'converted'].includes(column.id)).map(column => column.id));
+  assert.deepEqual(summaries(), before);
+  const contacted = f.container.querySelector('[data-funnel-stage="contacted"]');
+  assert.match(contacted.previousElementSibling.textContent, /200%/);
+  assert.match(contacted.previousElementSibling.textContent, /Звонок позже.*скрыт/);
+  assert.match(f.container.textContent, /12 заявок/);
+  assert.ok(f.requests.every(request => request.method.toUpperCase() === 'GET'));
+});
+
+test('report all-hidden selection has an explicit empty state and unchanged summaries with all/reset actions', async context => {
+  const f = await mount(context);
+  const before = [...f.container.querySelectorAll('[data-funnel-summary]')].map(node => node.textContent);
+  await f.click(buttonWith(f.container, 'Скрыть все'));
+  assert.equal(rows(f.container).length, 0);
+  assert.match(f.container.textContent, /Все текущие этапы скрыты/);
+  assert.deepEqual([...f.container.querySelectorAll('[data-funnel-summary]')].map(node => node.textContent), before);
+  await f.click(buttonWith(f.container, 'Показать все'));
+  assert.equal(rows(f.container).length, columns().length);
+  await f.click(f.container.querySelector('input[data-stage-visibility="new"]'));
+  await f.click(buttonWith(f.container, 'Сбросить настройку'));
+  assert.equal(rows(f.container).length, columns().length);
+});
+
+test('report stage preference survives reopening and is isolated by user and clinic', async context => {
+  const f = await mount(context, { user: { id: 'one', clinic_id: 'clinic-a' } });
+  await f.click(f.container.querySelector('input[data-stage-visibility="new"]'));
+  await f.remount();
+  assert.equal(f.container.querySelector('[data-funnel-stage="new"]'), null);
+  await f.changeUser({ id: 'two', clinic_id: 'clinic-a' });
+  assert.ok(f.container.querySelector('[data-funnel-stage="new"]'));
+  await f.changeUser({ id: 'one', clinic_id: 'clinic-b' });
+  assert.ok(f.container.querySelector('[data-funnel-stage="new"]'));
+  await f.changeUser({ id: 'one', clinic_id: 'clinic-a' });
+  assert.equal(f.container.querySelector('[data-funnel-stage="new"]'), null);
+});
+
+test('report new columns default to visible while stale IDs are ignored and current order stays canonical', async context => {
+  const f = await mount(context, { user: { id: 'one', clinic_id: 'clinic-a' } });
+  await f.click(f.container.querySelector('input[data-stage-visibility="custom_z"]'));
+  f.state.columns = [custom('custom_added', 'Новый этап'), ...f.state.columns.toReversed().filter(column => column.id !== 'custom_z')];
+  await f.refresh();
+  assert.deepEqual(rows(f.container).map(row => row.dataset.funnelStage), f.state.columns.map(column => column.id));
+  assert.equal(counts(f.container).custom_added, 0);
 });

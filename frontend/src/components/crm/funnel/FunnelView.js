@@ -3,6 +3,10 @@ import { useCrm } from '../../../hooks/useCrm';
 import { useKanbanColumns } from '../../../hooks/useKanbanColumns';
 import { salesFunnel } from '../../../utils/salesFunnel';
 import { matchesSource, sourceLabel } from '../../../utils/crmSources';
+import FirstTouchDateFilter from '../leads/FirstTouchDateFilter';
+import { firstTouchDateRange, matchesFirstTouchDate } from '../../../utils/firstTouchDateFilter';
+import { stagePreferenceKey, readHiddenStages } from '../../../utils/funnelReport';
+import SourceComparison from './SourceComparison';
 import PanelHeader from '../../common/PanelHeader';
 
 const STAGE_STYLE = {
@@ -38,13 +42,30 @@ function fmtDate(dt) {
   return d.toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit', year: '2-digit' });
 }
 
-const FunnelView = () => {
+const FunnelView = ({ user }) => {
   const { leads, sources, fetchSources, fetchLeads, loading, isInitialized } = useCrm({ kanban: true });
   const columnConfig = useKanbanColumns(fetchLeads);
 
   const [selectedChannel, setSelectedChannel] = useState('all');
   const [selectedStage, setSelectedStage] = useState(null);
 
+  const [mode, setMode] = useState('stages');
+  const [period, setPeriod] = useState({ preset: 'all', from: '', to: '' });
+  const preferenceKey = stagePreferenceKey(user);
+  const [preference, setPreference] = useState(() => ({ key: preferenceKey, ids: readHiddenStages(preferenceKey) }));
+  useEffect(() => { setPreference({ key: preferenceKey, ids: readHiddenStages(preferenceKey) }); }, [preferenceKey]);
+  const hiddenIds = preference.key === preferenceKey ? preference.ids : readHiddenStages(preferenceKey);
+  const updateHidden = (ids, reset = false) => {
+    setPreference({ key: preferenceKey, ids }); setSelectedStage(null);
+    if (preferenceKey) try {
+      if (reset) localStorage.removeItem(preferenceKey);
+      else localStorage.setItem(preferenceKey, JSON.stringify({ version: 1, hiddenIds: ids }));
+    } catch { /* Storage may be unavailable. Keep in-memory controls working. */ }
+  };
+  const periodLeads = useMemo(() => {
+    const range = firstTouchDateRange(period.preset, period);
+    return leads.filter(lead => matchesFirstTouchDate(lead, range));
+  }, [leads, period]);
   // Загрузка источников при монтировании
   useEffect(() => {
     fetchSources();
@@ -57,9 +78,9 @@ const FunnelView = () => {
 
   // Фильтрация по каналу
   const filteredLeads = useMemo(() => {
-    if (selectedChannel === 'all') return leads;
-    return leads.filter(lead => matchesSource(lead, selectedChannel));
-  }, [leads, selectedChannel]);
+    if (selectedChannel === 'all') return periodLeads;
+    return periodLeads.filter(lead => matchesSource(lead, selectedChannel));
+  }, [periodLeads, selectedChannel]);
 
   const funnel = useMemo(() => salesFunnel(columnConfig.columns, filteredLeads), [columnConfig.columns, filteredLeads]);
   const funnelStages = funnel.stages.map(stage => ({ ...stage, ...stageStyle(stage.id) }));
@@ -90,27 +111,47 @@ const FunnelView = () => {
       <div className="calendar-container calendar-view-panel rounded-md shadow-none">
         <PanelHeader
           title="Воронка продаж"
-          subtitle={`${filteredLeads.length} заявок${selectedChannel !== 'all' ? ` · источник: ${CHANNELS.find(c => c.value === selectedChannel)?.label}` : ''}`}
+          subtitle={`${mode === 'sources' ? periodLeads.length : filteredLeads.length} заявок${mode === 'stages' && selectedChannel !== 'all' ? ` · источник: ${CHANNELS.find(c => c.value === selectedChannel)?.label}` : ''}`}
         />
       </div>
 
       <div className="px-6 space-y-6">
       <div className="flex flex-wrap items-center gap-4">
-        <span className="px-3 py-1.5 rounded-md bg-curai-selected text-curai-blue font-medium">По этапам</span>
-        <label className="flex items-center gap-2 text-sm text-curai-ink" htmlFor="funnel-source">Источник
-          <select id="funnel-source" className="border border-curai-control rounded-md px-3 py-2 bg-curai-surface max-w-xs"
+        <div role="group" aria-label="Представление отчёта" className="flex flex-wrap gap-2">
+          {[['stages', 'По этапам'], ['sources', 'Сравнение источников']].map(([value, label]) => <button type="button" key={value} aria-pressed={mode === value} onClick={() => { setMode(value); setSelectedStage(null); }} className={mode === value ? 'px-3 py-2 rounded-md bg-curai-selected text-curai-blue' : 'px-3 py-2 rounded-md border border-curai-control'}>{label}</button>)}
+        </div>
+        {mode === 'stages' && <label className="flex min-w-0 flex-wrap items-center gap-2 text-sm text-curai-ink" htmlFor="funnel-source">Источник
+          <select id="funnel-source" className="border border-curai-control rounded-md px-3 py-2 bg-curai-surface max-w-full sm:max-w-xs"
             value={selectedChannel} onChange={event => { setSelectedChannel(event.target.value); setSelectedStage(null); }}>
             {CHANNELS.map(source => <option key={source.value} value={source.value}>{source.label}</option>)}
           </select>
-        </label>
+        </label>}
       </div>
 
-      <div className="flex gap-6">
+      <FirstTouchDateFilter value={period} onChange={value => { setPeriod(value); setSelectedStage(null); }} />
+      {mode === 'sources' && <SourceComparison sources={sources} leads={periodLeads} />}
+      {mode === 'stages' && <>
+      <details className="rounded-md border border-curai-border p-4">
+        <summary className="cursor-pointer font-medium text-sm">Видимые этапы ({funnelStages.filter(stage => !hiddenIds.includes(stage.id)).length} из {funnelStages.length})</summary>
+        <p className="mt-3 text-xs text-curai-muted">Скрытие меняет только строки отчёта. Общие итоги и проценты включают все обращения; отношение соседних этапов считается по полному порядку канбана, включая скрытые этапы. Это соотношение текущих количеств, а не история переходов.</p>
+        <div className="my-3 flex flex-wrap gap-3 text-sm">
+          <button type="button" className="underline" onClick={() => updateHidden([])}>Показать все</button>
+          <button type="button" className="underline" onClick={() => updateHidden(funnelStages.map(stage => stage.id))}>Скрыть все</button>
+          <button type="button" className="underline" onClick={() => updateHidden([], true)}>Сбросить настройку</button>
+        </div>
+        <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">{funnelStages.map(stage => <label key={stage.id} className="flex min-w-0 items-start gap-2 text-sm">
+          <input type="checkbox" className="mt-1" data-stage-visibility={stage.id} checked={!hiddenIds.includes(stage.id)} onChange={event => updateHidden(event.target.checked ? hiddenIds.filter(id => id !== stage.id) : [...hiddenIds, stage.id])} />
+          <span className="break-words min-w-0">{stage.label}</span>
+        </label>)}</div>
+      </details>
+      <div className="flex flex-col xl:flex-row gap-6">
         {/* Funnel */}
         <div className="flex-1 min-w-0">
           <div className="bg-curai-surface rounded-md border border-curai-border overflow-hidden">
             {/* Main funnel stages */}
+            {funnelStages.every(stage => hiddenIds.includes(stage.id)) && <p className="p-5 text-sm text-curai-muted">Все текущие этапы скрыты. Выберите этапы или нажмите «Показать все».</p>}
             {funnelStages.map((stage, idx) => {
+              if (hiddenIds.includes(stage.id)) return null;
               const count = stage.leads.length;
               const prevCount = idx > 0 ? funnelStages[idx - 1].leads.length : null;
               const convRate = prevCount > 0 ? Math.round((count / prevCount) * 100) : null;
@@ -122,7 +163,7 @@ const FunnelView = () => {
                 <div key={stage.id}>
                   {/* Conversion rate indicator */}
                   {idx > 0 && (
-                    <div className="flex items-center px-5 py-1 bg-curai-subtle border-t border-dashed border-curai-border">
+                    <div className="flex flex-wrap items-center px-5 py-1 bg-curai-subtle border-t border-dashed border-curai-border">
                       <div className="flex-1 h-px bg-curai-border" />
                       <span className={`mx-3 text-xs font-medium px-2 py-0.5 rounded-full ${
                         convRate === null ? "text-curai-muted" :
@@ -133,6 +174,7 @@ const FunnelView = () => {
                         {convRate !== null ? `↓ ${convRate}%` : '—'}
                       </span>
                       <div className="flex-1 h-px bg-curai-border" />
+                      {idx > 0 && hiddenIds.includes(funnelStages[idx - 1].id) && <span className="w-full text-xs text-curai-muted break-words">Предыдущий этап «{funnelStages[idx - 1].label}» скрыт</span>}
                     </div>
                   )}
 
@@ -144,9 +186,9 @@ const FunnelView = () => {
                       isActive ? stage.light : "hover:bg-curai-subtle"
                     } ${idx === 0 ? '' : ''}`}
                   >
-                    <div className="flex items-center gap-4">
+                    <div className="flex flex-wrap sm:flex-nowrap items-center gap-2 sm:gap-4">
                       {/* Stage label */}
-                      <div className="w-44 shrink-0">
+                      <div className="w-full sm:w-44 shrink-0">
                         <div className={`break-words font-medium text-sm ${isActive ? stage.text : "text-curai-ink"}`}>
                           {stage.label}
                         </div>
@@ -165,7 +207,7 @@ const FunnelView = () => {
                       </div>
 
                       {/* % of total */}
-                      <div className="w-16 text-right shrink-0">
+                      <div className="w-12 sm:w-16 text-right shrink-0">
                         <span className="text-sm font-medium text-curai-muted">
                           {filteredLeads.length > 0
                             ? `${Math.round((count / filteredLeads.length) * 100)}%`
@@ -211,7 +253,7 @@ const FunnelView = () => {
           </div>
 
           {/* Summary stats */}
-          <div className="mt-4 grid grid-cols-3 gap-3">
+          <div className="mt-4 grid grid-cols-1 sm:grid-cols-3 gap-3">
             <div data-funnel-summary className="bg-curai-surface rounded-md border border-curai-border p-4 text-center">
               <div className="text-2xl font-semibold text-curai-ink">
                 {funnel.converted}
@@ -245,17 +287,17 @@ const FunnelView = () => {
         </div>
 
         {/* Channel breakdown sidebar */}
-        <div className="w-56 shrink-0">
+        <div className="w-full xl:w-56 shrink-0">
           <div className="bg-curai-surface rounded-md border border-curai-border p-4">
             <h3 className="text-sm font-semibold text-curai-ink mb-3">По источникам</h3>
             <div className="space-y-2">
               {CHANNELS.filter(c => c.value !== 'all').map(ch => {
-                const chLeads = leads.filter(lead => matchesSource(lead, ch.value));
+                const chLeads = periodLeads.filter(lead => matchesSource(lead, ch.value));
                 if (chLeads.length === 0) return null;
                 return (
                   <div key={ch.value}>
-                    <div className="flex items-center justify-between mb-0.5">
-                      <span className="text-xs text-curai-muted">
+                    <div className="flex items-start justify-between gap-2 mb-0.5">
+                      <span className="min-w-0 break-words text-xs text-curai-muted">
                         <span className="mr-1">{CHANNEL_ICONS[ch.type]}</span>
                         {ch.label}
                       </span>
@@ -264,7 +306,7 @@ const FunnelView = () => {
                     <div className="h-1.5 bg-curai-subtle rounded-full overflow-hidden">
                       <div
                         className="h-full bg-curai-blue rounded-full"
-                        style={{ width: `${leads.length > 0 ? Math.round((chLeads.length / leads.length) * 100) : 0}%` }}
+                        style={{ width: `${periodLeads.length > 0 ? Math.round((chLeads.length / periodLeads.length) * 100) : 0}%` }}
                       />
                     </div>
                   </div>
@@ -340,6 +382,7 @@ const FunnelView = () => {
           )}
         </div>
       )}
+      </>}
       </div>
     </div>
   );
