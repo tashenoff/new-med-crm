@@ -2,8 +2,8 @@
 .curai-patient-dialog:has(.curai-consultation-form) {height:1584px;}
 .curai-patient-dialog:has(.curai-consultation-form)>.curai-dialog-header {height:63px;flex-basis:63px;padding:23px 23px 8px;border-bottom:0;}
 .curai-consultation-form-context {padding:0 23px 14px;border-bottom:1px solid var(--curai-color-border);font-size:12px;line-height:18px;color:var(--curai-color-muted);}
-.curai-patient-dialog:has(.curai-consultation-form)>.curai-dialog-body {padding:0;overflow:hidden;}
-.curai-patient-consultations:has(.curai-consultation-form) {height:100%;margin:0;}
+.curai-patient-dialog:has(.curai-consultation-form)>.curai-dialog-body {padding:0;overflow:hidden;display:flex;flex-direction:column;min-height:0;}
+.curai-patient-consultations:has(.curai-consultation-form) {flex:1;min-height:0;margin:0;}
 .curai-patient-consultations .curai-consultation-form {height:100%;margin:0;padding:0;border:0;display:flex;flex-direction:column;}
 .curai-consultation-fields-scroll {min-height:0;flex:1;overflow-y:auto;padding:15px 23px 87px;}
 .curai-consultation-form-body {min-height:1328px;padding:15px;border:1px solid var(--curai-color-border);border-radius:6px;}

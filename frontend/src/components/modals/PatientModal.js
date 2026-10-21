@@ -1024,7 +1024,7 @@ const PatientModal = ({
         {/* Tabs */}
 
 
-        <PatientTermsStatus key={currentPatientId || "new"} patientId={currentPatientId} active={show}/>
+        {activeTab === 'info' && <PatientTermsStatus key={currentPatientId || "new"} patientId={currentPatientId} active={show}/>}
 
         {/* Прелоадер при загрузке данных пациента */}
         {pageLoading && editingItem ? (
