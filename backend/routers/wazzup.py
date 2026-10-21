@@ -640,10 +640,11 @@ async def _process_incoming_message(message_data: dict) -> None:
     first_name = name_parts[0] if len(name_parts) > 0 and name_parts[0] else "Клиент"
     last_name = name_parts[1] if len(name_parts) > 1 else "WhatsApp"
 
+    from services.patient_phone import normalize_patient_phone
     lead_data = LeadCreate(
         first_name=first_name,
         last_name=last_name,
-        phone=contact_phone,
+        phone=normalize_patient_phone(contact_phone),
         source=LeadSource.SOCIAL,
         description=f"Обращение через WhatsApp: {text[:200]}",
     )

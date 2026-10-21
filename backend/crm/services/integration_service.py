@@ -9,6 +9,7 @@ from motor.motor_asyncio import AsyncIOMotorDatabase
 from .lead_service import LeadService
 from .client_service import ClientService
 from ..models.lead import LeadStatus
+from services.patient_phone import normalize_patient_phone
 
 
 class IntegrationService:
@@ -101,7 +102,7 @@ class IntegrationService:
                 "first_name": lead.first_name,
                 "last_name": lead.last_name,
                 "middle_name": lead.middle_name,
-                "phone": lead.phone,
+                "phone": normalize_patient_phone(lead.phone),
                 "email": lead.email or "",
                 "iin": "",  # Пустой, можно заполнить позже
                 "birth_date": None,
@@ -268,7 +269,7 @@ class IntegrationService:
             "first_name": client.first_name,
             "last_name": client.last_name,
             "middle_name": client.middle_name,
-            "phone": client.phone,
+            "phone": normalize_patient_phone(client.phone),
             "email": client.email,
             "birth_date": client.birth_date.isoformat() if client.birth_date else None,
             "gender": client.gender,

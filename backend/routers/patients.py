@@ -12,6 +12,7 @@ from .auth import get_current_active_user, require_role
 from models.auth import UserInDB, UserRole
 from database import db
 from services.patient_status import matches_returning_filter, count_completed_appointments
+from services.patient_phone import normalize_patient_phone
 from services.patient_crm_sync import sync_crm_names_from_patient, parse_full_name
 
 # Router
@@ -112,6 +113,7 @@ async def create_patient(
     current_user: UserInDB = Depends(require_role([UserRole.ADMIN, UserRole.SUPER_ADMIN, UserRole.DOCTOR]))
 ):
     patient_dict = patient.dict()
+    patient_dict["phone"] = normalize_patient_phone(patient_dict["phone"])
     patient_obj = Patient(**patient_dict)
     
     # Insert patient first

@@ -16,6 +16,7 @@ from ..schemas.lead_schemas import (
 from ..models.lead import Lead, LeadStatus, LeadSource, LeadPriority
 from ..services.lead_identity import normalize_identity_phone, patient_link
 from ..services.lead_calls import call_history, load_group_calls, resolve_group_patients
+from services.patient_phone import normalize_patient_phone
 
 from ..dependencies import get_database
 
@@ -611,7 +612,7 @@ async def schedule_appointment_from_lead(
                 "first_name": first_name,
                 "last_name": last_name,
                 "middle_name": middle_name,
-                "phone": lead.phone or "",
+                "phone": normalize_patient_phone(lead.phone or ""),
                 "email": lead.email,
                 "source": str(lead.source.value) if hasattr(lead.source, 'value') else str(lead.source),
                 "source_id": lead.source_id,  # Передаем ID источника из лида
