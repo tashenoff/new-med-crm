@@ -6,6 +6,7 @@ import pytest
 
 from clinic_boundary import CLINICAL_COLLECTIONS
 from models.staff import ROLE_PERMISSIONS, StaffRole
+from permission_policy import LEGACY_ADMIN_OPERATIONS
 from permission_staging_app import PASSWORD, account, configure
 
 
@@ -69,12 +70,49 @@ async def test_legacy_working_roles_keep_original_grants_and_login(local_stage, 
     async with httpx.AsyncClient(transport=httpx.ASGITransport(app), base_url='http://synthetic') as client:
         result, headers = await login(client, 'synthetic-worker')
         expected = {p.value for p in ROLE_PERMISSIONS[role]} | {'patients_export'}
+        if role in (StaffRole.ADMIN, StaffRole.SUPER_ADMIN):
+            expected |= LEGACY_ADMIN_OPERATIONS
         assert set(result['user']['permissions']) == expected
         assert set((await client.get('/api/auth/me', headers=headers)).json()['permissions']) == expected
         assert 'payroll_view' not in expected
         assert (await client.get('/api/staff/synthetic-worker', headers=headers)).status_code == (
             200 if role in (StaffRole.ADMIN, StaffRole.SUPER_ADMIN) else 403)
     assert db.staff.rows == original
+
+
+async def test_legacy_admin_operational_compatibility_and_explicit_override(local_stage, monkeypatch):
+    app, db, _ = local_stage
+    from routers import treatment_plans
+    from unittest.mock import AsyncMock
+    # Genuine receipt route; replace only its ledger writer with a sentinel.
+    # No financial event or patient record is written, even in the fixture.
+    writer = AsyncMock(return_value={'operation_id': 'synthetic-receipt'})
+    monkeypatch.setattr(treatment_plans.AccountingLedgerService, 'record_ordinary_service', writer)
+    monkeypatch.setattr(treatment_plans, 'frontend_receipt', lambda value: value)
+    monkeypatch.setattr(treatment_plans, 'plan_result', lambda plan, result: result)
+    account(db, 'legacy-admin-compat', 'admin')
+    account(db, 'limited-admin-compat', 'admin', mode='explicit', permissions=['patients_view', 'finance_view', 'staff_view'])
+    account(db, 'crm-marketer-compat', 'marketer', mode='explicit', permissions=['crm_view', 'crm_edit'])
+    original = copy.deepcopy(db.users.rows)
+    async with httpx.AsyncClient(transport=httpx.ASGITransport(app), base_url='http://synthetic') as client:
+        before, headers = await login(client, 'legacy-admin-compat')
+        assert {'finance_edit', 'staff_edit'} <= set(before['user']['permissions'])
+        assert 'payroll_view' not in before['user']['permissions']
+        result = await client.post('/api/treatment-plans/synthetic-plan/service-rows/synthetic-row/receipts', headers=headers, json={})
+        assert result.status_code == 200, result.text
+        assert writer.await_count == 1
+        created = await client.post('/api/staff/', headers=headers, json={'login': 'new-crm-compat', 'full_name': 'Synthetic CRM',
+                                   'password': PASSWORD, 'role': 'marketer', 'custom_permissions': ['crm_view'], 'permission_mode': 'explicit'})
+        assert created.status_code == 201, created.text
+        saved = await client.put('/api/staff/' + created.json()['id'], headers=headers, json={'custom_permissions': ['crm_view', 'crm_edit']})
+        assert saved.status_code == 200
+        for identity in ['limited-admin-compat', 'crm-marketer-compat']:
+            current, limited = await login(client, identity)
+            assert 'finance_edit' not in current['user']['permissions'] and 'staff_edit' not in current['user']['permissions']
+            assert (await client.post('/api/treatment-plans/synthetic-plan/service-rows/synthetic-row/receipts', headers=limited, json={})).status_code == 403
+            assert (await client.put('/api/staff/' + created.json()['id'], headers=limited, json={'full_name': 'Must not save'})).status_code == 403
+        assert writer.await_count == 1
+    assert db.users.rows[:len(original)] == original  # No migration of existing accounts.
 
 
 @pytest.mark.parametrize('collection', CLINICAL_COLLECTIONS)

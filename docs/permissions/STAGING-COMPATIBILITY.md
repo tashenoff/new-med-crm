@@ -38,3 +38,6 @@ Display API остальных панелей в браузере использ
 - Первоначальный локальный порт 5191 оказался занят; synthetic login был отклонён валидацией 422 до каких-либо сохранений. Чужой процесс не изменялся. Успешный HTTP staging запускался на отдельном порту 52173.
 
 Финальный integrated результат: 848 backend mock-only tests, 592 frontend tests (полный последовательный прогон после ошибки транспорта Node runner), 6 неизменяющих MCP compatibility tests, production build, 9 mocked browser cases и 3 browser cases с настоящим local HTTP backend. Подготовленный scope — права сотрудников в одноклинической установке. Реальная конфигурация отдельно не читалась и не выдаётся за проверенную. Публикация разрешена пользователем после завершения предшествующего пакета; порядок backend → deploy/smoke → frontend, без force push, live миграций или изменения accounts/grants/env.
+
+
+Коррекция регрессий legacy-admin/consultation footer подготовлена отдельно после этой проверки: [ADMIN-CONSULTATION-REGRESSION.md](ADMIN-CONSULTATION-REGRESSION.md). Она восстанавливает staff_edit/finance_edit только как совместимость прежних legacy admin операций, без изменения role presets, explicit аккаунтов или payroll. Предыдущее утверждение об отсутствии staff_edit у legacy admin описывало обнаруженную несовместимость, а не желаемое поведение.
