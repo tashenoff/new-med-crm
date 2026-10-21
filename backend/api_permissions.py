@@ -4,6 +4,7 @@ Role checks and ownership checks inside endpoints remain in force (AND).
 Unknown API families are denied, including for administrators. Reporting/MCP
 routers retain their separate grant/clinic validator unchanged.
 """
+import json
 from fastapi import Depends, HTTPException, Request
 from fastapi.routing import APIRoute
 from fastapi.dependencies.utils import get_parameterless_sub_dependant
@@ -19,7 +20,6 @@ PUBLIC = {
     ('POST', '/api/wazzup/webhook/messages'),
     ('GET', '/api/telephony/webhook/events'),
     ('POST', '/api/telephony/webhook/events'),
-    ('POST', '/api/telephony/callbacks'),
 }
 
 
@@ -40,13 +40,19 @@ def requirements(path, method, module=''):
         if 'client-hms-data' in path or 'last-appointment' in path:
             return ('crm_view', 'patients_view')
         return ('crm_view', 'finance_view') if read else ('crm_edit', 'patients_edit')
+    if path.startswith('/api/crm/') and '/check-phone/' in path:
+        return ('crm_view', 'patients_view')
+    if path.startswith('/api/crm/') and path.endswith('/convert-to-hms'):
+        return ('crm_view', 'crm_edit', 'patients_view', 'patients_edit')
+    if path.startswith('/api/crm/') and path.endswith('/schedule-appointment'):
+        return ('crm_view', 'crm_edit', 'patients_view', 'patients_edit', 'calendar_view', 'calendar_edit')
     if path.startswith('/api/crm/'):
         family = 'crm'
     elif path in ('/api/wazzup/messages/send', '/api/wazzup/messages/send-template', '/api/wazzup/messages/send-media'):
         return ('crm_view|broadcast_view', 'crm_edit|broadcast_edit')
     elif path.startswith(('/api/wazzup', '/api/telephony')):
         if '/appointments/' in path or 'save-to-patient' in path:
-            return ('crm_edit', 'patients_edit')
+            return ('crm_view', 'crm_edit', 'patients_view', 'patients_edit')
         family = 'crm'
     elif path.startswith(('/api/materials', '/api/inventory', '/api/inventories')):
         family = 'warehouse'
@@ -96,6 +102,54 @@ def check_access(user, required):
         raise HTTPException(403, 'Permission denied')
 
 
+def redact_crm_payload(value, user):
+    """CRM records can contain joined HMS billing/demographics. Filter nested rows.
+
+Own CRM contact names/phones, inquiry text, interested services and deal budgets
+remain CRM data. Clinical identity/demographics and joined treatment billing do
+not become available merely because they were copied into a CRM response.
+"""
+    hidden = set()
+    if 'patients_view' not in user.permissions:
+        hidden |= {'patient', 'patient_id', 'linked_patient_id', 'identity_patient_id', 'hms_patient_id',
+                   'is_hms_patient', 'converted_to_appointment_id', 'converted_to_client_id',
+                   'iin', 'birth_date', 'gender', 'appointments_count', 'records_count',
+                   'hms_patients', 'hms_conversion_rate', 'treatment_plans', 'appointments',
+                   'medical_history', 'diagnoses', 'diagnosis', 'last_appointment'}
+    if 'finance_view' not in user.permissions:
+        hidden |= {'treatment_plan_total', 'deposit_amount', 'extra_deposit', 'deposit_balance',
+                   'patient_debt', 'total_revenue', 'avg_revenue', 'avg_revenue_per_client',
+                   'revenue', 'total_paid', 'paid_amount'}
+    if isinstance(value, list):
+        return [redact_crm_payload(item, user) for item in value]
+    if isinstance(value, dict):
+        return {key: redact_crm_payload(item, user) for key, item in value.items() if key not in hidden}
+    return value
+
+
+async def check_cross_space_write(request, path, user):
+    if request.method not in ('POST', 'PUT', 'PATCH') or not path.startswith('/api/crm/'):
+        return
+    if not path.endswith(('/convert', '/convert-to-hms', '/schedule-appointment')):
+        return
+    if path.endswith('/convert-to-hms'):
+        if request.query_params.get('create_appointment', '').lower() in ('true', '1', 'yes', 'on'):
+            check_access(user, ('calendar_view', 'calendar_edit'))
+        return
+    try:
+        body = await request.json()
+    except (ValueError, TypeError):
+        raise HTTPException(422, 'Invalid JSON') from None
+    if not isinstance(body, dict):
+        raise HTTPException(422, 'Object body required')
+    if path.endswith('/convert') and body.get('create_hms_patient', True) is not False:
+        check_access(user, ('patients_view', 'patients_edit'))
+        if body.get('create_appointment'):
+            check_access(user, ('calendar_view', 'calendar_edit'))
+    if path.endswith('/schedule-appointment') and body.get('deposit'):
+        check_access(user, ('finance_view', 'finance_edit'))
+
+
 def install_api_permissions(app):
     """Compile boundary as a dependency, so dependency overrides work in tests."""
     for route in app.routes:
@@ -113,9 +167,22 @@ def install_api_permissions(app):
                 if (request.method, path) in PUBLIC:
                     return
                 check_access(user, requirements(path, request.method, module))
+                await check_cross_space_write(request, path, user)
                 await assert_single_clinic(db)
+                request.state.permission_user = user
             return guard
 
         dependency = Depends(guard_factory(route.path, module))
         route.dependant.dependencies.insert(0, get_parameterless_sub_dependant(depends=dependency, path=route.path_format))
-        route.app = request_response(route.get_route_handler())
+        def response_factory(route):
+            original = route.get_route_handler()
+            async def handler(request):
+                response = await original(request)
+                if route.path.startswith(('/api/crm/', '/api/wazzup/', '/api/telephony/')) and 'application/json' in response.headers.get('content-type', ''):
+                    user = request.state.permission_user
+                    payload = redact_crm_payload(json.loads(response.body), user)
+                    response.body = json.dumps(payload, ensure_ascii=False, separators=(',', ':')).encode('utf-8')
+                    response.headers['content-length'] = str(len(response.body))
+                return response
+            return handler
+        route.app = request_response(response_factory(route))

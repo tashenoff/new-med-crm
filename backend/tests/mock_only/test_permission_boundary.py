@@ -192,6 +192,19 @@ async def test_alternate_management_paths_protect_senior_accounts():
     assert await staff.validate_target(user(['staff_view', 'staff_edit'], role='super_admin'), 'senior', service)
 
 
+async def test_only_protected_super_admin_can_explicitly_edit_own_access():
+    actor = user(['staff_view', 'staff_edit'], role='super_admin')
+    service = SimpleNamespace(get_staff_by_id=AsyncMock(return_value=SimpleNamespace(
+        role=StaffRole.SUPER_ADMIN, permissions=actor.permissions)), update_staff_member=AsyncMock(return_value='saved'))
+    assert await staff.update_staff_member(actor.id, StaffMemberUpdate(
+        custom_permissions=['staff_view', 'staff_edit', 'payroll_view']), actor, service) == 'saved'
+    with pytest.raises(HTTPException):
+        await staff.update_staff_member(actor.id, StaffMemberUpdate(custom_permissions=[]), actor, service)
+    ordinary = user(['staff_view', 'staff_edit'], role='admin')
+    with pytest.raises(HTTPException):
+        await staff.update_staff_member(ordinary.id, StaffMemberUpdate(custom_permissions=['payroll_view']), ordinary, service)
+
+
 async def test_foreign_document_quarantine_does_not_reject_unlabelled_clinic(monkeypatch):
     monkeypatch.setenv('APP_CLINIC_ID', 'synthetic-A')
     db = DB()
@@ -230,6 +243,11 @@ def test_clinical_integration_requires_both_spaces_and_payroll_redaction():
     public = json.loads(doctor_response(data, user(['doctors_view'])).body)
     assert public == {'id': 'synthetic', 'full_name': 'Synthetic'}
     assert doctor_response(data, user(['payroll_view'])) == data
+    # Click-to-call initiates a business action; it is not a provider webhook.
+    from api_permissions import PUBLIC
+    assert ('POST', '/api/telephony/callbacks') not in PUBLIC
+    with pytest.raises(HTTPException):
+        check_access(user(['warehouse_view']), requirements('/api/telephony/callbacks', 'POST'))
 
 
 async def test_websocket_rechecks_revocation_before_broadcast():
@@ -251,3 +269,52 @@ async def test_websocket_rechecks_revocation_before_broadcast():
     await manager.broadcast(CRMCardCreated(event_id='test', timestamp=datetime.utcnow(), card_id='test', title='Synthetic'))
     assert ws.send_json.await_count == 1  # Only connection.ready, no data event.
     assert manager.connection_count == 0
+
+
+def test_crm_joined_hms_fields_cannot_bypass_api_boundary():
+    from api_permissions import redact_crm_payload
+    value = {'first_name': 'Synthetic', 'phone': 'synthetic', 'budget': 12, 'amount': 34,
+             'iin': 'synthetic-iin', 'treatment_plan_total': 100, 'patient_debt': 90,
+             'linked_inquiries': [{'patient_id': 'synthetic-patient', 'deposit_amount': 10, 'notes': 'CRM note'}]}
+    redacted = redact_crm_payload(value, user(['crm_view']))
+    assert redacted == {'first_name': 'Synthetic', 'phone': 'synthetic', 'budget': 12, 'amount': 34,
+                        'linked_inquiries': [{'notes': 'CRM note'}]}
+    assert redact_crm_payload(value, user(['crm_view', 'patients_view', 'finance_view'])) == value
+
+
+@pytest.mark.parametrize('path', [
+    '/api/crm/leads/check-phone/{phone}',
+    '/api/crm/clients/{client_id}/convert-to-hms',
+    '/api/crm/leads/{lead_id}/schedule-appointment',
+])
+def test_crm_only_has_no_clinical_lookup_or_write_backdoor(path):
+    with pytest.raises(HTTPException):
+        check_access(user(['crm_view', 'crm_edit']), requirements(path, 'GET' if 'check-phone' in path else 'POST'))
+
+
+async def test_conversion_body_must_explicitly_disable_hms_for_crm_only():
+    from api_permissions import check_cross_space_write
+    actor = user(['crm_view', 'crm_edit'])
+    request = SimpleNamespace(method='POST', json=AsyncMock(return_value={}), query_params={})
+    with pytest.raises(HTTPException):
+        await check_cross_space_write(request, '/api/crm/leads/{lead_id}/convert', actor)
+    request.json.return_value = {'create_hms_patient': False}
+    await check_cross_space_write(request, '/api/crm/leads/{lead_id}/convert', actor)
+    request.json.return_value = {'deposit': 100}
+    with pytest.raises(HTTPException):
+        await check_cross_space_write(request, '/api/crm/leads/{lead_id}/schedule-appointment', actor)
+
+
+async def test_registered_crm_response_redacts_joined_hms_after_serialization():
+    app = FastAPI()
+    async def response():
+        return {'first_name': 'Synthetic', 'patient_debt': 100, 'linked_inquiries': [{'iin': 'synthetic-iin'}]}
+    app.add_api_route('/api/crm/leads/', response, methods=['GET'])
+    install_api_permissions(app)
+    app.dependency_overrides[auth.get_current_active_user] = lambda: user(['crm_view'])
+    app.dependency_overrides[get_database] = DB
+    async with httpx.AsyncClient(transport=httpx.ASGITransport(app), base_url='http://synthetic') as client:
+        result = await client.get('/api/crm/leads/')
+        assert result.status_code == 200
+        assert result.json() == {'first_name': 'Synthetic', 'linked_inquiries': [{}]}
+        assert int(result.headers['content-length']) == len(result.content)
