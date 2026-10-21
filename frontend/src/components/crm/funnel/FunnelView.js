@@ -1,21 +1,17 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { useCrm } from '../../../hooks/useCrm';
+import { useKanbanColumns } from '../../../hooks/useKanbanColumns';
+import { salesFunnel } from '../../../utils/salesFunnel';
 import PanelHeader from '../../common/PanelHeader';
 
-const FUNNEL_STAGES = [
-  { status: 'new',          label: 'Новые заявки',      color: "bg-curai-blue",    light: "bg-curai-selected",    text: "text-curai-blue",    border: "border-curai-control" },
-  { status: 'in_progress',  label: 'В работе',           color: "bg-curai-blue",  light: "bg-curai-selected",  text: "text-curai-blue",  border: "border-curai-control" },
-  { status: 'contacted',    label: 'Контакт установлен', color: "bg-curai-blue",  light: "bg-curai-selected",  text: "text-curai-blue",  border: "border-curai-control" },
-  { status: 'qualified',    label: 'Квалифицированы',    color: "bg-curai-blue",  light: "bg-curai-selected",  text: "text-curai-blue",  border: "border-curai-control" },
-  { status: 'converted',    label: 'Конвертированы',     color: "bg-curai-positive",   light: "bg-curai-positiveBg",   text: "text-curai-positive",   border: "border-curai-positive" },
-];
-
-const DROPPED_STAGES = [
-  { status: 'rejected', label: 'Отказ',   color: "bg-curai-warning", light: "bg-curai-warningBg", text: "text-curai-warning", border: "border-curai-warning" },
-  { status: 'lost',     label: 'Потеряны', color: "bg-curai-negative",    light: "bg-curai-negativeBg",    text: "text-curai-negative",    border: "border-curai-negative" },
-];
-
-const ALL_STAGES = [...FUNNEL_STAGES, ...DROPPED_STAGES];
+const STAGE_STYLE = {
+  color: 'bg-curai-blue', light: 'bg-curai-selected', text: 'text-curai-blue', border: 'border-curai-control'
+};
+const stageStyle = id => id === 'converted' || id === 'closed'
+  ? { color: 'bg-curai-positive', light: 'bg-curai-positiveBg', text: 'text-curai-positive', border: 'border-curai-positive' }
+  : id === 'rejected' || id === 'lost'
+    ? { color: 'bg-curai-negative', light: 'bg-curai-negativeBg', text: 'text-curai-negative', border: 'border-curai-negative' }
+    : STAGE_STYLE;
 
 // Статический фолбэк для каналов (используется если источники не загружены)
 const STATIC_CHANNELS = [
@@ -54,8 +50,9 @@ function fmtDate(dt) {
   return d.toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit', year: '2-digit' });
 }
 
-const FunnelView = ({ user }) => {
-  const { leads, sources, fetchSources, loading, isInitialized } = useCrm();
+const FunnelView = () => {
+  const { leads, sources, fetchSources, fetchLeads, loading, isInitialized } = useCrm({ kanban: true });
+  const columnConfig = useKanbanColumns(fetchLeads);
 
   const [selectedChannel, setSelectedChannel] = useState('all');
   const [selectedStage, setSelectedStage] = useState(null);
@@ -110,37 +107,26 @@ const FunnelView = ({ user }) => {
     return leads.filter(l => l.source === selectedChannel);
   }, [leads, selectedChannel]);
 
-  // Количество лидов по стадиям
-  const stageCounts = useMemo(() => {
-    const counts = {};
-    ALL_STAGES.forEach(s => { counts[s.status] = 0; });
-    filteredLeads.forEach(l => {
-      if (counts[l.status] !== undefined) counts[l.status]++;
-    });
-    return counts;
-  }, [filteredLeads]);
+  const funnel = useMemo(() => salesFunnel(columnConfig.columns, filteredLeads), [columnConfig.columns, filteredLeads]);
+  const funnelStages = funnel.stages.map(stage => ({ ...stage, ...stageStyle(stage.id) }));
+  const historicalStages = funnel.historicalStages.map(stage => ({ ...stage, ...stageStyle(stage.id) }));
+  const maxCount = Math.max(...funnelStages.map(stage => stage.leads.length), 1);
+  const selectedStageInfo = [...funnelStages, ...historicalStages].find(stage => stage.id === selectedStage);
+  const panelLeads = selectedStageInfo?.leads || [];
 
-  // Максимум по основным стадиям (для масштабирования)
-  const maxCount = useMemo(() => {
-    const counts = FUNNEL_STAGES.map(s => stageCounts[s.status] || 0);
-    return Math.max(...counts, 1);
-  }, [stageCounts]);
-
-  // Leads for selected stage panel
-  const panelLeads = useMemo(() => {
-    if (!selectedStage) return [];
-    return filteredLeads.filter(l => l.status === selectedStage);
-  }, [filteredLeads, selectedStage]);
-
-  const selectedStageInfo = useMemo(
-    () => ALL_STAGES.find(s => s.status === selectedStage),
-    [selectedStage]
-  );
-
-  if (!isInitialized || loading) {
+  if (!isInitialized || loading || columnConfig.loading) {
     return (
       <div className="flex items-center justify-center h-64">
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-curai-control" />
+      </div>
+    );
+  }
+
+  if (columnConfig.error) {
+    return (
+      <div role="alert" className="p-6 text-curai-negative">
+        <p>{columnConfig.error}</p>
+        <button type="button" onClick={columnConfig.reload} className="mt-2 underline">Повторить</button>
       </div>
     );
   }
@@ -200,16 +186,16 @@ const FunnelView = ({ user }) => {
         <div className="flex-1 min-w-0">
           <div className="bg-curai-surface rounded-md border border-curai-border overflow-hidden">
             {/* Main funnel stages */}
-            {FUNNEL_STAGES.map((stage, idx) => {
-              const count = stageCounts[stage.status] || 0;
-              const prevCount = idx > 0 ? (stageCounts[FUNNEL_STAGES[idx - 1].status] || 0) : null;
+            {funnelStages.map((stage, idx) => {
+              const count = stage.leads.length;
+              const prevCount = idx > 0 ? funnelStages[idx - 1].leads.length : null;
               const convRate = prevCount > 0 ? Math.round((count / prevCount) * 100) : null;
               // width as % of max, minimum 15% for visual
               const barPct = Math.max(15, Math.round((count / maxCount) * 100));
-              const isActive = selectedStage === stage.status;
+              const isActive = selectedStage === stage.id;
 
               return (
-                <div key={stage.status}>
+                <div key={stage.id}>
                   {/* Conversion rate indicator */}
                   {idx > 0 && (
                     <div className="flex items-center px-5 py-1 bg-curai-subtle border-t border-dashed border-curai-border">
@@ -228,7 +214,8 @@ const FunnelView = ({ user }) => {
 
                   {/* Stage row */}
                   <button
-                    onClick={() => setSelectedStage(isActive ? null : stage.status)}
+                    data-funnel-stage={stage.id}
+                    onClick={() => setSelectedStage(isActive ? null : stage.id)}
                     className={`w-full text-left px-5 py-4 transition-colors ${
                       isActive ? stage.light : "hover:bg-curai-subtle"
                     } ${idx === 0 ? '' : ''}`}
@@ -236,7 +223,7 @@ const FunnelView = ({ user }) => {
                     <div className="flex items-center gap-4">
                       {/* Stage label */}
                       <div className="w-44 shrink-0">
-                        <div className={`font-medium text-sm ${isActive ? stage.text : "text-curai-ink"}`}>
+                        <div className={`break-words font-medium text-sm ${isActive ? stage.text : "text-curai-ink"}`}>
                           {stage.label}
                         </div>
                         <div className="text-xs text-curai-muted mt-0.5">шаг {idx + 1}</div>
@@ -248,7 +235,7 @@ const FunnelView = ({ user }) => {
                           className={`h-full rounded-md transition-all duration-500 ${stage.color} opacity-80`}
                           style={{ width: `${barPct}%` }}
                         />
-                        <span className="absolute inset-0 flex items-center px-3 text-sm font-semibold text-curai-ink">
+                        <span data-stage-count className="absolute inset-0 flex items-center px-3 text-sm font-semibold text-curai-ink">
                           {count}
                         </span>
                       </div>
@@ -272,17 +259,17 @@ const FunnelView = ({ user }) => {
               );
             })}
 
-            {/* Dropped off */}
-            <div className="border-t border-curai-border bg-curai-subtle px-5 py-3">
-              <div className="flex items-center gap-6">
-                <span className="text-xs font-medium text-curai-muted uppercase tracking-wide">Выбыли</span>
-                {DROPPED_STAGES.map(stage => {
-                  const count = stageCounts[stage.status] || 0;
-                  const isActive = selectedStage === stage.status;
+            {/* Historical statuses/assignments are not current Kanban columns. */}
+            {historicalStages.length > 0 && <div aria-label="Вне текущего канбана" className="border-t border-curai-border bg-curai-subtle px-5 py-3">
+              <div className="flex flex-wrap items-center gap-3">
+                <span className="text-xs font-medium text-curai-muted uppercase tracking-wide">Вне текущего канбана</span>
+                {historicalStages.map(stage => {
+                  const count = stage.leads.length;
+                  const isActive = selectedStage === stage.id;
                   return (
                     <button
-                      key={stage.status}
-                      onClick={() => setSelectedStage(isActive ? null : stage.status)}
+                      key={stage.id}
+                      onClick={() => setSelectedStage(isActive ? null : stage.id)}
                       className={`flex items-center gap-2 px-3 py-1.5 rounded-md border text-sm font-medium transition-colors ${
                         isActive
                           ? `${stage.light} ${stage.border} ${stage.text}`
@@ -291,41 +278,41 @@ const FunnelView = ({ user }) => {
                     >
                       <span className={`inline-block w-2 h-2 rounded-full ${stage.color}`} />
                       {stage.label}
-                      <span className={`font-semibold ${isActive ? stage.text : "text-curai-ink"}`}>{count}</span>
+                      <span data-stage-count className={`font-semibold ${isActive ? stage.text : "text-curai-ink"}`}>{count}</span>
                     </button>
                   );
                 })}
               </div>
-            </div>
+            </div>}
           </div>
 
           {/* Summary stats */}
           <div className="mt-4 grid grid-cols-3 gap-3">
-            <div className="bg-curai-surface rounded-md border border-curai-border p-4 text-center">
+            <div data-funnel-summary className="bg-curai-surface rounded-md border border-curai-border p-4 text-center">
               <div className="text-2xl font-semibold text-curai-ink">
-                {stageCounts['converted'] || 0}
+                {funnel.converted}
               </div>
               <div className="text-xs text-curai-muted mt-1">Конвертированы</div>
               <div className="text-sm font-medium text-curai-positive mt-0.5">
                 {filteredLeads.length > 0
-                  ? `${Math.round(((stageCounts['converted'] || 0) / filteredLeads.length) * 100)}% конверсия`
+                  ? `${Math.round((funnel.converted / filteredLeads.length) * 100)}% конверсия`
                   : '—'}
               </div>
             </div>
-            <div className="bg-curai-surface rounded-md border border-curai-border p-4 text-center">
+            <div data-funnel-summary className="bg-curai-surface rounded-md border border-curai-border p-4 text-center">
               <div className="text-2xl font-semibold text-curai-ink">
-                {(stageCounts['rejected'] || 0) + (stageCounts['lost'] || 0)}
+                {funnel.dropped}
               </div>
               <div className="text-xs text-curai-muted mt-1">Потеряно</div>
               <div className="text-sm font-medium text-curai-negative mt-0.5">
                 {filteredLeads.length > 0
-                  ? `${Math.round((((stageCounts['rejected'] || 0) + (stageCounts['lost'] || 0)) / filteredLeads.length) * 100)}% отток`
+                  ? `${Math.round((funnel.dropped / filteredLeads.length) * 100)}% отток`
                   : '—'}
               </div>
             </div>
-            <div className="bg-curai-surface rounded-md border border-curai-border p-4 text-center">
+            <div data-funnel-summary className="bg-curai-surface rounded-md border border-curai-border p-4 text-center">
               <div className="text-2xl font-semibold text-curai-ink">
-                {(stageCounts['new'] || 0) + (stageCounts['in_progress'] || 0) + (stageCounts['contacted'] || 0) + (stageCounts['qualified'] || 0)}
+                {funnel.active}
               </div>
               <div className="text-xs text-curai-muted mt-1">В обработке</div>
               <div className="text-sm font-medium text-curai-blue mt-0.5">активные</div>
@@ -368,7 +355,7 @@ const FunnelView = ({ user }) => {
       {selectedStage && selectedStageInfo && (
         <div className={`rounded-md border ${selectedStageInfo.border} ${selectedStageInfo.light}`}>
           <div className={`flex items-center justify-between px-5 py-3 border-b ${selectedStageInfo.border}`}>
-            <h3 className={`font-semibold ${selectedStageInfo.text}`}>
+            <h3 className={`min-w-0 break-words font-semibold ${selectedStageInfo.text}`}>
               {selectedStageInfo.label}
               <span className="ml-2 text-sm font-normal">— {panelLeads.length} заявок</span>
             </h3>

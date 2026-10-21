@@ -1,5 +1,31 @@
 # Getting Started with Create React App
 
+## Sales funnel and Kanban columns
+
+CRM → Сделки (`FunnelView`) uses the same ordered column configuration and
+canonical card collection as the board: `GET /api/crm/kanban/columns` and
+`GET /api/crm/leads/kanban`. Column names/order come from the shared Kanban
+configuration, including empty custom and paid stages. Counts and drilldown
+use the filtered canonical cards and the board's `cardColumnId` rule, including
+supported manual overrides; linked inquiries are not counted again.
+
+Legacy statuses and assignments absent from the current configuration remain
+inspectable under **Вне текущего канбана**. They do not become active stages or
+silently move to another column. The API has no column archive flag; normal
+column deletion clears assignments and returns cards to Unparsed on the server.
+
+The existing source filter and summary definitions are retained: conversion is
+the number of cards with base status `converted` divided by all filtered cards;
+loss is `rejected + lost`; active is `new + in_progress + contacted + qualified`.
+Adjacent-stage percentages still compare current counts, not historical transition
+events. Reopening the view fetches current configuration/cards, and existing
+`crm-kanban-changed` events refresh both. There are no period or clinic controls
+on this screen; the board's date/search controls are independent.
+
+`node --test tests/funnelView.test.mjs` covers order, rename/add/delete, moves,
+empty stages, filtering, totals, legacy/unknown IDs, overrides, full collections
+beyond 50 cards, authentication headers, and API-error retry with mock HTTP only.
+
 This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
 
 ## Available Scripts
