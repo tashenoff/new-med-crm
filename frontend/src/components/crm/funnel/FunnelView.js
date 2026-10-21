@@ -1,9 +1,9 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import PanelHeader from '../../common/PanelHeader';
 import FunnelSettings from './FunnelSettings';
+import FunnelRules from './FunnelRules';
 import FunnelReportBody from './FunnelReportBody';
-import { stagePreferenceKey } from '../../../utils/funnelReport';
-import { funnelRequest, initialPeriod, readReportPreference, reportPeriod } from '../../../utils/eventFunnel';
+import { stagePreferenceKey, funnelRequest, initialPeriod, readReportPreference, reportPeriod } from '../../../utils/eventFunnel';
 
 const control = 'min-w-0 rounded-md border border-curai-control bg-curai-surface px-3 py-2 text-sm';
 const action = 'rounded-md border border-curai-control px-3 py-2 text-sm';
@@ -107,12 +107,12 @@ export default function FunnelView({ user }) {
       <div className="flex flex-wrap gap-2">
         {mode === 'history' && <button type="button" className={action} onClick={() => setPanel('steps')}>Шаги воронки ({steps.length})</button>}
         <button type="button" className={action} onClick={() => setPanel('visibility')}>Отображение этапов</button>
+        {mode === 'history' && <button type="button" className={action} onClick={() => setPanel('rules')}>Как считается</button>}
         <button type="button" className={action} onClick={reload}>Обновить</button>
       </div>
       {mode === 'history' ? <div className="space-y-1 text-sm text-curai-muted">
         {steps.length > 0 && <p className="break-words">Путь: {steps.map(label).join(' → ')}.</p>}
-        <p>Каждое обращение считается один раз. Невыбранные этапы можно пропускать; выбранные засчитываются только по порядку. Возврат не сбрасывает прогресс, повтор не увеличивает число обращений.</p>
-        <p>Период задаёт первый наблюдаемый вход в начало пути. Окно — {windowDays} дней от этого входа включительно; повторный вход не начинает его заново. Источник закреплён на момент входа.</p>
+        <p>Когорта — первый наблюдаемый вход в начало пути. Окно: {windowDays} суток. Источник на момент входа.</p>
         {view === 'sources' && <p>Сравниваются только выбранные источники с одинаковыми периодом, шагами и окном. Фильтр режима «По этапам» здесь не применяется.</p>}
       </div> : <p className="text-sm text-curai-muted">Это текущие состояния обращений, не история прохождения. Проценты — доля от всех обращений выбранного периода создания. Разные обращения одного пациента считаются отдельно.</p>}
       {(error || query?.error) && <div role="alert" className="text-curai-negative">{error || query.error} <button className="underline" onClick={reload}>Повторить</button></div>}
@@ -120,6 +120,7 @@ export default function FunnelView({ user }) {
       {!report && !error && !query?.error && (mode !== 'history' || steps.length >= 2) && <p role="status">Загрузка отчёта…</p>}
       {report && <FunnelReportBody report={report} mode={mode} view={view} hidden={hidden} />}
     </div>
-    {panel && <FunnelSettings key={panel} panel={panel} stages={panelStages} sources={sourceOptions} initial={panel === 'steps' ? [...steps] : panel === 'sources' ? [...selectedSourceKeys] : [...hidden]} onClose={() => setPanel(null)} onDone={completePanel} />}
+    {panel === 'rules' && <FunnelRules windowDays={windowDays} onClose={() => setPanel(null)} />}
+    {panel && panel !== 'rules' && <FunnelSettings key={panel} panel={panel} stages={panelStages} sources={sourceOptions} initial={panel === 'steps' ? [...steps] : panel === 'sources' ? [...selectedSourceKeys] : [...hidden]} onClose={() => setPanel(null)} onDone={completePanel} />}
   </div>;
 }

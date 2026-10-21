@@ -64,7 +64,7 @@ test('history has no hardcoded path; explicit arbitrary IDs determine sequence a
  for(const id of ['entry-x','middle-y','end-z'])await h.click(document.querySelector(`[data-definition-stage="${id}"]`));
  await h.click(h.button('Готово'));assert.deepEqual(h.rows().map(row=>row.dataset.funnelStage),['entry-x','middle-y','end-z']);
  await h.change('Окно конверсии, дней','7');assert.equal(h.f.requests.at(-1).searchParams.get('window_days'),'7');
- assert.match(document.body.textContent,/Возврат не сбрасывает прогресс/);assert.match(document.body.textContent,/без наблюдаемых событий/);
+ await h.click(h.button('Как считается'));assert.match(document.body.textContent,/Возврат не сбрасывает прогресс/);await h.click(h.button('Закрыть'));assert.match(document.body.textContent,/без наблюдаемых событий/);
 });
 test('source filter changes stage report; comparison independently uses explicit multiple sources',async t=>{
  const h=await mount(t);await h.define();await h.change('Источник','source:a');assert.match(h.total(),/^6/);

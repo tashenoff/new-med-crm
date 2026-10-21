@@ -33,3 +33,8 @@ export function readReportPreference(key) {
     } : { steps: [], hidden: [] };
   } catch { return { steps: [], hidden: [] }; }
 }
+
+export function stagePreferenceKey(user) {
+  const id = user?.id || user?._id;
+  return id ? `medcrm:funnel-hidden-stages:v1:${encodeURIComponent(JSON.stringify([id, user.clinic_id || user.clinic?.id || 'installation']))}` : null;
+}

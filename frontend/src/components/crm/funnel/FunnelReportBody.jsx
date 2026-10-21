@@ -16,7 +16,7 @@ export default function FunnelReportBody({ report, mode, view, hidden }) {
       {visible.map(stage => <div key={stage.id} data-funnel-stage={stage.id} className="border-b last:border-0 border-curai-border p-4 space-y-2">
         <div className="flex min-w-0 items-start justify-between gap-3"><span className="min-w-0 break-words font-medium">{stage.name}</span><span data-stage-count className="shrink-0 font-semibold">{stage.count}</span></div>
         <div className="h-3 bg-curai-subtle rounded-md overflow-hidden"><div data-stage-bar className="h-full bg-curai-blue" style={{ width: `${mode === 'history' ? stage.cohort_rate || 0 : stage.share || 0}%` }} /></div>
-        <div className="text-xs text-curai-muted">{mode === 'history' ? `${percent(stage.cohort_rate)} от когорты; ${percent(stage.previous_rate)} от предыдущего выбранного шага` : `${percent(stage.share)} от всех обращений снимка`}</div>
+        <div className="text-xs text-curai-muted">{mode === 'history' ? `${percent(stage.cohort_rate)} от когорты${stage.previous_id ? '; ' + percent(stage.previous_rate) + ' от шага «' + (report.totals.stages.find(item => item.id === stage.previous_id)?.name || 'недоступный этап') + '»' : ''}` : `${percent(stage.share)} от всех обращений снимка`}</div>
       </div>)}
       {mode === 'snapshot' && report.totals.outside_current_columns > 0 && <p className="p-4 text-sm">Вне текущих колонок: {report.totals.outside_current_columns}. Они включены в общий итог.</p>}
     </div> : <section aria-label="Сравнение источников" className="min-w-0 space-y-2">
