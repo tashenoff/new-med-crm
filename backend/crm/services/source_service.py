@@ -90,6 +90,9 @@ class SourceService:
         
         if leads_count > 0:
             raise ValueError(f"Невозможно удалить источник: найдено {leads_count} заявок с этим источником")
+
+        if await self.db.crm_inbound_source_mappings.find_one({'source_id': source_id}):
+            raise ValueError('Сначала снимите привязку входящего номера в форме источника')
         
         result = await self.collection.delete_one({"id": source_id})
         return result.deleted_count > 0

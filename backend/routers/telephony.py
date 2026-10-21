@@ -1,5 +1,6 @@
 import os
 import uuid
+from pymongo.errors import DuplicateKeyError
 import asyncio
 from pathlib import Path
 
@@ -217,7 +218,7 @@ async def _find_patient_by_phone(db, phone: str) -> Optional[dict]:
 
 
 
-async def _find_or_create_lead(db, phone: str, contact_name: Optional[str] = None) -> Optional[dict]:
+async def _find_or_create_lead(db, phone: str, contact_name: Optional[str] = None, attribution=None) -> Optional[dict]:
 
     """Ищет активный лид по телефону или создаёт новый."""
     from crm.services.lead_service import LeadService
@@ -239,11 +240,55 @@ async def _find_or_create_lead(db, phone: str, contact_name: Optional[str] = Non
         first_name=first_name,
         last_name=last_name or "Телефония",
         phone=phone,
-        source=LeadSource.PHONE,
+        source=LeadSource(attribution['source_type']) if attribution and attribution.get('source_id') else LeadSource.PHONE,
+        source_id=attribution.get('source_id') if attribution else None,
         description="Обращение через Zadarma-звонок",
     )
     new_lead = await lead_service.create_lead(lead_data, created_by="telephony_webhook")
     return new_lead.dict() if hasattr(new_lead, "dict") else new_lead
+
+
+async def _capture_call_attribution(db, call_doc, params, direction, phone):
+    """Capture once for a new provider call. Existing/legacy history is immutable.
+
+    The native call _id reserves the event before creating a CRM card. An atomic
+    claim also handles concurrent retries and recording-before-start events.
+    Attribution belongs to the call even if the caller is an existing patient
+    or an active/manual-source lead; their first source is never overwritten.
+    """
+    if call_doc.get('attribution_captured') is not False:
+        return
+    from crm.services.inbound_source_service import InboundSourceService
+    if 'source_id' in call_doc:
+        attribution = {key: call_doc.get(key) for key in ('called_did', 'source_id', 'source_name', 'source_type')}
+    elif direction == CallDirection.INBOUND:
+        attribution = await InboundSourceService(db).attribution(params.get('called_did'))
+    else:
+        attribution = dict(called_did=None, source_id=None, source_name=None, source_type=None)
+    claimed = await db.telephony_calls.update_one(
+        {'_id': call_doc['_id'], 'attribution_captured': False},
+        {'$set': {**attribution, 'attribution_captured': True, 'phone_number': phone,
+                  'normalized_phone': _normalize_phone(phone), 'direction': direction.value}},
+    )
+    if not claimed.matched_count:
+        return
+    patient = await _find_patient_by_phone(db, phone)
+    patient_id = str(patient.get('id') or patient.get('_id', '')) if patient else None
+    lead_id = None
+    if not patient and direction == CallDirection.INBOUND:
+        try:
+            lead = await _find_or_create_lead(db, phone, attribution=attribution)
+            if lead:
+                lead_id = lead.get('id') or lead.get('_id')
+        except Exception:
+            # A persisted lead may already exist even if its initial task failed.
+            # Keep the reservation; a replay must not create another first touch.
+            logger.exception('Could not link incoming call %s to CRM', call_doc.get('pbx_call_id'))
+    identity = {'patient_id': patient_id, 'lead_id': lead_id}
+    name = await _resolve_contact_name(db, {**call_doc, **identity, 'phone_number': phone})
+    if name:
+        identity['contact_name'] = name
+    await db.telephony_calls.update_one({'_id': call_doc['_id']}, {'$set': identity})
 
 
 async def _resolve_contact_name(db, call_doc: dict) -> Optional[str]:
@@ -274,8 +319,8 @@ async def _resolve_contact_name(db, call_doc: dict) -> Optional[str]:
         full_name = patient.get("full_name")
         if full_name:
             return full_name
-        first_name = patient.get("first_name", "").strip()
-        last_name = patient.get("last_name", "").strip()
+        first_name = (patient.get("first_name") or "").strip()
+        last_name = (patient.get("last_name") or "").strip()
         if first_name and last_name:
             return f"{first_name} {last_name}"
         return first_name or last_name or None
@@ -286,8 +331,8 @@ async def _resolve_contact_name(db, call_doc: dict) -> Optional[str]:
     lead = await lead_service.get_active_lead_by_phone(phone)
     if lead:
         lead_dict = lead.dict() if hasattr(lead, "dict") else lead
-        first_name = lead_dict.get("first_name", "").strip()
-        last_name = lead_dict.get("last_name", "").strip()
+        first_name = (lead_dict.get("first_name") or "").strip()
+        last_name = (lead_dict.get("last_name") or "").strip()
         if first_name and last_name:
             return f"{first_name} {last_name}"
         return first_name or last_name or None
@@ -456,6 +501,9 @@ async def webhook_events(request: Request):
         local_url = None
         rec_pbx_call_id = params.get("pbx_call_id", "")
         call_id_with_rec = params.get("call_id_with_rec", "") or params.get("call_id", "")
+        if not isinstance(rec_pbx_call_id, str) or not rec_pbx_call_id:
+            logger.warning('Recording event has no stable PBX call ID; skipped')
+            return {"status": "ok"}
         recording_url = params.get("recording_url", "") or params.get("recording", "") or None
         if recording_url and recording_url.startswith("/uploads/"):
             local_url = recording_url
@@ -484,7 +532,9 @@ async def webhook_events(request: Request):
             logger.info("Звонок %s: привязана запись %s", rec_pbx_call_id, recording_url)
         else:
             # Звонка ещё нет — сохраняем отдельным документом, чтобы не потерять запись
-            inserted = await db.telephony_calls.insert_one({
+            record_doc = {
+                "_id": 'zadarma:' + rec_pbx_call_id,
+                "attribution_captured": False,
                 "phone_number": "",
                 "normalized_phone": "",
                 "direction": CallDirection.INBOUND.value,
@@ -498,8 +548,17 @@ async def webhook_events(request: Request):
                 "created_at": datetime.utcnow(),
                 "updated_at": datetime.utcnow(),
                 "raw_payload": params,
-            })
-            call_key = {"_id": inserted.inserted_id}
+            }
+            try:
+                inserted = await db.telephony_calls.insert_one(record_doc)
+                call_key = {"_id": inserted.inserted_id}
+            except DuplicateKeyError:
+                call_key = {"_id": record_doc['_id']}
+                existing_call = await db.telephony_calls.find_one(call_key)
+                rec_update = {"is_recorded": True, "updated_at": datetime.utcnow()}
+                if recording_url:
+                    rec_update['recording_url'] = recording_url
+                await db.telephony_calls.update_one(call_key, {'$set': rec_update})
             logger.warning(
                 "NOTIFY_RECORD: звонок %s не найден, запись сохранена отдельно",
                 rec_pbx_call_id,
@@ -542,7 +601,7 @@ async def webhook_events(request: Request):
 
         # Для исходящих — телефон вызываемого
 
-        phone = params.get("to", "") or params.get("caller_id", "")
+        phone = params.get("destination", "") or params.get("to", "") or params.get("caller_id", "")
 
     else:
 
@@ -563,40 +622,6 @@ async def webhook_events(request: Request):
     # Нормализуем телефон
 
     normalized_phone = _normalize_phone(phone)
-
-
-
-    # Ищем пациента или создаём лид
-
-    patient = await _find_patient_by_phone(db, phone)
-
-    lead = None
-
-    patient_id = None
-
-    lead_id = None
-
-
-
-    if patient:
-
-        patient_id = str(patient.get("id") or patient.get("_id", ""))
-
-    else:
-
-        # Создаём лид, если пациента нет
-
-        try:
-
-            lead = await _find_or_create_lead(db, phone)
-
-            if lead:
-
-                lead_id = lead.get("id") or lead.get("_id", "")
-
-        except Exception as e:
-
-            logger.error("Ошибка создания лида: %s", e)
 
 
 
@@ -704,6 +729,10 @@ async def webhook_events(request: Request):
 
     call_id = params.get("call_id", "") or params.get("pbx_call_id", "")
 
+    if not isinstance(pbx_call_id, str) or not pbx_call_id:
+        logger.warning("Zadarma event has no stable call ID; no call or CRM card created")
+        return {"status": "ok"}
+
 
 
     # URL записи (NOTIFY_RECORD)
@@ -752,12 +781,21 @@ async def webhook_events(request: Request):
                 {"$set": update}
             )
             logger.info("Обновлён звонок %s: событие %s", pbx_call_id, event)
+            await _capture_call_attribution(db, existing_call, params, direction, phone)
             return {"status": "ok"}
 
 
     # Создаём новый документ
 
+    from crm.services.inbound_source_service import InboundSourceService
+    attribution = (await InboundSourceService(db).attribution(params.get('called_did'))
+                   if direction == CallDirection.INBOUND else
+                   dict(called_did=None, source_id=None, source_name=None, source_type=None))
+
     call_doc = {
+        **attribution,
+        "_id": 'zadarma:' + pbx_call_id,
+        "attribution_captured": False,
         "phone_number": phone,
         "normalized_phone": normalized_phone,
         "direction": direction.value,
@@ -768,19 +806,20 @@ async def webhook_events(request: Request):
         "is_recorded": event == "NOTIFY_RECORD" or bool(recording_url),
         "duration": duration,
         "recording_url": recording_url or None,
-        "patient_id": patient_id,
-        "lead_id": lead_id,
+        "patient_id": None,
+        "lead_id": None,
         "created_at": datetime.utcnow(),
         "updated_at": datetime.utcnow(),
         "raw_payload": params,
     }
 
-    # Подтягиваем имя контакта сразу при создании
-    contact_name = await _resolve_contact_name(db, call_doc)
-    if contact_name:
-        call_doc["contact_name"] = contact_name
-
-    await db.telephony_calls.insert_one(call_doc)
+    try:
+        await db.telephony_calls.insert_one(call_doc)
+    except DuplicateKeyError:
+        # Concurrent delivery already reserved this provider call. Replays only
+        # update the call event; they must not create or reattribute a CRM lead.
+        return {"status": "ok"}
+    await _capture_call_attribution(db, call_doc, params, direction, phone)
     logger.info(
 
         "Сохранён звонок %s: %s %s (%ds)",

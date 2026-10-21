@@ -33,6 +33,10 @@ class TelephonyCall(BaseModel):
     lead_id: Optional[str] = None    # ID лида, если создан
     contact_name: Optional[str] = None  # Имя пациента или лида, подтянутое по номеру
     phone_number: str
+    called_did: Optional[str] = None
+    source_id: Optional[str] = None
+    source_name: Optional[str] = None
+    source_type: Optional[str] = None
     direction: CallDirection
     status: CallStatus
     disposition: Optional[Disposition] = None  # Статус завершения от АТС
