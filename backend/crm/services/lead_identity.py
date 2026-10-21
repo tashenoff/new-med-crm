@@ -60,3 +60,11 @@ def group_lead_touches(documents):
         key=lambda touches: touch_order(touches[0]),
         reverse=True,
     )
+
+
+def canonical_stage_id(document):
+    """Existing Kanban classification; no report-specific step inference."""
+    status = document.get('status')
+    if status == 'new' or document.get('kanban_override_source') == 'whatsapp':
+        return document.get('kanban_column_id') or status
+    return status

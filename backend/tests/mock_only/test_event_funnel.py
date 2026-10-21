@@ -193,6 +193,8 @@ def test_source_at_entry_is_frozen_and_selected_zero_is_not_dropped():
     document = journey('deal', [('new', 0), ('contacted', 1), ('converted', 2)])
     document['source_id'] = 'b'
     document['_funnel_events'][1]['source_id'] = 'b'
+    document['_funnel_events'][1]['source_type'] = 'phone'
+    document['_funnel_events'][2]['source_type'] = 'social'
     result = report([document], source_ids=['source:a', 'source:zero'])
     assert [row['key'] for row in result['sources']] == ['source:a', 'source:zero']
     assert result['sources'][0]['total'] == 1
@@ -217,3 +219,12 @@ def test_ledger_and_outbox_deduplicate_and_deleted_deal_history_survives():
                                  steps=['new', 'contacted', 'converted'], start=AT, end=AT + timedelta(days=1), window_days=7, as_of=AT + timedelta(days=14))
     assert result['totals']['converted'] == 1
     assert len(reports.observed_events([document], document['_funnel_events'])['deal']) == 3
+
+
+def test_window_deadline_is_inclusive_and_period_end_exclusive():
+    document = journey('at-deadline', [('new', 0), ('contacted', 1), ('converted', 7)])
+    assert report([document])['totals']['converted'] == 1
+    document['_funnel_events'][-1]['occurred_at'] += timedelta(microseconds=1)
+    assert report([document])['totals']['converted'] == 0
+    later = journey('at-end', [('new', 1), ('contacted', 2), ('converted', 3)])
+    assert report([later])['totals']['total'] == 0

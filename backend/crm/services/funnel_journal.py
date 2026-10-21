@@ -11,18 +11,15 @@ import logging
 
 from fastapi import HTTPException
 from pymongo.results import UpdateResult
+from .lead_identity import canonical_stage_id
 
 log = logging.getLogger(__name__)
 WATCHED = ('status', 'kanban_column_id', 'kanban_override_source')
-GUARDED = (*WATCHED, 'source_id', 'source', 'source_name', '_funnel_version')
+GUARDED = (*WATCHED, 'source_id', 'source', 'source_name', 'channel_id', 'campaign_id', '_funnel_version')
 
 
 def stage_id(document):
-    status = document.get('status') or 'new'
-    if status == 'new' or document.get('kanban_override_source') == 'whatsapp':
-        return document.get('kanban_column_id') or status
-    return status
-
+    return canonical_stage_id(document)
 
 def event(document, sequence, previous, kind, cause, at=None):
     identifier = str(document['id'])
@@ -32,6 +29,7 @@ def event(document, sequence, previous, kind, cause, at=None):
         'from_stage_id': previous, 'to_stage_id': stage_id(document),
         'source_id': document.get('source_id'), 'source_type': document.get('source'),
         'source_name': document.get('source_name'), 'cause': cause,
+        **{key: document.get(key) for key in ('channel_id', 'channel_name', 'campaign_id', 'campaign_name')},
         **({'clinic_id': document['clinic_id']} if document.get('clinic_id') else {}),
         **({'synthetic_batch_id': document['synthetic_batch_id']} if document.get('synthetic_batch_id') else {}),
     }
@@ -60,8 +58,12 @@ def apply_update(document, update):
 class FunnelLeadCollection:
     def __init__(self, db, collection=None, cause='crm'):
         self.raw = collection if collection is not None else db.crm_leads
-        self.ledger = db.crm_funnel_events
+        self.db = db
         self.cause = cause
+
+    @property
+    def ledger(self):
+        return self.db.crm_funnel_events
 
     def __getattr__(self, name):
         return getattr(self.raw, name)

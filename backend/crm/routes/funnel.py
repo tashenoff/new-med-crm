@@ -2,12 +2,22 @@ from datetime import datetime
 from typing import List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query
+from models.auth import UserRole
+from routers.auth import require_role
 
 from ..dependencies import get_database
 from ..services.funnel_report import load_report
-from ..services.kanban_service import KanbanService
+from ..services.kanban_service import KanbanService, normalized_columns
 
-funnel_router = APIRouter(prefix='/funnel', tags=['CRM funnel'])
+funnel_router = APIRouter(prefix='/funnel', tags=['CRM funnel'],
+                         dependencies=[Depends(require_role([role for role in UserRole if role != UserRole.PATIENT]))])
+
+
+async def load_columns(db):
+    configuration = await KanbanService(db).configuration()
+    if not configuration or configuration.get('pending_operation'):
+        raise HTTPException(409, 'Настройка этапов отсутствует или меняется. Откройте CRM/Сделки и повторите загрузку.')
+    return normalized_columns(configuration)
 
 
 @funnel_router.get('/report')
@@ -23,7 +33,7 @@ async def report(start: datetime, end: datetime, mode: str = 'history',
     if source_selection not in ('all', 'selected'):
         raise HTTPException(422, 'Некорректная область источников')
     source_ids = (source_ids or []) if source_selection == 'selected' else None
-    columns = await KanbanService(db).columns()
+    columns = await load_columns(db)
     if mode == 'history' and (len(steps) < 2 or len(steps) > 30 or len(set(steps)) != len(steps) or any(not step or len(step) > 120 for step in steps)):
         raise HTTPException(422, 'Выберите от 2 до 30 разных текущих этапов в порядке прохождения')
     if source_ids is not None and (len(source_ids) > 100 or len(set(source_ids)) != len(source_ids)):
@@ -38,6 +48,6 @@ async def report(start: datetime, end: datetime, mode: str = 'history',
 async def options(synthetic_batch: Optional[str] = Query(default=None, min_length=1, max_length=120), db=Depends(get_database)):
     query = {'synthetic_batch_id': synthetic_batch} if synthetic_batch else {'synthetic_batch_id': {'$exists': False}}
     sources = await db.crm_sources.find(query, {'id': 1, 'name': 1}).to_list(length=None)
-    return {'columns': await KanbanService(db).columns(),
+    return {'columns': await load_columns(db),
             'sources': [{'key': 'source:' + source['id'], 'name': source['name']} for source in sources],
             'synthetic_batch': synthetic_batch}

@@ -211,6 +211,9 @@ def test_create_initial_unconfirmed_and_scheduled_crm_card(harness, explicit_def
     assert "source_id" not in h.db.patients.rows[0]
     assert "source_id" not in h.db.crm_leads.rows[0]
     assert_correspondence(h, "unconfirmed", "contacted")
+    observed = h.db.crm_leads.rows[0]["_funnel_events"]
+    assert len(observed) == 1 and observed[0]["to_stage_id"] == "contacted"
+    assert observed[0]["kind"] == "transition"
     assert "kanban_column_id" not in h.db.crm_leads.rows[0]
     h.sender.send_appointment_created_notification.assert_awaited_once()
 
@@ -228,6 +231,8 @@ def test_calendar_patch_confirms_linked_card_and_later_stale_modal_cannot_reset_
     assert_correspondence(h, "confirmed", "in_progress")
     assert "kanban_column_id" not in h.db.crm_leads.rows[0]
     assert "Запись на прием подтверждена" in h.db.crm_leads.rows[0]["notes"]
+    observed = h.db.crm_leads.rows[0]["_funnel_events"]
+    assert len(observed) == 1 and observed[0]["to_stage_id"] == "in_progress"
     # Frontend regression covers the actual stale form; here exercise its HTTP contract.
     response = h.client.put("/api/appointments/appointment-fixture", json={"notes": "Saved after confirmation"})
     assert response.status_code == 200, response.text

@@ -56,10 +56,14 @@ def build_report(documents, ledger, columns, sources, *, steps, start, end, wind
     stage_options = [*columns, *[{'id': identifier, 'name': 'Архивный этап (' + identifier + ')', 'archived': True} for identifier in sorted(observed_ids - set(configured))]]
     configured.update({column['id']: column['name'] for column in stage_options})
     if mode == 'snapshot':
+        seen = set()
         for doc in documents:
             created = utc(doc.get('created_at'))
             if not doc.get('id') or created is None or not start <= created < end:
                 continue
+            if str(doc['id']) in seen:
+                continue
+            seen.add(str(doc['id']))
             key = source_key(doc.get('source_id'), known)
             units.append({'id': str(doc['id']), 'key': key, 'stage': stage_id(doc)})
     else:
@@ -113,7 +117,8 @@ def build_report(documents, ledger, columns, sources, *, steps, start, end, wind
         counts = [sum(unit['reached'] > index for unit in rows) for index in range(len(steps))]
         stages = [{'id': identifier, 'name': configured.get(identifier, 'Недоступный этап'),
                    'count': counts[index], 'cohort_rate': rate(counts[index], total),
-                   'previous_rate': rate(counts[index], counts[index - 1]) if index else None}
+                   'previous_rate': rate(counts[index], counts[index - 1]) if index else None,
+                   'previous_id': steps[index - 1] if index else None}
                   for index, identifier in enumerate(steps)]
         return {'total': total, 'stages': stages, 'converted': counts[-1],
                 'conversion': rate(counts[-1], total),
@@ -135,6 +140,7 @@ def build_report(documents, ledger, columns, sources, *, steps, start, end, wind
 
 
 async def load_report(db, columns, sources, *, synthetic_batch=None, **options):
+    options.setdefault('as_of', datetime.now(timezone.utc))
     query = {'synthetic_batch_id': synthetic_batch} if synthetic_batch else {'synthetic_batch_id': {'$exists': False}}
     # No patient identities, phone numbers or financial data leave this report.
     documents = await db.crm_leads.find(query, {

@@ -65,6 +65,8 @@ class Collection:
         elif document is None:
             return SimpleNamespace(matched_count=0, modified_count=0)
         document.update(deepcopy(update.get('$set', {})))
+        for key, value in update.get('$push', {}).items():
+            document.setdefault(key, []).append(deepcopy(value))
         for key in update.get('$unset', {}):
             document.pop(key, None)
         for key, value in update.get('$inc', {}).items():
@@ -73,7 +75,7 @@ class Collection:
 
 
 def database(*documents):
-    result = SimpleNamespace(system_settings=Collection(), crm_leads=Collection(list(documents)))
+    result = SimpleNamespace(system_settings=Collection(), crm_leads=Collection(list(documents)), crm_funnel_events=Collection())
     result.collections = {'system_settings': result.system_settings, 'crm_leads': result.crm_leads}
     result.client = SimpleNamespace(start_session=AsyncMock(
         side_effect=OperationFailure('transactions not supported', code=20),
