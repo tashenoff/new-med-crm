@@ -14,6 +14,7 @@ import uuid
 
 os.environ["CONSENT_PUBLIC_BASE_URL"] = "http://127.0.0.1:18763"
 os.environ["CONSENT_ALLOW_LOCALHOST"] = "1"
+os.environ["CONSENT_ENABLED"] = "1"
 os.environ["MONGO_URL"] = "mongodb://127.0.0.1:27163"
 os.environ["DB_NAME"] = "consent_synthetic_unused"
 ROOT = Path(__file__).resolve().parents[2]

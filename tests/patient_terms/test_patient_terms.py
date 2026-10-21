@@ -19,6 +19,7 @@ os.environ["DB_NAME"] = "consent_synthetic_unused"
 os.environ["WAZZUP24_API_KEY"] = "synthetic-never-send"
 os.environ["CONSENT_PUBLIC_BASE_URL"] = "http://127.0.0.1:18763"
 os.environ["CONSENT_ALLOW_LOCALHOST"] = "1"
+os.environ["CONSENT_ENABLED"] = "1"
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "backend"))
 
 from fastapi import FastAPI, HTTPException
@@ -250,11 +251,68 @@ class TermsTests(unittest.IsolatedAsyncioTestCase):
     async def test_preparation_error_safe_retry_and_no_active_rule(self):
         self.assertEqual((await self.notification())["state"], "disabled")
         await self.rules()
-        with patch.dict(os.environ, {"CONSENT_PUBLIC_BASE_URL": ""}):
+        with patch.object(PatientConsentService, "issue", AsyncMock(side_effect=RuntimeError("synthetic preparation error"))):
             self.assertEqual((await self.notification())["state"], "blocked")
         self.send.assert_not_awaited()
         self.assertEqual((await self.notification())["state"], "submitted")
         self.send.assert_awaited_once()
+
+    async def test_disabled_keeps_original_created_message_and_no_consent_writes(self):
+        await self.rules()
+        with patch.dict(os.environ, {"CONSENT_ENABLED": "0"}):
+            result = await self.notification()
+            self.assertEqual(result, {"state": "submitted", "consent_link_state": "disabled"})
+            self.assertFalse((await PatientConsentService(self.db).status("synthetic-p1"))["accepted"])
+            with self.assertRaises(ValueError):
+                await PatientConsentService(self.db).issue("synthetic-p1")
+            readiness = await self.http.get("/api/patient-terms/readiness")
+            self.assertEqual(readiness.status_code, 200)
+            self.assertEqual(readiness.json()["reason"], "disabled")
+            self.assertFalse(readiness.json()["consent_links"])
+        self.send.assert_awaited_once()
+        self.assertEqual(self.send.call_args.args[0].text, "Synthetic One: 2026-11-01 10:30")
+        self.assertEqual(await self.db.patient_terms_tokens.count_documents({}), 0)
+        self.assertEqual(await self.db.patient_terms_acceptances.count_documents({}), 0)
+
+    async def test_missing_config_keeps_original_message_and_diagnoses_reason(self):
+        await self.rules()
+        with patch.dict(os.environ, {"CONSENT_PUBLIC_BASE_URL": ""}):
+            result = await self.notification()
+            self.assertEqual(result["consent_link_state"], "missing_public_url")
+            response = await self.http.get("/api/patient-terms/readiness")
+            self.assertEqual(response.status_code, 503)
+            self.assertEqual(response.json()["reason"], "missing_public_url")
+            self.assertFalse((await PatientConsentService(self.db).status("synthetic-p1"))["accepted"])
+        self.send.assert_awaited_once()
+        self.assertEqual(self.send.call_args.args[0].text, "Synthetic One: 2026-11-01 10:30")
+        self.assertEqual(await self.db.patient_terms_tokens.count_documents({}), 0)
+        event = await self.db.appointment_notifications.find_one({})
+        self.assertEqual(event["consent_link_state"], "missing_public_url")
+        # Turning issuance on never replays the booking already submitted.
+        await self.notification()
+        self.send.assert_awaited_once()
+
+    async def test_enabled_bad_url_reports_unready_and_never_sends_bad_link(self):
+        await self.rules()
+        with patch.dict(os.environ, {"CONSENT_PUBLIC_BASE_URL": "http://localhost:3000", "CONSENT_ALLOW_LOCALHOST": "0"}):
+            result = await self.notification()
+            response = await self.http.get("/api/patient-terms/readiness")
+            self.assertEqual(response.status_code, 503)
+            self.assertEqual(response.json()["reason"], "invalid_public_url")
+            self.assertNotIn("localhost", response.text)
+            self.assertEqual(result["consent_link_state"], "invalid_public_url")
+            self.assertFalse((await PatientConsentService(self.db).status("synthetic-p1"))["accepted"])
+        self.send.assert_awaited_once()
+        self.assertEqual(self.send.call_args.args[0].text, "Synthetic One: 2026-11-01 10:30")
+        self.assertEqual(await self.db.patient_terms_tokens.count_documents({}), 0)
+
+    async def test_readiness_is_admin_only_and_contains_no_secrets(self):
+        response = await self.http.get("/api/patient-terms/readiness")
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(response.json()["consent_links"])
+        self.assertNotIn("127.0.0.1", response.text)
+        self.user.role = "doctor"
+        self.assertEqual((await self.http.get("/api/patient-terms/readiness")).status_code, 403)
 
     async def test_calendar_creation_path_and_existing_overlap_retry(self):
         from models.appointment import AppointmentCreate
@@ -319,9 +377,22 @@ class ConfigTests(unittest.TestCase):
     def test_production_origin_validation(self):
         for origin in ["http://curai.asia", "https://user:password@curai.asia", "https://curai.asia/path", "https://curai.asia?x=y", "https://curai.asia#x", "https://localhost", "https://127.0.0.1", "https://192.168.1.1", "https://curai.asia:bad"]:
             with self.subTest(origin=origin), self.assertRaises(ValueError):
-                ConsentConfig({"CONSENT_PUBLIC_BASE_URL": origin})
+                ConsentConfig.validate_url(origin)
         self.assertEqual(ConsentConfig({"CONSENT_PUBLIC_BASE_URL": "https://curai.asia"}).base_url, "https://curai.asia")
         self.assertEqual(ConsentConfig({"CONSENT_PUBLIC_BASE_URL": "http://localhost:18763", "CONSENT_ALLOW_LOCALHOST": "1"}).ttl_hours, 168)
+
+    def test_feature_defaults_off_and_invalid_config_has_explicit_readiness(self):
+        self.assertEqual(ConsentConfig({}).readiness()["reason"], "disabled")
+        self.assertFalse(ConsentConfig({"CONSENT_PUBLIC_BASE_URL": "https://curai.asia"}).readiness()["consent_links"])
+        for settings, reason in [({"CONSENT_ENABLED": "1"}, "missing_public_url"),
+            ({"CONSENT_ENABLED": "1", "CONSENT_PUBLIC_BASE_URL": "http://curai.asia"}, "invalid_public_url"),
+            ({"CONSENT_ENABLED": "maybe"}, "invalid_enabled_flag"),
+            ({"CONSENT_ENABLED": "1", "CONSENT_TOKEN_TTL_HOURS": "bad"}, "invalid_token_ttl")]:
+            with self.subTest(reason=reason):
+                result = ConsentConfig(settings).readiness()
+                self.assertFalse(result["ready"])
+                self.assertFalse(result["consent_links"])
+                self.assertEqual(result["reason"], reason)
 
     def test_forwarded_link_and_metadata_redaction(self):
         secret = "a" * 43

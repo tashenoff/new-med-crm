@@ -64,12 +64,32 @@ class ConsentConfig:
         env = os.environ if env is None else env
         self.clinic = env.get("CONSENT_CLINIC_ID", "clinic")
         self.document = dict(DEMO_DOCUMENT)
-        self.ttl_hours = int(env.get("CONSENT_TOKEN_TTL_HOURS", "168"))
-        if not 1 <= self.ttl_hours <= 2160:
-            raise ValueError("CONSENT_TOKEN_TTL_HOURS must be between 1 and 2160")
+        flag = env.get("CONSENT_ENABLED", "0").lower()
+        self.enabled = flag in ("1", "true")
+        self.errors = []
+        if flag not in ("0", "false", "1", "true"):
+            self.errors.append("invalid_enabled_flag")
+        try:
+            self.ttl_hours = int(env.get("CONSENT_TOKEN_TTL_HOURS", "168"))
+            if not 1 <= self.ttl_hours <= 2160:
+                raise ValueError()
+        except ValueError:
+            self.ttl_hours = 168
+            self.errors.append("invalid_token_ttl")
         self.base_url = env.get("CONSENT_PUBLIC_BASE_URL", "").rstrip("/")
-        if self.base_url:
-            self.validate_url(self.base_url, env.get("CONSENT_ALLOW_LOCALHOST") == "1")
+        if self.enabled and self.base_url:
+            try:
+                self.validate_url(self.base_url, env.get("CONSENT_ALLOW_LOCALHOST") == "1")
+            except ValueError:
+                self.errors.append("invalid_public_url")
+
+    def readiness(self):
+        # Outbound configuration never prevents reading existing status/history.
+        reason = (self.errors[0] if self.errors else "disabled" if not self.enabled
+                  else "missing_public_url" if not self.base_url else "ready")
+        return {"enabled": self.enabled, "ready": reason in ("disabled", "ready"),
+                "consent_links": reason == "ready", "reason": reason,
+                "token_ttl_hours": self.ttl_hours}
 
     @staticmethod
     def validate_url(value, allow_local=False):
@@ -125,6 +145,9 @@ class PatientConsentService:
         return {k: stored[k] for k in doc}
 
     async def issue(self, patient_id):
+        readiness = self.config.readiness()
+        if not readiness["consent_links"]:
+            raise ValueError("Consent link generation unavailable: " + readiness["reason"])
         patient = await self.patient(patient_id)
         patient_id = str(patient.get("id") or patient["_id"])
         document = await self.document()
@@ -139,8 +162,6 @@ class PatientConsentService:
         record = await self.db.patient_terms_acceptances.find_one({"_id": key})
         if record.get("accepted_at"):
             return None
-        if not self.config.base_url:
-            raise ValueError("CONSENT_PUBLIC_BASE_URL is required before sending links")
         token = secrets.token_urlsafe(32)
         await self.db.patient_terms_tokens.insert_one({
             "_id": digest(token), "acceptance_id": key, "clinic_id": self.config.clinic,

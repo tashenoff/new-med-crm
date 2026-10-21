@@ -53,7 +53,7 @@ class NotificationSender:
         event_id = "appointment_created:" + appointment_id
         previous = await self.db.appointment_notifications.find_one({"_id": event_id})
         if previous:
-            return {"state": previous["state"]}
+            return {"state": previous["state"], "consent_link_state": previous.get("consent_link_state")}
         try:
             consent = PatientConsentService(self.db)
             # Never send using an unverified caller-supplied patient/appointment pair.
@@ -75,7 +75,17 @@ class NotificationSender:
             # Existing templates occasionally omit one of these macros.
             if appointment_date not in text or appointment_time not in text:
                 text += f"\nЗапись: {appointment_date} {appointment_time}"
-            url = await consent.issue(patient_id)
+            readiness = consent.config.readiness()
+            if readiness["consent_links"]:
+                url = await consent.issue(patient_id)
+                consent_link_state = "included" if url else "already_accepted"
+            else:
+                url = None
+                consent_link_state = readiness["reason"]
+                # Preserve the original booking notification. Never emit a bad URL
+                # or create a consent record while issuance is disabled/unready.
+                diagnostic = log.info if readiness["ready"] else log.error
+                diagnostic("Booking notification without consent link: %s", consent_link_state)
             persisted_text = text
             if url:
                 text += "\nУсловия для пациента (демонстрационный пример): " + url
@@ -87,10 +97,11 @@ class NotificationSender:
             await self.db.appointment_notifications.insert_one({
                 "_id": event_id, "appointment_id": appointment_id,
                 "clinic_id": consent.config.clinic, "state": "submitting",
-                "created_at": datetime.utcnow(), "rule_id": str(rule.id)})
+                "created_at": datetime.utcnow(), "rule_id": str(rule.id),
+                "consent_link_state": consent_link_state})
         except DuplicateKeyError:
             previous = await self.db.appointment_notifications.find_one({"_id": event_id})
-            return {"state": previous["state"]}
+            return {"state": previous["state"], "consent_link_state": previous.get("consent_link_state")}
         try:
             result = await wazzup_service.send_message(
                 SendMessageRequest(phone=patient["phone"], text=text),
@@ -104,7 +115,7 @@ class NotificationSender:
             return {"state": "unknown"}
         await self.db.appointment_notifications.update_one({"_id": event_id}, {"$set": {
             "state": "submitted", "provider_message_id": result.id, "updated_at": datetime.utcnow()}})
-        return {"state": "submitted"}
+        return {"state": "submitted", "consent_link_state": consent_link_state}
 
     async def send_appointment_no_show_notification(
         self,

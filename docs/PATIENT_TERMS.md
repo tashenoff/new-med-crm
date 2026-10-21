@@ -60,13 +60,20 @@ this staff endpoint. Public responses contain no patient identifiers.
 
 ## Configuration and rotation
 
-Set backend `CONSENT_PUBLIC_BASE_URL=https://curai.asia` (or a separately hosted
-trusted origin). It must be an HTTPS origin without path, query, fragment,
+Issuance defaults OFF (`CONSENT_ENABLED=0`). To opt in, set backend
+`CONSENT_ENABLED=1` and `CONSENT_PUBLIC_BASE_URL=https://curai.asia` (or a separately
+hosted trusted origin). It must be an HTTPS origin without path, query, fragment,
 credentials, private IP or malformed port. It is never constructed from `Host`.
-It defaults to empty: no link is submitted until configured. Explicit
+The URL defaults to empty. Disabled or unready issuance preserves the ordinary
+booking message without a consent link; no consent token/acceptance is created
+by that fallback. The durable notification event records `consent_link_state`
+(`disabled`, `missing_public_url`, `invalid_public_url`, etc.), and logs use only
+these non-secret reason codes. Existing issued links/history remain usable when
+new issuance is disabled. Explicit
 `CONSENT_ALLOW_LOCALHOST=1` permits HTTP localhost for isolated development only;
 leave unset in production. `CONSENT_TOKEN_TTL_HOURS` defaults to 168 (7 days),
-bounded to 1–2160. `CONSENT_CLINIC_ID` defaults to `clinic`; set it deliberately
+bounded to 1–2160. Invalid TTL/enable flag/URL produces explicit unready diagnostics,
+never a malformed link or a failure of the ordinary booking message. `CONSENT_CLINIC_ID` defaults to `clinic`; set it deliberately
 once before use and do not change it after acceptances exist.
 
 Frontend `VITE_BACKEND_URL` is the existing backend API origin. The public page
@@ -96,6 +103,23 @@ For expected growth add non-unique indexes to the new collections during the
 publication maintenance procedure: acceptances `(clinic_id, patient_id,
 accepted_at)`, tokens `(acceptance_id)`. Correctness uses Mongo's default unique
 `_id` indexes and does not depend on these performance indexes.
+
+Readiness is available to admin/super_admin/administrator at authenticated
+GET `/api/patient-terms/readiness`: 200 for intentionally disabled or ready,
+503 for enabled missing/invalid URL or malformed settings. It returns only
+`enabled`, `ready`, `consent_links`, a fixed `reason`, and TTL; no URL, secrets,
+patient data or token. Startup also reports the fixed readiness reason. This
+check is independent of CRM/Mongo availability and does not mutate data.
+
+For the user's later live test (after separately authorized publication):
+backend `CONSENT_ENABLED=1`, `CONSENT_PUBLIC_BASE_URL=https://curai.asia`,
+`CONSENT_TOKEN_TTL_HOURS=168`, and stable `CONSENT_CLINIC_ID=clinic` (or the
+existing clinic ID; never rotate it after records exist). Leave
+`CONSENT_ALLOW_LOCALHOST` unset/0 in production. Frontend uses existing
+`VITE_BACKEND_URL=https://medcrm.duckdns.org`. Existing Wazzup credentials/channel
+and the active appointment-created rule must remain configured; none were
+changed here. First check readiness, then let the user perform the live test.
+No real WhatsApp delivery is claimed by local tests.
 
 ## Appointment/WhatsApp integration
 
@@ -147,12 +171,13 @@ and mocks Wazzup submissions. Run from repo root:
 python -m unittest discover -s tests/patient_terms -v
 ```
 
-17 tests passed on real standalone MongoDB 7.0.24: unchecked/missing/string
+22 tests passed on real standalone MongoDB 7.0.24: unchecked/missing/string
 confirmation; GET/read-only lookup; invalid/expired/revoked/deleted patients;
 24 concurrent acceptance calls; revocation/expiry race CAS; patient/version
 separation; immutable history; hash storage and redacted actual transport persistence; authentication/role/clinic isolation; one message
 despite duplicate rules and concurrent/retried dispatch; accepted patient without
-link; uncertain provider failure; safe preparation retry; all four creation paths.
+link; uncertain provider failure; safe preparation retry; all four creation paths; disabled/missing URL compatibility,
+enabled invalid URL diagnostics, and admin-only readiness.
 
 Frontend full suite passed sequentially: **542/542**. A parallel run encountered
 Node test-runner `Unable to deserialize cloned data` in patientLifecycle; its

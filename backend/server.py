@@ -51,6 +51,11 @@ security = HTTPBearer()
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Startup
+    from services.patient_consent import ConsentConfig
+    consent_readiness = ConsentConfig().readiness()
+    consent_log = logging.getLogger("patient_terms")
+    (consent_log.info if consent_readiness["ready"] else consent_log.error)(
+        "Patient terms link readiness: %s", consent_readiness["reason"])
     try:
         async with live_events_lifespan():
             yield

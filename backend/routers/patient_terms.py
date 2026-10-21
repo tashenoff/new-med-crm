@@ -1,16 +1,17 @@
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, StrictBool, Field
+from fastapi.responses import JSONResponse
 
 from database import get_database
 from dependencies import get_current_active_user
-from services.patient_consent import PatientConsentService
+from services.patient_consent import PatientConsentService, ConsentConfig
 
 router = APIRouter()
 
 
 async def protect_patient_terms(request, call_next):
     response = await call_next(request)
-    if request.url.path.startswith("/api/public/patient-terms") or request.url.path.endswith("/terms-status"):
+    if request.url.path.startswith("/api/public/patient-terms") or request.url.path.endswith("/terms-status") or request.url.path == "/api/patient-terms/readiness":
         response.headers["Cache-Control"] = "no-store"
         response.headers["Referrer-Policy"] = "no-referrer"
         response.headers["X-Robots-Tag"] = "noindex, nofollow"
@@ -24,6 +25,14 @@ class LinkRequest(BaseModel):
 
 class AcceptRequest(LinkRequest):
     acknowledged: StrictBool
+
+
+@router.get("/patient-terms/readiness")
+async def readiness(user=Depends(get_current_active_user)):
+    if getattr(user.role, "value", user.role) not in ("admin", "super_admin", "administrator"):
+        raise HTTPException(403, "Administrator required")
+    result = ConsentConfig().readiness()
+    return JSONResponse(result, status_code=200 if result["ready"] else 503)
 
 
 @router.post("/public/patient-terms/lookup")
