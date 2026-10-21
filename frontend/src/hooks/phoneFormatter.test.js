@@ -6,7 +6,7 @@ import { formatPhoneNumber, formatPhoneChange, PHONE_VALID_DIGITS } from './phon
 
 // Exercise hook wiring with stubbed React hooks; no network or database access.
 const source = readFileSync(new URL('./usePhoneInput.js', import.meta.url), 'utf8');
-const context = vm.createContext({ formatPhoneNumber, formatPhoneChange, PHONE_VALID_DIGITS });
+const context = vm.createContext({ formatPhoneNumber, formatPhoneChange, PHONE_VALID_DIGITS, clearTimeout, setTimeout });
 vm.runInContext(source.replace(/^import .*;\r?\n/gm, '')
   .replace(/^export \{.*\} from .*;\r?\n/gm, '')
   .replace(/export default .*;/g, '').replace(/export /g, '')

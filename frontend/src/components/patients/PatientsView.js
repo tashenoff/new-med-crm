@@ -1,6 +1,7 @@
 import { canAction } from '../../utils/permissions.js';
 import React, { useState, useEffect } from 'react';
 import PanelHeader from '../common/PanelHeader';
+import { formatPatientPhone } from '../../utils/patientPhone';
 
 const PatientsView = ({
   user,
@@ -274,7 +275,7 @@ const PatientsView = ({
                           )}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="text-sm text-curai-ink">{patient.phone}</div>
+                          <div className="text-sm text-curai-ink">{formatPatientPhone(patient.phone)}</div>
                           {patient.iin && (
                             <div className="text-sm text-curai-muted">ИИН: {patient.iin}</div>
                           )}

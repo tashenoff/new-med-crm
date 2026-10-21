@@ -10,9 +10,9 @@ export const isValidPhone = (value = '') => {
 
 // Хук для работы с полем телефона: форматирование, ограничение, валидация
 // и проверка наличия номера в базе (если передан onCheckPatient)
-export const usePhoneInput = (initialValue = '', onChange, onCheckPatient = null, sessionKey = null) => {
+export const usePhoneInput = (initialValue = '', onChange, onCheckPatient = null, sessionKey = null, storedFormatter = formatPhoneNumber) => {
   // Keep the existing display formatting for stored values.
-  const [value, setValue] = useState(() => formatPhoneNumber(initialValue));
+  const [value, setValue] = useState(() => storedFormatter(initialValue));
   const [isChecking, setIsChecking] = useState(false);
   const [foundData, setFoundData] = useState(null); // { patient, active_lead } из check-phone
   const checkTimeoutRef = useRef(null);
@@ -76,12 +76,12 @@ export const usePhoneInput = (initialValue = '', onChange, onCheckPatient = null
   }, [invalidateChecks]);
 
   const syncValue = useCallback((newValue) => {
-    const formatted = formatPhoneNumber(newValue);
+    const formatted = storedFormatter(newValue);
     // A parent echo of our own input must not cancel its debounce.
     if (formatted !== valueRef.current) invalidateChecks();
     valueRef.current = formatted;
     setValue(formatted);
-  }, [invalidateChecks]);
+  }, [invalidateChecks, storedFormatter]);
 
   return {
     value,

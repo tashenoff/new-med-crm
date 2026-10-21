@@ -16,6 +16,7 @@ import WhatsAppSidebar from '../crm/telephony/WhatsAppSidebar';
 import { FaWhatsapp, FaUser, FaStethoscope, FaFileAlt, FaClipboardList, FaCreditCard, FaCalendarAlt, FaChevronDown, FaChevronRight, FaNotesMedical, FaUserMd, FaFileMedical, FaPuzzlePiece, FaFlask } from 'react-icons/fa';
 import { useGlobalRefresh } from '../../hooks/useGlobalRefresh';
 import { usePhoneInput } from '../../hooks/usePhoneInput';
+import { formatPatientPhone } from '../../utils/patientPhone';
 
 const PatientModal = ({
   user,
@@ -139,7 +140,8 @@ const PatientModal = ({
       safeSetPatientForm({ phone: formattedPhone });
     },
     checkPatientByPhone,
-    show ? setPatientForm : null
+    show ? setPatientForm : null,
+    formatPatientPhone
   );
 
   const hasPhoneMatch = phoneHook.hasMatch && (!currentPatientId ||
