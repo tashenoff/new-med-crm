@@ -17,6 +17,7 @@ import { FaWhatsapp, FaUser, FaStethoscope, FaFileAlt, FaClipboardList, FaCredit
 import { useGlobalRefresh } from '../../hooks/useGlobalRefresh';
 import { usePhoneInput } from '../../hooks/usePhoneInput';
 import { formatPatientPhone } from '../../utils/patientPhone';
+import { patientOriginLabel, visiblePatientNotes } from '../../utils/patientOrigin';
 
 const PatientModal = ({
   user,
@@ -1160,9 +1161,12 @@ const PatientModal = ({
               {loadingSources && <span className="text-xs text-curai-muted ml-2">Загрузка...</span>}
             </div>
 
+            {patientOriginLabel(editingItem || patientForm, sources) && (
+              <p className="text-sm text-curai-muted">{patientOriginLabel(editingItem || patientForm, sources)}</p>
+            )}
             <textarea
               placeholder="Заметки"
-              value={patientForm.notes}
+              value={visiblePatientNotes(editingItem || patientForm, patientForm.notes || '')}
               onChange={(e) => safeSetPatientForm({ notes: e.target.value })}
               className={inputClasses}
               rows="3"

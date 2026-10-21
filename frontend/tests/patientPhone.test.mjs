@@ -6,6 +6,7 @@ import React, { act } from 'react';
 import { build } from 'esbuild';
 import { JSDOM } from 'jsdom';
 import { formatPatientPhone } from '../src/utils/patientPhone.js';
+import { patientOriginLabel, visiblePatientNotes } from '../src/utils/patientOrigin.js';
 
 const cases = [
   ['77011234567', '+77011234567'],
@@ -33,6 +34,30 @@ test('only formats validated international identities; never truncates or guesse
     assert.equal(formatPatientPhone(expected), expected, `idempotent: ${raw}`);
   }
   assert.equal(formatPatientPhone(null), '');
+});
+
+const generatedNote = 'Создан из заявки CRM. Обращение через WhatsApp: secret: snippet';
+const origin = { kind: 'crm_lead', entity_id: 'synthetic-lead', source: 'social', channel: 'whatsapp' };
+const noteCases = [
+  { name: 'new WhatsApp origin', notes: '', origin, label: 'Создан из заявки CRM. Источник: WhatsApp', visible: '' },
+  { name: 'legacy proven WhatsApp note', notes: generatedNote,
+    origin: { ...origin, legacy_generated_note: true }, label: 'Создан из заявки CRM. Источник: WhatsApp', visible: '' },
+  { name: 'source name with colons', notes: 'Врач: позвонить: завтра',
+    origin: { kind: 'crm_lead', entity_id: 'synthetic-lead', source: 'phone', source_id: 'synthetic-source' },
+    sources: [{ id: 'synthetic-source', name: 'Телефон: филиал: реклама' }],
+    label: 'Создан из заявки CRM. Источник: Телефон: филиал: реклама', visible: 'Врач: позвонить: завтра' },
+  { name: 'ambiguous legacy plus manual text', notes: `${generatedNote}\nВрач: позвонить`, origin: null,
+    label: '', visible: `${generatedNote}\nВрач: позвонить` },
+  { name: 'manual WhatsApp-looking note', notes: 'Обращение через WhatsApp: ручной текст', origin: null,
+    label: '', visible: 'Обращение через WhatsApp: ручной текст' }
+];
+
+test('origin labels use structured metadata and source names, while manual notes stay literal', () => {
+  for (const row of noteCases) {
+    assert.equal(patientOriginLabel(row, row.sources), row.label);
+    assert.equal(visiblePatientNotes(row), row.visible);
+    assert.equal(visiblePatientNotes(row, 'Новая заметка: полный текст'), 'Новая заметка: полный текст');
+  }
 });
 
 const bootstrap = new JSDOM('<html><body></body></html>');
@@ -67,8 +92,11 @@ new Function('require', 'module', 'exports', compiled.outputFiles[0].text)(creat
 const { List, Card } = loaded.exports;
 
 test('existing stored phones render equally in the patient list and edit card without writing the form', async context => {
-  for (const [raw, expected] of cases.filter(([raw]) => raw)) {
-    await context.test(raw, async child => {
+  const rows = cases.filter(([raw]) => raw).map(([raw, expected]) => ({ raw, expected, name: raw }))
+    .concat(noteCases.map(row => ({ raw: '77011234567', expected: '+77011234567', ...row })));
+  for (const row of rows) {
+    const { raw, expected } = row;
+    await context.test(row.name, async child => {
       const dom = new JSDOM('<div id="root"></div>', { url: 'https://crm.test' });
       const requests = [], changes = [], saves = [];
       const globals = {
@@ -77,7 +105,7 @@ test('existing stored phones render equally in the patient list and edit card wi
         fetch: async (url, options = {}) => {
           requests.push({ url, options });
           assert.equal(options.method || 'GET', 'GET');
-          return { ok: true, json: async () => [] };
+          return { ok: true, json: async () => url.includes('/crm/sources') ? (row.sources || []) : [] };
         }
       };
       const previous = Object.keys(globals).map(key => [key, Object.getOwnPropertyDescriptor(globalThis, key)]);
@@ -90,7 +118,8 @@ test('existing stored phones render equally in the patient list and edit card wi
           if (descriptor) Object.defineProperty(globalThis, key, descriptor); else delete globalThis[key];
         }
       });
-      const patient = { id: 'synthetic-patient', full_name: 'Synthetic', phone: raw, notes: '', source: 'crm_conversion' };
+      const patient = { id: 'synthetic-patient', full_name: 'Synthetic', phone: raw, notes: row.notes || '',
+        origin: row.origin, source: 'crm_conversion' };
       const original = structuredClone(patient);
       const user = { permissions: ['patients_view', 'patients_edit'] };
       await act(async () => root.render(React.createElement(React.Fragment, null,
@@ -101,11 +130,34 @@ test('existing stored phones render equally in the patient list and edit card wi
       )));
       assert.equal(document.querySelector('tbody tr td:nth-child(2) div').textContent, expected);
       assert.equal(document.querySelector('[role="dialog"] input[type="tel"]').value, expected);
+      if (Object.hasOwn(row, 'visible')) {
+        const listText = document.querySelector('tbody tr td:first-child').textContent;
+        const card = document.querySelector('[role="dialog"]');
+        assert.equal(card.querySelector('textarea').value, row.visible);
+        if (row.label) {
+          assert.ok(listText.includes(row.label));
+          assert.ok(card.textContent.includes(row.label));
+        }
+        if (!row.visible) {
+          assert.ok(!listText.includes('secret: snippet'));
+          assert.ok(!card.textContent.includes('secret: snippet'));
+        } else assert.ok(listText.includes(row.visible));
+      }
       assert.deepEqual(changes, [], 'loading must not persist the display formatter');
       assert.deepEqual(patient, original);
       await act(async () => document.querySelector('[role="dialog"] form').dispatchEvent(new dom.window.Event('submit', { bubbles: true, cancelable: true })));
       assert.equal(saves.length, 1);
       assert.equal(saves[0].phone, raw, 'saving an unrelated edit must not silently rewrite a stored phone');
+      assert.equal(saves[0].notes, patient.notes, 'unrelated save preserves raw legacy and manual notes');
+      if (Object.hasOwn(row, 'visible')) {
+        const input = document.querySelector('[role="dialog"] textarea');
+        const manual = 'Ручная заметка: сохранить: целиком';
+        await act(async () => {
+          Object.getOwnPropertyDescriptor(dom.window.HTMLTextAreaElement.prototype, 'value').set.call(input, manual);
+          input.dispatchEvent(new dom.window.Event('input', { bubbles: true }));
+        });
+        assert.equal(changes.at(-1).notes, manual, 'editing notes preserves the full literal text');
+      }
       assert.ok(requests.length > 0);
       assert.ok(requests.every(({ url }) => !url.includes('/send')));
     });

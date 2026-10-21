@@ -2,6 +2,7 @@ import { canAction } from '../../utils/permissions.js';
 import React, { useState, useEffect } from 'react';
 import PanelHeader from '../common/PanelHeader';
 import { formatPatientPhone } from '../../utils/patientPhone';
+import { patientOriginLabel, visiblePatientNotes } from '../../utils/patientOrigin';
 
 const PatientsView = ({
   user,
@@ -267,8 +268,11 @@ const PatientsView = ({
                           <div className="font-medium text-curai-ink">
                             {patient.full_name || `${patient.first_name || ''} ${patient.last_name || ''}`.trim() || patient.name || 'Без имени'}
                           </div>
-                          {patient.notes && (
-                            <div className="text-sm text-curai-muted">{patient.notes}</div>
+                          {patientOriginLabel(patient, sources) && (
+                            <div className="text-sm text-curai-muted">{patientOriginLabel(patient, sources)}</div>
+                          )}
+                          {visiblePatientNotes(patient) && (
+                            <div className="text-sm text-curai-muted">{visiblePatientNotes(patient)}</div>
                           )}
                           {patient.referrer && (
                             <div className="text-sm text-curai-blue">Направил: {patient.referrer}</div>
