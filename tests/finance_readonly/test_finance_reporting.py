@@ -402,7 +402,7 @@ class IsolationTests(unittest.TestCase):
         router = create_router()
         self.assertEqual([(route.path, route.methods) for route in router.routes], [(PATH, {"GET"})])
         tree = ast.parse((ROOT / "backend/server.py").read_text(encoding="utf-8"))
-        self.assertTrue(any(isinstance(node, ast.ImportFrom) and node.module == "reporting.api" for node in tree.body))
+        self.assertTrue(any(isinstance(node, ast.ImportFrom) and node.module == "reporting.activation" for node in tree.body))
 
 
 if __name__ == "__main__":

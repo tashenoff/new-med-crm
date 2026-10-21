@@ -1,4 +1,4 @@
-"""Explicit construction only. Not imported/mounted by server.py in this release."""
+"""Explicit bound-router construction, selected only by approved activation config."""
 from .api import create_router
 from .access_api import create_access_router
 from .contract import PATH as FINANCE_PATH

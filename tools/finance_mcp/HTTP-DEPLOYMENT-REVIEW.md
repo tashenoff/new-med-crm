@@ -37,8 +37,26 @@ and unauthorized/unknown tools receive bounded fixed errors without reflecting
 their input. No resources, prompts, generic HTTP/Mongo or task-control tools exist.
 All endpoint responses use `Cache-Control: no-store`.
 
-The backend metadata router is included only by explicit `build_bound_routers`.
-`backend/server.py` is unchanged, so published/default routes stay closed.
+The backend now uses `select_reporting_routers(db, os.environ)` to select exactly
+one router set at the original registration position. `REPORTING_BINDING_FILE`
+and `REPORTING_GRANT_FILE` must both be absolute paths. Valid binding metadata
+and the existing database validation select `build_bound_routers`; absent, partial
+or invalid configuration retains the original two closed routes without access
+metadata or a CRM startup failure. The helper logs no config or exception details.
+The protected grant file is read/validated by the existing store at request time;
+an absent/unusable grant never enables access.
+
+`tools.finance_mcp.http_bootstrap:app` is the configured Uvicorn entrypoint. It
+requires `FINANCE_MCP_BINDING_FILE`, an absolute path to non-secret UTF-8 JSON with
+exactly `clinic_id`, `owner_id`, `database_namespace`, `single_clinic_confirmed`.
+Both processes use the same bounded strict parser and existing binding validation.
+Duplicate/extra/missing fields, malformed values and non-JSON constants are refused.
+Invalid/missing sidecar metadata refuses startup; no config values are reported.
+The sidecar never reads backend `.env`/Mongo credentials or the grant file and
+does not require FastAPI. Import starts no listener and issues no credential.
+See [README.md](README.md#explicit-activation-configuration) for exact variables,
+synthetic JSON and the isolated-environment launch command. These are local source
+changes, with no production activation or deployment performed.
 Old stdio remains available with SDK 1.5; compatibility registration avoids the
 new SDK echoing argument-validation details instead of the fixed contract errors.
 
@@ -78,66 +96,38 @@ clinic in this database. Exact Paperclip target is agent **Финансист**,
 `7923c1ec-bf35-4cc4-adff-91c85fe660f1`, organization MedCrm/MED:
 `https://paperclips.duckdns.org/MED/agents/7923c1ec-bf35-4cc4-adff-91c85fe660f1/runtime`.
 
-Still verify without secrets/medical documents:
+1. Review and publish the isolated reporting/MCP implementation and configuration-driven activation on current production `ref-2`. No schema migration is needed.
+2. The production audit confirmed one active CRM login `alex`, mapped to one active staff record. `finance_view` is present and `payroll_view` is absent. The user separately approved adding only explicit `payroll_view` to that staff record; do not change role defaults.
+3. The live database namespace is `clinic`; MongoDB `rs0` snapshot reads passed. Relevant source documents have no `clinic_id` field, so `curai` is bound at the database level based on the user's confirmation that this is a single-clinic CRM. Do not generalize this binding if the database becomes multi-clinic.
+4. Paperclip's current agent `7923c1ec-bf35-4cc4-adff-91c85fe660f1` has zero active tools/profile. The installed UI supports custom remote MCP and agent access profiles. The MCP port `8766` is free; the Nginx `/api/` prefix currently forwards to the backend and has no exact MCP route.
+5. Approved access is limited to `get_finance_summary` / `finance.summary.read` and `get_payroll_summary` / `payroll.summary.read`, for the financier agent and clinic `curai`, under owner `alex`, for 30 days with no auto-renewal. This does not approve any broader tool access.
 
-1. Resolve only login alex to its canonical user ID and matching active staff UUID,
-   current finance/payroll permissions and expiry. Do not infer owner ID from the
-   login or create/repair staff records automatically.
-2. Confirm the actual database namespace and Mongo version/topology supports
-   snapshot sessions. Name curai is not a DB namespace. Choose/approve the clinic
-   binding ID explicitly; no real binding config has been populated.
-3. Check server Python version, service account, protected grant-file ownership,
-   proxy routing and a free loopback port for the sidecar. Production Linux wheels
-   and startup must be verified on that platform before enabling the service.
-4. Verify the installed Paperclip version's remote credential references and
-   per-agent profile behavior. Current UI showed zero tools/apps/profile; discovery
-   or health alone does not prove target-agent access or credential forwarding.
+## Exact staged deployment plan
 
-## Exact staged deployment plan — all future actions
+1. Publish the isolated reporting/MCP implementation and activation commits on current `ref-2`, after final review. No schema migration is needed.
+2. Provision the approved non-secret binding and protected grant file; supply `REPORTING_BINDING_FILE` and `REPORTING_GRANT_FILE` only to the backend. Do not append live routers: `select_reporting_routers` replaces the two closed routers and falls back to them on absent/invalid config.
+3. Reuse the separate `/opt/medcrm/finance-mcp/venv` and locked Python 3.14 sidecar requirements; run `tools.finance_mcp.http_bootstrap:app` with only `FINANCE_MCP_BINDING_FILE`. Keep the sidecar loopback-only, with no Mongo URI, grant file or credential.
+4. Add the exact HTTPS proxy location `/api/reporting/mcp` on MedCRM, preserve Host/path, publish no port, run `nginx -t`, and verify CRM health before/after.
+5. After the approved 30-day scope/term confirmation, create one agent-specific opaque bearer (`mcr_` + 43 URL-safe characters); store only its SHA-256 in the protected revocation file and put the raw credential only into Paperclip's managed secret store. Create exactly two active grant records, one scope each, with the same owner/clinic/agent and fixed 30-day expiry.
+6. Connect the MCP URL through Paperclip's managed custom remote-MCP connector. Create an access profile containing only these two read actions and bind it only to the «Финансист» agent. Keep writes/destructive actions Off. Do not attach it organization-wide or through adapter-level raw MCP configuration.
+7. Verify actual agent execution, not only the HTTP endpoint: inspect the target agent's effective tool list, run one bounded read-only task for each summary, verify the Paperclip run's tool-call audit and output scope, and test expired/other-agent/wrong-scope denial. If accounting source coverage is incomplete, verify the agent reports that refusal rather than inventing totals.
 
-1. Review this commit plus 8a74337 against current production ref-2. Publish only
-   those isolated changes after approval and checks. No schema migration is needed.
-2. In the existing backend, **replace**, do not append to, the two closed router
-   registrations with `build_bound_routers(existing_db, approved_binding,
-   JsonGrantStore(approved_absolute_path))`. This includes the protected metadata
-   route. Retain closed defaults whenever the approved config is absent. Duplicate
-   route registration would leave the earlier closed handlers shadowing the live ones.
-3. Provision a separate sidecar venv from the official registry and locked versions.
-   Run a reviewed ASGI bootstrap that explicitly calls `create_http_app(binding)`.
-   Binding file/bootstrap contains non-secret metadata only. Do not inject the
-   MedCRM Mongo URI, owner password or service credential into this process/env.
-4. Bind the sidecar only to a verified free loopback port (proposed 8766, not yet
-   checked). Add an exact HTTPS proxy location `/api/reporting/mcp` on the existing
-   MedCRM host, preserving the path and Host. No new public port. Keep the existing
-   report endpoints on the CRM backend. Review service/proxy changes separately;
-   no such configuration is installed now.
-5. Only after explicit access approval, provision one agent-specific opaque bearer
-   (`mcr_` plus 43 URL-safe characters) through the normal secret mechanism; server
-   stores SHA-256 only in the protected revocation file. Two exact grant records,
-   same approved owner/clinic/agent, one scope each, expire seven days after issue.
-   No issuer or actual grant/credential exists in this change.
-6. In Paperclip, create the remote connection for the actual MCP URL
-   `https://medcrm.duckdns.org/api/reporting/mcp`, attach the secret by credential
-   reference, and review **only these two tool catalog entries**. Select only the
-   financier agent's individual installation/grant/profile; no organization-wide
-   installation/grant, broad risk-level include or automatic grant to other agents.
-   If the UI cannot keep access individual, stop before saving and choose a safer path.
-7. Verify HTTPS handshake/list, anonymous and wrong-agent denial, target-agent
-   credential forwarding, each scope, immediate revocation and expected worker SHA.
-   Do not equate connector discovery/health with a working authorized report. Real
-   report totals still require approved accounting validation; legacy source gaps
-   return an explicit refusal. No patient detail retrieval is part of verification.
+Source verification for this activation stage uses the pre-existing isolated
+Python 3.13 environment (no backend or sidecar dependency changes):
 
-Approval request after metadata is resolved: allow only the specified financier
-to read finance and accrued-payroll reports for curai under the verified alex owner,
-on the fixed MedCRM MCP URL, with two scopes `finance.summary.read` and
-`payroll.summary.read`, seven-day expiry and immediate revocation. Persist the raw
-credential only in Paperclip's secret store. Include explicit `payroll_view`
-assignment to that owner if needed; no role/default-permission changes. Salaries
-remain total plus doctor-ID rows; paid/outstanding stay unavailable, with no write
-or payment/payout capability.
+```text
+C:/Users/alex/AppData/Local/Temp/medcrm-finance-mcp-test-313/Scripts/python.exe -m pytest tests/finance_readonly -q
+```
 
-Rollback: revoke both server grant records and disable the individual Paperclip
+New tests exercise closed/default/invalid configurations, live synthetic reports
+and access metadata, exact global server registration and route order without
+importing production startup, fixed bootstrap identities, and fresh-process import
+with FastAPI/backend imports and credential/network/listener access guarded.
+All records, tokens and grants remain synthetic. This does not verify production
+startup, Mongo topology or financial totals.
+
+Rollback: remove the two backend reporting config variables and restart to restore
+the closed router set; revoke both server grant records and disable the individual Paperclip
 connection/profile; stop the sidecar/remove its exact proxy route; restore the
 closed backend routers. Revert only the isolated commits if required. No payment,
 salary, document or data rollback/migration is involved.

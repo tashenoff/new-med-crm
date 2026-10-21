@@ -1,8 +1,9 @@
 # MedCRM read-only reporting MCP
 
-Local, not activated follow-up: see [HTTP-DEPLOYMENT-REVIEW.md](HTTP-DEPLOYMENT-REVIEW.md)
-for the implemented Streamable HTTP sidecar, verified tests and remaining metadata/
-access approvals. The deployed/default configuration described below remains closed.
+Configuration-driven activation is implemented locally; see
+[HTTP-DEPLOYMENT-REVIEW.md](HTTP-DEPLOYMENT-REVIEW.md) for the Streamable HTTP sidecar
+and remaining deployment/access approvals. Production activation is not verified;
+the default configuration remains closed.
 
 Two stdio tools, one local MCP process. This release is deliberately **unconnected**
 to production data. Deploying these source files does not install an agent, issue a
@@ -19,7 +20,72 @@ UTC interval. A trusted server-side resolver must supply the current owner, agen
 clinic membership and unexpired grant on every call. The model cannot supply those
 identities, a URL, headers, SQL, Mongo queries, scope or timezone. This slice requires
 separately resolved, exactly scoped grants for the two reports; broad extra scopes
-are rejected. There is no credential issuer or live grant resolver in this release.
+are rejected. The existing live resolver is selected only by explicit backend
+configuration below. There is no credential issuer.
+
+## Explicit activation configuration
+
+| Process | Variable | Required value |
+| --- | --- | --- |
+| Existing CRM backend | `REPORTING_BINDING_FILE` | Absolute path to the separately provisioned non-secret binding JSON |
+| Existing CRM backend | `REPORTING_GRANT_FILE` | Absolute path to the separately provisioned protected grant file |
+| Separate HTTP MCP sidecar | `FINANCE_MCP_BINDING_FILE` | Absolute path to the same non-secret binding JSON (or an identical copy) |
+
+The binding must be UTF-8 JSON, at most 16 KiB, with **exactly** these four fields.
+This example is synthetic, not a real deployment binding:
+
+```json
+{
+  "clinic_id": "synthetic-clinic",
+  "owner_id": "synthetic-owner",
+  "database_namespace": "synthetic-database",
+  "single_clinic_confirmed": true
+}
+```
+
+Clinic and owner must satisfy `DeploymentBinding` identifiers; the database namespace
+must be a nonempty string and match the existing backend database. Confirmation must
+be the JSON boolean `true`. Missing/extra/duplicate fields, coercible types, non-JSON
+constants, invalid UTF-8 and malformed/oversized JSON are rejected. Fixed API origin,
+agent and Paperclip runtime come from existing code; the file cannot override them.
+Never put credentials, tokens or grants in this binding file.
+
+The backend passes its existing `db` and environment to `select_reporting_routers`.
+The helper reads only the two `REPORTING_*` keys above. Absent, partial, relative,
+unreadable, malformed or invalid binding configuration (including a namespace
+mismatch) selects the original two closed routers: anonymous requests get 401,
+bearer-looking requests get 503 `REPORTING_UNCONFIGURED`, and
+`/api/reporting/access` is absent. Configuration failures emit no values or exception
+text and do not prevent general CRM startup. Valid configuration replaces those
+registrations with exactly finance, payroll and access routers, in their original
+position. It creates no new Mongo client and changes no database lifecycle.
+
+The grant path is validated as absolute at startup; grant contents are **not** read
+until a request. The existing `JsonGrantStore` then enforces Linux ownership, mode,
+size and no-symlink requirements on every read. Missing/invalid/inaccessible grants
+still refuse access, even when the three bound routes are registered. No Windows
+ACL fallback or permission/authentication policy change is introduced.
+
+The sidecar entrypoint is `tools.finance_mcp.http_bootstrap:app`. It reads only
+`FINANCE_MCP_BINDING_FILE` for configuration and calls `create_http_app(binding)`.
+Absent/invalid metadata refuses sidecar import/startup with the fixed
+`REPORTING_UNCONFIGURED` error; the separate `tools.finance_mcp.http_server:app`
+entrypoint remains unconfigured by default. Neither import starts a listener,
+imports the CRM server, reads `.env` or DB credentials, nor requires FastAPI.
+Uvicorn owns the listener. Example Linux launch after separate provisioning and
+review (the shown loopback port must first be checked):
+
+```sh
+env -i PATH=/usr/bin:/bin FINANCE_MCP_BINDING_FILE=/etc/medcrm/finance-mcp/binding.json \
+  /opt/medcrm/finance-mcp/venv/bin/python -m uvicorn tools.finance_mcp.http_bootstrap:app \
+  --app-dir /opt/medcrm/new-med-crm --host 127.0.0.1 --port 8766
+```
+
+Use the separate sidecar venv and reviewed HTTP requirements/lockfile. Never inherit
+the backend environment, pass `MONGO_URL`, CRM credentials, a static bearer token,
+`REPORTING_GRANT_FILE`, or mount the grant file into the sidecar. Request credentials
+continue to be transiently forwarded by the existing HTTP transport only. No service,
+proxy, key, grant or production connection is installed by this implementation.
 
 ## What the numbers mean
 
@@ -89,11 +155,11 @@ of functioning production reporting.
    clinic identifier/membership filter. Either prove the configured database is
    exclusively the named clinic and bind it on the server, or design a verified
    record-to-clinic mapping. Do not label all records from an agent-supplied ID.
-2. Implement an audited current-owner/grant resolver and read-only source adapter
-   that prove coverage and legacy completeness. The current injected interfaces
-   are contracts, not proof of source isolation. Payroll must reuse SalaryService
-   over the bounded, verified clinic snapshot; never call the broad legacy salary
-   route as an authorization shortcut. Do not expose patient records to the MCP.
+2. Review the implemented current-owner/grant resolver and read-only source adapter
+   against the approved deployment and verify coverage and legacy completeness.
+   Synthetic tests are not proof of production source isolation. Payroll reuses
+   SalaryService over the bounded clinic snapshot; do not substitute the broad
+   legacy salary route or expose patient records to the MCP.
 3. Separately approve any real service identity, credential, membership mapping,
    grant/scope and persistent host configuration at action time. None are created
    or modified here. A grant must be revocable and checked on every tool request.
