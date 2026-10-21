@@ -14,7 +14,7 @@ import "./theme/curai-directories.css";
 import "./theme/curai-consultation-picker.css";
 const App = React.lazy(() => import("./App"));
 const PatientTermsPage = React.lazy(() => import("./pages/PatientTermsPage"));
-const isPublicTerms = window.location.pathname.startsWith("/consent/");
+const isPublicTerms = /^\/consent(?:\/|$)/.test(window.location.pathname);
 
 const root = ReactDOM.createRoot(document.getElementById("root"));
 root.render(
