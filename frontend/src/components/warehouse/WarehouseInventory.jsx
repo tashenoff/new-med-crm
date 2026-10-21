@@ -1,3 +1,4 @@
+import { permissionProps, canAction } from '../../utils/permissions.js';
 import React, { useState, useEffect, useRef } from 'react';
 import { Calendar, FileText, Plus, Edit, Trash2, CheckCircle, Clock } from 'lucide-react';
 import { materialsApi } from '../../api/materials';
@@ -153,7 +154,7 @@ const WarehouseInventory = ({ user }) => {
             <button
               onClick={handleCreateInventory}
               className="px-4 py-2 bg-curai-blue text-white rounded-md hover:bg-curai-blue flex items-center gap-2"
-            >
+             {...permissionProps(user, "warehouse_view", "warehouse_edit")}>
               <Plus className="w-4 h-4" />
               Начать инвентаризацию
             </button>
@@ -219,18 +220,18 @@ const WarehouseInventory = ({ user }) => {
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                       <button
-                        onClick={() => handleEditInventory(inventory)}
+                        onClick={() => handleEditInventory(inventory)} {...permissionProps(user, "warehouse_view", "warehouse_edit")}
                         className="text-curai-blue hover:text-curai-blue mr-3"
                         title="Редактировать"
                       >
                         <Edit className="w-4 h-4" />
                       </button>
-                      {user?.role === 'admin' || user?.role === 'super_admin' && (
+                      {(user?.role === 'admin' || user?.role === 'super_admin') && (
                         <button
                           onClick={() => handleDeleteInventory(inventory.id)}
                           className="text-curai-negative hover:text-curai-negative"
                           title="Удалить"
-                        >
+                         {...permissionProps(user, "warehouse_view", "warehouse_delete")}>
                           <Trash2 className="w-4 h-4" />
                         </button>
                       )}
@@ -250,6 +251,7 @@ const WarehouseInventory = ({ user }) => {
       {/* Модальное окно */}
       {showModal && (
         <InventoryModal
+        user={user}
           inventory={editingInventory}
           materials={materials}
           onClose={() => setShowModal(false)}
@@ -264,7 +266,7 @@ const WarehouseInventory = ({ user }) => {
 };
 
 // Модальное окно инвентаризации
-const InventoryModal = ({ inventory, materials, onClose, onSave }) => {
+const InventoryModal = ({ user, inventory, materials, onClose, onSave }) => {
   const [formData, setFormData] = useState({
     warehouse_name: inventory?.warehouse_name || 'Склад по умолчанию',
     status: inventory?.status || 'На заполнении',
@@ -370,7 +372,7 @@ const InventoryModal = ({ inventory, materials, onClose, onSave }) => {
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="flex flex-col curai-glass-body" style={{ maxHeight: 'calc(90vh - 140px)' }}>
+        <form onSubmit={event => { if (!canAction(user, "warehouse_view", "warehouse_edit")) { event.preventDefault(); return; } return (handleSubmit)(event); }} className="flex flex-col curai-glass-body" style={{ maxHeight: 'calc(90vh - 140px)' }}>
           <div className="px-6 py-4 overflow-y-auto">
             <div className="grid grid-cols-1 gap-4 mb-4">
               <div>
@@ -516,7 +518,7 @@ const InventoryModal = ({ inventory, materials, onClose, onSave }) => {
             <button
               type="submit"
               className="px-4 py-2 bg-curai-blue text-white rounded-md hover:bg-curai-blue"
-            >
+             {...permissionProps(user, "warehouse_view", "warehouse_edit")}>
               Сохранить
             </button>
           </div>

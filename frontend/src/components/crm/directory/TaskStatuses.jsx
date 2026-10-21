@@ -1,3 +1,4 @@
+import { canAction, permissionProps } from '../../../utils/permissions.js';
 import React, { useState, useEffect } from 'react';
 import { Plus, Edit2, Trash2, Search, GripVertical, Lock } from 'lucide-react';
 import Modal from '../../modals/Modal';
@@ -108,7 +109,7 @@ const TaskStatuses = ({ user }) => {
     <div className="space-y-6">
       <div className={cn("rounded-md", themeClasses.bg.card)}>
         <PanelHeader title="Статусы задач" subtitle="Управление статусами задач CRM"
-          onAction={isAdmin ? () => { setFormData(prev => ({...prev, order: statuses.length})); setShowModal(true); } : undefined}
+          onAction={canAction(user, "crm_view", "crm_edit") ? (isAdmin ? () => { setFormData(prev => ({...prev, order: statuses.length})); setShowModal(true); } : undefined) : undefined}
           actionLabel="+ Добавить статус" />
         
         {error && <div className="mx-6 mb-4 p-3 bg-curai-negativeBg text-curai-negative rounded-md">{error}</div>}
@@ -148,8 +149,8 @@ const TaskStatuses = ({ user }) => {
                   <div className="w-6 h-6 rounded-full border-2" style={{ backgroundColor: status.color }} title={status.color} />
                   {isAdmin && (
                     <div className="flex gap-2">
-                      <button onClick={() => handleEdit(status)} className="p-2 text-curai-blue hover:bg-curai-selected rounded-md" title="Редактировать"><Edit2 className="w-4 h-4" /></button>
-                      {!status.is_system && <button onClick={() => handleDelete(status)} className="p-2 text-curai-negative hover:bg-curai-negativeBg rounded-md" title="Удалить"><Trash2 className="w-4 h-4" /></button>}
+                      <button onClick={() => handleEdit(status)} className="p-2 text-curai-blue hover:bg-curai-selected rounded-md" title="Редактировать" {...permissionProps(user, "crm_view", "crm_edit")}><Edit2 className="w-4 h-4" /></button>
+                      {!status.is_system && <button onClick={() => handleDelete(status)} className="p-2 text-curai-negative hover:bg-curai-negativeBg rounded-md" title="Удалить" {...permissionProps(user, "crm_view", "crm_delete")}><Trash2 className="w-4 h-4" /></button>}
                     </div>
                   )}
                 </div>
@@ -159,7 +160,7 @@ const TaskStatuses = ({ user }) => {
         </div>
       </div>
       <Modal show={showModal} onClose={handleCloseModal} title={editingStatus ? 'Редактировать статус' : 'Новый статус'} size="max-w-lg">
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form onSubmit={event => { if (!canAction(user, "crm_view", "crm_edit")) { event.preventDefault(); return; } return (handleSubmit)(event); }} className="space-y-4">
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className={labelClasses}>Название *</label>
@@ -200,7 +201,7 @@ const TaskStatuses = ({ user }) => {
           </div>
           <div className="flex justify-end gap-3 pt-4 border-t">
             <button type="button" onClick={handleCloseModal} className="px-4 py-2 text-curai-muted">Отмена</button>
-            <button type="submit" className="bg-curai-blue text-white px-4 py-2 rounded-md hover:bg-curai-blue">{editingStatus ? 'Сохранить' : 'Создать'}</button>
+            <button type="submit" className="bg-curai-blue text-white px-4 py-2 rounded-md hover:bg-curai-blue" {...permissionProps(user, "crm_view", "crm_edit")}>{editingStatus ? 'Сохранить' : 'Создать'}</button>
           </div>
         </form>
       </Modal>

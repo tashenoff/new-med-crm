@@ -18,7 +18,7 @@ async function mount(t,writeError){
  },setTimeout:(fn,ms)=>{const id=setTimeoutNative(fn,ms);timers.push(id);return id;}};
  const setTimeoutNative=globalThis.setTimeout;
  for(const[k,v]of Object.entries(globals)){previous.set(k,Object.getOwnPropertyDescriptor(globalThis,k));Object.defineProperty(globalThis,k,{configurable:true,writable:true,value:v});}
- const root=createRoot(document.getElementById('root'));await act(async()=>root.render(React.createElement(module.exports.default,{doctors:[{id:'doctor',is_active:true,full_name:'Fixture doctor'}],canEdit:true,user:{}})));
+ const root=createRoot(document.getElementById('root'));await act(async()=>root.render(React.createElement(module.exports.default,{doctors:[{id:'doctor',is_active:true,full_name:'Fixture doctor'}],canEdit:true,user:{permissions:['calendar_view','calendar_edit','calendar_delete']}})));
  t.after(async()=>{await act(async()=>root.unmount());timers.forEach(clearTimeout);dom.window.close();for(const[k,d]of previous){if(d)Object.defineProperty(globalThis,k,d);else delete globalThis[k];}});
  const button=label=>[...document.querySelectorAll('button')].find(e=>e.textContent.trim()===label);
  return {writes,button,click:async(label)=>{const b=button(label);assert.ok(b,label);await act(async()=>b.click());},select:async(el,value)=>act(async()=>{Object.getOwnPropertyDescriptor(dom.window.HTMLSelectElement.prototype,'value').set.call(el,value);el.dispatchEvent(new dom.window.Event('change',{bubbles:true}));})};

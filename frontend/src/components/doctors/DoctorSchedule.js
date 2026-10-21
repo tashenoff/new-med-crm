@@ -1,3 +1,4 @@
+import { permissionProps } from '../../utils/permissions.js';
 import { scheduleErrorMessage } from './scheduleValidation';
 import React, { useState, useEffect, useMemo } from 'react';
 import PanelHeader from '../common/PanelHeader';
@@ -911,7 +912,7 @@ const DoctorSchedule = ({ doctors, user, canEdit, rooms = [] }) => {
                 <button
                   onClick={() => setShowAddModal(true)}
                   className="px-4 py-2 bg-curai-blue text-white rounded-md hover:bg-curai-blue text-sm font-medium"
-                >
+                 {...permissionProps(user, "calendar_view", "calendar_edit")}>
                   + График врача
                 </button>
                 <button
@@ -1105,7 +1106,7 @@ const DoctorSchedule = ({ doctors, user, canEdit, rooms = [] }) => {
                                 onClick={() => handleDeleteAllSchedules(item.doctor_id, item.schedules)}
                                 className="text-curai-negative hover:text-curai-negative "
                                 title={`Удалить все расписания (${item.schedules?.length || 0} дн.)`}
-                              >
+                               {...permissionProps(user, "calendar_view", "calendar_delete")}>
                                 🗑️
                               </button>
                             </div>
@@ -1245,7 +1246,7 @@ const DoctorSchedule = ({ doctors, user, canEdit, rooms = [] }) => {
               onClick={handleCreateSchedule}
               className={buttonPrimaryClasses}
               disabled={!formData.doctor_id}
-            >
+             {...permissionProps(user, "calendar_view", "calendar_edit")}>
               Добавить
             </button>
           </div>
@@ -1498,7 +1499,7 @@ const DoctorSchedule = ({ doctors, user, canEdit, rooms = [] }) => {
 
           <div className="flex justify-end space-x-3 pt-4 border-t ">
             <button onClick={() => { setShowWeekModal(false); resetWeekForm(); }} className={`px-4 ${buttonSecondaryClasses}`} disabled={weekScheduleSaving}>Отмена</button>
-            <button onClick={handleSaveWeekSchedule} className={`px-4 ${buttonPrimaryClasses}`} disabled={weekScheduleSaving || !weekScheduleData.selectedDays.length || !weekScheduleData.doctor_id}>
+            <button onClick={handleSaveWeekSchedule} className={`px-4 ${buttonPrimaryClasses}`} disabled={weekScheduleSaving || !weekScheduleData.selectedDays.length || !weekScheduleData.doctor_id} {...permissionProps(user, "calendar_view", "calendar_edit")}>
               {weekScheduleSaving ? 'Сохранение...' : `Сохранить (${weekScheduleData.selectedDays.length} дн.)`}
             </button>
           </div>

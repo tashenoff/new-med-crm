@@ -25,7 +25,7 @@ const compiled = await build({
   plugins: [{ name: 'local-telephony-fixtures', setup(builder) {
     builder.onResolve({ filter: /\/api\/telephony$|\/context\/AuthContext$/ }, args => ({ path: args.path, namespace: 'fixture' }));
     builder.onLoad({ filter: /.*/, namespace: 'fixture' }, args => ({ contents:
-      args.path.endsWith('AuthContext') ? 'export const useAuth = () => ({ user: { id: "local-user" } });'
+      args.path.endsWith('AuthContext') ? 'export const useAuth = () => ({ user: { id: "local-user", permissions: ["crm_view", "crm_edit"] } });'
         : 'export const telephonyApi = globalThis.localTelephony.api; export const handleApiError = e => e.message;'
     }));
   } }],

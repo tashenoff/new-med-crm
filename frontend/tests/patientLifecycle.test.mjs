@@ -28,9 +28,9 @@ const compiled = await build({
         const props = context.getModalProps('patient');
         globalThis.patientFixture.props = props;
         globalThis.patientFixture.context = context;
-        return <Modal show={context.isModalOpen('patient')} onClose={() => context.closeModal('patient')} {...props} />;
+        return <Modal user={{permissions:['calendar_view','calendar_edit','patients_view','patients_edit','patients_delete','patients_export','finance_view','finance_edit']}} show={context.isModalOpen('patient')} onClose={() => context.closeModal('patient')} {...props} />;
       }
-      export function PatientHarness() { return <ModalProvider><Page user={{role:'super_admin'}} /><Connected /></ModalProvider>; }
+      export function PatientHarness() { return <ModalProvider><Page user={{role:'super_admin', permissions:['crm_view','crm_edit','crm_delete','patients_view','patients_edit','patients_export','calendar_view','calendar_edit','calendar_delete','directory_view','directory_edit','directory_delete','warehouse_view','warehouse_edit','warehouse_delete','warehouse_export','finance_view','finance_edit','doctors_view','doctors_edit','doctors_delete','payroll_view']}} /><Connected /></ModalProvider>; }
       export function PhoneHarness({ session, check }) {
         const hook = usePhoneInput('', null, check, session);
         globalThis.patientFixture.phone = hook;

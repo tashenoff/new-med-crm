@@ -114,7 +114,7 @@ async function mount(t, { existingPrice = 25, existingType = 'regular', detail }
       }
     }
   });
-  await act(async () => root.render(React.createElement(ServicePrices,{user:{role:'super_admin'}})));
+  await act(async () => root.render(React.createElement(ServicePrices,{user:{role:'super_admin', permissions:['crm_view','crm_edit','crm_delete','patients_view','patients_edit','patients_export','calendar_view','calendar_edit','calendar_delete','directory_view','directory_edit','directory_delete','warehouse_view','warehouse_edit','warehouse_delete','warehouse_export','finance_view','finance_edit','doctors_view','doctors_edit','doctors_delete','payroll_view']}})));
   const button = text => [...document.querySelectorAll('button')].find(node => node.textContent.trim() === text);
   const click = async node => { assert.ok(node); await act(async () => node.click()); };
   const change = async (node, value) => {

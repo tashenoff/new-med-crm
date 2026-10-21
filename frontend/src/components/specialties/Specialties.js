@@ -1,3 +1,4 @@
+import { canAction, permissionProps } from '../../utils/permissions.js';
 import React, { useState, useEffect } from 'react';
 import Modal from '../modals/Modal';
 import PanelHeader from '../common/PanelHeader';
@@ -146,7 +147,7 @@ const Specialties = ({ user }) => {
         <PanelHeader
           title="Специальности врачей"
           subtitle="Управление медицинскими специальностями"
-          onAction={user?.role === 'admin' || user?.role === 'super_admin' ? () => setShowModal(true) : undefined}
+          onAction={canAction(user, "directory_view", "directory_edit") ? (user?.role === 'admin' || user?.role === 'super_admin' ? () => setShowModal(true) : undefined) : undefined}
           actionLabel="+ Добавить специальность"
         />
 
@@ -212,7 +213,7 @@ const Specialties = ({ user }) => {
                   <th className="px-6 py-3 text-left text-xs font-medium text-curai-muted uppercase tracking-wider">
                     Дата создания
                   </th>
-                  {user?.role === 'admin' || user?.role === 'super_admin' && (
+                  {(user?.role === 'admin' || user?.role === 'super_admin') && (
                     <th className="px-6 py-3 text-left text-xs font-medium text-curai-muted uppercase tracking-wider">
                       Действия
                     </th>
@@ -236,19 +237,19 @@ const Specialties = ({ user }) => {
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-curai-muted">
                       {new Date(specialty.created_at).toLocaleDateString('ru-RU')}
                     </td>
-                    {user?.role === 'admin' || user?.role === 'super_admin' && (
+                    {(user?.role === 'admin' || user?.role === 'super_admin') && (
                       <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                         <div className="flex gap-2">
                           <button
                             onClick={() => handleEdit(specialty)}
                             className="text-curai-blue hover:text-curai-blue"
-                          >
+                           {...permissionProps(user, "directory_view", "directory_edit")}>
                             Изменить
                           </button>
                           <button
                             onClick={() => handleDelete(specialty.id)}
                             className="text-curai-negative hover:text-curai-negative"
-                          >
+                           {...permissionProps(user, "directory_view", "directory_delete")}>
                             Удалить
                           </button>
                         </div>
@@ -278,7 +279,7 @@ const Specialties = ({ user }) => {
         size="max-w-[600px]" className="curai-directory-dialog curai-specialty-dialog"
       >
             
-            <form onSubmit={handleSubmit} className="space-y-4">
+            <form onSubmit={event => { if (!canAction(user, "directory_view", "directory_edit")) { event.preventDefault(); return; } return (handleSubmit)(event); }} className="space-y-4">
               <div>
                 <label className={labelClasses}>Название специальности *</label>
                 <input
@@ -307,7 +308,7 @@ const Specialties = ({ user }) => {
                   type="submit"
                   disabled={loading}
                   className={`flex-1 ${buttonPrimaryClasses}`}
-                >
+                 {...permissionProps(user, "directory_view", "directory_edit")}>
                   {loading ? 'Сохранение...' : (editingSpecialty ? 'Обновить' : 'Создать')}
                 </button>
                 <button

@@ -31,3 +31,6 @@ config/typecheck script. The changed permission modules can be checked with
 the existing `tests/patientTerms.eslint.cjs` configuration. Isolated browser smoke
 and synthetic screenshots are retained in task-3/browser-qa and task-3/evidence;
 the smoke blocks external network, mocks API and uses its own browser context.
+
+
+Action controls use explicit view/edit/delete/export checks through canAction/permissionProps; role alone does not enable them. CRM drag/drop and message send handlers also check current rights. ModalManager receives current user from App, overriding stale modal props. Clinical/payment workspaces receive separate payment/completion capabilities; full-payment auto-completion requires both. Document links download a blob from our own authenticated API after patients_view + patients_export validation. Public raw uploads are not restored. Source/DID mapping retains its original admin/super_admin constraint in addition to CRM keys. Generic presentation-only payment components keep optional capability props for standalone reuse; every application mount passes computed capabilities.

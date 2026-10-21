@@ -1,3 +1,4 @@
+import { canAction, hasPermission } from '../utils/permissions.js';
 import React, { useState, useEffect, useRef } from 'react';
 import { useAppointments } from '../hooks/useAppointments';
 import { usePatients } from '../hooks/usePatients';
@@ -526,7 +527,7 @@ const CalendarPage = ({ user }) => {
       )}
 
       {/* Виджет кэшбэка для врачей */}
-      {user?.role === 'doctor' && user?.id && (
+      {user?.role === 'doctor' && user?.id && hasPermission(user, 'payroll_view') && (
         <DoctorCashbackWidget doctorId={user.id} />
       )}
 
@@ -547,7 +548,7 @@ const CalendarPage = ({ user }) => {
         onSlotClick={handleSlotClick}
         onEditAppointment={handleEditAppointment}
         onMoveAppointment={handleMoveAppointment}
-        canEdit={user?.permissions?.includes('calendar_edit') || user?.role === 'admin' || user?.role === 'super_admin'}
+        canEdit={canAction(user, 'calendar_view', 'calendar_edit')}
         onNewAppointment={handleNewAppointment}
         onStatusChange={handleStatusChange}
       />

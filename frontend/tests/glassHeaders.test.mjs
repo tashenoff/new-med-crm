@@ -23,7 +23,7 @@ const compiled = await build({
   plugins: [{ name: 'isolated-header', setup(b) {
     b.onResolve({ filter: /\/api\/config$|\/context\/(AuthContext(\.jsx)?|ModalContext)$/ }, a => ({ path: a.path, namespace: 'fixture' }));
     b.onLoad({ filter: /.*/, namespace: 'fixture' }, a => ({ loader: 'jsx', contents:
-      a.path.includes('AuthContext') ? "import React from 'react';export default React.createContext({user:{role:'super_admin'}});" :
+      a.path.includes('AuthContext') ? "import React from 'react';export default React.createContext({user:{role:'super_admin', permissions:['crm_view','crm_edit','crm_delete','patients_view','patients_edit','patients_export','calendar_view','calendar_edit','calendar_delete','directory_view','directory_edit','directory_delete','warehouse_view','warehouse_edit','warehouse_delete','warehouse_export','finance_view','finance_edit','doctors_view','doctors_edit','doctors_delete','payroll_view']}});" :
       a.path.includes('ModalContext') ? 'export const useModal=()=>({openModal(){},closeModal(){}});' :
       "export const apiClient={get:(p,o)=>globalThis.glassFixture.api(p,o)};export const API_BASE_URL='https://fixture.invalid/api';export const handleApiError=e=>e.message;" }));
   } }]
@@ -46,7 +46,7 @@ async function mount(t, readChannels, Component = Inbox) {
     previous.set(key, Object.getOwnPropertyDescriptor(globalThis,key)); Object.defineProperty(globalThis,key,{configurable:true,writable:true,value});
   }
   const root = createRoot(document.getElementById('root'));
-  const render = async open => act(async () => root.render(React.createElement(GlobalRefreshProvider,null,React.createElement(Component,{isOpen:open,onClose(){},user:{role:'super_admin'}}))));
+  const render = async open => act(async () => root.render(React.createElement(GlobalRefreshProvider,null,React.createElement(Component,{isOpen:open,onClose(){},user:{role:'super_admin', permissions:['crm_view','crm_edit','crm_delete','patients_view','patients_edit','patients_export','calendar_view','calendar_edit','calendar_delete','directory_view','directory_edit','directory_delete','warehouse_view','warehouse_edit','warehouse_delete','warehouse_export','finance_view','finance_edit','doctors_view','doctors_edit','doctors_delete','payroll_view']}}))));
   t.after(async () => { await act(async()=>root.unmount());dom.window.close();for(const[key,d]of previous){if(d)Object.defineProperty(globalThis,key,d);else delete globalThis[key];} });
   await render(true);
   return { requests, render, body: document.body, poll: async ms => act(async()=>{for(const t of timers.values())if(t.ms===ms)t.fn();}),

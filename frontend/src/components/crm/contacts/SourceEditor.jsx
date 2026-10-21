@@ -5,7 +5,7 @@ const sourceTypes = { website: 'Сайт', social: 'Соц. сети', referral:
   advertising: 'Реклама', phone: 'Телефон', email: 'Email', other: 'Другое' };
 const control = 'w-full border border-curai-control rounded-md px-3 py-2 text-sm';
 
-export default function SourceEditor({ source, onClose, onSaved, canManageNumbers }) {
+export default function SourceEditor({ source, onClose, onSaved, canManageNumbers, canEdit = false, canDeleteNumbers = false }) {
   const [form, setForm] = useState({ name: source?.name || '', type: source?.type || 'website',
     description: source?.description || '', url: source?.url || '',
     cost_per_lead: source?.cost_per_lead || 0, monthly_budget: source?.monthly_budget ?? '' });
@@ -30,6 +30,7 @@ export default function SourceEditor({ source, onClose, onSaved, canManageNumber
   }, [source?.id]);
 
   const removeNumber = async phone => {
+    if (!canDeleteNumbers) return;
     setBusy(true); setError('');
     try {
       await sourceRequest(`/inbound-source-mappings/${encodeURIComponent(phone)}`, 'DELETE');
@@ -41,6 +42,7 @@ export default function SourceEditor({ source, onClose, onSaved, canManageNumber
 
   const save = async event => {
     event.preventDefault();
+    if (!canEdit) return;
     if (busy || loading) return;
     setBusy(true); setError('');
     let saved = savedSource;
@@ -102,7 +104,7 @@ export default function SourceEditor({ source, onClose, onSaved, canManageNumber
           <p className="text-curai-muted">Привязанные номера: {form.type !== 'phone' && 'сохраняются при смене типа источника.'}</p>
           {mappings.map(mapping => <div key={mapping.phone_number} className="flex items-center justify-between gap-2">
             <span>{mapping.phone_number}</span>
-            {canManageNumbers && <button type="button" className="text-curai-negative underline"
+            {canManageNumbers && canDeleteNumbers && <button type="button" className="text-curai-negative underline"
               onClick={() => removeNumber(mapping.phone_number)} aria-label={`Снять привязку ${mapping.phone_number}`}>Снять привязку</button>}
           </div>)}
           <p className="text-xs text-curai-muted">Чтобы заменить номер, снимите его привязку и укажите новый. История обращений не меняется.</p>
@@ -118,7 +120,7 @@ export default function SourceEditor({ source, onClose, onSaved, canManageNumber
       {error && <p role="alert" className="mt-4 text-sm text-curai-negative">{error}</p>}
       <div className="flex justify-end gap-3 mt-6">
         <button type="button" disabled={busy} onClick={onClose} className="px-4 py-2 border border-curai-control rounded-md">Отмена</button>
-        <button type="submit" disabled={busy || loading || !form.name.trim()} className="px-4 py-2 bg-curai-blue text-white rounded-md disabled:opacity-50">
+        <button type="submit" disabled={!canEdit || busy || loading || !form.name.trim()} className="px-4 py-2 bg-curai-blue text-white rounded-md disabled:opacity-50">
           {busy ? 'Сохранение…' : savedSource ? 'Сохранить' : 'Создать'}
         </button>
       </div>

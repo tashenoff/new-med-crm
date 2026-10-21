@@ -1,3 +1,4 @@
+import { permissionProps, canAction } from '../../../utils/permissions.js';
 import React, { useState, useEffect } from 'react';
 
 const IncomeView = ({ user }) => {
@@ -106,7 +107,7 @@ const IncomeView = ({ user }) => {
         <button
           onClick={() => setShowModal(true)}
           className="bg-curai-positive text-white px-4 py-2 rounded-md hover:bg-curai-positive transition-colors"
-        >
+         {...permissionProps(user, "finance_view", "finance_edit")}>
           ➕ Добавить доход
         </button>
       </div>
@@ -214,7 +215,7 @@ const IncomeView = ({ user }) => {
           <div className="bg-curai-surface rounded-md w-full max-w-md mx-4 curai-glass-shell curai-custom-dialog">
             <div className="curai-glass-header curai-modal-glass-heading has-title-gap"><h3 className="text-lg font-semibold mb-4">➕ Добавить доход</h3></div><div className="curai-glass-body curai-glass-body-padded">
             
-            <form onSubmit={handleSubmit} className="space-y-4">
+            <form onSubmit={event => { if (!canAction(user, "finance_view", "finance_edit")) { event.preventDefault(); return; } return (handleSubmit)(event); }} className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-curai-ink mb-1">Описание *</label>
                 <input
@@ -279,7 +280,7 @@ const IncomeView = ({ user }) => {
                 <button
                   type="submit"
                   className="flex-1 bg-curai-positive text-white py-2 rounded-md hover:bg-curai-positive"
-                >
+                 {...permissionProps(user, "finance_view", "finance_edit")}>
                   Сохранить
                 </button>
                 <button

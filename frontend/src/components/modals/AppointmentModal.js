@@ -1,3 +1,5 @@
+import { downloadPatientDocument } from '../../utils/documentDownload';
+import { canAction, permissionProps as documentPermissionProps } from '../../utils/permissions';
 import React, { useState, useEffect, useRef } from 'react';
 import { formatPhoneChange } from '../../hooks/phoneFormatter';
 import { appointmentPayment } from '../../utils/accountingLedger';
@@ -24,6 +26,7 @@ import { CONSENT_DOCUMENTS, getRequiredConsents } from '../../config/consentDocu
 
 
 const AppointmentModal = ({
+  user,
   show,
   onClose,
   onSave,
@@ -1150,7 +1153,7 @@ const handleCreateNewPatient = async (e) => {
 
       {/* Appointment Tab Content */}
       {activeTab === 'appointment' && (
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form onSubmit={event => { if (!canAction(user, "calendar_view", "calendar_edit")) {event.preventDefault();return;} return (handleSubmit)(event); }} className="space-y-4">
           <div>
             <label className="block text-sm font-medium text-curai-ink mb-1">Пациент *</label>
             <div className="flex gap-2">
@@ -1321,7 +1324,7 @@ const handleCreateNewPatient = async (e) => {
                   type="button"
                   onClick={handleCreateNewPatient}
                   className="mt-3 px-4 py-2 bg-curai-blue text-white rounded-md hover:bg-curai-blue text-sm"
-                >
+                 {...documentPermissionProps(user, "patients_view", "patients_edit")}>
                   Создать пациента
                 </button>
               )}
@@ -1518,7 +1521,7 @@ const handleCreateNewPatient = async (e) => {
               <label className="block text-sm font-medium">Депозит
                 <select value={appointmentForm.deposit_type || ''}
                   onChange={event => setAppointmentForm({ ...appointmentForm, deposit_type: event.target.value, deposit: '' })}
-                  className={selectClasses} disabled={submitting}>
+                  className={selectClasses} disabled={submitting} {...documentPermissionProps(user, 'finance_view', 'finance_edit', 'patients_view', 'patients_edit')}>
                   <option value="">Без депозита</option>
                   <option value="fixed">Фиксированная сумма</option>
                   <option value="percent">Процент от стоимости</option>
@@ -1533,7 +1536,7 @@ const handleCreateNewPatient = async (e) => {
                     placeholder={appointmentForm.deposit_type === 'percent' ? '0-100' : '0'}
                     value={appointmentForm.deposit ?? ''}
                     onChange={event => setAppointmentForm({ ...appointmentForm, deposit: event.target.value })}
-                    className={inputClasses} disabled={submitting} />
+                    className={inputClasses} disabled={submitting} {...documentPermissionProps(user, 'finance_view', 'finance_edit', 'patients_view', 'patients_edit')} />
                 </label>
               )}
             </div>
@@ -1713,7 +1716,7 @@ const handleCreateNewPatient = async (e) => {
               disabled={loading || uploadingConsent || submitting}
               className="flex-1 bg-curai-blue text-white py-2 rounded-md hover:bg-curai-blue disabled:opacity-50 flex items-center justify-center gap-2"
               data-guide="save-appointment-btn"
-            >
+             {...documentPermissionProps(user, "calendar_view", "calendar_edit")}>
               {(loading || uploadingConsent || submitting) && (
                 <svg className="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                   <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
@@ -1770,7 +1773,7 @@ const handleCreateNewPatient = async (e) => {
                 onClick={handleFileUpload}
                 disabled={!selectedFile || uploading}
                 className="px-4 py-2 bg-curai-blue text-white rounded-md hover:bg-curai-blue disabled:opacity-50"
-              >
+               {...documentPermissionProps(user, "patients_view", "patients_edit")}>
                 {uploading ? 'Загрузка...' : 'Загрузить документ'}
               </button>
             </div>
@@ -1802,7 +1805,8 @@ const handleCreateNewPatient = async (e) => {
                     </div>
                     <div className="flex space-x-2">
                       <a
-                        href={`${API}/api/uploads/${doc.filename}`}
+                        href="#" onClick={event => { event.preventDefault(); downloadPatientDocument(doc, user).catch(error => window.alert(error.message)); }}
+                          {...documentPermissionProps(user, 'patients_view', 'patients_export')}
                         download={doc.original_filename}
                         className="px-3 py-1 text-curai-blue border border-curai-control rounded hover:bg-curai-selected text-sm"
                       >
@@ -1811,7 +1815,7 @@ const handleCreateNewPatient = async (e) => {
                       <button
                         onClick={() => handleDeleteDocument(doc.id)}
                         className="px-3 py-1 text-curai-negative border border-curai-negative rounded hover:bg-curai-negativeBg text-sm"
-                      >
+                       {...documentPermissionProps(user, "patients_view", "patients_delete")}>
                         Удалить
                       </button>
                     </div>
@@ -2012,7 +2016,7 @@ const handleCreateNewPatient = async (e) => {
                   type="button"
                   onClick={handleSaveTreatmentPlan}
                   className="px-4 py-2 bg-curai-positive text-white rounded-md hover:bg-curai-positive"
-                >
+                 {...documentPermissionProps(user, "patients_view", "patients_edit")}>
                   {editingPlan ? 'Обновить план' : 'Создать план'}
                 </button>
                 {editingPlan && (
@@ -2042,7 +2046,7 @@ const handleCreateNewPatient = async (e) => {
             </div>
           </div>
           )}
-        {!(!hideAddPlanForm && (showPlanForm || editingPlan)) && (planDataPending || plansError ? <PlanEmptyState title={plansError || 'Загрузка планов лечения…'} action={plansError && <button type="button" className="curai-button curai-button-secondary" onClick={fetchTreatmentPlans}>Повторить</button>}/> : <PatientTreatmentWorkspace includeEmptyPlans={!hideAddPlanForm} patientId={selectedPatient.id} plans={currentTreatmentPlans} paymentFilter={paymentFilter} onPaymentFilter={setPaymentFilter} procedureFilter={procedureFilter} onProcedureFilter={setProcedureFilter} onUpdate={updated => setTreatmentPlans(plans => plans.map(plan => plan.id === updated.id ? updated : plan))} onCreatePlan={hideAddPlanForm ? undefined : () => { setEditingPlan(null); setPlanForm({
+        {!(!hideAddPlanForm && (showPlanForm || editingPlan)) && (planDataPending || plansError ? <PlanEmptyState title={plansError || 'Загрузка планов лечения…'} action={plansError && <button type="button" className="curai-button curai-button-secondary" onClick={fetchTreatmentPlans}>Повторить</button>}/> : <PatientTreatmentWorkspace allowPayment={canAction(user, 'patients_view', 'finance_view', 'finance_edit')} allowCompletion={canAction(user, 'patients_view', 'patients_edit')} includeEmptyPlans={!hideAddPlanForm} patientId={selectedPatient.id} plans={currentTreatmentPlans} paymentFilter={paymentFilter} onPaymentFilter={setPaymentFilter} procedureFilter={procedureFilter} onProcedureFilter={setProcedureFilter} onUpdate={updated => setTreatmentPlans(plans => plans.map(plan => plan.id === updated.id ? updated : plan))} onCreatePlan={!canAction(user, 'patients_view', 'patients_edit') || hideAddPlanForm ? undefined : () => { setEditingPlan(null); setPlanForm({
     title: '',
     description: '',
     services: [],
@@ -2053,10 +2057,10 @@ const handleCreateNewPatient = async (e) => {
     paid_amount: 0,
     execution_status: 'pending',
     appointment_ids: []
-  }); setShowPlanForm(true); }} createLabel="Создать план лечения" createEmptyLabel="Создать план лечения" creationHint={hideAddPlanForm ? 'Планы формируются из услуг консультационного листа.' : 'Планы лечения пациента'} emptyDescription={hideAddPlanForm ? 'Добавьте услуги в консультационный лист в карточке пациента.' : 'Создайте план лечения для выбранного пациента.'} planActions={hideAddPlanForm ? undefined : plan => <><button type="button" className="curai-button curai-button-secondary" onClick={() => handleEditTreatmentPlan(plan)}>Редактировать план</button><button type="button" className="curai-button curai-button-secondary" onClick={() => handleDeleteTreatmentPlan(plan.id)}>Удалить план</button></>}/>)}</>)}
+  }); setShowPlanForm(true); }} createLabel="Создать план лечения" createEmptyLabel="Создать план лечения" creationHint={hideAddPlanForm ? 'Планы формируются из услуг консультационного листа.' : 'Планы лечения пациента'} emptyDescription={hideAddPlanForm ? 'Добавьте услуги в консультационный лист в карточке пациента.' : 'Создайте план лечения для выбранного пациента.'} planActions={!canAction(user, 'patients_view') || hideAddPlanForm ? undefined : plan => <><button type="button" className="curai-button curai-button-secondary" onClick={() => handleEditTreatmentPlan(plan)} {...documentPermissionProps(user, 'patients_view', 'patients_edit')}>Редактировать план</button><button type="button" className="curai-button curai-button-secondary" onClick={() => handleDeleteTreatmentPlan(plan.id)} {...documentPermissionProps(user, 'patients_view', 'patients_delete')}>Удалить план</button></>}/>)}</>)}
 
       {/* Payment Tab - поэтапная оплата (дубль из карточки пациента) */}
-      {activeTab === 'payment' && selectedPatient && (planDataPending || plansError ? <PlanEmptyState title={plansError || 'Загрузка планов лечения…'} action={plansError && <button type="button" className="curai-button curai-button-secondary" onClick={fetchTreatmentPlans}>Повторить</button>}/> : <PatientPaymentWorkspace plans={currentTreatmentPlans} patientId={selectedPatient.id} onUpdate={updated => setTreatmentPlans(plans => plans.map(plan => plan.id === updated.id ? updated : plan))} onCreatePlan={hideAddPlanForm ? undefined : () => { setActiveTab('plans'); setEditingPlan(null); setPlanForm({
+      {activeTab === 'payment' && selectedPatient && (planDataPending || plansError ? <PlanEmptyState title={plansError || 'Загрузка планов лечения…'} action={plansError && <button type="button" className="curai-button curai-button-secondary" onClick={fetchTreatmentPlans}>Повторить</button>}/> : <PatientPaymentWorkspace allowPayment={canAction(user, 'patients_view', 'finance_view', 'finance_edit')} allowCompletion={canAction(user, 'patients_view', 'patients_edit')} plans={currentTreatmentPlans} patientId={selectedPatient.id} onUpdate={updated => setTreatmentPlans(plans => plans.map(plan => plan.id === updated.id ? updated : plan))} onCreatePlan={!canAction(user, 'patients_view', 'patients_edit') || hideAddPlanForm ? undefined : () => { setActiveTab('plans'); setEditingPlan(null); setPlanForm({
     title: '',
     description: '',
     services: [],

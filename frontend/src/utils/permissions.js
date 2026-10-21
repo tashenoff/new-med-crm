@@ -25,6 +25,15 @@ export const permissionGroups = [
 ];
 export const allPermissionKeys = permissionGroups.flatMap(group => group.rows.flatMap(row => row[1]));
 export const hasPermission = (user, key) => user?.is_active !== false && Boolean(user?.permissions?.includes(key));
+export const canAction = (user, ...keys) => keys.every(key => hasPermission(user, key));
+// Spread last: deny must win over a pending/loading disabled expression.
+// For an allowed action, leave its existing busy/validation state untouched.
+export const permissionProps = (user, ...keys) => ({
+  'data-permissions': keys.join(' '),
+  ...(!canAction(user, ...keys) ? {
+    disabled: true, 'aria-disabled': true, title: 'Недостаточно прав для этого действия',
+  } : {}),
+});
 export const permissionLabel = key => key === 'system_settings' ? 'Настройки'
   : key === 'payroll_view' ? 'Зарплаты (явное разрешение)'
   : ({ view: 'Просмотр', edit: 'Создание / изменение', delete: 'Удаление', export: 'Экспорт' }[key.split('_').at(-1)] || key);

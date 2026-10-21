@@ -1,7 +1,9 @@
+import { canAction, permissionProps } from '../../utils/permissions.js';
 import React from 'react';
 import PanelHeader from '../common/PanelHeader';
 
-const DoctorsView = ({ 
+const DoctorsView = ({
+  user,
   doctors, 
   searchTerm, 
   setSearchTerm,
@@ -30,7 +32,7 @@ const DoctorsView = ({
         <PanelHeader
           title="Врачи"
           subtitle="Управление врачами и их специальностями"
-          onAction={canManage ? onAddDoctor : undefined}
+          onAction={canAction(user, "doctors_view", "doctors_edit", "payroll_view") ? (canManage ? onAddDoctor : undefined) : undefined}
           actionLabel="+ Добавить врача"
         />
 
@@ -153,13 +155,13 @@ const DoctorsView = ({
                             <button
                               onClick={() => onEditDoctor(doctor)}
                               className="text-curai-blue hover:text-curai-blue"
-                            >
+                             {...permissionProps(user, "doctors_view", "doctors_edit", "payroll_view")}>
                               Редактировать
                             </button>
                             <button
                               onClick={() => onDeleteDoctor(doctor.id)}
                               className="text-curai-negative hover:text-curai-negative"
-                            >
+                             {...permissionProps(user, "doctors_view", "doctors_delete")}>
                               Удалить
                             </button>
                           </td>

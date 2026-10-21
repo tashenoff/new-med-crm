@@ -1,11 +1,12 @@
-﻿import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import { permissionProps } from '../../../utils/permissions.js';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { apiClient, handleApiError } from '../../../api/config';
 
 // Медиа/записи приходят относительным путём (/uploads/...) — на фронте это другой домен,
 // поэтому превращаем в абсолютный адрес бэкенда.
 const absMedia = (u) => (u && u.startsWith('/') ? `${import.meta.env.VITE_BACKEND_URL}${u}` : u);
 
-const TelephonySection = () => {
+const TelephonySection = ({ user }) => {
   const [activeTab, setActiveTab] = useState('calls');
   const [calls, setCalls] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -330,7 +331,7 @@ const TelephonySection = () => {
                       <button
                         onClick={exportToCsv}
                         className="bg-curai-positive text-white px-4 py-2 rounded-md hover:bg-curai-positive transition-colors flex items-center gap-2"
-                      >
+                       {...permissionProps(user, "crm_view", "crm_export")}>
                         <span>📊</span>
                         Экспорт в Excel
                       </button>

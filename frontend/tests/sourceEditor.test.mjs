@@ -71,7 +71,7 @@ async function mount(context, options = {}) {
     }
   });
   await act(async () => root.render(React.createElement(SourceEditor, {
-    source: state.source, canManageNumbers: options.canManageNumbers ?? true,
+    source: state.source, canEdit: options.canEdit ?? true, canDeleteNumbers: options.canDeleteNumbers ?? true, canManageNumbers: options.canManageNumbers ?? true,
     onClose() {}, onSaved: source => saved.push(source)
   })));
   const change = async (node, value) => {
@@ -149,6 +149,15 @@ test('non-admin editor cannot change number bindings', async context => {
   assert.equal(button(f, 'Снять привязку'), undefined);
   await f.submit();
   assert.ok(!f.requests.some(request => request.path.startsWith('/inbound-source-mappings') && request.method !== 'GET'));
+});
+
+test('read-only source editor rejects form submission and cannot unbind a number', async context => {
+  const f = await mount(context, {canEdit: false, canDeleteNumbers: false,
+    source: {id: 'legacy', name: 'Synthetic', type: 'phone'}, mappings: [{phone_number: did, source_id: 'legacy'}]});
+  assert.equal(f.container.querySelector('button[type="submit"]').disabled, true);
+  await f.submit();
+  assert.equal(f.requests.some(request => request.method !== 'GET'), false);
+  assert.equal(f.container.querySelectorAll('.text-curai-negative.underline').length, 0);
 });
 
 test('racing mapping failure retains a created source ID and retry never duplicates the catalog', async context => {

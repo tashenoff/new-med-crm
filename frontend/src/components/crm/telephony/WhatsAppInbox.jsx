@@ -1,3 +1,4 @@
+import { permissionProps, canAction } from '../../../utils/permissions.js';
 import PatientTermsStatus from '../../patients/PatientTermsStatus';
 import WhatsAppConnectionBadge from './WhatsAppConnectionBadge';
 import PatientAppointments from './PatientAppointments';
@@ -30,7 +31,7 @@ const formatMessageTime = value => {
   return value && !Number.isNaN(date.getTime()) ? date.toLocaleTimeString('ru-RU', { timeZone: 'Asia/Bishkek', hour: '2-digit', minute: '2-digit' }) : '';
 };
 
-const WhatsAppInbox = ({ isOpen, onClose }) => {
+const WhatsAppInbox = ({ isOpen, onClose, user }) => {
   const { openModal, closeModal } = useModal();
   const { refreshAppointments } = useGlobalRefresh();
 
@@ -147,6 +148,7 @@ const WhatsAppInbox = ({ isOpen, onClose }) => {
   }, [messages, selected]);
 
   const sendMessage = async () => {
+    if (!canAction(user, 'crm_view', 'crm_edit')) return;
     const text = newMessage.trim();
     if (!text || !selected || sending) return;
     setSending(true);
@@ -241,6 +243,7 @@ const WhatsAppInbox = ({ isOpen, onClose }) => {
 
   // Отправить уже загруженный документ из карточки клиента (media_url уже есть, повторно не грузим).
   const sendExistingDoc = async (doc) => {
+    if (!canAction(user, 'crm_view', 'crm_edit')) return;
     if (!selected || uploadingFile) return;
     setUploadingFile(true);
     setAttachMenuOpen(false);
@@ -568,11 +571,11 @@ const WhatsAppInbox = ({ isOpen, onClose }) => {
           ) : (
             <>
               <div className="curai-chat-header">
-                <div className="curai-chat-person" aria-label="Контакт выбранного чата"><CuraiIcon name="person"/>{selected.patient_id || selected.linked_patient_id ? <button type="button" className="curai-patient-link" onClick={openPatientCard} title={contactNameMeta(selected)}>{contactNameMeta(selected)}</button> : <strong title={contactNameMeta(selected)}>{contactNameMeta(selected)}</strong>}</div>
+                <div className="curai-chat-person" aria-label="Контакт выбранного чата"><CuraiIcon name="person"/>{selected.patient_id || selected.linked_patient_id ? <button type="button" className="curai-patient-link" onClick={openPatientCard} title={contactNameMeta(selected)} {...permissionProps(user, "patients_view")}>{contactNameMeta(selected)}</button> : <strong title={contactNameMeta(selected)}>{contactNameMeta(selected)}</strong>}</div>
                 <div className="curai-chat-header-actions">
                   <PatientAppointments key={selected.phone} patientId={selected.patient_id || selected.linked_patient_id} patientName={contactNameMeta(selected)} revision={appointmentsRevision} onBook={handleBook} booking={openingBooking} onChanged={fetchChats} showBookAction={false}/>
-                  <ChatCrmStage phone={selected.phone} revision={selected} onChanged={fetchChats} variant="menu"/>
-                  <CuraiButton variant="primary" onClick={handleBook} disabled={openingBooking} aria-busy={openingBooking} title="Назначить запись">Записать</CuraiButton>
+                  <ChatCrmStage user={user} phone={selected.phone} revision={selected} onChanged={fetchChats} variant="menu"/>
+                  <CuraiButton variant="primary" onClick={handleBook} disabled={openingBooking} aria-busy={openingBooking} title="Назначить запись" {...permissionProps(user, "crm_view", "crm_edit", "patients_view", "patients_edit", "calendar_view", "calendar_edit")}>Записать</CuraiButton>
                 </div>
                 <div className="curai-chat-phone">{selected.phone}</div>
                 {(selected.deal_title || selected.lead_title) && <div className="curai-chat-deal-title">Сделка: {selected.deal_title || selected.lead_title}</div>}
@@ -635,7 +638,7 @@ const WhatsAppInbox = ({ isOpen, onClose }) => {
                             className={`mt-1 text-xs flex items-center gap-1 rounded px-1.5 py-0.5 border border-curai-control hover:bg-curai-subtle ${
                               outgoing ? "text-curai-blue" : "text-curai-muted"
                             }`}
-                          >
+                           {...permissionProps(user, "crm_view", "crm_edit", "patients_view", "patients_edit")}>
                             <CuraiIcon name="save-file" className="curai-save-icon"/> Сохранить в карточке
                           </button>
                         )}
@@ -676,7 +679,7 @@ const WhatsAppInbox = ({ isOpen, onClose }) => {
                     disabled={uploadingFile || !selected}
                     title={uploadingFile ? 'Загрузка файла…' : 'Вложить файл'}
                     className="w-10 h-10 flex items-center justify-center rounded-md border border-curai-control text-curai-muted hover:bg-curai-subtle disabled:opacity-50 text-lg"
-                  >
+                   {...permissionProps(user, "crm_view", "crm_edit")}>
                     {uploadingFile ? '…' : <CuraiIcon name="paperclip"/>}
                   </button>
 
@@ -706,7 +709,7 @@ const WhatsAppInbox = ({ isOpen, onClose }) => {
                               disabled={uploadingFile}
                               className="w-full text-left px-3 py-2 text-sm hover:bg-curai-subtle flex items-center gap-2 border-b border-curai-border"
                               title={doc.original_filename || doc.filename}
-                            >
+                             {...permissionProps(user, "crm_view", "crm_edit", "patients_view", "patients_export")}>
                               <span className="flex-shrink-0">📄</span>
                               <span className="flex-1 truncate">{doc.original_filename || doc.filename}</span>
                             </button>
@@ -723,7 +726,7 @@ const WhatsAppInbox = ({ isOpen, onClose }) => {
                       <button
                         onClick={() => { setAttachMenuOpen(false); handleAttachClick(); }}
                         className="w-full text-left px-3 py-2.5 text-sm hover:bg-curai-subtle flex items-center gap-2 border-t border-curai-border"
-                      >
+                       {...permissionProps(user, "crm_view", "crm_edit")}>
                         <span>💻</span>
                         <span>
                           С компьютера
@@ -750,7 +753,7 @@ const WhatsAppInbox = ({ isOpen, onClose }) => {
                   onClick={sendMessage}
                   disabled={sending || !newMessage.trim()}
                   className="px-4 py-2 bg-curai-positive hover:bg-curai-blue text-white rounded-md font-medium disabled:opacity-50"
-                >
+                 {...permissionProps(user, "crm_view", "crm_edit")}>
                   {sending ? '…' : 'Отправить'}
                 </button>
               </div>

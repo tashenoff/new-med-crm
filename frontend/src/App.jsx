@@ -352,7 +352,7 @@ function ClinicApp() {
           <Route path="/specialties" element={<Specialties user={user} />} />
           <Route path="/payment-types" element={<PaymentTypes user={user} />} />
           <Route path="/room-management" element={<Rooms user={user} />} />
-          <Route path="/doctor-schedule" element={<DoctorSchedule doctors={doctorsHook.doctors} user={user} canEdit={user?.role === 'admin' || user?.role === 'super_admin'} />} />
+          <Route path="/doctor-schedule" element={<DoctorSchedule doctors={doctorsHook.doctors} user={user} canEdit={hasPermission(user, 'calendar_view') && hasPermission(user, 'calendar_edit')} />} />
           <Route path="/loyalty" element={<LoyaltyPage user={user} />} />
           <Route path="/services-report" element={<ServicesReport user={user} />} />
           <Route path="/staff-management" element={<StaffManagementPage user={user} />} />
@@ -385,7 +385,7 @@ function ClinicApp() {
               {activeTab === 'statistics' && <DoctorStatistics user={user} />}
               {activeTab === 'treatment-statistics' && <TreatmentPlanStatistics />}
               {activeTab === 'doctor-statistics' && <DoctorStatistics />}
-              {activeTab === 'doctor-schedule' && <DoctorSchedule doctors={doctorsHook.doctors} user={user} canEdit={user?.role === 'admin' || user?.role === 'super_admin'} />}
+              {activeTab === 'doctor-schedule' && <DoctorSchedule doctors={doctorsHook.doctors} user={user} canEdit={hasPermission(user, 'calendar_view') && hasPermission(user, 'calendar_edit')} />}
               {activeTab === 'service-prices' && <ServicePrices user={user} />}
               {activeTab === 'specialties' && <Specialties user={user} />}
               {activeTab === 'payment-types' && <PaymentTypes user={user} />}
@@ -399,14 +399,14 @@ function ClinicApp() {
           </main>
 
           {/* Универсальный менеджер модальных окон */}
-          <ModalManager />
+          <ModalManager user={user} />
 
           {/* Центр уведомлений */}
           <NotificationCenter />
 
           {/* Плавающая кнопка WhatsApp-инбокса (ИИ-консультант убран) */}
           {hasPermission(user, 'crm_view') && <WhatsAppFloatingButton isOpen={whatsAppInboxOpen} onToggle={() => setWhatsAppInboxOpen(v => !v)} />}
-          {hasPermission(user, 'crm_view') && <WhatsAppInbox isOpen={whatsAppInboxOpen} onClose={() => setWhatsAppInboxOpen(false)} />}
+          {hasPermission(user, 'crm_view') && <WhatsAppInbox user={user} isOpen={whatsAppInboxOpen} onClose={() => setWhatsAppInboxOpen(false)} />}
 
 
 

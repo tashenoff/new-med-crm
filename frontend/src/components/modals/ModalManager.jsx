@@ -7,7 +7,7 @@ import PatientModal from './PatientModal';
 import DoctorModal from './DoctorModal';
 import AIChatModal from './AIChatModal';
 
-const ModalManager = () => {
+const ModalManager = ({ user }) => {
   const { modals, isModalOpen, getModalProps, closeModal } = useModal();
 
   return (
@@ -17,6 +17,7 @@ const ModalManager = () => {
         show={isModalOpen('appointment')}
         onClose={() => closeModal('appointment')}
         {...getModalProps('appointment')}
+        user={user}
       />
 
       {/* Patient Modal */}
@@ -24,6 +25,7 @@ const ModalManager = () => {
         show={isModalOpen('patient')}
         onClose={() => closeModal('patient')}
         {...getModalProps('patient')}
+        user={user}
       />
 
       {/* Doctor Modal */}

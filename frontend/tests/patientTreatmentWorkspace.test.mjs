@@ -20,6 +20,23 @@ const plan = (id, total = 1000, paid = 0) => ({ id, title: `План ${id}`, cre
 function ControlledWorkspace(props) { const [paymentFilter, onPaymentFilter] = useState('all'), [procedureFilter, onProcedureFilter] = useState('all'); return React.createElement(Workspace, { ...props, paymentFilter, onPaymentFilter, procedureFilter, onProcedureFilter }); }
 function Card(props) { return React.createElement(GlobalRefreshProvider, null, React.createElement(PatientModal, props)); }
 
+test('read-only treatment keeps disclosures available but disables receipts and clinical completion', async t => {
+  const ui = await mount(t, ControlledWorkspace, {plans: [plan('restricted')], allowPayment: false, allowCompletion: false});
+  const actions = [...ui.container.querySelectorAll('.curai-treatment-mark,.curai-treatment-pay,.curai-treatment-plan-header .curai-button-primary')];
+  assert.ok(actions.length >= 2);
+  assert.ok(actions.every(button => button.disabled));
+  for (const action of actions) await ui.click(action);
+  assert.equal(ui.writes.length, 0);
+  assert.equal(ui.container.querySelector('[role="dialog"]'), null);
+});
+
+test('auto-completion payment requires both finance and clinical write capability', async t => {
+  const ui = await mount(t, ControlledWorkspace, {plans: [plan('finance-without-clinical')], allowPayment: true, allowCompletion: false});
+  assert.equal(ui.container.querySelector('.curai-treatment-pay').disabled, true);
+  assert.equal(ui.container.querySelector('.curai-treatment-mark').disabled, true);
+  assert.equal(ui.writes.length, 0);
+});
+
 async function mount(t, Component, props, options = {}) {
   const dom = new JSDOM('<div id="root"></div>', { url: 'https://crm.test' }), writes = [], previous = new Map();
   const globals = { window: dom.window, document: dom.window.document, localStorage: dom.window.localStorage, HTMLElement: dom.window.HTMLElement, IS_REACT_ACT_ENVIRONMENT: true, alert() {}, fetch: async (url, command = {}) => {

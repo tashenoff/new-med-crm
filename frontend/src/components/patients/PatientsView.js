@@ -1,7 +1,9 @@
+import { canAction } from '../../utils/permissions.js';
 import React, { useState, useEffect } from 'react';
 import PanelHeader from '../common/PanelHeader';
 
-const PatientsView = ({ 
+const PatientsView = ({
+  user,
   patients, 
   patientsTreatmentPlans = {},
   searchTerm, 
@@ -121,7 +123,7 @@ const PatientsView = ({
         <PanelHeader
           title="Пациенты"
           subtitle="Управление списком пациентов клиники"
-          onAction={canManage ? onAddPatient : undefined}
+          onAction={canAction(user, "patients_view", "patients_edit") ? (canManage ? onAddPatient : undefined) : undefined}
           actionLabel="+ Добавить пациента"
         />
 

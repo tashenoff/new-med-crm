@@ -1,6 +1,8 @@
+import { permissionProps } from '../../utils/permissions.js';
 import React from 'react';
 
 const StaffView = ({
+  user,
   staff,
   searchTerm,
   setSearchTerm,
@@ -58,7 +60,7 @@ const StaffView = ({
             <button
               onClick={onAddStaff}
               className="px-4 py-2 bg-curai-positive text-white rounded-md hover:bg-curai-positive transition-colors flex items-center gap-2"
-            >
+             {...permissionProps(user, "staff_view", "staff_edit")}>
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
               </svg>
@@ -216,7 +218,7 @@ const StaffView = ({
                               onClick={() => onEditStaff(member)}
                               className="text-curai-blue hover:text-curai-blue"
                               title="Редактировать права"
-                            >
+                             {...permissionProps(user, "staff_view", "staff_edit")}>
                               Права доступа
                             </button>
                             <span className="text-curai-disabled">|</span>
@@ -224,7 +226,7 @@ const StaffView = ({
                               onClick={() => onRevokeAccess && onRevokeAccess(member)}
                               className="text-curai-warning hover:text-curai-warning"
                               title="Отозвать доступ"
-                            >
+                             {...permissionProps(user, "staff_view", "staff_delete")}>
                               Отозвать доступ
                             </button>
                           </div>
@@ -233,7 +235,7 @@ const StaffView = ({
                             onClick={() => onAssignAccess && onAssignAccess(member)}
                             className="text-curai-positive hover:text-curai-positive font-semibold"
                             title="Назначить доступ"
-                          >
+                           {...permissionProps(user, "staff_view", "staff_edit")}>
                             Назначить доступ
                           </button>
                         )
@@ -244,14 +246,14 @@ const StaffView = ({
                             onClick={() => onEditStaff(member)}
                             className="text-curai-blue hover:text-curai-blue mr-3"
                             title="Редактировать"
-                          >
+                           {...permissionProps(user, "staff_view", "staff_edit")}>
                             Редактировать
                           </button>
                           <button
                             onClick={() => onDeleteStaff(member.id)}
                             className="text-curai-negative hover:text-curai-negative"
                             title="Удалить"
-                          >
+                           {...permissionProps(user, "staff_view", "staff_delete")}>
                             Удалить
                           </button>
                         </>

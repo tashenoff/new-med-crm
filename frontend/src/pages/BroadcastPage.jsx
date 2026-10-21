@@ -1,3 +1,4 @@
+import { permissionProps } from '../utils/permissions.js';
 import React, { useState, useEffect } from 'react';
 import { usePatients } from '../hooks/usePatients';
 import PanelHeader from '../components/common/PanelHeader';
@@ -457,7 +458,7 @@ const BroadcastPage = ({ user }) => {
                         ? "bg-curai-control text-curai-muted cursor-not-allowed"
                         : "bg-curai-blue text-white hover:bg-curai-blue"
                     }`}
-                  >
+                   {...permissionProps(user, "broadcast_view", "broadcast_edit", "patients_view")}>
                     {loading ? 'Отправка...' : `Отправить (${selectedPatients.length})`}
                   </button>
                 </div>
@@ -536,7 +537,7 @@ const BroadcastPage = ({ user }) => {
                   <button
                     onClick={openCreateRuleModal}
                     className="px-4 py-2 bg-curai-blue text-white rounded-md hover:bg-curai-blue text-sm"
-                  >
+                   {...permissionProps(user, "system_settings")}>
                     + Добавить уведомление
                   </button>
                 </div>
@@ -552,7 +553,7 @@ const BroadcastPage = ({ user }) => {
                     <button
                       onClick={openCreateRuleModal}
                       className="px-6 py-2 bg-curai-blue text-white rounded-md hover:bg-curai-blue"
-                    >
+                     {...permissionProps(user, "system_settings")}>
                       Создать первое правило
                     </button>
                   </div>
@@ -639,7 +640,7 @@ const BroadcastPage = ({ user }) => {
                                 <button
                                   onClick={() => deleteRule(rule.id || rule._id)}
                                   className="px-3 py-1.5 bg-curai-negativeBg text-curai-negative rounded-md hover:bg-curai-negativeBg text-sm font-medium"
-                                >
+                                 {...permissionProps(user, "system_settings")}>
                                   🗑️ Удалить
                                 </button>
                               </div>
@@ -688,7 +689,7 @@ const BroadcastPage = ({ user }) => {
               <button
                 onClick={saveRuleTemplate}
                 className="px-4 py-2 bg-curai-blue text-white rounded-md hover:bg-curai-blue"
-              >
+               {...permissionProps(user, "system_settings")}>
                 Сохранить
               </button>
             </div>
@@ -761,7 +762,7 @@ const BroadcastPage = ({ user }) => {
               <button onClick={() => setShowCreateModal(false)} className="px-4 py-2 bg-curai-border text-curai-ink rounded-md hover:bg-curai-control">
                 Отмена
               </button>
-              <button onClick={createRule} className="px-4 py-2 bg-curai-blue text-white rounded-md hover:bg-curai-blue">
+              <button onClick={createRule} className="px-4 py-2 bg-curai-blue text-white rounded-md hover:bg-curai-blue" {...permissionProps(user, "system_settings")}>
                 Создать
               </button>
             </div>

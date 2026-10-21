@@ -1,3 +1,4 @@
+import { permissionProps } from '../../../utils/permissions.js';
 import React, { useState, useEffect } from 'react';
 
 const ReportsView = ({ user }) => {
@@ -43,13 +44,13 @@ const ReportsView = ({ user }) => {
           <button
             onClick={() => downloadReport('pdf')}
             className="bg-curai-negative text-white px-4 py-2 rounded-md hover:bg-curai-negative transition-colors"
-          >
+           {...permissionProps(user, "finance_view", "finance_export")}>
             📄 PDF
           </button>
           <button
             onClick={() => downloadReport('excel')}
             className="bg-curai-positive text-white px-4 py-2 rounded-md hover:bg-curai-positive transition-colors"
-          >
+           {...permissionProps(user, "finance_view", "finance_export")}>
             📊 Excel
           </button>
         </div>

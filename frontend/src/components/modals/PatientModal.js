@@ -1,3 +1,5 @@
+import { downloadPatientDocument } from '../../utils/documentDownload';
+import { canAction, permissionProps as documentPermissionProps } from '../../utils/permissions';
 import PatientTermsStatus from '../patients/PatientTermsStatus';
 import React, { useState, useEffect, useCallback } from 'react';
 import Modal from './Modal';
@@ -16,6 +18,7 @@ import { useGlobalRefresh } from '../../hooks/useGlobalRefresh';
 import { usePhoneInput } from '../../hooks/usePhoneInput';
 
 const PatientModal = ({
+  user,
   show,
   onClose,
   onSave,
@@ -1033,9 +1036,9 @@ const PatientModal = ({
           <>
         {/* Tab Content */}
         {activeTab === 'info' && (
-          <form onSubmit={(e) => {
+          <form onSubmit={event => { if (!canAction(user, "patients_view", "patients_edit")) {event.preventDefault();return;} return ((e) => {
             onSave(e, patientFormForSession(patientForm));
-          }} className="space-y-4">
+          })(event); }} className="space-y-4">
             <div>
               <input
                 type="text"
@@ -1169,7 +1172,7 @@ const PatientModal = ({
                 disabled={loading || hasPhoneMatch}
                 className={`flex-1 ${buttonSuccessClasses} ${hasPhoneMatch ? 'opacity-50 cursor-not-allowed' : ''}`}
                 title={hasPhoneMatch ? 'Пациент с таким номером уже существует' : ''}
-              >
+               {...documentPermissionProps(user, "patients_view", "patients_edit")}>
                 {loading ? 'Сохранение...' : (editingItem ? 'Обновить' : 'Создать')}
               </button>
               <button
@@ -1213,7 +1216,7 @@ const PatientModal = ({
                   onClick={handleFileUpload}
                   disabled={!selectedFile || uploading}
                   className="px-4 py-2 bg-curai-blue text-white rounded-md hover:bg-curai-blue disabled:opacity-50"
-                >
+                 {...documentPermissionProps(user, "patients_view", "patients_edit")}>
                   {uploading ? 'Загрузка...' : 'Загрузить документ'}
                 </button>
               </div>
@@ -1245,7 +1248,8 @@ const PatientModal = ({
                       </div>
                       <div className="flex space-x-2 flex-shrink-0">
                         <a
-                          href={`${API}/api/uploads/${doc.filename}`}
+                          href="#" onClick={event => { event.preventDefault(); downloadPatientDocument(doc, user).catch(error => window.alert(error.message)); }}
+                          {...documentPermissionProps(user, 'patients_view', 'patients_export')}
                           download={doc.original_filename}
                           title={doc.original_filename}
                           className="px-3 py-1 text-curai-blue border border-curai-control rounded hover:bg-curai-selected text-sm whitespace-nowrap"
@@ -1255,7 +1259,7 @@ const PatientModal = ({
                         <button
                           onClick={() => handleDeleteDocument(doc.id)}
                           className="px-3 py-1 text-curai-negative border border-curai-negative rounded hover:bg-curai-negativeBg text-sm whitespace-nowrap"
-                        >
+                         {...documentPermissionProps(user, "patients_view", "patients_delete")}>
                           Удалить
                         </button>
                       </div>
@@ -1439,7 +1443,7 @@ const PatientModal = ({
                   type="button"
                   onClick={handleSaveTreatmentPlan}
                   className="px-4 py-2 bg-curai-positive text-white rounded-md hover:bg-curai-positive"
-                >
+                 {...documentPermissionProps(user, "patients_view", "patients_edit")}>
                   {editingPlan ? 'Обновить счет' : 'Создать счет'}
                 </button>
                 {editingPlan && (
@@ -1468,14 +1472,14 @@ const PatientModal = ({
               </div>
             </div>
             )}
-<PatientTreatmentWorkspace plans={currentTreatmentPlans} patientId={currentPatientId} paymentFilter={paymentFilter} onPaymentFilter={setPaymentFilter} procedureFilter={procedureFilter} onProcedureFilter={setProcedureFilter}
+<PatientTreatmentWorkspace allowPayment={canAction(user, 'patients_view', 'finance_view', 'finance_edit')} allowCompletion={canAction(user, 'patients_view', 'patients_edit')} plans={currentTreatmentPlans} patientId={currentPatientId} paymentFilter={paymentFilter} onPaymentFilter={setPaymentFilter} procedureFilter={procedureFilter} onProcedureFilter={setProcedureFilter}
 onUpdate={(updatedPlan) => {
                           // Обновить план в списке
                           setTreatmentPlans(plans =>
                             plans.map(p => p.id === updatedPlan.id ? updatedPlan : p)
                           );
                           refreshTreatmentPlans();
-                        }} onCreatePlan={() => { setEditingConsultation(null); setShowConsultationForm(true); setActiveTab('consultations'); }}/></>)}
+                        }} onCreatePlan={!canAction(user, 'patients_view', 'patients_edit') ? undefined : () => { setEditingConsultation(null); setShowConsultationForm(true); setActiveTab('consultations'); }}/></>)}
 
                   {/* Complex Services Tab - быстрый выбор комплексной услуги и разброс по календарю */}
                   {activeTab === 'complex' && editingItem && (
@@ -1526,13 +1530,13 @@ onUpdate={(updatedPlan) => {
                   )}
 
                   {/* Payment Tab - поэтапная оплата */}
-        {activeTab === 'payment' && editingItem && (<PatientPaymentWorkspace patientId={currentPatientId} plans={currentTreatmentPlans} onUpdate={(updatedPlan) => {
+        {activeTab === 'payment' && editingItem && (<PatientPaymentWorkspace allowPayment={canAction(user, 'patients_view', 'finance_view', 'finance_edit')} allowCompletion={canAction(user, 'patients_view', 'patients_edit')} patientId={currentPatientId} plans={currentTreatmentPlans} onUpdate={(updatedPlan) => {
                       setTreatmentPlans(plans =>
                         plans.map(p => p.id === updatedPlan.id ? updatedPlan : p)
                       );
                       // после оплаты обновляем планы/статистику в списке пациентов
                       refreshTreatmentPlans();
-                    }} onCreatePlan={() => setActiveTab('treatment')} />)}
+                    }} onCreatePlan={!canAction(user, 'patients_view', 'patients_edit') ? undefined : () => setActiveTab('treatment')} />)}
 
         {/* Consultations Tab */}
         {activeTab === 'consultations' && editingItem && (
@@ -1545,7 +1549,7 @@ onUpdate={(updatedPlan) => {
                     onClick={() => setShowConsultationForm(true)}
                     className="curai-button curai-button-primary"
                     data-guide="new-consultation-btn"
-                  >
+                   {...documentPermissionProps(user, "patients_view", "patients_edit")}>
                     + Добавить
                   </button>
                 </div>
@@ -1588,7 +1592,7 @@ onUpdate={(updatedPlan) => {
                                 onClick={(e) => { e.stopPropagation(); handlePrintConsultation(sheet); }}
                                 className="px-2 py-1 text-curai-ink border border-curai-control rounded hover:bg-curai-subtle text-xs whitespace-nowrap"
                                 title="Печать консультационного листа"
-                              >
+                               {...documentPermissionProps(user, "patients_view", "patients_export")}>
                                 Печать
                               </button>
                               <button type="button"
@@ -1598,13 +1602,13 @@ onUpdate={(updatedPlan) => {
                                   setShowConsultationForm(true);
                                 }}
                                 className="px-2 py-1 text-curai-blue border border-curai-control rounded hover:bg-curai-selected text-xs whitespace-nowrap"
-                              >
+                               {...documentPermissionProps(user, "patients_view", "patients_edit")}>
                                 Редактировать
                               </button>
                               <button type="button"
                                 onClick={(e) => { e.stopPropagation(); handleDeleteConsultation(sheet.id); }}
                                 className="px-2 py-1 text-curai-negative border border-curai-negative rounded hover:bg-curai-negativeBg text-xs whitespace-nowrap"
-                              >
+                               {...documentPermissionProps(user, "patients_view", "patients_delete")}>
                                 Удалить
                               </button>
                               {isExpanded ? <FaChevronDown className="text-curai-muted" /> : <FaChevronDown className="text-curai-muted rotate-180" />}
@@ -1846,6 +1850,7 @@ onUpdate={(updatedPlan) => {
 
     {/* WhatsApp Sidebar */}
     <WhatsAppSidebar
+        user={user}
       phone={editingItem?.phone}
       patientName={editingItem?.full_name}
       isOpen={showWhatsAppHistory}

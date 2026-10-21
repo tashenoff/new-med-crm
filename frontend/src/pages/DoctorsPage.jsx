@@ -1,3 +1,4 @@
+import { canAction, hasPermission } from '../utils/permissions.js';
 import React, { useState, useEffect, useRef } from 'react';
 import { useDoctors } from '../hooks/useDoctors';
 import { useGlobalRefresh } from '../hooks/useGlobalRefresh';
@@ -148,19 +149,20 @@ const DoctorsPage = ({ user }) => {
       )}
 
       {/* Виджет кэшбэка для врачей */}
-      {user?.role === 'doctor' && user?.id && (
+      {user?.role === 'doctor' && user?.id && hasPermission(user, 'payroll_view') && (
         <DoctorCashbackWidget doctorId={user.id} />
       )}
 
       {/* Doctors View */}
       <DoctorsView
+        user={user}
         doctors={doctorsHook.doctors}
         searchTerm={searchTerm}
         setSearchTerm={setSearchTerm}
         onAddDoctor={handleAddDoctor}
         onEditDoctor={handleEditDoctor}
         onDeleteDoctor={handleDeleteDoctor}
-        canManage={user?.role === 'admin' || user?.role === 'super_admin'}
+        canManage={['admin', 'super_admin'].includes(user?.role) && (canAction(user, 'doctors_view', 'doctors_edit', 'payroll_view') || canAction(user, 'doctors_view', 'doctors_delete'))}
       />
 
       {/* Модальные окна теперь управляются через ModalManager */}

@@ -1,3 +1,4 @@
+import { permissionProps } from '../../../utils/permissions.js';
 import React, { useState, useEffect } from 'react';
 import { useCrm } from '../../../hooks/useCrm';
 import { useCrmApi } from '../../../hooks/useCrmApi';
@@ -8,7 +9,7 @@ const ContactsView = ({ user }) => {
   const [sourcesRevenue, setSourcesRevenue] = useState(null);
   const [loadingRevenue, setLoadingRevenue] = useState(false);
   const [editingSource, setEditingSource] = useState(null);
-  const canManageNumbers = user?.role === 'admin' || user?.role === 'super_admin';
+  const canManageNumbers = ['admin', 'super_admin'].includes(user?.role) && user?.permissions?.includes('crm_view') && user?.permissions?.includes('crm_edit');
 
   const {
     sources,
@@ -123,7 +124,7 @@ const ContactsView = ({ user }) => {
         <button 
           onClick={() => { setEditingSource(null); setShowCreateModal(true); }}
           className="bg-curai-warning text-white px-4 py-2 rounded-md hover:bg-curai-warning transition-colors"
-        >
+         {...permissionProps(user, "crm_view", "crm_edit")}>
           + Новый источник
         </button>
       </div>
@@ -293,7 +294,7 @@ const ContactsView = ({ user }) => {
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="flex space-x-2">
-                          <button type="button" className="text-xs text-curai-blue underline" onClick={() => { setEditingSource(source); setShowCreateModal(true); }}>Редактировать</button>
+                          <button type="button" className="text-xs text-curai-blue underline" onClick={() => { setEditingSource(source); setShowCreateModal(true); }} {...permissionProps(user, "crm_view", "crm_edit")}>Редактировать</button>
                           <button
                             onClick={() => handleDeleteSource(source)}
                             disabled={source.leads_count > 0}
@@ -303,7 +304,7 @@ const ContactsView = ({ user }) => {
                                 : "bg-curai-negativeBg text-curai-negative hover:bg-curai-negativeBg"
                             }`}
                             title={source.leads_count > 0 ? `Нельзя удалить: есть ${source.leads_count} заявок` : 'Удалить источник'}
-                          >
+                           {...permissionProps(user, "crm_view", "crm_delete")}>
                             🗑️ Удалить
                           </button>
                         </div>
@@ -317,7 +318,7 @@ const ContactsView = ({ user }) => {
         )}
       </div>
 
-      {showCreateModal && <SourceEditor source={editingSource} canManageNumbers={canManageNumbers}
+      {showCreateModal && <SourceEditor source={editingSource} canManageNumbers={canManageNumbers} canDeleteNumbers={canManageNumbers && user?.permissions?.includes("crm_delete")} canEdit={Boolean(user?.permissions?.includes("crm_view") && user?.permissions?.includes("crm_edit"))}
         onClose={() => setShowCreateModal(false)} onSaved={() => {
           setShowCreateModal(false);
           fetchSources();

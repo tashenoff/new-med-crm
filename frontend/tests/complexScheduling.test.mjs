@@ -90,7 +90,7 @@ async function mount(context, Component, props = {}, request = null, priceList =
     }
     delete globalThis.scheduledServices;
   });
-  await act(async () => root.render(React.createElement(Component, props)));
+  await act(async () => root.render(React.createElement(Component, {user: {permissions:['calendar_view','calendar_edit','patients_view','patients_edit','patients_delete','patients_export','finance_view','finance_edit']}, ...props})));
   const change = async (element, value) => {
     assert.ok(element, 'control exists');
     await act(async () => {

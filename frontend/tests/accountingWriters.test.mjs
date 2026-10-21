@@ -49,7 +49,7 @@ async function mount(context, Component, props, responder = () => []) {
     dom.window.close();
     for (const [key, descriptor] of saved) { if (descriptor) Object.defineProperty(globalThis, key, descriptor); else delete globalThis[key]; }
   });
-  await act(async () => root.render(React.createElement(Component, props)));
+  await act(async () => root.render(React.createElement(Component, {user: {permissions:['calendar_view','calendar_edit','patients_view','patients_edit','patients_delete','patients_export','finance_view','finance_edit']}, ...props})));
   const click = async element => { assert.ok(element, 'required control exists'); await act(async () => element.click()); };
   const change = async (element, value) => {
     assert.ok(element, 'required input exists');

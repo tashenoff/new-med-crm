@@ -300,6 +300,7 @@ const PatientsPage = ({ user }) => {
 
       {/* Patients View */}
       <PatientsView
+        user={user}
         patients={patientsHook.patients}
         patientsTreatmentPlans={patientsTreatmentPlans}
         searchTerm={searchTerm}

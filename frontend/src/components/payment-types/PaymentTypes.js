@@ -1,3 +1,4 @@
+import { canAction, permissionProps } from '../../utils/permissions.js';
 import React, { useState, useEffect } from 'react';
 import Modal from '../modals/Modal';
 import PanelHeader from '../common/PanelHeader';
@@ -152,7 +153,7 @@ const PaymentTypes = ({ user }) => {
         <PanelHeader
           title="Типы оплат"
           subtitle="Управление способами оплаты и комиссиями"
-          onAction={user?.role === 'admin' || user?.role === 'super_admin' ? () => setShowModal(true) : undefined}
+          onAction={canAction(user, "directory_view", "directory_edit") ? (user?.role === 'admin' || user?.role === 'super_admin' ? () => setShowModal(true) : undefined) : undefined}
           actionLabel="+ Добавить тип оплаты"
         />
 
@@ -266,7 +267,7 @@ const PaymentTypes = ({ user }) => {
                   <th className="px-6 py-3 text-left text-xs font-medium text-curai-muted uppercase tracking-wider">
                     Дата создания
                   </th>
-                  {user?.role === 'admin' || user?.role === 'super_admin' && (
+                  {(user?.role === 'admin' || user?.role === 'super_admin') && (
                     <th className="px-6 py-3 text-left text-xs font-medium text-curai-muted uppercase tracking-wider">
                       Действия
                     </th>
@@ -295,19 +296,19 @@ const PaymentTypes = ({ user }) => {
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-curai-muted">
                       {new Date(paymentType.created_at).toLocaleDateString('ru-RU')}
                     </td>
-                    {user?.role === 'admin' || user?.role === 'super_admin' && (
+                    {(user?.role === 'admin' || user?.role === 'super_admin') && (
                       <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                         <div className="flex gap-2">
                           <button
                             onClick={() => handleEdit(paymentType)}
                             className="text-curai-blue hover:text-curai-blue"
-                          >
+                           {...permissionProps(user, "directory_view", "directory_edit")}>
                             Изменить
                           </button>
                           <button
                             onClick={() => handleDelete(paymentType.id)}
                             className="text-curai-negative hover:text-curai-negative"
-                          >
+                           {...permissionProps(user, "directory_view", "directory_delete")}>
                             Удалить
                           </button>
                         </div>
@@ -338,7 +339,7 @@ const PaymentTypes = ({ user }) => {
         size="max-w-md"
       >
             
-            <form onSubmit={handleSubmit} className="space-y-4">
+            <form onSubmit={event => { if (!canAction(user, "directory_view", "directory_edit")) { event.preventDefault(); return; } return (handleSubmit)(event); }} className="space-y-4">
               <div>
                 <label className={labelClasses}>Название типа оплаты *</label>
                 <input
@@ -381,7 +382,7 @@ const PaymentTypes = ({ user }) => {
                   type="submit"
                   disabled={loading}
                   className={`flex-1 ${buttonPrimaryClasses}`}
-                >
+                 {...permissionProps(user, "directory_view", "directory_edit")}>
                   {loading ? 'Сохранение...' : (editingPaymentType ? 'Обновить' : 'Создать')}
                 </button>
                 <button

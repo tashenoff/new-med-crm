@@ -1,3 +1,4 @@
+import { permissionProps, canAction } from '../../../utils/permissions.js';
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   Users, Phone, Mail, Calendar, Clock, CheckCircle, AlertCircle,
@@ -895,9 +896,9 @@ const EnhancedLeadsView = ({ user }) => {
       <div
         key={lead.id}
         data-lead-id={lead.id}
-        draggable={!columnConfig.busy && !columnConfig.loading && lead.status === 'new' && manualColumn(kanbanColumns.find(column => column.id === cardColumnId(lead)))}
+        draggable={canAction(user, "crm_view", "crm_edit") && !columnConfig.busy && !columnConfig.loading && lead.status === 'new' && manualColumn(kanbanColumns.find(column => column.id === cardColumnId(lead)))}
         onDragStart={(e) => handleDragStart(e, lead)}
-        onClick={() => handleShowLeadHmsData(lead)}
+        onClick={() => { if (canAction(user, "crm_view", "patients_view")) handleShowLeadHmsData(lead); }}
         className={cn(
           "curai-lead-card bg-curai-surface rounded-md p-4 mb-3 border border-curai-border ",
           "hover:shadow-none transition-all cursor-pointer",
@@ -930,7 +931,7 @@ const EnhancedLeadsView = ({ user }) => {
               draggable={false}
               onClick={(e) => { e.stopPropagation(); editLeadName(lead); }}
               className={cn("p-1 rounded hover:bg-curai-subtle ")}
-            >
+             {...permissionProps(user, "crm_view", "crm_edit")}>
               <Edit className="w-[14px] h-[14px]" />
             </button>
           </div>
@@ -1058,7 +1059,7 @@ const EnhancedLeadsView = ({ user }) => {
                   handleScheduleAppointment(lead);
                 }}
                 className="w-full px-2 py-1 text-xs bg-curai-blue text-white rounded hover:bg-curai-blue transition-colors flex items-center justify-center space-x-1"
-              >
+               {...permissionProps(user, "crm_view", "crm_edit", "patients_view", "patients_edit", "calendar_view", "calendar_edit")}>
                 <Calendar className="w-[14px] h-[14px]" />
                 <span>Назначить прием</span>
               </button>
@@ -1072,7 +1073,7 @@ const EnhancedLeadsView = ({ user }) => {
                 setShowTaskModal(true);
               }}
               className="curai-button curai-button-secondary w-full"
-            >
+             {...permissionProps(user, "crm_view", "crm_edit")}>
               <CheckSquare className="w-[14px] h-[14px]" />
               <span>Создать задачу</span>
             </button>
@@ -1097,7 +1098,7 @@ const EnhancedLeadsView = ({ user }) => {
 
   const handleDragStart = (event, lead) => {
     const source = kanbanColumns.find(column => column.id === cardColumnId(lead));
-    if (columnConfig.busy || columnConfig.loading || lead.status !== 'new' || !manualColumn(source)) {
+    if (!canAction(user, 'crm_view', 'crm_edit') || columnConfig.busy || columnConfig.loading || lead.status !== 'new' || !manualColumn(source)) {
       event.preventDefault();
       return;
     }
@@ -1107,7 +1108,7 @@ const EnhancedLeadsView = ({ user }) => {
 
   const handleDrop = async (event, destination) => {
     event.preventDefault();
-    if (columnConfig.busy || columnConfig.loading || !manualColumn(destination)) return;
+    if (!canAction(user, 'crm_view', 'crm_edit') || columnConfig.busy || columnConfig.loading || !manualColumn(destination)) return;
     try {
       const data = JSON.parse(event.dataTransfer.getData('text/plain'));
       const lead = leads.find(item => item.id === data.leadId);
@@ -1133,7 +1134,7 @@ const EnhancedLeadsView = ({ user }) => {
         <PanelHeader
           title="Сделки"
           subtitle="Управление заявками и сделками"
-          onAction={() => setShowCreateModal(true)}
+          onAction={canAction(user, "crm_view", "crm_edit") ? (() => setShowCreateModal(true)) : undefined}
           actionLabel="+ Добавить"
         />
 
@@ -1147,11 +1148,11 @@ const EnhancedLeadsView = ({ user }) => {
               <button type="button" aria-pressed={columnEditMode}
                 onClick={() => { if (!columnConfig.loading && !columnConfig.busy) setColumnEditMode(value => !value); }}
                 disabled={columnConfig.loading || columnConfig.busy}
-                className={cn(buttonSecondaryClasses, "text-sm disabled:opacity-50")}>
+                className={cn(buttonSecondaryClasses, "text-sm disabled:opacity-50")} {...permissionProps(user, "crm_view", "crm_edit")}>
                 {columnEditMode ? 'Готово' : 'Редактировать колонки'}
               </button>
               <button type="button" onClick={handleCreateNewColumn} disabled={columnConfig.loading || columnConfig.busy}
-                className={cn(buttonSecondaryClasses, "inline-flex items-center gap-2 text-sm disabled:opacity-50")}>
+                className={cn(buttonSecondaryClasses, "inline-flex items-center gap-2 text-sm disabled:opacity-50")} {...permissionProps(user, "crm_view", "crm_edit")}>
                 <Plus className="w-4 h-4" /> Добавить колонку
               </button>
             </div>
@@ -1186,7 +1187,7 @@ const EnhancedLeadsView = ({ user }) => {
               data-column-id={column.id}
               className="flex-shrink-0 w-72 sm:w-80 flex flex-col"
               onDragOver={event => {
-                if (!columnConfig.busy && !columnConfig.loading && manualColumn(column)) {
+                if (canAction(user, 'crm_view', 'crm_edit') && !columnConfig.busy && !columnConfig.loading && manualColumn(column)) {
                   event.preventDefault();
                   event.dataTransfer.dropEffect = 'move';
                 }
@@ -1203,9 +1204,9 @@ const EnhancedLeadsView = ({ user }) => {
                     {column.is_system && <span className="text-xs px-2 py-1 rounded bg-white/70 ">Системная</span>}
                     {columnEditMode && !column.is_system && <>
                     <button type="button" aria-label={`Переместить «${column.name}» влево`} disabled={index === 0 || columnConfig.busy || columnConfig.loading}
-                      onClick={() => handleReorderColumn(column, -1)} className="p-1 rounded hover:bg-white/50 disabled:opacity-30">←</button>
+                      onClick={() => handleReorderColumn(column, -1)} className="p-1 rounded hover:bg-white/50 disabled:opacity-30" {...permissionProps(user, "crm_view", "crm_edit")}>←</button>
                     <button type="button" aria-label={`Переместить «${column.name}» вправо`} disabled={index === kanbanColumns.length - 1 || columnConfig.busy || columnConfig.loading}
-                      onClick={() => handleReorderColumn(column, 1)} className="p-1 rounded hover:bg-white/50 disabled:opacity-30">→</button>
+                      onClick={() => handleReorderColumn(column, 1)} className="p-1 rounded hover:bg-white/50 disabled:opacity-30" {...permissionProps(user, "crm_view", "crm_edit")}>→</button>
                     </>}
                     {!column.is_system && <>
                     <button 
@@ -1215,7 +1216,7 @@ const EnhancedLeadsView = ({ user }) => {
                       onClick={() => handleEditColumn(column)}
                       className="p-1 hover:bg-white/50 rounded"
                       title="Редактировать колонку"
-                    >
+                     {...permissionProps(user, "crm_view", "crm_edit")}>
                       <Edit className="w-3 h-3" />
                     </button>
                     <button 
@@ -1225,7 +1226,7 @@ const EnhancedLeadsView = ({ user }) => {
                       onClick={() => columnConfig.remove(column)}
                       className="p-1 hover:bg-white/50 rounded"
                       title="Удалить колонку"
-                    >
+                     {...permissionProps(user, "crm_view", "crm_delete")}>
                       <Trash2 className="w-3 h-3" />
                     </button>
                     </>}
@@ -1267,7 +1268,7 @@ const EnhancedLeadsView = ({ user }) => {
         errorMessage={nameError}
         size="max-w-md"
       >
-        <form onSubmit={saveLeadName} className="space-y-4">
+        <form onSubmit={event => { if (!canAction(user, "crm_view", "crm_edit")) { event.preventDefault(); return; } return (saveLeadName)(event); }} className="space-y-4">
           {nameLoading && <p className={themeClasses.text.muted}>Загрузка пациента…</p>}
           {editingNameLead?.converted_to_client_id ? (
             <label className={labelClasses}>
@@ -1287,7 +1288,7 @@ const EnhancedLeadsView = ({ user }) => {
           <div className="flex justify-end gap-2">
             <button type="button" onClick={closeNameEditor} disabled={nameSaving} className={buttonSecondaryClasses}>Отмена</button>
             <button type="submit" disabled={nameLoading || nameSaving || !(editingNameLead?.converted_to_client_id ? nameForm.full_name : nameForm.first_name)?.trim()}
-              className={buttonPrimaryClasses}>{nameSaving ? 'Сохранение…' : 'Сохранить'}</button>
+              className={buttonPrimaryClasses} {...permissionProps(user, "crm_view", "crm_edit")}>{nameSaving ? 'Сохранение…' : 'Сохранить'}</button>
           </div>
         </form>
       </Modal>
@@ -1461,7 +1462,7 @@ const EnhancedLeadsView = ({ user }) => {
             onClick={handleCreateLead}
             disabled={!newLead.first_name || !newLead.phone}
             className="bg-curai-blue text-white px-4 py-2 rounded-md hover:bg-curai-blue disabled:bg-curai-control disabled:cursor-not-allowed transition-colors"
-          >
+           {...permissionProps(user, "crm_view", "crm_edit")}>
             Создать
           </button>
         </div>
@@ -1577,7 +1578,7 @@ const EnhancedLeadsView = ({ user }) => {
             onClick={handleCreateTask}
             disabled={!newTask.title}
             className="bg-curai-blue text-white px-4 py-2 rounded-md hover:bg-curai-blue disabled:bg-curai-control disabled:cursor-not-allowed transition-colors"
-          >
+           {...permissionProps(user, "crm_view", "crm_edit")}>
             Создать задание
           </button>
         </div>
@@ -1590,7 +1591,7 @@ const EnhancedLeadsView = ({ user }) => {
         title={editingColumn ? "Переименовать колонку" : "Новая колонка"}
         size="max-w-md"
       >
-        <form onSubmit={handleSaveColumn} className="space-y-4">
+        <form onSubmit={event => { if (!canAction(user, "crm_view", "crm_edit")) { event.preventDefault(); return; } return (handleSaveColumn)(event); }} className="space-y-4">
           <p className={cn("text-sm", themeClasses.text.muted)}>Изменения видны всем сотрудникам клиники.</p>
           <div>
             <label htmlFor="kanban-column-name" className={labelClasses}>Название колонки *</label>
@@ -1623,7 +1624,7 @@ const EnhancedLeadsView = ({ user }) => {
             type="submit"
             disabled={columnConfig.busy || !newColumnName.trim()}
             className="bg-curai-blue text-white px-4 py-2 rounded-md hover:bg-curai-blue disabled:bg-curai-control disabled:cursor-not-allowed transition-colors"
-          >
+           {...permissionProps(user, "crm_view", "crm_edit")}>
             {columnConfig.busy ? 'Сохранение…' : editingColumn ? 'Сохранить' : 'Создать'}
           </button>
         </div>
@@ -1706,7 +1707,7 @@ const EnhancedLeadsView = ({ user }) => {
                     setShowTaskModal(true);
                   }}
                   className="bg-curai-blue text-white px-3 py-1.5 text-sm rounded-md hover:bg-curai-blue transition-colors flex items-center gap-1"
-                >
+                 {...permissionProps(user, "crm_view", "crm_edit")}>
                   <Plus className="w-4 h-4" />
                   Создать задачу
                 </button>
@@ -1763,6 +1764,7 @@ const EnhancedLeadsView = ({ user }) => {
 
       {/* WhatsApp Sidebar */}
       <WhatsAppSidebar
+        user={user}
         phone={whatsAppPhone}
         patientName={whatsAppLeadName}
         isOpen={showWhatsAppSidebar}

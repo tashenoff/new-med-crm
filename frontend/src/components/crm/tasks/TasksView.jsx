@@ -1,3 +1,4 @@
+import { canAction, permissionProps } from '../../../utils/permissions.js';
 import React, { useState, useEffect } from 'react';
 import {
   CheckSquare, Clock, User, AlertCircle, Calendar, Filter, Search,
@@ -191,7 +192,7 @@ const TasksView = ({ user }) => {
         <PanelHeader
           title="Задачи"
           subtitle="Управление задачами CRM"
-          onAction={() => setShowCreateModal(true)}
+          onAction={canAction(user, "crm_view", "crm_edit") ? (() => setShowCreateModal(true)) : undefined}
           actionLabel="+ Создать задачу"
         />
 
@@ -327,7 +328,7 @@ const TasksView = ({ user }) => {
                             ? "bg-curai-positive border-curai-positive"
                             : "border-curai-control hover:border-curai-control"
                         )}
-                      >
+                       {...permissionProps(user, "crm_view", "crm_edit")}>
                         {task.status === 'completed' && <CheckCircle className="w-4 h-4 text-white" />}
                       </button>
 
@@ -412,14 +413,14 @@ const TasksView = ({ user }) => {
                             setShowCreateModal(true);
                           }}
                           className="p-2 text-curai-blue hover:bg-curai-selected rounded transition-colors"
-                        >
+                         {...permissionProps(user, "crm_view", "crm_edit")}>
                           <Edit className="w-4 h-4" />
                         </button>
                         
                         <button
                           onClick={() => handleDeleteTask(task.id)}
                           className="p-2 text-curai-negative hover:bg-curai-negativeBg rounded transition-colors"
-                        >
+                         {...permissionProps(user, "crm_view", "crm_delete")}>
                           <Trash2 className="w-4 h-4" />
                         </button>
                       </div>
@@ -450,7 +451,7 @@ const TasksView = ({ user }) => {
         title={editingTask ? 'Редактировать задачу' : 'Новая задача'}
         size="max-w-md"
       >
-        <form onSubmit={handleSaveTask} className="space-y-4">
+        <form onSubmit={event => { if (!canAction(user, "crm_view", "crm_edit")) { event.preventDefault(); return; } return (handleSaveTask)(event); }} className="space-y-4">
           <div>
             <label className={labelClasses}>Название *</label>
             <input
@@ -526,7 +527,7 @@ const TasksView = ({ user }) => {
             <button
               type="submit"
               className="bg-curai-blue text-white px-4 py-2 rounded-md hover:bg-curai-blue transition-colors"
-            >
+             {...permissionProps(user, "crm_view", "crm_edit")}>
               {editingTask ? 'Обновить' : 'Создать'}
             </button>
           </div>

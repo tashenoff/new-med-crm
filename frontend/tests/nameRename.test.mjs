@@ -118,7 +118,7 @@ async function mount(context, Component, props, options = {}) {
     await act(async () => root.unmount()); dom.window.close();
     for (const [key, descriptor] of saved) { if (descriptor) Object.defineProperty(globalThis, key, descriptor); else delete globalThis[key]; }
   });
-  await act(async () => root.render(React.createElement(Component, { patients: [], doctors: [], appointments: [], ...props })));
+  await act(async () => root.render(React.createElement(Component, { user: { permissions: ['crm_view','crm_edit','patients_view','patients_edit','calendar_view','calendar_edit','finance_view','finance_edit'] }, patients: [], doctors: [], appointments: [], ...props })));
   const change = async (element, value) => {
     assert.ok(element, 'input exists');
     const prototype = element.tagName === 'SELECT' ? dom.window.HTMLSelectElement.prototype : dom.window.HTMLInputElement.prototype;

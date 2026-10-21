@@ -1,3 +1,4 @@
+import { permissionProps } from '../../../utils/permissions.js';
 import React, { useState, useEffect, useMemo } from 'react';
 import { useCrm } from '../../../hooks/useCrm';
 import { useCrmApi } from '../../../hooks/useCrmApi';
@@ -334,7 +335,7 @@ const ClientsView = ({ user }) => {
 
       {/* Контент вкладок */}
       {activeView === 'telephony' ? (
-        <TelephonySection />
+        <TelephonySection user={user} />
       ) : (
         <>
       {/* Header */}
@@ -347,7 +348,7 @@ const ClientsView = ({ user }) => {
           <button 
             onClick={() => setShowCreateModal(true)}
             className="bg-curai-positive text-white px-4 py-2 rounded-md hover:bg-curai-positive transition-colors"
-          >
+           {...permissionProps(user, "crm_view", "crm_edit")}>
             + Новый контакт
           </button>
         </div>
@@ -555,14 +556,14 @@ const ClientsView = ({ user }) => {
                             onClick={() => handleShowHmsData(client)}
                             className="text-curai-blue hover:text-curai-blue mr-2"
                             title="Просмотр данных HMS"
-                          >
+                           {...permissionProps(user, "crm_view", "patients_view")}>
                             📊
                           </button>
                           <button
                             onClick={() => handleCreateAppointment(client)}
                             className="text-curai-blue hover:text-curai-blue mr-2"
                             title="Записать на прием"
-                          >
+                           {...permissionProps(user, "crm_view", "crm_edit", "patients_view", "patients_edit", "calendar_view", "calendar_edit")}>
                             📅
                           </button>
                         </>
@@ -572,14 +573,14 @@ const ClientsView = ({ user }) => {
                             onClick={() => handleConvertToHMS(client)}
                             className="text-curai-positive hover:text-curai-positive mr-2"
                             title="Конвертировать в пациента HMS"
-                          >
+                           {...permissionProps(user, "crm_view", "crm_edit", "patients_view", "patients_edit")}>
                             🏥
                           </button>
                           <button
                             onClick={() => handleCreateAppointment(client)}
                             className="text-curai-blue hover:text-curai-blue"
                             title="Записать на прием"
-                          >
+                           {...permissionProps(user, "crm_view", "crm_edit", "patients_view", "patients_edit", "calendar_view", "calendar_edit")}>
                             📅
                           </button>
                         </>
@@ -679,7 +680,7 @@ const ClientsView = ({ user }) => {
                 onClick={handleCreateClient}
                 disabled={!newClient.first_name || !newClient.phone}
                 className="bg-curai-positive text-white px-4 py-2 rounded-md hover:bg-curai-positive disabled:bg-curai-control disabled:cursor-not-allowed transition-colors"
-              >
+               {...permissionProps(user, "crm_view", "crm_edit")}>
                 Создать
               </button>
             </div>

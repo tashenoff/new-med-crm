@@ -21,7 +21,7 @@ const compiled = await build({
     contents: `import React from 'react';
       import View from './src/components/crm/leads/EnhancedLeadsView.js';
       import { ThemeProvider } from './src/hooks/useTheme.js';
-      export default () => <ThemeProvider><View user={{ id: 'manager' }} /></ThemeProvider>;`,
+      export default () => <ThemeProvider><View user={{ id: 'manager', permissions: ['crm_view','crm_edit','crm_delete','patients_view','patients_edit','calendar_view','calendar_edit','finance_view','finance_edit'] }} /></ThemeProvider>;`,
     resolveDir: fileURLToPath(new URL('..', import.meta.url)), loader: 'jsx'
   },
   bundle: true, write: false, platform: 'node', format: 'cjs',

@@ -1,3 +1,4 @@
+import { canAction, permissionProps } from '../../utils/permissions.js';
 import React, { useState, useEffect } from 'react';
 import Modal from '../modals/Modal';
 import PanelHeader from '../common/PanelHeader';
@@ -333,7 +334,7 @@ const Rooms = ({ user }) => {
         <PanelHeader
           title="Кабинеты"
           subtitle="Управление медицинскими кабинетами и их расписанием"
-          onAction={user?.role === 'admin' || user?.role === 'super_admin' ? handleCreateRoom : undefined}
+          onAction={canAction(user, "calendar_view", "calendar_edit") ? (user?.role === 'admin' || user?.role === 'super_admin' ? handleCreateRoom : undefined) : undefined}
           actionLabel="+ Добавить кабинет"
         />
 
@@ -390,20 +391,20 @@ const Rooms = ({ user }) => {
                     >
                       График
                     </button>
-                    {user?.role === 'admin' || user?.role === 'super_admin' && (
+                    {(user?.role === 'admin' || user?.role === 'super_admin') && (
                       <>
                         <button
                           onClick={() => handleEditRoom(room)}
                           className="text-curai-warning hover:text-curai-warning "
                           title="Редактировать"
-                        >
+                         {...permissionProps(user, "calendar_view", "calendar_edit")}>
                           Правка
                         </button>
                         <button
                           onClick={() => handleDeleteRoom(room.id)}
                           className="text-curai-negative hover:text-curai-negative "
                           title="Удалить"
-                        >
+                         {...permissionProps(user, "calendar_view", "calendar_delete")}>
                           Удалить
                         </button>
                       </>
@@ -476,7 +477,7 @@ const Rooms = ({ user }) => {
                         onClick={handleSaveRoom}
                         className={`${buttonPrimaryClasses} h-10 inline-flex items-center justify-center gap-2 px-5`}
                         disabled={!roomForm.name || loading}
-                      >
+                       {...permissionProps(user, "calendar_view", "calendar_edit")}>
               {loading ? 'Сохранение...' : 'Сохранить'}
             </button>
           </div>
@@ -556,7 +557,7 @@ const Rooms = ({ user }) => {
                               onClick={handleSaveSchedule}
                               className={`${buttonPrimaryClasses} h-10 inline-flex items-center justify-center gap-2 px-5`}
                               disabled={!scheduleForm.doctor_id || !scheduleForm.start_time || !scheduleForm.end_time || loading}
-                            >
+                             {...permissionProps(user, "calendar_view", "calendar_edit")}>
                               {loading ? 'Добавление...' : 'Добавить'}
                             </button>
             </div>
@@ -587,7 +588,7 @@ const Rooms = ({ user }) => {
                             onClick={() => handleDeleteSchedule(schedule.id)}
                             className="text-curai-negative hover:text-curai-negative "
                             title="Удалить"
-                          >
+                           {...permissionProps(user, "calendar_view", "calendar_delete")}>
                             Удалить
                           </button>
                         </td>

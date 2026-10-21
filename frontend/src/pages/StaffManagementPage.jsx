@@ -243,6 +243,7 @@ const StaffManagementPage = ({ user }) => {
 
       {/* Staff View */}
       <StaffView
+        user={user}
         staff={staffHook.staff}
         searchTerm={searchTerm}
         setSearchTerm={setSearchTerm}

@@ -1,3 +1,4 @@
+import { canAction, permissionProps } from '../../utils/permissions.js';
 import React, { useState, useEffect } from 'react';
 import Modal from '../modals/Modal';
 import PanelHeader from '../common/PanelHeader';
@@ -711,7 +712,7 @@ const ServicePrices = ({ user }) => {
         <PanelHeader
           title="Прайс-лист услуг"
           subtitle="Управление ценами и категориями медицинских услуг"
-          onAction={(user?.role === 'admin' || user?.role === 'super_admin' || user?.role === 'marketer') ? handleCreate : undefined}
+          onAction={canAction(user, "directory_view", "directory_edit") ? ((user?.role === 'admin' || user?.role === 'super_admin' || user?.role === 'marketer') ? handleCreate : undefined) : undefined}
           actionLabel="+ Добавить услугу"
         />
 
@@ -729,7 +730,7 @@ const ServicePrices = ({ user }) => {
                                       onClick={handleClearClick}
                                       className={`${buttonDangerClasses} h-10 inline-flex items-center justify-center gap-2 whitespace-nowrap px-4`}
                                       title="Очистить прайс и категории"
-                                    >
+                                     {...permissionProps(user, "directory_view", "directory_delete")}>
                                       <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
                                       Очистить прайс
                                     </button>
@@ -737,14 +738,14 @@ const ServicePrices = ({ user }) => {
                                       onClick={handleImportClick}
                                       className={`${buttonSecondaryClasses} h-10 inline-flex items-center justify-center gap-2 whitespace-nowrap px-4`}
                                       title="Импортировать прайс из Excel файла"
-                                    >
+                                     {...permissionProps(user, "directory_view", "directory_edit")}>
                                       <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
                                       Импорт Excel
                                     </button>
                                     <button
                                       onClick={handleCreateCategory}
                                       className={`${buttonPrimaryClasses} h-10 inline-flex items-center justify-center gap-2 whitespace-nowrap px-4`}
-                                    >
+                                     {...permissionProps(user, "directory_view", "directory_edit")}>
                                       <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4"/></svg>
                                       Добавить категорию
                                     </button>
@@ -764,7 +765,7 @@ const ServicePrices = ({ user }) => {
                         onClick={() => handleDeleteCategory(category.id)}
                         className="ml-2 text-curai-negative hover:text-curai-negative "
                         title="Удалить категорию"
-                      >
+                       {...permissionProps(user, "directory_view", "directory_delete")}>
                         ×
                       </button>
                     </div>
@@ -862,14 +863,14 @@ const ServicePrices = ({ user }) => {
                           onClick={() => handleEdit(price)}
                           className="text-curai-warning hover:text-curai-warning "
                           title="Редактировать"
-                        >
+                         {...permissionProps(user, "directory_view", "directory_edit")}>
                           ✏️
                         </button>
                         <button
                           onClick={() => handleDelete(price.id)}
                           className="text-curai-negative hover:text-curai-negative "
                           title="Удалить"
-                        >
+                         {...permissionProps(user, "directory_view", "directory_delete")}>
                           🗑️
                         </button>
                       </>
@@ -1309,7 +1310,7 @@ const ServicePrices = ({ user }) => {
                           onClick={handleSave}
                           className={`${buttonPrimaryClasses} h-10 inline-flex items-center justify-center gap-2 px-5`}
                           disabled={!formData.service_name || loading}
-                        >
+                         {...permissionProps(user, "directory_view", "directory_edit")}>
               {loading ? 'Сохранение...' : 'Сохранить'}
             </button>
           </div>
@@ -1346,7 +1347,7 @@ const ServicePrices = ({ user }) => {
                           onClick={handleSaveCategory}
                           className={`${buttonPrimaryClasses} h-10 inline-flex items-center justify-center gap-2 px-5`}
                           disabled={!categoryFormData.name || loading}
-                        >
+                         {...permissionProps(user, "directory_view", "directory_edit")}>
               {loading ? 'Сохранение...' : 'Сохранить'}
             </button>
           </div>
@@ -1434,7 +1435,7 @@ const ServicePrices = ({ user }) => {
               {importResult ? 'Закрыть' : 'Отмена'}
             </button>
             {!importResult && importPreview && (
-              <button onClick={handleImportConfirm} className={buttonPrimaryClasses} disabled={importLoading}>
+              <button onClick={handleImportConfirm} className={buttonPrimaryClasses} disabled={importLoading} {...permissionProps(user, "directory_view", "directory_edit")}>
                 {importLoading ? 'Импорт...' : `Импортировать (${importPreview.services_preview?.new_count || 0})`}
               </button>
             )}
@@ -1480,14 +1481,14 @@ const ServicePrices = ({ user }) => {
               onClick={() => handleClearPrices(false)}
               disabled={clearLoading}
               className={`w-full ${buttonDangerClasses}`}
-            >
+             {...permissionProps(user, "directory_view", "directory_delete")}>
               {clearLoading ? 'Удаление...' : '🗑️ Очистить прайс'}
             </button>
             <button
               onClick={() => handleClearPrices(true)}
               disabled={clearLoading}
               className="w-full px-4 py-2 text-sm border-2 border-curai-negative text-curai-negative hover:bg-curai-negativeBg rounded-md transition"
-            >
+             {...permissionProps(user, "directory_view", "directory_delete")}>
               🗑️ Очистить прайс + импортированные специальности
             </button>
             <button

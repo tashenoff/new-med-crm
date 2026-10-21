@@ -1,3 +1,4 @@
+import { canAction, permissionProps } from '../../utils/permissions.js';
 import React, { useEffect, useMemo, useState } from 'react';
 import Modal from '../modals/Modal';
 import {
@@ -246,7 +247,7 @@ const WarehouseMaterials = ({ user, viewKey = 'warehouse-materials', onOpenAiCha
           <PanelHeader
             title="Материалы"
             subtitle="Список складских материалов, поступлений и остатков."
-            onAction={user?.role === 'admin' || user?.role === 'super_admin' ? handleCreateMaterial : undefined}
+            onAction={canAction(user, "warehouse_view", "warehouse_edit") ? (user?.role === 'admin' || user?.role === 'super_admin' ? handleCreateMaterial : undefined) : undefined}
             actionLabel="+ Добавить материал"
           />
 
@@ -270,7 +271,7 @@ const WarehouseMaterials = ({ user, viewKey = 'warehouse-materials', onOpenAiCha
                   onClick={handleExport}
                   className={`${buttonSecondaryClasses} px-4 py-2`}
                   disabled={loading || isExporting}
-                >
+                 {...permissionProps(user, "warehouse_view", "warehouse_export")}>
                   {isExporting ? 'Готовим...' : 'Скачать Excel'}
                 </button>
               </div>
@@ -347,12 +348,12 @@ const WarehouseMaterials = ({ user, viewKey = 'warehouse-materials', onOpenAiCha
                       <td className={tableCellClasses}>{material.material_type || '-'}</td>
                       <td className={tableCellClasses}>{material.barcode || '-'}</td>
                       <td className={`${tableCellClasses} space-x-2`}>
-                        {user?.role === 'admin' || user?.role === 'super_admin' && (
+                        {(user?.role === 'admin' || user?.role === 'super_admin') && (
                           isDeletedView ? (
                             <button
                               onClick={() => handleRestore(material.id)}
                               className="text-curai-positive hover:text-curai-positive text-sm"
-                            >
+                             {...permissionProps(user, "warehouse_view", "warehouse_edit")}>
                               Восстановить
                             </button>
                           ) : (
@@ -360,13 +361,13 @@ const WarehouseMaterials = ({ user, viewKey = 'warehouse-materials', onOpenAiCha
                               <button
                                 onClick={() => handleEdit(material)}
                                 className="text-curai-blue hover:text-curai-blue text-sm"
-                              >
+                               {...permissionProps(user, "warehouse_view", "warehouse_edit")}>
                                 Изменить
                               </button>
                               <button
                                 onClick={() => handleDelete(material.id)}
                                 className="text-curai-negative hover:text-curai-negative text-sm"
-                              >
+                               {...permissionProps(user, "warehouse_view", "warehouse_delete")}>
                                 Удалить
                               </button>
                             </>
@@ -395,7 +396,7 @@ const WarehouseMaterials = ({ user, viewKey = 'warehouse-materials', onOpenAiCha
         errorMessage={error}
         size="max-w-2xl"
       >
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form onSubmit={event => { if (!canAction(user, "warehouse_view", "warehouse_edit")) { event.preventDefault(); return; } return (handleSubmit)(event); }} className="space-y-4">
           <div>
             <label className={labelClasses}>Название</label>
             <input
@@ -493,7 +494,7 @@ const WarehouseMaterials = ({ user, viewKey = 'warehouse-materials', onOpenAiCha
           </details>
 
           <div className="flex gap-3 pt-4">
-            <button type="submit" disabled={loading} className={`${buttonPrimaryClasses} flex-1`}>
+            <button type="submit" disabled={loading} className={`${buttonPrimaryClasses} flex-1`} {...permissionProps(user, "warehouse_view", "warehouse_edit")}>
               {loading ? 'Сохраняем...' : 'Сохранить'}
             </button>
             <button

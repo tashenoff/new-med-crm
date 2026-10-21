@@ -1,3 +1,4 @@
+import { canAction } from '../../../utils/permissions.js';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import CuraiButton from '../../common/CuraiButton';
 import CuraiPopover from '../../common/CuraiPopover';
@@ -11,7 +12,7 @@ export function widgetManualColumn(column) {
 }
 
 // The designer can style this control without duplicating linkage or transition rules.
-export default function ChatCrmStage({ phone, revision, onChanged, variant = 'select' }) {
+export default function ChatCrmStage({ phone, revision, onChanged, variant = 'select', user }) {
   const { refreshTriggers } = useGlobalRefresh();
   const [state, setState] = useState({ phone, context: null, loading: true, error: '' });
   const [saving, setSaving] = useState(false);
@@ -46,7 +47,7 @@ export default function ChatCrmStage({ phone, revision, onChanged, variant = 'se
   const currentLabel = currentColumn?.name || context?.current_label || 'Этап сделки';
   const change = async value => {
     const target = columns.find(column => column.id === value);
-    if (locked.current || state.loading || !context?.can_move || !widgetManualColumn(target) || value === current) return;
+    if (!canAction(user, 'crm_view', 'crm_edit') || locked.current || state.loading || !context?.can_move || !widgetManualColumn(target) || value === current) return;
     locked.current = true; setSaving(true);
     const activePhone = phone;
     const activeGeneration = generation.current;
@@ -63,7 +64,7 @@ export default function ChatCrmStage({ phone, revision, onChanged, variant = 'se
       if (currentPhone.current === activePhone && generation.current === activeGeneration) setState(current => ({ ...current, error: error.message }));
     } finally { locked.current = false; setSaving(false); }
   };
-  const unavailable = state.phone !== phone || state.loading || saving || !context?.can_move || Boolean(state.error);
+  const unavailable = !canAction(user, 'crm_view', 'crm_edit') || state.phone !== phone || state.loading || saving || !context?.can_move || Boolean(state.error);
   if (variant === 'menu') return <div className="curai-chat-stage">
     <CuraiButton variant="ghost" className="curai-chat-action" disabled={unavailable} title={state.error || context?.reason || currentLabel} aria-label={`Этап сделки: ${currentLabel}`} aria-haspopup="menu" aria-expanded={menuOpen} onClick={event => { anchor.current = event.currentTarget; setMenuOpen(value => !value); }}><span className="curai-chat-stage-label">{currentLabel}</span><CuraiIcon name="chevron"/></CuraiButton>
     {menuOpen && context && <CuraiPopover anchorRef={anchor} onClose={closeMenu} label="Этап сделки">

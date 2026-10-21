@@ -1,3 +1,4 @@
+import { canAction } from './permissions.js';
 import { ledgerCommands } from './accountingLedger.js';
 
 export const APPOINTMENT_STATUSES = [
@@ -22,7 +23,7 @@ export function appointmentStatusReason(appointment, status, now = new Date()) {
   }
   return '';
 }
-export const canEditCalendar = user => Boolean(user && (['admin', 'super_admin'].includes(user.role) || user.permissions?.includes('calendar_edit')));
+export const canEditCalendar = user => canAction(user, 'calendar_view', 'calendar_edit');
 
 // Both calendar and WhatsApp use the same completion idempotency key and writer.
 export async function sendAppointmentStatus(id, status, send, appointment) {

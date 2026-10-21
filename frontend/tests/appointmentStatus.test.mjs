@@ -26,14 +26,14 @@ const compiled = await build({
       const context = useModal();
       const props = context.getModalProps('appointment');
       globalThis.appointmentFixture.modal = props;
-      return context.isModalOpen('appointment') ? <Modal show onClose={() => context.closeModal('appointment')} {...props} /> : null;
+      return context.isModalOpen('appointment') ? <Modal user={{permissions:['calendar_view','calendar_edit','patients_view','patients_edit','patients_delete','patients_export','finance_view','finance_edit']}} show onClose={() => context.closeModal('appointment')} {...props} /> : null;
     }
     export function CalendarHarness() {
-      return <ModalProvider><Page user={{role:'super_admin'}} /><Connected /></ModalProvider>;
+      return <ModalProvider><Page user={{role:'super_admin', permissions:['crm_view','crm_edit','crm_delete','patients_view','patients_edit','patients_export','calendar_view','calendar_edit','calendar_delete','directory_view','directory_edit','directory_delete','warehouse_view','warehouse_edit','warehouse_delete','warehouse_export','finance_view','finance_edit','doctors_view','doctors_edit','doctors_delete','payroll_view']}} /><Connected /></ModalProvider>;
     }
     export function CreateHarness({ status }) {
       const api = useAppointments();
-      return <Modal show onClose={() => {}} appointmentForm={{...globalThis.appointmentFixture.form, status}}
+      return <Modal user={{permissions:['calendar_view','calendar_edit','patients_view','patients_edit','patients_delete','patients_export','finance_view','finance_edit']}} show onClose={() => {}} appointmentForm={{...globalThis.appointmentFixture.form, status}}
         patients={globalThis.appointmentFixture.patients} doctors={globalThis.appointmentFixture.doctors}
         onSave={async data => { const result = await api.createAppointment(data); if (!result.success) throw Error(result.error); }} />;
     }

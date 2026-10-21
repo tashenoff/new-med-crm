@@ -1,9 +1,10 @@
+import { permissionProps, canAction } from '../../../utils/permissions.js';
 import WhatsAppConnectionBadge from './WhatsAppConnectionBadge';
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { API_BASE_URL } from '../../../api/config';
 
-const WhatsAppSidebar = ({ phone, patientName, isOpen, onClose }) => {
+const WhatsAppSidebar = ({ phone, patientName, isOpen, onClose, user }) => {
   const [messages, setMessages] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
@@ -48,6 +49,7 @@ const WhatsAppSidebar = ({ phone, patientName, isOpen, onClose }) => {
   };
 
   const handleSendMessage = async () => {
+    if (!canAction(user, 'crm_view', 'crm_edit')) return;
     if (!newMessage.trim()) return;
 
     setSending(true);
@@ -260,7 +262,7 @@ const WhatsAppSidebar = ({ phone, patientName, isOpen, onClose }) => {
             onClick={handleSendMessage}
             disabled={sending || !newMessage.trim()}
             className="w-full px-4 py-2 bg-curai-positive text-white rounded-md hover:bg-curai-positive disabled:opacity-50 disabled:cursor-not-allowed font-medium text-sm"
-          >
+           {...permissionProps(user, "crm_view", "crm_edit")}>
             {sending ? '📤 Отправка...' : '📲 Отправить'}
           </button>
         </div>

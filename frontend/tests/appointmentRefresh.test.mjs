@@ -33,8 +33,8 @@ const compiled = await build({
     }
     export default function Harness() {
       return <GlobalRefreshProvider><ModalProvider>
-        <Auth.Provider value={{user:{role:'super_admin'}}}>
-          <Page user={{role:'super_admin'}} /><Inbox isOpen onClose={() => {}} /><Capture />
+        <Auth.Provider value={{user:{role:'super_admin', permissions:['crm_view','crm_edit','crm_delete','patients_view','patients_edit','patients_export','calendar_view','calendar_edit','calendar_delete','directory_view','directory_edit','directory_delete','warehouse_view','warehouse_edit','warehouse_delete','warehouse_export','finance_view','finance_edit','doctors_view','doctors_edit','doctors_delete','payroll_view']}}}>
+          <Page user={{role:'super_admin', permissions:['crm_view','crm_edit','crm_delete','patients_view','patients_edit','patients_export','calendar_view','calendar_edit','calendar_delete','directory_view','directory_edit','directory_delete','warehouse_view','warehouse_edit','warehouse_delete','warehouse_export','finance_view','finance_edit','doctors_view','doctors_edit','doctors_delete','payroll_view']}} /><Inbox user={{permissions:['crm_view','crm_edit','patients_view','patients_edit','patients_export','calendar_view','calendar_edit']}} isOpen onClose={() => {}} /><Capture />
         </Auth.Provider>
       </ModalProvider></GlobalRefreshProvider>;
     }

@@ -18,13 +18,13 @@ export function PatientPaymentTotals({ plans, patientId }) {
     <p>По всем планам: {plans.length}.{discount > 0 && <> Скидка {money(discount)} учтена.</>} Применённый депозит включён в оплаченную сумму.</p>
   </section>;
 }
-export default function PatientPaymentWorkspace({ plans, patientId, onUpdate, onCreatePlan }) {
+export default function PatientPaymentWorkspace({ allowPayment = true, allowCompletion = true, plans, patientId, onUpdate, onCreatePlan }) {
  const [selectedPlan, selectPlan] = usePlanSelection(plans, patientId);
  const paymentUpdated = updated => {
   notifyKanbanChanged();
   return onUpdate?.(updated);
  };
  return <PlanWorkspace top={<PatientPaymentTotals plans={plans} patientId={patientId}/>} list={selectedPlan ? <PlanList plans={plans} selectedId={selectedPlan.id} onSelect={selectPlan}/> : null} empty={<PlanEmptyState className="curai-r21-payment-empty" title="Планы лечения не созданы" action={onCreatePlan && <button type="button" className="curai-button curai-button-primary" onClick={onCreatePlan}>Создать план лечения</button>}>Для оплаты сначала создайте план лечения.</PlanEmptyState>}>
-  {selectedPlan && <ServicePaymentList key={(patientId ?? '') + ':' + selectedPlan.id} layout="workspace" plan={selectedPlan} onUpdate={paymentUpdated}/>}
+  {selectedPlan && <ServicePaymentList allowPayment={allowPayment} allowCompletion={allowCompletion} key={(patientId ?? '') + ':' + selectedPlan.id} layout="workspace" plan={selectedPlan} onUpdate={paymentUpdated}/>}
  </PlanWorkspace>;
 }
