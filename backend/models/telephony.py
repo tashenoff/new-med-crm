@@ -7,6 +7,7 @@ from enum import Enum
 class CallDirection(str, Enum):
     INBOUND = "inbound"
     OUTBOUND = "outbound"
+    UNKNOWN = "unknown"
 
 
 class CallStatus(str, Enum):

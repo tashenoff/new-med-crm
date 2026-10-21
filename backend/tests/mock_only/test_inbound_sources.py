@@ -322,6 +322,78 @@ def test_outgoing_does_not_attribute_or_create_incoming_lead(fixture):
     run(scenario())
 
 
+def test_answer_first_is_unknown_and_cannot_create_callback_or_outbound_acquisition(fixture):
+    async def scenario():
+        await fixture.service.create(DID, 'source-a', 'admin')
+        await webhook(fixture, 'NOTIFY_ANSWER', destination=CALLER)
+        assert not fixture.db.crm_leads.documents
+        pending = fixture.db.telephony_calls.documents[0]
+        assert pending['direction'] == 'unknown' and pending['attribution_captured'] is False
+        await webhook(fixture, 'NOTIFY_OUT_START', destination=CALLER)
+        await webhook(fixture, 'NOTIFY_ANSWER', destination=CALLER)
+        await webhook(fixture, 'NOTIFY_OUT_END', destination=CALLER, disposition='answered')
+        assert len(fixture.db.telephony_calls.documents) == 1 and not fixture.db.crm_leads.documents
+        call = fixture.db.telephony_calls.documents[0]
+        assert call['direction'] == 'outbound' and call['source_id'] is None
+        # Even an inconsistent incoming-looking callback leg cannot turn a
+        # reserved outbound call into an inbound acquisition.
+        await webhook(fixture, 'NOTIFY_START')
+        assert not fixture.db.crm_leads.documents and call['source_id'] is None
+    run(scenario())
+
+
+def test_outbound_links_one_existing_card_without_mutating_source_or_creating_events(fixture):
+    async def scenario():
+        from datetime import datetime
+        card = dict(id='known', phone=CALLER, first_name='Existing', status='new', source='website',
+                    source_id='source-b', channel_id='manual-channel', campaign_id='manual-campaign',
+                    created_at=datetime(2026, 1, 1), updated_at=datetime(2026, 1, 1))
+        fixture.db.crm_leads.documents.append(card)
+        before = deepcopy(fixture.db.crm_leads.documents)
+        for event in ('NOTIFY_OUT_START', 'NOTIFY_ANSWER', 'NOTIFY_OUT_END', 'NOTIFY_OUT_END'):
+            await webhook(fixture, event, destination=CALLER)
+        assert fixture.db.crm_leads.documents == before
+        assert len(fixture.db.telephony_calls.documents) == 1
+        assert fixture.db.telephony_calls.documents[0]['lead_id'] == 'known'
+        assert fixture.db.telephony_calls.documents[0]['source_id'] is None
+    run(scenario())
+
+
+def test_answer_winning_insert_race_is_completed_by_confirmed_inbound_start(fixture, monkeypatch):
+    async def scenario():
+        await fixture.service.create(DID, 'source-a', 'admin')
+        collection = fixture.db.telephony_calls
+        insert = collection.insert_one
+        async def answer_wins(document):
+            await insert(dict(_id=document['_id'], pbx_call_id=document['pbx_call_id'], direction='unknown',
+                              phone_number='', attribution_captured=False))
+            raise DuplicateKeyError('ANSWER won reservation')
+        monkeypatch.setattr(collection, 'insert_one', answer_wins)
+        await webhook(fixture)
+        assert len(collection.documents) == len(fixture.db.crm_leads.documents) == 1
+        assert collection.documents[0]['direction'] == 'inbound'
+        assert collection.documents[0]['source_id'] == 'source-a'
+        assert collection.documents[0]['direction_event'] == 'NOTIFY_START'
+        await webhook(fixture, 'NOTIFY_END')
+        assert len(fixture.db.crm_leads.documents) == 1
+    run(scenario())
+
+
+def test_callback_request_and_unclassified_answer_never_create_acquisition(fixture, monkeypatch):
+    async def scenario():
+        request = AsyncMock(return_value={'status': 'success', 'from': '100', 'to': CALLER})
+        monkeypatch.setattr(fixture.telephony.telephony_service, 'request_callback', request)
+        async with AsyncClient(transport=ASGITransport(app=fixture.app), base_url='http://mock') as client:
+            response = await client.post('/api/telephony/callbacks', json={'phone': CALLER}, headers={'Authorization': 'Bearer admin'})
+            assert response.status_code == 200, response.text
+        request.assert_awaited_once()
+        assert not fixture.db.crm_leads.documents
+        await webhook(fixture, 'NOTIFY_ANSWER', destination=CALLER)
+        assert not fixture.db.crm_leads.documents
+        assert {row['direction'] for row in fixture.db.telephony_calls.documents} == {'outbound', 'unknown'}
+    run(scenario())
+
+
 def test_recording_before_start_and_repeated_recording_keep_one_call(fixture):
     async def scenario():
         await fixture.service.create(DID, 'source-a', 'admin')

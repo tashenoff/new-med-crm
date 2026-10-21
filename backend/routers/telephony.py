@@ -258,10 +258,10 @@ async def _capture_call_attribution(db, call_doc, params, direction, phone):
     Attribution belongs to the call even if the caller is an existing patient
     or an active/manual-source lead; their first source is never overwritten.
     """
-    if call_doc.get('attribution_captured') is not False:
+    if direction == CallDirection.UNKNOWN or call_doc.get('attribution_captured') is not False:
         return
     from crm.services.inbound_source_service import InboundSourceService
-    if 'source_id' in call_doc:
+    if 'source_id' in call_doc and call_doc.get('direction') != CallDirection.UNKNOWN.value:
         attribution = {key: call_doc.get(key) for key in ('called_did', 'source_id', 'source_name', 'source_type', 'channel_id', 'channel_name', 'campaign_id', 'campaign_name')}
     elif direction == CallDirection.INBOUND:
         attribution = await InboundSourceService(db).attribution(params.get('called_did'))
@@ -270,14 +270,16 @@ async def _capture_call_attribution(db, call_doc, params, direction, phone):
     claimed = await db.telephony_calls.update_one(
         {'_id': call_doc['_id'], 'attribution_captured': False},
         {'$set': {**attribution, 'attribution_captured': True, 'phone_number': phone,
-                  'normalized_phone': _normalize_phone(phone), 'direction': direction.value}},
+                  'normalized_phone': _normalize_phone(phone), 'direction': direction.value,
+                  'direction_event': str(params.get('event', '')).upper()}},
     )
     if not claimed.matched_count:
         return
     patient = await _find_patient_by_phone(db, phone)
     patient_id = str(patient.get('id') or patient.get('_id', '')) if patient else None
     lead_id = None
-    if not patient and direction == CallDirection.INBOUND:
+    confirmed_entry = str(params.get('event', '')).upper() in ('NOTIFY_START', 'NOTIFY_END')
+    if not patient and direction == CallDirection.INBOUND and confirmed_entry:
         try:
             lead = await _find_or_create_lead(db, phone, attribution=attribution)
             if lead:
@@ -286,6 +288,15 @@ async def _capture_call_attribution(db, call_doc, params, direction, phone):
             # A persisted lead may already exist even if its initial task failed.
             # Keep the reservation; a replay must not create another first touch.
             logger.exception('Could not link incoming call %s to CRM', call_doc.get('pbx_call_id'))
+    elif not patient and direction == CallDirection.OUTBOUND:
+        from crm.services.lead_identity import normalize_identity_phone
+        from crm.services.lead_calls import phone_pattern
+        identity_phone = normalize_identity_phone(phone)
+        if identity_phone:
+            candidates = await db.crm_leads.find({'phone': {'$regex': phone_pattern(identity_phone)}}).to_list(length=None)
+            identifiers = {row.get('id') for row in candidates if row.get('id')}
+            if len(identifiers) == 1:
+                lead_id = next(iter(identifiers))
     identity = {'patient_id': patient_id, 'lead_id': lead_id}
     name = await _resolve_contact_name(db, {**call_doc, **identity, 'phone_number': phone})
     if name:
@@ -539,7 +550,7 @@ async def webhook_events(request: Request):
                 "attribution_captured": False,
                 "phone_number": "",
                 "normalized_phone": "",
-                "direction": CallDirection.INBOUND.value,
+                "direction": CallDirection.UNKNOWN.value,
                 "status": CallStatus.ANSWERED.value,
                 "disposition": Disposition.ANSWERED.value,
                 "pbx_call_id": rec_pbx_call_id,
@@ -589,13 +600,21 @@ async def webhook_events(request: Request):
 
     # Определяем направление
 
-    if event in ("NOTIFY_START", "NOTIFY_ANSWER", "NOTIFY_END", "NOTIFY_RECORD"):
+    # NOTIFY_ANSWER is documented for both inbound and outbound calls. A
+    # recording has no direction either. Never turn either into an acquisition.
+    provider_id = params.get('pbx_call_id') or params.get('call_id')
+    previous_call = await db.telephony_calls.find_one({'pbx_call_id': provider_id}) if isinstance(provider_id, str) and provider_id else None
+    previous_direction = (previous_call or {}).get('direction')
+    if previous_call and previous_call.get('attribution_captured') is False and not previous_call.get('phone_number'):
+        previous_direction = CallDirection.UNKNOWN.value
 
-        direction = CallDirection.INBOUND
+    if event in ("NOTIFY_START", "NOTIFY_END"):
+
+        direction = CallDirection.OUTBOUND if previous_direction == CallDirection.OUTBOUND.value else CallDirection.INBOUND
 
         # Для входящих — телефон звонящего
 
-        phone = params.get("caller_id", "") or params.get("from", "")
+        phone = (previous_call or {}).get('phone_number', '') if direction == CallDirection.OUTBOUND else params.get("caller_id", "")
 
     elif event in ("NOTIFY_OUT_START", "NOTIFY_OUT_END"):
 
@@ -603,7 +622,11 @@ async def webhook_events(request: Request):
 
         # Для исходящих — телефон вызываемого
 
-        phone = params.get("destination", "") or params.get("to", "") or params.get("caller_id", "")
+        phone = params.get("destination", "")
+
+    elif event == 'NOTIFY_ANSWER':
+        direction = CallDirection(previous_direction) if previous_direction in ('inbound', 'outbound') else CallDirection.UNKNOWN
+        phone = (previous_call or {}).get('phone_number') or (params.get('destination', '') if direction == CallDirection.OUTBOUND else params.get('caller_id', '') if direction == CallDirection.INBOUND else '')
 
     else:
 
@@ -613,7 +636,7 @@ async def webhook_events(request: Request):
 
 
 
-    if not phone:
+    if not phone and direction != CallDirection.UNKNOWN:
 
         logger.warning("Zadarma webhook: не удалось определить номер телефона")
 
@@ -791,7 +814,7 @@ async def webhook_events(request: Request):
 
     from crm.services.inbound_source_service import InboundSourceService
     attribution = (await InboundSourceService(db).attribution(params.get('called_did'))
-                   if direction == CallDirection.INBOUND else
+                   if direction == CallDirection.INBOUND else {} if direction == CallDirection.UNKNOWN else
                    dict(called_did=None, source_id=None, source_name=None, source_type=None))
 
     call_doc = {
@@ -818,8 +841,13 @@ async def webhook_events(request: Request):
     try:
         await db.telephony_calls.insert_one(call_doc)
     except DuplicateKeyError:
-        # Concurrent delivery already reserved this provider call. Replays only
-        # update the call event; they must not create or reattribute a CRM lead.
+        # A directionless ANSWER may win insertion before START. Complete only
+        # its still-pending atomic claim; a captured call remains immutable.
+        winner = await db.telephony_calls.find_one({'_id': call_doc['_id']})
+        if winner:
+            capture_direction = CallDirection.OUTBOUND if winner.get('direction') == CallDirection.OUTBOUND.value else direction
+            capture_phone = winner.get('phone_number') or phone if capture_direction == CallDirection.OUTBOUND else phone
+            await _capture_call_attribution(db, winner, params, capture_direction, capture_phone)
         return {"status": "ok"}
     await _capture_call_attribution(db, call_doc, params, direction, phone)
     logger.info(
