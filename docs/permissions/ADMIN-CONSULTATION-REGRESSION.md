@@ -13,7 +13,7 @@
 ## Минимальная коррекция
 
 - В effective_permissions для **legacy admin/super_admin** сохранены две прежние role-authorized операции: staff_edit и finance_edit. Это вычисление ответа login/me и staff projection, без обновления записей. ROLE_PERMISSIONS/preset не расширен; новая explicit роль и explicit [] не получают этих ключей. Marketer CRM-only не меняется. Payroll, delete/export keys не добавляются. Прежние запреты self-escalation и управления senior targets сохранены.
-- PatientTermsStatus условен activeTab==='info'. Для consultation dialog body и form container задана связная flex/min-height:0 компоновка. Прокручиваются поля, footer остаётся видимым в пределах окна. Подпись submit уточнена до «Сохранить консультацию»/«Сохранить изменения».
+- PatientTermsStatus условен activeTab==='info'. Для consultation dialog body и form container задана связная flex/min-height:0 компоновка. Прокручиваются поля, footer остаётся видимым в пределах окна. Видимая подпись submit — «Сохранить», полное accessible name — «Сохранить консультацию»/«Сохранить изменения консультации». Короткая подпись помещается в существующий footer.
 - Логика бухгалтерского ledger, создание планов и финансовые суммы не менялись. No blanket admin bypass; explicit режим не объединяется с ролью.
 
 ## Проверки
