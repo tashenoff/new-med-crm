@@ -568,7 +568,8 @@ async def create_appointment(
             doctor_name=doctor_name,
             appointment_date=appointment.appointment_date,
             appointment_time=appointment.appointment_time,
-            cabinet=cabinet_name
+            cabinet=cabinet_name,
+            patient_id=appointment.patient_id, appointment_id=appointment_obj.id,
         )
     except Exception as e:
         # Не прерываем создание записи если не удалось отправить уведомление

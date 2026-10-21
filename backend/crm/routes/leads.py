@@ -730,6 +730,7 @@ async def schedule_appointment_from_lead(
                 appointment_date=appointment_date.strftime('%Y-%m-%d'),
                 appointment_time=new_appointment.get("appointment_time", "10:00"),
                 cabinet=_rm,
+                patient_id=patient_id, appointment_id=appointment_id,
             )
         except Exception as _ne:
             print(f"Не удалось отправить уведомление о создании записи: {_ne}")

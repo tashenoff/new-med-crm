@@ -144,6 +144,8 @@ class IntegrationService:
             })
             
             await self.appointments_collection.insert_one(appointment_data)
+            from services.notification_sender import notify_created_appointment
+            await notify_created_appointment(self.db, appointment_data)
             result["appointment_id"] = appointment_data["id"]
         
         # Обновляем лида как конвертированного
@@ -312,6 +314,8 @@ class IntegrationService:
             })
             
             await self.appointments_collection.insert_one(appointment_data)
+            from services.notification_sender import notify_created_appointment
+            await notify_created_appointment(self.db, appointment_data)
             result["appointment_id"] = appointment_data["id"]
         
         return result

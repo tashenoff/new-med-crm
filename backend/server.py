@@ -60,6 +60,9 @@ async def lifespan(app: FastAPI):
 # Create the main app
 app = FastAPI(lifespan=lifespan, redirect_slashes=False)
 
+from routers.patient_terms import protect_patient_terms
+app.middleware("http")(protect_patient_terms)
+
 # Add CORS middleware first (before any routes)
 app.add_middleware(
     CORSMiddleware,
@@ -116,6 +119,7 @@ from routers.consultations import router as consultations_router
 from routers.wazzup import router as wazzup_router
 from routers.telephony import router as telephony_router
 from routers.notification_rules import router as notification_rules_router
+from routers.patient_terms import router as patient_terms_router
 from routers.feedback import router as feedback_router
 from routers.laboratories import laboratories_router
 from routers.staff import router as staff_router
@@ -130,6 +134,7 @@ for reporting_router in select_reporting_routers(db, os.environ):
     app.include_router(reporting_router)
 app.include_router(live_events_router, prefix="/api")
 app.include_router(patients_router, prefix="/api")
+app.include_router(patient_terms_router, prefix="/api")
 app.include_router(doctors_router, prefix="/api")
 app.include_router(appointments_router, prefix="/api")
 app.include_router(rooms_router, prefix="/api")

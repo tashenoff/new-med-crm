@@ -525,6 +525,8 @@ async def _process_incoming_message(message_data: dict) -> None:
     from services.feedback_service import FeedbackService
     from models.wazzup import SendMessageRequest
 
+    from services.patient_consent import redact_links
+    message_data = redact_links(message_data)
     contact_phone = str(message_data.get("chatId", "")).split("@")[0]
     text = message_data.get("text", "") or ""
     contact = message_data.get("contact") or {}
