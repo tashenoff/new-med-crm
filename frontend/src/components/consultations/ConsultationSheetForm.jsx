@@ -720,11 +720,12 @@ const ConsultationSheetForm = ({ patientId, onSave, onSaved, onCancel, editingSh
 <div className="curai-consultation-form-footer flex space-x-3 pt-4">
         <button
           type="submit"
+          aria-label={editingSheet ? 'Сохранить изменения консультации' : 'Сохранить консультацию'}
           disabled={saving || persisted || form.treatment_services.length === 0}
           className={`flex-1 ${buttonSuccessClasses} ${form.treatment_services.length === 0 ? 'cursor-not-allowed' : ''}`}
           data-guide="create-treatment-plan-btn"
         >
-          {editingSheet ? 'Сохранить изменения' : 'Сохранить консультацию'}
+          Сохранить
         </button>
         <button
           type="button"
