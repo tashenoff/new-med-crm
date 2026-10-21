@@ -22,6 +22,7 @@ import LeadHistory from './LeadHistoryTimeline';
 import { historyStatusLabel } from '../../../utils/leadHistory';
 import { sourceLabel } from '../../../utils/crmSources';
 import { leadCardSource } from '../../../utils/leadCardSource';
+import LeadAttributionFields from './LeadAttributionFields';
 import { useKanbanColumns } from '../../../hooks/useKanbanColumns';
 import { cardColumnId, canMoveCard, manualColumn } from '../../../utils/kanbanColumns';
 import FirstTouchDateFilter from './FirstTouchDateFilter';
@@ -441,6 +442,9 @@ const EnhancedLeadsView = ({ user }) => {
         // Очищаем пустые значения
         email: newLead.email || null,
         source_id: newLead.source_id || null,
+        ...(newLead.channel_id ? { channel_id: newLead.channel_id } : {}),
+        ...(newLead.campaign_id ? { campaign_id: newLead.campaign_id } : {}),
+        ...(newLead.contact_point ? { contact_point: newLead.contact_point } : {}),
         company: newLead.company || null,
         description: newLead.description || null,
         middle_name: newLead.middle_name || null,
@@ -1406,13 +1410,17 @@ const EnhancedLeadsView = ({ user }) => {
                   setNewLead({
                     ...newLead, 
                     source_id: selectedValue,
+                    channel_id: null,
+                    campaign_id: null,
                     source: selectedSource.type
                   });
                 } else {
                   setNewLead({
                     ...newLead, 
                     source: selectedValue,
-                    source_id: ''
+                    source_id: '',
+                    channel_id: null,
+                    campaign_id: null
                   });
                 }
               }}
@@ -1435,6 +1443,7 @@ const EnhancedLeadsView = ({ user }) => {
             </select>
           </div>
           
+          <LeadAttributionFields value={newLead} source={sources.find(row => row.id === newLead.source_id)} onChange={setNewLead} inputClass={inputClasses} labelClass={labelClasses} />
           <div>
             <label className={labelClasses}>Описание</label>
             <textarea

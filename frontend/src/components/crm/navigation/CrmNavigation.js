@@ -34,16 +34,6 @@ const CrmNavigation = ({ activeTab, setActiveTab, user }) => {
     }
   ];
 
-  // Менеджеров могут видеть только админы
-  if (user?.role === 'admin') {
-    menuItems.push({
-      key: 'crm-managers',
-      label: '👨‍💼 Менеджеры',
-      icon: '👨‍💼',
-      description: 'Управление менеджерами'
-    });
-  }
-
   return (
     <div className="h-full bg-curai-selected ">
       <div className="p-4">

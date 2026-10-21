@@ -19,13 +19,9 @@ export const getNavigationMenu = (user, activeSection) => {
         { key: 'crm-tasks', label: 'Задачи', type: 'tab' },
         { key: 'crm-clients', label: 'Контакты', type: 'tab' },
         { key: 'crm-deals', label: 'Воронка', type: 'tab' },
+        { key: 'crm-acquisition', label: 'Привлечение', type: 'tab' },
         { key: 'crm-contacts', label: 'Источники', type: 'tab' }
       ];
-
-      // Менеджеров могут видеть только админы
-      if (user?.role === 'admin') {
-        crmItems.push({ key: 'crm-managers', label: 'Менеджеры', type: 'tab' });
-      }
 
       // Справочник CRM - только для админов
       if (user?.role === 'admin' || user?.role === 'super_admin') {

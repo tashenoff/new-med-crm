@@ -23,7 +23,7 @@ const icons = {
   'quality-assessment': ShieldCheck, warehouse: Package,
   'crm-dashboard': ChartNoAxesCombined, 'crm-leads': ContactRound,
   'crm-tasks': ListTodo, 'crm-clients': UsersRound, 'crm-deals': BriefcaseBusiness,
-  'crm-contacts': ContactRound, 'crm-managers': UserRound, 'crm-directory': BookOpen,
+  'crm-contacts': ContactRound, 'crm-acquisition': ChartColumn, 'crm-directory': BookOpen,
   'crm-task-statuses': CircleCheck, 'crm-telephony': MessageSquare, 'crm-funnel': Funnel,
   'crm-sources': SlidersHorizontal, 'finance-dashboard': ChartNoAxesCombined,
   'finance-income': ArrowDownLeft, 'finance-expenses': ArrowUpRight,

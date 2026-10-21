@@ -29,7 +29,7 @@ import EnhancedCrmDashboard from './components/crm/dashboard/EnhancedCrmDashboar
 import EnhancedLeadsView from './components/crm/leads/EnhancedLeadsView';
 import ClientsView from './components/crm/clients/ClientsView';
 import FunnelView from './components/crm/funnel/FunnelView';
-import ManagersView from './components/crm/managers/ManagersView';
+import AcquisitionView from './components/crm/contacts/AcquisitionView';
 import SourcesView from './components/crm/contacts/ContactsView';
 import TasksView from './components/crm/tasks/TasksView';
 import TaskStatuses from './components/crm/directory/TaskStatuses';
@@ -215,7 +215,7 @@ function ClinicApp() {
         { key: 'crm-tasks', label: 'Задачи' },
         { key: 'crm-clients', label: 'Контакты' },
         { key: 'crm-deals', label: 'Воронка' },
-        { key: 'crm-managers', label: 'Менеджеры' },
+        { key: 'crm-acquisition', label: 'Привлечение' },
         { key: 'crm-contacts', label: 'Источники' }
       ];
     }
@@ -361,6 +361,7 @@ function ClinicApp() {
           <Route path="/warehouse" element={<WarehousePage user={user} warehouseView={warehouseView} onOpenAiChat={openAiChatWithMaterialForm} onCloseAiChat={closeAiChatSidebar} aiChatSidebarOpen={aiChatSidebarOpen} materialRefreshTrigger={materialRefreshTrigger} />} />
           
           {/* Fallback routes for other tabs */}
+          <Route path="/crm-managers" element={<Navigate to="/crm-dashboard" replace />} />
           <Route path="/*" element={
             <div>
               {activeTab === 'crm-dashboard' && <EnhancedCrmDashboard user={user} />}
@@ -368,7 +369,7 @@ function ClinicApp() {
               {activeTab === 'crm-tasks' && <TasksView user={user} />}
               {activeTab === 'crm-clients' && <ClientsView user={user} />}
               {activeTab === 'crm-deals' && <FunnelView user={user} />}
-              {activeTab === 'crm-managers' && <ManagersView user={user} />}
+              {activeTab === 'crm-acquisition' && <AcquisitionView user={user} />}
               {activeTab === 'crm-contacts' && <SourcesView user={user} />}
               {activeTab === 'crm-task-statuses' && <TaskStatuses user={user} />}
               {activeTab.startsWith('finance') && (

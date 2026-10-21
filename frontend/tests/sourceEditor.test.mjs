@@ -16,7 +16,7 @@ delete globalThis.document;
 bootstrap.window.close();
 const compiled = await build({
   entryPoints: [fileURLToPath(new URL('../src/components/crm/contacts/SourceEditor.jsx', import.meta.url))],
-  bundle: true, write: false, platform: 'node', format: 'cjs', external: ['react'],
+  bundle: true, write: false, platform: 'node', format: 'cjs', external: ['react', 'react-dom'],
   define: { 'import.meta.env': '{"VITE_BACKEND_URL":"http://localhost:4318"}' }
 });
 const module = { exports: {} };
@@ -44,7 +44,9 @@ async function mount(context, options = {}) {
     const body = options.body ? JSON.parse(options.body) : null;
     requests.push({ path, method, body, headers: options.headers });
     let data, status = 200;
-    if (path === '/inbound-source-mappings' && method === 'GET') data = state.mappings;
+    if (path.endsWith('/expenses') && method === 'GET') data = state.expenses || [];
+    else if (path.endsWith('/expenses') && method === 'POST') { state.expenses = [...(state.expenses || []), { ...body, inquiries: 0, cpc: null, cpl: null }]; data = body; }
+    else if (path === '/inbound-source-mappings' && method === 'GET') data = state.mappings;
     else if (path === '/inbound-source-mappings/validate') {
       const normalized = body.phone_number.replace(/[ ().-]/g, '');
       if (!/^\+[1-9][0-9]{9,14}$/.test(normalized)) { status = 422; data = { detail: 'Некорректный международный номер' }; }
@@ -62,8 +64,8 @@ async function mount(context, options = {}) {
     else throw new Error(`Unexpected mock request ${method} ${path}`);
     return { ok: status < 400, status, json: async () => structuredClone(data) };
   });
-  const container = document.getElementById('root');
-  const root = createRoot(container);
+  const container = document.body;
+  const root = createRoot(document.getElementById('root'));
   context.after(async () => {
     await act(async () => root.unmount()); dom.window.close();
     for (const [key, descriptor] of descriptors) {
@@ -71,7 +73,7 @@ async function mount(context, options = {}) {
     }
   });
   await act(async () => root.render(React.createElement(SourceEditor, {
-    source: state.source, canEdit: options.canEdit ?? true, canDeleteNumbers: options.canDeleteNumbers ?? true, canManageNumbers: options.canManageNumbers ?? true,
+    source: state.source, showDimensionSettings: true, showLegacyNumbers: true, showExpenses: true, canEdit: options.canEdit ?? true, canDeleteNumbers: options.canDeleteNumbers ?? true, canManageNumbers: options.canManageNumbers ?? true,
     onClose() {}, onSaved: source => saved.push(source)
   })));
   const change = async (node, value) => {
@@ -91,7 +93,7 @@ test('phone type reveals a clinic number on the same source form, with no extra 
   assert.equal(inputFor(f, 'Входящий номер клиники'), undefined);
   await f.change(inputFor(f, 'Тип'), 'phone');
   assert.ok(inputFor(f, 'Входящий номер клиники'));
-  assert.equal(f.container.querySelectorAll('select').length, 1);
+  assert.ok(![...f.container.querySelectorAll('select option')].some(option => option.value === 'created-source'));
   await f.change(inputFor(f, 'Название'), '2GIS');
   await f.change(inputFor(f, 'Входящий номер клиники'), '+7 (701) 123-45-67');
   await f.submit();
@@ -182,4 +184,56 @@ test('source identity matching and labels do not confuse same-type sources or as
   assert.equal(sourceLabel({ source_id: 'a', source: 'phone' }, sources), '2GIS');
   assert.equal(sourceLabel({ source_id: 'gone', source: 'phone' }, sources), 'Телефон');
   assert.equal(sourceLabel({ source: 'phone' }, sources), 'Телефон');
+});
+
+test('user channels and campaigns remain independent of legacy type, preserve IDs and support arbitrary counts', async t => {
+  const channels = Array.from({length: 12}, (_, index) => ({id:`channel-${index}`,name:`Contact ${index}`,adapter:'manual',active:true}));
+  const f = await mount(t, {source:{id:'known',name:'Marketing source',type:'website',channels, campaigns:[], dimensions_revision:7}});
+  await act(async()=>button(f,'Добавить канал').click());
+  const section=f.container.querySelector('[aria-label="Каналы источника"]');
+  assert.equal(section.querySelectorAll('fieldset').length,13);
+  const last=section.querySelectorAll('fieldset')[12];
+  await f.change(last.querySelector('input'), 'Звонок со страницы');
+  await f.change(last.querySelector('select'), 'phone');
+  await act(async()=>button(f,'Добавить кампанию').click());
+  const campaign=f.container.querySelector('[aria-label="Кампании источника"] fieldset');
+  await f.change(campaign.querySelector('input'),'Campaign optional');
+  const selectedChannel=last.querySelector('input').value;
+  assert.equal(selectedChannel,'Звонок со страницы');
+  await f.change(campaign.querySelector('select'),section.querySelectorAll('fieldset')[12].querySelector('select') ? [...campaign.querySelectorAll('option')].at(-1).value : '');
+  await f.submit();
+  const payload=f.requests.find(row=>row.method==='PUT').body;
+  assert.equal(payload.type,'website'); assert.equal(payload.channels.length,13);
+  assert.deepEqual(payload.channels.slice(0,12).map(row=>row.id),channels.map(row=>row.id));
+  assert.equal(payload.channels[12].adapter,'phone');assert.equal(payload.campaigns[0].channel_id,payload.channels[12].id);
+  assert.equal(payload.dimensions_revision,7); assert.ok(!('persisted' in payload.channels[0]));
+});
+
+test('four tariff schemes distinguish a free zero from unknown and do not overwrite the old planned budget', async t=>{
+  const f=await mount(t,{source:{id:'known',name:'Source',type:'advertising',monthly_budget:5000,cost_per_lead:125}});
+  const schemes=inputFor(f,'Схема оплаты');
+  assert.deepEqual([...schemes.options].slice(1).map(row=>row.value),['monthly','per_lead','free','actual']);
+  await f.change(schemes,'monthly');assert.ok(inputFor(f,'Договорная сумма в месяц'));
+  await f.change(schemes,'per_lead');assert.ok(inputFor(f,'Договорная цена заявки'));
+  await f.change(schemes,'free');assert.equal(inputFor(f,'Договорная цена заявки'),undefined);
+  await f.submit();
+  const payload=f.requests.find(row=>row.method==='PUT').body;
+  assert.equal(payload.tariff.scheme,'free');assert.equal(payload.tariff.amount,0);
+  assert.equal(payload.monthly_budget,5000);assert.equal(payload.cost_per_lead,125);
+  assert.ok(payload.tariff.effective_at.endsWith('Z'));
+});
+
+test('actual expenses are an explicit separate command with period, currency and unknown clicks',async t=>{
+  const f=await mount(t,{source:{id:'known',name:'Source',type:'website'}});
+  assert.equal(f.requests.some(row=>row.path.endsWith('/expenses')),false);
+  await act(async()=>button(f,'Открыть фактические расходы (0)').click());
+  await f.change(inputFor(f,'Начало периода'),'2026-10-01T00:00');
+  await f.change(inputFor(f,'Конец периода'),'2026-10-02T00:00');
+  await act(async()=>button(f,'Записать фактический расход').click());
+  assert.equal(f.requests.some(row=>row.path.endsWith('/expenses')&&row.method==='POST'),false);
+  await f.change(inputFor(f,'Сумма'),'0');
+  await act(async()=>button(f,'Записать фактический расход').click());
+  const payload=f.requests.find(row=>row.path.endsWith('/expenses')&&row.method==='POST').body;
+  assert.equal(payload.amount,0);assert.equal(payload.currency,'KZT');assert.equal(payload.clicks,null);assert.equal(payload.impressions,null);
+  assert.equal(f.requests.some(row=>row.method==='PUT'),false);assert.match(f.container.textContent,/CPC: —/);
 });
