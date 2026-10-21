@@ -120,7 +120,11 @@ const StaffManagementPage = ({ user }) => {
         }
       } else {
         // При создании отправляем все данные включая пароль
-        result = await staffHook.createStaffMember({ ...dataToSave, permission_mode: "explicit" });
+        result = await staffHook.createStaffMember({
+          ...dataToSave,
+          email: dataToSave.email?.trim() || undefined,
+          permission_mode: "explicit"
+        });
       }
 
       if (!result.success) {
