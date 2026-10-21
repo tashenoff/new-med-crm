@@ -19,12 +19,12 @@ export default function PatientTermsStatus({ patientId, dismissible = false, act
       const pending = new AbortController();
       controller = pending;
       try {
-        const { data } = await apiClient.get(`/patients/${encodeURIComponent(patientId)}/terms-status`, { signal: pending.signal });
+        const { data } = await apiClient.get(`/patients/${encodeURIComponent(patientId)}/terms-status`, { signal: pending.signal, timeout: 5000, params: { _consent_refresh: Date.now() } });
         if (!stopped && controller === pending) setResult({ patientId, data });
       } catch (error) {
         if (!stopped && controller === pending && error.code !== 'ERR_CANCELED') setResult({ patientId, error: true });
       } finally {
-        if (!stopped && controller === pending && !document.hidden) timer = setTimeout(poll, 10000);
+        if (!stopped && controller === pending && !document.hidden) timer = setTimeout(poll, 5000);
       }
     };
     const visibility = () => {
@@ -34,11 +34,15 @@ export default function PatientTermsStatus({ patientId, dismissible = false, act
     };
     poll();
     document.addEventListener('visibilitychange', visibility);
+    window.addEventListener('focus', visibility);
+    window.addEventListener('pageshow', visibility);
     return () => {
       stopped = true;
       clearTimeout(timer);
       controller?.abort();
       document.removeEventListener('visibilitychange', visibility);
+      window.removeEventListener('focus', visibility);
+      window.removeEventListener('pageshow', visibility);
     };
   }, [patientId, active]);
   if (!patientId || !active || (dismissible && (hidden === patientId || hiddenPatients.has(patientId)))) return null;

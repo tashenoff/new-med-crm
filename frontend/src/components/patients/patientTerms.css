@@ -3,3 +3,4 @@
 .patient-terms-status small { display:block; color:var(--curai-muted,#607677); margin-top:3px; }
 .patient-terms-status button { font-size:20px; line-height:24px; min-width:32px; min-height:32px; border:0; background:transparent; color:inherit; cursor:pointer; }
 .patient-terms-status summary { cursor:pointer; margin-top:6px; }
+.curai-patient-dialog .curai-dialog-body > .patient-terms-status { margin-bottom:1rem; }

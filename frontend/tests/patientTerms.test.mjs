@@ -32,7 +32,7 @@ async function mount(t, Component, props = {}) {
   const fixture = { get: async (url, options) => { requests.push({ url, options }); return { data: { accepted: false, version: 'demo-v1', history: [] } }; } };
   const globals = { window: dom.window, document: dom.window.document, IS_REACT_ACT_ENVIRONMENT: true,
     termsFixture: fixture,
-    setTimeout: (fn, ms, ...args) => { if (ms === 10000) { const handle = { fn }; timers.add(handle); return handle; } return nativeTimeout(fn, ms, ...args); },
+    setTimeout: (fn, ms, ...args) => { if (ms === 5000) { const handle = { fn }; timers.add(handle); return handle; } return nativeTimeout(fn, ms, ...args); },
     clearTimeout: handle => { if (timers.has(handle)) timers.delete(handle); else nativeClear(handle); } };
   const previous = new Map();
   for (const [key, value] of Object.entries(globals)) { previous.set(key, Object.getOwnPropertyDescriptor(globalThis, key)); Object.defineProperty(globalThis, key, { configurable: true, writable: true, value }); }
@@ -110,6 +110,34 @@ test('public page starts unchecked; only explicit checked submit accepts', async
   assert.equal(calls.length, 2); assert.match(calls[1].url, /accept$/);
   assert.equal(JSON.parse(calls[1].options.body).acknowledged, true);
   assert.match(f.text(), /Ознакомление подтверждено/);
+});
+
+test('visible-window focus supersedes a stalled poll and bypasses stale GET caches', async t => {
+  const f = await mount(t, Status, { patientId: 'focus-one' });
+  const stalled = pending(); let oldSignal;
+  f.fixture.get = (url, options) => { oldSignal = options.signal; return stalled.promise; };
+  const timer = [...f.timers][0]; f.timers.delete(timer);
+  await act(async () => { timer.fn(); });
+  const fresh = [];
+  f.fixture.get = async (url, options) => { fresh.push(options); return { data: { accepted: true, accepted_at: '2026-10-21T09:00:00Z', version: 'demo-v1' } }; };
+  await act(async () => f.dom.window.dispatchEvent(new f.dom.window.Event('focus')));
+  assert.equal(oldSignal.aborted, true);
+  assert.match(f.text(), /Условия приняты ·/);
+  assert.equal(fresh.length, 1);
+  assert.equal(fresh[0].timeout, 5000);
+  assert.equal(typeof fresh[0].params._consent_refresh, 'number');
+  await act(async () => stalled.resolve({ data: { accepted: false } }));
+  assert.match(f.text(), /Условия приняты ·/);
+  assert.equal(f.timers.size, 1);
+  await act(async () => f.dom.window.dispatchEvent(new f.dom.window.Event('pageshow')));
+  assert.equal(fresh.length, 2);
+  await f.render({ patientId: 'focus-one', active: false });
+  await act(async () => {
+    f.dom.window.dispatchEvent(new f.dom.window.Event('focus'));
+    f.dom.window.dispatchEvent(new f.dom.window.Event('pageshow'));
+  });
+  assert.equal(fresh.length, 2);
+  assert.equal(f.timers.size, 0);
 });
 
 test('another fragment in the same tab resets confirmation and ignores old acceptance response', async t => {
