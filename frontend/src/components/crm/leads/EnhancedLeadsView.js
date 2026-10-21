@@ -20,6 +20,7 @@ import { loadLeadHmsData } from '../../../utils/leadHmsData';
 import LeadHistory from './LeadHistoryTimeline';
 import { historyStatusLabel } from '../../../utils/leadHistory';
 import { sourceLabel } from '../../../utils/crmSources';
+import { leadCardSource } from '../../../utils/leadCardSource';
 import { useKanbanColumns } from '../../../hooks/useKanbanColumns';
 import { cardColumnId, canMoveCard, manualColumn } from '../../../utils/kanbanColumns';
 import FirstTouchDateFilter from './FirstTouchDateFilter';
@@ -878,6 +879,7 @@ const EnhancedLeadsView = ({ user }) => {
 
   // Компонент карточки заявки для канбана
   const renderLeadCard = (lead) => {
+    const cardSource = leadCardSource(lead, sources);
     const leadAmount = getLeadAmount(lead);
     const depositAmount = lead.deposit_amount || 0;
     const extraDeposit = lead.extra_deposit || 0;
@@ -907,9 +909,9 @@ const EnhancedLeadsView = ({ user }) => {
             <h4 className={cn("font-semibold text-sm truncate", themeClasses.text.primary)}>
               {lead.full_name || `${lead.first_name} ${lead.last_name}`}
             </h4>
-            <p className={cn("text-xs mt-1", themeClasses.text.muted)}>
+            {!cardSource.hideHeaderSource && <p className={cn("text-xs mt-1", themeClasses.text.muted)}>
               {sourceLabel(lead, sources)}
-            </p>
+            </p>}
             {lead.linked_inquiries?.length > 0 && (
               <p className="text-xs mt-1 text-curai-blue ">
                 Связанных обращений: {lead.linked_inquiries.length} · {[...new Set(lead.linked_inquiries.map(touch => sourceLabel(touch, sources)))].join(', ')}
@@ -1023,11 +1025,14 @@ const EnhancedLeadsView = ({ user }) => {
         </div>
 
         {/* Description */}
-        {lead.description && (
+        {(cardSource.attribution || cardSource.description) && (
           <div className="mb-3">
-            <p className={cn("text-xs", themeClasses.text.muted)} title={lead.description}>
-              {lead.description.length > 50 ? lead.description.substring(0, 50) + '...' : lead.description}
-            </p>
+            {cardSource.attribution && <p className={cn("text-xs break-words", themeClasses.text.muted)} title={cardSource.attribution}>
+              {cardSource.attribution}
+            </p>}
+            {cardSource.description && <p className={cn("text-xs break-words", cardSource.attribution && "mt-1", themeClasses.text.muted)} title={cardSource.description}>
+              {cardSource.description.length > 50 ? cardSource.description.substring(0, 50) + '...' : cardSource.description}
+            </p>}
           </div>
         )}
 

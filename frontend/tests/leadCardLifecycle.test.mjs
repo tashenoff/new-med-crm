@@ -115,7 +115,7 @@ async function mountView(context, leads = [lead], options = {}) {
     loadingStates: [],
     apiLoadingTransitions: [],
     crm: {
-      leads, managers: [], sources: [], loading: false,
+      leads, managers: [], sources: options.sources || [], loading: false,
       fetchLeads: async () => {
         if (!initialLeadsFetched) {
           initialLeadsFetched = true;
@@ -141,7 +141,7 @@ async function mountView(context, leads = [lead], options = {}) {
     leads: { getKanban, getStatistics: noop },
     clients: { getAll: async () => [] }, deals: { getAll: async () => [] },
     managers: { getAll: async () => [], getAvailable: async () => [] },
-    sources: { getAll: async () => [] }, clearError: noop
+    sources: { getAll: async () => options.sources || [] }, clearError: noop
   };
   dom.window.localStorage.setItem('token', 'clinic-token');
   globalThis.fetch = async (url, init = {}) => {
@@ -224,6 +224,74 @@ const dateFixture = () => [
 
 const visibleCards = container => [...container.querySelectorAll('[draggable="true"]')]
   .map(card => card.querySelector('h4').textContent.trim()).sort();
+
+const phoneCard = (extra = {}) => ({ ...lead, source: 'phone', source_id: 'source-2gis', created_by: 'telephony_webhook',
+  description: 'Обращение через Zadarma-звонок', linked_inquiries: [], ...extra });
+
+test('card attribution shows the named source instead of provider and removes its header duplicate', async context => {
+  const sources = [{ id: 'source-2gis', name: '2ГИС', type: 'phone' }, { id: 'other-phone', name: 'Сайт', type: 'phone' }];
+  const cardData = phoneCard();
+  const before = structuredClone(cardData);
+  const view = await mountView(context, [cardData], { sources });
+  const card = view.container.querySelector('[data-lead-id="lead-first"]');
+  assert.match(card.textContent, /Обращение через «2ГИС»/);
+  assert.doesNotMatch(card.textContent, /Zadarma|Сайт/);
+  assert.doesNotMatch(card.querySelector('h4').parentElement.textContent, /2ГИС/);
+  assert.equal(card.textContent.split('2ГИС').length - 1, 1);
+  assert.deepEqual(cardData, before, 'presentation never rewrites stored description or attribution');
+});
+
+test('card attribution preserves saved source-name snapshot when the catalog entry is unavailable', async context => {
+  const view = await mountView(context, [phoneCard({ source_name: 'Сохранённый источник' })]);
+  const card = view.container.querySelector('[data-lead-id="lead-first"]');
+  assert.match(card.textContent, /Обращение через «Сохранённый источник»/);
+  assert.doesNotMatch(card.textContent, /Zadarma/);
+});
+
+test('card attribution with an unknown ID does not invent a name from a same-type source', async context => {
+  const view = await mountView(context, [phoneCard({ source_id: 'deleted' })], {
+    sources: [{ id: 'unrelated', name: 'Случайный источник', type: 'phone' }]
+  });
+  const card = view.container.querySelector('[data-lead-id="lead-first"]');
+  assert.match(card.textContent, /Обращение по телефону — источник недоступен/);
+  assert.doesNotMatch(card.textContent, /Zadarma|Случайный источник|Обращение через «Телефон»/);
+});
+
+test('card attribution without an assigned source says so explicitly', async context => {
+  const view = await mountView(context, [phoneCard({ source_id: null })]);
+  const card = view.container.querySelector('[data-lead-id="lead-first"]');
+  assert.match(card.textContent, /Обращение по телефону — источник не указан/);
+  assert.doesNotMatch(card.textContent, /Zadarma/);
+});
+
+test('card attribution keeps user notes and resolves a renamed catalog source by its stable ID', async context => {
+  const view = await mountView(context, [phoneCard({ description: 'Просит перезвонить после обеда' })], {
+    sources: [{ id: 'source-2gis', name: 'Источник переименован', type: 'advertising' }]
+  });
+  const card = view.container.querySelector('[data-lead-id="lead-first"]');
+  assert.match(card.textContent, /Обращение через «Источник переименован»/);
+  assert.match(card.textContent, /Просит перезвонить после обеда/);
+});
+
+test('card attribution supports a full 100-character source name without truncating it', async context => {
+  const name = 'Я'.repeat(100);
+  const view = await mountView(context, [phoneCard()], { sources: [{ id: 'source-2gis', name, type: 'phone' }] });
+  const card = view.container.querySelector('[data-lead-id="lead-first"]');
+  assert.ok(card.textContent.includes(`Обращение через «${name}»`));
+  assert.doesNotMatch(card.textContent, /Zadarma/);
+});
+
+test('card attribution leaves other channels and manually created phone cards unchanged', async context => {
+  const cards = ['website', 'social', 'whatsapp', 'phone'].map(source => ({ ...lead, id: source,
+    source, source_id: null, created_by: 'staff', description: `Заметка ${source}` }));
+  const view = await mountView(context, cards);
+  for (const data of cards) {
+    const card = view.container.querySelector(`[data-lead-id="${data.id}"]`);
+    assert.match(card.textContent, new RegExp(`Заметка ${data.source}`));
+    assert.ok(card.querySelector('h4').parentElement.querySelector('p'), 'existing source caption remains on other cards');
+    assert.doesNotMatch(card.textContent, /Обращение через|Обращение по телефону/);
+  }
+});
 
 async function changeControl(view, label, value) {
   const control = view.container.querySelector(`[aria-label="${label}"], [placeholder="${label}"]`);
