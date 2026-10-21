@@ -14,7 +14,7 @@ const CalendarPage = ({ user }) => {
   // Data hooks
   const appointmentsHook = useAppointments();
   const patientsHook = usePatients();
-  const doctorsHook = useDoctors();
+  const doctorsHook = useDoctors(user);
   const roomsHook = useRooms();
   const { refreshTriggers } = useGlobalRefresh();
   

@@ -1,3 +1,4 @@
+import { hasPermission } from '../../../utils/permissions';
 import React, { useState, useEffect } from 'react';
 import {
   LineChart, Line, AreaChart, Area, BarChart, Bar, PieChart, Pie, Cell,
@@ -144,7 +145,7 @@ const EnhancedCrmDashboard = ({ user }) => {
 
   // ✨ ЗАГРУЗКА СТАТИСТИКИ ПРИ ИНИЦИАЛИЗАЦИИ
   useEffect(() => {
-    if (isInitialized) {
+    if (isInitialized && hasPermission(user, 'finance_view')) {
       fetchHmsRevenueStats();
       fetchDashboardStats();
     }

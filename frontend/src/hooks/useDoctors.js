@@ -1,3 +1,4 @@
+import { hasPermission } from '../utils/permissions';
 import { useState, useCallback, useEffect } from 'react';
 import axios from 'axios';
 import { formatDoctorError } from '../utils/doctorErrors';
@@ -5,16 +6,19 @@ import { formatDoctorError } from '../utils/doctorErrors';
 const BACKEND_URL = import.meta.env.VITE_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
 
-export const useDoctors = () => {
+export const useDoctors = (user) => {
+  const fullAccess = hasPermission(user, 'doctors_view');
+  const lookupAccess = ['calendar_view', 'patients_view', 'doctors_view', 'crm_view', 'payroll_view'].some(key => hasPermission(user, key));
   const [doctors, setDoctors] = useState([]);
   const [loading, setLoading] = useState(false);
 
   // Получить всех врачей
   const fetchDoctors = useCallback(async () => {
+    if (!lookupAccess) { setDoctors([]); return; }
     setLoading(true);
     try {
       const token = localStorage.getItem('token');
-      const response = await axios.get(`${API}/doctors`, {
+      const response = await axios.get(`${API}/${fullAccess ? "doctors" : "lookups/doctors"}`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -26,7 +30,7 @@ export const useDoctors = () => {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [fullAccess, lookupAccess]);
 
   // Создать нового врача
   const createDoctor = useCallback(async (doctorData) => {
@@ -141,7 +145,7 @@ export const useDoctors = () => {
 
   // Автоматическая загрузка врачей при монтировании хука
   useEffect(() => {
-    fetchDoctors();
+    fetchDoctors().catch(() => setDoctors([]));
   }, [fetchDoctors]);
 
   return {

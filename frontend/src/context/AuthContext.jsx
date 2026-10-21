@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
+import { homeForUser } from '../utils/permissions';
 
 const BACKEND_URL = import.meta.env.VITE_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
@@ -47,7 +48,7 @@ export function AuthProvider({ children }) {
 
       // Если пользователь на корневой странице, перенаправляем на календарь
       if (window.location.pathname === '/') {
-        navigate('/calendar');
+        navigate(homeForUser(response.data));
       }
     } catch (error) {
       console.error('Failed to fetch current user:', error);
@@ -62,6 +63,14 @@ export function AuthProvider({ children }) {
     }
     setLoading(false);
   };
+
+  useEffect(() => {
+    if (!token) return;
+    const refresh = () => { if (!document.hidden) fetchCurrentUser(); };
+    window.addEventListener('focus', refresh);
+    const timer = setInterval(refresh, 60000);
+    return () => { window.removeEventListener('focus', refresh); clearInterval(timer); };
+  }, [token]);
 
   const login = async (email, password, rememberMe = false) => {
     try {
@@ -78,7 +87,7 @@ export function AuthProvider({ children }) {
       axios.defaults.headers.common['Authorization'] = `Bearer ${access_token}`;
       
       // Автоматический переход на календарь после входа
-      navigate('/calendar');
+      navigate(homeForUser(userData));
       
       return { success: true };
     } catch (error) {

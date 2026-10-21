@@ -1,3 +1,4 @@
+import { hasPermission as allowed, canOpenPath, canOpenSpace } from '../../utils/permissions.js';
 export const warehouseMenuItems = [
     { key: 'warehouse-materials', label: 'Материалы' },
     { key: 'warehouse-attention', label: 'Требует внимания' },
@@ -6,13 +7,7 @@ export const warehouseMenuItems = [
   ];
 
 export const getNavigationMenu = (user, activeSection) => {
-  const hasPermission = (permission) => {
-    if (!user) return false;
-    // Super admin и admin всегда имеют доступ
-    if (user.role === 'super_admin' || user.role === 'admin') return true;
-    // Проверяем наличие конкретного разрешения
-    return user.permissions && user.permissions.includes(permission);
-  };
+  const hasPermission = permission => allowed(user, permission);
 
   // Структура меню с поддержкой подразделов
   const getMenuStructure = () => {
@@ -49,7 +44,7 @@ export const getNavigationMenu = (user, activeSection) => {
 
     // Если активна Finance секция, показываем финансовые пункты меню
     if (activeSection === 'finance') {
-      if (!user || user.role === 'patient') return [];
+      if (!canOpenSpace(user, 'finance')) return [];
       const financeItems = [
         { key: 'finance-dashboard', label: 'Дашборд', type: 'tab' },
         { key: 'finance-income', label: 'Доходы', type: 'tab' },
@@ -58,9 +53,7 @@ export const getNavigationMenu = (user, activeSection) => {
         { key: 'finance-reports', label: 'Отчеты', type: 'tab' }
       ];
 
-      return user.role === 'admin' || user.role === 'super_admin'
-        ? financeItems
-        : financeItems.filter(item => item.key === 'finance-salaries');
+      return financeItems.filter(item => canOpenPath(user, '/' + item.key));
     }
 
     if (activeSection === 'warehouse') {
@@ -122,7 +115,7 @@ export const getNavigationMenu = (user, activeSection) => {
     }
 
     // Расписание врачей только для админов
-    if (user?.role === 'admin' || user?.role === 'super_admin') {
+    if (hasPermission('calendar_view')) {
       baseItems.push({ key: 'doctor-schedule', label: 'Расписание врачей', type: 'tab' });
     }
 
@@ -150,7 +143,7 @@ export const getNavigationMenu = (user, activeSection) => {
     }
 
     // Оценка качества (только для админов) - AI анализ WhatsApp коммуникаций
-    if (user?.role === 'admin' || user?.role === 'super_admin') {
+    if (hasPermission('quality_view')) {
       baseItems.push({ key: 'quality-assessment', label: 'Оценка качества', type: 'tab' });
     }
 
@@ -159,19 +152,28 @@ export const getNavigationMenu = (user, activeSection) => {
       baseItems.push({ key: 'settings', label: 'Настройки', type: 'tab' });
     }
 
+    if (hasPermission('loyalty_view') && !hasPermission('directory_view')) baseItems.push({key: 'loyalty', label: 'Лояльность', type: 'tab'});
     return baseItems;
   };
 
-  return getMenuStructure();
+  if (!canOpenSpace(user, activeSection)) return [];
+  return getMenuStructure().flatMap(item => {
+    if (item.subItems || item.children) {
+      const field = item.subItems ? 'subItems' : 'children';
+      const children = item[field].filter(child => canOpenPath(user, '/' + child.key));
+      return children.length ? [{ ...item, [field]: children }] : [];
+    }
+    return item.type.startsWith('warehouse') || canOpenPath(user, '/' + item.key) ? [item] : [];
+  });
 };
 
 // Search uses the sidebar catalog, restricted to route-backed entries.
 export const getSearchNavigation = (user) => {
   if (!user) return [];
-  const admin = ['admin', 'super_admin'].includes(user.role);
-  const sections = ['hms'];
-  if (admin || user.permissions?.includes('crm_view')) sections.push('crm');
-  if (user.role !== 'patient') sections.push('finance');
+
+  const sections = canOpenSpace(user, 'hms') ? ['hms'] : [];
+  if (canOpenSpace(user, 'crm')) sections.push('crm');
+  if (canOpenSpace(user, 'finance')) sections.push('finance');
   const flatten = (items, section, parent = '') => items.flatMap(item => {
     if (item.subItems || item.children) return flatten(item.subItems || item.children, section, item.label);
     return ['tab', 'subtab'].includes(item.type)
@@ -179,7 +181,7 @@ export const getSearchNavigation = (user) => {
       : [];
   });
   const entries = sections.flatMap(section => flatten(getNavigationMenu(user, section), section));
-  if (admin || user.permissions?.includes('warehouse_view')) {
+  if (canOpenSpace(user, 'warehouse')) {
     entries.push({ key: 'warehouse', label: '\u0421\u043a\u043b\u0430\u0434', section: 'warehouse' });
   }
   return entries;

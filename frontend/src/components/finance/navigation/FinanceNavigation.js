@@ -1,3 +1,4 @@
+import { canOpenPath } from '../../../utils/permissions';
 import React from 'react';
 
 const FinanceNavigation = ({ activeTab, setActiveTab, user }) => {
@@ -42,7 +43,7 @@ const FinanceNavigation = ({ activeTab, setActiveTab, user }) => {
         </h2>
         
         <nav className="space-y-2">
-          {menuItems.map((item) => (
+          {menuItems.filter(item => canOpenPath(user, '/' + item.key)).map((item) => (
             <button
               key={item.key}
               onClick={() => setActiveTab(item.key)}

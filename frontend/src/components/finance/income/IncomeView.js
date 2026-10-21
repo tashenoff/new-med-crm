@@ -99,6 +99,7 @@ const IncomeView = ({ user }) => {
 
   return (
     <div className="space-y-6">
+      <p role="note" className="rounded-md bg-curai-warningBg p-3 text-sm">Демонстрационный раздел: данные и операции пока не подключены к учёту клиники.</p>
       {/* Header */}
       <div className="flex justify-between items-center">
         <h1 className="text-2xl font-semibold text-curai-ink">💰 Доходы</h1>

@@ -1,30 +1,27 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { execFileSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import { getNavigationMenu, getSearchNavigation, filterSearchNavigation } from '../src/components/layout/navigationCatalog.js';
 
-// Compare against the actual target revision, rather than duplicating its rules.
-const baseline = execFileSync('git', ['show', 'c35a02c:frontend/src/components/layout/Navigation.js'], { encoding: 'utf8' });
-const warehouse = baseline.slice(baseline.indexOf('  const warehouseMenuItems'), baseline.indexOf('  const [warehouseActiveItem'));
-const logic = baseline.slice(baseline.indexOf('  const hasPermission'), baseline.indexOf('  const getTabIcon'));
-const originalMenu = new Function('user', 'activeSection', `${warehouse}\n${logic}\nreturn getMenuStructure();`);
-const permissions = ['calendar_view', 'patients_view', 'broadcast_view', 'statistics_view', 'doctors_view', 'directory_view', 'crm_view', 'warehouse_view'];
+const permissions = ['calendar_view', 'patients_view', 'broadcast_view', 'statistics_view', 'doctors_view', 'directory_view', 'crm_view', 'warehouse_view', 'finance_view', 'payroll_view'];
 
-test('sidebar catalog matches origin/main for every role, section and permission combination', () => {
-  for (const role of ['admin', 'super_admin', 'doctor', 'marketer', 'administrator', 'nurse', 'patient', 'unknown']) {
-    for (let mask = 0; mask < 2 ** permissions.length; mask++) {
-      const user = { role, permissions: permissions.filter((_, index) => mask & (1 << index)) };
-      for (const section of ['hms', 'crm', 'finance', 'warehouse', undefined]) {
-        assert.deepEqual(getNavigationMenu(user, section), originalMenu(user, section), `${role}/${section}/${mask}`);
-      }
-    }
+test('role names never expand the navigation permission list', () => {
+  for (let mask = 0; mask < 2 ** permissions.length; mask++) {
+    const selected = permissions.filter((_, index) => mask & (1 << index));
     for (const section of ['hms', 'crm', 'finance', 'warehouse']) {
-      assert.deepEqual(getNavigationMenu({ role }, section), originalMenu({ role }, section));
+      const restricted = getNavigationMenu({role: 'super_admin', permissions: selected}, section);
+      for (const item of restricted.flatMap(item => item.subItems || item.children || [item])) {
+        const required = item.key === 'finance-salaries' ? 'payroll_view'
+          : item.key.startsWith('finance') ? 'finance_view'
+          : item.key.startsWith('crm') ? 'crm_view'
+          : item.key.startsWith('warehouse') ? 'warehouse_view' : null;
+        if (required) assert.ok(selected.includes(required), item.key);
+      }
     }
   }
   for (const section of ['hms', 'crm', 'finance', 'warehouse']) {
-    assert.deepEqual(getNavigationMenu(null, section), originalMenu(null, section));
+    assert.deepEqual(getNavigationMenu({role: 'super_admin', permissions: []}, section), []);
+    assert.deepEqual(getNavigationMenu(null, section), []);
   }
 });
 
@@ -35,9 +32,9 @@ test('search contains only accessible route destinations, excluding accordion an
     for (const permissions of [[], ['calendar_view'], ['crm_view', 'warehouse_view'], ['directory_view', 'statistics_view']]) {
       const user = { role, permissions };
       const entries = getSearchNavigation(user);
-      const admin = ['admin', 'super_admin'].includes(role);
-      assert.equal(entries.some(item => item.section === 'crm'), admin || permissions.includes('crm_view'));
-      assert.equal(entries.some(item => item.key === 'warehouse'), admin || permissions.includes('warehouse_view'));
+
+      assert.equal(entries.some(item => item.section === 'crm'), permissions.includes('crm_view'));
+      assert.equal(entries.some(item => item.key === 'warehouse'), permissions.includes('warehouse_view'));
       assert.deepEqual(entries.filter(item => item.section === 'finance').map(item => item.key),
         getNavigationMenu(user, 'finance').map(item => item.key));
       for (const item of entries) {
@@ -50,7 +47,7 @@ test('search contains only accessible route destinations, excluding accordion an
 });
 
 test('search normalizes case and whitespace and matches parent labels and aliases', () => {
-  const entries = getSearchNavigation({ role: 'admin' });
+  const entries = getSearchNavigation({ role: 'admin', permissions: ['calendar_view', 'directory_view'] });
   assert.deepEqual(filterSearchNavigation(entries, '  РАСПИСАНИЕ   ').map(item => item.key), ['calendar', 'doctor-schedule']);
   assert.deepEqual(filterSearchNavigation(entries, 'справочник кабинеты').map(item => item.key), ['room-management']);
   assert.deepEqual(filterSearchNavigation(entries, 'nonexistent destination'), []);

@@ -26,6 +26,7 @@ const compiled = await build({
   plugins: [{ name: 'unrelated-app-dependencies', setup(builder) {
     builder.onResolve({ filter: /^\.\.?\// }, args => {
       if (/App\.jsx$/.test(args.importer) && /layout\/(Header|Navigation)$/.test(args.path)) return;
+      if (args.path.includes('utils/permissions')) return;
       if (['./NavigationSearch', './navigationCatalog', '../modals/Modal', './WorkspaceTabs', './NavigationItem', '../common/CuraiIcon', '../common/CuraiButton'].includes(args.path)) return;
       return { path: args.path, namespace: 'fixture' };
     });
@@ -58,12 +59,12 @@ const module = { exports: {} };
 new Function('require', 'module', 'exports', compiled.outputFiles[0].text)(createRequire(import.meta.url), module, module.exports);
 const App = module.exports.default;
 
-async function mount(context, role, path = '/calendar', width = 1024) {
+async function mount(context, role, path = '/calendar', width = 1024, permissions = ['calendar_view', 'patients_view', 'directory_view', 'statistics_view']) {
   const dom = new JSDOM('<div id="root"></div>', { url: 'https://crm.test' });
   dom.window.innerWidth = width;
   const globals = { window: dom.window, document: dom.window.document,
     localStorage: dom.window.localStorage, IS_REACT_ACT_ENVIRONMENT: true,
-    financeUser: role ? { role, full_name: 'Employee', permissions: [] } : null,
+    financeUser: role ? { role, full_name: 'Employee', permissions } : null,
     financeMounts: [] };
   const saved = new Map(Object.keys(globals).map(key => [key, Object.getOwnPropertyDescriptor(globalThis, key)]));
   Object.assign(globalThis, globals);
@@ -141,73 +142,40 @@ test('mobile sidebar starts collapsed, closes via overlay and navigation, and st
   assertSidebar(document, false);
 });
 
-const staff = ['admin', 'super_admin', 'doctor', 'marketer', 'administrator', 'nurse'];
+const staff = ['admin', 'super_admin', 'doctor', 'marketer', 'administrator'];
 for (const role of staff) {
-  test(`Finance header visible and opens salaries for ${role}`, async context => {
-    const document = await mount(context, role);
-    const button = [...document.querySelectorAll('header button')].find(b => b.textContent.trim() === 'Финансы');
-    assert.ok(button, 'Finance header entry must be visible');
-    await act(async () => button.click());
-    assert.equal(document.querySelector('#location').textContent, '/finance-salaries');
-    assert.ok(document.querySelector('[data-screen="SalariesView"]'));
-    assert.ok(!globalThis.financeMounts.includes('FinanceDashboard'));
-  });
-}
-for (const role of ['patient', null]) {
-  test(`Finance header hidden for ${role}`, async context => {
-    const document = await mount(context, role);
+  test(`No implicit finance or payroll UI for ${role}`, async context => {
+    const document = await mount(context, role, '/finance-salaries');
+    assert.ok(!globalThis.financeMounts.includes('SalariesView'));
+    assert.equal(document.querySelector('#location').textContent, '/calendar');
     assert.ok(![...document.querySelectorAll('header button')].some(b => b.textContent.trim() === 'Финансы'));
   });
 }
-for (const role of staff) {
-  test(`Finance sidebar exposes appropriate tabs for ${role}`, async context => {
-    const document = await mount(context, role, '/finance-salaries');
-    const labels = [...document.querySelectorAll('#workspace-navigation .curai-sidebar-items button')].map(b => b.getAttribute('aria-label'));
-    assert.deepEqual(labels, ['admin', 'super_admin'].includes(role)
-      ? ['Дашборд', 'Доходы', 'Расходы', 'Зарплата врачей', 'Отчеты'] : ['Зарплата врачей']);
-  });
-}
-test('patient direct payroll navigation never mounts salary screen', async context => {
-  const document = await mount(context, 'patient', '/finance-salaries');
+test('Finance-only permission opens dashboard and cannot mount payroll', async context => {
+  const document = await mount(context, 'marketer', '/finance-salaries', 1024, ['finance_view']);
+  assert.equal(document.querySelector('#location').textContent, '/finance-dashboard');
   assert.ok(!globalThis.financeMounts.includes('SalariesView'));
-  assert.equal(document.querySelector('#location').textContent, '/calendar');
+  const labels = [...document.querySelectorAll('#workspace-navigation .curai-sidebar-items button')].map(b => b.getAttribute('aria-label'));
+  assert.ok(!labels.some(label => label.includes('Зарплаты')));
 });
-test('nonadmin direct dashboard navigation lands on salaries without mounting fake dashboard', async context => {
-  const document = await mount(context, 'doctor', '/finance-dashboard');
-  assert.ok(!globalThis.financeMounts.includes('FinanceDashboard'));
-  assert.equal(document.querySelector('#location').textContent, '/finance-salaries');
+test('Explicit payroll opens salary screen independently', async context => {
+  const document = await mount(context, 'marketer', '/finance-salaries', 1024, ['payroll_view']);
   assert.ok(document.querySelector('[data-screen="SalariesView"]'));
+  assert.ok(!globalThis.financeMounts.includes('FinanceDashboard'));
 });
-
-for (const role of [...staff, 'patient']) {
-  test(`Search respects finance access and keyboard navigation for ${role}`, async context => {
-    const document = await mount(context, role);
-    const trigger = document.querySelector('header [aria-haspopup="dialog"]');
-    await act(async () => trigger.click());
-    const input = document.querySelector('[role="combobox"]');
-    const listbox = document.getElementById(input.getAttribute('aria-controls'));
-    assert.equal(document.activeElement, input);
-    assert.equal(listbox.getAttribute('role'), 'listbox');
-    assert.equal(listbox.querySelectorAll('button, a, input, [tabindex]').length, 0);
-    const financeKeys = [...listbox.querySelectorAll('[role="option"]')]
-      .map(option => option.id.replace('navigation-result-', '')).filter(key => key.startsWith('finance-'));
-    assert.deepEqual(financeKeys, role === 'patient' ? [] : ['admin', 'super_admin'].includes(role)
-      ? ['finance-dashboard', 'finance-income', 'finance-expenses', 'finance-salaries', 'finance-reports']
-      : ['finance-salaries']);
-    if (role === 'patient') {
-      await act(async () => input.dispatchEvent(new window.KeyboardEvent('keydown', { key: 'Escape', bubbles: true })));
-    } else {
-      await act(async () => input.dispatchEvent(new window.KeyboardEvent('keydown', { key: 'ArrowDown', bubbles: true })));
-      const option = document.getElementById(input.getAttribute('aria-activedescendant'));
-      assert.equal(option.getAttribute('aria-selected'), 'true');
-      const destination = option.id.replace('navigation-result-', '');
-      await act(async () => input.dispatchEvent(new window.KeyboardEvent('keydown', { key: 'Enter', bubbles: true })));
-      assert.equal(document.querySelector('#location').textContent, `/${destination}`);
-    }
-    assert.equal(document.querySelector('[role="dialog"]'), null);
-    assert.equal(document.activeElement, trigger);
-  });
-}
+test('CRM-only direct HMS navigation redirects before any HMS page mounts', async context => {
+  const document = await mount(context, 'marketer', '/patients', 1024, ['crm_view']);
+  assert.equal(document.querySelector('#location').textContent, '/crm-dashboard');
+  assert.ok(!globalThis.financeMounts.includes('PatientsPage'));
+  assert.ok(!globalThis.financeMounts.includes('CalendarPage'));
+  assert.ok(![...document.querySelectorAll('header button')].some(b => b.textContent.trim() === 'HMS'));
+});
+test('Empty permissions land on no-access without mounting business screens', async context => {
+  const document = await mount(context, 'super_admin', '/patients', 1024, []);
+  assert.equal(document.querySelector('#location').textContent, '/no-access');
+  assert.ok(document.querySelector('[role="status"]'));
+  assert.ok(!globalThis.financeMounts.includes('PatientsPage'));
+});
 
 test('search traps focus, wraps arrows, ignores composing Enter and handles empty results', async context => {
   const document = await mount(context, 'admin');

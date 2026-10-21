@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useStaff } from '../hooks/useStaff';
 import StaffView from '../components/staff/StaffView';
 import StaffModal from '../components/modals/StaffModal';
+import { permissionsForEditor, hasPermission } from '../utils/permissions';
 import AssignDoctorAccessModal from '../components/modals/AssignDoctorAccessModal';
 
 const StaffManagementPage = ({ user }) => {
@@ -67,7 +68,8 @@ const StaffManagementPage = ({ user }) => {
         login: staffMember.login || '',
         role: staffMember.role || 'doctor',
         phone: staffMember.phone || '',
-        custom_permissions: result.data?.custom_permissions || []
+        permission_mode: "explicit",
+        custom_permissions: permissionsForEditor(result.data)
       });
     } else {
       setStaffForm({
@@ -76,7 +78,8 @@ const StaffManagementPage = ({ user }) => {
         login: staffMember.login || '',
         role: staffMember.role || '',
         phone: staffMember.phone || '',
-        custom_permissions: staffMember.custom_permissions || []
+        permission_mode: "explicit",
+        custom_permissions: permissionsForEditor(staffMember)
       });
     }
     
@@ -97,6 +100,7 @@ const StaffManagementPage = ({ user }) => {
         if (editingItem.type === 'doctor') {
           const updateData = {
             login: dataToSave.login || undefined,
+            permission_mode: "explicit",
             custom_permissions: dataToSave.custom_permissions || []
           };
           result = await staffHook.updateStaffMember(editingItem.id, updateData);
@@ -107,13 +111,14 @@ const StaffManagementPage = ({ user }) => {
             login: dataToSave.login || undefined,
             role: dataToSave.role,
             phone: dataToSave.phone,
+            permission_mode: "explicit",
             custom_permissions: dataToSave.custom_permissions || []
           };
           result = await staffHook.updateStaffMember(editingItem.id, updateData);
         }
       } else {
         // При создании отправляем все данные включая пароль
-        result = await staffHook.createStaffMember(dataToSave);
+        result = await staffHook.createStaffMember({ ...dataToSave, permission_mode: "explicit" });
       }
 
       if (!result.success) {
@@ -209,7 +214,7 @@ const StaffManagementPage = ({ user }) => {
   };
 
   // Проверка прав доступа
-  const canManage = user?.role === 'admin' || user?.role === 'super_admin';
+  const canManage = ['admin', 'super_admin'].includes(user?.role) && hasPermission(user, 'staff_edit');
 
   return (
     <div className="space-y-6">

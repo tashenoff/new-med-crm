@@ -1,3 +1,4 @@
+import { canOpenPath, hasPermission, homeForUser } from './utils/permissions';
 import React, { useState, useEffect, useRef } from 'react';
 import { Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom';
 import axios from 'axios';
@@ -66,12 +67,13 @@ const BACKEND_URL = import.meta.env.VITE_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
 
 function ClinicApp() {
+  const { user, logout, showPasswordExpiredModal, handlePasswordChanged } = useAuth();
   // API hook
   const api = useApi();
   
   
   // Doctors hook
-  const doctorsHook = useDoctors();
+  const doctorsHook = useDoctors(user);
   
   // Отладочная информация для врачей
   console.log('App.jsx - doctorsHook.doctors:', doctorsHook.doctors);
@@ -81,13 +83,13 @@ function ClinicApp() {
   const { refreshTriggers } = useGlobalRefresh();
   
   // Auth hook
-  const { user, logout, showPasswordExpiredModal, handlePasswordChanged } = useAuth();
+
   
   // Router hooks
   const navigate = useNavigate();
   const location = useLocation();
-  const canViewFinance = Boolean(user && user.role !== 'patient');
-  const canManageFinance = user?.role === 'admin' || user?.role === 'super_admin';
+  const canViewFinance = hasPermission(user, 'finance_view');
+  const canManageFinance = canViewFinance;
   
   // Determine activeTab from current route
   const getActiveTabFromPath = (pathname) => {
@@ -120,21 +122,18 @@ function ClinicApp() {
     return 'hms';
   };
   
-  const [activeTab, setActiveTab] = useState(() => getActiveTabFromPath(location.pathname));
+  const activeTab = getActiveTabFromPath(location.pathname);
   const [errorMessage, setErrorMessage] = useState(null);
   const [warehouseView, setWarehouseView] = useState('warehouse-materials');
   
   // Sync activeTab with URL changes
   useEffect(() => {
-    const newActiveTab = getActiveTabFromPath(location.pathname);
-    setActiveTab(newActiveTab);
     const newSection = getSectionFromPath(location.pathname);
     setActiveSection(newSection);
   }, [location.pathname]);
   
   // Navigation function that uses router
   const handleTabChange = (tab) => {
-    setActiveTab(tab);
     navigate(`/${tab}`);
   };
   
@@ -194,7 +193,7 @@ function ClinicApp() {
     if (section === 'crm') {
       handleTabChange('crm-dashboard');
     } else if (section === 'finance') {
-      handleTabChange(canViewFinance ? 'finance-salaries' : 'calendar');
+      handleTabChange(canViewFinance ? 'finance-dashboard' : 'finance-salaries');
     } else if (section === 'warehouse') {
       handleTabChange('warehouse');
     } else {
@@ -327,7 +326,7 @@ function ClinicApp() {
             setActiveSection={handleSectionChange}
           />
 
-          <InsightsBar />
+          {hasPermission(user, 'system_settings') && <InsightsBar />}
 
           <ErrorMessage 
             errorMessage={errorMessage} 
@@ -335,7 +334,9 @@ function ClinicApp() {
           />
 
           <main className="curai-workspace-main flex-1 min-w-0">
-            <Routes>
+            {!canOpenPath(user, location.pathname) ? <Navigate to={homeForUser(user)} replace />
+            : location.pathname === '/no-access' ? <p role="status" className="p-6">Нет доступных разделов. Обратитесь к администратору.</p>
+            : <Routes>
           <Route path="/" element={<CalendarPage user={user} />} />
           <Route path="/calendar" element={<CalendarPage user={user} />} />
           <Route path="/patients" element={<PatientsPage user={user} />} />
@@ -371,9 +372,9 @@ function ClinicApp() {
               {activeTab === 'crm-contacts' && <SourcesView user={user} />}
               {activeTab === 'crm-task-statuses' && <TaskStatuses user={user} />}
               {activeTab.startsWith('finance') && (
-                !canViewFinance ? <Navigate to="/calendar" replace />
+                !canViewFinance && activeTab !== 'finance-salaries' ? <Navigate to={homeForUser(user)} replace />
                 : activeTab === 'finance-salaries' ? <SalariesView user={user} refreshVersion={refreshTriggers.treatmentPlans} />
-                : !canManageFinance || activeTab === 'finance' ? <Navigate to="/finance-salaries" replace />
+                : !canManageFinance || activeTab === 'finance' ? <Navigate to="/finance-dashboard" replace />
                 : <>
                     {activeTab === 'finance-dashboard' && <FinanceDashboard user={user} />}
                     {activeTab === 'finance-income' && <IncomeView user={user} />}
@@ -394,7 +395,7 @@ function ClinicApp() {
               {activeTab === 'warehouse' && <WarehousePage user={user} warehouseView={warehouseView} onOpenAiChat={openAiChatWithMaterialForm} onCloseAiChat={closeAiChatSidebar} aiChatSidebarOpen={aiChatSidebarOpen} />}
             </div>
           } />
-            </Routes>
+            </Routes>}
           </main>
 
           {/* Универсальный менеджер модальных окон */}
@@ -404,8 +405,8 @@ function ClinicApp() {
           <NotificationCenter />
 
           {/* Плавающая кнопка WhatsApp-инбокса (ИИ-консультант убран) */}
-          <WhatsAppFloatingButton isOpen={whatsAppInboxOpen} onToggle={() => setWhatsAppInboxOpen(v => !v)} />
-          <WhatsAppInbox isOpen={whatsAppInboxOpen} onClose={() => setWhatsAppInboxOpen(false)} />
+          {hasPermission(user, 'crm_view') && <WhatsAppFloatingButton isOpen={whatsAppInboxOpen} onToggle={() => setWhatsAppInboxOpen(v => !v)} />}
+          {hasPermission(user, 'crm_view') && <WhatsAppInbox isOpen={whatsAppInboxOpen} onClose={() => setWhatsAppInboxOpen(false)} />}
 
 
 

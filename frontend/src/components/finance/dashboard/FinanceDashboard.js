@@ -46,6 +46,7 @@ const FinanceDashboard = ({ user }) => {
 
   return (
     <div className="space-y-6">
+      <p role="note" className="rounded-md bg-curai-warningBg p-3 text-sm">Демонстрационный раздел: данные и операции пока не подключены к учёту клиники.</p>
       <div className={`calendar-container calendar-view-panel rounded-md`}>
         <PanelHeader
           title="💰 Финансовый дашборд"

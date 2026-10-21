@@ -9,7 +9,7 @@ import { initializeDoctorForm, buildDoctorPayload } from '../utils/doctorCompens
 
 const DoctorsPage = ({ user }) => {
   // Data hook
-  const doctorsHook = useDoctors();
+  const doctorsHook = useDoctors(user);
   const { refreshTriggers, refreshDoctors } = useGlobalRefresh();
   
   // Modal hook
