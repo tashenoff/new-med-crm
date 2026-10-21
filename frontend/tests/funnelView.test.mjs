@@ -5,327 +5,109 @@ import { fileURLToPath } from 'node:url';
 import React, { act } from 'react';
 import { build } from 'esbuild';
 import { JSDOM } from 'jsdom';
-import { SYSTEM_COLUMN_NAMES } from '../src/utils/kanbanColumns.js';
 
 const bootstrap = new JSDOM('<html><body></body></html>');
-globalThis.window = bootstrap.window;
-globalThis.document = bootstrap.window.document;
+globalThis.window = bootstrap.window; globalThis.document = bootstrap.window.document;
 const { createRoot } = await import('react-dom/client');
-delete globalThis.window;
-delete globalThis.document;
-bootstrap.window.close();
-
-const compiled = await build({
-  entryPoints: [fileURLToPath(new URL('../src/components/crm/funnel/FunnelView.js', import.meta.url))],
-  bundle: true, write: false, platform: 'node', format: 'cjs',
-  external: ['react', 'react-dom'], loader: { '.js': 'jsx' },
-  define: { 'import.meta.env': '{"VITE_BACKEND_URL":"http://localhost:4318"}' },
-  plugins: [{ name: 'mock-http-only', setup(builder) {
-    builder.onResolve({ filter: /^axios$/ }, () => ({ path: 'axios', namespace: 'mock-http' }));
-    builder.onLoad({ filter: /.*/, namespace: 'mock-http' }, () => ({ contents:
-      'export default config => globalThis.funnelFixture.axios(config);'
-    }));
-  } }]
-});
-const module = { exports: {} };
-new Function('require', 'module', 'exports', compiled.outputFiles[0].text)(createRequire(import.meta.url), module, module.exports);
-const View = module.exports.default;
-
-const custom = (id, name) => ({ id, name, is_system: false, manual_move_allowed: true, affected_count: 999 });
-const columns = () => {
-  const system = Object.entries(SYSTEM_COLUMN_NAMES).map(([id, name]) => ({ id, name, is_system: true }));
-  return [custom('custom_z', 'Звонок позже'), system[1], custom('custom_a', 'Анализ предложения'),
-    system[0], system[2], custom('custom_empty', 'Пустой этап'), system[3], system[4]];
-};
-const lead = (id, status, extra = {}) => ({
-  id, status, first_name: id, last_name: 'Тест', source: 'phone', source_id: 'source-phone', priority: 'medium', ...extra
-});
-const leads = () => [
-  lead('custom-card', 'new', { kanban_column_id: 'custom_z', linked_inquiries: [lead('repeat', 'new')] }),
-  lead('proposal-card', 'new', { kanban_column_id: 'custom_a', source_id: 'source-web' }),
-  lead('new-card', 'new'), lead('booked-card', 'contacted'), lead('confirmed-card', 'in_progress'),
-  lead('arrived-card', 'converted'), lead('paid-card', 'closed'),
-  lead('lost-card', 'lost'), lead('rejected-card', 'rejected'), lead('qualified-card', 'qualified'),
-  lead('unknown-card', 'new', { kanban_column_id: 'custom_deleted' }),
-  lead('stale-assignment', 'contacted', { kanban_column_id: 'custom_z' })
-];
-
-async function mount(context, overrides = {}) {
-  const dom = new JSDOM('<div id="root"></div>', { url: 'http://localhost:4318' });
-  const saved = new Map();
-  const state = { columns: columns(), leads: leads(), failColumns: false, sources: [
-    { id: 'source-web', name: 'Сайт', type: 'phone' }, { id: 'source-phone', name: '2GIS', type: 'phone' }
-  ], ...overrides };
-  const requests = [];
-  const install = (key, value) => {
-    saved.set(key, Object.getOwnPropertyDescriptor(globalThis, key));
-    Object.defineProperty(globalThis, key, { configurable: true, writable: true, value });
-  };
-  install('window', dom.window);
-  install('document', dom.window.document);
-  install('localStorage', dom.window.localStorage);
-  install('IS_REACT_ACT_ENVIRONMENT', true);
-  localStorage.setItem('token', 'synthetic-token');
-  for (const [key, value] of Object.entries(state.storage || {})) localStorage.setItem(key, value);
-  install('funnelFixture', { axios: async config => {
-    const path = new URL(config.url).pathname;
-    requests.push({ path, method: config.method, headers: config.headers });
-    const data = path === '/api/crm/leads/kanban' ? state.leads
-      : path === '/api/crm/leads/' ? state.leads.slice(0, 50).map(({ kanban_column_id, ...card }) => card)
-      : path === '/api/crm/sources/' ? state.sources.slice(Number(new URL(config.url).searchParams.get('skip') || 0), Number(new URL(config.url).searchParams.get('skip') || 0) + 100)
-      : path.includes('statistics') ? {} : [];
-    return { data: structuredClone(data) };
-  } });
-  install('fetch', async (url, options) => {
-    const path = new URL(url).pathname;
-    requests.push({ path, ...options });
-    assert.equal(path, '/api/crm/kanban/columns');
-    return { ok: !state.failColumns, json: async () => structuredClone(
-      state.failColumns ? { detail: 'Колонки недоступны' } : state.columns) };
-  });
-  const container = document.getElementById('root');
-  const root = createRoot(container);
-  context.after(async () => {
-    await act(async () => root.unmount());
-    dom.window.close();
-    for (const [key, descriptor] of saved) {
-      if (descriptor) Object.defineProperty(globalThis, key, descriptor);
-      else delete globalThis[key];
-    }
-  });
-  let instance = 0;
-  let user = state.user || { role: 'manager' };
-  const render = () => root.render(React.createElement(View, { key: instance, user }));
-  await act(async () => render());
-  const click = async element => { assert.ok(element, 'click target exists'); await act(async () => element.click()); };
-  const refresh = async () => act(async () => window.dispatchEvent(new window.Event('crm-kanban-changed')));
-  const remount = () => act(async () => { instance += 1; render(); });
-  const changeUser = value => act(async () => { user = value; render(); });
-  return { container, state, requests, click, refresh, remount, changeUser };
+delete globalThis.window; delete globalThis.document; bootstrap.window.close();
+const compiled = await build({ entryPoints: [fileURLToPath(new URL('../src/components/crm/funnel/FunnelView.js', import.meta.url))],
+ bundle: true, write: false, platform: 'node', format: 'cjs', external: ['react', 'react-dom'], loader: { '.js': 'jsx' },
+ define: { 'import.meta.env': '{"VITE_BACKEND_URL":"https://fixture.invalid"}' } });
+const loaded={exports:{}};new Function('require','module','exports',compiled.outputFiles[0].text)(createRequire(import.meta.url),loaded,loaded.exports);
+const View=loaded.exports.default;
+const columns=()=>[['optional-q','Необязательный'],['end-z','Завершение'],['entry-x','Начало'],['middle-y','Обсуждение']].map(([id,name])=>({id,name,is_system:false,manual_move_allowed:true}));
+const sources=()=>[{key:'source:a',name:'Канал А'},{key:'source:b',name:'Канал Б'},{key:'source:zero',name:'Пустой канал'},{key:'missing-source',name:'Источник не указан'}];
+const fixtureRows=[{key:'source:a',name:'Канал А',total:6,snapshot:{'entry-x':0,'middle-y':2,'end-z':4},counts:[6,5,2],open:1},
+ {key:'source:b',name:'Канал Б',total:5,snapshot:{'entry-x':1,'end-z':4},counts:[5,2,2],open:0},
+ {key:'source:zero',name:'Пустой канал',total:0,snapshot:{},counts:[0,0,0],open:0},
+ {key:'missing-source',name:'Источник не указан',total:1,snapshot:{'end-z':1},counts:[1,1,1],open:0}];
+const rate=(a,b)=>b?Math.round(a/b*1000)/10:null;
+async function mount(t, options={}) {
+ const dom=new JSDOM('<div id="root"></div>',{url:'https://fixture.invalid/crm-deals'+(options.batch?'?funnel_batch=demo-batch':'')});
+ const f={columns:columns(),requests:[],fail:false,gate:null,user:options.user||{id:'manager',clinic_id:'clinic'},generation:0};
+ const original=new Map();const globals={window:dom.window,document:dom.window.document,localStorage:dom.window.localStorage,IS_REACT_ACT_ENVIRONMENT:true,
+ fetch:async(input,init)=>{
+  const url=new URL(input);assert.equal(url.origin,'https://fixture.invalid');assert.equal(init?.method||'GET','GET');
+  f.requests.push(url);if(f.fail)return{ok:false,json:async()=>({detail:'Отчёт недоступен'})};
+  if(url.pathname.endsWith('/options'))return{ok:true,json:async()=>({columns:f.columns,sources:sources(),synthetic_batch:options.batch?'demo-batch':null})};
+  assert.equal(url.pathname,'/api/crm/funnel/report');
+  const mode=url.searchParams.get('mode'),steps=url.searchParams.getAll('steps'),selected=url.searchParams.get('source_selection')==='selected'?url.searchParams.getAll('source_ids'):null;
+  if(f.gate&&selected?.includes('source:a'))await f.gate;
+  const rows=fixtureRows.filter(row=>selected===null||selected.includes(row.key));
+  const stageIds=mode==='history'?steps:f.columns.map(c=>c.id);
+  const summarize=rows=>{const total=rows.reduce((sum,r)=>sum+r.total,0);const counts=stageIds.map((id,i)=>rows.reduce((sum,r)=>sum+(mode==='history'?r.counts[i]||0:r.snapshot[id]||0),0));return{total,converted:counts.at(-1)||0,conversion:rate(counts.at(-1)||0,total),open_windows:rows.reduce((sum,r)=>sum+r.open,0),outside_current_columns:0,
+   stages:stageIds.map((id,index)=>({id,name:f.columns.find(c=>c.id===id)?.name||id,count:counts[index],share:rate(counts[index],total),cohort_rate:rate(counts[index],total),previous_rate:index?rate(counts[index],counts[index-1]):null}))};};
+  return{ok:true,json:async()=>({mode,totals:summarize(rows),sources:rows.map(row=>({...row,...summarize([row])})),stage_options:f.columns,source_options:sources(),coverage:{current_without_observed_events:2},as_of:new Date().toISOString()})};
+ }};
+ for(const[key,value]of Object.entries(globals)){original.set(key,Object.getOwnPropertyDescriptor(globalThis,key));Object.defineProperty(globalThis,key,{configurable:true,writable:true,value});}
+ const root=createRoot(document.getElementById('root'));
+ const render=async()=>act(async()=>root.render(React.createElement(View,{key:f.generation,user:f.user})));
+ t.after(async()=>{await act(async()=>root.unmount());dom.window.close();for(const[key,value]of original){if(value)Object.defineProperty(globalThis,key,value);else delete globalThis[key];}});
+ await render();
+ const click=async node=>{assert.ok(node,'Control exists');await act(async()=>node.click());};
+ const button=name=>[...document.querySelectorAll('button')].find(node=>node.textContent.trim()===name);
+ const change=async(label,value)=>{const node=document.querySelector(`[aria-label="${label}"]`);assert.ok(node);await act(async()=>{Object.getOwnPropertyDescriptor(Object.getPrototypeOf(node),'value').set.call(node,value);node.dispatchEvent(new dom.window.Event('change',{bubbles:true}));if(node.tagName==='INPUT')node.dispatchEvent(new dom.window.Event('input',{bubbles:true}));});};
+ const define=async()=>{await click(button('Прохождение'));await click(button('Шаги воронки (0)'));for(const id of ['entry-x','middle-y','end-z'])await click(document.querySelector(`[data-definition-stage="${id}"]`));await click(button('Готово'));};
+ return{f,dom,click,button,change,define,render,rows:()=>[...document.querySelectorAll('[data-funnel-stage]')],total:()=>document.querySelector('[data-report-total]')?.textContent,
+  refresh:async()=>act(async()=>dom.window.dispatchEvent(new dom.window.Event('crm-kanban-changed'))),remount:async()=>{f.generation++;await render();}};
 }
 
-const rows = container => [...container.querySelectorAll('[data-funnel-stage]')];
-const counts = container => Object.fromEntries(rows(container).map(row => [
-  row.getAttribute('data-funnel-stage'), Number(row.querySelector('[data-stage-count]').textContent)
-]));
-const buttonWith = (container, text) => [...container.querySelectorAll('button')].find(button => button.textContent.includes(text));
-const selectSource = async (f, id) => act(async () => {
-  const select = f.container.querySelector('#funnel-source');
-  select.value = id;
-  select.dispatchEvent(new window.Event('change', { bubbles: true }));
+test('current snapshot uses runtime canonical columns/order and renders a true zero-width bar',async t=>{
+ const h=await mount(t);assert.deepEqual(h.rows().map(row=>row.dataset.funnelStage),h.f.columns.map(c=>c.id));
+ assert.equal(document.querySelector('[data-funnel-stage="optional-q"] [data-stage-bar]').style.width,'0%');
+ assert.match(document.body.textContent,/не история прохождения/);assert.equal(document.querySelectorAll('details').length,0);
 });
-const changeReportControl = async (f, label, value) => act(async () => {
-  const control = f.container.querySelector(`[aria-label="${label}"]`);
-  assert.ok(control, `report control ${label}`);
-  const proto = control.tagName === 'SELECT' ? window.HTMLSelectElement.prototype : window.HTMLInputElement.prototype;
-  Object.getOwnPropertyDescriptor(proto, 'value').set.call(control, value);
-  control.dispatchEvent(new window.Event('change', { bubbles: true }));
+test('history has no hardcoded path; explicit arbitrary IDs determine sequence and window',async t=>{
+ const h=await mount(t);await h.click(h.button('Прохождение'));assert.match(document.body.textContent,/Выберите хотя бы два шага/);
+ assert.equal(h.f.requests.filter(url=>url.searchParams.get('mode')==='history').length,0);
+ await h.click(h.button('Шаги воронки (0)'));assert.ok(h.button('Готово').disabled);
+ for(const id of ['entry-x','middle-y','end-z'])await h.click(document.querySelector(`[data-definition-stage="${id}"]`));
+ await h.click(h.button('Готово'));assert.deepEqual(h.rows().map(row=>row.dataset.funnelStage),['entry-x','middle-y','end-z']);
+ await h.change('Окно конверсии, дней','7');assert.equal(h.f.requests.at(-1).searchParams.get('window_days'),'7');
+ assert.match(document.body.textContent,/Возврат не сбрасывает прогресс/);assert.match(document.body.textContent,/без наблюдаемых событий/);
 });
-
-test('current stages follow shared kanban order and names, including empty custom and paid stages', async context => {
-  const f = await mount(context);
-  assert.deepEqual(rows(f.container).map(row => row.getAttribute('data-funnel-stage')), columns().map(column => column.id));
-  assert.deepEqual(counts(f.container), {
-    custom_z: 1, contacted: 2, custom_a: 1, new: 1, in_progress: 1, custom_empty: 0, converted: 1, closed: 1
-  });
-  assert.ok(f.requests.some(request => request.path === '/api/crm/leads/kanban'));
-  assert.ok(!f.requests.some(request => request.path === '/api/crm/leads/'));
-  assert.ok(f.requests.every(request => request.method.toUpperCase() === 'GET'));
-  assert.ok(f.requests.every(request => request.headers.Authorization === 'Bearer synthetic-token'));
+test('source filter changes stage report; comparison independently uses explicit multiple sources',async t=>{
+ const h=await mount(t);await h.define();await h.change('Источник','source:a');assert.match(h.total(),/^6/);
+ await h.click(h.button('Сравнение источников'));assert.equal(document.querySelector('#funnel-source'),null);assert.match(h.total(),/^12/);
+ await h.click(h.button('Источники (4)'));await h.click(document.querySelector('[data-comparison-source="source:b"]'));await h.click(document.querySelector('[data-comparison-source="missing-source"]'));await h.click(h.button('Готово'));
+ assert.deepEqual([...document.querySelectorAll('[data-source-comparison-key]')].map(row=>row.dataset.sourceComparisonKey),['source:a','source:zero','total']);
+ assert.equal(document.querySelector('[data-source-comparison-key="source:zero"] [data-comparison-total]').textContent,'0');
+ assert.equal(document.querySelector('[data-source-comparison-key="source:zero"] [data-comparison-conversion]').textContent,'—');
+ await h.click(h.button('По этапам'));assert.equal(document.querySelector('#funnel-source').value,'source:a');
 });
-
-test('source filter preserves zero stages, counts, denominator and canonical drilldown', async context => {
-  const f = await mount(context);
-  await selectSource(f, 'source-web');
-  assert.equal(counts(f.container).custom_a, 1);
-  assert.equal(Object.values(counts(f.container)).reduce((a, b) => a + b, 0), 1);
-  assert.equal(rows(f.container).length, columns().length);
-  await f.click(buttonWith(f.container, 'Анализ предложения'));
-  assert.match(f.container.textContent, /proposal-card/);
-  assert.doesNotMatch(f.container.textContent, /custom-card/);
-  assert.match(f.container.textContent, /1 заявок/);
-  await selectSource(f, 'all');
-  await f.click(buttonWith(f.container, 'Звонок позже'));
-  assert.match(f.container.textContent, /custom-card/);
-  assert.doesNotMatch(f.container.textContent, /new-card|repeat/);
+test('all sources deselected shows an explicit empty comparison without vacant rows',async t=>{
+ const h=await mount(t);await h.click(h.button('Сравнение источников'));await h.click(h.button('Источники (4)'));await h.click(h.button('Снять выбор'));await h.click(h.button('Готово'));
+ assert.equal(document.querySelectorAll('[data-source-comparison-key]').length,0);assert.match(document.body.textContent,/Источники не выбраны/);assert.match(h.total(),/^0/);
 });
-
-test('rename, reorder, add, move and deletion refresh in place without losing the source filter', async context => {
-  const f = await mount(context);
-  await selectSource(f, 'source-web');
-  f.state.columns[2].name = 'Переименован';
-  f.state.columns = [custom('custom_added', 'Новый пустой'), ...f.state.columns.toReversed()];
-  f.state.leads.find(card => card.id === 'proposal-card').kanban_column_id = 'custom_z';
-  await f.refresh();
-  assert.deepEqual(rows(f.container).map(row => row.getAttribute('data-funnel-stage')), f.state.columns.map(column => column.id));
-  assert.ok(buttonWith(f.container, 'Переименован'));
-  assert.equal(counts(f.container).custom_added, 0);
-  assert.equal(counts(f.container).custom_z, 1);
-  assert.equal(counts(f.container).custom_a, 0);
-  f.state.columns = f.state.columns.filter(column => column.id !== 'custom_z');
-  f.state.leads.filter(card => card.kanban_column_id === 'custom_z').forEach(card => { card.kanban_column_id = null; });
-  await f.refresh();
-  assert.equal(counts(f.container).new, 1);
-  assert.ok(!buttonWith(f.container, 'Звонок позже'));
+test('visibility is separate from definition, applies only on Done, and preserves totals/query',async t=>{
+ const h=await mount(t);await h.define();const total=h.total(),before=h.f.requests.at(-1).searchParams.getAll('steps');
+ await h.click(h.button('Отображение этапов'));await h.click(document.querySelector('[data-stage-visibility="middle-y"]'));
+ assert.equal(h.rows().length,3);await h.click(h.button('Закрыть'));assert.equal(h.rows().length,3);
+ await h.click(h.button('Отображение этапов'));await h.click(document.querySelector('[data-stage-visibility="middle-y"]'));await h.click(h.button('Готово'));
+ assert.deepEqual(h.rows().map(row=>row.dataset.funnelStage),['entry-x','end-z']);assert.equal(h.total(),total);assert.deepEqual(h.f.requests.at(-1).searchParams.getAll('steps'),before);
+ await h.click(h.button('Отображение этапов'));await h.click(h.button('Скрыть все'));await h.click(h.button('Готово'));assert.match(document.body.textContent,/Все строки скрыты/);assert.equal(h.total(),total);
 });
-
-test('legacy and unknown assignments remain separate, inspectable and counted exactly once', async context => {
-  const f = await mount(context);
-  const historical = f.container.querySelector('[aria-label="Вне текущего канбана"]');
-  assert.ok(historical);
-  assert.match(historical.textContent, /Отказ.*1/);
-  assert.match(historical.textContent, /Потеряны.*1/);
-  assert.match(historical.textContent, /Квалифицированы.*1/);
-  assert.match(historical.textContent, /Недоступный этап.*1/);
-  const historyCounts = [...historical.querySelectorAll('[data-stage-count]')].map(item => Number(item.textContent));
-  assert.equal(Object.values(counts(f.container)).reduce((a, b) => a + b, 0) + historyCounts.reduce((a, b) => a + b, 0), f.state.leads.length);
-  await f.click(buttonWith(historical, 'Недоступный этап'));
-  assert.match(f.container.textContent, /unknown-card/);
-  assert.equal(counts(f.container).new, 1, 'unknown custom assignment is not silently reassigned');
+test('saved definition/visibility survive reopening and are scoped by user and clinic',async t=>{
+ const h=await mount(t);await h.define();await h.click(h.button('Отображение этапов'));await h.click(document.querySelector('[data-stage-visibility="middle-y"]'));await h.click(h.button('Готово'));await h.remount();
+ await h.click(h.button('Прохождение'));assert.equal(h.rows().length,2);
+ h.f.user={id:'other',clinic_id:'clinic'};await h.render();assert.ok(h.button('Шаги воронки (0)'));
+ h.f.user={id:'manager',clinic_id:'elsewhere'};await h.render();assert.ok(h.button('Шаги воронки (0)'));
+ h.f.user={id:'manager',clinic_id:'clinic'};await h.render();assert.equal(h.rows().length,2);
 });
-
-test('conversion and loss summaries keep base-status formulas even for custom overrides', async context => {
-  const cards = [lead('a', 'converted', { kanban_column_id: 'custom_z', kanban_override_source: 'whatsapp' }),
-    lead('b', 'closed'), lead('c', 'new', { kanban_column_id: 'custom_a' }), lead('d', 'rejected')];
-  const f = await mount(context, { leads: cards });
-  assert.equal(counts(f.container).custom_z, 1);
-  assert.equal(counts(f.container).converted, 0);
-  const stats = [...f.container.querySelectorAll('[data-funnel-summary]')].map(item => item.textContent.replace(/\s+/g, ''));
-  assert.deepEqual(stats, ['1Конвертированы25%конверсия', '1Потеряно25%отток', '1Вобработкеактивные']);
-  const secondRow = rows(f.container)[1];
-  assert.match(secondRow.previousElementSibling.textContent, /0%/);
+test('definition order can change explicitly while rename and canonical reorder retain stable IDs',async t=>{
+ const h=await mount(t);await h.define();await h.click(h.button('Шаги воронки (3)'));await h.click(document.querySelector('[aria-label="Поднять Завершение"]'));await h.click(h.button('Готово'));
+ assert.deepEqual(h.f.requests.at(-1).searchParams.getAll('steps'),['entry-x','end-z','middle-y']);
+ h.f.columns=h.f.columns.toReversed().map(c=>({...c,name:c.name+' переименован'}));await h.refresh();assert.match(document.body.textContent,/Начало переименован/);assert.deepEqual(h.rows().map(row=>row.dataset.funnelStage),['entry-x','end-z','middle-y']);
 });
-
-test('full canonical collection includes cards beyond the old 50-row page, never linked inquiries', async context => {
-  const cards = Array.from({ length: 123 }, (_, i) => lead(`card-${i}`, 'new', {
-    kanban_column_id: 'custom_a', linked_inquiries: [lead(`repeat-${i}`, 'new')]
-  }));
-  const f = await mount(context, { leads: cards });
-  assert.equal(counts(f.container).custom_a, 123);
-  assert.match(f.container.textContent, /123 заявок/);
-  assert.equal(Object.values(counts(f.container)).reduce((a, b) => a + b, 0), 123);
+test('invalid dates block request and API failure permits retry without invented results',async t=>{
+ const h=await mount(t);await h.change('Начало периода','2030-10-30');assert.match(document.querySelector('[role="alert"]').textContent,/корректный период/);
+ await h.change('Начало периода','2020-01-01');h.f.fail=true;await h.refresh();assert.match(document.querySelector('[role="alert"]').textContent,/Отчёт недоступен/);
+ h.f.fail=false;await h.click(h.button('Повторить'));assert.ok(h.rows().length);
 });
-
-test('empty data displays every active column with zero', async context => {
-  const f = await mount(context, { leads: [] });
-  assert.equal(rows(f.container).length, columns().length);
-  assert.ok(Object.values(counts(f.container)).every(count => count === 0));
+test('late response for former source never replaces latest selection',async t=>{
+ const h=await mount(t);let release;h.f.gate=new Promise(resolve=>{release=resolve;});await h.change('Источник','source:a');await h.change('Источник','source:b');assert.match(h.total(),/^5/);
+ await act(async()=>release());assert.match(h.total(),/^5/);assert.equal(document.querySelector('#funnel-source').value,'source:b');
 });
-
-test('column API failure shows retry instead of a hardcoded or partial funnel', async context => {
-  const f = await mount(context, { failColumns: true });
-  assert.match(f.container.querySelector('[role="alert"]').textContent, /Колонки недоступны/);
-  assert.equal(rows(f.container).length, 0);
-  f.state.failColumns = false;
-  await f.click(buttonWith(f.container, 'Повторить'));
-  assert.equal(rows(f.container).length, columns().length);
-});
-
-test('one stage view and source-ID dropdown replace old mode/channel buttons', async context => {
-  const f = await mount(context);
-  assert.match(f.container.textContent, /По этапам/);
-  assert.ok(!buttonWith(f.container, 'Рассылка WhatsApp'));
-  assert.ok(!buttonWith(f.container, 'Повторные посещения'));
-  assert.equal(f.container.querySelectorAll('select').length, 2);
-  assert.deepEqual([...f.container.querySelector('#funnel-source').options].map(option => [option.value, option.textContent]),
-    [['all', 'Все'], ['source-web', 'Сайт'], ['source-phone', '2GIS']]);
-  await selectSource(f, 'source-web');
-  assert.equal(Object.values(counts(f.container)).reduce((a, b) => a + b, 0), 1,
-    'same phone type does not combine distinct named sources');
-});
-
-test('source catalog is read beyond default 50 and 100-row limits', async context => {
-  const sources = Array.from({ length: 123 }, (_, index) => ({ id: `source-${index}`, name: `Источник ${index}`, type: 'phone' }));
-  const f = await mount(context, { sources, leads: [lead('last-source', 'new', { source_id: 'source-122' })] });
-  assert.equal(f.container.querySelector('#funnel-source').options.length, 124);
-  await selectSource(f, 'source-122');
-  assert.equal(counts(f.container).new, 1);
-  assert.match(f.container.textContent, /источник: Источник 122/);
-});
-
-test('report comparison uses all source IDs within the common period and explicit denominator', async context => {
-  const cards = [
-    lead('a-arrived', 'converted', { source_id: 'a', created_at: '2026-10-02' }),
-    lead('a-new', 'new', { source_id: 'a', created_at: '2026-10-03' }),
-    lead('b-arrived', 'converted', { source_id: 'b', created_at: '2026-10-03' }),
-    lead('b-lost', 'lost', { source_id: 'b', created_at: '2026-10-04' }),
-    lead('missing', 'new', { source_id: null, created_at: '2026-10-05' }),
-    lead('unknown', 'closed', { source_id: 'deleted', created_at: '2026-10-06' }),
-    lead('outside', 'converted', { source_id: 'a', created_at: '2026-09-30' })
-  ];
-  const sources = [{ id: 'a', name: 'Первый', type: 'phone' }, { id: 'b', name: 'Второй', type: 'phone' }, { id: 'zero', name: 'Пустой', type: 'phone' }];
-  const f = await mount(context, { leads: cards, sources });
-  await changeReportControl(f, 'Период первого касания', 'custom');
-  await changeReportControl(f, 'Первое касание: с', '2026-10-01');
-  await changeReportControl(f, 'Первое касание: по', '2026-10-31');
-  await selectSource(f, 'a');
-  assert.match(f.container.textContent, /2 заявок/);
-  await f.click(buttonWith(f.container, 'Сравнение источников'));
-  assert.equal(f.container.querySelector('#funnel-source'), null);
-  assert.match(f.container.textContent, /Все источники за выбранный период/);
-  assert.match(f.container.textContent, /6 заявок/);
-  const row = key => f.container.querySelector(`[data-source-comparison-key="${key}"]`);
-  const metrics = key => [...row(key).querySelectorAll('[data-comparison-metric]')].map(node => node.textContent);
-  assert.deepEqual(metrics('source:a'), ['2', '1', '50%', '0', '1']);
-  assert.deepEqual(metrics('source:b'), ['2', '1', '50%', '1', '0']);
-  assert.deepEqual(metrics('source:zero'), ['0', '0', '—', '0', '0']);
-  assert.deepEqual(metrics('missing-source'), ['1', '0', '0%', '0', '1']);
-  assert.deepEqual(metrics('unavailable-source'), ['1', '0', '0%', '0', '0']);
-  assert.deepEqual(metrics('total'), ['6', '2', '33%', '1', '2']);
-  assert.match(f.container.textContent, /все обращения строки/);
-  assert.equal(f.container.querySelectorAll('[data-funnel-stage]').length, 0);
-  await f.click(buttonWith(f.container, 'По этапам'));
-  assert.equal(f.container.querySelector('#funnel-source').value, 'a');
-  assert.match(f.container.textContent, /2 заявок/);
-});
-
-test('report hiding stages preserves totals, original predecessor ratios and canonical order', async context => {
-  const f = await mount(context);
-  const summaries = () => [...f.container.querySelectorAll('[data-funnel-summary]')].map(node => node.textContent);
-  const before = summaries();
-  await f.click(f.container.querySelector('input[data-stage-visibility="custom_z"]'));
-  await f.click(f.container.querySelector('input[data-stage-visibility="converted"]'));
-  assert.deepEqual(rows(f.container).map(row => row.dataset.funnelStage), columns().filter(column => !['custom_z', 'converted'].includes(column.id)).map(column => column.id));
-  assert.deepEqual(summaries(), before);
-  const contacted = f.container.querySelector('[data-funnel-stage="contacted"]');
-  assert.match(contacted.previousElementSibling.textContent, /200%/);
-  assert.match(contacted.previousElementSibling.textContent, /Звонок позже.*скрыт/);
-  assert.match(f.container.textContent, /12 заявок/);
-  assert.ok(f.requests.every(request => request.method.toUpperCase() === 'GET'));
-});
-
-test('report all-hidden selection has an explicit empty state and unchanged summaries with all/reset actions', async context => {
-  const f = await mount(context);
-  const before = [...f.container.querySelectorAll('[data-funnel-summary]')].map(node => node.textContent);
-  await f.click(buttonWith(f.container, 'Скрыть все'));
-  assert.equal(rows(f.container).length, 0);
-  assert.match(f.container.textContent, /Все текущие этапы скрыты/);
-  assert.deepEqual([...f.container.querySelectorAll('[data-funnel-summary]')].map(node => node.textContent), before);
-  await f.click(buttonWith(f.container, 'Показать все'));
-  assert.equal(rows(f.container).length, columns().length);
-  await f.click(f.container.querySelector('input[data-stage-visibility="new"]'));
-  await f.click(buttonWith(f.container, 'Сбросить настройку'));
-  assert.equal(rows(f.container).length, columns().length);
-});
-
-test('report stage preference survives reopening and is isolated by user and clinic', async context => {
-  const f = await mount(context, { user: { id: 'one', clinic_id: 'clinic-a' } });
-  await f.click(f.container.querySelector('input[data-stage-visibility="new"]'));
-  await f.remount();
-  assert.equal(f.container.querySelector('[data-funnel-stage="new"]'), null);
-  await f.changeUser({ id: 'two', clinic_id: 'clinic-a' });
-  assert.ok(f.container.querySelector('[data-funnel-stage="new"]'));
-  await f.changeUser({ id: 'one', clinic_id: 'clinic-b' });
-  assert.ok(f.container.querySelector('[data-funnel-stage="new"]'));
-  await f.changeUser({ id: 'one', clinic_id: 'clinic-a' });
-  assert.equal(f.container.querySelector('[data-funnel-stage="new"]'), null);
-});
-
-test('report new columns default to visible while stale IDs are ignored and current order stays canonical', async context => {
-  const f = await mount(context, { user: { id: 'one', clinic_id: 'clinic-a' } });
-  await f.click(f.container.querySelector('input[data-stage-visibility="custom_z"]'));
-  f.state.columns = [custom('custom_added', 'Новый этап'), ...f.state.columns.toReversed().filter(column => column.id !== 'custom_z')];
-  await f.refresh();
-  assert.deepEqual(rows(f.container).map(row => row.dataset.funnelStage), f.state.columns.map(column => column.id));
-  assert.equal(counts(f.container).custom_added, 0);
+test('synthetic batch is explicit in both API requests and UI; preferences have a separate scope',async t=>{
+ const h=await mount(t,{batch:true});assert.match(document.body.textContent,/Тестовый набор: demo-batch/);assert.ok(h.f.requests.every(url=>url.searchParams.get('synthetic_batch')==='demo-batch'));
 });

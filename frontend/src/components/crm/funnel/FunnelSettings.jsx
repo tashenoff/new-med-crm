@@ -1,0 +1,30 @@
+import React, { useState } from 'react';
+import Modal from '../../modals/Modal';
+
+const action = 'rounded-md border border-curai-control px-3 py-2 text-sm';
+export default function FunnelSettings({ panel, stages, sources, initial, onClose, onDone }) {
+  const [draft, setDraft] = useState(initial);
+  const toggle = id => setDraft(value => value.includes(id) ? value.filter(item => item !== id) : [...value, id]);
+  const label = id => stages.find(stage => stage.id === id)?.name || `Архивный этап (${id})`;
+  const reorder = (index, direction) => {
+    const next = [...draft], other = index + direction;
+    [next[index], next[other]] = [next[other], next[index]];
+    setDraft(next);
+  };
+  return <Modal show onClose={onClose} title={panel === 'steps' ? 'Последовательность прохождения' : panel === 'sources' ? 'Источники для сравнения' : 'Видимость строк отчёта'} size="max-w-xl" footer={<div className="flex justify-end gap-2"><button type="button" className={action} onClick={onClose}>Закрыть</button><button type="button" className={`${action} bg-curai-selected`} disabled={panel === 'steps' && (draft.length < 2 || draft.length > 30)} onClick={() => onDone(draft)}>Готово</button></div>}>
+    <div className="space-y-4 p-4">
+      {panel === 'steps' ? <>
+        <p className="text-sm text-curai-muted">Это определение пути, оно меняет расчёт. Выберите от двух до тридцати шагов и задайте порядок. Каждый этап участвует только при явном выборе.</p>
+        <ol className="space-y-2">{draft.map((id, index) => <li key={id} className="flex items-start gap-2 text-sm"><span className="flex-1 min-w-0 break-words">{index + 1}. {label(id)}</span><button type="button" className={action} aria-label={`Поднять ${label(id)}`} disabled={index === 0} onClick={() => reorder(index, -1)}>↑</button><button type="button" className={action} aria-label={`Опустить ${label(id)}`} disabled={index === draft.length - 1} onClick={() => reorder(index, 1)}>↓</button></li>)}</ol>
+        {stages.map(stage => <label key={stage.id} className="flex gap-2 text-sm"><input type="checkbox" data-definition-stage={stage.id} checked={draft.includes(stage.id)} onChange={() => toggle(stage.id)} /><span className="min-w-0 break-words">{stage.name}</span></label>)}
+      </> : panel === 'sources' ? <>
+        <div className="flex gap-3 text-sm"><button type="button" className="underline" onClick={() => setDraft(sources.map(item => item.key))}>Выбрать все</button><button type="button" className="underline" onClick={() => setDraft([])}>Снять выбор</button></div>
+        {sources.map(item => <label key={item.key} className="flex gap-2 text-sm"><input type="checkbox" data-comparison-source={item.key} checked={draft.includes(item.key)} onChange={() => toggle(item.key)} /><span className="min-w-0 break-words">{item.name}</span></label>)}
+      </> : <>
+        <p className="text-sm text-curai-muted">Только отображение. Скрытие строк не меняет последовательность прохождения и расчёт конверсии.</p>
+        <div className="flex gap-3 text-sm"><button type="button" className="underline" onClick={() => setDraft([])}>Показать все</button><button type="button" className="underline" onClick={() => setDraft(stages.map(stage => stage.id))}>Скрыть все</button></div>
+        {stages.map(stage => <label key={stage.id} className="flex gap-2 text-sm"><input type="checkbox" data-stage-visibility={stage.id} checked={!draft.includes(stage.id)} onChange={() => toggle(stage.id)} /><span className="min-w-0 break-words">{stage.name}</span></label>)}
+      </>}
+    </div>
+  </Modal>;
+}
