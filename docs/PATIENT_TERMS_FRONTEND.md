@@ -39,11 +39,11 @@ checkbox and ignores responses for a previous token.
 The WhatsApp status row is directly below the selected contact/appointment
 header. Its close button only updates a per-patient in-memory set for this tab.
 PatientModal always displays status/date/version/history. Both instances poll
-the server every 10 seconds while visible/open, abort stale requests, clean up
+the server every 5 seconds while visible/open, abort stale requests, clean up
 timers/listeners and refresh on visibility. No browser-local event is used to
 simulate another browser's confirmation. No calendar indicators were added.
 
-Verification: full sequential suite **542/542 passed**, including seven focused
+Verification: full sequential suite **542/542 passed**, including eight focused
 tests for the new components. Scoped ESLint and production build passed. Default
 `npm run lint` cannot start because the original repository has no ESLint config;
 no repository-wide lint success is claimed. The codebase has no typecheck script
@@ -76,3 +76,7 @@ Production smoke additionally verified both /consent and /consent/. The real
 Vercel route matcher requires an explicit /consent/ header rule for that empty
 trailing segment; both forms load the public entrypoint without CRM/auth.
 The entrypoint regression mounts the real index for both canonical forms.
+
+Local refresh hardening: status GETs time out after 5 seconds, use a fresh query
+key, and refetch on focus/pageshow. See CONSENT_REFRESH_REVIEW.md for the
+reproduced published-build scenario, patient-card spacing and regression results.
