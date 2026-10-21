@@ -1,6 +1,6 @@
 from fastapi import APIRouter, HTTPException, Depends, status
 from pydantic import BaseModel, Field
-from typing import List, Optional
+from typing import List, Optional, Literal
 from datetime import datetime
 from motor.motor_asyncio import AsyncIOMotorDatabase
 from enum import Enum
@@ -13,6 +13,7 @@ from models.auth import UserInDB, UserRole
 from database import db
 from services.patient_status import matches_returning_filter, count_completed_appointments
 from services.patient_phone import normalize_patient_phone
+from services.patient_origin import with_patient_origin
 from services.patient_crm_sync import sync_crm_names_from_patient, parse_full_name
 
 # Router
@@ -35,6 +36,15 @@ class PatientSource(str, Enum):
     OTHER = "other"
 
 # Pydantic models
+class PatientOrigin(BaseModel):
+    kind: Literal["crm_lead", "crm_client"]
+    entity_id: str
+    source: Optional[str] = None
+    source_id: Optional[str] = None
+    channel: Optional[str] = None
+    legacy_generated_note: bool = False
+
+
 class Patient(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     full_name: str
@@ -46,6 +56,7 @@ class Patient(BaseModel):
     source_id: Optional[str] = None  # ID источника из CRM
     referrer: Optional[str] = None  # Who referred this patient
     notes: Optional[str] = None
+    origin: Optional[PatientOrigin] = None
     # Additional name fields (for CRM integration)
     first_name: Optional[str] = None
     last_name: Optional[str] = None
@@ -300,7 +311,7 @@ async def get_patients(
                 })
                 patient_data['appointments_count'] = completed_appointments_count
 
-            result.append(Patient(**patient_data))
+            result.append(Patient(**await with_patient_origin(db, patient_data)))
         except Exception as e:
             logger.error(f"Error converting patient {patient_data.get('id', 'unknown')}: {str(e)}")
             logger.error(f"Patient data keys: {list(patient_data.keys())}")
@@ -324,7 +335,7 @@ async def get_patient(
     if "_id" in patient:
         del patient["_id"]
     patient["appointments_count"] = await count_completed_appointments(db, patient_id)
-    return Patient(**patient)
+    return Patient(**await with_patient_origin(db, patient))
 
 @patients_router.put("/{patient_id}", response_model=Patient)
 async def update_patient(
@@ -358,7 +369,7 @@ async def update_patient(
         except Exception as exc:
             logger.exception("CRM name sync failed for patient %s: %s", patient_id, exc)
 
-    return Patient(**updated_patient)
+    return Patient(**await with_patient_origin(db, updated_patient))
 
 @patients_router.delete("/{patient_id}")
 async def delete_patient(

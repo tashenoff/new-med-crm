@@ -167,6 +167,11 @@ def test_schedule_from_legacy_lead_normalizes_only_the_new_patient(harness, monk
         'appointment_date': '2026-10-23', 'appointment_time': '10:00',
         'end_time': '10:30', 'doctor_id': 'synthetic-doctor'
     }, db))
-    assert db.patients.insert_one.call_args.args[0]['phone'] == expected
+    patient = db.patients.insert_one.call_args.args[0]
+    assert patient['phone'] == expected
+    assert patient['notes'] == ''
+    assert patient['origin']['kind'] == 'crm_lead'
+    assert patient['origin']['channel'] == 'whatsapp'
+    assert lead.description == 'Обращение через WhatsApp: т'
     assert lead.phone == raw
     harness.forbidden_send.assert_not_called()

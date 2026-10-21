@@ -10,6 +10,7 @@ from .lead_service import LeadService
 from .client_service import ClientService
 from ..models.lead import LeadStatus
 from services.patient_phone import normalize_patient_phone
+from services.patient_origin import crm_lead_origin, patient_notes_from_lead
 
 
 class IntegrationService:
@@ -109,7 +110,8 @@ class IntegrationService:
                 "gender": "",
                 "source": "crm_conversion",
                 "referrer": f"CRM Lead {lead_id}",
-                "notes": f"Конвертирован из лида {lead_id}. {lead.description or ''}",
+                "origin": crm_lead_origin(lead),
+                "notes": patient_notes_from_lead(lead),
                 "crm_client_id": client.id,  # Ссылка на CRM клиента
                 "revenue": 0,
                 "debt": 0,
@@ -279,7 +281,8 @@ class IntegrationService:
             "updated_at": datetime.utcnow(),
             "source": "crm_conversion",
             "crm_client_id": client_id,
-            "notes": f"Конвертирован из CRM клиента {client_id}"
+            "origin": {"kind": "crm_client", "entity_id": client_id},
+            "notes": client.notes or ""
         }
         
         # Сохраняем пациента в HMS
