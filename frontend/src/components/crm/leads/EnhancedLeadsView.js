@@ -19,6 +19,7 @@ import { normalizeIdentityPhone } from '../../../utils/leadIdentity';
 import { loadLeadHmsData } from '../../../utils/leadHmsData';
 import LeadHistory from './LeadHistoryTimeline';
 import { historyStatusLabel } from '../../../utils/leadHistory';
+import { sourceLabel } from '../../../utils/crmSources';
 import { useKanbanColumns } from '../../../hooks/useKanbanColumns';
 import { cardColumnId, canMoveCard, manualColumn } from '../../../utils/kanbanColumns';
 import FirstTouchDateFilter from './FirstTouchDateFilter';
@@ -907,11 +908,11 @@ const EnhancedLeadsView = ({ user }) => {
               {lead.full_name || `${lead.first_name} ${lead.last_name}`}
             </h4>
             <p className={cn("text-xs mt-1", themeClasses.text.muted)}>
-              {leadSources[lead.source] || 'Источник'}
+              {sourceLabel(lead, sources)}
             </p>
             {lead.linked_inquiries?.length > 0 && (
               <p className="text-xs mt-1 text-curai-blue ">
-                Связанных обращений: {lead.linked_inquiries.length} · {[...new Set(lead.linked_inquiries.map(touch => leadSources[touch.source] || touch.source))].join(', ')}
+                Связанных обращений: {lead.linked_inquiries.length} · {[...new Set(lead.linked_inquiries.map(touch => sourceLabel(touch, sources)))].join(', ')}
               </p>
             )}
           </div>
@@ -1637,7 +1638,7 @@ const EnhancedLeadsView = ({ user }) => {
           </div>
         ) : (
           <div className="space-y-6">
-            <LeadHistory lead={selectedLeadForHms} fetchCalls={fetchHistoryCalls} />
+            <LeadHistory lead={selectedLeadForHms} sources={sources} fetchCalls={fetchHistoryCalls} />
             <div>
               <h3 className="text-lg font-semibold mb-4">📋 Планы лечения</h3>
               {hmsData.treatmentPlans.length > 0 ? (

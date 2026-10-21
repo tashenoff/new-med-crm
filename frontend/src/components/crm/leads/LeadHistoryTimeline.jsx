@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from 'react';
-import { countRealCalls, historyDate, historyInquiries, historyPhones, historySources, historyStatusLabel } from '../../../utils/leadHistory.js';
+import { countRealCalls, historyDate, historyInquiries, historyPhones, historyStatusLabel } from '../../../utils/leadHistory.js';
+import { sourceLabel } from '../../../utils/crmSources.js';
 
-export function LeadHistoryTimeline({ lead, calls = { status: 'loading', count: null } }) {
+export function LeadHistoryTimeline({ lead, sources = [], calls = { status: 'loading', count: null } }) {
   const inquiries = historyInquiries(lead);
   return (
     <section aria-labelledby="lead-history-heading" className="text-curai-ink ">
@@ -21,7 +22,7 @@ export function LeadHistoryTimeline({ lead, calls = { status: 'loading', count: 
               <article className="rounded-md border border-curai-border bg-curai-subtle p-4 ">
                 <div className="flex flex-wrap items-center gap-2">
                   <h4 className="text-sm font-semibold">{primary ? 'Первое обращение' : 'Повторное обращение'}</h4>
-                  <span className="rounded-full bg-curai-selected px-2.5 py-1 text-xs font-medium text-curai-blue ">{historySources[inquiry.source] || 'Источник не указан'}</span>
+                  <span className="rounded-full bg-curai-selected px-2.5 py-1 text-xs font-medium text-curai-blue ">{sourceLabel(inquiry, sources)}</span>
                   <span className="rounded-full bg-curai-border px-2.5 py-1 text-xs text-curai-ink ">{historyStatusLabel('lead', inquiry.status)}</span>
                 </div>
                 <p className="mt-2 text-xs text-curai-muted ">{historyDate(inquiry.created_at)}</p>
@@ -51,7 +52,7 @@ export function LeadHistoryTimeline({ lead, calls = { status: 'loading', count: 
   );
 }
 
-export default function LeadHistory({ lead, fetchCalls }) {
+export default function LeadHistory({ lead, fetchCalls, sources }) {
   const phoneKey = historyPhones(lead).join(',');
   const [result, setResult] = useState(null);
   useEffect(() => {
@@ -63,5 +64,5 @@ export default function LeadHistory({ lead, fetchCalls }) {
     });
     return () => { active = false; };
   }, [phoneKey, fetchCalls]);
-  return <LeadHistoryTimeline lead={lead} calls={result?.key === phoneKey ? result : undefined} />;
+  return <LeadHistoryTimeline lead={lead} sources={sources} calls={result?.key === phoneKey ? result : undefined} />;
 }

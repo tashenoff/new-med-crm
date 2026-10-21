@@ -294,9 +294,18 @@ export const useCrmApi = () => {
   const sources = useMemo(() => ({
     // Получить список источников
     getAll: async (params = {}) => {
-      const queryParams = new URLSearchParams(params);
-      const url = `/sources/${queryParams.toString() ? `?${queryParams}` : ''}`;
-      return await apiCall('GET', url);
+      if (Object.keys(params).length) {
+        const queryParams = new URLSearchParams(params);
+        return await apiCall('GET', `/sources/?${queryParams}`);
+      }
+      // Forms and filters need the complete existing catalog, not its default
+      // first 50 rows. Explicitly paginated callers keep their original contract.
+      const result = [];
+      for (let skip = 0; ; skip += 100) {
+        const page = await apiCall('GET', `/sources/?skip=${skip}&limit=100`);
+        result.push(...page);
+        if (page.length < 100) return result;
+      }
     },
 
     // Получить источник по ID

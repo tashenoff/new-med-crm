@@ -38,11 +38,11 @@ const columns = () => {
     system[0], system[2], custom('custom_empty', 'Пустой этап'), system[3], system[4]];
 };
 const lead = (id, status, extra = {}) => ({
-  id, status, first_name: id, last_name: 'Тест', source: 'phone', priority: 'medium', ...extra
+  id, status, first_name: id, last_name: 'Тест', source: 'phone', source_id: 'source-phone', priority: 'medium', ...extra
 });
 const leads = () => [
   lead('custom-card', 'new', { kanban_column_id: 'custom_z', linked_inquiries: [lead('repeat', 'new')] }),
-  lead('proposal-card', 'new', { kanban_column_id: 'custom_a', source: 'website' }),
+  lead('proposal-card', 'new', { kanban_column_id: 'custom_a', source_id: 'source-web' }),
   lead('new-card', 'new'), lead('booked-card', 'contacted'), lead('confirmed-card', 'in_progress'),
   lead('arrived-card', 'converted'), lead('paid-card', 'closed'),
   lead('lost-card', 'lost'), lead('rejected-card', 'rejected'), lead('qualified-card', 'qualified'),
@@ -53,7 +53,9 @@ const leads = () => [
 async function mount(context, overrides = {}) {
   const dom = new JSDOM('<div id="root"></div>', { url: 'http://localhost:4318' });
   const saved = new Map();
-  const state = { columns: columns(), leads: leads(), failColumns: false, ...overrides };
+  const state = { columns: columns(), leads: leads(), failColumns: false, sources: [
+    { id: 'source-web', name: 'Сайт', type: 'phone' }, { id: 'source-phone', name: '2GIS', type: 'phone' }
+  ], ...overrides };
   const requests = [];
   const install = (key, value) => {
     saved.set(key, Object.getOwnPropertyDescriptor(globalThis, key));
@@ -69,7 +71,8 @@ async function mount(context, overrides = {}) {
     requests.push({ path, method: config.method, headers: config.headers });
     const data = path === '/api/crm/leads/kanban' ? state.leads
       : path === '/api/crm/leads/' ? state.leads.slice(0, 50).map(({ kanban_column_id, ...card }) => card)
-      : path === '/api/crm/sources/' ? [] : path.includes('statistics') ? {} : [];
+      : path === '/api/crm/sources/' ? state.sources.slice(Number(new URL(config.url).searchParams.get('skip') || 0), Number(new URL(config.url).searchParams.get('skip') || 0) + 100)
+      : path.includes('statistics') ? {} : [];
     return { data: structuredClone(data) };
   } });
   install('fetch', async (url, options) => {
@@ -100,6 +103,11 @@ const counts = container => Object.fromEntries(rows(container).map(row => [
   row.getAttribute('data-funnel-stage'), Number(row.querySelector('[data-stage-count]').textContent)
 ]));
 const buttonWith = (container, text) => [...container.querySelectorAll('button')].find(button => button.textContent.includes(text));
+const selectSource = async (f, id) => act(async () => {
+  const select = f.container.querySelector('#funnel-source');
+  select.value = id;
+  select.dispatchEvent(new window.Event('change', { bubbles: true }));
+});
 
 test('current stages follow shared kanban order and names, including empty custom and paid stages', async context => {
   const f = await mount(context);
@@ -115,7 +123,7 @@ test('current stages follow shared kanban order and names, including empty custo
 
 test('source filter preserves zero stages, counts, denominator and canonical drilldown', async context => {
   const f = await mount(context);
-  await f.click(buttonWith(f.container, 'Сайт'));
+  await selectSource(f, 'source-web');
   assert.equal(counts(f.container).custom_a, 1);
   assert.equal(Object.values(counts(f.container)).reduce((a, b) => a + b, 0), 1);
   assert.equal(rows(f.container).length, columns().length);
@@ -123,7 +131,7 @@ test('source filter preserves zero stages, counts, denominator and canonical dri
   assert.match(f.container.textContent, /proposal-card/);
   assert.doesNotMatch(f.container.textContent, /custom-card/);
   assert.match(f.container.textContent, /1 заявок/);
-  await f.click(buttonWith(f.container, 'Все каналы'));
+  await selectSource(f, 'all');
   await f.click(buttonWith(f.container, 'Звонок позже'));
   assert.match(f.container.textContent, /custom-card/);
   assert.doesNotMatch(f.container.textContent, /new-card|repeat/);
@@ -131,7 +139,7 @@ test('source filter preserves zero stages, counts, denominator and canonical dri
 
 test('rename, reorder, add, move and deletion refresh in place without losing the source filter', async context => {
   const f = await mount(context);
-  await f.click(buttonWith(f.container, 'Сайт'));
+  await selectSource(f, 'source-web');
   f.state.columns[2].name = 'Переименован';
   f.state.columns = [custom('custom_added', 'Новый пустой'), ...f.state.columns.toReversed()];
   f.state.leads.find(card => card.id === 'proposal-card').kanban_column_id = 'custom_z';
@@ -198,4 +206,26 @@ test('column API failure shows retry instead of a hardcoded or partial funnel', 
   f.state.failColumns = false;
   await f.click(buttonWith(f.container, 'Повторить'));
   assert.equal(rows(f.container).length, columns().length);
+});
+
+test('one stage view and source-ID dropdown replace old mode/channel buttons', async context => {
+  const f = await mount(context);
+  assert.match(f.container.textContent, /По этапам/);
+  assert.ok(!buttonWith(f.container, 'Рассылка WhatsApp'));
+  assert.ok(!buttonWith(f.container, 'Повторные посещения'));
+  assert.equal(f.container.querySelectorAll('select').length, 1);
+  assert.deepEqual([...f.container.querySelector('select').options].map(option => [option.value, option.textContent]),
+    [['all', 'Все'], ['source-web', 'Сайт'], ['source-phone', '2GIS']]);
+  await selectSource(f, 'source-web');
+  assert.equal(Object.values(counts(f.container)).reduce((a, b) => a + b, 0), 1,
+    'same phone type does not combine distinct named sources');
+});
+
+test('source catalog is read beyond default 50 and 100-row limits', async context => {
+  const sources = Array.from({ length: 123 }, (_, index) => ({ id: `source-${index}`, name: `Источник ${index}`, type: 'phone' }));
+  const f = await mount(context, { sources, leads: [lead('last-source', 'new', { source_id: 'source-122' })] });
+  assert.equal(f.container.querySelector('select').options.length, 124);
+  await selectSource(f, 'source-122');
+  assert.equal(counts(f.container).new, 1);
+  assert.match(f.container.textContent, /источник: Источник 122/);
 });

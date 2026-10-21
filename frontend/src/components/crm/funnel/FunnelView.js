@@ -2,6 +2,7 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { useCrm } from '../../../hooks/useCrm';
 import { useKanbanColumns } from '../../../hooks/useKanbanColumns';
 import { salesFunnel } from '../../../utils/salesFunnel';
+import { matchesSource, sourceLabel } from '../../../utils/crmSources';
 import PanelHeader from '../../common/PanelHeader';
 
 const STAGE_STYLE = {
@@ -12,19 +13,6 @@ const stageStyle = id => id === 'converted' || id === 'closed'
   : id === 'rejected' || id === 'lost'
     ? { color: 'bg-curai-negative', light: 'bg-curai-negativeBg', text: 'text-curai-negative', border: 'border-curai-negative' }
     : STAGE_STYLE;
-
-// Статический фолбэк для каналов (используется если источники не загружены)
-const STATIC_CHANNELS = [
-  { value: 'all',         label: 'Все каналы' },
-  { value: 'website',     label: 'Сайт' },
-  { value: 'phone',       label: 'Телефон' },
-  { value: 'referral',    label: 'Рекомендация' },
-  { value: 'social',      label: 'Соцсети' },
-  { value: 'advertising', label: 'Реклама' },
-  { value: 'walk_in',     label: 'Прямое обращение' },
-  { value: 'email',       label: 'Email' },
-  { value: 'other',       label: 'Другое' },
-];
 
 const CHANNEL_ICONS = {
   website:     '🌐',
@@ -62,49 +50,15 @@ const FunnelView = () => {
     fetchSources();
   }, [fetchSources]);
 
-  // Формируем динамический список каналов из загруженных источников
-  const CHANNELS = useMemo(() => {
-    if (sources && sources.length > 0) {
-      return [
-        { value: 'all', label: 'Все каналы' },
-        ...sources.map(source => ({
-          value: source.id,
-          label: source.name,
-          type: source.type
-        }))
-      ];
-    }
-    return STATIC_CHANNELS;
-  }, [sources]);
-
-  // Обновляем CHANNEL_ICONS для поддержки динамических источников
-  const getChannelIcon = (sourceValue) => {
-    // Если это source_id, пытаемся найти тип источника
-    if (sources && sources.length > 0) {
-      const source = sources.find(s => s.id === sourceValue);
-      if (source) {
-        return CHANNEL_ICONS[source.type] || '📍';
-      }
-    }
-    return CHANNEL_ICONS[sourceValue] || '•';
-  };
-
-  // Функция получения названия канала
-  const getChannelLabel = (sourceValue) => {
-    const channel = CHANNELS.find(c => c.value === sourceValue);
-    if (channel) return channel.label;
-    // Пробуем найти по source_id в sources
-    if (sources && sources.length > 0) {
-      const source = sources.find(s => s.id === sourceValue);
-      if (source) return source.name;
-    }
-    return STATIC_CHANNELS.find(c => c.value === sourceValue)?.label || sourceValue;
-  };
+  const CHANNELS = useMemo(() => [
+    { value: 'all', label: 'Все' },
+    ...sources.map(source => ({ value: source.id, label: source.name, type: source.type }))
+  ], [sources]);
 
   // Фильтрация по каналу
   const filteredLeads = useMemo(() => {
     if (selectedChannel === 'all') return leads;
-    return leads.filter(l => l.source === selectedChannel);
+    return leads.filter(lead => matchesSource(lead, selectedChannel));
   }, [leads, selectedChannel]);
 
   const funnel = useMemo(() => salesFunnel(columnConfig.columns, filteredLeads), [columnConfig.columns, filteredLeads]);
@@ -136,49 +90,19 @@ const FunnelView = () => {
       <div className="calendar-container calendar-view-panel rounded-md shadow-none">
         <PanelHeader
           title="Воронка продаж"
-          subtitle={`${filteredLeads.length} заявок${selectedChannel !== 'all' ? ` · канал: ${CHANNELS.find(c => c.value === selectedChannel)?.label}` : ''}`}
+          subtitle={`${filteredLeads.length} заявок${selectedChannel !== 'all' ? ` · источник: ${CHANNELS.find(c => c.value === selectedChannel)?.label}` : ''}`}
         />
       </div>
 
       <div className="px-6 space-y-6">
-      {/* Channel filter */}
-      <div className="flex flex-wrap gap-2">
-        {CHANNELS.map(ch => (
-          <button
-            key={ch.value}
-            onClick={() => { setSelectedChannel(ch.value); setSelectedStage(null); }}
-            className={`px-3 py-1.5 rounded-full text-sm font-medium transition-colors ${
-              selectedChannel === ch.value
-                ? "bg-curai-blue text-white shadow-none"
-                : "bg-curai-surface border border-curai-border text-curai-muted hover:border-curai-control hover:text-curai-blue"
-            }`}
-          >
-            {ch.value !== 'all' && <span className="mr-1">{CHANNEL_ICONS[ch.value]}</span>}
-            {ch.label}
-            {ch.value !== 'all' && (
-              <span className={`ml-1.5 text-xs ${selectedChannel === ch.value ? "text-curai-blue" : "text-curai-muted"}`}>
-                {leads.filter(l => l.source === ch.value).length}
-              </span>
-            )}
-          </button>
-        ))}
-        
-        {/* Дополнительные кнопки */}
-        <button
-          onClick={() => window.location.href = '/broadcast'}
-          className="px-3 py-1.5 rounded-full text-sm font-medium transition-colors bg-curai-positiveBg border border-curai-positive text-curai-positive hover:bg-curai-positiveBg hover:border-curai-positive"
-        >
-          <span className="mr-1">📤</span>
-          Рассылка WhatsApp
-        </button>
-        
-        <button
-          onClick={() => window.location.href = '/broadcast'}
-          className="px-3 py-1.5 rounded-full text-sm font-medium transition-colors bg-curai-selected border border-curai-control text-curai-blue hover:bg-curai-selected hover:border-curai-control"
-        >
-          <span className="mr-1">🔄</span>
-          Повторные посещения
-        </button>
+      <div className="flex flex-wrap items-center gap-4">
+        <span className="px-3 py-1.5 rounded-md bg-curai-selected text-curai-blue font-medium">По этапам</span>
+        <label className="flex items-center gap-2 text-sm text-curai-ink" htmlFor="funnel-source">Источник
+          <select id="funnel-source" className="border border-curai-control rounded-md px-3 py-2 bg-curai-surface max-w-xs"
+            value={selectedChannel} onChange={event => { setSelectedChannel(event.target.value); setSelectedStage(null); }}>
+            {CHANNELS.map(source => <option key={source.value} value={source.value}>{source.label}</option>)}
+          </select>
+        </label>
       </div>
 
       <div className="flex gap-6">
@@ -323,16 +247,16 @@ const FunnelView = () => {
         {/* Channel breakdown sidebar */}
         <div className="w-56 shrink-0">
           <div className="bg-curai-surface rounded-md border border-curai-border p-4">
-            <h3 className="text-sm font-semibold text-curai-ink mb-3">По каналам</h3>
+            <h3 className="text-sm font-semibold text-curai-ink mb-3">По источникам</h3>
             <div className="space-y-2">
               {CHANNELS.filter(c => c.value !== 'all').map(ch => {
-                const chLeads = leads.filter(l => l.source === ch.value);
+                const chLeads = leads.filter(lead => matchesSource(lead, ch.value));
                 if (chLeads.length === 0) return null;
                 return (
                   <div key={ch.value}>
                     <div className="flex items-center justify-between mb-0.5">
                       <span className="text-xs text-curai-muted">
-                        <span className="mr-1">{CHANNEL_ICONS[ch.value]}</span>
+                        <span className="mr-1">{CHANNEL_ICONS[ch.type]}</span>
                         {ch.label}
                       </span>
                       <span className="text-xs font-medium text-curai-ink">{chLeads.length}</span>
@@ -370,7 +294,7 @@ const FunnelView = () => {
           {panelLeads.length === 0 ? (
             <div className="px-5 py-8 text-center text-curai-muted text-sm">
               Нет заявок на этом этапе
-              {selectedChannel !== 'all' && ' для выбранного канала'}
+              {selectedChannel !== 'all' && ' для выбранного источника'}
             </div>
           ) : (
             <div className="p-4 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
@@ -390,7 +314,7 @@ const FunnelView = () => {
                     <div className="mt-1.5 space-y-0.5">
                       <div className="text-xs text-curai-muted">
                         {CHANNEL_ICONS[lead.source] || '•'}{' '}
-                        {CHANNELS.find(c => c.value === lead.source)?.label || lead.source}
+                        {sourceLabel(lead, sources)}
                       </div>
                       {lead.phone && (
                         <div className="text-xs text-curai-muted">📞 {lead.phone}</div>

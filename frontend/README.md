@@ -14,7 +14,11 @@ inspectable under **Вне текущего канбана**. They do not become
 silently move to another column. The API has no column archive flag; normal
 column deletion clears assignments and returns cards to Unparsed on the server.
 
-The existing source filter and summary definitions are retained: conversion is
+The screen has one **По этапам** view and a named-source dropdown (**Все** plus
+the existing source catalog). It filters by `source_id`, including when several
+named sources share the same `phone` type. The old source chips and the two
+broadcast/repeat-visit shortcuts were removed only from this screen. Summary
+definitions are retained: conversion is
 the number of cards with base status `converted` divided by all filtered cards;
 loss is `rejected + lost`; active is `new + in_progress + contacted + qualified`.
 Adjacent-stage percentages still compare current counts, not historical transition
@@ -25,6 +29,28 @@ on this screen; the board's date/search controls are independent.
 `node --test tests/funnelView.test.mjs` covers order, rename/add/delete, moves,
 empty stages, filtering, totals, legacy/unknown IDs, overrides, full collections
 beyond 50 cards, authentication headers, and API-error retry with mock HTTP only.
+
+## Inbound clinic numbers in source forms
+
+The existing **Источники** create/edit form reveals **Входящий номер клиники**
+when **Тип → Телефон** is selected. It binds that number to the source being
+saved, without another source-name field or source selector. A telephone source
+without a number remains valid. Administrators (`admin`/`super_admin`) can bind
+or explicitly unbind numbers; other staff can edit source metadata and read the
+bindings. Existing mappings remain visible and are preserved on name/type edits.
+Replacing a number requires explicitly unbinding it first. This changes future
+attribution only; it never rewrites lead or call history.
+
+Numbers require an explicit `+` and country code; the backend validates using
+libphonenumber, rejects normalized duplicates, and checks administrator rights.
+The form validates before creating a source. A concurrent mapping conflict after
+creation leaves the form open with the saved source ID, so retry edits that source
+instead of creating a duplicate. These operations use the matching backend's
+`/api/crm/inbound-source-mappings` API. Catalog reads page beyond 50/100 entries.
+The board, inquiry history and funnel detail resolve names by the stored source ID.
+
+`node --test tests/sourceEditor.test.mjs tests/funnelView.test.mjs` runs the
+mock-HTTP form, permissions-display, retry, ID-filter and pagination regressions.
 
 This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
 

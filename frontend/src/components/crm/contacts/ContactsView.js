@@ -1,19 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { useCrm } from '../../../hooks/useCrm';
 import { useCrmApi } from '../../../hooks/useCrmApi';
+import SourceEditor from './SourceEditor';
 
 const ContactsView = ({ user }) => {
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [sourcesRevenue, setSourcesRevenue] = useState(null);
   const [loadingRevenue, setLoadingRevenue] = useState(false);
-  const [newSource, setNewSource] = useState({
-    name: '',
-    type: 'website',
-    description: '',
-    url: '',
-    cost_per_lead: 0,
-    monthly_budget: ''
-  });
+  const [editingSource, setEditingSource] = useState(null);
+  const canManageNumbers = user?.role === 'admin' || user?.role === 'super_admin';
 
   const {
     sources,
@@ -22,8 +17,6 @@ const ContactsView = ({ user }) => {
     error,
     isInitialized,
     fetchSources,
-    createSource,
-    updateSource,
     deleteSource,
     updateSourcesStatistics,
     clearError
@@ -55,33 +48,6 @@ const ContactsView = ({ user }) => {
   useEffect(() => {
     fetchSources();
   }, [fetchSources]);
-
-  const handleCreateSource = async () => {
-    try {
-      const sourceData = {
-        ...newSource,
-        monthly_budget: newSource.monthly_budget ? parseFloat(newSource.monthly_budget) : null
-      };
-      await createSource(sourceData);
-      setShowCreateModal(false);
-      setNewSource({
-        name: '',
-        type: 'website',
-        description: '',
-        url: '',
-        cost_per_lead: 0,
-        monthly_budget: ''
-      });
-      // Обновляем статистику выручки после создания
-      fetchSourcesRevenue();
-      // Обновляем статистику источников
-      await updateSourcesStatistics();
-      alert('Источник успешно создан!');
-    } catch (error) {
-      console.error('Error creating source:', error);
-      alert('Ошибка при создании источника: ' + (error.message || error));
-    }
-  };
 
   const handleDeleteSource = async (source) => {
     // Подтверждение удаления
@@ -155,7 +121,7 @@ const ContactsView = ({ user }) => {
           <p className="text-curai-muted mt-1">Анализ эффективности каналов привлечения</p>
         </div>
         <button 
-          onClick={() => setShowCreateModal(true)}
+          onClick={() => { setEditingSource(null); setShowCreateModal(true); }}
           className="bg-curai-warning text-white px-4 py-2 rounded-md hover:bg-curai-warning transition-colors"
         >
           + Новый источник
@@ -327,6 +293,7 @@ const ContactsView = ({ user }) => {
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="flex space-x-2">
+                          <button type="button" className="text-xs text-curai-blue underline" onClick={() => { setEditingSource(source); setShowCreateModal(true); }}>Редактировать</button>
                           <button
                             onClick={() => handleDeleteSource(source)}
                             disabled={source.leads_count > 0}
@@ -350,127 +317,14 @@ const ContactsView = ({ user }) => {
         )}
       </div>
 
-      {/* Create Source Modal */}
-      {showCreateModal && (
-        <div 
-          className="fixed bg-black bg-opacity-50 z-50 flex items-center justify-center" 
-          style={{
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
-            margin: 0,
-            padding: 0
-          }}
-          onClick={() => setShowCreateModal(false)}
-        >
-          <div 
-            className="bg-curai-surface rounded-md shadow-none p-6 w-full max-w-md max-h-[90vh] overflow-y-auto"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="flex justify-between items-center mb-4">
-              <h2 className="text-xl font-semibold text-curai-ink">Новый источник</h2>
-              <button
-                onClick={() => setShowCreateModal(false)}
-                className="text-curai-muted hover:text-curai-muted text-xl font-semibold"
-              >
-                ×
-              </button>
-            </div>
-            
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-curai-ink mb-1">Название *</label>
-                <input
-                  type="text"
-                  value={newSource.name}
-                  onChange={(e) => setNewSource({...newSource, name: e.target.value})}
-                  className="w-full border border-curai-control rounded-md px-3 py-2 text-sm"
-                  placeholder="Название источника"
-                />
-              </div>
-              
-              <div>
-                <label className="block text-sm font-medium text-curai-ink mb-1">Тип *</label>
-                <select
-                  value={newSource.type}
-                  onChange={(e) => setNewSource({...newSource, type: e.target.value})}
-                  className="w-full border border-curai-control rounded-md px-3 py-2 text-sm"
-                >
-                  {Object.entries(sourceTypes).map(([key, type]) => (
-                    <option key={key} value={key}>{type.icon} {type.label}</option>
-                  ))}
-                </select>
-              </div>
-              
-              <div>
-                <label className="block text-sm font-medium text-curai-ink mb-1">Описание</label>
-                <textarea
-                  value={newSource.description}
-                  onChange={(e) => setNewSource({...newSource, description: e.target.value})}
-                  className="w-full border border-curai-control rounded-md px-3 py-2 text-sm"
-                  rows="3"
-                  placeholder="Описание источника..."
-                />
-              </div>
-              
-              <div>
-                <label className="block text-sm font-medium text-curai-ink mb-1">URL</label>
-                <input
-                  type="url"
-                  value={newSource.url}
-                  onChange={(e) => setNewSource({...newSource, url: e.target.value})}
-                  className="w-full border border-curai-control rounded-md px-3 py-2 text-sm"
-                  placeholder="https://example.com"
-                />
-              </div>
-              
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-curai-ink mb-1">Стоимость заявки (₸)</label>
-                  <input
-                    type="number"
-                    min="0"
-                    step="0.01"
-                    value={newSource.cost_per_lead}
-                    onChange={(e) => setNewSource({...newSource, cost_per_lead: parseFloat(e.target.value) || 0})}
-                    className="w-full border border-curai-control rounded-md px-3 py-2 text-sm"
-                    placeholder="0"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-curai-ink mb-1">Месячный бюджет (₸)</label>
-                  <input
-                    type="number"
-                    min="0"
-                    step="0.01"
-                    value={newSource.monthly_budget}
-                    onChange={(e) => setNewSource({...newSource, monthly_budget: e.target.value})}
-                    className="w-full border border-curai-control rounded-md px-3 py-2 text-sm"
-                    placeholder="Необязательно"
-                  />
-                </div>
-              </div>
-            </div>
-            
-            <div className="flex justify-end gap-3 mt-6">
-              <button
-                onClick={() => setShowCreateModal(false)}
-                className="px-4 py-2 text-curai-ink border border-curai-control rounded-md hover:bg-curai-subtle transition-colors"
-              >
-                Отмена
-              </button>
-              <button
-                onClick={handleCreateSource}
-                disabled={!newSource.name}
-                className="bg-curai-warning text-white px-4 py-2 rounded-md hover:bg-curai-warning disabled:bg-curai-control disabled:cursor-not-allowed transition-colors"
-              >
-                Создать
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      {showCreateModal && <SourceEditor source={editingSource} canManageNumbers={canManageNumbers}
+        onClose={() => setShowCreateModal(false)} onSaved={() => {
+          setShowCreateModal(false);
+          fetchSources();
+          fetchSourcesRevenue();
+          updateSourcesStatistics();
+        }} />}
+
     </div>
   );
 };
