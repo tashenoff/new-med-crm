@@ -51,6 +51,25 @@ def require_staff_permission(current_user: User = Depends(get_current_active_use
     return current_user
 
 
+
+async def validate_target(actor, staff_id, service, *, allow_self=False):
+    if actor.id == staff_id and not allow_self:
+        raise HTTPException(403, "Own access must be managed by another administrator")
+    target = await service.get_staff_by_id(staff_id)
+    if target and actor.role != "super_admin":
+        if target.role == StaffRole.SUPER_ADMIN or not set(target.permissions).issubset(set(actor.permissions)):
+            raise HTTPException(403, "Cannot manage an account with higher privileges")
+    return target
+
+
+def validate_grant(actor, changes):
+    if changes.get("role") == StaffRole.SUPER_ADMIN and actor.role != "super_admin":
+        raise HTTPException(403, "Only super admin can assign super admin")
+    selected = {getattr(p, "value", p) for p in changes.get("custom_permissions", [])}
+    if actor.role != 'super_admin' and not selected.issubset(set(actor.permissions)):
+        raise HTTPException(403, "Cannot grant permissions you do not hold")
+
+
 @router.get("/", response_model=List[StaffMemberResponse])
 async def get_all_staff(
     skip: int = 0,
@@ -105,6 +124,7 @@ async def create_staff_member(
     
     Требует: admin или super_admin роль
     """
+    validate_grant(current_user, staff_data.model_dump())
     try:
         return await staff_service.create_staff_member(staff_data)
     except ValueError as e:
@@ -131,6 +151,19 @@ async def update_staff_member(
     
     Требует: admin или super_admin роль
     """
+    target = await validate_target(current_user, staff_id, staff_service, allow_self=True)
+    if target and target.role == StaffRole.SUPER_ADMIN and current_user.role != "super_admin":
+        raise HTTPException(403, "Only super admin can change super admin")
+    changes = staff_update.model_dump(exclude_unset=True)
+    if staff_id == current_user.id and set(changes) & {"role", "custom_permissions", "permission_mode", "is_active"}:
+        if current_user.role != 'super_admin':
+            raise HTTPException(403, "Own access must be managed by another administrator")
+        selected = set(changes.get('custom_permissions', current_user.permissions))
+        if (changes.get('role', current_user.role) != 'super_admin'
+                or changes.get('is_active') is False
+                or not {'staff_view', 'staff_edit'}.issubset(selected)):
+            raise HTTPException(403, 'Preserve own administrative recovery access; another super admin must manage this change')
+    validate_grant(current_user, changes)
     try:
         updated_staff = await staff_service.update_staff_member(staff_id, staff_update)
         
@@ -170,6 +203,9 @@ async def delete_staff_member(
             detail="Нельзя удалить свой собственный аккаунт"
         )
     
+    target = await validate_target(current_user, staff_id, staff_service)
+    if target and target.role == StaffRole.SUPER_ADMIN and current_user.role != "super_admin":
+        raise HTTPException(403, "Only super admin can manage super admin")
     success = await staff_service.delete_staff_member(staff_id)
     
     if not success:
@@ -293,6 +329,7 @@ async def assign_access_to_doctor(
     
     Требует: admin или super_admin роль
     """
+    await validate_target(current_user, doctor_id, staff_service)
     try:
         result = await staff_service.assign_access_to_doctor(doctor_id, access.email, access.password, access.login)
         return {
@@ -334,6 +371,9 @@ async def reset_staff_password(
             detail="Пароль должен содержать минимум 6 символов"
         )
     
+    target = await validate_target(current_user, staff_id, staff_service)
+    if target and target.role == StaffRole.SUPER_ADMIN and current_user.role != "super_admin":
+        raise HTTPException(403, "Only super admin can manage super admin")
     try:
         success = await staff_service.change_password(staff_id, reset_request.new_password)
         
@@ -369,6 +409,7 @@ async def revoke_doctor_access(
     
     Требует: admin или super_admin роль
     """
+    await validate_target(current_user, doctor_id, staff_service)
     try:
         success = await staff_service.revoke_doctor_access(doctor_id)
         if not success:

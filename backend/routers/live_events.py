@@ -48,7 +48,15 @@ async def live_events(websocket: WebSocket, db=Depends(get_database)):
         # Claims are used only AFTER get_current_user has verified the signature
         # and expiry. Disconnect at expiry rather than keeping an expired session.
         expires_at = jwt.get_unverified_claims(auth.token).get("exp")
-        await websocket_manager.connect(websocket)
+        async def can_receive(event=None):
+            fresh = await get_current_user(HTTPAuthorizationCredentials(scheme="Bearer", credentials=auth.token), db)
+            await get_current_active_user(fresh)
+            from clinic_boundary import assert_single_clinic
+            await assert_single_clinic(db)
+            return 'crm_view' in fresh.permissions and (event is None or event.type == 'crm.card.created')
+        if not await can_receive():
+            raise HTTPException(403, "CRM permission required")
+        await websocket_manager.connect(websocket, authorize=can_receive)
         while True:
             remaining = None if expires_at is None else max(0, float(expires_at) - time.time())
             await asyncio.wait_for(websocket.receive_text(), remaining)

@@ -98,7 +98,8 @@ app.add_middleware(
 # Create uploads directory and mount static files
 UPLOAD_DIR = Path("uploads")
 UPLOAD_DIR.mkdir(exist_ok=True)
-app.mount("/uploads", StaticFiles(directory=str(UPLOAD_DIR)), name="uploads")
+# Raw /uploads is intentionally unavailable; use authenticated /api/uploads.
+# A future signed, clinic-bound download route must preserve document ownership.
 
 # Root endpoint
 @app.get("/")
@@ -208,6 +209,11 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 # Database shutdown is now handled in lifespan context manager
+
+from api_permissions import install_api_permissions
+from routers.lookups import router as lookups_router
+app.include_router(lookups_router)
+install_api_permissions(app)
 
 if __name__ == "__main__":
     import uvicorn

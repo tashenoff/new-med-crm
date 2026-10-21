@@ -5,7 +5,8 @@ Staff Management Models Module
 """
 
 from pydantic import BaseModel, EmailStr, Field
-from typing import Optional, Dict, List
+from typing import Optional, Dict, List, Literal
+from pydantic import field_validator
 from datetime import datetime
 from enum import Enum
 import uuid
@@ -59,6 +60,24 @@ class Permission(str, Enum):
     SYSTEM_SETTINGS = "system_settings"
 
 
+    PATIENTS_EXPORT = "patients_export"
+    CALENDAR_DELETE = "calendar_delete"
+    LOYALTY_DELETE = "loyalty_delete"
+    QUALITY_DELETE = "quality_delete"
+    CRM_DELETE = "crm_delete"
+    CRM_EXPORT = "crm_export"
+    WAREHOUSE_DELETE = "warehouse_delete"
+    WAREHOUSE_EXPORT = "warehouse_export"
+    FINANCE_DELETE = "finance_delete"
+    FINANCE_EXPORT = "finance_export"
+    DIRECTORY_DELETE = "directory_delete"
+    BROADCAST_EDIT = "broadcast_edit"
+    QUALITY_VIEW = "quality_view"
+    QUALITY_EDIT = "quality_edit"
+    LOYALTY_VIEW = "loyalty_view"
+    LOYALTY_EDIT = "loyalty_edit"
+
+
 class StaffRole(str, Enum):
     """Роли персонала"""
     SUPER_ADMIN = "super_admin"
@@ -70,7 +89,7 @@ class StaffRole(str, Enum):
 
 # Права доступа для каждой роли
 ROLE_PERMISSIONS: Dict[StaffRole, List[Permission]] = {
-    StaffRole.SUPER_ADMIN: [p for p in Permission if p is not Permission.PAYROLL_VIEW],  # Payroll requires explicit assignment.
+    StaffRole.SUPER_ADMIN: [Permission.PATIENTS_VIEW, Permission.PATIENTS_EDIT, Permission.PATIENTS_DELETE, Permission.BROADCAST_VIEW, Permission.DOCTORS_VIEW, Permission.DOCTORS_EDIT, Permission.DOCTORS_DELETE, Permission.CALENDAR_VIEW, Permission.CALENDAR_EDIT, Permission.CRM_VIEW, Permission.CRM_EDIT, Permission.WAREHOUSE_VIEW, Permission.WAREHOUSE_EDIT, Permission.DIRECTORY_VIEW, Permission.DIRECTORY_EDIT, Permission.FINANCE_VIEW, Permission.FINANCE_EDIT, Permission.STATISTICS_VIEW, Permission.STAFF_VIEW, Permission.STAFF_EDIT, Permission.STAFF_DELETE, Permission.SYSTEM_SETTINGS],  # Payroll requires explicit assignment.
     
     StaffRole.ADMIN: [
         Permission.PATIENTS_VIEW,
@@ -132,10 +151,12 @@ class StaffMember(BaseModel):
     # Дополнительные настройки прав (если нужны исключения)
     custom_permissions: List[Permission] = Field(default_factory=list)
     
+    permission_mode: Literal["legacy", "explicit"] = "legacy"
+
     def get_permissions(self) -> List[Permission]:
         """Получить все права доступа сотрудника"""
-        base_permissions = ROLE_PERMISSIONS.get(self.role, [])
-        return list(set(base_permissions + self.custom_permissions))
+        from permission_policy import effective_permissions
+        return [Permission(p) for p in effective_permissions(self.model_dump())]
     
     def has_permission(self, permission: Permission) -> bool:
         """Проверить наличие конкретного права"""
@@ -148,6 +169,7 @@ class StaffMemberInDB(StaffMember):
 
 
 class StaffMemberCreate(BaseModel):
+    permission_mode: Literal["explicit"] = "explicit"
     """Модель для создания сотрудника"""
     email: Optional[EmailStr] = None
     login: Optional[str] = None  # Логин для входа (альтернатива email)
@@ -160,6 +182,15 @@ class StaffMemberCreate(BaseModel):
 
 
 class StaffMemberUpdate(BaseModel):
+    permission_mode: Optional[Literal["explicit"]] = None
+
+    @field_validator("custom_permissions", "permission_mode", "role", "is_active")
+    @classmethod
+    def reject_null_access_fields(cls, value):
+        if value is None:
+            raise ValueError("Access fields cannot be null; omit to preserve, [] to deny")
+        return value
+
     """Модель для обновления сотрудника"""
     email: Optional[EmailStr] = None
     login: Optional[str] = None  # Логин для входа (альтернатива email)
@@ -172,6 +203,7 @@ class StaffMemberUpdate(BaseModel):
 
 
 class StaffMemberResponse(BaseModel):
+    permission_mode: Literal["legacy", "explicit"] = "legacy"
     """Модель ответа с информацией о сотруднике"""
     id: str
     email: Optional[EmailStr] = None
