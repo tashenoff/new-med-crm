@@ -1,3 +1,4 @@
+import PatientTermsStatus from '../../patients/PatientTermsStatus';
 import WhatsAppConnectionBadge from './WhatsAppConnectionBadge';
 import PatientAppointments from './PatientAppointments';
 import WhatsAppAudio from './WhatsAppAudio';
@@ -566,6 +567,8 @@ const WhatsAppInbox = ({ isOpen, onClose }) => {
                 <div className="curai-chat-phone">{selected.phone}</div>
                 {(selected.deal_title || selected.lead_title) && <div className="curai-chat-deal-title">Сделка: {selected.deal_title || selected.lead_title}</div>}
               </div>
+
+              <PatientTermsStatus key={selected.patient_id || selected.linked_patient_id || selected.phone} patientId={selected.patient_id || selected.linked_patient_id} dismissible active={isOpen}/>
 
               {/* Сообщения */}
               <div ref={messagesRef} className="curai-chat-messages">

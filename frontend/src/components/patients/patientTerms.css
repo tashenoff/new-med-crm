@@ -1,0 +1,5 @@
+.patient-terms-status { display:flex; align-items:center; justify-content:space-between; gap:12px; padding:12px 16px; border-bottom:1px solid var(--curai-border,#dbe5e6); color:var(--curai-ink,#24383a); background:var(--curai-subtle,#f4f8f8); font-size:13px; flex-shrink:0; }
+.patient-terms-status.compact { min-height:32px; padding:4px 16px; font-size:12px; }
+.patient-terms-status small { display:block; color:var(--curai-muted,#607677); margin-top:3px; }
+.patient-terms-status button { font-size:20px; line-height:24px; min-width:32px; min-height:32px; border:0; background:transparent; color:inherit; cursor:pointer; }
+.patient-terms-status summary { cursor:pointer; margin-top:6px; }

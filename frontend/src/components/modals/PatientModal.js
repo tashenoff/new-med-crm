@@ -1,3 +1,4 @@
+import PatientTermsStatus from '../patients/PatientTermsStatus';
 import React, { useState, useEffect, useCallback } from 'react';
 import Modal from './Modal';
 import { inputClasses, selectClasses, textareaClasses, labelClasses, buttonPrimaryClasses, buttonSecondaryClasses, buttonSuccessClasses, buttonDangerClasses, cardHeaderClasses, tabClasses, tableClasses, tableHeaderClasses, tableRowClasses } from './modalUtils';
@@ -1019,6 +1020,8 @@ const PatientModal = ({
 
         {/* Tabs */}
 
+
+        <PatientTermsStatus key={currentPatientId || "new"} patientId={currentPatientId} active={show}/>
 
         {/* Прелоадер при загрузке данных пациента */}
         {pageLoading && editingItem ? (

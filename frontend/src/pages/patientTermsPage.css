@@ -1,0 +1,18 @@
+.public-terms { min-height:100dvh; background:#eef4f3; color:#213c3a; padding:36px 16px; font:16px/1.65 system-ui,sans-serif; box-sizing:border-box; }
+.public-terms * { box-sizing:border-box; }
+.public-terms article { width:100%; max-width:680px; margin:auto; padding:32px; border-radius:20px; background:#fff; box-shadow:0 10px 40px #173d3410; }
+.public-terms-brand { font-size:12px; font-weight:700; letter-spacing:.12em; color:#52736c; }
+.public-terms h1 { font-size:30px; line-height:1.2; margin:20px 0; font-weight:650; }
+.public-terms h2 { font-size:20px; font-weight:600; }
+.public-terms-demo { background:#fff6dc; border:1px solid #ead69a; border-radius:10px; padding:12px; font-size:14px; }
+.public-terms-version,.public-terms-note { font-size:13px; color:#60736e; }
+.public-terms-text { white-space:pre-wrap; margin:24px 0; overflow-wrap:anywhere; }
+.public-terms form { border-top:1px solid #dce8e4; padding-top:24px; }
+.public-terms label { display:flex; align-items:flex-start; gap:12px; cursor:pointer; padding:8px 0; }
+.public-terms input { width:22px; height:22px; flex-shrink:0; margin-top:3px; accent-color:#176f5c; }
+.public-terms button { width:100%; min-height:50px; margin-top:20px; padding:12px; border:0; border-radius:10px; font:600 15px system-ui,sans-serif; background:#176f5c; color:white; cursor:pointer; }
+.public-terms button:disabled { background:#d9e4e0; color:#64746d; cursor:default; }
+.public-terms :focus-visible { outline:3px solid #b18b23; outline-offset:3px; }
+.public-terms-success { padding:18px; border-radius:10px; background:#e7f4ec; }
+.public-terms-error { background:#ffebe7; border-radius:10px; padding:14px; }
+@media(max-width:480px) { .public-terms { padding:16px 10px; } .public-terms article { padding:24px 18px; border-radius:14px; } .public-terms h1 { font-size:26px; } }

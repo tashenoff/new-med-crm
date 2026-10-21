@@ -1,3 +1,4 @@
+import "./components/patients/patientTerms.css";
 import React from "react";
 import ReactDOM from "react-dom/client";
 import { BrowserRouter } from "react-router-dom";
@@ -11,13 +12,17 @@ import "./theme/curai-patients.css";
 import "./theme/curai-clinical.css";
 import "./theme/curai-directories.css";
 import "./theme/curai-consultation-picker.css";
-import App from "./App";
+const App = React.lazy(() => import("./App"));
+const PatientTermsPage = React.lazy(() => import("./pages/PatientTermsPage"));
+const isPublicTerms = window.location.pathname.startsWith("/consent/");
 
 const root = ReactDOM.createRoot(document.getElementById("root"));
 root.render(
   <React.StrictMode>
     <BrowserRouter>
-      <App />
+      <React.Suspense fallback={<p role="status">Загрузка…</p>}>
+        {isPublicTerms ? <PatientTermsPage /> : <App />}
+      </React.Suspense>
     </BrowserRouter>
   </React.StrictMode>,
 );
