@@ -1,20 +1,10 @@
 """Protected metadata probe for remote MCP discovery; never reads report records."""
-from typing import Literal
-
 from fastapi import APIRouter, HTTPException, Request, Response
 
 from .access import authorize
-from .contract import ClosedModel, ReportError, Scope, SCOPE
+from .access_contract import ACCESS_PATH, AccessEnvelope, FINANCE_TOOL, PAYROLL_TOOL
+from .contract import ReportError, SCOPE
 from .payroll import PERMISSION, SCOPE as PAYROLL_SCOPE
-
-ACCESS_PATH = "/api/reporting/access"
-FINANCE_TOOL, PAYROLL_TOOL = "get_finance_summary", "get_payroll_summary"
-
-
-class AccessEnvelope(ClosedModel):
-    scope: Scope
-    allowed_tools: tuple[Literal["get_finance_summary", "get_payroll_summary"], ...]
-
 
 def create_access_router(finance_resolver, payroll_resolver):
     router = APIRouter(tags=["Read-only reporting access"])

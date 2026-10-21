@@ -70,7 +70,7 @@ class StaffRole(str, Enum):
 
 # Права доступа для каждой роли
 ROLE_PERMISSIONS: Dict[StaffRole, List[Permission]] = {
-    StaffRole.SUPER_ADMIN: [p for p in Permission],  # Все права
+    StaffRole.SUPER_ADMIN: [p for p in Permission if p is not Permission.PAYROLL_VIEW],  # Payroll requires explicit assignment.
     
     StaffRole.ADMIN: [
         Permission.PATIENTS_VIEW,

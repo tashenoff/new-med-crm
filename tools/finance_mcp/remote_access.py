@@ -1,7 +1,7 @@
 """Fixed MedCRM metadata probe, no report reads for MCP discovery/initialization."""
 import json
 
-from reporting.access_api import ACCESS_PATH, AccessEnvelope
+from reporting.access_contract import ACCESS_PATH, AccessEnvelope
 from reporting.contract import ReportError, Scope
 from .core import PAYROLL_TOOL, TOOL_NAME, unique_object
 

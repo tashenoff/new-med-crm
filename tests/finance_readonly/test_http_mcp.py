@@ -308,6 +308,38 @@ print("CLOSED_ASGI_IMPORT_OK")
         self.assertEqual(process.returncode, 0, stderr.decode("utf-8", errors="replace"))
         self.assertEqual(stdout.decode().strip(), "CLOSED_ASGI_IMPORT_OK")
 
+    async def test_http_mcp_import_does_not_require_fastapi(self):
+        code = '''
+import importlib.abc
+import sys
+from pathlib import Path
+root = Path.cwd()
+sys.path.insert(0, str(root))
+sys.path.insert(0, str(root / "backend"))
+class BlockFastAPI(importlib.abc.MetaPathFinder):
+    def find_spec(self, fullname, path=None, target=None):
+        if fullname == "fastapi" or fullname.startswith("fastapi."):
+            raise ModuleNotFoundError("FastAPI is unavailable in the MCP sidecar", name=fullname)
+sys.meta_path.insert(0, BlockFastAPI())
+import tools.finance_mcp.http_server
+assert not any(name == "fastapi" or name.startswith("fastapi.") for name in sys.modules)
+print("NO_FASTAPI_IMPORT_OK")
+'''
+        environment = {"PYTHONUTF8": "1", "PYTHONDONTWRITEBYTECODE": "1", "PYTHONNOUSERSITE": "1"}
+        if sys.platform == "win32":
+            environment["SystemRoot"] = os.environ["SystemRoot"]
+        process = await asyncio.create_subprocess_exec(sys.executable, "-B", "-c", code, cwd=str(ROOT),
+            env=environment,
+            stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE)
+        try:
+            stdout, stderr = await asyncio.wait_for(process.communicate(), timeout=15)
+        finally:
+            if process.returncode is None:
+                process.kill()
+                await process.wait()
+        self.assertEqual(process.returncode, 0, stderr.decode("utf-8", errors="replace"))
+        self.assertEqual(stdout.decode().strip(), "NO_FASTAPI_IMPORT_OK")
+
 
 if __name__ == "__main__":
     unittest.main()

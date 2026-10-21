@@ -1,0 +1,8 @@
+# HTTP MCP sidecar for the CRM host's Python 3.14.4; never install into backend venv.
+# The MCP SDK selects Starlette >=0.48 on Python >=3.14. No FastAPI is used by the sidecar.
+mcp==1.30.0
+starlette==1.9.0
+uvicorn==0.31.1
+httpx==0.28.1
+pydantic==2.14.1
+tzdata==2025.2

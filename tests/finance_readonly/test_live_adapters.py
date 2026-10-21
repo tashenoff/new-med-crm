@@ -174,8 +174,11 @@ class LiveTests(unittest.IsolatedAsyncioTestCase):
         self.store.grants = (replace(grant(), active=False),)
         self.assertEqual((await self.client.get(PATH, params=PERIOD)).status_code, 403)
 
-    async def test_no_permission_fallback_or_implicit_payroll_for_admin(self):
+    async def test_no_permission_fallback_or_implicit_payroll_for_admin_or_super_admin(self):
         self.db.staff.rows[0]["custom_permissions"] = []
+        self.assertEqual((await self.client.get(PAYROLL_PATH, params=PERIOD)).status_code, 403)
+        self.assertEqual((await self.client.get(PATH, params=PERIOD)).status_code, 200)
+        self.db.staff.rows[0]["role"] = "super_admin"
         self.assertEqual((await self.client.get(PAYROLL_PATH, params=PERIOD)).status_code, 403)
         self.assertEqual((await self.client.get(PATH, params=PERIOD)).status_code, 200)
         self.db.staff.rows = []
