@@ -39,6 +39,11 @@ for route in app.routes:
                 conditional = 'calendar_view & calendar_edit if create_appointment query is true'
             elif route.path.endswith('/schedule-appointment'):
                 conditional = 'finance_view & finance_edit if deposit is supplied'
+        if route.path.startswith('/api/appointments') and method in ('POST', 'PUT', 'PATCH', 'DELETE'):
+            conditional = 'finance_view & finance_edit & patients_view & patients_edit for creating/changing/deleting a nonzero deposit source (may auto-complete funded treatment)'
+        if route.path.startswith('/api/treatment-plans') and method in ('POST', 'PUT', 'PATCH'):
+            conditional = ('finance_view & finance_edit if general snapshot changes payment fields; '
+                           'patients_edit additionally for finance commands on full_payment_v1 auto-completion plans')
         if not public and not mcp and not set(dependencies) & AUTH:
             missing_auth[module] += 1
         rows.append({

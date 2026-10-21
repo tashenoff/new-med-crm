@@ -318,3 +318,53 @@ async def test_registered_crm_response_redacts_joined_hms_after_serialization():
         assert result.status_code == 200
         assert result.json() == {'first_name': 'Synthetic', 'linked_inquiries': [{}]}
         assert int(result.headers['content-length']) == len(result.content)
+
+
+async def test_calendar_deposit_requires_finance_even_through_direct_calendar_api():
+    from api_permissions import check_financial_side_effects
+    db = DB()
+    actor = user(['calendar_view', 'calendar_edit'])
+    request = SimpleNamespace(method='POST', path_params={}, json=AsyncMock(return_value={'deposit': 500}))
+    with pytest.raises(HTTPException):
+        await check_financial_side_effects(request, '/api/appointments', actor, db)
+    finance_only = user(['calendar_view', 'calendar_edit', 'finance_view', 'finance_edit'])
+    with pytest.raises(HTTPException):
+        await check_financial_side_effects(request, '/api/appointments', finance_only, db)
+    finance_only.permissions.extend(['patients_view', 'patients_edit'])
+    await check_financial_side_effects(request, '/api/appointments', finance_only, db)
+    request.json.return_value = {'deposit': 0, 'price': 1000}
+    await check_financial_side_effects(request, '/api/appointments', actor, db)
+    await db.appointments.insert_one({'id': 'booking', 'deposit': 10, 'deposit_type': 'percent', 'price': 1000})
+    request.method = 'PUT'
+    request.path_params = {'appointment_id': 'booking'}
+    request.json.return_value = {'deposit': 10, 'deposit_type': 'percent', 'price': 1000, 'notes': 'unchanged receipt'}
+    await check_financial_side_effects(request, '/api/appointments/{appointment_id}', actor, db)
+    request.json.return_value['price'] = 2000
+    with pytest.raises(HTTPException):
+        await check_financial_side_effects(request, '/api/appointments/{appointment_id}', actor, db)
+    request.method = 'DELETE'
+    with pytest.raises(HTTPException):
+        await check_financial_side_effects(request, '/api/appointments/{appointment_id}', actor, db)
+
+
+async def test_legacy_snapshot_payments_and_auto_clinical_completion_are_separate_permissions():
+    from api_permissions import check_financial_side_effects
+    db = DB()
+    actor = user(['patients_view', 'patients_edit'])
+    plan = {'id': 'plan', 'paid_amount': 100, 'payment_status': 'partially_paid',
+            'services': [{'service_id': 'row', 'paid_amount': 100}]}
+    await db.treatment_plans.insert_one(plan)
+    request = SimpleNamespace(method='PUT', path_params={'plan_id': 'plan'}, json=AsyncMock(return_value={**plan, 'title': 'renamed'}))
+    await check_financial_side_effects(request, '/api/treatment-plans/{plan_id}', actor, db)
+    request.json.return_value['services'][0]['paid_amount'] = 200
+    with pytest.raises(HTTPException):
+        await check_financial_side_effects(request, '/api/treatment-plans/{plan_id}', actor, db)
+    request.json.return_value = {'paid_amount': 0}
+    with pytest.raises(HTTPException):
+        await check_financial_side_effects(request, '/api/treatment-plans/{plan_id}', actor, db)
+    db.treatment_plans.rows[0]['payment_completion_policy'] = 'full_payment_v1'
+    finance = user(['patients_view', 'finance_view', 'finance_edit'])
+    with pytest.raises(HTTPException):
+        await check_financial_side_effects(request, '/api/treatment-plans/{plan_id}/settle-remaining', finance, db)
+    finance.permissions.append('patients_edit')
+    await check_financial_side_effects(request, '/api/treatment-plans/{plan_id}/settle-remaining', finance, db)

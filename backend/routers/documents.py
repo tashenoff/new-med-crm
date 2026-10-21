@@ -98,6 +98,8 @@ async def download_file(filename: str, current_user: UserInDB = Depends(get_curr
     document = await db.documents.find_one({"filename": filename})
     if not document:
         raise HTTPException(404, "Document not found")
+    if current_user.role == UserRole.PATIENT and document.get('patient_id') != current_user.patient_id:
+        raise HTTPException(403, 'Access denied')
     
     if not file_path.exists():
         raise HTTPException(status_code=404, detail="File not found")

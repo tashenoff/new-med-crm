@@ -133,7 +133,7 @@ async def check_cross_space_write(request, path, user):
     if not path.endswith(('/convert', '/convert-to-hms', '/schedule-appointment')):
         return
     if path.endswith('/convert-to-hms'):
-        if request.query_params.get('create_appointment', '').lower() in ('true', '1', 'yes', 'on'):
+        if request.query_params.get('create_appointment', '').lower() in ('true', '1', 'yes', 'on', 't', 'y'):
             check_access(user, ('calendar_view', 'calendar_edit'))
         return
     try:
@@ -147,6 +147,78 @@ async def check_cross_space_write(request, path, user):
         if body.get('create_appointment'):
             check_access(user, ('calendar_view', 'calendar_edit'))
     if path.endswith('/schedule-appointment') and body.get('deposit'):
+        check_access(user, ('finance_view', 'finance_edit'))
+
+
+async def check_financial_side_effects(request, path, user, db):
+    """Clinical/calendar writes cannot create receipts through editable snapshots.
+
+    Unchanged legacy payment fields may round-trip without granting finance.
+    Full-payment plans also mark procedures complete, so their receipts require
+    clinical edit in addition to finance. This does not change ledger arithmetic.
+    """
+    if request.method not in ('POST', 'PUT', 'PATCH', 'DELETE'):
+        return
+    if path.startswith('/api/appointments'):
+        identity = request.path_params.get('appointment_id')
+        previous = await db.appointments.find_one({'id': identity}) if identity else {}
+        previous = previous or {}
+        body = {} if request.method == 'DELETE' else await request.json()
+        if not isinstance(body, dict):
+            return  # Endpoint validation supplies the normal 422.
+        prospective = dict(previous, **body)
+        has_deposit = bool(previous.get('deposit') or prospective.get('deposit'))
+        if has_deposit and (request.method == 'DELETE' or any(
+                prospective.get(key) != previous.get(key)
+                for key in ('patient_id', 'deposit', 'deposit_type', 'price'))):
+            # Assignment may fund a full-payment plan and auto-complete its
+            # procedures. Keep the cross-space permission explicit, including
+            # pending assignment retries, without changing allocation logic.
+            check_access(user, ('finance_view', 'finance_edit', 'patients_view', 'patients_edit'))
+        return
+    if not path.startswith('/api/treatment-plans'):
+        return
+    identity = request.path_params.get('plan_id')
+    previous = await db.treatment_plans.find_one({'id': identity}) if identity else {}
+    previous = previous or {}
+    required = requirements(path, request.method)
+    if required and 'finance_edit' in required:
+        if previous.get('payment_completion_policy') == 'full_payment_v1':
+            check_access(user, ('patients_edit',))
+        return
+    if request.method == 'DELETE':
+        return
+    if path.rstrip('/') not in ('/api/treatment-plans', '/api/treatment-plans/{plan_id}'):
+        return
+    body = await request.json()
+    if not isinstance(body, dict):
+        return
+    payment_keys = {'payment_status', 'paid', 'is_paid', 'paid_amount', 'payment_date',
+                    'paid_from_deposit', 'deposit_amount', 'deposit_balance', 'extra_deposit',
+                    'discount_amount', 'discount_total', 'payment_method_id', 'payment_method_name'}
+
+    def payment_changed(current, old):
+        if isinstance(current, dict):
+            old = old if isinstance(old, dict) else {}
+            for key, value in current.items():
+                before = old.get(key)
+                if key in payment_keys:
+                    # Defaults are not receipts; deleting a prior receipt is.
+                    normalize = lambda item: None if item in (None, '', False, 0, 'unpaid') else item
+                    if normalize(value) != normalize(before):
+                        return True
+                elif isinstance(value, (dict, list)) and payment_changed(value, before):
+                    return True
+        elif isinstance(current, list):
+            old = old if isinstance(old, list) else []
+            # Comparing rows by position is deliberately conservative for paid
+            # legacy snapshots. Reordering them may require finance review.
+            return any(payment_changed(value, old[index] if index < len(old) else None)
+                       for index, value in enumerate(current)) or any(
+                payment_changed(value, None) for value in old[len(current):])
+        return False
+
+    if payment_changed(body, previous):
         check_access(user, ('finance_view', 'finance_edit'))
 
 
@@ -169,6 +241,7 @@ def install_api_permissions(app):
                 check_access(user, requirements(path, request.method, module))
                 await check_cross_space_write(request, path, user)
                 await assert_single_clinic(db)
+                await check_financial_side_effects(request, path, user, db)
                 request.state.permission_user = user
             return guard
 

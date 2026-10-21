@@ -83,8 +83,8 @@
 
 ## Проверки и границы доказательства
 
-- Backend: **724 mock-only теста** прошли после интеграции DID, включая защиту собственного super-admin recovery, вложенных HMS полей и CRM→HMS side effects. Итоговый лог сохраняется в executor `evidence/backend-tests-integrated.log`.
-- Frontend: **558 тестов** прошли после rebase. Vite production build прошёл; известное предупреждение размера bundle осталось.
+- Backend: **726 mock-only теста** прошли после интеграции DID, включая защиту собственного super-admin recovery, вложенных HMS полей и CRM→HMS side effects. Итоговый лог сохраняется в executor `evidence/backend-actions-tests-verified.log`.
+- Frontend: **563 тестов** прошли после rebase. Vite production build прошёл; известное предупреждение размера bundle осталось.
 - Контракт: все **39** backend enum keys совпали с четырьмя группами frontend.
 - Headless browser на отдельном `127.0.0.1:5187`: CRM-only, HMS-only, склад-only, финансы без payroll/с payroll, смешанный набор, пустой набор, форма создания/смены роли/повторного открытия/повторного сохранения/preset/очистки. Внешняя сеть блокируется; API полностью mocked. Сценарий focus refresh с отзывом CRM также прошёл: всего 9 браузерных сценариев.
 - Проверены empty/omitted/null, legacy и role-only save, сохранение копии users, тот же JWT после изменения, direct API denial, непривилегированное создание, старшие аккаунты, clinic mismatch/quarantine, отзыв WS доступа, redaction ставок, отсутствие автоматического payroll у super admin.
@@ -111,3 +111,8 @@
 6. Rollback приложения должен учитывать explicit записи: старый backend снова сложит роль с custom_permissions. Нельзя откатывать на старый resolver без сохранения ограничения explicit наборов; заранее подготовить совместимый rollback.
 
 Для повторной инвентаризации есть `tools/export_permission_inventory.py`; он импортирует app без lifespan и не обращается к MongoDB. Использовать собственные synthetic environment values. QA paths и логи находятся в task-3/evidence, browser smoke source — task-3/browser-qa/permission-smoke.mjs.
+
+
+## Дополнение после повторного review
+
+Продолжение реализации, классификация оставшихся рисков по связи с CRM-only и минимальный безопасный план: [REVIEW-RISKS.md](REVIEW-RISKS.md). Оно уточняет старый список блокеров выше. Добавлены UI action guards, authenticated document downloads и серверные ограничения финансовых побочных действий. PatientModal теперь также затронут; при интеграции сохранить соседние consent refresh/spacing изменения. MCP production resolver и grants не менялись.
