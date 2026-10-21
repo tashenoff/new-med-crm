@@ -138,6 +138,7 @@ async function mount(t, { lead = false, fail = false, seedStatus = false, failSt
       phone: '+70000000001', lead_name: 'Other Fixture Lead', linked_lead_id: 'other', source: 'lead',
     }] : [])] } };
     if (path.startsWith('/wazzup/messages/history/')) return { data: { messages: [] } };
+    if (path === '/crm/leads/lead') return { data: { id: 'lead', source_id: '2gis', source: 'phone' } };
     if (path === '/doctors') return { data: doctors };
     if (path === '/appointments') {
       f.patientReads++;
@@ -340,3 +341,15 @@ test('the provider keeps one stable status subscription across rerenders and rem
   h.dom.window.dispatchEvent(new h.dom.window.Event('crm-appointments-changed'));
   assert.equal(h.f.calendarReads, 2, 'an unmounted provider cannot trigger stale reloads');
 });
+
+for (const lead of [false, true]) {
+  test('WhatsApp booking keeps persisted source context: ' + (lead ? 'inquiry' : 'patient'), async t => {
+    const h = await mount(t, { lead }); await h.openWhatsAppBooking();
+    const initial = h.f.modal.appointmentForm;
+    assert.equal(initial.source_id, lead ? '2gis' : '');
+    assert.equal(initial.source, lead ? 'phone' : '');
+    assert.equal(Object.hasOwn(initial, 'lead_source_id'), lead);
+    await act(async () => h.f.modal.onSave({ ...h.form, source_id: 'manual-choice' }));
+    assert.equal(h.f.writes[0].data.source_id, 'manual-choice');
+  });
+}

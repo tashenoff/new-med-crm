@@ -315,12 +315,20 @@ const WhatsAppInbox = ({ isOpen, onClose }) => {
     if (bookingChatRef.current !== bookingChat) return;
     const doctorsList = (Array.isArray(doctorData) ? doctorData : doctorData?.doctors || []).filter(doctor => doctor.is_active !== false).map(doctor => ({ ...doctor, id: doctor.id || doctor._id }));
     const appointmentsList = Array.isArray(appointmentData) ? appointmentData : appointmentData?.appointments || [];
+    // A chat's source='patient'/'lead' describes its relation, not acquisition.
+    // Fetch only the explicitly linked inquiry; never choose one by phone here.
+    let inquiry = null;
+    if (bookingChat.linked_lead_id) {
+      try { inquiry = (await apiClient.get('/crm/leads/' + encodeURIComponent(bookingChat.linked_lead_id))).data; }
+      catch { /* Missing inquiry leaves an explicit source choice. */ }
+    }
+    if (bookingChatRef.current !== bookingChat) return;
     const patientId = selected.patient_id || selected.linked_patient_id || '';
     const isLead = selected.linked_lead_id && !patientId;
 
     // Лид без пациента: переиспользуем конвертацию из раздела «Сделки».
     if (isLead) {
-      const lead = selected;
+      const lead = inquiry || {};
       // Подгружаем врачей, иначе модал не предложит врача при выборе кабинета.
       openModal('appointment', {
         appointmentForm: {
@@ -337,7 +345,7 @@ const WhatsAppInbox = ({ isOpen, onClose }) => {
           price: 0,
           deposit_type: '',
           deposit: 0,
-          source: lead.source || 'phone',
+          source: lead.source || '',
           source_id: lead.source_id || '',
           lead_full_name: contactNameMeta(selected),
           lead_first_name: contactNameMeta(selected),
@@ -345,7 +353,7 @@ const WhatsAppInbox = ({ isOpen, onClose }) => {
           lead_middle_name: '',
           lead_phone: selected.phone,
           lead_email: selected.email || '',
-          lead_source: lead.source || 'phone',
+          lead_source: lead.source || '',
           lead_source_id: lead.source_id || '',
           showNewPatientForm: true,
         },
@@ -361,6 +369,7 @@ const WhatsAppInbox = ({ isOpen, onClose }) => {
           try {
             const res = await apiClient.post(`/crm/leads/${selected.linked_lead_id}/schedule-appointment`, {
               ...(appointmentData.patient_full_name ? { patient_full_name: appointmentData.patient_full_name } : {}),
+              source_id: appointmentData.source_id,
               doctor_id: appointmentData.doctor_id,
               appointment_date: appointmentData.appointment_date,
               appointment_time: appointmentData.appointment_time,
@@ -406,8 +415,9 @@ const WhatsAppInbox = ({ isOpen, onClose }) => {
         price: 0,
         deposit: 0,
         deposit_type: '',
-        source: selected.source || 'phone',
-        source_id: selected.source_id || '',
+        source: inquiry?.source || '',
+        source_id: inquiry?.source_id || '',
+        ...(bookingChat.linked_lead_id ? { lead_source_id: inquiry?.source_id || '' } : {}),
         patient_name: contactNameMeta(selected),
         patient_phone: selected.patient_phone || selected.phone,
         appointment_date: new Date().toISOString().split('T')[0],

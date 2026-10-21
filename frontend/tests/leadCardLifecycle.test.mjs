@@ -97,7 +97,8 @@ async function mountView(context, leads = [lead], options = {}) {
   for (const [key, value] of Object.entries({
     window: dom.window, document: dom.window.document,
     localStorage: dom.window.localStorage, IS_REACT_ACT_ENVIRONMENT: true,
-    cardFixture: undefined, fetch: undefined
+    cardFixture: undefined, fetch: undefined,
+    alert: message => { if (!String(message).startsWith('Прием успешно назначен!')) assert.fail(message); }
   })) {
     saved.set(key, Object.getOwnPropertyDescriptor(globalThis, key));
     Object.defineProperty(globalThis, key, { configurable: true, writable: true, value });
@@ -176,6 +177,10 @@ async function mountView(context, leads = [lead], options = {}) {
         });
       }
       return { ok: true, json: async () => structuredClone(result) };
+    }
+    if (path.endsWith('/schedule-appointment')) {
+      apiRequests.push({ path, method: init.method, body: JSON.parse(init.body) });
+      return { ok: true, json: async () => ({ patient_id: 'patient-canonical', appointment_id: 'mock-visit' }) };
     }
     if (String(url).endsWith(`/api/crm/leads/${lead.id}/tasks`)) {
       return new Promise(resolve => pendingTasks.push(resolve));
@@ -883,4 +888,18 @@ test('failed card PATCH preserves real CRM state and board, displays error and p
   await dropCard(view, lead.id, customColumn.id);
   assert.equal(view.container.querySelector('[role="alert"]'), null);
   assert.equal(view.container.querySelector('[data-lead-id]').closest('[data-column-id]').dataset.columnId, customColumn.id);
+});
+
+test('CRM booking forwards selected source ID to schedule endpoint without rewriting original attribution', async context => {
+  const original = { ...lead, source_id: 'original-2gis', source: 'phone' };
+  const view = await mountView(context, [original]);
+  const action = [...view.container.querySelector('[data-lead-id]').querySelectorAll('button')].find(button => button.textContent.includes('Назначить прием'));
+  await act(async () => view.mouse(action, 'click'));
+  const props = view.scheduled.find(args => args[0] === 'appointment')[1];
+  assert.equal(props.appointmentForm.source_id, 'original-2gis');
+  assert.equal(props.appointmentForm.lead_source_id, 'original-2gis');
+  await act(async () => props.onSave({ source_id: 'manually-chosen', doctor_id: 'doctor', appointment_date: '2026-10-21', appointment_time: '10:00', end_time: '10:30' }));
+  const request = view.apiRequests.find(request => request.path.endsWith('/schedule-appointment'));
+  assert.equal(request.body.source_id, 'manually-chosen');
+  assert.equal(view.backendLeads[0].source_id, 'original-2gis');
 });

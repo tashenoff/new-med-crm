@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { formatPhoneChange } from '../../hooks/phoneFormatter';
 import { appointmentPayment } from '../../utils/accountingLedger';
+import { useAppointmentSource } from '../../hooks/useAppointmentSource';
+import { sourceRequest } from '../../utils/crmSources';
 import SignatureCanvas from 'react-signature-canvas';
 import Modal from './Modal';
 import { inputClasses, selectClasses, textareaClasses, buttonPrimaryClasses, buttonSecondaryClasses, buttonSuccessClasses, cardHeaderClasses, tabClasses } from './modalUtils';
@@ -90,6 +92,7 @@ const AppointmentModal = ({
   const [uploadingConsent, setUploadingConsent] = useState(false);
 const [sources, setSources] = useState([]);
   const [loadingSources, setLoadingSources] = useState(false);
+  const [sourcesLoaded, setSourcesLoaded] = useState(false);
 
   const [appointmentSourceError, setAppointmentSourceError] = useState('');
   const [hasSignature, setHasSignature] = useState(false);
@@ -138,6 +141,17 @@ const [sources, setSources] = useState([]);
     full_name: editingItem.patient_name || 'Пациент',
     phone: editingItem.patient_phone || ''
   } : null);
+  const markSourceManual = useAppointmentSource({
+    show, editing: Boolean(editingItem), patient: foundPatient, patientId: appointmentForm.patient_id || '',
+    sources, loaded: sourcesLoaded,
+    getForm: () => appointmentFormRef.current,
+    update: setAppointmentForm,
+    loadPatient: async id => {
+      const response = await fetch(API + '/api/patients/' + encodeURIComponent(id), { headers: { Authorization: 'Bearer ' + localStorage.getItem('token') } });
+      if (!response.ok) throw new Error('Patient unavailable');
+      return response.json();
+    }
+  });
   const planPatientRef = useRef(null);
   planPatientRef.current = show ? selectedPatient?.id : null;
   const currentTreatmentPlans = plansPatientId === selectedPatient?.id ? treatmentPlans : [];
@@ -467,22 +481,14 @@ if (timeSchedule) {
   const fetchSources = async () => {
     try {
       setLoadingSources(true);
-      const token = localStorage.getItem('token');
-
-      const response = await fetch(`${API}/api/crm/sources/`, {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        }
-      });
-
-      if (response.ok) {
-        const sourcesData = await response.json();
-        console.log('📌 Loaded sources:', sourcesData);
-        setSources(sourcesData);
-      } else {
-        console.error('❌ Failed to fetch sources:', response.status);
+      const catalog = [];
+      for (let skip = 0; ; skip += 100) {
+        const page = await sourceRequest('/sources/?skip=' + skip + '&limit=100', 'GET');
+        catalog.push(...page);
+        if (page.length < 100) break;
       }
+      setSources(catalog);
+      setSourcesLoaded(true);
     } catch (error) {
       console.error('Error fetching sources:', error);
     } finally {
@@ -494,6 +500,7 @@ if (timeSchedule) {
     if (show) {
       fetchRooms();
       fetchPaymentTypes();
+      setSourcesLoaded(false);
       fetchSources();
     }
   }, [show]); // Перезагружаем при открытии модала
@@ -531,7 +538,9 @@ if (timeSchedule) {
 
   // Выбор пациента из результатов поиска
   const handlePatientSelect = (patient) => {
-    setAppointmentForm({ ...appointmentForm, patient_id: patient.id });
+    const next = { ...appointmentForm, patient_id: patient.id, source_id: '', source: '' };
+    delete next.lead_source_id; delete next.lead_source;
+    setAppointmentForm(next);
     setPatientSearch(patient.full_name);
     setShowPatientDropdown(false);
     setFilteredPatients([]);
@@ -539,7 +548,9 @@ if (timeSchedule) {
 
   // Очистка выбора пациента
   const handleClearPatient = () => {
-    setAppointmentForm({ ...appointmentForm, patient_id: '' });
+    const next = { ...appointmentForm, patient_id: '', source_id: '', source: '' };
+    delete next.lead_source_id; delete next.lead_source;
+    setAppointmentForm(next);
     setPatientSearch('');
     setShowPatientDropdown(false);
     setFilteredPatients([]);
@@ -1426,8 +1437,10 @@ const handleCreateNewPatient = async (e) => {
               {loadingSources && <span className="text-curai-muted ml-2 text-xs">Загрузка...</span>}
             </label>
             <select
+              aria-label="Канал привлечения"
               value={appointmentForm.source_id || ''}
               onChange={(e) => {
+                markSourceManual();
                 const selectedValue = e.target.value;
                 const selectedSource = sources.find(s => s.id === selectedValue);
                 if (selectedSource) {
@@ -1449,6 +1462,7 @@ const handleCreateNewPatient = async (e) => {
               disabled={loadingSources}
             >
               <option value="">Выберите источник</option>
+              {appointmentForm.source_id && !sources.some(source => source.id === appointmentForm.source_id) && <option value={appointmentForm.source_id}>Источник недоступен</option>}
               {sources.map((source) => (
                 <option key={source.id} value={source.id}>
                   {source.name}

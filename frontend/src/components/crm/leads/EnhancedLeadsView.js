@@ -795,6 +795,7 @@ const EnhancedLeadsView = ({ user }) => {
               },
               body: JSON.stringify({
                 ...(appointmentData.patient_full_name ? { patient_full_name: appointmentData.patient_full_name } : {}),
+                source_id: appointmentData.source_id,
                 doctor_id: appointmentData.doctor_id,
                 appointment_date: appointmentData.appointment_date,
                 appointment_time: appointmentData.appointment_time,

@@ -89,6 +89,7 @@ async function mount(context, Component, props, options = {}) {
       fixture.leads[0].full_name = data.full_name;
       return { data: { ...options.patient, ...data } };
     }
+    if (path === '/crm/leads/lead') return { data: structuredClone(lead) };
     if (path === '/patients/patient') return { data: options.patient };
     if (method === 'POST' && path.includes('schedule-appointment')) {
       fixture.chats[0] = { ...fixture.chats[0], patient_id: 'patient', patient_name: data.patient_full_name || 'Linked patient' };
@@ -107,6 +108,7 @@ async function mount(context, Component, props, options = {}) {
       requests.push({ method: init.method || 'GET', path, data });
       return { ok: true, json: async () => path.endsWith('/task-statuses') ? { statuses: [] }
         : path.endsWith('/tasks') ? { tasks: [] }
+        : path === '/api/crm/sources/' ? [{ id: 'source', name: 'Fixture acquisition source', type: 'phone' }]
         : path === '/api/patients' ? (options.patient ? [options.patient] : []) : [] };
     } };
   const saved = Object.keys(globals).map(key => [key, Object.getOwnPropertyDescriptor(globalThis, key)]);
