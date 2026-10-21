@@ -18,8 +18,8 @@ export default function PermissionEditor({ form, onChange }) {
     <p className="text-sm">Сохраняется только выбранный набор. Смена роли не добавляет права.</p>
     <p className="text-xs">Создание, изменение, удаление и экспорт также требуют просмотра соответствующего раздела. Они не включают его автоматически.</p>
     <div className="flex gap-3">
-      <button type="button" onClick={applyPreset} disabled={!form.role}>Применить шаблон роли</button>
-      <button type="button" onClick={() => replace([])}>Снять все права</button>
+      <button className="px-3 py-2 border border-curai-control rounded-md" type="button" onClick={applyPreset} disabled={!form.role}>Применить шаблон роли</button>
+      <button className="px-3 py-2 border border-curai-control rounded-md" type="button" onClick={() => replace([])}>Снять все права</button>
     </div>
     {error && <p role="alert">{error}</p>}
     {permissionGroups.map(group => <fieldset key={group.key} className="border border-curai-border rounded-md p-3">

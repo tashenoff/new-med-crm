@@ -43,6 +43,7 @@ const StaffManagementPage = ({ user }) => {
 
   // Обработчики персонала
   const handleAddStaff = () => {
+    setErrorMessage(null);
     setEditingItem(null);
     setStaffForm({
       full_name: '',
@@ -57,6 +58,7 @@ const StaffManagementPage = ({ user }) => {
   };
 
   const handleEditStaff = async (staffMember) => {
+    setErrorMessage(null);
     setEditingItem(staffMember);
     
     // Для врачей загружаем custom_permissions из staff коллекции
