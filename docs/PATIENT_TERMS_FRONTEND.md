@@ -14,7 +14,11 @@ Vercel headers protect `/consent/:path*`; configure equivalent headers on any
 other frontend host and disable API-body logging/APM for public token requests.
 
 Use existing `VITE_BACKEND_URL` for the API. Backend generates links only from
-validated `CONSENT_PUBLIC_BASE_URL` configuration, never from Host. Read-only
+validated `CONSENT_PUBLIC_BASE_URL` configuration with `CONSENT_ENABLED=1`,
+never from Host. Issuance defaults off. Disabled/missing/bad configuration keeps
+the ordinary booking message without a link, records a non-secret reason and
+never fabricates an acceptance. Admin GET `/api/patient-terms/readiness` returns
+503 for invalid/incomplete opt-in configuration; status/history reads still work. Read-only
 verification on 2026-10-21 found curai.asia serves Medical CRM on Vercel. No DNS,
 hosting, external templates, push or deployment were changed.
 
@@ -53,7 +57,7 @@ node node_modules/eslint/bin/eslint.js --no-eslintrc --config tests/patientTerms
 npm run build
 ```
 
-The companion backend has 17 passing real-Mongo isolated tests and a local
+The companion backend has 22 passing real-Mongo isolated tests and a local
 browser fixture serving this actual production build, real consent endpoints
 and synthetic unrelated CRM data on 127.0.0.1:18763. The own Chromium browser
 check passed all 7 groups: 390px page/unchecked/GET, correct widget placement,
