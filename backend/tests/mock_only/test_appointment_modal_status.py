@@ -201,6 +201,10 @@ def test_create_initial_unconfirmed_and_scheduled_crm_card(harness, explicit_def
     response = h.client.post("/api/appointments", json=payload)
     assert response.status_code == 200, response.text
     assert response.json()["status"] == "unconfirmed"
+    assert response.json()["source_id"] == "source-fixture"
+    assert h.db.appointments.rows[0]["source_id"] == "source-fixture"
+    assert "source_id" not in h.db.patients.rows[0]
+    assert "source_id" not in h.db.crm_leads.rows[0]
     assert_correspondence(h, "unconfirmed", "contacted")
     assert "kanban_column_id" not in h.db.crm_leads.rows[0]
     h.sender.send_appointment_created_notification.assert_awaited_once()

@@ -468,6 +468,21 @@ async def schedule_appointment_from_lead(
         if not lead:
             raise HTTPException(status_code=404, detail="Лид не найден")
 
+        # A manual choice belongs to this appointment, not patient/lead history.
+        appointment_source_id = lead.source_id
+        appointment_source = str(lead.source.value) if hasattr(lead.source, 'value') else str(lead.source)
+        if "source_id" in appointment_data:
+            from ..services.source_service import SourceService
+            chosen_id = appointment_data["source_id"]
+            if not isinstance(chosen_id, str) or not chosen_id.strip():
+                raise HTTPException(status_code=422, detail="Выберите источник записи")
+            chosen = await db.crm_sources.find_one({"id": chosen_id})
+            if not chosen:
+                raise HTTPException(status_code=422, detail="Источник записи недоступен")
+            chosen = SourceService._normalize_source_doc(chosen)
+            appointment_source_id = chosen_id
+            appointment_source = chosen["type"]
+
         patient_full_name = appointment_data.get("patient_full_name")
         if patient_full_name is not None and not isinstance(patient_full_name, str):
             raise HTTPException(status_code=422, detail="patient_full_name must be a string")
@@ -683,8 +698,8 @@ async def schedule_appointment_from_lead(
             "deposit": deposit,
             "deposit_type": deposit_type,
             # Источник из лида
-            "source": str(lead.source.value) if hasattr(lead.source, 'value') else str(lead.source),
-            "source_id": lead.source_id,
+            "source": appointment_source,
+            "source_id": appointment_source_id,
             "created_at": datetime.utcnow(),
             "updated_at": datetime.utcnow()
         }
