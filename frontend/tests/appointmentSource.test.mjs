@@ -55,7 +55,7 @@ async function mount(t, options = {}) {
   const log = console.log; console.log = () => {};
   const root = createRoot(document.getElementById('root'));
   let show = true;
-  const render = () => root.render(React.createElement(Modal, { show, onClose() {}, appointmentForm: f.form,
+  const render = () => root.render(React.createElement(Modal, { user: options.user || {permissions: ['calendar_view', 'calendar_edit']}, show, onClose() {}, appointmentForm: f.form,
     patients: f.patients, doctors: [], editingItem: options.editing || null, hideAddPlanForm: true,
     setAppointmentForm: form => { f.form = form; }, onSave: async data => { f.saved.push(data); } }));
   t.after(async () => {
@@ -89,6 +89,13 @@ test('calendar patient selection fills persisted source ID and saves/reopens it'
   await h.submit(); assert.equal(h.f.saved[0].source_id, '2gis');
   await h.reopen(); assert.equal(h.select().value, '2gis');
   assert.equal(h.f.patientRequests.length, 0);
+});
+
+test('source prefill does not authorize a read-only calendar save', async t => {
+  const h = await mount(t, {user: {permissions: ['calendar_view']}});
+  assert.equal(h.select().value, '2gis');
+  await h.submit();
+  assert.equal(h.f.saved.length, 0);
 });
 test('CRM concrete inquiry takes precedence over patient and survives manual override', async t => {
   const h = await mount(t, { form: { source_id: 'web', lead_source_id: 'web' } });
