@@ -12,7 +12,7 @@ CLINICAL_COLLECTIONS = (
     'consultation_sheets', 'doctor_schedules', 'rooms', 'room_schedules',
     'materials', 'inventories', 'inventory_movements', 'service_prices',
     'crm_leads', 'crm_clients', 'crm_deals', 'crm_contacts', 'crm_tasks',
-    'crm_sources', 'crm_managers', 'wazzup_chats', 'wazzup_messages',
+    'crm_sources', 'crm_managers', 'crm_funnel_events', 'crm_seed_manifests', 'wazzup_chats', 'wazzup_messages',
     'telephony_calls', 'staff', 'users',
 )
 

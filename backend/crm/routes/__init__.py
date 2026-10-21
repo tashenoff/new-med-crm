@@ -1,6 +1,7 @@
 """CRM Routes - API маршруты для CRM системы"""
 
 from fastapi import APIRouter
+from .funnel import funnel_router
 from .leads import leads_router
 from .kanban import kanban_router
 from .inbound_sources import inbound_sources_router
@@ -17,6 +18,7 @@ from .task_statuses import router as task_statuses_router
 crm_router = APIRouter(tags=["CRM"])
 
 # Подключаем роутеры модулей
+crm_router.include_router(funnel_router)
 crm_router.include_router(leads_router)
 crm_router.include_router(kanban_router)
 crm_router.include_router(inbound_sources_router)

@@ -13,6 +13,7 @@ from ..models.lead import Lead, LeadStatus, LeadSource, LeadPriority
 from ..schemas.lead_schemas import LeadCreate, LeadUpdate, LeadSearchFilters
 from ..models.task import Task, TaskType, TaskPriority, TaskStatus
 from ..schemas.task_schemas import TaskCreate
+from .funnel_journal import FunnelLeadCollection
 from .lead_identity import group_lead_touches, patient_link
 
 
@@ -21,7 +22,7 @@ class LeadService:
     
     def __init__(self, db: AsyncIOMotorDatabase):
         self.db = db
-        self.collection = db.crm_leads
+        self.collection = FunnelLeadCollection(db, cause='lead_service')
     
     async def create_lead(self, lead_data: LeadCreate, created_by: Optional[str] = None) -> Lead:
         """Создать нового лида"""

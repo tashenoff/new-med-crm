@@ -59,12 +59,16 @@ class MemoryCollection:
         self.rows.append(deepcopy(document))
         return SimpleNamespace(inserted_id=document.get("id"))
 
-    async def update_one(self, query, update):
+    async def update_one(self, query, update, upsert=False):
         self.writes.append(deepcopy(update))
+        if upsert and not any(matches(row, query) for row in self.rows):
+            self.rows.append(deepcopy(update.get("$setOnInsert", {})))
         for row in self.rows:
             if matches(row, query):
                 old = deepcopy(row)
                 row.update(deepcopy(update.get("$set", {})))
+                for key, value in update.get("$push", {}).items():
+                    row.setdefault(key, []).append(deepcopy(value))
                 for key in update.get("$unset", {}):
                     row.pop(key, None)
                 return SimpleNamespace(matched_count=1, modified_count=int(old != row))
@@ -142,6 +146,7 @@ def harness(monkeypatch):
         doctor_schedules=MemoryCollection([dict(doctor_id="doctor-fixture", day_of_week=1,
             is_active=True, start_time="08:00", end_time="18:00")]),
         crm_clients=MemoryCollection(),
+        crm_funnel_events=MemoryCollection(),
         crm_leads=MemoryCollection([
             dict(id="lead-fixture", first_name="Fixture", phone="70000000801", source="other",
                 status="in_progress", converted_to_client_id="patient-fixture",

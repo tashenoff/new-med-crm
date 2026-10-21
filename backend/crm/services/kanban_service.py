@@ -1,3 +1,4 @@
+from .funnel_journal import FunnelLeadCollection
 from datetime import datetime
 from uuid import uuid4
 
@@ -62,7 +63,7 @@ class KanbanService:
         self.db = db
         write_concern = WriteConcern('majority', j=True)
         self.settings = db.system_settings.with_options(write_concern=write_concern)
-        self.leads = db.crm_leads.with_options(write_concern=write_concern)
+        self.leads = FunnelLeadCollection(db, db.crm_leads.with_options(write_concern=write_concern), cause='kanban')
 
     async def ensure_settings(self):
         try:

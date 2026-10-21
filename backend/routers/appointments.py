@@ -1,3 +1,4 @@
+from crm.services.funnel_journal import FunnelLeadCollection
 from services.appointment_status_policy import guard_appointment_status
 from fastapi import APIRouter, HTTPException, Depends, status
 from pydantic import BaseModel
@@ -499,7 +500,7 @@ async def create_appointment(
                     "updated_at": datetime.utcnow()
                 }
                 
-                await db.crm_leads.update_one(
+                await FunnelLeadCollection(db, cause='appointment_created').update_one(
                     {"id": lead["id"]},
                     {"$set": update_data, "$unset": {"kanban_column_id": ""}}
                 )
@@ -538,7 +539,7 @@ async def create_appointment(
                     "updated_at": datetime.utcnow()
                 }
                 
-                await db.crm_leads.insert_one(new_lead)
+                await FunnelLeadCollection(db, cause='appointment_created').insert_one(new_lead)
                 print(f"Создан новый лид {lead_id} для пациента {patient_name} - статус 'Записан на приём'")
     except Exception as e:
         print(f"Не удалось синхронизировать с CRM: {str(e)}")
