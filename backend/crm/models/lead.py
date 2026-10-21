@@ -60,6 +60,11 @@ class Lead(BaseModel):
     status: LeadStatus = Field(LeadStatus.NEW, description="Статус лида")
     source: LeadSource = Field(..., description="Источник лида")
     source_id: Optional[str] = Field(None, description="ID источника из CRM")
+    channel_id: Optional[str] = None
+    channel_name: Optional[str] = None
+    campaign_id: Optional[str] = None
+    campaign_name: Optional[str] = None
+    contact_point: Optional[str] = Field(None, max_length=200)
     priority: LeadPriority = Field(LeadPriority.MEDIUM, description="Приоритет")
     
     # Менеджер

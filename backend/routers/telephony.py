@@ -242,6 +242,8 @@ async def _find_or_create_lead(db, phone: str, contact_name: Optional[str] = Non
         phone=phone,
         source=LeadSource(attribution['source_type']) if attribution and attribution.get('source_id') else LeadSource.PHONE,
         source_id=attribution.get('source_id') if attribution else None,
+        channel_id=attribution.get('channel_id') if attribution else None,
+        campaign_id=attribution.get('campaign_id') if attribution else None,
         description="Обращение через Zadarma-звонок",
     )
     new_lead = await lead_service.create_lead(lead_data, created_by="telephony_webhook")
@@ -260,7 +262,7 @@ async def _capture_call_attribution(db, call_doc, params, direction, phone):
         return
     from crm.services.inbound_source_service import InboundSourceService
     if 'source_id' in call_doc:
-        attribution = {key: call_doc.get(key) for key in ('called_did', 'source_id', 'source_name', 'source_type')}
+        attribution = {key: call_doc.get(key) for key in ('called_did', 'source_id', 'source_name', 'source_type', 'channel_id', 'channel_name', 'campaign_id', 'campaign_name')}
     elif direction == CallDirection.INBOUND:
         attribution = await InboundSourceService(db).attribution(params.get('called_did'))
     else:

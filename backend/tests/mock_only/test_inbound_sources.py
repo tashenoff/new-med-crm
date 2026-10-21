@@ -224,6 +224,9 @@ def test_replay_after_mapping_change_and_closed_lead_preserves_history(fixture):
         await fixture.service.update(DID, 'source-b', 'admin')
         await webhook(fixture, 'NOTIFY_END', disposition='answered', duration=45)
         assert len(fixture.db.telephony_calls.documents) == len(fixture.db.crm_leads.documents) == 1
+        events = fixture.db.crm_leads.documents[0]["_funnel_events"]
+        assert len(events) == 1 and events[0]["kind"] == "created"
+        assert events[0]["source_id"] == "source-a"
         call = fixture.db.telephony_calls.documents[0]
         assert call['source_id'] == 'source-a' and call['source_name'] == '2GIS'
         assert fixture.db.crm_leads.documents[0]['source_id'] == before[0]['source_id']
@@ -243,6 +246,29 @@ def test_existing_patient_call_does_not_rewrite_first_source(fixture):
         assert fixture.db.crm_leads.documents == before
         call = fixture.db.telephony_calls.documents[0]
         assert call['source_id'] == 'source-a' and call['patient_id'] == 'patient' and call['lead_id'] is None
+    run(scenario())
+
+
+def test_phone_adapter_independent_of_source_type_captures_channel_campaign_once(fixture):
+    async def scenario():
+        source = fixture.db.crm_sources.documents[1]
+        source['channels'] = [dict(id='called-site', name='Звонок на сайте', adapter='phone', active=True),
+                              dict(id='another', name='Другой номер', adapter='phone', active=True)]
+        source['campaigns'] = [dict(id='promotion', name='Кампания', active=True, channel_id=None, signals={})]
+        await fixture.service.create(DID, 'source-b', 'admin', 'called-site', 'promotion')
+        await webhook(fixture)
+        lead = deepcopy(fixture.db.crm_leads.documents[0])
+        call = fixture.db.telephony_calls.documents[0]
+        assert lead['source'] == 'website' and lead['source_id'] == 'source-b'
+        assert lead['channel_id'] == call['channel_id'] == 'called-site'
+        assert lead['campaign_id'] == call['campaign_id'] == 'promotion'
+        assert lead['_funnel_events'][0]['channel_id'] == 'called-site'
+        await fixture.service.update(DID, 'source-b', 'admin', 'another')
+        await webhook(fixture, 'NOTIFY_END')
+        assert fixture.db.crm_leads.documents[0]['channel_id'] == lead['channel_id']
+        assert fixture.db.telephony_calls.documents[0]['campaign_id'] == 'promotion'
+        source['channels'][1]['active'] = False
+        assert (await fixture.service.attribution(DID)).get('channel_id') is None
     run(scenario())
 
 
@@ -279,6 +305,9 @@ def test_concurrent_webhook_retries_reserve_one_call_and_one_lead(fixture):
         await fixture.service.create(DID, 'source-a', 'admin')
         await asyncio.gather(*(webhook(fixture) for _ in range(8)))
         assert len(fixture.db.telephony_calls.documents) == len(fixture.db.crm_leads.documents) == 1
+        events = fixture.db.crm_leads.documents[0]["_funnel_events"]
+        assert len(events) == 1 and events[0]["kind"] == "created"
+        assert events[0]["source_id"] == "source-a"
     run(scenario())
 
 

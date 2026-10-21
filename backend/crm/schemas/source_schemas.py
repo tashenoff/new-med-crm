@@ -4,11 +4,15 @@ from datetime import datetime
 from typing import Optional
 from pydantic import BaseModel, Field, validator
 from ..models.source import SourceType, SourceStatus
+from ..models.source_dimensions import SourceChannel, SourceCampaign, SourceTariff
 
 
 class SourceBase(BaseModel):
     """Базовая схема источника"""
     name: str = Field(..., min_length=1, max_length=100)
+    channels: list[SourceChannel] = Field(default_factory=list)
+    campaigns: list[SourceCampaign] = Field(default_factory=list)
+    tariff: Optional[SourceTariff] = None
     type: SourceType = Field(...)
     description: Optional[str] = Field(None, max_length=500)
     url: Optional[str] = Field(None, max_length=200)
@@ -24,6 +28,10 @@ class SourceCreate(SourceBase):
 class SourceUpdate(BaseModel):
     """Схема для обновления источника"""
     name: Optional[str] = Field(None, min_length=1, max_length=100)
+    channels: Optional[list[SourceChannel]] = None
+    campaigns: Optional[list[SourceCampaign]] = None
+    dimensions_revision: Optional[int] = Field(None, ge=0)
+    tariff: Optional[SourceTariff] = None
     type: Optional[SourceType] = Field(None)
     status: Optional[SourceStatus] = Field(None)
     description: Optional[str] = Field(None, max_length=500)
@@ -35,6 +43,10 @@ class SourceUpdate(BaseModel):
 class SourceResponse(BaseModel):
     """Схема ответа с данными источника"""
     id: str
+    channels: list[SourceChannel] = Field(default_factory=list)
+    campaigns: list[SourceCampaign] = Field(default_factory=list)
+    pricing_history: list[dict] = Field(default_factory=list)
+    dimensions_revision: int = 0
     name: str
     type: SourceType
     status: SourceStatus

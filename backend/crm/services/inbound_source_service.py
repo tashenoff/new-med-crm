@@ -7,6 +7,7 @@ from fastapi import HTTPException
 from pymongo.errors import DuplicateKeyError
 from .source_service import SourceService
 from ..models.lead import LeadSource
+from .source_attribution import configured_dimensions
 
 
 def active_source(source):
@@ -48,7 +49,17 @@ class InboundSourceService:
 
     async def list(self):
         mappings = await self.mappings.find({}).sort('_id', 1).to_list(length=None)
-        return [dict(phone_number=mapping['_id'], source_id=mapping['source_id']) for mapping in mappings]
+        return [dict(phone_number=mapping['_id'], source_id=mapping['source_id'],
+                     **{key: mapping[key] for key in ('channel_id', 'campaign_id') if mapping.get(key)}) for mapping in mappings]
+
+    async def dimensions(self, source_id, channel_id, campaign_id):
+        source = await self.checked_source(source_id)
+        dimensions = configured_dimensions(source, channel_id, campaign_id)
+        if dimensions['channel_id']:
+            channel = next(row for row in source['channels'] if row['id'] == dimensions['channel_id'])
+            if channel['adapter'] != 'phone':
+                raise HTTPException(422, 'Входящий номер требует телефонного адаптера канала')
+        return {key: value for key, value in dimensions.items() if key.endswith('_id') and value}
 
     async def checked_source(self, identifier):
         source = await self.sources.find_one({'id': identifier})
@@ -57,24 +68,24 @@ class InboundSourceService:
             raise HTTPException(422, 'Выберите существующий активный источник')
         return source
 
-    async def create(self, phone, source_id, actor):
+    async def create(self, phone, source_id, actor, channel_id=None, campaign_id=None):
         phone = international_number(phone)
-        await self.checked_source(source_id)
+        dimensions = await self.dimensions(source_id, channel_id, campaign_id)
         try:
-            await self.mappings.insert_one(dict(_id=phone, source_id=source_id,
+            await self.mappings.insert_one(dict(_id=phone, source_id=source_id, **dimensions,
                 created_at=datetime.utcnow(), updated_at=datetime.utcnow(), updated_by=actor))
         except DuplicateKeyError as error:
             raise HTTPException(409, 'Этот номер уже привязан к источнику') from error
-        return dict(phone_number=phone, source_id=source_id)
+        return dict(phone_number=phone, source_id=source_id, **dimensions)
 
-    async def update(self, phone, source_id, actor):
+    async def update(self, phone, source_id, actor, channel_id=None, campaign_id=None):
         phone = international_number(phone)
-        await self.checked_source(source_id)
+        dimensions = await self.dimensions(source_id, channel_id, campaign_id)
         result = await self.mappings.update_one({'_id': phone}, {'$set': dict(
-            source_id=source_id, updated_at=datetime.utcnow(), updated_by=actor)})
+            source_id=source_id, channel_id=dimensions.get('channel_id'), campaign_id=dimensions.get('campaign_id'), updated_at=datetime.utcnow(), updated_by=actor)})
         if not result.matched_count:
             raise HTTPException(404, 'Привязка номера не найдена')
-        return dict(phone_number=phone, source_id=source_id)
+        return dict(phone_number=phone, source_id=source_id, **dimensions)
 
     async def delete(self, phone):
         result = await self.mappings.delete_one({'_id': international_number(phone)})
@@ -93,4 +104,12 @@ class InboundSourceService:
             source = active_source(source)
             if source:
                 result.update(source_id=source['id'], source_name=source['name'], source_type=source['type'])
+                try:
+                    dimensions = configured_dimensions(source, mapping.get('channel_id'), mapping.get('campaign_id'))
+                    if dimensions['channel_id'] or dimensions['campaign_id']:
+                        result.update(dimensions)
+                except HTTPException:
+                    # Retired dimensions do not invent a replacement. Preserve the
+                    # valid source mapping, leave the unknown channel unassigned.
+                    pass
         return result

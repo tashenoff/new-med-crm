@@ -7,6 +7,7 @@ from datetime import datetime
 from typing import Optional
 from enum import Enum
 from pydantic import BaseModel, Field
+from .source_dimensions import SourceChannel, SourceCampaign
 
 
 class SourceType(str, Enum):
@@ -30,6 +31,10 @@ class SourceStatus(str, Enum):
 class Source(BaseModel):
     """Модель источника обращений"""
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    channels: list[SourceChannel] = Field(default_factory=list)
+    campaigns: list[SourceCampaign] = Field(default_factory=list)
+    pricing_history: list[dict] = Field(default_factory=list)
+    dimensions_revision: int = 0
     name: str = Field(..., min_length=1, max_length=100, description="Название источника")
     type: SourceType = Field(..., description="Тип источника")
     status: SourceStatus = Field(SourceStatus.ACTIVE, description="Статус источника")
@@ -70,7 +75,8 @@ class Source(BaseModel):
     def avg_monthly_leads(self) -> float:
         """Среднее количество заявок в месяц"""
         # Упрощенный расчет - можно улучшить с учетом реального времени работы
-        months_active = max(1, (datetime.utcnow() - self.created_at).days / 30)
+        now = datetime.now(self.created_at.tzinfo) if self.created_at.tzinfo else datetime.utcnow()
+        months_active = max(1, (now - self.created_at).days / 30)
         return self.leads_count / months_active if self.leads_count > 0 else 0.0
 
 

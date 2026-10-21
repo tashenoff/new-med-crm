@@ -1,4 +1,4 @@
-from typing import List
+from typing import List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Response
 from pydantic import BaseModel, ConfigDict, Field, StrictStr, field_validator
@@ -11,6 +11,8 @@ from ..services.inbound_source_service import InboundSourceService, internationa
 class MappingSource(BaseModel):
     model_config = ConfigDict(extra='forbid')
     source_id: StrictStr = Field(min_length=1, max_length=100)
+    channel_id: Optional[StrictStr] = Field(None, min_length=1, max_length=100)
+    campaign_id: Optional[StrictStr] = Field(None, min_length=1, max_length=100)
 
 
 class MappingCreate(MappingSource):
@@ -23,7 +25,7 @@ class MappingCreate(MappingSource):
 
 
 class MappingResponse(MappingCreate):
-    pass
+    model_config = ConfigDict(extra='forbid', json_schema_extra={})
 
 
 staff = require_role([role for role in UserRole if role != UserRole.PATIENT])
@@ -38,7 +40,7 @@ def checked_phone(phone):
         raise HTTPException(422, str(error)) from error
 
 
-@inbound_sources_router.get('', response_model=List[MappingResponse], dependencies=[Depends(staff)])
+@inbound_sources_router.get('', response_model=List[MappingResponse], response_model_exclude_none=True, dependencies=[Depends(staff)])
 async def list_mappings(db=Depends(get_database)):
     return await InboundSourceService(db).list()
 
@@ -52,16 +54,16 @@ async def validate_mapping(payload: MappingCreate, db=Depends(get_database)):
     return {'phone_number': payload.phone_number}
 
 
-@inbound_sources_router.post('', response_model=MappingResponse, status_code=201)
+@inbound_sources_router.post('', response_model=MappingResponse, response_model_exclude_none=True, status_code=201)
 async def create_mapping(payload: MappingCreate, user=Depends(manage), db=Depends(get_database)):
-    return await InboundSourceService(db).create(payload.phone_number, payload.source_id, user.id)
+    return await InboundSourceService(db).create(payload.phone_number, payload.source_id, user.id, payload.channel_id, payload.campaign_id)
 
 
-@inbound_sources_router.put('/{phone}', response_model=MappingResponse)
+@inbound_sources_router.put('/{phone}', response_model=MappingResponse, response_model_exclude_none=True)
 async def update_mapping(phone: str, payload: MappingSource, user=Depends(manage), db=Depends(get_database)):
     # The path has the same explicit international format requirement as POST.
     phone = checked_phone(phone)
-    return await InboundSourceService(db).update(phone, payload.source_id, user.id)
+    return await InboundSourceService(db).update(phone, payload.source_id, user.id, payload.channel_id, payload.campaign_id)
 
 
 @inbound_sources_router.delete('/{phone}', status_code=204)

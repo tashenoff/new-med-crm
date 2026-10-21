@@ -18,6 +18,9 @@ class LeadBase(BaseModel):
     iin: Optional[str] = Field(None, min_length=12, max_length=12, description="ИИН (индивидуальный идентификационный номер)")
     source: LeadSource = Field(..., description="Источник лида")
     source_id: Optional[str] = Field(None, description="ID источника из CRM")
+    channel_id: Optional[str] = Field(None, min_length=1, max_length=100)
+    campaign_id: Optional[str] = Field(None, min_length=1, max_length=100)
+    contact_point: Optional[str] = Field(None, max_length=200)
     priority: LeadPriority = Field(LeadPriority.MEDIUM, description="Приоритет")
     company: Optional[str] = Field(None, max_length=100, description="Компания")
     position: Optional[str] = Field(None, max_length=100, description="Должность")
@@ -57,6 +60,9 @@ class LeadUpdate(BaseModel):
     status: Optional[LeadStatus] = Field(None)
     source: Optional[LeadSource] = Field(None)
     source_id: Optional[str] = Field(None, description="ID источника из CRM")
+    channel_id: Optional[str] = Field(None, min_length=1, max_length=100)
+    campaign_id: Optional[str] = Field(None, min_length=1, max_length=100)
+    contact_point: Optional[str] = Field(None, max_length=200)
     priority: Optional[LeadPriority] = Field(None)
     assigned_manager_id: Optional[str] = Field(None)
     company: Optional[str] = Field(None, max_length=100)
@@ -94,6 +100,11 @@ class LeadResponse(BaseModel):
     status: LeadStatus
     source: LeadSource
     source_id: Optional[str]
+    channel_id: Optional[str] = None
+    channel_name: Optional[str] = None
+    campaign_id: Optional[str] = None
+    campaign_name: Optional[str] = None
+    contact_point: Optional[str] = None
     priority: LeadPriority
     assigned_manager_id: Optional[str]
     company: Optional[str]

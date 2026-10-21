@@ -37,6 +37,10 @@ class TelephonyCall(BaseModel):
     source_id: Optional[str] = None
     source_name: Optional[str] = None
     source_type: Optional[str] = None
+    channel_id: Optional[str] = None
+    channel_name: Optional[str] = None
+    campaign_id: Optional[str] = None
+    campaign_name: Optional[str] = None
     direction: CallDirection
     status: CallStatus
     disposition: Optional[Disposition] = None  # Статус завершения от АТС
