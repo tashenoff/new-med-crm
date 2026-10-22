@@ -23,6 +23,7 @@ import { historyStatusLabel } from '../../../utils/leadHistory';
 import { sourceLabel } from '../../../utils/crmSources';
 import { leadCardSource } from '../../../utils/leadCardSource';
 import LeadAttributionFields from './LeadAttributionFields';
+import { bookingAttribution } from '../../../utils/attribution';
 import { useKanbanColumns } from '../../../hooks/useKanbanColumns';
 import { cardColumnId, canMoveCard, manualColumn } from '../../../utils/kanbanColumns';
 import FirstTouchDateFilter from './FirstTouchDateFilter';
@@ -766,6 +767,8 @@ const EnhancedLeadsView = ({ user }) => {
         // Источник из лида - для основной формы записи
         source: lead.source,
         source_id: lead.source_id,
+        ...(lead.channel_id ? { channel_id: lead.channel_id, lead_channel_id: lead.channel_id } : {}),
+        ...(lead.campaign_id ? { campaign_id: lead.campaign_id, lead_campaign_id: lead.campaign_id } : {}),
         // Дополнительные данные для создания пациента если не найден
         lead_first_name: lead.first_name,
         lead_last_name: lead.last_name,
@@ -800,7 +803,7 @@ const EnhancedLeadsView = ({ user }) => {
               },
               body: JSON.stringify({
                 ...(appointmentData.patient_full_name ? { patient_full_name: appointmentData.patient_full_name } : {}),
-                source_id: appointmentData.source_id,
+                ...bookingAttribution(appointmentData),
                 doctor_id: appointmentData.doctor_id,
                 appointment_date: appointmentData.appointment_date,
                 appointment_time: appointmentData.appointment_time,

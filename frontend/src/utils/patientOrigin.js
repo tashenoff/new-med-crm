@@ -1,16 +1,12 @@
-const sourceLabels = {
-  website: 'Веб-сайт', phone: 'Телефон', referral: 'Направление', walk_in: 'Обращение',
-  social_media: 'Соц. сети', social: 'Соц. сети', advertising: 'Реклама', email: 'Email', other: 'Другое'
-};
-
 export const patientOriginLabel = (patient, sources = []) => {
   const origin = patient?.origin;
   if (!origin || !['crm_lead', 'crm_client'].includes(origin.kind)) return '';
   const label = origin.kind === 'crm_lead' ? 'Создан из заявки CRM' : 'Создан из клиента CRM';
   const sourceId = origin.source_id || patient.source_id;
-  const source = sources.find(item => item.id === sourceId)?.name
-    || (origin.channel === 'whatsapp' ? 'WhatsApp' : sourceLabels[origin.source || patient.source]);
-  return source ? `${label}. Источник: ${source}` : label;
+  const source = sources.find(item => item.id === sourceId)?.name || origin.source_name || patient.source_name;
+  if (sourceId) return `${label}. Источник: ${source || 'недоступен'}`;
+  // Proven contact transport is not a named marketing source.
+  return origin.channel === 'whatsapp' ? `${label}. Способ связи: WhatsApp` : label;
 };
 
 // The API marks an exact, linked legacy template match. Keep its raw notes in

@@ -39,9 +39,9 @@ test('only formats validated international identities; never truncates or guesse
 const generatedNote = 'Создан из заявки CRM. Обращение через WhatsApp: secret: snippet';
 const origin = { kind: 'crm_lead', entity_id: 'synthetic-lead', source: 'social', channel: 'whatsapp' };
 const noteCases = [
-  { name: 'new WhatsApp origin', notes: '', origin, label: 'Создан из заявки CRM. Источник: WhatsApp', visible: '' },
+  { name: 'new WhatsApp origin', notes: '', origin, label: 'Создан из заявки CRM. Способ связи: WhatsApp', visible: '' },
   { name: 'legacy proven WhatsApp note', notes: generatedNote,
-    origin: { ...origin, legacy_generated_note: true }, label: 'Создан из заявки CRM. Источник: WhatsApp', visible: '' },
+    origin: { ...origin, legacy_generated_note: true }, label: 'Создан из заявки CRM. Способ связи: WhatsApp', visible: '' },
   { name: 'source name with colons', notes: 'Врач: позвонить: завтра',
     origin: { kind: 'crm_lead', entity_id: 'synthetic-lead', source: 'phone', source_id: 'synthetic-source' },
     sources: [{ id: 'synthetic-source', name: 'Телефон: филиал: реклама' }],

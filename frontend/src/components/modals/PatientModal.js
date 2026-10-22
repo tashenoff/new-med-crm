@@ -18,6 +18,7 @@ import { useGlobalRefresh } from '../../hooks/useGlobalRefresh';
 import { usePhoneInput } from '../../hooks/usePhoneInput';
 import { formatPatientPhone } from '../../utils/patientPhone';
 import { patientOriginLabel, visiblePatientNotes } from '../../utils/patientOrigin';
+import LeadAttributionFields from '../crm/leads/LeadAttributionFields';
 
 const PatientModal = ({
   user,
@@ -1130,8 +1131,9 @@ const PatientModal = ({
             )}
 
             <div>
-              <label className="block text-sm text-curai-muted mb-1">Канал привлечения клиента</label>
+              <label className="block text-sm text-curai-muted mb-1">Первое привлечение — источник</label>
               <select
+                aria-label="Источник первого привлечения"
                 value={patientForm.source_id || ''}
                 onChange={(e) => {
                   const selectedValue = e.target.value;
@@ -1139,12 +1141,16 @@ const PatientModal = ({
                   if (selectedSource) {
                     safeSetPatientForm({
                       source_id: selectedValue,
+                      channel_id: null, campaign_id: null,
+                      attribution_notice: 'Источник первого привлечения изменён вручную. Уточните способ и кампанию.',
                       source: selectedSource.type
                     });
                   } else {
                     safeSetPatientForm({
                       source_id: selectedValue,
-                      source: ''
+                      channel_id: null, campaign_id: null,
+                      attribution_notice: 'Первое привлечение не указано.',
+                      source: 'other'
                     });
                   }
                 }}
@@ -1152,14 +1158,17 @@ const PatientModal = ({
                 disabled={loadingSources}
               >
                 <option value="">Выберите источник</option>
+                {patientForm.source_id && !sources.some(row => row.id === patientForm.source_id) && <option value={patientForm.source_id}>Источник недоступен (сохранённое значение)</option>}
                 {sources.map((source) => (
-                  <option key={source.id} value={source.id}>
-                    {source.name}
+                  <option key={source.id} value={source.id} disabled={Boolean(source.status && source.status !== 'active')}>
+                    {source.name}{source.status && source.status !== 'active' ? ' (отключён)' : ''}
                   </option>
                 ))}
               </select>
               {loadingSources && <span className="text-xs text-curai-muted ml-2">Загрузка...</span>}
             </div>
+            <p className="text-xs text-curai-muted">Первое привлечение пациента. Повторные записи его не меняют; здесь возможна ручная корректировка.</p>
+            <LeadAttributionFields value={patientForm} source={sources.find(row => row.id === patientForm.source_id)} includeContactPoint={false} inputClass={inputClasses} labelClass={labelClasses} onChange={safeSetPatientForm} />
 
             {patientOriginLabel(editingItem || patientForm, sources) && (
               <p className="text-sm text-curai-muted">{patientOriginLabel(editingItem || patientForm, sources)}</p>

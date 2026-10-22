@@ -3,6 +3,7 @@ import React, { useState, useEffect } from 'react';
 import PanelHeader from '../common/PanelHeader';
 import { formatPatientPhone } from '../../utils/patientPhone';
 import { patientOriginLabel, visiblePatientNotes } from '../../utils/patientOrigin';
+import { firstAcquisitionLabel } from '../../utils/attribution';
 
 const PatientsView = ({
   user,
@@ -245,7 +246,7 @@ const PatientsView = ({
                         Личные данные
                       </th>
                       <th className="px-6 py-3 text-left text-xs font-medium text-curai-muted uppercase tracking-wider">
-                        Источник
+                          Первое привлечение
                       </th>
                       <th className="px-6 py-3 text-left text-xs font-medium text-curai-muted uppercase tracking-wider">
                         Финансы
@@ -309,7 +310,7 @@ const PatientsView = ({
                             patient.source === 'crm_conversion' ? "bg-curai-positiveBg text-curai-positive" :
                             "bg-curai-subtle text-curai-ink"
                           }`}>
-                            {getSourceName(patient)}
+                            {firstAcquisitionLabel(patient, sources)}
                           </span>
                         </td>
                         <td className="px-6 py-4">

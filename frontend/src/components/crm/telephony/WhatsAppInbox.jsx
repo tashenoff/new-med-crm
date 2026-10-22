@@ -1,4 +1,5 @@
 import { permissionProps, canAction } from '../../../utils/permissions.js';
+import { bookingAttribution } from '../../../utils/attribution';
 import PatientTermsStatus from '../../patients/PatientTermsStatus';
 import WhatsAppConnectionBadge from './WhatsAppConnectionBadge';
 import PatientAppointments from './PatientAppointments';
@@ -350,6 +351,8 @@ const WhatsAppInbox = ({ isOpen, onClose, user }) => {
           deposit: 0,
           source: lead.source || '',
           source_id: lead.source_id || '',
+          ...(lead.channel_id ? { channel_id: lead.channel_id, lead_channel_id: lead.channel_id } : {}),
+          ...(lead.campaign_id ? { campaign_id: lead.campaign_id, lead_campaign_id: lead.campaign_id } : {}),
           lead_full_name: contactNameMeta(selected),
           lead_first_name: contactNameMeta(selected),
           lead_last_name: '',
@@ -372,7 +375,7 @@ const WhatsAppInbox = ({ isOpen, onClose, user }) => {
           try {
             const res = await apiClient.post(`/crm/leads/${selected.linked_lead_id}/schedule-appointment`, {
               ...(appointmentData.patient_full_name ? { patient_full_name: appointmentData.patient_full_name } : {}),
-              source_id: appointmentData.source_id,
+              ...bookingAttribution(appointmentData),
               doctor_id: appointmentData.doctor_id,
               appointment_date: appointmentData.appointment_date,
               appointment_time: appointmentData.appointment_time,
@@ -420,6 +423,8 @@ const WhatsAppInbox = ({ isOpen, onClose, user }) => {
         deposit_type: '',
         source: inquiry?.source || '',
         source_id: inquiry?.source_id || '',
+        ...(inquiry?.channel_id ? { channel_id: inquiry.channel_id, lead_channel_id: inquiry.channel_id } : {}),
+        ...(inquiry?.campaign_id ? { campaign_id: inquiry.campaign_id, lead_campaign_id: inquiry.campaign_id } : {}),
         ...(bookingChat.linked_lead_id ? { lead_source_id: inquiry?.source_id || '' } : {}),
         patient_name: contactNameMeta(selected),
         patient_phone: selected.patient_phone || selected.phone,

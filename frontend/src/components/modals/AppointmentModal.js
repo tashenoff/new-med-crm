@@ -4,6 +4,8 @@ import React, { useState, useEffect, useRef } from 'react';
 import { formatPhoneChange } from '../../hooks/phoneFormatter';
 import { appointmentPayment } from '../../utils/accountingLedger';
 import { useAppointmentSource } from '../../hooks/useAppointmentSource';
+import LeadAttributionFields from '../crm/leads/LeadAttributionFields';
+import { emptyAttribution } from '../../utils/attribution';
 import { sourceRequest } from '../../utils/crmSources';
 import SignatureCanvas from 'react-signature-canvas';
 import Modal from './Modal';
@@ -541,8 +543,9 @@ if (timeSchedule) {
 
   // Выбор пациента из результатов поиска
   const handlePatientSelect = (patient) => {
-    const next = { ...appointmentForm, patient_id: patient.id, source_id: '', source: '' };
+    const next = { ...appointmentForm, patient_id: patient.id, ...emptyAttribution() };
     delete next.lead_source_id; delete next.lead_source;
+    delete next.lead_channel_id; delete next.lead_campaign_id; delete next.attribution_notice;
     setAppointmentForm(next);
     setPatientSearch(patient.full_name);
     setShowPatientDropdown(false);
@@ -551,8 +554,9 @@ if (timeSchedule) {
 
   // Очистка выбора пациента
   const handleClearPatient = () => {
-    const next = { ...appointmentForm, patient_id: '', source_id: '', source: '' };
+    const next = { ...appointmentForm, patient_id: '', ...emptyAttribution() };
     delete next.lead_source_id; delete next.lead_source;
+    delete next.lead_channel_id; delete next.lead_campaign_id; delete next.attribution_notice;
     setAppointmentForm(next);
     setPatientSearch('');
     setShowPatientDropdown(false);
@@ -921,19 +925,17 @@ if (timeSchedule) {
 const handleCreateNewPatient = async (e) => {
     e.preventDefault();
 
-    // Источник выбирается один раз в форме записи; без него нельзя создать пациента.
-    if (!appointmentForm.source_id) {
-      setAppointmentSourceError('Выберите канал привлечения — это обязательное поле');
-      return;
-    }
+    // Unknown attribution stays unknown; never force a guessed source.
     setAppointmentSourceError('');
 
     try {
       const result = await onCreatePatient({
         ...newPatientForm,
         phone: formatPhoneChange(newPatientForm.phone || appointmentForm.lead_phone || ''),
-        source: appointmentForm.source,
-        source_id: appointmentForm.source_id
+        source: appointmentForm.source || 'other',
+        source_id: appointmentForm.source_id || null,
+        channel_id: appointmentForm.channel_id || null,
+        campaign_id: appointmentForm.campaign_id || null
       });
       
       // Поддерживаем оба формата ответа:
@@ -1038,12 +1040,7 @@ const handleCreateNewPatient = async (e) => {
       return;
     }
 
-    // Валидация: источник (канал привлечения) обязателен при создании записи
-    if (!editingItem && !appointmentForm.source_id) {
-      setAppointmentSourceError('Выберите канал привлечения — это обязательное поле');
-      setSubmitting(false);
-      return;
-    }
+    // Optional attribution is validated by source-owned saved IDs.
     setAppointmentSourceError('');
     // Если время окончания не указано — ставим 30 минут по умолчанию
     if (appointmentForm.appointment_time && !appointmentForm.end_time) {
@@ -1435,12 +1432,11 @@ const handleCreateNewPatient = async (e) => {
 {/* Выбор источника (канал привлечения) */}
           <div>
             <label className="block text-sm font-medium text-curai-ink mb-1">
-              Канал привлечения
-              {!editingItem && <span className="text-curai-negative">*</span>}
+              Источник обращения (если известен)
               {loadingSources && <span className="text-curai-muted ml-2 text-xs">Загрузка...</span>}
             </label>
             <select
-              aria-label="Канал привлечения"
+              aria-label="Источник обращения"
               value={appointmentForm.source_id || ''}
               onChange={(e) => {
                 markSourceManual();
@@ -1450,12 +1446,16 @@ const handleCreateNewPatient = async (e) => {
                   setAppointmentForm({ 
                     ...appointmentForm, 
                     source_id: selectedValue,
+                    channel_id: null, campaign_id: null,
+                    attribution_notice: 'Источник записи изменён. Уточните способ и кампанию; первое привлечение пациента не меняется.',
                     source: selectedSource.type 
                   });
                 } else {
                   setAppointmentForm({ 
                     ...appointmentForm, 
                     source_id: selectedValue,
+                    channel_id: null, campaign_id: null,
+                    attribution_notice: 'Источник записи не указан; первое привлечение пациента сохранено.',
                     source: '' 
                   });
                 }
@@ -1467,8 +1467,8 @@ const handleCreateNewPatient = async (e) => {
               <option value="">Выберите источник</option>
               {appointmentForm.source_id && !sources.some(source => source.id === appointmentForm.source_id) && <option value={appointmentForm.source_id}>Источник недоступен</option>}
               {sources.map((source) => (
-                <option key={source.id} value={source.id}>
-                  {source.name}
+                <option key={source.id} value={source.id} disabled={Boolean(source.status && source.status !== 'active')}>
+                  {source.name}{source.status && source.status !== 'active' ? ' (отключён)' : ''}
                 </option>
               ))}
             </select>
@@ -1476,6 +1476,7 @@ const handleCreateNewPatient = async (e) => {
               <p className="text-xs text-curai-negative mt-1">{appointmentSourceError}</p>
             )}
           </div>
+          <LeadAttributionFields value={appointmentForm} source={sources.find(row => row.id === appointmentForm.source_id)} includeContactPoint={false} inputClass="w-full border border-curai-control rounded-md px-3 py-2 text-sm" labelClass="block text-sm text-curai-ink" onChange={next => { markSourceManual(); setAppointmentForm(next); }} />
 
           <div className="space-y-4">
             <div className="grid grid-cols-2 gap-4">

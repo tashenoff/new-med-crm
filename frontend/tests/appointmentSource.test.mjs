@@ -24,6 +24,9 @@ const module = { exports: {} };
 new Function('require', 'module', 'exports', bundle.outputFiles[0].text)(createRequire(import.meta.url), module, module.exports);
 const Modal = module.exports.default;
 const catalog = [{ id: '2gis', name: '2GIS', type: 'phone' }, { id: 'web', name: 'Сайт', type: 'website' }];
+const dimensionsCatalog = catalog.map((source, index) => ({...source, status:'active',
+  channels:[{id:`method-${index}`,name:`Method ${index}`,adapter:index?'form':'phone',active:true},{id:`other-${index}`,name:`Other method ${index}`,adapter:'manual',active:true}],
+  campaigns:[{id:`campaign-${index}`,name:`Campaign ${index}`,active:true,channel_id:`method-${index}`}]}));
 const patient = (id, source_id) => ({ id, full_name: `Пациент ${id}`, phone: '', ...(source_id === undefined ? {} : { source_id }) });
 const deferred = () => { let resolve; const promise = new Promise(r => { resolve = r; }); return { promise, resolve }; };
 
@@ -64,7 +67,7 @@ async function mount(t, options = {}) {
   });
   const rerender = async () => act(async () => { render(); });
   await rerender();
-  const select = () => document.querySelector('[aria-label="Канал привлечения"]');
+  const select = () => document.querySelector('[aria-label="Источник обращения"]');
   const setControl = async (element, value) => act(async () => {
     Object.getOwnPropertyDescriptor(Object.getPrototypeOf(element), 'value').set.call(element, value);
     element.dispatchEvent(new dom.window.Event(element.tagName === 'SELECT' ? 'change' : 'input', { bubbles: true }));
@@ -146,4 +149,47 @@ test('manual empty choice is not refilled by a delayed patient source', async t 
 test('reopened saved appointment keeps its own source rather than the patient original source', async t => {
   const h = await mount(t, { editing: { id: 'saved-visit' }, form: { source_id: 'web', source: 'website' } });
   assert.equal(h.select().value, 'web'); await h.reopen(); assert.equal(h.select().value, 'web');
+});
+
+test('calendar copies confirmed first acquisition dimensions into this new appointment without changing patient',async t=>{
+  const saved={...patient('a','2gis'),channel_id:'method-0',campaign_id:'campaign-0'};
+  const before=structuredClone(saved);
+  const h=await mount(t,{sources:dimensionsCatalog,patients:[saved]});
+  assert.equal(document.querySelector('[aria-label="Способ обращения"]').value,'method-0');
+  assert.equal(document.querySelector('[aria-label="Кампания обращения"]').value,'campaign-0');
+  await h.submit();assert.equal(h.f.saved[0].channel_id,'method-0');assert.equal(h.f.saved[0].campaign_id,'campaign-0');
+  assert.deepEqual(saved,before);
+});
+
+for(const entry of ['CRM','WhatsApp'])test(`${entry} concrete inquiry dimensions win over first acquisition, with consistent manual reset`,async t=>{
+  const h=await mount(t,{sources:dimensionsCatalog,patients:[{...patient('a','2gis'),channel_id:'method-0',campaign_id:'campaign-0'}],
+    form:{...(entry==='CRM'?{source_id:'web',channel_id:'method-1',campaign_id:'campaign-1'}:{}),lead_source_id:'web',lead_channel_id:'method-1',lead_campaign_id:'campaign-1'}});
+  assert.equal(h.select().value,'web');assert.equal(h.f.form.channel_id,'method-1');
+  await h.setControl(h.select(),'2gis');assert.equal(h.f.form.channel_id,null);assert.equal(h.f.form.campaign_id,null);
+  await h.setControl(document.querySelector('[aria-label="Способ обращения"]'),'method-0');
+  await h.setControl(document.querySelector('[aria-label="Кампания обращения"]'),'campaign-0');
+  await h.rerender();await h.submit();assert.equal(h.f.saved[0].channel_id,'method-0');assert.equal(h.f.saved[0].campaign_id,'campaign-0');
+});
+
+test('late patient response never overwrites a manual method or source and patient switch clears stale dimensions',async t=>{
+  const gate=deferred();const h=await mount(t,{sources:dimensionsCatalog,patients:[patient('a'),{...patient('b','web'),channel_id:'method-1'}],patientData:{a:gate}});
+  await h.setControl(h.select(),'2gis');await h.setControl(document.querySelector('[aria-label="Способ обращения"]'),'other-0');
+  await h.settle(()=>gate.resolve({...patient('a','2gis'),channel_id:'method-0',campaign_id:'campaign-0'}));
+  assert.equal(h.f.form.channel_id,'other-0');assert.equal(h.f.form.campaign_id,null);
+  await h.switchPatient('b');assert.equal(h.f.form.channel_id,'method-1');assert.equal(h.f.form.campaign_id,null);
+});
+
+test('archived and foreign dimensions are not guessed for a new appointment; saved archived links remain visible on edit',async t=>{
+  const sources=structuredClone(dimensionsCatalog);sources[0].channels[0].active=false;
+  const h=await mount(t,{sources,patients:[{...patient('a','2gis'),channel_id:'method-0',campaign_id:'foreign'}]});
+  assert.equal(h.f.form.channel_id,undefined);assert.equal(h.f.form.campaign_id,undefined);
+  assert.match(document.body.textContent,/недоступ/);
+  await h.submit();assert.equal(h.f.saved[0].source_id,'2gis');
+});
+
+test('reopen preserves appointment-specific archived method/campaign and unknown source remains optional',async t=>{
+  const h=await mount(t,{sources:dimensionsCatalog,editing:{id:'saved'},form:{source_id:'deleted',channel_id:'retired',campaign_id:'retired-campaign'}});
+  assert.equal(document.querySelector('[aria-label="Способ обращения"]').value,'retired');
+  assert.equal(document.querySelector('[aria-label="Кампания обращения"]').value,'retired-campaign');
+  await h.reopen();assert.equal(h.f.form.channel_id,'retired');
 });

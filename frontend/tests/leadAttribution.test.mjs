@@ -31,3 +31,10 @@ test('current catalog names replace renamed labels, and only exact generated pro
   const manual=leadCardSource({source_id:'marketing',description:'Пользователь упомянул Zadarma-звонок'},[source]);
   assert.equal(manual.attribution,null);assert.equal(manual.description,'Пользователь упомянул Zadarma-звонок');
 });
+
+test('an untagged WhatsApp contact is a known transport and an unknown marketing source',()=>{
+  const lead={source:'social',source_id:null,created_by:'wazzup_webhook',description:'Обращение через WhatsApp: message'};
+  const result=leadCardSource(lead,[]);
+  assert.match(result.attribution,/источник не указан/);assert.match(result.attribution,/Способ связи: WhatsApp/);
+  assert.ok(!result.attribution.includes('через «WhatsApp»'));assert.equal(result.description,lead.description);
+});
