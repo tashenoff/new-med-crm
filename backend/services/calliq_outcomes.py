@@ -197,8 +197,10 @@ def interpret_statistics(
                 if real_extension(row.get("sip"))
                 and (
                     row.get("disposition") == "no answer"
-                    or (row.get("disposition") == "call failed"
-                        and real_extension(row.get("sip")) in known)
+                    or (
+                        row.get("disposition") == "call failed"
+                        and real_extension(row.get("sip")) in known
+                    )
                 )
             }
             unique = next(iter(recipients)) if len(recipients) == 1 else None
@@ -222,7 +224,11 @@ def interpret_statistics(
                 provider_target={
                     "channel": target,
                     "channel_role": "target" if target else "unknown",
-                    "channel_state": "resolved" if target else "ambiguous" if len(recipients) > 1 else "unknown",
+                    "channel_state": (
+                        "resolved"
+                        if target
+                        else "ambiguous" if len(recipients) > 1 else "unknown"
+                    ),
                     "channels": sorted(recipients),
                 },
             )

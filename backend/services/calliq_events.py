@@ -205,11 +205,17 @@ def snapshot(document, project_id):
     target = document.get("provider_target")
     if document.get("provider_outcome") == "missed" and target:
         if target.get("channel_state") == "ambiguous":
-            state.update(channel=None, channel_role="unknown", channel_state="ambiguous")
+            state.update(
+                channel=None, channel_role="unknown", channel_state="ambiguous"
+            )
         elif state["channel_state"] == "unknown" and target.get("channel"):
-            state.update({k: target[k] for k in ("channel", "channel_role", "channel_state")})
+            state.update(
+                {k: target[k] for k in ("channel", "channel_role", "channel_state")}
+            )
         elif state["channel"] and target.get("channel") not in (None, state["channel"]):
-            state.update(channel=None, channel_role="unknown", channel_state="ambiguous")
+            state.update(
+                channel=None, channel_role="unknown", channel_state="ambiguous"
+            )
     return {
         "project_id": int(project_id),
         "external_source": "medcrm_zadarma",
