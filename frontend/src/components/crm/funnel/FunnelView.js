@@ -3,10 +3,11 @@ import PanelHeader from '../../common/PanelHeader';
 import FunnelSettings from './FunnelSettings';
 import FunnelRules from './FunnelRules';
 import FunnelReportBody from './FunnelReportBody';
+import '../crmReports.css';
 import { stagePreferenceKey, funnelRequest, initialPeriod, readReportPreference, reportPeriod } from '../../../utils/eventFunnel';
 
-const control = 'min-w-0 rounded-md border border-curai-control bg-curai-surface px-3 py-2 text-sm';
-const action = 'rounded-md border border-curai-control px-3 py-2 text-sm';
+const control = 'curai-crm-control';
+const action = 'curai-button curai-button-ghost';
 export default function FunnelView({ user }) {
   const batch = useMemo(() => new URLSearchParams(window.location.search).get('funnel_batch') || '', []);
   const scope = stagePreferenceKey(user);
@@ -85,41 +86,41 @@ export default function FunnelView({ user }) {
     setPanel(null);
   };
   const panelStages = mode === 'history' && panel === 'visibility' ? steps.map(id => ({ id, name: label(id) })) : stageOptions;
-  return <div className="space-y-6">
-    <div className="calendar-container calendar-view-panel rounded-md"><PanelHeader title="Воронка продаж" subtitle={mode === 'history' ? 'Прохождение выбранных шагов одной когортой обращений' : 'Распределение обращений по текущим этапам'} /></div>
-    <div className="px-4 sm:px-6 space-y-5 min-w-0">
-      {batch && <p role="status" className="rounded-md border border-curai-warning bg-curai-warningBg p-3 text-sm break-words">Тестовый набор: {batch}. Это синтетические данные, не реальные показатели клиники.</p>}
-      <div className="flex flex-wrap gap-2" role="group" aria-label="Тип отчёта">
-        {[['history', 'Прохождение'], ['snapshot', 'Текущий снимок']].map(([value, name]) => <button key={value} type="button" aria-pressed={mode === value} className={`${action} ${mode === value ? 'bg-curai-selected text-curai-blue' : ''}`} onClick={() => setMode(value)}>{name}</button>)}
+  return <div className="curai-crm-page">
+    <PanelHeader title="Воронка продаж" subtitle={mode === 'history' ? 'Прохождение выбранных шагов одной когортой обращений' : 'Распределение обращений по текущим этапам'} />
+    {batch && <p role="status" className="rounded-md border border-curai-warning bg-curai-warningBg p-3 text-sm break-words">Тестовый набор: {batch}. Это синтетические данные, не реальные показатели клиники.</p>}
+    <div className="curai-crm-tabs-row">
+      <div className="curai-patient-tabs" role="tablist" aria-label="Представление отчёта">
+        {[['stages', 'По этапам'], ['sources', 'Сравнение источников']].map(([value, name]) => <button key={value} type="button" role="tab" aria-selected={view === value} onClick={() => setView(value)}>{name}</button>)}
       </div>
-      <div className="flex flex-wrap gap-2" role="group" aria-label="Представление отчёта">
-        {[['stages', 'По этапам'], ['sources', 'Сравнение источников']].map(([value, name]) => <button key={value} type="button" aria-pressed={view === value} className={`${action} ${view === value ? 'bg-curai-selected text-curai-blue' : ''}`} onClick={() => setView(value)}>{name}</button>)}
-      </div>
-      <div className="grid gap-3 sm:flex sm:flex-wrap sm:items-end">
-        <fieldset className="min-w-0"><legend className="mb-2 text-sm">{mode === 'history' ? 'Первый вход в первый шаг' : 'Дата создания обращения'}</legend>
-          <div className="grid grid-cols-2 gap-2"><label className="min-w-0 text-xs">С<input className={`${control} mt-1 w-full`} type="date" aria-label="Начало периода" value={period.from} onChange={event => setPeriod({ ...period, from: event.target.value })} /></label>
-            <label className="min-w-0 text-xs">По<input className={`${control} mt-1 w-full`} type="date" aria-label="Конец периода" value={period.to} onChange={event => setPeriod({ ...period, to: event.target.value })} /></label></div>
-        </fieldset>
-        {mode === 'history' && <label className="min-w-0 text-sm">Окно конверсии, дней<input type="number" min="1" max="365" aria-label="Окно конверсии, дней" className={`${control} mt-1 block w-full sm:w-28`} value={windowDays} onChange={event => setWindowDays(event.target.value)} /></label>}
-        {view === 'stages' ? <label className="min-w-0 text-sm">Источник<select id="funnel-source" aria-label="Источник" className={`${control} mt-1 block w-full sm:max-w-xs`} value={source} onChange={event => setSource(event.target.value)}><option value="all">Все источники</option>{sourceOptions.map(item => <option key={item.key} value={item.key}>{item.name}</option>)}</select></label>
-          : <button type="button" className={action} onClick={() => setPanel('sources')}>Источники ({selectedSourceKeys.length})</button>}
-      </div>
-      <div className="flex flex-wrap gap-2">
+      <div className="curai-crm-actions">
         {mode === 'history' && <button type="button" className={action} onClick={() => setPanel('steps')}>Шаги воронки ({steps.length})</button>}
         <button type="button" className={action} onClick={() => setPanel('visibility')}>Отображение этапов</button>
         {mode === 'history' && <button type="button" className={action} onClick={() => setPanel('rules')}>Как считается</button>}
-        <button type="button" className={action} onClick={reload}>Обновить</button>
       </div>
-      {mode === 'history' ? <div className="space-y-1 text-sm text-curai-muted">
-        {steps.length > 0 && <p className="break-words">Путь: {steps.map(label).join(' → ')}.</p>}
-        <p>Когорта — первый наблюдаемый вход в начало пути. Окно: {windowDays} суток. Источник на момент входа.</p>
-        {view === 'sources' && <p>Сравниваются только выбранные источники с одинаковыми периодом, шагами и окном. Фильтр режима «По этапам» здесь не применяется.</p>}
-      </div> : <p className="text-sm text-curai-muted">Это текущие состояния обращений, не история прохождения. Проценты — доля от всех обращений выбранного периода создания. Разные обращения одного пациента считаются отдельно.</p>}
+    </div>
+    <div className="curai-crm-toolbar">
+      <div className="curai-crm-mode"><span>Данные</span><div className="curai-selection-tabs" role="group" aria-label="Тип отчёта">
+        {[['history', 'Прохождение'], ['snapshot', 'Текущий снимок']].map(([value, name]) => <button key={value} type="button" aria-pressed={mode === value} onClick={() => setMode(value)}>{name}</button>)}
+      </div></div>
+      <fieldset className="curai-crm-period"><legend>{mode === 'history' ? 'Первый вход в первый шаг' : 'Дата создания обращения'}</legend>
+        <div><label>С<input className={control} type="date" aria-label="Начало периода" value={period.from} onChange={event => setPeriod({ ...period, from: event.target.value })} /></label>
+          <label>По<input className={control} type="date" aria-label="Конец периода" value={period.to} onChange={event => setPeriod({ ...period, to: event.target.value })} /></label></div>
+      </fieldset>
+      {mode === 'history' && <label className="curai-crm-field curai-crm-window"><span>Окно, дней</span><input type="number" min="1" max="365" aria-label="Окно конверсии, дней" className={control} value={windowDays} onChange={event => setWindowDays(event.target.value)} /></label>}
+      {view === 'stages' ? <label className="curai-crm-field curai-crm-field-source"><span>Источник</span><select id="funnel-source" aria-label="Источник" className={control} value={source} onChange={event => setSource(event.target.value)}><option value="all">Все источники</option>{sourceOptions.map(item => <option key={item.key} value={item.key}>{item.name}</option>)}</select></label>
+        : <div className="curai-crm-field"><span>Выбор для сравнения</span><button type="button" className="curai-button curai-button-secondary" onClick={() => setPanel('sources')}>Источники ({selectedSourceKeys.length})</button></div>}
+      <button type="button" className={action} onClick={reload}>Обновить</button>
+    </div>
+    {mode === 'history' ? <div className="curai-crm-caption">
+      {steps.length > 0 && <p className="break-words">Путь: {steps.map(label).join(' → ')}.</p>}
+      <p>Первый наблюдаемый вход · окно {windowDays} суток · источник на момент входа.</p>
+      {view === 'sources' && <p>Выбранные источники сравниваются по одному периоду, пути и окну. Фильтр «По этапам» здесь не применяется.</p>}
+    </div> : <details className="curai-crm-caption"><summary>Как читать текущий снимок</summary><p>Это текущие состояния обращений, не история прохождения. Проценты — доля от всех обращений выбранного периода создания. Разные обращения одного пациента считаются отдельно.</p></details>}
       {(error || query?.error) && <div role="alert" className="text-curai-negative">{error || query.error} <button className="underline" onClick={reload}>Повторить</button></div>}
       {mode === 'history' && steps.length < 2 && <p role="status">Выберите хотя бы два шага кнопкой «Шаги воронки». Готового пути по умолчанию нет.</p>}
       {!report && !error && !query?.error && (mode !== 'history' || steps.length >= 2) && <p role="status">Загрузка отчёта…</p>}
       {report && <FunnelReportBody report={report} mode={mode} view={view} hidden={hidden} />}
-    </div>
     {panel === 'rules' && <FunnelRules windowDays={windowDays} onClose={() => setPanel(null)} />}
     {panel && panel !== 'rules' && <FunnelSettings key={panel} panel={panel} stages={panelStages} sources={sourceOptions} initial={panel === 'steps' ? [...steps] : panel === 'sources' ? [...selectedSourceKeys] : [...hidden]} onClose={() => setPanel(null)} onDone={completePanel} />}
   </div>;

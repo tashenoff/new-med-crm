@@ -16,7 +16,7 @@ delete globalThis.document;
 bootstrap.window.close();
 const compiled = await build({
   entryPoints: [fileURLToPath(new URL('../src/components/crm/contacts/SourceEditor.jsx', import.meta.url))],
-  bundle: true, write: false, platform: 'node', format: 'cjs', external: ['react', 'react-dom'],
+  bundle: true, write: false, platform: 'node', format: 'cjs', external: ['react', 'react-dom'], loader: { '.css': 'empty' },
   define: { 'import.meta.env': '{"VITE_BACKEND_URL":"http://localhost:4318"}' }
 });
 const module = { exports: {} };

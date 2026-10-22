@@ -1,3 +1,4 @@
+import '../crmReports.css';
 import React, { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { sourceRequest } from '../../../utils/crmSources';
@@ -107,12 +108,12 @@ export default function SourceEditor({ source, onClose, onSaved, canManageNumber
 
   return createPortal(<div data-source-overlay className="modal-wrapper curai-surface-root !pointer-events-auto bg-black/50" onClick={() => !busy && onClose()}>
     <form role="dialog" aria-modal="true" aria-labelledby="source-editor-title" onSubmit={save}
-      onClick={event => event.stopPropagation()} className="bg-curai-surface rounded-md p-6 w-full max-w-md max-h-[90vh] overflow-y-auto">
-      <div className="flex items-center justify-between mb-4">
+      onClick={event => event.stopPropagation()} className="curai-crm-source-dialog bg-curai-surface rounded-md w-full max-w-md max-h-[90vh]">
+      <div className="curai-crm-source-header">
         <h2 id="source-editor-title" className="text-xl font-semibold text-curai-ink">{savedSource ? 'Редактировать источник' : 'Новый источник'}</h2>
         <button type="button" aria-label="Закрыть форму источника" disabled={busy} onClick={onClose}>×</button>
       </div>
-      <fieldset disabled={busy} className="space-y-4">
+      <div className="curai-crm-source-body"><fieldset disabled={busy} className="space-y-4">
         {field('name', 'Название *')}
         <details><summary className="cursor-pointer text-sm text-curai-blue">Дополнительные настройки источника</summary><label className="block mt-3 text-sm text-curai-ink">Тип (прежняя категория)
           <select className={`${control} mt-1`} value={form.type} onChange={event => setForm(current => ({ ...current, type: event.target.value }))}>
@@ -154,9 +155,9 @@ export default function SourceEditor({ source, onClose, onSaved, canManageNumber
       </fieldset>
       {showExpenses && savedSource?.id && <SourceExpenses source={savedSource} campaigns={campaigns.filter(row => row.persisted)} canEdit={canEdit} />}
       {error && <p role="alert" className="mt-4 text-sm text-curai-negative">{error}</p>}
-      <div className="flex justify-end gap-3 mt-6">
-        <button type="button" disabled={busy} onClick={onClose} className="px-4 py-2 border border-curai-control rounded-md">Отмена</button>
-        <button type="submit" disabled={!canEdit || busy || loading || !form.name.trim()} className="px-4 py-2 bg-curai-blue text-white rounded-md disabled:opacity-50">
+      </div><div className="curai-crm-modal-actions">
+        <button type="button" disabled={busy} onClick={onClose} className="curai-button curai-button-secondary">Отмена</button>
+        <button type="submit" disabled={!canEdit || busy || loading || !form.name.trim()} className="curai-button curai-button-primary disabled:opacity-50">
           {busy ? 'Сохранение…' : savedSource ? 'Сохранить' : 'Создать'}
         </button>
       </div>

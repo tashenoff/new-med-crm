@@ -1,9 +1,10 @@
 import React from 'react';
 import Modal from '../../modals/Modal';
+import '../crmReports.css';
 
 export default function FunnelRules({ windowDays, onClose }) {
-  return <Modal show onClose={onClose} title="Как считается прохождение" size="max-w-xl" footer={<button type="button" className="rounded-md border border-curai-control px-3 py-2 text-sm" onClick={onClose}>Закрыть</button>}>
-    <div className="p-4 space-y-3 text-sm text-curai-ink">
+  return <Modal show onClose={onClose} title="Как считается прохождение" size="max-w-xl" className="curai-crm-dialog" footer={<div className="curai-crm-modal-actions"><button type="button" className="curai-button curai-button-secondary" onClick={onClose}>Закрыть</button></div>}>
+    <div className="space-y-3 text-sm text-curai-ink">
       <p>Каждое обращение считается один раз, даже если у одного пациента их несколько.</p>
       <p>Когорта определяется первым наблюдаемым входом в первый выбранный шаг за указанный период. Повторный вход не создаёт новую когорту.</p>
       <p>Невыбранные этапы можно пропускать. Выбранные засчитываются только по порядку. Возврат не сбрасывает прогресс, повтор не увеличивает число обращений. Если следующий выбранный шаг был пройден раньше предыдущего, нужен повторный вход в него после предыдущего.</p>

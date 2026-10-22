@@ -11,7 +11,7 @@ globalThis.window = bootstrap.window; globalThis.document = bootstrap.window.doc
 const { createRoot } = await import('react-dom/client');
 delete globalThis.window; delete globalThis.document; bootstrap.window.close();
 const compiled = await build({ entryPoints: [fileURLToPath(new URL('../src/components/crm/funnel/FunnelView.js', import.meta.url))],
- bundle: true, write: false, platform: 'node', format: 'cjs', external: ['react', 'react-dom'], loader: { '.js': 'jsx' },
+ bundle: true, write: false, platform: 'node', format: 'cjs', external: ['react', 'react-dom'], loader: { '.js': 'jsx', '.css': 'empty' },
  define: { 'import.meta.env': '{"VITE_BACKEND_URL":"https://fixture.invalid"}' } });
 const loaded={exports:{}};new Function('require','module','exports',compiled.outputFiles[0].text)(createRequire(import.meta.url),loaded,loaded.exports);
 const View=loaded.exports.default;
@@ -55,7 +55,7 @@ async function mount(t, options={}) {
 test('current snapshot uses runtime canonical columns/order and renders a true zero-width bar',async t=>{
  const h=await mount(t);assert.deepEqual(h.rows().map(row=>row.dataset.funnelStage),h.f.columns.map(c=>c.id));
  assert.equal(document.querySelector('[data-funnel-stage="optional-q"] [data-stage-bar]').style.width,'0%');
- assert.match(document.body.textContent,/не история прохождения/);assert.equal(document.querySelectorAll('details').length,0);
+ assert.match(document.body.textContent,/не история прохождения/);assert.equal(document.querySelector('details.curai-crm-caption')?.open,false);
 });
 test('history has no hardcoded path; explicit arbitrary IDs determine sequence and window',async t=>{
  const h=await mount(t);await h.click(h.button('Прохождение'));assert.match(document.body.textContent,/Выберите хотя бы два шага/);

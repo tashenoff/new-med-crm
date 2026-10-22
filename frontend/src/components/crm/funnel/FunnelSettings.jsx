@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import Modal from '../../modals/Modal';
+import '../crmReports.css';
 
-const action = 'rounded-md border border-curai-control px-3 py-2 text-sm';
+const action = 'curai-button curai-button-secondary';
 export default function FunnelSettings({ panel, stages, sources, initial, onClose, onDone }) {
   const [draft, setDraft] = useState(initial);
   const toggle = id => setDraft(value => value.includes(id) ? value.filter(item => item !== id) : [...value, id]);
@@ -11,8 +12,8 @@ export default function FunnelSettings({ panel, stages, sources, initial, onClos
     [next[index], next[other]] = [next[other], next[index]];
     setDraft(next);
   };
-  return <Modal show onClose={onClose} title={panel === 'steps' ? 'Последовательность прохождения' : panel === 'sources' ? 'Источники для сравнения' : 'Видимость строк отчёта'} size="max-w-xl" footer={<div className="flex justify-end gap-2"><button type="button" className={action} onClick={onClose}>Закрыть</button><button type="button" className={`${action} bg-curai-selected`} disabled={panel === 'steps' && (draft.length < 2 || draft.length > 30)} onClick={() => onDone(draft)}>Готово</button></div>}>
-    <div className="space-y-4 p-4">
+  return <Modal show onClose={onClose} title={panel === 'steps' ? 'Последовательность прохождения' : panel === 'sources' ? 'Источники для сравнения' : 'Видимость строк отчёта'} size="max-w-xl" className="curai-crm-dialog" footer={<div className="curai-crm-modal-actions"><button type="button" className={action} onClick={onClose}>Закрыть</button><button type="button" className="curai-button curai-button-primary" disabled={panel === 'steps' && (draft.length < 2 || draft.length > 30)} onClick={() => onDone(draft)}>Готово</button></div>}>
+    <div className="space-y-4">
       {panel === 'steps' ? <>
         <p className="text-sm text-curai-muted">Это определение пути, оно меняет расчёт. Выберите от двух до тридцати шагов и задайте порядок. Каждый этап участвует только при явном выборе.</p>
         <ol className="space-y-2">{draft.map((id, index) => <li key={id} className="flex items-start gap-2 text-sm"><span className="flex-1 min-w-0 break-words">{index + 1}. {label(id)}</span><button type="button" className={action} aria-label={`Поднять ${label(id)}`} disabled={index === 0} onClick={() => reorder(index, -1)}>↑</button><button type="button" className={action} aria-label={`Опустить ${label(id)}`} disabled={index === draft.length - 1} onClick={() => reorder(index, 1)}>↓</button></li>)}</ol>

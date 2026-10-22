@@ -1,13 +1,15 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useId } from 'react';
 import Modal from '../../modals/Modal';
+import '../crmReports.css';
 import { sourceRequest } from '../../../utils/crmSources';
 import { canAction } from '../../../utils/permissions';
 
 const control = 'w-full rounded-md border border-curai-control bg-curai-surface px-3 py-2 text-sm';
-const action = 'rounded-md border border-curai-control px-3 py-2 text-sm disabled:opacity-50';
+const action = 'curai-button curai-button-secondary disabled:opacity-50';
 const adapters = { manual: 'Ручной выбор', phone: 'Телефон', form: 'Форма', whatsapp: 'WhatsApp', email: 'Email', social: 'Соц. сеть' };
 const signals = { form_id: 'ID формы', utm_source: 'UTM source', utm_medium: 'UTM medium', utm_campaign: 'UTM campaign', referral: 'Referral / метка ссылки', ad_id: 'ID объявления' };
 export default function SourceDimensionManager({ kind, sources, user, onSaved }) {
+  const formId = useId();
   const [filter, setFilter] = useState('all');
   const [search, setSearch] = useState('');
   const [editor, setEditor] = useState(null);
@@ -58,15 +60,15 @@ export default function SourceDimensionManager({ kind, sources, user, onSaved })
   };
   const selectedSource = editor && sources.find(source => source.id === editor.source_id);
   return <section className="space-y-4" aria-label={isChannel ? 'Список способов обращения' : 'Список кампаний'}>
-    <div className="flex flex-wrap items-end gap-3"><label className="text-sm min-w-0">Источник<select aria-label="Фильтр источника справочника" className={control} value={filter} onChange={e => setFilter(e.target.value)}><option value="all">Все источники</option>{sources.map(source => <option key={source.id} value={source.id}>{source.name}</option>)}</select></label><label className="text-sm min-w-0">{isChannel ? 'Поиск' : 'Название или метка'}<input className={control} value={search} onChange={e => setSearch(e.target.value)} /></label><button type="button" className={action} disabled={!canEdit || !sources.length} onClick={() => open()}>{isChannel ? 'Добавить способ' : 'Добавить кампанию'}</button></div>
+    <div className="curai-crm-toolbar"><label className="curai-crm-field curai-crm-field-source">Источник<select aria-label="Фильтр источника справочника" className={control} value={filter} onChange={e => setFilter(e.target.value)}><option value="all">Все источники</option>{sources.map(source => <option key={source.id} value={source.id}>{source.name}</option>)}</select></label><label className="curai-crm-field curai-crm-field-search">{isChannel ? 'Поиск' : 'Название или метка'}<input className={control} value={search} onChange={e => setSearch(e.target.value)} /></label><button type="button" className="curai-button curai-button-primary" disabled={!canEdit || !sources.length} onClick={() => open()}>{isChannel ? 'Добавить способ' : 'Добавить кампанию'}</button></div>
     {!visible.length && <p>Записей пока нет. Добавление не требует открытия карточки источника.</p>}
-    <div className="grid gap-3 lg:grid-cols-2">{visible.map(row => {
+    {visible.length > 0 && <div className="curai-crm-table-wrap"><table className="curai-crm-table"><thead><tr><th scope="col">{isChannel ? 'Способ обращения' : 'Кампания'}</th><th scope="col">Источник</th><th scope="col">{isChannel ? 'Тип канала' : 'Период и метки'}</th><th scope="col">Состояние</th><th scope="col">Действия</th></tr></thead><tbody>{visible.map(row => {
       const status = statuses.find(item => item.source_id === row.source_id && item.id === row.id && item.dimension === kind);
-      return <article key={JSON.stringify([row.source_id, row.id])} className="rounded-md border border-curai-border p-4 bg-curai-surface min-w-0 space-y-2"><h3 className="font-medium break-words">{row.name}</h3><p className="text-sm break-words">{row.source_name}{isChannel && ` · ${adapters[row.adapter] || 'Неизвестный адаптер'}`}</p><p className="text-xs text-curai-muted">{row.active && row.source_status === 'active' ? 'Активен' : 'Отключён'} · {status?.status || 'Состояние детектора не получено'}</p>{Boolean(status?.conflicts?.length) && <p role="status" className="text-xs text-curai-negative">Конфликтующих правил: {status.conflicts.length}. Совпадение не выбирается наугад.</p>}{!isChannel && <p className="text-xs text-curai-muted break-words">Период: {row.start_date || 'не задан'} — {row.end_date || 'не задан'} · {(row.tags || []).join(', ')}</p>}<button type="button" className={action} disabled={!canEdit} onClick={() => open(row)}>Редактировать</button></article>;
-    })}</div>
+      return <tr key={JSON.stringify([row.source_id, row.id])}><td><h3>{row.name}</h3></td><td data-label="Источник">{row.source_name}</td><td data-label={isChannel ? 'Тип канала' : 'Период'}>{isChannel ? adapters[row.adapter] || 'Неизвестный адаптер' : <span>{row.start_date || 'Не задан'} — {row.end_date || 'Не задан'}<small>{(row.tags || []).join(', ')}</small></span>}</td><td data-label="Состояние"><div><span className={`curai-crm-status ${row.active && row.source_status === 'active' ? 'is-active' : ''}`}>{row.active && row.source_status === 'active' ? 'Активен' : 'Отключён'}</span><small>{status?.status || 'Состояние детектора не получено'}</small>{Boolean(status?.conflicts?.length) && <p role="status" className="text-xs text-curai-negative">Конфликтующих правил: {status.conflicts.length}. Атрибуция не выбирается наугад.</p>}</div></td><td><button type="button" className="curai-button curai-button-ghost" disabled={!canEdit} onClick={() => open(row)}>Редактировать</button></td></tr>;
+    })}</tbody></table></div>}
     {error && !editor && <p role="alert" className="text-curai-negative">{error}</p>}
-    {editor && <Modal show title={isChannel ? 'Способ обращения' : 'Кампания'} size="max-w-lg" onClose={() => !busy && setEditor(null)}>
-      <form onSubmit={save} className="p-4 space-y-4"><fieldset disabled={busy} className="space-y-3">
+    {editor && <Modal show title={isChannel ? 'Способ обращения' : 'Кампания'} size="max-w-lg" className="curai-crm-dialog" footer={<div className="curai-crm-modal-actions"><button type="button" disabled={busy} className={action} onClick={() => setEditor(null)}>Отмена</button><button type="submit" form={formId} disabled={busy || !canEdit} className="curai-button curai-button-primary">Сохранить</button></div>} onClose={() => !busy && setEditor(null)}>
+      <form id={formId} onSubmit={save} className="space-y-4"><fieldset disabled={busy} className="space-y-3">
         <label className="block text-sm">Источник<select required aria-label="Источник записи справочника" className={control} disabled={editor.persisted} value={editor.source_id} onChange={e => patch({ source_id: e.target.value, channel_id: null })}><option value="">Выберите источник</option>{sources.filter(source => source.status === 'active' || source.id === editor.source_id).map(source => <option key={source.id} value={source.id}>{source.name}</option>)}</select></label>
         <label className="block text-sm">Название<input required className={control} maxLength={100} value={editor.name} onChange={e => patch({ name: e.target.value })} /></label>
         {isChannel ? <><label className="block text-sm">Тип адаптера<select className={control} value={editor.adapter} disabled={editor.persisted} onChange={e => patch({ adapter: e.target.value })}>{Object.entries(adapters).map(([id, label]) => <option key={id} value={id}>{label}</option>)}</select></label><p className="text-xs text-curai-muted">Название не подключает интеграцию. Для нового адаптера создаётся новый способ; сохранённый ID не меняет смысл.</p>
@@ -78,7 +80,7 @@ export default function SourceDimensionManager({ kind, sources, user, onSaved })
         </>}
         <details><summary className="cursor-pointer text-sm text-curai-blue">Правила сопоставления (необязательно)</summary><p className="text-xs text-curai-muted mt-2">Все признаки должны точно совпасть. Без поддержанного входящего адаптера эти правила не выполняются автоматически. Общий WhatsApp без метки остаётся без угаданного источника.</p><div className="mt-2 space-y-2">{Object.entries(signals).map(([key, label]) => <label key={key} className="block text-xs">{label}<input className={control} value={editor.signals[key] || ''} maxLength={key === 'referral' ? 500 : 200} onChange={e => patch({ signals: { ...editor.signals, [key]: e.target.value || null } })} /></label>)}</div></details>
         <label className="flex gap-2 text-sm"><input type="checkbox" checked={editor.active} onChange={e => patch({ active: e.target.checked })} />Активен</label><p className="text-xs text-curai-muted">Отключение сохраняет историю. Кампания не является обязательным шагом или подтипом способа связи.</p>
-      </fieldset>{error && <p role="alert" className="text-sm text-curai-negative">{error}</p>}<div className="flex justify-end gap-2"><button type="button" disabled={busy} className={action} onClick={() => setEditor(null)}>Закрыть</button><button type="submit" disabled={busy || !canEdit} className={action}>Сохранить</button></div></form>
+      </fieldset>{error && <p role="alert" className="text-sm text-curai-negative">{error}</p>}</form>
     </Modal>}
   </section>;
 }
