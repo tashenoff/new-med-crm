@@ -12,6 +12,7 @@ class CallDirection(str, Enum):
 
 class CallStatus(str, Enum):
     PENDING = "pending"
+    REVIEW_REQUIRED = "review_required"
     MISSED = "missed"
     ANSWERED = "answered"
     REJECTED = "rejected"

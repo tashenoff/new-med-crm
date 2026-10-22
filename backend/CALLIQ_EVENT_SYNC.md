@@ -37,22 +37,87 @@ It does not document a final whole-call negative flag or a completeness/finality
 guarantee after transfers and parallel ringing. Repeated negative pages cannot
 prove that another answered leg will not arrive later.
 
-The implementation confirms only `answered`: exact external ID plus an answered
-row tied to an observed answering extension or an exact known recording ID.
-Unrelated IDs, unrelated legs, empty results, busy/no-answer rows and failed or
-incomplete pagination stay unknown/pending. Confirmed answers cannot be downgraded
-by a later webhook or incomplete statistics snapshot. Negative outcomes in the
-receiver schema are reserved for a future established whole-call contract; this
-producer never emits confirmed negative outcomes.
+Provider-confirmed `answered` requires the exact external ID plus an answered
+row on a configured/staff/observed real internal extension or an exact known
+recording on a nonzero numeric extension. `sip=0` is never treated as a human
+answer or a whole-call result. An unattributed answer blocks a negative decision.
+Answered remains sticky; negative attempts cannot overwrite it.
 
-The worker runs every 10 minutes, only for records explicitly queued by newly
-observed events. Initial eligibility is 90 seconds after an event, not a promise
-of provider finality. A batch shares daily paginated results by the provider's
-original `call_start` wall-clock date. Missing/conflicting dates do not trigger
-phone/time guessing. At most 20 pages, 50 queued documents per pass and six
-reconciliation attempts; backoff is bounded from 10 to 60 minutes. Failed
-metadata delivery is persisted and bounded to six attempts. Exhaustion retains
-unknown and an error marker for review; no automatic historical scan/backfill.
+An anonymized real sample C001 contains two answered rows (including sip=0) and
+four failed attempts. C005 contains two no-answer rows and four failed attempts;
+the user independently confirmed C005 was missed. The committed fixtures replace
+IDs and internal numbers and contain no customer phone/time/credentials. These
+samples support a practical local policy, not universal finality for every route.
+
+### Proposed derived policy: approval still pending
+
+`CALLIQ_DERIVED_MISSED_ENABLED=false` by default, independently of the main worker
+flag. No agreement or deployment enablement is implied by these local tests.
+The proposed `inbound_settled_v1` decision requires all of:
+
+1. Known inbound direction, a terminal NOTIFY_END, exact permanent pbx_call_id.
+2. Successful complete pagination, all matching rows acquired in the window.
+   The window uses original provider wall-clock dates through the following day
+   for midnight-crossing legs; no UTC offset is invented.
+3. Real target extension established by explicit ZADARMA_SIP_INTERNAL or staff
+   configuration; no default extension 100. Targets must occur in the rows.
+4. A provider no-answer row on a real target; every matching row is no-answer or
+   call-failed with seconds=0 and an explicitly false recording flag. Unknown,
+   busy/cancel, contradictory/missing fields, recordings or observed real ANSWER
+   evidence block automatic missed. This policy does not label outbound calls
+   missed and does not settle unfamiliar routing shapes automatically.
+5. A quiet period after the last unique event and two identical complete row
+   snapshots at least the configured stability interval apart.
+
+Evidence is `state=derived, scope=pbx_group`, with policy name, actual elapsed
+times, configured thresholds and completeness/terminal markers. It is not
+`confirmed/whole_call`: the provider supplied leg results; the application applied
+the documented policy. CallIQ validates this distinction and exposes outcome_basis.
+The UI says “Пропущен · расчёт по статистике” and warns it can be refined.
+
+### Timing, bounds and explicit review
+
+All waits are operational assumptions, not a Zadarma SLA. Public defaults:
+
+| Environment variable | Default | Accepted range |
+| --- | ---: | --- |
+| CALLIQ_EVENT_SYNC_ENABLED | false | true/false |
+| CALLIQ_DERIVED_MISSED_ENABLED | false | true/false; separate approval required |
+| CALLIQ_MISSED_QUIET_SECONDS | 900 | 900–7200 |
+| CALLIQ_MISSED_STABLE_SECONDS | 600 | 600–3600 |
+| CALLIQ_RECONCILE_INTERVAL_SECONDS | 600 | 600–3600 |
+| CALLIQ_RECONCILE_INITIAL_DELAY_SECONDS | 90 | 0–3600 |
+| CALLIQ_REVIEW_AFTER_SECONDS | 14400 | at least quiet+stable+interval; up to 86400 |
+| CALLIQ_MISSED_FOLLOWUP_SECONDS | 3600 | 600–86400 |
+
+With defaults and a healthy API/worker/queue, the first scan occurs 1.5–11.5
+minutes after the terminal activity. Fixed 10-minute scans while waiting for the
+quiet/stability conditions produce the derived result in roughly 15–25 minutes.
+Tests exercise five scheduler phases including threshold boundaries. This is a
+local scheduling estimate, not an end-to-end guarantee: API delay, queue load,
+failures, new activity and downtime extend it. A larger configured wait changes
+the estimate; no generic “15 minutes” promise is made.
+
+Expected quiet/stability waits do not consume the six-error/unresolved-result
+budget. Other unresolved successful responses use 10-to-60-minute backoff;
+request failures retry on the configured interval. Six unresolved/error attempts
+or the review deadline stop automatic reconciliation and export review_required
+(“Нужна проверка”), distinct from pending (“Статус уточняется”). An eligible
+negative pattern with derived disabled also ends in review, never missed.
+
+A derived miss schedules one extra check an hour later (configurable). A later
+real answered row upgrades it. Any new unique webhook reopens derived/review
+decisions, resets stability and queues a fresh check; duplicate replays do not.
+No universal protection against all provider updates after that follow-up is
+claimed. Unfamiliar routes need review or further controlled validation.
+
+The worker processes only explicitly queued new events (50 documents/pass),
+shares successful/failed window+direction requests within a batch and caps scans
+at 20 pages; hitting the cap is incomplete, never evidence for missed. Metadata
+delivery is persisted with six attempts per snapshot; exhausted delivery leaves
+an explicit CRM sync error for operator recovery. A disconnected CallIQ cannot
+receive a new review label until transport recovers/retry is requested. No
+historical scan, automatic backfill or audio retranscription is performed.
 
 Draft question to Zadarma support (not sent):
 
@@ -101,15 +166,17 @@ Playwright path supplied the browser instead, without installing software.
 4. Deploy CRM with `CALLIQ_EVENT_SYNC_ENABLED=false`. Its backend writes pending
    outcomes, so every consuming CRM view must tolerate/display pending. Verify
    the existing configured project explicitly; do not select an arbitrary project.
-5. Only after separate deployment authorization and staging checks, enable the
-   flag for new events. Observe delivery/reconciliation markers and bounded retry
+5. Only after separate deployment authorization and staging checks, enable
+   CALLIQ_EVENT_SYNC_ENABLED for new events. Keep CALLIQ_DERIVED_MISSED_ENABLED
+   false until the user separately accepts the proposed derived policy. Observe delivery/reconciliation markers and bounded retry
    exhaustion. Enabling starts reconciliation API requests; none were run here.
 6. To stop the new export/worker, set the flag false. Legacy audio export remains.
    Full code rollback requires coordinated UI/backend review because new no-audio
    rows may exist. No old calls are automatically reprocessed or backfilled.
 
-This rollout enables infrastructure and line attribution. It does not declare
-the final missed classification complete while the provider contract is unresolved.
+This rollout enables infrastructure and line attribution. The optional derived
+policy is locally tested but remains unapproved and disabled; broader routing
+semantics and actual provider publication delay remain limitations.
 
 ## Recording flag audit
 

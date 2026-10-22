@@ -324,3 +324,90 @@ async def test_negative_foreign_and_wrong_leg_statistics_do_not_claim_finality(b
         )
         await events.reconcile_document(bridge.db, document, provider, bridge.exporter)
     assert (await calls(bridge))[0]["call_outcome"] == "unknown"
+
+
+@pytest.mark.asyncio
+async def test_derived_contract_reaches_calliq_without_invented_audio_then_corrects(
+    bridge, monkeypatch
+):
+    import json
+    from datetime import timedelta
+    from services.calliq_outcomes import StatisticsSnapshot
+
+    monkeypatch.setenv("CALLIQ_DERIVED_MISSED_ENABLED", "true")
+    monkeypatch.setenv("ZADARMA_SIP_INTERNAL", "100")
+    shape = json.loads(Path(__file__).with_name("provider_shapes.json").read_text())[
+        "calls"
+    ]["C005"]["rows"]
+    for row in shape:
+        row["pbx_call_id"] = "synthetic-pbx"
+        if row["sip"] == "201":
+            row["sip"] = "100"
+    await bridge.send("NOTIFY_START")
+    await bridge.send("NOTIFY_END", internal="100", disposition="no answer")
+    doc = await bridge.db.telephony_calls.find_one({"pbx_call_id": "synthetic-pbx"})
+    start = doc["calliq_last_event_at"]
+    for minutes in (20, 30):
+        await events.reconcile_document(
+            bridge.db,
+            doc,
+            NS(),
+            bridge.exporter,
+            start + timedelta(minutes=minutes),
+            StatisticsSnapshot(shape, direction="inbound", complete=True),
+        )
+        doc = await bridge.db.telephony_calls.find_one({"pbx_call_id": "synthetic-pbx"})
+    item = (await calls(bridge))[0]
+    assert (
+        item["call_outcome"] == "missed"
+        and item["outcome_basis"] == "derived"
+        and not item["has_audio"]
+    )
+    detail = (
+        await bridge.iq.get("/calls/" + str(item["id"]), headers=bridge.headers)
+    ).json()
+    assert detail["call_metadata"]["evidence"]["state"] == "derived"
+    assert (
+        detail["transcript"] is None
+        and detail["analysis"] is None
+        and not bridge.transcriptions
+    )
+    shape[1].update(disposition="answered", seconds=25, is_recorded="1")
+    await events.reconcile_document(
+        bridge.db,
+        doc,
+        NS(),
+        bridge.exporter,
+        start + timedelta(minutes=90),
+        StatisticsSnapshot(shape, direction="inbound", complete=True),
+    )
+    item = (await calls(bridge))[0]
+    assert (
+        item["call_outcome"] == "answered"
+        and item["outcome_basis"] == "provider"
+        and not item["has_audio"]
+    )
+
+
+@pytest.mark.asyncio
+async def test_retry_exhaustion_reaches_calliq_as_explicit_review(bridge):
+    from services.calliq_outcomes import StatisticsSnapshot
+
+    await bridge.send("NOTIFY_START")
+    await bridge.send("NOTIFY_END", internal="100", disposition="no answer")
+    await bridge.db.telephony_calls.update_one(
+        {"pbx_call_id": "synthetic-pbx"}, {"$set": {"calliq_reconcile_attempts": 5}}
+    )
+    doc = await bridge.db.telephony_calls.find_one({"pbx_call_id": "synthetic-pbx"})
+    await events.reconcile_document(
+        bridge.db,
+        doc,
+        NS(),
+        bridge.exporter,
+        rows=StatisticsSnapshot([], direction="inbound", complete=True),
+    )
+    item = (await calls(bridge))[0]
+    assert item["call_outcome"] == "review_required" and not item["has_audio"]
+    assert not (
+        await bridge.db.telephony_calls.find_one({"pbx_call_id": "synthetic-pbx"})
+    )["calliq_reconcile_pending"]

@@ -9,6 +9,15 @@ import logging
 import os
 import weakref
 
+from services.calliq_outcomes import (
+    interpret_statistics,
+    StatisticsSnapshot,
+    statistics_signature,
+    real_extension,
+)
+
+from services.calliq_policy import policy_settings
+
 logger = logging.getLogger(__name__)
 EVENTS = {
     "NOTIFY_START",
@@ -116,53 +125,71 @@ async def observe_event(db, params):
     if parsed is None:
         return None
     external, event = parsed
-    document = await db.telephony_calls.find_one({"pbx_call_id": external})
-    if document is None:
-        return None  # Do not create CRM identity/cards from a metadata helper.
-    key = {"_id": document["_id"]}
-    prior = document.get("calliq_events", [])
-    if any(e.get("id") == event["id"] for e in prior):
-        return document
-    if len(prior) >= 200:
-        await db.telephony_calls.update_one(
-            key, {"$set": {"calliq_sync_error": "event_limit_requires_review"}}
-        )
-        return document
-    # MongoDB's set operation deduplicates delivery, while an atomic revision orders snapshots.
-    await db.telephony_calls.update_one(
-        key,
-        {
-            "$addToSet": {"calliq_events": event},
-            "$inc": {"calliq_revision": 1},
-            "$set": {
-                "calliq_delivery_pending": True,
-                "calliq_reconcile_pending": True,
-                "calliq_reconcile_attempts": 0,
-                "calliq_delivery_attempts": 0,
-                "calliq_reconcile_after": datetime.utcnow() + timedelta(seconds=90),
-            },
-        },
-    )
+    settings = policy_settings()
     for _ in range(5):
-        current = await db.telephony_calls.find_one(key)
-        events = current.get("calliq_events", [])
-        if len(events) > 200:
+        document = await db.telephony_calls.find_one({"pbx_call_id": external})
+        if document is None:
+            return None
+        key = {"_id": document["_id"]}
+        prior = document.get("calliq_events", [])
+        if any(item.get("id") == event["id"] for item in prior):
+            return document
+        if len(prior) >= 200:
             await db.telephony_calls.update_one(
                 key, {"$set": {"calliq_sync_error": "event_limit_requires_review"}}
             )
-            return current
-        state = summarize_events(events)
-        state["call_outcome"] = current.get("provider_outcome", "unknown")
-        state["status"] = current.get("provider_status", "pending")
-        state["disposition"] = current.get("provider_disposition")
+            return document
+        now = datetime.utcnow()
+        state = summarize_events(prior + [event])
+        outcome = document.get("provider_outcome", "unknown")
+        if outcome in ("missed", "review_required"):
+            outcome = "unknown"
+            state.update(
+                provider_outcome="unknown",
+                provider_status="pending",
+                provider_disposition=None,
+                provider_evidence={
+                    "state": "pending",
+                    "source": "pending",
+                    "scope": "unknown",
+                    "reason": "late_activity_requires_reconciliation",
+                },
+            )
+        state.update(
+            call_outcome=outcome,
+            status="answered" if outcome == "answered" else "pending",
+            disposition=(
+                document.get("provider_disposition") if outcome == "answered" else None
+            ),
+            calliq_delivery_pending=True,
+            calliq_last_event_at=now,
+            calliq_reconcile_pending=True,
+            calliq_reconcile_attempts=0,
+            calliq_delivery_attempts=0,
+            calliq_reconcile_after=now
+            + timedelta(seconds=settings.initial_delay_seconds),
+        )
+        version = document.get("calliq_revision")
+        condition = {
+            **key,
+            "calliq_revision": version if version is not None else {"$exists": False},
+        }
         result = await db.telephony_calls.update_one(
-            {**key, "calliq_revision": current["calliq_revision"]}, {"$set": state}
+            condition,
+            {
+                "$set": state,
+                "$addToSet": {"calliq_events": event},
+                "$inc": {"calliq_revision": 1},
+                "$unset": {
+                    "calliq_statistics_signature": "",
+                    "calliq_statistics_seen_at": "",
+                    "calliq_missed_followup_scheduled": "",
+                },
+            },
         )
         if result.matched_count:
             return await db.telephony_calls.find_one(key)
-    raise RuntimeError(
-        "Concurrent call metadata update; persisted events retained for reconciliation"
-    )
+    raise RuntimeError("Concurrent metadata update; sender may retry")
 
 
 def snapshot(document, project_id):
@@ -235,56 +262,22 @@ def schedule_delivery(db, key, client):
     task.add_done_callback(_tasks.discard)
 
 
-def interpret_statistics(external_id, rows, checked_at, events=()):
-    matched = [
-        r for r in rows if isinstance(r, dict) and r.get("pbx_call_id") == external_id
-    ]
-    ids = sorted({str(r["call_id"]) for r in matched if r.get("call_id") is not None})
-    channels = {
-        e.get("channel")
-        for e in events
-        if e.get("channel") and e.get("event") == "NOTIFY_ANSWER"
+def statistics_window(document):
+    values = {
+        event.get("provider_start")
+        for event in document.get("calliq_events", [])
+        if event.get("provider_start")
     }
-    recordings = {e.get("recording_id") for e in events if e.get("recording_id")}
-    answered = [
-        r
-        for r in matched
-        if r.get("disposition") == "answered"
-        and r.get("call_id") is not None
-        and (extension(r.get("sip")) in channels or str(r["call_id"]) in recordings)
-    ]
-    # A provider-confirmed answered leg proves an answer. Negative legs never prove a final whole-call miss.
-    if answered:
-        return {
-            "provider_outcome": "answered",
-            "provider_status": "answered",
-            "provider_disposition": "answered",
-            "provider_evidence": {
-                "state": "confirmed",
-                "source": "zadarma_statistics",
-                "scope": "leg",
-                "checked_at": checked_at,
-                "provider_call_ids": [str(r["call_id"]) for r in answered],
-                "reason": "answered_leg_in_provider_statistics",
-            },
-        }
-    return {
-        "provider_outcome": "unknown",
-        "provider_status": "pending",
-        "provider_disposition": None,
-        "provider_evidence": {
-            "state": "partial" if matched else "pending",
-            "source": "zadarma_statistics",
-            "scope": "leg" if matched else "unknown",
-            "checked_at": checked_at,
-            "provider_call_ids": ids,
-            "reason": (
-                "whole_call_finality_not_documented"
-                if matched
-                else "not_yet_in_statistics"
-            ),
-        },
-    }
+    if not values:
+        raise RuntimeError("Provider call_start missing")
+    starts = [datetime.strptime(value, "%Y-%m-%d %H:%M:%S") for value in values]
+    if max(starts) - min(starts) > timedelta(days=2):
+        raise RuntimeError("Conflicting provider dates")
+    # Keep the original provider wall clock. Include the following day for midnight-crossing legs.
+    return (
+        min(starts).strftime("%Y-%m-%d 00:00:00"),
+        (max(starts) + timedelta(days=1)).strftime("%Y-%m-%d 23:59:59"),
+    )
 
 
 async def statistics_pages(service, start, end, direction):
@@ -296,67 +289,146 @@ async def statistics_pages(service, start, end, direction):
             skip=skip,
             call_type={"inbound": "in", "outbound": "out"}.get(direction),
         )
-        if response.get("status") != "success" or not isinstance(
-            response.get("stats"), list
+        if (
+            not isinstance(response, dict)
+            or response.get("status") != "success"
+            or not isinstance(response.get("stats"), list)
         ):
             raise RuntimeError("Invalid provider statistics response")
         page = response["stats"]
         rows.extend(page)
         if len(page) < 1000:
-            return rows
+            return StatisticsSnapshot(rows, direction=direction, complete=True)
     raise RuntimeError(
         "Statistics pagination incomplete; no final outcome may be inferred"
     )
 
 
-async def reconcile_document(db, document, service, client, now=None, rows=None):
-    now = now or datetime.utcnow()
-    starts = {
-        e.get("provider_start")
-        for e in document.get("calliq_events", [])
-        if e.get("provider_start")
+async def known_extensions(db):
+    rows = (
+        await db.staff.find({"extension": {"$exists": True}})
+        .limit(2000)
+        .to_list(length=2000)
+    )
+    values = {real_extension(row.get("extension")) for row in rows}
+    # Only an explicitly configured extension, never TelephonyService's default 100.
+    values.add(real_extension(os.getenv("ZADARMA_SIP_INTERNAL")))
+    return values - {None}
+
+
+def naive_utc(value):
+    return (
+        value.astimezone(timezone.utc).replace(tzinfo=None)
+        if isinstance(value, datetime) and value.tzinfo
+        else value
+    )
+
+
+def age_seconds(document, now):
+    value = naive_utc(document.get("calliq_last_event_at"))
+    return max(0, (now - value).total_seconds()) if isinstance(value, datetime) else 0
+
+
+def review_state(reason, now, evidence=None):
+    evidence = dict(
+        evidence
+        or {
+            "state": "pending",
+            "source": "pending",
+            "scope": "unknown",
+            "provider_call_ids": [],
+        }
+    )
+    evidence.update(
+        reason=("review_required: " + reason)[:255],
+        checked_at=now.replace(tzinfo=timezone.utc).isoformat(),
+    )
+    return {
+        "provider_outcome": "review_required",
+        "provider_status": "review_required",
+        "provider_disposition": None,
+        "provider_evidence": evidence,
     }
-    if len(starts) != 1:
-        raise RuntimeError(
-            "Provider call_start missing or conflicting; no phone/time guessing"
-        )
-    # The provider's original wall-clock value is used, not silently relabelled UTC.
-    start = datetime.strptime(next(iter(starts)), "%Y-%m-%d %H:%M:%S")
+
+
+async def reconcile_document(db, document, service, client, now=None, rows=None):
+    now = naive_utc(now or datetime.utcnow())
+    settings = policy_settings()
+    direction = summarize_events(document.get("calliq_events", []))["direction"]
+    if direction == "unknown":
+        direction = document.get("direction", "unknown")
     if rows is None:
-        rows = await statistics_pages(
-            service,
-            (start - timedelta(minutes=1)).strftime("%Y-%m-%d %H:%M:%S"),
-            (start + timedelta(days=1)).strftime("%Y-%m-%d %H:%M:%S"),
-            document.get("direction", "unknown"),
-        )
+        start, end = statistics_window(document)
+        rows = await statistics_pages(service, start, end, direction)
+    signature = statistics_signature(document["pbx_call_id"], rows)
+    seen = naive_utc(document.get("calliq_statistics_seen_at"))
+    same = document.get("calliq_statistics_signature") == signature and isinstance(
+        seen, datetime
+    )
+    stable = max(0, (now - seen).total_seconds()) if same else 0
     state = interpret_statistics(
         document["pbx_call_id"],
         rows,
         now.replace(tzinfo=timezone.utc).isoformat(),
         document.get("calliq_events", []),
+        known_extensions=await known_extensions(db),
+        direction=direction,
+        complete=getattr(rows, "complete", False)
+        and getattr(rows, "direction", None) == direction,
+        quiet_seconds=age_seconds(document, now),
+        stable_seconds=stable,
+        allow_derived=settings.derived_enabled,
+        quiet_required_seconds=settings.quiet_seconds,
+        stable_required_seconds=settings.stable_seconds,
     )
-    # Never allow a later incomplete snapshot to erase a confirmed provider answer.
     if document.get("provider_outcome") == "answered":
         state = {
-            k: document[k]
-            for k in [
+            key: document[key]
+            for key in (
                 "provider_outcome",
                 "provider_status",
                 "provider_disposition",
                 "provider_evidence",
-            ]
+            )
         }
-    attempts = document.get("calliq_reconcile_attempts", 0) + 1
+    reason = state["provider_evidence"].get("reason", "")
+    waiting = reason in (
+        "awaiting_configured_quiet_period",
+        "awaiting_second_complete_snapshot",
+    ) and isinstance(document.get("calliq_last_event_at"), datetime)
+    attempts = document.get("calliq_reconcile_attempts", 0) + (0 if waiting else 1)
+    if state["provider_outcome"] == "unknown" and (
+        attempts >= settings.max_attempts
+        or age_seconds(document, now) >= settings.review_after_seconds
+        or document.get("provider_outcome") == "missed"
+        or reason == "derived_policy_not_enabled"
+    ):
+        state = review_state(
+            state["provider_evidence"]["reason"], now, state["provider_evidence"]
+        )
+    pending = state["provider_outcome"] == "unknown"
+    delay = (
+        settings.interval_seconds
+        if waiting
+        else min(3600, settings.interval_seconds * 2 ** max(0, min(attempts - 1, 3)))
+    )
+    followup = document.get("calliq_missed_followup_scheduled", False)
+    if state["provider_outcome"] == "missed" and not followup:
+        pending = True
+        delay = settings.followup_seconds
+        followup = True
     state.update(
         status=state["provider_status"],
         call_outcome=state["provider_outcome"],
         disposition=state["provider_disposition"],
         calliq_delivery_pending=True,
+        calliq_delivery_attempts=0,
         calliq_reconcile_attempts=attempts,
-        calliq_reconcile_pending=state["provider_outcome"] == "unknown"
-        and attempts < 6,
-        calliq_reconcile_after=now
-        + timedelta(seconds=min(3600, 600 * 2 ** min(attempts - 1, 3))),
+        calliq_reconcile_pending=pending,
+        calliq_reconcile_after=now + timedelta(seconds=delay),
+        calliq_statistics_signature=signature,
+        calliq_statistics_seen_at=seen if same else now,
+        calliq_missed_followup_scheduled=followup,
     )
     result = await db.telephony_calls.update_one(
         {"_id": document["_id"], "calliq_revision": document["calliq_revision"]},
@@ -367,8 +439,8 @@ async def reconcile_document(db, document, service, client, now=None, rows=None)
 
 
 async def reconcile_pending(db, service, client):
+    settings = policy_settings()
     now = datetime.utcnow()
-    # Only explicitly queued new events; never an automatic historical backfill.
     documents = (
         await db.telephony_calls.find(
             {"calliq_reconcile_pending": True, "calliq_reconcile_after": {"$lte": now}}
@@ -379,45 +451,54 @@ async def reconcile_pending(db, service, client):
     pages_cache = {}
     for document in documents:
         try:
-            starts = {
-                e.get("provider_start")
-                for e in document.get("calliq_events", [])
-                if e.get("provider_start")
-            }
-            if len(starts) != 1:
-                raise RuntimeError("Provider call_start not established")
-            date = (
-                datetime.strptime(next(iter(starts)), "%Y-%m-%d %H:%M:%S")
-                .date()
-                .isoformat()
-            )
-            if date not in pages_cache:
+            start, end = statistics_window(document)
+            direction = summarize_events(document.get("calliq_events", []))["direction"]
+            if direction == "unknown":
+                direction = document.get("direction", "unknown")
+            key = (start, end, direction)
+            if key not in pages_cache:
                 try:
-                    pages_cache[date] = await statistics_pages(
-                        service, date + " 00:00:00", date + " 23:59:59", "unknown"
+                    pages_cache[key] = await statistics_pages(
+                        service, start, end, direction
                     )
                 except Exception as error:
-                    pages_cache[date] = error
-            if isinstance(pages_cache[date], Exception):
+                    pages_cache[key] = error
+            if isinstance(pages_cache[key], Exception):
                 raise RuntimeError("Shared statistics request deferred")
             await reconcile_document(
-                db, document, service, client, now, pages_cache[date]
+                db, document, service, client, now, pages_cache[key]
             )
         except Exception:
             attempts = document.get("calliq_reconcile_attempts", 0) + 1
+            exhausted = (
+                attempts >= settings.max_attempts
+                or age_seconds(document, now) >= settings.review_after_seconds
+                or document.get("provider_outcome") == "missed"
+            )
+            state = {
+                "calliq_sync_error": "statistics_reconciliation_deferred",
+                "calliq_reconcile_attempts": attempts,
+                "calliq_reconcile_pending": not exhausted,
+                "calliq_reconcile_after": now
+                + timedelta(seconds=settings.interval_seconds),
+            }
+            update = {"$set": state}
+            if exhausted and document.get("provider_outcome") != "answered":
+                state.update(
+                    review_state("statistics_unavailable_or_incomplete", now),
+                    status="review_required",
+                    call_outcome="review_required",
+                    disposition=None,
+                    calliq_delivery_pending=True,
+                    calliq_delivery_attempts=0,
+                )
+                update["$inc"] = {"calliq_revision": 1}
             await db.telephony_calls.update_one(
                 {
                     "_id": document["_id"],
                     "calliq_revision": document["calliq_revision"],
                 },
-                {
-                    "$set": {
-                        "calliq_sync_error": "statistics_reconciliation_deferred",
-                        "calliq_reconcile_attempts": attempts,
-                        "calliq_reconcile_pending": attempts < 6,
-                        "calliq_reconcile_after": now + timedelta(minutes=10),
-                    }
-                },
+                update,
             )
     deliveries = (
         await db.telephony_calls.find({"calliq_delivery_pending": True})
@@ -430,13 +511,17 @@ async def reconcile_pending(db, service, client):
 
 @asynccontextmanager
 async def reconciliation_lifespan(db, service, client):
+    settings = policy_settings()
+
     async def worker():
         while True:
             try:
                 await reconcile_pending(db, service, client)
             except Exception:
                 logger.warning("CallIQ reconciliation deferred (details suppressed)")
-            await asyncio.sleep(600)  # Provider explicitly discourages minute polling.
+            await asyncio.sleep(
+                settings.interval_seconds
+            )  # Provider explicitly discourages minute polling.
 
     task = (
         asyncio.create_task(worker())
