@@ -154,6 +154,10 @@ class SourceService:
         if leads_count > 0:
             raise ValueError(f"Невозможно удалить источник: найдено {leads_count} заявок с этим источником")
 
+        for name in ('patients', 'appointments', 'crm_funnel_events'):
+            if await getattr(self.db, name).count_documents({'source_id': source_id}):
+                raise ValueError('Источник связан с историей пациента, записи или воронки; отключите его вместо удаления')
+
         if await self.db.crm_inbound_source_mappings.find_one({'source_id': source_id}):
             raise ValueError('Сначала снимите привязку входящего номера в форме источника')
         

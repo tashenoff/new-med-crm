@@ -146,6 +146,7 @@ def harness(monkeypatch):
         doctor_schedules=MemoryCollection([dict(doctor_id="doctor-fixture", day_of_week=1,
             is_active=True, start_time="08:00", end_time="18:00")]),
         crm_clients=MemoryCollection(),
+        crm_sources=MemoryCollection([dict(id='source-fixture', name='Fixture source', type='other', status='active')]),
         crm_funnel_events=MemoryCollection(),
         crm_leads=MemoryCollection([
             dict(id="lead-fixture", first_name="Fixture", phone="70000000801", source="other",

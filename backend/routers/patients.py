@@ -36,7 +36,11 @@ class PatientSource(str, Enum):
     OTHER = "other"
 
 # Pydantic models
-class PatientOrigin(BaseModel):
+from models.attribution import AttributionDimensions
+from services.attribution import checked_attribution, dimensions
+
+
+class PatientOrigin(AttributionDimensions):
     kind: Literal["crm_lead", "crm_client"]
     entity_id: str
     source: Optional[str] = None
@@ -45,7 +49,7 @@ class PatientOrigin(BaseModel):
     legacy_generated_note: bool = False
 
 
-class Patient(BaseModel):
+class Patient(AttributionDimensions):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     full_name: str
     phone: str
@@ -89,7 +93,7 @@ class Patient(BaseModel):
     class Config:
         extra = "ignore"  # Ignore extra fields not defined in the model
 
-class PatientCreate(BaseModel):
+class PatientCreate(AttributionDimensions):
     full_name: str
     phone: str
     last_name: Optional[str] = None  # Фамилия
@@ -101,7 +105,7 @@ class PatientCreate(BaseModel):
     notes: Optional[str] = None
     user_id: Optional[str] = None
 
-class PatientUpdate(BaseModel):
+class PatientUpdate(AttributionDimensions):
     full_name: Optional[str] = None
     phone: Optional[str] = None
     last_name: Optional[str] = None
@@ -124,6 +128,8 @@ async def create_patient(
     current_user: UserInDB = Depends(require_role([UserRole.ADMIN, UserRole.SUPER_ADMIN, UserRole.DOCTOR]))
 ):
     patient_dict = patient.dict()
+    patient_dict.update(await checked_attribution(db, patient_dict))
+    patient_dict['source'] = patient_dict.get('source') or PatientSource.OTHER
     patient_dict["phone"] = normalize_patient_phone(patient_dict["phone"])
     patient_obj = Patient(**patient_dict)
     
@@ -344,6 +350,15 @@ async def update_patient(
     current_user: UserInDB = Depends(require_role([UserRole.ADMIN, UserRole.SUPER_ADMIN, UserRole.DOCTOR]))
 ):
     update_dict = {k: v for k, v in patient_update.dict().items() if v is not None}
+    supplied = patient_update.model_dump(exclude_unset=True)
+    if {'source_id', 'channel_id', 'campaign_id'}.intersection(supplied):
+        existing = await db.patients.find_one({'id': patient_id})
+        if not existing:
+            raise HTTPException(404, 'Patient not found')
+        existing = await with_patient_origin(db, existing)
+        checked = await checked_attribution(db, {key: supplied[key] for key in ('source_id', 'channel_id', 'campaign_id', 'source') if key in supplied}, existing)
+        update_dict.update(checked)
+        update_dict['source'] = checked.get('source') or PatientSource.OTHER
     update_dict["updated_at"] = datetime.utcnow()
 
     full_name = update_dict.get("full_name")

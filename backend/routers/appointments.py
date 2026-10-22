@@ -1,4 +1,5 @@
 from crm.services.funnel_journal import FunnelLeadCollection
+from services.attribution import checked_attribution, dimensions
 from services.appointment_status_policy import guard_appointment_status
 from fastapi import APIRouter, HTTPException, Depends, status
 from pydantic import BaseModel
@@ -434,6 +435,7 @@ async def create_appointment(
         raise HTTPException(status_code=400, detail="Time slot already booked")
     
     appointment_dict = appointment.dict()
+    appointment_dict.update(await checked_attribution(db, appointment_dict))
 
     # Резолюция кабинета, если не передан: берём room_schedule врача на этот день недели.
     # Без этого записи из комплексной услуги (room_id=None) при открытии в календаре
@@ -510,8 +512,8 @@ async def create_appointment(
                 lead_id = str(uuid.uuid4())
                 
                 # Определяем источник
-                source = appointment.source if hasattr(appointment, 'source') and appointment.source else patient.get('source', 'other')
-                source_id = appointment.source_id if hasattr(appointment, 'source_id') and appointment.source_id else patient.get('source_id')
+                source = appointment_dict.get('source') or 'other'
+                source_id = appointment_dict.get('source_id')
                 
                 # Разбираем ФИО на части
                 name_parts = patient_name.split() if patient_name else []
@@ -528,6 +530,7 @@ async def create_appointment(
                     "email": patient.get('email', ''),
                     "source": source,
                     "source_id": source_id,
+                    **{key: appointment_dict.get(key) for key in ('source_name', 'channel_id', 'channel_name', 'campaign_id', 'campaign_name')},
                     "status": "contacted",  # Статус "Записан на приём"
                     "description": f"Автоматически создан при записи через календарь",
                     "converted_to_client_id": appointment.patient_id,
@@ -715,6 +718,11 @@ async def get_appointments(
                     "payment_type_name": {"$ifNull": ["$payment_type_name", None]},
                     "source": {"$ifNull": ["$source", None]},
                     "source_id": {"$ifNull": ["$source_id", None]},
+                    "source_name": {"$ifNull": ["$source_name", None]},
+                    "channel_id": {"$ifNull": ["$channel_id", None]},
+                    "channel_name": {"$ifNull": ["$channel_name", None]},
+                    "campaign_id": {"$ifNull": ["$campaign_id", None]},
+                    "campaign_name": {"$ifNull": ["$campaign_name", None]},
                     "status": 1,
                     "reason": {"$ifNull": ["$reason", ""]},
                     "notes": {"$ifNull": ["$notes", ""]},
@@ -823,6 +831,11 @@ async def get_appointment(
                 "payment_type_name": {"$ifNull": ["$payment_type_name", None]},
                 "source": {"$ifNull": ["$source", None]},
                 "source_id": {"$ifNull": ["$source_id", None]},
+                "source_name": {"$ifNull": ["$source_name", None]},
+                "channel_id": {"$ifNull": ["$channel_id", None]},
+                "channel_name": {"$ifNull": ["$channel_name", None]},
+                "campaign_id": {"$ifNull": ["$campaign_id", None]},
+                "campaign_name": {"$ifNull": ["$campaign_name", None]},
                 "status": 1,
                 "reason": 1,
                 "notes": 1,
@@ -886,6 +899,10 @@ async def update_appointment(
             del update_dict["doctor_id"]  # Don't allow doctors to reassign appointments
     else:  # Admin
         update_dict = {k: v for k, v in appointment_update.dict().items() if v is not None}
+
+    supplied = appointment_update.model_dump(exclude_unset=True)
+    if current_user.role != UserRole.PATIENT and {'source_id', 'channel_id', 'campaign_id'}.intersection(supplied):
+        update_dict.update(await checked_attribution(db, {key: supplied[key] for key in ('source_id', 'channel_id', 'campaign_id', 'source') if key in supplied}, existing))
     
     if ("status" in update_dict and update_dict["status"] != existing.get("status")) or (
             "appointment_date" in update_dict and update_dict["appointment_date"] != existing.get("appointment_date")):

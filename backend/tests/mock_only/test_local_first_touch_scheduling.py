@@ -84,7 +84,7 @@ def test_first_touch_scheduling_keeps_patient_link_and_contacted_status(monkeypa
     ({"source_id": "web", "source": "social"}, {"id": "web", "type": "website"}, "web", "website", None),
     ({}, None, "2gis", "phone", None),
     ({"source_id": "deleted"}, None, None, None, 422),
-    ({"source_id": ""}, None, None, None, 422),
+    ({"source_id": ""}, None, None, None, None),
     ({"source_id": ["web"]}, None, None, None, 422),
     ({"source_id": "legacy"}, {"id": "legacy"}, "legacy", "other", None),
 ])

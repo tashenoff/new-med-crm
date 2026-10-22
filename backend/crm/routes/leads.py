@@ -471,19 +471,15 @@ async def schedule_appointment_from_lead(
             raise HTTPException(status_code=404, detail="Лид не найден")
 
         # A manual choice belongs to this appointment, not patient/lead history.
-        appointment_source_id = lead.source_id
-        appointment_source = str(lead.source.value) if hasattr(lead.source, 'value') else str(lead.source)
-        if "source_id" in appointment_data:
-            from ..services.source_service import SourceService
-            chosen_id = appointment_data["source_id"]
-            if not isinstance(chosen_id, str) or not chosen_id.strip():
-                raise HTTPException(status_code=422, detail="Выберите источник записи")
-            chosen = await db.crm_sources.find_one({"id": chosen_id})
-            if not chosen:
-                raise HTTPException(status_code=422, detail="Источник записи недоступен")
-            chosen = SourceService._normalize_source_doc(chosen)
-            appointment_source_id = chosen_id
-            appointment_source = chosen["type"]
+        from services.attribution import checked_attribution, dimensions
+        chosen = {key: appointment_data[key] for key in ('source_id', 'channel_id', 'campaign_id') if key in appointment_data}
+        if 'contactmethod_id' in appointment_data:
+            if 'channel_id' in chosen and chosen['channel_id'] != appointment_data['contactmethod_id']:
+                raise HTTPException(422, 'Несогласованные ID способа обращения')
+            chosen['channel_id'] = appointment_data['contactmethod_id']
+        appointment_attribution = await checked_attribution(db, chosen, lead.dict())
+        appointment_source_id = appointment_attribution['source_id']
+        appointment_source = appointment_attribution.get('source')
 
         patient_full_name = appointment_data.get("patient_full_name")
         if patient_full_name is not None and not isinstance(patient_full_name, str):
@@ -617,6 +613,7 @@ async def schedule_appointment_from_lead(
                 "email": lead.email,
                 "source": str(lead.source.value) if hasattr(lead.source, 'value') else str(lead.source),
                 "source_id": lead.source_id,  # Передаем ID источника из лида
+                **{key: getattr(lead, key, None) for key in ('channel_id', 'channel_name', 'campaign_id', 'campaign_name')},
                 "origin": crm_lead_origin(lead),
                 "notes": patient_notes_from_lead(lead),
                 "crm_client_id": lead_id,
@@ -703,6 +700,7 @@ async def schedule_appointment_from_lead(
             # Источник из лида
             "source": appointment_source,
             "source_id": appointment_source_id,
+            **{key: appointment_attribution.get(key) for key in ('source_name', 'channel_id', 'channel_name', 'campaign_id', 'campaign_name')},
             "created_at": datetime.utcnow(),
             "updated_at": datetime.utcnow()
         }

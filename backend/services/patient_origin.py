@@ -21,6 +21,7 @@ def crm_lead_origin(lead):
     source = _field(lead, 'source')
     return dict(kind='crm_lead', entity_id=_field(lead, 'id'),
         source=getattr(source, 'value', source), source_id=_field(lead, 'source_id'),
+        **{key: _field(lead, key) for key in ('source_name', 'channel_id', 'channel_name', 'campaign_id', 'campaign_name') if _field(lead, key)},
         channel='whatsapp' if _field(lead, 'created_by') == 'wazzup_webhook' else None)
 
 
@@ -31,7 +32,7 @@ async def with_patient_origin(db, patient):
     The entire note must match the linked CRM record's generation template.
     """
     if patient.get('origin') or not patient.get('crm_client_id'):
-        return patient
+        return project_first_acquisition(patient)
     notes = patient.get('notes') or ''
     if not notes.startswith(('Создан из заявки CRM. ', 'Конвертирован из лида ', 'Конвертирован из CRM клиента ')):
         return patient
@@ -50,4 +51,13 @@ async def with_patient_origin(db, patient):
             origin = crm_lead_origin(lead)
     if not origin and client and notes == f'Конвертирован из CRM клиента {identifier}':
         origin = dict(kind='crm_client', entity_id=identifier)
-    return {**patient, 'origin': {**origin, 'legacy_generated_note': True}} if origin else patient
+    return project_first_acquisition({**patient, 'origin': {**origin, 'legacy_generated_note': True}} if origin else patient)
+
+
+def project_first_acquisition(patient):
+    # The conversion already saved these exact IDs. Project absent legacy
+    # fields, without writing/reclassifying history or overriding explicit null.
+    origin = patient.get('origin') or {}
+    if 'source_id' not in patient and origin.get('source_id'):
+        return {**patient, **{key: origin[key] for key in ('source_id', 'source_name', 'channel_id', 'channel_name', 'campaign_id', 'campaign_name') if key in origin}}
+    return patient

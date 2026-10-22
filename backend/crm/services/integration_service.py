@@ -108,7 +108,9 @@ class IntegrationService:
                 "iin": "",  # Пустой, можно заполнить позже
                 "birth_date": None,
                 "gender": "",
-                "source": "crm_conversion",
+                "source": getattr(lead.source, 'value', lead.source),
+                "source_id": lead.source_id,
+                **{key: getattr(lead, key, None) for key in ('source_name', 'channel_id', 'channel_name', 'campaign_id', 'campaign_name') if getattr(lead, key, None)},
                 "referrer": f"CRM Lead {lead_id}",
                 "origin": crm_lead_origin(lead),
                 "notes": patient_notes_from_lead(lead),
@@ -284,6 +286,15 @@ class IntegrationService:
             "origin": {"kind": "crm_client", "entity_id": client_id},
             "notes": client.notes or ""
         }
+
+        # Only an explicit stored source-lead link can supply acquisition.
+        # Never pick another inquiry by patient/phone or infer from conversion.
+        if client.source_lead_id:
+            first = await self.db.crm_leads.find_one({'id': client.source_lead_id})
+            if first:
+                captured = {key: first.get(key) for key in ('source_id', 'source_name', 'channel_id', 'channel_name', 'campaign_id', 'campaign_name')}
+                patient_data.update(captured)
+                patient_data['origin'].update(captured)
         
         # Сохраняем пациента в HMS
         await self.patients_collection.insert_one(patient_data)

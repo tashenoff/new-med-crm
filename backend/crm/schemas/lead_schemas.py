@@ -4,7 +4,7 @@ Lead Schemas - Pydantic схемы для валидации данных лид
 
 from datetime import datetime
 from typing import Optional, List, Dict
-from pydantic import BaseModel, Field, validator
+from pydantic import AliasChoices, BaseModel, Field, validator
 from ..models.lead import LeadStatus, LeadSource, LeadPriority
 
 
@@ -18,7 +18,7 @@ class LeadBase(BaseModel):
     iin: Optional[str] = Field(None, min_length=12, max_length=12, description="ИИН (индивидуальный идентификационный номер)")
     source: LeadSource = Field(..., description="Источник лида")
     source_id: Optional[str] = Field(None, description="ID источника из CRM")
-    channel_id: Optional[str] = Field(None, min_length=1, max_length=100)
+    channel_id: Optional[str] = Field(None, min_length=1, max_length=100, validation_alias=AliasChoices('channel_id', 'contactmethod_id'))
     campaign_id: Optional[str] = Field(None, min_length=1, max_length=100)
     contact_point: Optional[str] = Field(None, max_length=200)
     priority: LeadPriority = Field(LeadPriority.MEDIUM, description="Приоритет")
@@ -60,7 +60,7 @@ class LeadUpdate(BaseModel):
     status: Optional[LeadStatus] = Field(None)
     source: Optional[LeadSource] = Field(None)
     source_id: Optional[str] = Field(None, description="ID источника из CRM")
-    channel_id: Optional[str] = Field(None, min_length=1, max_length=100)
+    channel_id: Optional[str] = Field(None, min_length=1, max_length=100, validation_alias=AliasChoices('channel_id', 'contactmethod_id'))
     campaign_id: Optional[str] = Field(None, min_length=1, max_length=100)
     contact_point: Optional[str] = Field(None, max_length=200)
     priority: Optional[LeadPriority] = Field(None)
