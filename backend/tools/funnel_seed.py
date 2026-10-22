@@ -138,7 +138,9 @@ def main():
     from pymongo import MongoClient
     load_dotenv(Path(__file__).parents[1] / '.env')
     database = os.environ.get('DB_NAME')
-    clinic = os.environ.get('APP_CLINIC_ID', os.environ.get('CONSENT_CLINIC_ID', 'clinic'))
+    clinic = os.environ.get('APP_CLINIC_ID') or os.environ.get('CONSENT_CLINIC_ID')
+    if not clinic:
+        raise ValueError('Clinic identity is not configured; inspect the real installation before planning a seed')
     if not database or database != args.expect_db or clinic != args.expect_clinic:
         raise ValueError('Target database/clinic does not match reviewed plan')
     client = MongoClient(os.environ['MONGO_URL'], serverSelectionTimeoutMS=5000, tz_aware=True)
