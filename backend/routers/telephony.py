@@ -36,6 +36,7 @@ from models.telephony import (
 
 from services.telephony_service import telephony_service
 from services.calliq_client import get_calliq_client
+from services.calliq_events import observe_event, schedule_delivery, summarize_events
 from services.staff_service import StaffService
 
 from dependencies import get_current_user
@@ -54,7 +55,7 @@ logger = logging.getLogger(__name__)
 _calliq_tasks = set()
 
 
-async def _push_call_to_calliq(client, local_file, operator, channel, call_key, db):
+async def _push_call_to_calliq(client, local_file, operator, channel, call_key, db, recording_id=None):
     """Upload and poll only the recording document selected by the webhook."""
     try:
         document = await db.telephony_calls.find_one(call_key)
@@ -62,7 +63,18 @@ async def _push_call_to_calliq(client, local_file, operator, channel, call_key, 
             logger.warning("CallIQ: recording document no longer exists")
             return
         query = {"_id": document["_id"]}
-        call_id = await client.upload_call(str(local_file), operator, channel)
+        if document.get('calliq_events'):
+            state = summarize_events(document['calliq_events'])
+            if state['channel_state'] != 'unknown':
+                channel = state['channel'] or ''
+            operator = await StaffService(db).resolve_operator_by_extension(channel) or None
+        if os.getenv('CALLIQ_EVENT_SYNC_ENABLED', 'false').lower() == 'true':
+            if not recording_id:
+                raise ValueError('Stable recording ID required; recording retained locally')
+            call_id = await client.upload_call(str(local_file), operator, channel,
+                external_id=document['pbx_call_id'], recording_id=recording_id)
+        else:
+            call_id = await client.upload_call(str(local_file), operator, channel)
         await db.telephony_calls.update_one(query, {"$set": {
             "calliq_call_id": call_id, "calliq_status": "sent",
             "calliq_updated_at": datetime.utcnow()}})
@@ -409,11 +421,7 @@ async def _update_call_in_db(db, call_id: str, update_data: dict):
 
 
 
-@router.get("/webhook/events")
-
-@router.post("/webhook/events")
-
-async def webhook_events(request: Request):
+async def _handle_webhook_events(request: Request):
 
     """
 
@@ -551,8 +559,8 @@ async def webhook_events(request: Request):
                 "phone_number": "",
                 "normalized_phone": "",
                 "direction": CallDirection.UNKNOWN.value,
-                "status": CallStatus.ANSWERED.value,
-                "disposition": Disposition.ANSWERED.value,
+                "status": CallStatus.PENDING.value,
+                "disposition": None,
                 "pbx_call_id": rec_pbx_call_id,
                 "call_id": call_id_with_rec,
                 "is_recorded": True,
@@ -577,6 +585,7 @@ async def webhook_events(request: Request):
                 rec_pbx_call_id,
             )
         try:
+            await observe_event(db, params)
             client = get_calliq_client()
             local_file = Path("uploads") / Path(local_url).name if local_url else None
             if client.is_configured() and local_file and local_file.is_file():
@@ -584,9 +593,15 @@ async def webhook_events(request: Request):
                 if not channel and existing_call is not None:
                     erp = (existing_call.get("raw_payload") or {})
                     channel = str(erp.get("last_internal") or erp.get("internal") or "")
+                latest = await db.telephony_calls.find_one(call_key)
+                if latest and latest.get('calliq_events'):
+                    state = summarize_events(latest['calliq_events'])
+                    if state['channel_state'] != 'unknown':
+                        channel = state['channel'] or ''
+                channel = channel.strip()
                 operator = await StaffService(db).resolve_operator_by_extension(channel) or None
                 task = asyncio.create_task(_push_call_to_calliq(
-                    client, local_file, operator, channel, call_key, db))
+                    client, local_file, operator, channel, call_key, db, recording_id=call_id_with_rec))
                 _calliq_tasks.add(task)
                 task.add_done_callback(_calliq_tasks.discard)
             else:
@@ -652,89 +667,10 @@ async def webhook_events(request: Request):
 
     # Определяем статус звонка
 
-    call_status = CallStatus.MISSED
-
+    # Webhooks describe legs/events, not a verified final whole-call outcome.
+    # Only statistics reconciliation may populate provider_status/disposition.
+    call_status = CallStatus.PENDING
     disposition = None
-
-    if event == "NOTIFY_START":
-
-        call_status = CallStatus.MISSED
-
-    elif event == "NOTIFY_ANSWER":
-
-        call_status = CallStatus.ANSWERED
-
-        disposition = Disposition.ANSWERED
-
-    elif event == "NOTIFY_END":
-
-        disp = params.get("disposition", "").lower()
-
-        if disp == "answered":
-
-            call_status = CallStatus.ANSWERED
-
-            disposition = Disposition.ANSWERED
-
-        elif disp in ("busy", "busy"):
-
-            call_status = CallStatus.BUSY
-
-            disposition = Disposition.BUSY
-
-        elif disp in ("no answer", "no_answer"):
-
-            call_status = CallStatus.MISSED
-
-            disposition = Disposition.NO_ANSWER
-
-        elif disp == "cancel":
-
-            call_status = CallStatus.REJECTED
-
-            disposition = Disposition.CANCEL
-
-        else:
-
-            call_status = CallStatus.MISSED
-
-            disposition = Disposition.MISSED
-
-    elif event == "NOTIFY_RECORD":
-
-        call_status = CallStatus.ANSWERED
-
-        disposition = Disposition.ANSWERED
-
-    elif event == "NOTIFY_OUT_START":
-
-        call_status = CallStatus.MISSED
-
-    elif event == "NOTIFY_OUT_END":
-
-        disp = params.get("disposition", "").lower()
-
-        if disp == "answered":
-
-            call_status = CallStatus.ANSWERED
-
-            disposition = Disposition.ANSWERED
-
-        elif disp == "busy":
-
-            call_status = CallStatus.BUSY
-
-            disposition = Disposition.BUSY
-
-        else:
-
-            call_status = CallStatus.MISSED
-
-            disposition = Disposition.MISSED
-
-
-
-    # Извлекаем длительность
 
     duration = 0
 
@@ -787,8 +723,8 @@ async def webhook_events(request: Request):
         if existing_call:
             # Обновляем существующий документ
             update = {
-                "status": call_status.value,
-                "disposition": disposition.value if disposition else None,
+                "status": existing_call.get("provider_status", call_status.value),
+                "disposition": existing_call.get("provider_disposition"),
                 "duration": duration,
                 "updated_at": datetime.utcnow(),
             }
@@ -874,6 +810,33 @@ async def webhook_events(request: Request):
 
 
 
+@router.get("/webhook/events")
+@router.post("/webhook/events")
+async def webhook_events(request: Request):
+    response = await _handle_webhook_events(request)
+    try:
+        params = dict(request.query_params)
+        if request.method != 'GET':
+            content_type = request.headers.get('content-type', '')
+            if 'application/x-www-form-urlencoded' in content_type:
+                params.update(dict(await request.form()))
+            elif 'application/json' in content_type:
+                body = await request.json()
+                if isinstance(body, dict):
+                    params.update(body)
+        if params.get('zd_echo') is not None:
+            return response
+        db = get_database()
+        document = await observe_event(db, params)
+        if document and os.getenv('CALLIQ_EVENT_SYNC_ENABLED', 'false').lower() == 'true':
+            client = get_calliq_client()
+            if client.is_configured():
+                schedule_delivery(db, {'_id': document['_id']}, client)
+    except Exception:
+        logger.warning('CallIQ metadata queued/deferred (details suppressed)')
+    return response
+
+
 @router.post("/callbacks")
 
 async def start_callback(
@@ -924,7 +887,7 @@ async def start_callback(
             "phone_number": phone,
             "normalized_phone": normalized,
             "direction": CallDirection.OUTBOUND.value,
-            "status": CallStatus.MISSED.value,  # пока статус неизвестен
+            "status": CallStatus.PENDING.value,  # Await provider statistics.
             "duration": 0,
             "user_id": str(current_user.id) if hasattr(current_user, "id") else None,
             "created_at": datetime.utcnow(),

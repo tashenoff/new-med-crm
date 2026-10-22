@@ -136,7 +136,7 @@ async def test_webhook_does_not_wait_for_upload(clean_db, monkeypatch, tmp_path)
     app.include_router(telephony.router)
     async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test") as http:
         response = await asyncio.wait_for(http.post("/api/telephony/webhook/events", json={
-            "event": "NOTIFY_RECORD", "recording_url": "/uploads/record.mp3", "internal": "100"}), 2)
+            "event": "NOTIFY_RECORD", "pbx_call_id": "synthetic-async", "call_id_with_rec": "synthetic-record", "recording_url": "/uploads/record.mp3", "internal": "100"}), 2)
     try:
         assert response.json() == {"status": "ok"}
         await asyncio.wait_for(started.wait(), 2)

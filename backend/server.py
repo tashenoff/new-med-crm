@@ -57,7 +57,10 @@ async def lifespan(app: FastAPI):
     (consent_log.info if consent_readiness["ready"] else consent_log.error)(
         "Patient terms link readiness: %s", consent_readiness["reason"])
     try:
-        async with live_events_lifespan():
+        from services.calliq_events import reconciliation_lifespan
+        from services.calliq_client import get_calliq_client
+        from services.telephony_service import telephony_service
+        async with live_events_lifespan(), reconciliation_lifespan(db, telephony_service, get_calliq_client()):
             yield
     finally:
         await close_database()

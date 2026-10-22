@@ -11,6 +11,7 @@ class CallDirection(str, Enum):
 
 
 class CallStatus(str, Enum):
+    PENDING = "pending"
     MISSED = "missed"
     ANSWERED = "answered"
     REJECTED = "rejected"
@@ -55,6 +56,10 @@ class TelephonyCall(BaseModel):
     updated_at: Optional[datetime] = None
     user_id: Optional[str] = None  # кто принял/сделал звонок
     raw_payload: Optional[Dict[str, Any]] = None  # Сырой payload вебхука для отладки
+    channel: Optional[str] = None
+    channel_role: str = 'unknown'
+    call_outcome: str = 'unknown'
+    provider_evidence: Optional[Dict[str, Any]] = None
 
     class Config:
         use_enum_values = True
