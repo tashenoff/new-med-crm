@@ -17,6 +17,7 @@ export default function FunnelView({ user }) {
   const [preference, setPreference] = useState(() => ({ key: preferenceKey, ...saved }));
   const currentPreference = preference.key === preferenceKey ? preference : saved;
   const [metadata, setMetadata] = useState(null);
+  const [catalog, setCatalog] = useState({ loading: true, error: '' });
   const [result, setResult] = useState(null);
   const [error, setError] = useState('');
   const [revision, setRevision] = useState(0);
@@ -45,8 +46,15 @@ export default function FunnelView({ user }) {
   }, [reload]);
   useEffect(() => {
     const controller = new AbortController();
-    funnelRequest(`options${batchQuery}`, controller.signal).then(data => { if (!controller.signal.aborted) setMetadata(data); }).catch(failure => {
-      if (!controller.signal.aborted) setError(failure.message);
+    setCatalog({ loading: true, error: '' });
+    funnelRequest(`options${batchQuery}`, controller.signal).then(data => {
+      if (controller.signal.aborted) return;
+      if (!Array.isArray(data.columns) || !Array.isArray(data.sources) || data.columns.some(column => !column?.id || !column?.name)) {
+        throw new Error('Сервер не вернул корректный список этапов CRM');
+      }
+      setMetadata(data); setCatalog({ loading: false, error: '' });
+    }).catch(failure => {
+      if (!controller.signal.aborted) setCatalog({ loading: false, error: failure.message });
     });
     return () => controller.abort();
   }, [batchQuery, revision]);
@@ -147,11 +155,13 @@ export default function FunnelView({ user }) {
       <p>Первый наблюдаемый вход · окно {windowDays} суток · источник и способ обращения на момент входа.</p>
       {view === 'sources' && <p>Выбранные источники сравниваются по одному периоду, пути и окну. Фильтр «По этапам» здесь не применяется.</p>}
     </div> : <details className="curai-crm-caption"><summary>Как читать текущий снимок</summary><p>Это текущие состояния обращений, не история прохождения. Проценты — доля от всех обращений выбранного периода создания. Разные обращения одного пациента считаются отдельно.</p></details>}
-      {(error || query?.error) && <div role="alert" className="text-curai-negative">{error || query.error} <button className="underline" onClick={reload}>Повторить</button></div>}
+      {(error || query?.error || catalog.error) && <div role="alert" className="text-curai-negative">{error || query?.error || catalog.error} <button className="underline" onClick={reload}>Повторить</button></div>}
       {mode === 'history' && steps.length < 2 && <p role="status">Выберите хотя бы два шага кнопкой «Шаги воронки». Готового пути по умолчанию нет.</p>}
-      {!report && !error && !query?.error && (mode !== 'history' || steps.length >= 2) && <p role="status">Загрузка отчёта…</p>}
+      {!report && !error && !query?.error && !catalog.error && (mode !== 'history' || steps.length >= 2) && <p role="status">Загрузка отчёта…</p>}
       {report && <FunnelReportBody report={report} mode={mode} view={view} hidden={hidden} />}
     {(panel === 'rules' || panel === 'help') && <FunnelRules windowDays={windowDays} overview={panel === 'help'} onClose={closePanel} />}
-    {panel && panel !== 'rules' && panel !== 'help' && <FunnelSettings key={panel} panel={panel} stages={panelStages} sources={sourceOptions} initial={panel === 'steps' ? [...steps] : panel === 'sources' ? [...selectedSourceKeys] : [...hidden]} onClose={closePanel} onDone={completePanel} />}
+    {panel && panel !== 'rules' && panel !== 'help' && <FunnelSettings key={panel} panel={panel} stages={panelStages} sources={sourceOptions} initial={panel === 'steps' ? [...steps] : panel === 'sources' ? [...selectedSourceKeys] : [...hidden]}
+      loading={catalog.loading} error={catalog.error} onRetry={reload} needsSteps={panel === 'visibility' && mode === 'history' && steps.length < 2}
+      onConfigureSteps={() => setPanel('steps')} onClose={closePanel} onDone={completePanel} />}
   </div>;
 }

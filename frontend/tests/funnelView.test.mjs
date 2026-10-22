@@ -25,13 +25,17 @@ const fixtureRows=[{key:'source:a',name:'Канал А',total:6,snapshot:{'entry
 const rate=(a,b)=>b?Math.round(a/b*1000)/10:null;
 async function mount(t, options={}) {
  const dom=new JSDOM('<div id="root"></div>',{url:'https://fixture.invalid/crm-deals'+(options.batch?'?funnel_batch=demo-batch':'')});
- const f={columns:columns(),requests:[],fail:false,gate:null,user:options.user||{id:'manager',clinic_id:'clinic'},generation:0,
+ const f={columns:columns(),requests:[],fail:false,gate:null,optionsGate:options.optionsGate||null,optionsFail:options.optionsFail||false,user:options.user||{id:'manager',clinic_id:'clinic'},generation:0,
   methodGates:{},methodFail:false,methods:{a:[{id:'contact-one',name:'Custom first',active:true},{id:'contact-old',name:'Archived second',active:false}],b:[{id:'contact-other',name:'Other source only',active:true}],zero:[]}};
  const original=new Map();const globals={window:dom.window,document:dom.window.document,localStorage:dom.window.localStorage,IS_REACT_ACT_ENVIRONMENT:true,
  fetch:async(input,init)=>{
   const url=new URL(input);assert.equal(url.origin,'https://fixture.invalid');assert.equal(init?.method||'GET','GET');
   f.requests.push(url);if(f.fail)return{ok:false,json:async()=>({detail:'Отчёт недоступен'})};
-  if(url.pathname.endsWith('/options'))return{ok:true,json:async()=>({columns:f.columns,sources:sources(),synthetic_batch:options.batch?'demo-batch':null})};
+  if(url.pathname.endsWith('/options')){
+   const failed=f.optionsFail,data={columns:f.columns,sources:sources(),synthetic_batch:options.batch?'demo-batch':null};
+   if(f.optionsGate)await f.optionsGate;
+   return failed?{ok:false,json:async()=>({detail:'Catalog unavailable'})}:{ok:true,json:async()=>data};
+  }
   if(url.pathname.endsWith('/methods')){
    const sourceId=url.searchParams.get('source_id');
    if(f.methodGates[sourceId])await f.methodGates[sourceId];
@@ -255,4 +259,53 @@ test('both funnel help variants trap focus, close on Escape/backdrop/X, and rest
   await h.click(trigger);await h.click(document.querySelector('.modal-overlay'));assert.equal(document.activeElement,trigger);
   await h.click(trigger);await h.click(document.querySelector('.curai-dialog-close'));assert.equal(document.activeElement,trigger);
  }
+});
+
+test('clean history visibility explains its empty list and directly opens available step selection', async t => {
+ const h=await mount(t,{batch:true});await h.click(h.button('Прохождение'));await h.click(h.button('Отображение этапов'));
+ let dialog=document.querySelector('[role="dialog"]');assert.equal(dialog.querySelectorAll('[data-stage-visibility]').length,0);
+ assert.match(dialog.textContent,/Сначала выберите шаги/);assert.equal(h.button('Готово').disabled,true);
+ await h.click(h.button('Выбрать шаги воронки'));dialog=document.querySelector('[role="dialog"]');
+ assert.equal(dialog.getAttribute('aria-label'),'Последовательность прохождения');assert.equal(dialog.querySelectorAll('[data-definition-stage]').length,4);
+ for(const id of ['entry-x','middle-y','end-z'])await h.click(document.querySelector(`[data-definition-stage="${id}"]`));
+ await h.click(h.button('Готово'));assert.match(h.total(),/^12/);
+ let query=h.f.requests.filter(url=>url.pathname.endsWith('/report')).at(-1).searchParams;
+ assert.equal(query.get('mode'),'history');assert.equal(query.get('synthetic_batch'),'demo-batch');assert.deepEqual(query.getAll('steps'),['entry-x','middle-y','end-z']);
+ await h.remount();await h.click(h.button('Прохождение'));assert.match(h.total(),/^12/);assert.ok(h.button('Шаги воронки (3)'));
+});
+
+test('step selector opened before catalog response shows loading and fills without visiting snapshot first', async t => {
+ let release;const gate=new Promise(resolve=>{release=resolve;});const h=await mount(t,{optionsGate:gate});
+ await h.click(h.button('Прохождение'));await h.click(h.button('Шаги воронки (0)'));
+ let dialog=document.querySelector('[role="dialog"]');assert.match(dialog.textContent,/Загрузка этапов/);assert.equal(h.button('Готово').disabled,true);
+ await act(async()=>release());dialog=document.querySelector('[role="dialog"]');assert.equal(dialog.querySelectorAll('[data-definition-stage]').length,4);
+ assert.equal(h.f.requests.some(url=>url.searchParams.get('mode')==='snapshot'),false);
+ for(const id of ['entry-x','middle-y','end-z'])await h.click(document.querySelector(`[data-definition-stage="${id}"]`));
+ await h.click(h.button('Готово'));assert.match(h.total(),/^12/);
+});
+
+test('catalog failure and retry are visible inside the selector instead of empty stages', async t => {
+ let release;const gate=new Promise(resolve=>{release=resolve;});const h=await mount(t,{optionsGate:gate,optionsFail:true});
+ await h.click(h.button('Прохождение'));await h.click(h.button('Шаги воронки (0)'));await act(async()=>release());
+ let dialog=document.querySelector('[role="dialog"]');assert.match(dialog.querySelector('[role="alert"]').textContent,/Catalog unavailable/);assert.equal(h.button('Готово').disabled,true);
+ h.f.optionsGate=null;h.f.optionsFail=false;await h.click([...dialog.querySelectorAll('button')].find(node=>node.textContent==='Повторить загрузку'));
+ dialog=document.querySelector('[role="dialog"]');assert.equal(dialog.querySelectorAll('[data-definition-stage]').length,4);
+ for(const id of ['entry-x','middle-y'])await h.click(document.querySelector(`[data-definition-stage="${id}"]`));
+ await h.click(h.button('Готово'));assert.match(h.total(),/^12/);
+});
+
+test('late aborted catalog failure cannot replace a newer catalog or lose an open selection draft', async t => {
+ let release;const gate=new Promise(resolve=>{release=resolve;});const h=await mount(t,{optionsGate:gate,optionsFail:true});
+ await h.click(h.button('Прохождение'));await h.click(h.button('Шаги воронки (0)'));
+ h.f.optionsGate=null;h.f.optionsFail=false;h.f.columns=[...h.f.columns,{id:'new-custom',name:'New stage',is_system:false}];await h.refresh();
+ assert.equal(document.querySelectorAll('[data-definition-stage]').length,5);
+ await h.click(document.querySelector('[data-definition-stage="entry-x"]'));await h.click(document.querySelector('[data-definition-stage="new-custom"]'));
+ await act(async()=>release());assert.equal(document.querySelector('[role="dialog"] [role="alert"]'),null);
+ assert.equal(document.querySelector('[data-definition-stage="entry-x"]').checked,true);assert.equal(document.querySelector('[data-definition-stage="new-custom"]').checked,true);
+ await h.click(h.button('Готово'));assert.deepEqual(h.f.requests.filter(url=>url.pathname.endsWith('/report')).at(-1).searchParams.getAll('steps'),['entry-x','new-custom']);
+});
+
+test('an empty catalog is distinguished from zero history and has an explicit retry inside selector', async t => {
+ const h=await mount(t);h.f.columns=[];await h.refresh();await h.click(h.button('Прохождение'));await h.click(h.button('Шаги воронки (0)'));
+ const dialog=document.querySelector('[role="dialog"]');assert.match(dialog.textContent,/Нет доступных этапов/);assert.match(dialog.textContent,/Это не нулевой результат/);assert.equal(h.button('Готово').disabled,true);
 });
