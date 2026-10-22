@@ -43,7 +43,7 @@ def observed_events(documents, ledger):
 
 
 def build_report(documents, ledger, columns, sources, *, steps, start, end, window_days=30,
-                 source_ids=None, mode='history', as_of=None):
+                 source_ids=None, channel_id=None, mode='history', as_of=None):
     as_of = utc(as_of) or datetime.now(timezone.utc)
     start, end = utc(start), utc(end)
     known = {source['id']: source for source in sources}
@@ -65,7 +65,7 @@ def build_report(documents, ledger, columns, sources, *, steps, start, end, wind
                 continue
             seen.add(str(doc['id']))
             key = source_key(doc.get('source_id'), known)
-            units.append({'id': str(doc['id']), 'key': key, 'stage': stage_id(doc)})
+            units.append({'id': str(doc['id']), 'key': key, 'channel_id': doc.get('channel_id'), 'stage': stage_id(doc)})
     else:
         for identifier, journey in events.items():
             entries = [item for item in journey if item.get('kind') in ('created', 'transition')
@@ -85,12 +85,14 @@ def build_report(documents, ledger, columns, sources, *, steps, start, end, wind
                     continue
                 if reached < len(steps) and item.get('to_stage_id') == steps[reached]:
                     reached += 1
-            units.append({'id': identifier, 'key': key, 'reached': reached,
+            units.append({'id': identifier, 'key': key, 'channel_id': entry.get('channel_id'), 'reached': reached,
                           'window_open': as_of < deadline})
 
     all_units = units
     if selected is not None:
         units = [unit for unit in units if unit['key'] in selected]
+    if channel_id is not None:
+        units = [unit for unit in units if unit['channel_id'] == channel_id]
     available = [{'key': 'source:' + source['id'], 'name': source['name']} for source in sources]
     unavailable = sorted({unit['key'] for unit in all_units} - {item['key'] for item in available})
     for key in unavailable:
@@ -136,7 +138,8 @@ def build_report(documents, ledger, columns, sources, *, steps, start, end, wind
             'rules': {'entry': 'first_observed_entry_ever', 'sequence': 'selected_steps_in_order',
                       'skips': 'unselected_allowed_selected_not_inferred',
                       'returns': 'keep_progress', 'repeats': 'one_reach_per_deal',
-                      'source': 'frozen_at_cohort_entry', 'window': 'entry_plus_days_inclusive'}}
+                      'source': 'frozen_at_cohort_entry', 'channel': 'current_record' if mode == 'snapshot' else 'same_event_as_source_at_cohort_entry',
+                      'window': 'entry_plus_days_inclusive'}}
 
 
 async def load_report(db, columns, sources, *, synthetic_batch=None, **options):
@@ -145,7 +148,7 @@ async def load_report(db, columns, sources, *, synthetic_batch=None, **options):
     # No patient identities, phone numbers or financial data leave this report.
     documents = await db.crm_leads.find(query, {
         'id': 1, 'status': 1, 'kanban_column_id': 1, 'kanban_override_source': 1,
-        'source_id': 1, 'created_at': 1, '_funnel_events': 1,
+        'source_id': 1, 'channel_id': 1, 'created_at': 1, '_funnel_events': 1,
     }).to_list(length=None)
     ledger = await db.crm_funnel_events.find(query).to_list(length=None)
     return {**build_report(documents, ledger, columns, sources, **options), 'synthetic_batch': synthetic_batch}

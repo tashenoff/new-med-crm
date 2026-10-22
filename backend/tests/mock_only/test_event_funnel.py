@@ -72,13 +72,14 @@ def run(coroutine):
 def test_creation_and_duplicate_transition_have_stable_ids_and_source_snapshot():
     async def scenario():
         db, collection = fixture()
-        await collection.insert_one({'id': 'deal', 'status': 'new', 'source_id': '2gis', 'source': 'phone'})
+        await collection.insert_one({'id': 'deal', 'status': 'new', 'source_id': '2gis', 'source': 'phone', 'channel_id': 'method-x'})
         for attempt in range(2):
             await collection.update_one({'id': 'deal'}, {'$set': {'status': 'contacted'}})
         rows = db.crm_leads.documents[0]['_funnel_events']
         assert [(row['_id'], row['to_stage_id']) for row in rows] == [('deal:1', 'new'), ('deal:2', 'contacted')]
         assert rows[1]['from_stage_id'] == 'new'
         assert all(row['source_id'] == '2gis' and row['occurred_at'].tzinfo for row in rows)
+        assert all(row['channel_id'] == 'method-x' for row in rows)
         assert len(db.crm_funnel_events.documents) == 2
     run(scenario())
 
@@ -187,6 +188,28 @@ def test_ordered_cohort_skips_returns_repeats_window_and_distinct_inquiries():
 def test_first_entry_ever_is_not_recounted_on_return_in_another_period():
     document = journey('return', [('new', -2), ('contacted', -1), ('new', 0), ('converted', 1)])
     assert report([document])['totals']['total'] == 0
+
+
+def test_method_filter_uses_same_entry_event_as_source_without_current_or_later_fallback():
+    documents = [journey(name, [('new', 0), ('contacted', 1), ('converted', 2)])
+                 for name in ['entry-method', 'unknown-entry', 'other-entry']]
+    for document in documents:
+        document['channel_id'] = 'method-current'
+        for item in document['_funnel_events'][1:]:
+            item['source_id'] = 'b'
+            item['channel_id'] = 'method-current'
+    documents[0]['_funnel_events'][0]['channel_id'] = 'method-entry'
+    documents[2]['_funnel_events'][0]['source_id'] = 'b'
+    documents[2]['_funnel_events'][0]['channel_id'] = 'method-entry'
+    assert report(documents, source_ids=['source:a'])['totals']['total'] == 2
+    result = report(documents, source_ids=['source:a'], channel_id='method-entry')
+    assert [stage['count'] for stage in result['totals']['stages']] == [1, 1, 1]
+    assert result['totals']['conversion'] == 100
+    assert result['sources'][0]['total'] == 1
+    assert report(documents, source_ids=['source:a'], channel_id='method-current')['totals']['total'] == 0
+    snapshot = report(documents, mode='snapshot', source_ids=['source:a'], channel_id='method-current')
+    assert snapshot['totals']['total'] == 3 and snapshot['totals']['stages'][2]['share'] == 100
+    assert report(documents, mode='snapshot', channel_id='unknown')['totals']['stages'][0]['share'] is None
 
 
 def test_source_at_entry_is_frozen_and_selected_zero_is_not_dropped():
