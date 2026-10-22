@@ -25,16 +25,25 @@ const fixtureRows=[{key:'source:a',name:'Канал А',total:6,snapshot:{'entry
 const rate=(a,b)=>b?Math.round(a/b*1000)/10:null;
 async function mount(t, options={}) {
  const dom=new JSDOM('<div id="root"></div>',{url:'https://fixture.invalid/crm-deals'+(options.batch?'?funnel_batch=demo-batch':'')});
- const f={columns:columns(),requests:[],fail:false,gate:null,user:options.user||{id:'manager',clinic_id:'clinic'},generation:0};
+ const f={columns:columns(),requests:[],fail:false,gate:null,user:options.user||{id:'manager',clinic_id:'clinic'},generation:0,
+  methodGates:{},methodFail:false,methods:{a:[{id:'contact-one',name:'Custom first',active:true},{id:'contact-old',name:'Archived second',active:false}],b:[{id:'contact-other',name:'Other source only',active:true}],zero:[]}};
  const original=new Map();const globals={window:dom.window,document:dom.window.document,localStorage:dom.window.localStorage,IS_REACT_ACT_ENVIRONMENT:true,
  fetch:async(input,init)=>{
   const url=new URL(input);assert.equal(url.origin,'https://fixture.invalid');assert.equal(init?.method||'GET','GET');
   f.requests.push(url);if(f.fail)return{ok:false,json:async()=>({detail:'Отчёт недоступен'})};
   if(url.pathname.endsWith('/options'))return{ok:true,json:async()=>({columns:f.columns,sources:sources(),synthetic_batch:options.batch?'demo-batch':null})};
+  if(url.pathname.endsWith('/methods')){
+   const sourceId=url.searchParams.get('source_id');
+   if(f.methodGates[sourceId])await f.methodGates[sourceId];
+   return f.methodFail?{ok:false,json:async()=>({detail:'Method catalog unavailable'})}:{ok:true,json:async()=>({source_id:sourceId,methods:f.methods[sourceId]||[]})};
+  }
   assert.equal(url.pathname,'/api/crm/funnel/report');
   const mode=url.searchParams.get('mode'),steps=url.searchParams.getAll('steps'),selected=url.searchParams.get('source_selection')==='selected'?url.searchParams.getAll('source_ids'):null;
   if(f.gate&&selected?.includes('source:a'))await f.gate;
-  const rows=fixtureRows.filter(row=>selected===null||selected.includes(row.key));
+  const method=url.searchParams.get('channel_id');
+  const rows=fixtureRows.filter(row=>selected===null||selected.includes(row.key)).map(row=>!method?row:{...row,
+   ...(method==='contact-one'&&row.key==='source:a'?{total:2,counts:[2,1,1],snapshot:{'middle-y':1,'end-z':1},open:0}:
+    method==='contact-old'&&row.key==='source:a'?{total:1,counts:[1,0,0],snapshot:{'entry-x':1},open:0}:{total:0,counts:[0,0,0],snapshot:{},open:0})});
   const stageIds=mode==='history'?steps:f.columns.map(c=>c.id);
   const summarize=rows=>{const total=rows.reduce((sum,r)=>sum+r.total,0);const counts=stageIds.map((id,i)=>rows.reduce((sum,r)=>sum+(mode==='history'?r.counts[i]||0:r.snapshot[id]||0),0));return{total,converted:counts.at(-1)||0,conversion:rate(counts.at(-1)||0,total),open_windows:rows.reduce((sum,r)=>sum+r.open,0),outside_current_columns:0,
    stages:stageIds.map((id,index)=>({id,name:f.columns.find(c=>c.id===id)?.name||id,count:counts[index],share:rate(counts[index],total),cohort_rate:rate(counts[index],total),previous_rate:index?rate(counts[index],counts[index-1]):null}))};};
@@ -162,4 +171,49 @@ test('late response for former source never replaces latest selection',async t=>
 });
 test('synthetic batch is explicit in both API requests and UI; preferences have a separate scope',async t=>{
  const h=await mount(t,{batch:true});assert.match(document.body.textContent,/Тестовый набор: demo-batch/);assert.ok(h.f.requests.every(url=>url.searchParams.get('synthetic_batch')==='demo-batch'));
+});
+
+test('dependent method filter is disabled for all/unknown sources, uses owned IDs, and resets atomically', async t => {
+ const h=await mount(t,{batch:true});
+ const method=()=>document.querySelector('[aria-label="Способ обращения"]');
+ const reports=()=>h.f.requests.filter(url=>url.pathname.endsWith('/report'));
+ assert.equal(method().disabled,true);assert.equal(method().textContent,'Выберите источник');
+ assert.equal(h.f.requests.some(url=>url.pathname.endsWith('/methods')),false);
+ await h.change('Источник','source:a');
+ assert.equal(method().disabled,false);
+ assert.deepEqual([...method().options].map(option=>option.value),['','contact-one','contact-old']);
+ assert.match(method().textContent,/Archived second \(архивный\)/);
+ const before=reports().length;
+ await h.change('Способ обращения','contact-one');
+ assert.equal(reports().length,before+1);assert.match(h.total(),/^2/);
+ assert.equal(reports().at(-1).searchParams.get('channel_id'),'contact-one');
+ assert.equal(reports().at(-1).searchParams.get('synthetic_batch'),'demo-batch');
+ await h.change('Быстрый период','7days');
+ assert.equal(method().value,'contact-one');assert.equal(reports().at(-1).searchParams.get('channel_id'),'contact-one');
+ await h.define();assert.match(h.total(),/^2/);assert.equal(h.rows().at(-1).querySelector('[data-stage-count]').textContent,'1');
+ await h.click(h.button('Сравнение источников'));
+ assert.equal(method(),null);assert.equal(reports().at(-1).searchParams.has('channel_id'),false);assert.match(h.total(),/^12/);
+ await h.click(h.button('По этапам'));assert.equal(method().value,'contact-one');assert.match(h.total(),/^2/);
+ await h.change('Источник','source:b');
+ assert.equal(method().value,'');assert.deepEqual([...method().options].map(option=>option.value),['','contact-other']);
+ assert.match(h.total(),/^5/);assert.equal(reports().at(-1).searchParams.has('channel_id'),false);
+ assert.ok(reports().every(url=>!url.searchParams.has('channel_id')||url.searchParams.getAll('source_ids').join()==='source:a'));
+ await h.change('Источник','missing-source');assert.equal(method().disabled,true);assert.equal(method().value,'');
+ await h.change('Источник','all');assert.equal(method().disabled,true);assert.match(h.total(),/^12/);
+});
+
+test('method catalog rejects late former-source data and exposes empty/error/loading/removed states honestly', async t => {
+ const h=await mount(t);let release;
+ const method=()=>document.querySelector('[aria-label="Способ обращения"]');
+ h.f.methodGates.a=new Promise(resolve=>{release=resolve;});
+ await h.change('Источник','source:a');assert.equal(method().disabled,true);assert.match(method().textContent,/Загрузка/);
+ await h.change('Источник','source:b');assert.deepEqual([...method().options].map(option=>option.value),['','contact-other']);
+ await act(async()=>release());assert.deepEqual([...method().options].map(option=>option.value),['','contact-other']);
+ await h.change('Источник','source:zero');assert.equal(method().disabled,false);assert.match(document.body.textContent,/нет настроенных способов/);
+ h.f.methodFail=true;await h.change('Источник','source:a');assert.equal(method().disabled,true);assert.match(document.querySelector('#funnel-method-status').textContent,/Method catalog unavailable/);
+ h.f.methodFail=false;await h.click(h.button('Повторить'));assert.equal(method().disabled,false);
+ await h.change('Способ обращения','contact-old');assert.match(h.total(),/^1/);
+ h.f.methods.a=[];await h.refresh();
+ assert.equal(method().value,'contact-old');assert.match(method().selectedOptions[0].textContent,/недоступен/);
+ assert.equal(h.f.requests.filter(url=>url.pathname.endsWith('/report')).at(-1).searchParams.get('channel_id'),'contact-old');
 });

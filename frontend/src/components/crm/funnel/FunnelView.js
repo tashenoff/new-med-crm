@@ -3,6 +3,7 @@ import PanelHeader from '../../common/PanelHeader';
 import FunnelSettings from './FunnelSettings';
 import FunnelRules from './FunnelRules';
 import FunnelReportBody from './FunnelReportBody';
+import useFunnelMethods from './useFunnelMethods';
 import '../crmReports.css';
 import { stagePreferenceKey, funnelRequest, initialPeriod, funnelPeriodPresets, funnelPresetRange, readReportPreference, reportPeriod } from '../../../utils/eventFunnel';
 
@@ -23,9 +24,13 @@ export default function FunnelView({ user }) {
   const [view, setView] = useState('stages');
   const [period, setPeriod] = useState(() => ({ ...initialPeriod(), preset: '30days' }));
   const [windowDays, setWindowDays] = useState(30);
-  const [source, setSource] = useState('all');
+  const [{ source, channel }, setAttribution] = useState({ source: 'all', channel: '' });
   const [comparisonSources, setComparisonSources] = useState(null);
   const [panel, setPanel] = useState(null);
+  const methods = useFunnelMethods(view === 'stages' ? source : 'all', batch, revision);
+  const methodPlaceholder = methods.status === 'unselected' ? 'Выберите источник'
+    : methods.status === 'loading' ? 'Загрузка способов…'
+      : methods.status === 'error' ? 'Способы недоступны' : 'Все способы';
 
   const batchQuery = batch ? `?synthetic_batch=${encodeURIComponent(batch)}` : '';
   const reload = useCallback(() => setRevision(value => value + 1), []);
@@ -57,9 +62,10 @@ export default function FunnelView({ user }) {
       const selected = view === 'sources' ? comparisonSources : source === 'all' ? null : [source];
       params.set('source_selection', selected === null ? 'all' : 'selected');
       for (const key of selected || []) params.append('source_ids', key);
+      if (view === 'stages' && source.startsWith('source:') && channel) params.set('channel_id', channel);
       return { key: params.toString() };
     } catch (failure) { return { error: failure.message }; }
-  }, [metadata, period.from, period.to, mode, windowDays, batch, steps, view, comparisonSources, source]);
+  }, [metadata, period.from, period.to, mode, windowDays, batch, steps, view, comparisonSources, source, channel]);
   useEffect(() => {
     if (!query?.key) return;
     const controller = new AbortController();
@@ -112,13 +118,31 @@ export default function FunnelView({ user }) {
           <label>По<input className={control} type="date" aria-label="Конец периода" value={period.to} onChange={event => setPeriod(current => ({ ...current, to: event.target.value, preset: 'custom' }))} /></label></div>
       </fieldset>
       {mode === 'history' && <label className="curai-crm-field curai-crm-window"><span>Окно, дней</span><input type="number" min="1" max="365" aria-label="Окно конверсии, дней" className={control} value={windowDays} onChange={event => setWindowDays(event.target.value)} /></label>}
-      {view === 'stages' ? <label className="curai-crm-field curai-crm-field-source"><span>Источник</span><select id="funnel-source" aria-label="Источник" className={control} value={source} onChange={event => setSource(event.target.value)}><option value="all">Все источники</option>{sourceOptions.map(item => <option key={item.key} value={item.key}>{item.name}</option>)}</select></label>
+      {view === 'stages' ? <>
+        <label className="curai-crm-field curai-crm-field-source"><span>Источник</span><select id="funnel-source" aria-label="Источник" className={control} value={source} onChange={event => setAttribution({ source: event.target.value, channel: '' })}><option value="all">Все источники</option>{sourceOptions.map(item => <option key={item.key} value={item.key}>{item.name}</option>)}</select></label>
+        <label className="curai-crm-field curai-crm-field-source"><span>Способ обращения</span><select aria-label="Способ обращения" className={control}
+          aria-describedby="funnel-method-status" disabled={methods.status !== 'ready'} title={methodPlaceholder}
+          value={channel} onChange={event => setAttribution(current => ({ ...current, channel: event.target.value }))}>
+          <option value="">{methodPlaceholder}</option>
+          {channel && !methods.methods.some(item => item.id === channel) && <option value={channel}>{methods.status === 'loading' ? 'Выбранный способ: загрузка…' : methods.status === 'error' ? 'Выбранный способ: справочник недоступен' : 'Выбранный способ недоступен'}</option>}
+          {methods.methods.map(item => <option key={item.id} value={item.id}>{item.name}{item.active === false ? ' (архивный)' : ''}</option>)}
+        </select></label>
+      </>
         : <div className="curai-crm-field"><span>Выбор для сравнения</span><button type="button" className="curai-button curai-button-secondary" onClick={() => setPanel('sources')}>Источники ({selectedSourceKeys.length})</button></div>}
       <button type="button" className={action} onClick={reload}>Обновить</button>
     </div>
+    {view === 'stages' && <p id="funnel-method-status" role={methods.status === 'error' ? 'alert' : 'status'} className="curai-crm-caption">
+      {methods.status === 'unselected' ? 'Выберите источник, чтобы отфильтровать по способу обращения.'
+        : methods.status === 'loading' ? 'Загрузка способов обращения…'
+          : methods.status === 'error' ? <>Не удалось загрузить способы: {methods.error}. <button className="underline" onClick={reload}>Повторить</button></>
+            : channel && !methods.methods.some(item => item.id === channel) ? 'Выбранный способ больше недоступен. Сбросьте фильтр на «Все способы»; другой способ автоматически не подставляется.'
+              : !methods.methods.length ? 'У источника нет настроенных способов. Показаны все обращения источника, включая неизвестные способы.'
+              : channel ? 'Фильтр применяется ко всему отчёту. Архивные способы доступны для истории.'
+                : 'Все способы включают обращения с неизвестным или неуказанным способом.'}
+    </p>}
     {mode === 'history' ? <div className="curai-crm-caption">
       {steps.length > 0 && <p className="break-words">Путь: {steps.map(label).join(' → ')}.</p>}
-      <p>Первый наблюдаемый вход · окно {windowDays} суток · источник на момент входа.</p>
+      <p>Первый наблюдаемый вход · окно {windowDays} суток · источник и способ обращения на момент входа.</p>
       {view === 'sources' && <p>Выбранные источники сравниваются по одному периоду, пути и окну. Фильтр «По этапам» здесь не применяется.</p>}
     </div> : <details className="curai-crm-caption"><summary>Как читать текущий снимок</summary><p>Это текущие состояния обращений, не история прохождения. Проценты — доля от всех обращений выбранного периода создания. Разные обращения одного пациента считаются отдельно.</p></details>}
       {(error || query?.error) && <div role="alert" className="text-curai-negative">{error || query.error} <button className="underline" onClick={reload}>Повторить</button></div>}
