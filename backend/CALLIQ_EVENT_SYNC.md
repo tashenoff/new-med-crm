@@ -110,3 +110,16 @@ Playwright path supplied the browser instead, without installing software.
 
 This rollout enables infrastructure and line attribution. It does not declare
 the final missed classification complete while the provider contract is unresolved.
+
+## Recording flag audit
+
+Read-only PBX statistics observed on 2026-10-22 returned `is_recorded` as strings.
+The audited MedCRM/CallIQ paths do not call `bool()` on that field: the typed
+TelephonyCall model already parses `"0"`/`"false"` as false and `"1"`/`"true"`
+as true. `bool(recording_url)` checks an actual recording reference instead.
+No application normalization fix was required. Added regressions cover strings,
+booleans and 0/1, and exercise the real webhook/exporter/CallIQ bridge to ensure
+that an availability flag alone never creates audio, a transcript or analysis.
+Observed repeated statistics snapshots are evidence for those samples only,
+not proof of universal provider finality. Recognition details for the potential
+missed call are kept outside Git in the task's redacted diagnostic artifacts.

@@ -173,10 +173,14 @@ async def calls(bridge):
 
 
 @pytest.mark.asyncio
-async def test_no_audio_no_missed_or_transcript_invented(bridge):
+@pytest.mark.parametrize("recording_flag", ["0", False, "false", "1", True, "true"])
+async def test_no_audio_no_missed_or_transcript_invented(bridge, recording_flag):
     await bridge.send("NOTIFY_START")
     await bridge.send(
-        "NOTIFY_END", internal=" 100 ", disposition="no answer", is_recorded="0"
+        "NOTIFY_END",
+        internal=" 100 ",
+        disposition="no answer",
+        is_recorded=recording_flag,
     )
     data = await calls(bridge)
     assert (

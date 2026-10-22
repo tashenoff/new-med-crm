@@ -35,6 +35,31 @@ def test_channel_normalization(value, expected):
     assert events.extension(value) == expected
 
 
+@pytest.mark.parametrize(
+    "value,expected",
+    [
+        ("0", False),
+        ("1", True),
+        ("false", False),
+        ("true", True),
+        (False, False),
+        (True, True),
+        (0, False),
+        (1, True),
+    ],
+)
+def test_api_recording_flag_model_does_not_use_string_truthiness(value, expected):
+    from models.telephony import TelephonyCall
+
+    document = TelephonyCall(
+        phone_number="synthetic",
+        direction="inbound",
+        status="pending",
+        is_recorded=value,
+    )
+    assert document.is_recorded is expected
+
+
 def test_lineage_order_independent_and_transfer():
     sequence = [
         event("NOTIFY_START"),
