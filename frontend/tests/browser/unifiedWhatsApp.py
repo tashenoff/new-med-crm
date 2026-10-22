@@ -1,0 +1,68 @@
+"""Synthetic localhost browser checks. Run preview first; no real APIs or sends."""
+import json
+import re
+from pathlib import Path
+from playwright.sync_api import sync_playwright, expect
+
+output = Path(__file__).resolve().parents[4] / 'widget-qa'
+output.mkdir(exist_ok=True)
+with sync_playwright() as p:
+    browser = p.chromium.launch(headless=True)
+    context = browser.new_context(viewport={'width': 1365, 'height': 950})
+    context.route('**/*', lambda route: route.continue_() if route.request.url.startswith('http://127.0.0.1:4179') else route.abort())
+    page = context.new_page()
+    errors = []
+    page.on('pageerror', lambda error: errors.append(str(error)))
+    page.goto('http://127.0.0.1:4179?mode=crm')
+    page.locator('[data-lead-id="synthetic-lead"] [title="Открыть WhatsApp"]').click()
+    widget = page.locator('.curai-whatsapp')
+    expect(widget).to_be_visible()
+    expect(page.locator('.curai-chat-phone')).to_have_text('+442071234567')
+    expect(page.locator('.curai-whatsapp-history')).to_have_count(0)
+    page.screenshot(path=str(output / 'crm-widget-desktop.png'))
+    page.get_by_role('button', name='Закрыть WhatsApp', exact=True).click()
+    page.get_by_role('button', name='Open patient', exact=True).click()
+    card = page.locator('.curai-dialog')
+    expect(card.locator('textarea')).to_be_visible()
+    card.locator('textarea').fill('Synthetic unsaved patient note')
+    opener = card.get_by_role('button', name='Открыть WhatsApp', exact=True)
+    opener.click()
+    expect(page.locator('.curai-chat-phone')).to_have_text('+77011234567')
+    expect(card.locator('textarea')).to_have_value('Synthetic unsaved patient note')
+    assert widget.evaluate('(node) => { const r=node.getBoundingClientRect(); return node.contains(document.elementFromPoint(r.right-30,r.top+30)); }')
+    page.screenshot(path=str(output / 'patient-widget-desktop.png'))
+    widget.get_by_role('button', name=re.compile('Приёмы')).click()
+    visits = page.locator('.curai-appointments-dialog')
+    expect(visits).to_be_visible()
+    assert visits.evaluate('(node) => {const r=node.getBoundingClientRect(); return node.contains(document.elementFromPoint(r.right-30,r.top+30));}')
+    page.keyboard.press('Escape')
+    expect(visits).to_have_count(0)
+    expect(widget).to_be_visible()
+    page.keyboard.press('Escape')
+    expect(widget).to_have_count(0)
+    expect(card).to_be_visible()
+    expect(opener).to_be_focused()
+    expect(card.locator('textarea')).to_have_value('Synthetic unsaved patient note')
+    page.get_by_role('button', name='Открыть WhatsApp чаты', exact=True).click()
+    expect(widget).to_be_visible()
+    page.get_by_role('button', name='Закрыть WhatsApp', exact=True).click()
+    page.set_viewport_size({'width': 390, 'height': 844})
+    opener.click()
+    expect(widget).to_be_visible()
+    expect(page.locator('.curai-chat-phone')).to_have_text('+77011234567')
+    bounds = widget.bounding_box()
+    assert bounds['x'] >= -1 and bounds['width'] <= 391
+    assert widget.evaluate('(node) => {const r=node.getBoundingClientRect();return node.contains(document.elementFromPoint(200,40));}')
+    page.screenshot(path=str(output / 'patient-widget-mobile.png'))
+    page.locator('.curai-chat-back').click()
+    expect(widget).not_to_have_class('has-selection')
+    expect(page.locator('.curai-chat-sidebar')).to_be_visible()
+    page.get_by_role('button', name='Закрыть WhatsApp', exact=True).click()
+    expect(card.locator('textarea')).to_have_value('Synthetic unsaved patient note')
+    assert page.evaluate('globalThis.widgetFixture.requests.every(r => r.method === "GET")')
+    assert errors == [], errors
+    result = dict(desktop_crm=True, desktop_patient=True, mobile=True, no_legacy_panel=True,
+        unsaved_form_preserved=True, focus_restored=True, writes=0, browser_errors=errors)
+    (output / 'result.json').write_text(json.dumps(result, indent=2), encoding='utf-8')
+    print(json.dumps(result))
+    browser.close()

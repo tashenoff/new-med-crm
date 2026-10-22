@@ -12,6 +12,8 @@ import { createPortal } from 'react-dom';
 import { apiClient, handleApiError, API_BASE_URL } from '../../../api/config';
 import { useModal } from '../../../context/ModalContext';
 import { useGlobalRefresh } from '../../../hooks/useGlobalRefresh';
+import useDialogFocus from '../../../hooks/useDialogFocus';
+import { mergeWhatsAppContext, normalizeWhatsAppPhone } from '../../../utils/openWhatsAppChat';
 
 const contactNameMeta = (c) => c.patient_name || c.lead_name || c.contact_name || c.phone || 'Клиент';
 const absMedia = (u) => u && u.startsWith('/') ? `${import.meta.env.VITE_BACKEND_URL}${u}` : u;
@@ -32,24 +34,24 @@ const formatMessageTime = value => {
   return value && !Number.isNaN(date.getTime()) ? date.toLocaleTimeString('ru-RU', { timeZone: 'Asia/Bishkek', hour: '2-digit', minute: '2-digit' }) : '';
 };
 
-const WhatsAppInbox = ({ isOpen, onClose, user }) => {
-  const { openModal, closeModal } = useModal();
+const WhatsAppInbox = ({ isOpen, onClose, user, openRequest = null, suspended = false, onSuspend }) => {
+  const { openModal, closeModal, isModalOpen } = useModal();
   const { refreshAppointments } = useGlobalRefresh();
 
   const [chats, setChats] = useState([]);
   const [loadingChats, setLoadingChats] = useState(false);
   const [selected, setSelected] = useState(null); // объект чата
   const [messages, setMessages] = useState([]);
+  const [selectionRevision, setSelectionRevision] = useState(0);
   const [loadingMessages, setLoadingMessages] = useState(false);
   const [newMessage, setNewMessage] = useState('');
   const [sending, setSending] = useState(false);
   const [search, setSearch] = useState('');
   const [typeFilter, setTypeFilter] = useState('all'); // all | chat | lead | patient
   const [error, setError] = useState(null);
-  const [statusDirty, setStatusDirty] = useState(false);
   const [appointmentsRevision, setAppointmentsRevision] = useState(0);
   const messageGeneration = useRef(0);
-  const chatOpenRef = useRef(isOpen); chatOpenRef.current = isOpen;
+  const chatOpenRef = useRef(isOpen); chatOpenRef.current = isOpen && canAction(user, 'crm_view');
   const bookingPendingRef = useRef(false);
   const bookingChatRef = useRef(null);
   bookingChatRef.current = isOpen ? selected : null;
@@ -68,11 +70,18 @@ const WhatsAppInbox = ({ isOpen, onClose, user }) => {
   const attachMenuRef = useRef(null);
   const selectedPhoneRef = useRef(null);
   selectedPhoneRef.current = selected?.phone;
+  const dialogRef = useRef(null);
+  const drafts = useRef(new Map());
+  const listGeneration = useRef(0);
+  useDialogFocus(dialogRef, isOpen && !suspended, onClose);
 
   const fetchChats = useCallback(async () => {
+    if (!chatOpenRef.current) return;
+    const generation = ++listGeneration.current;
     try {
       setLoadingChats(true);
       const { data } = await apiClient.get('/wazzup/chats', { params: { search: search || undefined, limit: 200 } });
+      if (!chatOpenRef.current || generation !== listGeneration.current) return;
       setChats(data.chats || []);
       const selectedPhone = selectedPhoneRef.current;
       let refreshedSelected = (data.chats || []).find(chat => chat.phone === selectedPhone);
@@ -81,14 +90,15 @@ const WhatsAppInbox = ({ isOpen, onClose, user }) => {
         const { data: selectedData } = await apiClient.get('/wazzup/chats', { params: { search: selectedPhone, limit: 200 } });
         refreshedSelected = (selectedData.chats || []).find(chat => chat.phone === selectedPhone);
       }
+      if (!chatOpenRef.current || generation !== listGeneration.current) return;
       setSelected(current => current
-        ? (refreshedSelected?.phone === current.phone ? refreshedSelected : current)
+        ? (refreshedSelected?.phone === current.phone ? mergeWhatsAppContext(current, refreshedSelected) : current)
         : null);
       setError(null);
     } catch (err) {
-      setError(handleApiError(err));
+      if (chatOpenRef.current && generation === listGeneration.current) setError(handleApiError(err));
     } finally {
-      setLoadingChats(false);
+      if (generation === listGeneration.current) setLoadingChats(false);
     }
   }, [search]);
 
@@ -101,6 +111,7 @@ const WhatsAppInbox = ({ isOpen, onClose, user }) => {
   }, [isOpen, fetchChats]);
 
   const fetchMessages = useCallback(async (phone) => {
+    if (!chatOpenRef.current || selectedPhoneRef.current !== phone) return;
     const request = ++messageGeneration.current;
     const current = () => request === messageGeneration.current && selectedPhoneRef.current === phone && chatOpenRef.current;
     try {
@@ -118,29 +129,69 @@ const WhatsAppInbox = ({ isOpen, onClose, user }) => {
     }
   }, []);
 
-  const selectChat = async (chat) => {
+  const selectChat = useCallback((chat) => {
+    ++messageGeneration.current;
+    selectedPhoneRef.current = chat.phone;
     setSelected(chat);
+    setSelectionRevision(value => value + 1);
+    setMessages([]);
+    setLoadingMessages(true);
+    setNewMessage(drafts.current.get(chat.phone) || '');
+    setPatientDocs([]);
+    setAttachMenuOpen(false);
     setSysNotes([]);
-    await fetchMessages(chat.phone);
-  };
+    setError(null);
+  }, []);
+
+  useEffect(() => {
+    if (!isOpen || !canAction(user, 'crm_view') || !openRequest) return undefined;
+    let cancelled = false;
+    const target = { ...openRequest };
+    selectChat(target);
+    setSearch('');
+    setTypeFilter('all');
+    // A missing chat is normal: open a temporary empty thread without writing.
+    apiClient.get(`/wazzup/chats/${encodeURIComponent(target.phone)}`).then(({ data }) => {
+      if (cancelled || selectedPhoneRef.current !== target.phone) return;
+      if (normalizeWhatsAppPhone(data?.phone) === target.phone) {
+        setSelected(current => current?.phone === target.phone ? mergeWhatsAppContext(current, data) : current);
+      }
+    }).catch(err => {
+      if (!cancelled && chatOpenRef.current && selectedPhoneRef.current === target.phone && err.response?.status !== 404) setError(handleApiError(err));
+    });
+    return () => { cancelled = true; };
+  }, [isOpen, openRequest, selectChat, user]);
 
   // Поллинг открытого чата.
+  const activePhone = selected?.phone;
   useEffect(() => {
-    if (!isOpen || !selected) return;
-    fetchMessages(selected.phone);
-    msgTimer.current = setInterval(() => fetchMessages(selected.phone), 5000);
+    if (!isOpen || !activePhone) return;
+    fetchMessages(activePhone);
+    msgTimer.current = setInterval(() => fetchMessages(activePhone), 5000);
     return () => clearInterval(msgTimer.current);
-  }, [isOpen, selected?.phone, fetchMessages]);
+  }, [isOpen, activePhone, selectionRevision, fetchMessages]);
 
   // При закрытии сбрасываем выбор.
   useEffect(() => {
     if (!isOpen) {
+      ++messageGeneration.current;
+      ++listGeneration.current;
       setSelected(null);
       setMessages([]);
       setSearch('');
       setSysNotes([]);
     }
   }, [isOpen]);
+
+  const setDraft = value => {
+    if (selectedPhoneRef.current) drafts.current.set(selectedPhoneRef.current, value);
+    setNewMessage(value);
+  };
+
+  const refreshThread = async phone => {
+    if (selectedPhoneRef.current === phone) await fetchMessages(phone);
+    await fetchChats();
+  };
 
   // Автоскролл переписки вниз при новых сообщениях/смене чата.
   useEffect(() => {
@@ -152,11 +203,13 @@ const WhatsAppInbox = ({ isOpen, onClose, user }) => {
     if (!canAction(user, 'crm_view', 'crm_edit')) return;
     const text = newMessage.trim();
     if (!text || !selected || sending) return;
+    const phone = selected.phone;
     setSending(true);
     try {
-      await apiClient.post('/wazzup/messages/send', { phone: selected.phone, text });
-      setNewMessage('');
-      await Promise.all([fetchMessages(selected.phone), fetchChats()]);
+      await apiClient.post('/wazzup/messages/send', { phone, text });
+      drafts.current.delete(phone);
+      if (selectedPhoneRef.current === phone) setNewMessage('');
+      await refreshThread(phone);
     } catch (err) {
       setError(handleApiError(err));
     } finally {
@@ -166,6 +219,7 @@ const WhatsAppInbox = ({ isOpen, onClose, user }) => {
 
   // Отправка файла пациенту: загрузка в /uploads -> send-media -> обновить переписку.
   const sendFile = async (file) => {
+    if (!canAction(user, 'crm_view', 'crm_edit')) return;
     if (!file || !selected || uploadingFile) return;
     setUploadingFile(true);
     try {
@@ -191,7 +245,7 @@ const WhatsAppInbox = ({ isOpen, onClose, user }) => {
         media_type: data.media_type,
         original_filename: file.name,
       });
-      await Promise.all([fetchMessages(selected.phone), fetchChats()]);
+      await refreshThread(selected.phone);
     } catch (err) {
       setError(handleApiError(err));
     } finally {
@@ -202,6 +256,7 @@ const WhatsAppInbox = ({ isOpen, onClose, user }) => {
 
   // Сохранить вложение в Документы пациента по явному клику в любом направлении.
   const saveMediaToPatient = async (m) => {
+    if (!canAction(user, 'crm_view', 'crm_edit', 'patients_view', 'patients_edit')) return;
     if (!m?.id || uploadingFile || m.metadata?.saved_to_patient || savingMediaRef.current.has(m.id)) return;
     savingMediaRef.current.add(m.id);
     const activePhone = selectedPhoneRef.current;
@@ -228,6 +283,7 @@ const WhatsAppInbox = ({ isOpen, onClose, user }) => {
 
   // Загрузить список документов пациента из его карточки (для отправки без повторной загрузки).
   const loadPatientDocs = async () => {
+    if (!canAction(user, 'patients_view')) return;
     if (!selected?.patient_id) return;
     setLoadingDocs(true);
     try {
@@ -244,7 +300,7 @@ const WhatsAppInbox = ({ isOpen, onClose, user }) => {
 
   // Отправить уже загруженный документ из карточки клиента (media_url уже есть, повторно не грузим).
   const sendExistingDoc = async (doc) => {
-    if (!canAction(user, 'crm_view', 'crm_edit')) return;
+    if (!canAction(user, 'crm_view', 'crm_edit', 'patients_view', 'patients_export')) return;
     if (!selected || uploadingFile) return;
     setUploadingFile(true);
     setAttachMenuOpen(false);
@@ -256,7 +312,7 @@ const WhatsAppInbox = ({ isOpen, onClose, user }) => {
         media_type: doc.file_type || 'document',
         original_filename: doc.original_filename || doc.filename,
       });
-      await Promise.all([fetchMessages(selected.phone), fetchChats()]);
+      await refreshThread(selected.phone);
     } catch (err) {
       setError(handleApiError(err));
     } finally {
@@ -294,7 +350,6 @@ const WhatsAppInbox = ({ isOpen, onClose, user }) => {
       const result = await apiClient.post('/appointments', form);
       refreshAppointments();
       closeModal('appointment');
-      setStatusDirty(true);
       setAppointmentsRevision(value => value + 1);
       await fetchChats();
       return result.data;
@@ -309,6 +364,8 @@ const WhatsAppInbox = ({ isOpen, onClose, user }) => {
   // Если это лид без пациента — переиспользуем механизм CRM «Сделки»:
   // /api/crm/leads/{id}/schedule-appointment создаст пациента, запись и пометит лид.
   const handleBook = async () => {
+    if (!canAction(user, 'crm_view', 'crm_edit', 'patients_view', 'patients_edit', 'calendar_view', 'calendar_edit')) return;
+    if (isModalOpen?.('appointment')) { setError('Сначала завершите открытую форму записи.'); return; }
     if (!selected || bookingPendingRef.current) return;
     const bookingChat = selected;
     bookingPendingRef.current = true;
@@ -389,7 +446,6 @@ const WhatsAppInbox = ({ isOpen, onClose, user }) => {
             });
             refreshAppointments();
             closeModal('appointment');
-            setStatusDirty(true);
       setAppointmentsRevision(value => value + 1);
             await fetchChats();
             return res.data;
@@ -399,6 +455,7 @@ const WhatsAppInbox = ({ isOpen, onClose, user }) => {
           }
         },
       });
+      onSuspend?.('appointment');
       return;
     }
 
@@ -434,6 +491,7 @@ const WhatsAppInbox = ({ isOpen, onClose, user }) => {
       hideAddPlanForm: true,
       onSave: bookAppointment,
     });
+    onSuspend?.('appointment');
     } catch (err) {
       if (bookingChatRef.current === bookingChat) setError(handleApiError(err));
     } finally {
@@ -443,6 +501,8 @@ const WhatsAppInbox = ({ isOpen, onClose, user }) => {
   };
 
   const openPatientCard = () => {
+    if (!canAction(user, 'patients_view')) return;
+    if (isModalOpen?.('patient')) { setError('Сначала завершите открытую карточку пациента.'); return; }
     const patientId = selected?.patient_id || selected?.linked_patient_id;
     if (!patientId) return;
     openModal('patient', {
@@ -457,6 +517,7 @@ const WhatsAppInbox = ({ isOpen, onClose, user }) => {
         phone: selected.patient_phone || selected.phone,
       },
     });
+    onSuspend?.('patient');
   };
 
   const chatIsLead = (c) => c.source === 'lead' || (c.linked_lead_id && !c.patient_id && !c.linked_patient_id);
@@ -472,12 +533,13 @@ const WhatsAppInbox = ({ isOpen, onClose, user }) => {
       (c.phone || '').includes(search);
   });
 
-  if (!isOpen) return null;
+  if (!isOpen || !canAction(user, 'crm_view')) return null;
 
   return createPortal(
     <div
+      ref={dialogRef} role="dialog" aria-modal="true" aria-label="WhatsApp чаты" tabIndex={-1}
       className={`curai-surface-root curai-glass-shell curai-whatsapp${selected ? ' has-selection' : ''}`}
-      style={{ width: 'min(880px, 96vw)' }}
+      style={{ width: 'min(880px, 96vw)', display: suspended ? 'none' : undefined }}
     >
       {/* Шапка */}
       <div className="curai-whatsapp-title curai-glass-header">
@@ -743,7 +805,7 @@ const WhatsAppInbox = ({ isOpen, onClose, user }) => {
                 </div>
                 <textarea
                   value={newMessage}
-                  onChange={(e) => setNewMessage(e.target.value)}
+                  onChange={(e) => setDraft(e.target.value)}
                   onKeyDown={(e) => {
                     if (e.key === 'Enter' && !e.shiftKey) {
                       e.preventDefault();

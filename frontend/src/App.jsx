@@ -7,8 +7,7 @@ import Header from './components/layout/Header';
 import Navigation from './components/layout/Navigation';
 import ErrorMessage from './components/layout/ErrorMessage';
 import InsightsBar from './components/insights/InsightsBar';
-import WhatsAppFloatingButton from './components/layout/WhatsAppFloatingButton';
-import WhatsAppInbox from './components/crm/telephony/WhatsAppInbox';
+import WhatsAppWidget from './components/crm/telephony/WhatsAppWidget';
 
 
 import AIChatSidebar from './components/layout/AIChatSidebar';
@@ -142,7 +141,6 @@ function ClinicApp() {
   const [activeSection, setActiveSection] = useState('hms');
   const [aiChatSidebarOpen, setAiChatSidebarOpen] = useState(false);
 
-  const [whatsAppInboxOpen, setWhatsAppInboxOpen] = useState(false);
   const [currentChatBadge, setCurrentChatBadge] = useState(null);
   const [showMaterialForm, setShowMaterialForm] = useState(false);
   const [materialRefreshTrigger, setMaterialRefreshTrigger] = useState(0);
@@ -406,8 +404,7 @@ function ClinicApp() {
           <NotificationCenter />
 
           {/* Плавающая кнопка WhatsApp-инбокса (ИИ-консультант убран) */}
-          {hasPermission(user, 'crm_view') && <WhatsAppFloatingButton isOpen={whatsAppInboxOpen} onToggle={() => setWhatsAppInboxOpen(v => !v)} />}
-          {hasPermission(user, 'crm_view') && <WhatsAppInbox user={user} isOpen={whatsAppInboxOpen} onClose={() => setWhatsAppInboxOpen(false)} />}
+          <WhatsAppWidget user={user} />
 
 
 

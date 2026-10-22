@@ -15,7 +15,7 @@ import { useTheme, themeClasses, cn } from '../../../hooks/useTheme';
 import { useModal } from '../../../context/ModalContext';
 import Modal from '../../modals/Modal';
 import PanelHeader from '../../common/PanelHeader';
-import WhatsAppSidebar from '../telephony/WhatsAppSidebar';
+import { openWhatsAppChat, normalizeWhatsAppPhone } from '../../../utils/openWhatsAppChat';
 import { normalizeIdentityPhone } from '../../../utils/leadIdentity';
 import { loadLeadHmsData } from '../../../utils/leadHmsData';
 import LeadHistory from './LeadHistoryTimeline';
@@ -96,11 +96,6 @@ const EnhancedLeadsView = ({ user }) => {
   const [selectedLeadForHms, setSelectedLeadForHms] = useState(null);
   const [hmsData, setHmsData] = useState({ appointments: [], treatmentPlans: [] });
   const [loadingHmsData, setLoadingHmsData] = useState(false);
-
-  // Состояния для WhatsApp сайдбара
-  const [showWhatsAppSidebar, setShowWhatsAppSidebar] = useState(false);
-  const [whatsAppPhone, setWhatsAppPhone] = useState(null);
-  const [whatsAppLeadName, setWhatsAppLeadName] = useState('');
 
   const { isDarkMode } = useTheme();
   const { openModal, closeModal } = useModal();
@@ -1012,12 +1007,12 @@ const EnhancedLeadsView = ({ user }) => {
               <button
                 onClick={(e) => {
                   e.stopPropagation();
-                  setWhatsAppPhone(lead.phone);
-                  setWhatsAppLeadName(lead.full_name || [lead.first_name, lead.last_name, lead.middle_name].filter(Boolean).join(' '));
-                  setShowWhatsAppSidebar(true);
+                  openWhatsAppChat({ phone: lead.phone, leadId: lead.id, patientId: lead.patient_id,
+                    displayName: lead.full_name || [lead.first_name, lead.last_name, lead.middle_name].filter(Boolean).join(' ') });
                 }}
+                disabled={!canAction(user, 'crm_view') || !normalizeWhatsAppPhone(lead.phone)}
                 className="curai-lead-whatsapp text-curai-blue hover:underline"
-                title="Открыть WhatsApp"
+                title={!canAction(user, 'crm_view') ? 'Недостаточно прав' : !normalizeWhatsAppPhone(lead.phone) ? 'Укажите международный номер телефона' : 'Открыть WhatsApp'}
               >
                 WhatsApp
               </button>
@@ -1774,18 +1769,7 @@ const EnhancedLeadsView = ({ user }) => {
         )}
       </Modal>
 
-      {/* WhatsApp Sidebar */}
-      <WhatsAppSidebar
-        user={user}
-        phone={whatsAppPhone}
-        patientName={whatsAppLeadName}
-        isOpen={showWhatsAppSidebar}
-        onClose={() => {
-          setShowWhatsAppSidebar(false);
-          setWhatsAppPhone(null);
-          setWhatsAppLeadName('');
-        }}
-      />
+
         </div>
       </div>
     </div>

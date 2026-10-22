@@ -12,7 +12,7 @@ import PatientPaymentWorkspace from '../treatment/PatientPaymentWorkspace';
 import PatientTreatmentWorkspace from '../treatment/PatientTreatmentWorkspace';
 import AppointmentsSchedule from '../treatment/AppointmentsSchedule';
 import LabAnalysisPicker from '../patients/LabAnalysisPicker';
-import WhatsAppSidebar from '../crm/telephony/WhatsAppSidebar';
+import { openWhatsAppChat, normalizeWhatsAppPhone } from '../../utils/openWhatsAppChat';
 import { FaWhatsapp, FaUser, FaStethoscope, FaFileAlt, FaClipboardList, FaCreditCard, FaCalendarAlt, FaChevronDown, FaChevronRight, FaNotesMedical, FaUserMd, FaFileMedical, FaPuzzlePiece, FaFlask } from 'react-icons/fa';
 import { useGlobalRefresh } from '../../hooks/useGlobalRefresh';
 import { usePhoneInput } from '../../hooks/usePhoneInput';
@@ -70,7 +70,6 @@ const PatientModal = ({
   const [editingPlan, setEditingPlan] = useState(null);
   const [hasCourseServices, setHasCourseServices] = useState(false);
   const [successMessage, setSuccessMessage] = useState('');
-  const [showWhatsAppHistory, setShowWhatsAppHistory] = useState(false);
 
   // Состояние загрузки страницы пациента (прелоадер при открытии)
   const [pageLoading, setPageLoading] = useState(false);
@@ -887,46 +886,6 @@ const PatientModal = ({
     }
   };
 
-  const handleSendWhatsApp = async () => {
-    if (!editingItem || !editingItem.phone) {
-      alert('У пациента не указан номер телефона');
-      return;
-    }
-
-    if (!whatsAppMessage.trim()) {
-      alert('Введите текст сообщения');
-      return;
-    }
-
-    setSendingWhatsApp(true);
-    try {
-      const token = localStorage.getItem('token');
-      const response = await fetch(`${API}/api/wazzup/messages/send`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          phone: editingItem.phone,
-          text: whatsAppMessage
-        })
-      });
-
-      if (response.ok) {
-        alert('✅ Сообщение отправлено успешно!');
-        setWhatsAppMessage('');
-      } else {
-        const error = await response.json();
-        alert(`❌ Ошибка: ${error.detail || 'Не удалось отправить сообщение'}`);
-      }
-    } catch (error) {
-      console.error('Error sending WhatsApp message:', error);
-      alert(`❌ Ошибка: ${error.message}`);
-    } finally {
-      setSendingWhatsApp(false);
-    }
-  };
 
   if (!show) return null;
 
@@ -1092,14 +1051,17 @@ const PatientModal = ({
                   required
                 />
                 {editingItem && editingItem.phone && (
-                  <div
-                    onClick={() => setShowWhatsAppHistory(true)}
+                  <button type="button"
+                    aria-label="Открыть WhatsApp"
+                    disabled={!canAction(user, 'crm_view') || !normalizeWhatsAppPhone(editingItem.phone)}
+                    onClick={() => openWhatsAppChat({ phone: editingItem.phone, patientId: currentPatientId,
+                      displayName: editingItem.full_name || patientForm.full_name })}
                     className="absolute right-3 top-3 text-curai-positive cursor-pointer"
                     style={{ width: '20px', height: '20px' }}
-                    title="Открыть WhatsApp"
+                    title={!canAction(user, 'crm_view') ? 'Недостаточно прав' : !normalizeWhatsAppPhone(editingItem.phone) ? 'Укажите международный номер телефона' : 'Открыть WhatsApp'}
                   >
                     <FaWhatsapp style={{ width: '20px', height: '20px', display: 'block' }} />
-                  </div>
+                  </button>
                 )}
                 {phoneHook.isChecking && (
                   <div className="absolute right-3 top-1/2 -translate-y-1/2">
@@ -1863,14 +1825,7 @@ onUpdate={(updatedPlan) => {
         )}
     </Modal>
 
-    {/* WhatsApp Sidebar */}
-    <WhatsAppSidebar
-        user={user}
-      phone={editingItem?.phone}
-      patientName={editingItem?.full_name}
-      isOpen={showWhatsAppHistory}
-      onClose={() => setShowWhatsAppHistory(false)}
-    />
+
     </>
   );
 };

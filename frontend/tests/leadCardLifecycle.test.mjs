@@ -449,9 +449,14 @@ test('card action buttons do not open history and drag/drop retains lead identit
   assert.match(dom.window.document.querySelector('.modal-content').textContent, /Новое задание/);
   assert.doesNotMatch(dom.window.document.querySelector('.modal-content').textContent, /История и данные/);
   await act(async () => dom.window.document.dispatchEvent(new dom.window.KeyboardEvent('keydown', { key: 'Escape', bubbles: true })));
+  let whatsappTarget;
+  dom.window.addEventListener('curai:open-whatsapp-chat', event => { whatsappTarget = event.detail; }, { once: true });
   const currentCard = container.querySelector('[draggable="true"]');
   await act(async () => mouse(currentCard.querySelector('[title="Открыть WhatsApp"]'), 'click'));
-  assert.equal(container.querySelector('[data-testid="whatsapp"]').textContent, lead.phone);
+  assert.equal(whatsappTarget.phone, lead.phone);
+  assert.equal(whatsappTarget.linked_lead_id, lead.id);
+  assert.equal(whatsappTarget.patient_id, lead.patient_id);
+  assert.equal(container.querySelector('[data-testid="whatsapp"]'), null);
   assert.equal(dom.window.document.querySelector('.modal-wrapper'), null);
   const appointmentButton = [...container.querySelector('[draggable="true"]').querySelectorAll('button')]
     .find(button => button.textContent.includes('Назначить прием'));

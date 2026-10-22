@@ -316,14 +316,15 @@ test('a status PATCH completing after a chat switch still refreshes the calendar
   let release;
   h.f.statusGate = new Promise(resolve => { release = resolve; });
   await h.click(h.button('Подтвердить'));
-  await h.click(document.querySelector('[role="dialog"] button'));
+  await h.click(document.querySelector('.curai-appointments-dialog button'));
   await h.click([...document.querySelectorAll('.curai-chat-sidebar button')].find(e => e.textContent.includes('Other Fixture Lead')));
   await act(async () => release());
   assert.equal(h.f.statusWrites.length, 1);
   assert.equal(h.f.calendarReads, 2);
   assert.match(h.cards()[0].textContent, /Подтверждено/);
   assert.match(document.querySelector('.curai-chat-header').textContent, /Other Fixture Lead/);
-  assert.equal(document.querySelector('[role="dialog"]'), null);
+  assert.equal(document.querySelector('.curai-appointments-dialog'), null);
+  assert.ok(document.querySelector('.curai-whatsapp[role="dialog"]'));
 });
 
 test('the provider keeps one stable status subscription across rerenders and removes it on unmount', async t => {
