@@ -63,20 +63,20 @@ def event_metadata(params):
 def summarize_events(events):
     # Set/graph based, independent of HTTP delivery order. Conflicting evidence stays unknown.
     answered = {
-        e["channel"]
+        real_extension(e["channel"])
         for e in events
-        if e.get("channel")
+        if real_extension(e.get("channel"))
         and (e["event"] == "NOTIFY_ANSWER" or e.get("disposition") == "answered")
     }
     explicit = {
-        e["last_internal"]
+        real_extension(e["last_internal"])
         for e in events
-        if e.get("last_internal") and e.get("disposition") == "answered"
+        if real_extension(e.get("last_internal")) and e.get("disposition") == "answered"
     }
     transferred = {
-        e["transfer_from"]
+        real_extension(e["transfer_from"])
         for e in events
-        if e.get("transfer_from") and e["event"] == "NOTIFY_ANSWER"
+        if real_extension(e.get("transfer_from")) and e["event"] == "NOTIFY_ANSWER"
     }
     candidates = explicit or (answered - transferred)
     ambiguous = False
@@ -89,9 +89,10 @@ def summarize_events(events):
         ambiguous = True
     else:
         targets = {
-            e.get("channel") or e.get("last_internal")
+            real_extension(e.get(key))
             for e in events
-            if e.get("channel") or e.get("last_internal")
+            for key in ("channel", "last_internal", "transfer_from")
+            if real_extension(e.get(key))
         }
         channel = next(iter(targets)) if len(targets) == 1 else None
         role = "target" if channel else "unknown"
@@ -184,6 +185,7 @@ async def observe_event(db, params):
                     "calliq_statistics_signature": "",
                     "calliq_statistics_seen_at": "",
                     "calliq_missed_followup_scheduled": "",
+                    "provider_target": "",
                 },
             },
         )
@@ -200,6 +202,14 @@ def snapshot(document, project_id):
         "reason": "awaiting_statistics",
     }
     state = summarize_events(document.get("calliq_events", []))
+    target = document.get("provider_target")
+    if document.get("provider_outcome") == "missed" and target:
+        if target.get("channel_state") == "ambiguous":
+            state.update(channel=None, channel_role="unknown", channel_state="ambiguous")
+        elif state["channel_state"] == "unknown" and target.get("channel"):
+            state.update({k: target[k] for k in ("channel", "channel_role", "channel_state")})
+        elif state["channel"] and target.get("channel") not in (None, state["channel"]):
+            state.update(channel=None, channel_role="unknown", channel_state="ambiguous")
     return {
         "project_id": int(project_id),
         "external_source": "medcrm_zadarma",

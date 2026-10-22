@@ -190,3 +190,24 @@ that an availability flag alone never creates audio, a transcript or analysis.
 Observed repeated statistics snapshots are evidence for those samples only,
 not proof of universal provider finality. Recognition details for the potential
 missed call are kept outside Git in the task's redacted diagnostic artifacts.
+
+## Follow-up: preserve a statistics-only missed recipient
+
+The released exporter derived `channel` from webhook events only, even when the
+settled statistics policy found a real no-answer target. The follow-up stores
+`provider_target` alongside the reconciliation result. For a current missed result,
+the snapshot can fill an unknown webhook channel from a single known real
+no-answer SIP line. Its role is `target`, never `answered`. SIP zero is excluded.
+An unmapped additional no-answer recipient still makes attribution ambiguous;
+the staff directory must not hide ring-group ambiguity. Failed legs alone do not
+establish a no-answer recipient; an additional known real failed line prevents
+individual attribution. Conflicting webhook/transfer targets stay
+ambiguous. New unique events clear prior statistics attribution before resync;
+duplicate event delivery does not reopen the call.
+
+The outcome policy, quiet/stability limits and worker flags are unchanged.
+No migration, credentials, new endpoint or history backfill is needed. Existing
+already-settled calls are not selected for automatic correction by this patch.
+Publish this backend patch and the accompanying UI patch only after separate
+release authorization. The UI distinguishes an attempted recipient from an
+answering operator and counts missed calls using the existing owner-scoped API.

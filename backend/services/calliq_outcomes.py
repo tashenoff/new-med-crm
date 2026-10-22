@@ -125,6 +125,7 @@ def interpret_statistics(
         "provider_status": "pending",
         "provider_disposition": None,
         "provider_evidence": evidence,
+        "provider_target": None,
     }
     if answered:
         evidence.update(
@@ -187,6 +188,21 @@ def interpret_statistics(
         elif not allow_derived:
             reason = "derived_policy_not_enabled"
         else:
+            # A no-answer leg establishes an attempted recipient, never an answerer.
+            # Include unmapped real lines when detecting ambiguity; the staff directory
+            # must not silently turn a ring group into one person's missed call.
+            recipients = {
+                real_extension(row.get("sip"))
+                for row in matched
+                if real_extension(row.get("sip"))
+                and (
+                    row.get("disposition") == "no answer"
+                    or (row.get("disposition") == "call failed"
+                        and real_extension(row.get("sip")) in known)
+                )
+            }
+            unique = next(iter(recipients)) if len(recipients) == 1 else None
+            target = unique if unique in known else None
             evidence.update(
                 state="derived",
                 scope="pbx_group",
@@ -203,6 +219,12 @@ def interpret_statistics(
                 provider_outcome="missed",
                 provider_status="missed",
                 provider_disposition="no answer",
+                provider_target={
+                    "channel": target,
+                    "channel_role": "target" if target else "unknown",
+                    "channel_state": "resolved" if target else "ambiguous" if len(recipients) > 1 else "unknown",
+                    "channels": sorted(recipients),
+                },
             )
             return result
     evidence["reason"] = reason
