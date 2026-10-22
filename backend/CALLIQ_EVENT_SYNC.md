@@ -76,8 +76,16 @@ Existing webhook authentication behavior is unchanged. This does not add signatu
 verification to a route that did not previously verify it. Existing signed
 Zadarma API transport and CallIQ's authenticated/project-scoped paths are retained.
 Real provider timing, live Mongo concurrency and audio recognition quality remain
-outside these local mock checks. Desktop browser validation is blocked in this
-session because no browser surface is exposed by the computer-use tool.
+outside these local mock checks. Desktop UI validation passed with already
+installed Python Playwright and Chromium 134, headless at 1440x1000. The browser
+loaded a separate loopback-only build and synthetic API fixtures: no-audio list
+and detail, unknown/pending, answered operator/line, filters, two recordings and
+synthetic WAV playback. Console/page errors and external requests were zero;
+one request cancellation during filter changes was expected. Results, screenshots
+and exit code 0 are preserved in the task workspace under browser-qa/. The
+application code did not change during this QA follow-up. The computer-use
+connector exposed no browser surfaces; the explicitly requested installed
+Playwright path supplied the browser instead, without installing software.
 
 ## Future compatible rollout (not executed)
 
@@ -89,7 +97,7 @@ session because no browser surface is exposed by the computer-use tool.
    checks, health, metadata endpoint and unchanged legacy uploads using mocks.
    Keep additive columns/indexes on rollback; never remove or rewrite history.
 3. Upgrade CallIQ UI to understand `no_audio`, unknown/pending and attachments.
-   Complete the outstanding desktop browser check before accepting the release.
+   Repeat the browser smoke on the intended staging release before acceptance.
 4. Deploy CRM with `CALLIQ_EVENT_SYNC_ENABLED=false`. Its backend writes pending
    outcomes, so every consuming CRM view must tolerate/display pending. Verify
    the existing configured project explicitly; do not select an arbitrary project.
