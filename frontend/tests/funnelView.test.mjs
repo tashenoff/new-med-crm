@@ -217,3 +217,42 @@ test('method catalog rejects late former-source data and exposes empty/error/loa
  assert.equal(method().value,'contact-old');assert.match(method().selectedOptions[0].textContent,/недоступен/);
  assert.equal(h.f.requests.filter(url=>url.pathname.endsWith('/report')).at(-1).searchParams.get('channel_id'),'contact-old');
 });
+
+test('header help reuses rules dialog, explains both modes, and changes no report request or filter', async t => {
+ const h=await mount(t);await h.change('Источник','source:a');await h.change('Способ обращения','contact-one');
+ const trigger=h.button('Как это работает');assert.ok(trigger.closest('.curai-panel-header'));
+ assert.equal(trigger.getAttribute('aria-haspopup'),'dialog');
+ const before=h.f.requests.length,total=h.total();
+ for(const mode of ['Текущий снимок','Прохождение']){
+  await h.click(h.button(mode));const current=h.f.requests.length;
+  trigger.focus();await h.click(trigger);
+  const dialog=document.querySelector('[role="dialog"]');assert.equal(dialog.getAttribute('aria-label'),'Как работает воронка продаж');
+  assert.ok(dialog.classList.contains('curai-crm-dialog'));assert.equal(dialog.querySelectorAll('.curai-crm-modal-actions').length,1);
+  assert.equal(document.querySelectorAll('[role="dialog"]').length,1);
+  for(const phrase of ['Где они сейчас?','Сколько дошло до результата?','20 не разобраны, 30 записаны, 50','100 вошли → 60 записались → 40 пришли → 25 оплатили','по дате их создания','первый наблюдаемый вход','сейчас 30 суток','не обязаны совпадать','не восстанавливаем догадками'])assert.ok(dialog.textContent.includes(phrase),phrase);
+  assert.equal(dialog.querySelectorAll('strong').length,2,'both examples explicitly conditional');
+  assert.equal(h.f.requests.length,current,'help does not fetch a report');
+  await h.click(h.button('Закрыть'));assert.equal(document.querySelector('[role="dialog"]'),null);
+  assert.equal(document.activeElement,trigger);assert.equal(trigger.getAttribute('aria-expanded'),'false');
+ }
+ assert.ok(before<=h.f.requests.length);assert.equal(h.total(),undefined,'history without selected path remains unconfigured');
+ await h.click(h.button('Текущий снимок'));assert.equal(h.total(),total);
+ assert.equal(document.querySelector('[aria-label="Способ обращения"]').value,'contact-one');
+});
+
+test('both funnel help variants trap focus, close on Escape/backdrop/X, and restore their own trigger', async t => {
+ const h=await mount(t);await h.define();await h.change('Окно конверсии, дней','7');
+ for(const [name,title] of [['Как это работает','Как работает воронка продаж'],['Как считается','Как считается прохождение']]){
+  const trigger=h.button(name);trigger.focus();await h.click(trigger);
+  let dialog=document.querySelector('[role="dialog"]');assert.equal(dialog.getAttribute('aria-label'),title);assert.match(dialog.textContent,/7 суток/);
+  const first=dialog.querySelector('.curai-dialog-close'),last=h.button('Закрыть');assert.equal(document.activeElement,first);
+  await act(async()=>document.dispatchEvent(new h.dom.window.KeyboardEvent('keydown',{key:'Tab',shiftKey:true,bubbles:true,cancelable:true})));
+  assert.equal(document.activeElement,last);
+  await act(async()=>document.dispatchEvent(new h.dom.window.KeyboardEvent('keydown',{key:'Tab',bubbles:true,cancelable:true})));
+  assert.equal(document.activeElement,first);
+  await act(async()=>document.dispatchEvent(new h.dom.window.KeyboardEvent('keydown',{key:'Escape',bubbles:true,cancelable:true})));
+  assert.equal(document.querySelector('[role="dialog"]'),null);assert.equal(document.activeElement,trigger);
+  await h.click(trigger);await h.click(document.querySelector('.modal-overlay'));assert.equal(document.activeElement,trigger);
+  await h.click(trigger);await h.click(document.querySelector('.curai-dialog-close'));assert.equal(document.activeElement,trigger);
+ }
+});

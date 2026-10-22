@@ -1,10 +1,32 @@
-import React from 'react';
+import React, { useRef } from 'react';
 import Modal from '../../modals/Modal';
+import useDialogFocus from '../../../hooks/useDialogFocus';
 import '../crmReports.css';
 
-export default function FunnelRules({ windowDays, onClose }) {
-  return <Modal show onClose={onClose} title="Как считается прохождение" size="max-w-xl" className="curai-crm-dialog" footer={<div className="curai-crm-modal-actions"><button type="button" className="curai-button curai-button-secondary" onClick={onClose}>Закрыть</button></div>}>
-    <div className="space-y-3 text-sm text-curai-ink">
+export default function FunnelRules({ windowDays, onClose, overview = false }) {
+  const body = useRef(null);
+  useDialogFocus(body, true, onClose);
+  return <Modal show onClose={onClose} title={overview ? 'Как работает воронка продаж' : 'Как считается прохождение'} size="max-w-xl" className="curai-crm-dialog" footer={<div className="curai-crm-modal-actions"><button type="button" className="curai-button curai-button-secondary" onClick={onClose}>Закрыть</button></div>}>
+    <div ref={body} className="space-y-3 text-sm text-curai-ink">
+      {overview ? <>
+        <section className="space-y-2">
+          <h4 className="font-semibold">Текущий снимок — «Где они сейчас?»</h4>
+          <p>Показывает, на каких этапах обращения находятся сейчас. Каждое обращение учитывается один раз, в своём текущем этапе. Помогает видеть очередь и где накапливается работа.</p>
+          <p className="rounded-md bg-curai-subtle p-3"><strong>Условный пример, не текущие данные:</strong> из 100 обращений 20 не разобраны, 30 записаны, 50 находятся на этапе «Оплачено».</p>
+        </section>
+        <section className="space-y-2">
+          <h4 className="font-semibold">Прохождение — «Сколько дошло до результата?»</h4>
+          <p>Показывает, сколько обращений дошло по выбранному пути. Одно обращение учитывается на каждом пройденном шаге, только если переходы зафиксированы в выбранной последовательности и в пределах окна прохождения.</p>
+          <p className="rounded-md bg-curai-subtle p-3"><strong>Условный пример, не текущие данные:</strong> 100 вошли → 60 записались → 40 пришли → 25 оплатили.</p>
+          <p>Помогает находить потери между шагами и сравнивать источники по одному пути, периоду и окну.</p>
+        </section>
+        <section className="space-y-2">
+          <h4 className="font-semibold">Период в режимах означает разное</h4>
+          <p>В снимке период отбирает обращения по дате их создания. Их этап берётся текущий, а не на последний день периода.</p>
+          <p>В прохождении период отбирает первый наблюдаемый вход в первый выбранный шаг. Следующие шаги учитываются в пределах выбранного окна после входа — сейчас {windowDays} суток.</p>
+          <p>Поэтому цифры режимов не обязаны совпадать. Отсутствующую историю переходов не восстанавливаем догадками.</p>
+        </section>
+      </> : <>
       <p>Каждое обращение считается один раз, даже если у одного пациента их несколько.</p>
       <p>Когорта определяется первым наблюдаемым входом в первый выбранный шаг за указанный период. Повторный вход не создаёт новую когорту.</p>
       <p>Невыбранные этапы можно пропускать. Выбранные засчитываются только по порядку. Возврат не сбрасывает прогресс, повтор не увеличивает число обращений. Если следующий выбранный шаг был пройден раньше предыдущего, нужен повторный вход в него после предыдущего.</p>
@@ -12,6 +34,7 @@ export default function FunnelRules({ windowDays, onClose }) {
       <p>Проценты: достигли шага / вся когорта; достигли шага / достигли предыдущего выбранного шага. Нулевой знаменатель обозначается прочерком. Скрытие строк не меняет эти знаменатели.</p>
       <p>Источник закреплён на момент входа в когорту. Сравнение использует одинаковый период, порядок шагов и окно для всех выбранных источников; фильтр «По этапам» на него не влияет.</p>
       <p>Старым обращениям история не дорисовывается. Текущий снимок показывает только сегодняшнее распределение, а не историческое прохождение.</p>
+      </>}
     </div>
   </Modal>;
 }

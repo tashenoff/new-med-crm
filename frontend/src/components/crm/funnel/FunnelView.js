@@ -27,6 +27,7 @@ export default function FunnelView({ user }) {
   const [{ source, channel }, setAttribution] = useState({ source: 'all', channel: '' });
   const [comparisonSources, setComparisonSources] = useState(null);
   const [panel, setPanel] = useState(null);
+  const closePanel = useCallback(() => setPanel(null), []);
   const methods = useFunnelMethods(view === 'stages' ? source : 'all', batch, revision);
   const methodPlaceholder = methods.status === 'unselected' ? 'Выберите источник'
     : methods.status === 'loading' ? 'Загрузка способов…'
@@ -93,7 +94,8 @@ export default function FunnelView({ user }) {
   };
   const panelStages = mode === 'history' && panel === 'visibility' ? steps.map(id => ({ id, name: label(id) })) : stageOptions;
   return <div className="curai-crm-page">
-    <PanelHeader title="Воронка продаж" subtitle={mode === 'history' ? 'Прохождение выбранных шагов одной когортой обращений' : 'Распределение обращений по текущим этапам'} />
+    <PanelHeader title="Воронка продаж" subtitle={mode === 'history' ? 'Прохождение выбранных шагов одной когортой обращений' : 'Распределение обращений по текущим этапам'}
+      actions={<button type="button" className="curai-button curai-button-secondary" aria-haspopup="dialog" aria-expanded={panel === 'help'} onClick={() => setPanel('help')}>Как это работает</button>} />
     {batch && <p role="status" className="rounded-md border border-curai-warning bg-curai-warningBg p-3 text-sm break-words">Тестовый набор: {batch}. Это синтетические данные, не реальные показатели клиники.</p>}
     <div className="curai-crm-tabs-row">
       <div className="curai-patient-tabs" role="tablist" aria-label="Представление отчёта">
@@ -149,7 +151,7 @@ export default function FunnelView({ user }) {
       {mode === 'history' && steps.length < 2 && <p role="status">Выберите хотя бы два шага кнопкой «Шаги воронки». Готового пути по умолчанию нет.</p>}
       {!report && !error && !query?.error && (mode !== 'history' || steps.length >= 2) && <p role="status">Загрузка отчёта…</p>}
       {report && <FunnelReportBody report={report} mode={mode} view={view} hidden={hidden} />}
-    {panel === 'rules' && <FunnelRules windowDays={windowDays} onClose={() => setPanel(null)} />}
-    {panel && panel !== 'rules' && <FunnelSettings key={panel} panel={panel} stages={panelStages} sources={sourceOptions} initial={panel === 'steps' ? [...steps] : panel === 'sources' ? [...selectedSourceKeys] : [...hidden]} onClose={() => setPanel(null)} onDone={completePanel} />}
+    {(panel === 'rules' || panel === 'help') && <FunnelRules windowDays={windowDays} overview={panel === 'help'} onClose={closePanel} />}
+    {panel && panel !== 'rules' && panel !== 'help' && <FunnelSettings key={panel} panel={panel} stages={panelStages} sources={sourceOptions} initial={panel === 'steps' ? [...steps] : panel === 'sources' ? [...selectedSourceKeys] : [...hidden]} onClose={closePanel} onDone={completePanel} />}
   </div>;
 }
