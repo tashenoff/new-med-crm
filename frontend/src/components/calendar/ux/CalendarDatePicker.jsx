@@ -1,7 +1,6 @@
 import React, { useId, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { CalendarDaysIcon } from '@heroicons/react/24/outline';
-import { themeClasses } from '../../../hooks/useTheme';
 import CalendarWidget from './CalendarWidget';
 
 const CalendarDatePicker = ({ currentDate, onDateChange }) => {
@@ -69,9 +68,9 @@ const CalendarDatePicker = ({ currentDate, onDateChange }) => {
         aria-controls={popoverId}
         aria-haspopup="dialog"
         onClick={() => setIsOpen(open => !open)}
-        className={`p-2 flex-shrink-0 rounded-lg border ${themeClasses.border.default} ${themeClasses.bg.secondary} hover:bg-gray-100 dark:hover:bg-gray-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 transition-colors`}
+        className="p-2 flex-shrink-0 rounded-lg border border-curai-border bg-curai-subtle text-curai-muted hover:bg-curai-hover focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-curai-focus transition-colors"
       >
-        <CalendarDaysIcon aria-hidden="true" className="w-5 h-5 text-gray-600 dark:text-gray-300" />
+        <CalendarDaysIcon aria-hidden="true" className="w-5 h-5" />
       </button>
       {isOpen && createPortal(
         <div

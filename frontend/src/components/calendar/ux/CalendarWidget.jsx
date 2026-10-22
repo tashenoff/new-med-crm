@@ -107,26 +107,29 @@ const CalendarWidget = ({ currentDate, onDateChange }) => {
 
   const days = getDaysInMonth();
   const weekDays = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'];
+  // Curai currently supplies a light palette; use its tokens even with a legacy dark class.
+  const focusClass = 'focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-curai-focus';
+  const navigationClass = `p-1 hover:bg-curai-hover rounded text-curai-muted ${focusClass}`;
 
   return (
-    <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm w-64 flex-shrink-0">
+    <div className="bg-curai-surface text-curai-ink rounded-xl border border-curai-border shadow-sm w-full max-w-64 flex-shrink-0">
       {/* Заголовок */}
-      <div className="flex items-center justify-between px-3 py-2 border-b border-gray-200 dark:border-gray-700">
-        <button onClick={goToPreviousMonth} className="p-1 hover:bg-gray-100 dark:hover:bg-gray-700 rounded text-gray-600 dark:text-gray-400">
+      <div className="flex items-center justify-between px-3 py-2 border-b border-curai-border">
+        <button type="button" aria-label="Предыдущий месяц" onClick={goToPreviousMonth} className={navigationClass}>
           «
         </button>
-        <span className="text-sm font-semibold text-gray-800 dark:text-white capitalize">
+        <span className="text-sm font-semibold text-curai-ink capitalize">
           {formatMonthYear(viewDate)}
         </span>
-        <button onClick={goToNextMonth} className="p-1 hover:bg-gray-100 dark:hover:bg-gray-700 rounded text-gray-600 dark:text-gray-400">
+        <button type="button" aria-label="Следующий месяц" onClick={goToNextMonth} className={navigationClass}>
           »
         </button>
       </div>
 
       {/* Дни недели */}
-      <div className="grid grid-cols-7 border-b border-gray-200 dark:border-gray-700">
+      <div className="grid grid-cols-7 border-b border-curai-border">
         {weekDays.map(day => (
-          <div key={day} className="text-center text-xs font-medium text-gray-500 dark:text-gray-400 py-1.5">
+          <div key={day} className="text-center text-xs font-medium text-curai-muted py-1.5">
             {day}
           </div>
         ))}
@@ -138,25 +141,24 @@ const CalendarWidget = ({ currentDate, onDateChange }) => {
           const isTodayDate = isToday(dayObj.date);
           const isSelectedDate = isSelected(dayObj.date);
           
-          let bgClass = 'bg-green-50 dark:bg-green-900/10 hover:bg-green-100 dark:hover:bg-green-900/20';
-          let textClass = 'text-gray-700 dark:text-gray-300';
-          
-          if (!dayObj.isCurrentMonth) {
-            bgClass = 'bg-red-50 dark:bg-red-900/20 hover:bg-red-100 dark:hover:bg-red-900/30';
-            textClass = 'text-red-400 dark:text-red-500';
-          } else if (isSelectedDate) {
-            bgClass = 'bg-yellow-400 dark:bg-yellow-500';
-            textClass = 'text-gray-900 font-bold';
+          let stateClass = 'bg-curai-surface text-curai-ink hover:bg-curai-hover';
+          if (isSelectedDate) {
+            stateClass = 'bg-[var(--curai-color-blue)] text-[color:var(--curai-neutral-0)] hover:bg-curai-blueHover font-bold';
           } else if (isTodayDate) {
-            bgClass = 'bg-green-200 dark:bg-green-800 ring-1 ring-green-500';
-            textClass = 'text-green-800 dark:text-green-200 font-semibold';
+            stateClass = 'bg-curai-selected text-curai-blue ring-1 ring-inset ring-curai-blue hover:bg-curai-hover font-semibold';
+          } else if (!dayObj.isCurrentMonth) {
+            stateClass = 'bg-curai-surface text-curai-muted hover:bg-curai-hover';
           }
 
           return (
             <button
               key={index}
+              type="button"
+              aria-label={dayObj.date.toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', year: 'numeric' })}
+              aria-pressed={isSelectedDate}
+              aria-current={isTodayDate ? 'date' : undefined}
               onClick={() => handleDateClick(dayObj.date)}
-              className={`w-8 h-7 rounded text-xs flex items-center justify-center transition-colors ${bgClass} ${textClass}`}
+              className={`w-8 h-7 rounded text-xs flex items-center justify-center transition-colors ${stateClass} ${focusClass}`}
             >
               {dayObj.day}
             </button>
@@ -165,12 +167,12 @@ const CalendarWidget = ({ currentDate, onDateChange }) => {
       </div>
 
       {/* Футер */}
-      <div className="flex items-center justify-between px-3 py-2 border-t border-gray-200 dark:border-gray-700">
-        <button onClick={goToPreviousMonth} className="text-gray-400 hover:text-gray-600">&lt;</button>
-        <button onClick={goToToday} className="text-sm font-medium text-blue-600 dark:text-blue-400 hover:underline">
+      <div className="flex items-center justify-between px-3 py-2 border-t border-curai-border">
+        <button type="button" aria-label="Предыдущий месяц" onClick={goToPreviousMonth} className={navigationClass}>&lt;</button>
+        <button type="button" onClick={goToToday} className={`text-sm font-medium text-curai-blue hover:underline ${focusClass}`}>
           Сегодня
         </button>
-        <button onClick={goToNextMonth} className="text-gray-400 hover:text-gray-600">&gt;</button>
+        <button type="button" aria-label="Следующий месяц" onClick={goToNextMonth} className={navigationClass}>&gt;</button>
       </div>
     </div>
   );
