@@ -1,3 +1,5 @@
+import { firstTouchDateRange, localDateKey } from './firstTouchDateFilter.js';
+
 export const percent = value => value === null || value === undefined ? '—' : `${Number(value).toLocaleString('ru-RU', { maximumFractionDigits: 1 })}%`;
 
 export function reportPeriod(from, to) {
@@ -8,11 +10,31 @@ export function reportPeriod(from, to) {
   return { start: start.toISOString(), end: end.toISOString() };
 }
 
-export function initialPeriod() {
-  const now = new Date(), start = new Date(now);
-  start.setDate(start.getDate() - 29);
-  const key = date => `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
-  return { from: key(start), to: key(now) };
+export const funnelPeriodPresets = [
+  { value: 'today', label: 'Сегодня' },
+  { value: 'yesterday', label: 'Вчера' },
+  { value: '7days', label: 'Последние 7 дней' },
+  { value: '30days', label: 'Последние 30 дней' },
+  { value: 'month', label: 'Этот месяц' },
+  { value: 'custom', label: 'Свой диапазон' }
+];
+
+// Calendar keys use the same browser-local date contract as CRM date filters.
+// UTC serialization belongs only to reportPeriod, after local bounds are built.
+export function funnelPresetRange(preset, now = new Date()) {
+  if (preset === 'month') {
+    const start = new Date(now);
+    start.setDate(1);
+    return { from: localDateKey(start), to: localDateKey(now) };
+  }
+  if (['today', 'yesterday', '7days', '30days'].includes(preset)) {
+    return firstTouchDateRange(preset, {}, now);
+  }
+  return null;
+}
+
+export function initialPeriod(now = new Date()) {
+  return funnelPresetRange('30days', now);
 }
 
 export async function funnelRequest(path, signal) {

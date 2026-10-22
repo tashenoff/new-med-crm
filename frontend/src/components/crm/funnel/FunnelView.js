@@ -4,7 +4,7 @@ import FunnelSettings from './FunnelSettings';
 import FunnelRules from './FunnelRules';
 import FunnelReportBody from './FunnelReportBody';
 import '../crmReports.css';
-import { stagePreferenceKey, funnelRequest, initialPeriod, readReportPreference, reportPeriod } from '../../../utils/eventFunnel';
+import { stagePreferenceKey, funnelRequest, initialPeriod, funnelPeriodPresets, funnelPresetRange, readReportPreference, reportPeriod } from '../../../utils/eventFunnel';
 
 const control = 'curai-crm-control';
 const action = 'curai-button curai-button-ghost';
@@ -21,7 +21,7 @@ export default function FunnelView({ user }) {
   const [revision, setRevision] = useState(0);
   const [mode, setMode] = useState('snapshot');
   const [view, setView] = useState('stages');
-  const [period, setPeriod] = useState(initialPeriod);
+  const [period, setPeriod] = useState(() => ({ ...initialPeriod(), preset: '30days' }));
   const [windowDays, setWindowDays] = useState(30);
   const [source, setSource] = useState('all');
   const [comparisonSources, setComparisonSources] = useState(null);
@@ -104,8 +104,12 @@ export default function FunnelView({ user }) {
         {[['history', 'Прохождение'], ['snapshot', 'Текущий снимок']].map(([value, name]) => <button key={value} type="button" aria-pressed={mode === value} onClick={() => setMode(value)}>{name}</button>)}
       </div></div>
       <fieldset className="curai-crm-period"><legend>{mode === 'history' ? 'Первый вход в первый шаг' : 'Дата создания обращения'}</legend>
-        <div><label>С<input className={control} type="date" aria-label="Начало периода" value={period.from} onChange={event => setPeriod({ ...period, from: event.target.value })} /></label>
-          <label>По<input className={control} type="date" aria-label="Конец периода" value={period.to} onChange={event => setPeriod({ ...period, to: event.target.value })} /></label></div>
+        <div><label className="curai-crm-period-preset">Период<select aria-label="Быстрый период" className={control} value={period.preset} onChange={event => {
+          const preset = event.target.value;
+          const range = funnelPresetRange(preset);
+          setPeriod(current => ({ ...current, ...range, preset }));
+        }}>{funnelPeriodPresets.map(item => <option key={item.value} value={item.value}>{item.label}</option>)}</select></label><label>С<input className={control} type="date" aria-label="Начало периода" value={period.from} onChange={event => setPeriod(current => ({ ...current, from: event.target.value, preset: 'custom' }))} /></label>
+          <label>По<input className={control} type="date" aria-label="Конец периода" value={period.to} onChange={event => setPeriod(current => ({ ...current, to: event.target.value, preset: 'custom' }))} /></label></div>
       </fieldset>
       {mode === 'history' && <label className="curai-crm-field curai-crm-window"><span>Окно, дней</span><input type="number" min="1" max="365" aria-label="Окно конверсии, дней" className={control} value={windowDays} onChange={event => setWindowDays(event.target.value)} /></label>}
       {view === 'stages' ? <label className="curai-crm-field curai-crm-field-source"><span>Источник</span><select id="funnel-source" aria-label="Источник" className={control} value={source} onChange={event => setSource(event.target.value)}><option value="all">Все источники</option>{sourceOptions.map(item => <option key={item.key} value={item.key}>{item.name}</option>)}</select></label>

@@ -5,6 +5,7 @@ import { fileURLToPath } from 'node:url';
 import React, { act } from 'react';
 import { build } from 'esbuild';
 import { JSDOM } from 'jsdom';
+import { funnelPresetRange } from '../src/utils/eventFunnel.js';
 
 const bootstrap = new JSDOM('<html><body></body></html>');
 globalThis.window = bootstrap.window; globalThis.document = bootstrap.window.document;
@@ -56,6 +57,57 @@ test('current snapshot uses runtime canonical columns/order and renders a true z
  const h=await mount(t);assert.deepEqual(h.rows().map(row=>row.dataset.funnelStage),h.f.columns.map(c=>c.id));
  assert.equal(document.querySelector('[data-funnel-stage="optional-q"] [data-stage-bar]').style.width,'0%');
  assert.match(document.body.textContent,/не история прохождения/);assert.equal(document.querySelector('details.curai-crm-caption')?.open,false);
+});
+
+test('snapshot quick periods synchronize editable dates without duplicate reports or a changed default', async t => {
+ const h = await mount(t);
+ const reports = () => h.f.requests.filter(url => url.pathname.endsWith('/report'));
+ const input = label => document.querySelector(`[aria-label="${label}"]`);
+ assert.equal(input('Быстрый период').value, '30days');
+ assert.deepEqual({ from: input('Начало периода').value, to: input('Конец периода').value }, funnelPresetRange('30days'));
+ let before = reports().length;
+ await h.change('Быстрый период', '7days');
+ assert.equal(reports().length, before + 1);
+ assert.deepEqual({ from: input('Начало периода').value, to: input('Конец периода').value }, funnelPresetRange('7days'));
+ before = reports().length;
+ await h.change('Быстрый период', 'custom');
+ assert.equal(reports().length, before, 'selecting custom alone does not fetch unchanged bounds');
+ await h.change('Начало периода', '2020-02-29');
+ assert.equal(input('Быстрый период').value, 'custom');
+ assert.equal(reports().length, before + 1);
+ assert.equal(reports().at(-1).searchParams.get('mode'), 'snapshot');
+ await h.change('Быстрый период', 'month');
+ assert.deepEqual({ from: input('Начало периода').value, to: input('Конец периода').value }, funnelPresetRange('month'));
+});
+
+test('quick periods preserve history steps, source scope, conversion window and synthetic batch', async t => {
+ const h = await mount(t, { batch: true });
+ await h.define();
+ await h.change('Окно конверсии, дней', '14');
+ await h.change('Источник', 'source:a');
+ const reportCount = () => h.f.requests.filter(url => url.pathname.endsWith('/report')).length;
+ let before = reportCount();
+ await h.change('Быстрый период', '7days');
+ assert.equal(reportCount(), before + 1);
+ let params = h.f.requests.at(-1).searchParams;
+ assert.equal(params.get('mode'), 'history');
+ assert.equal(params.get('window_days'), '14');
+ assert.equal(params.get('synthetic_batch'), 'demo-batch');
+ assert.deepEqual(params.getAll('steps'), ['entry-x', 'middle-y', 'end-z']);
+ assert.deepEqual(params.getAll('source_ids'), ['source:a']);
+ await h.click(h.button('Сравнение источников'));
+ await h.click(h.button('Источники (4)'));
+ await h.click(document.querySelector('[data-comparison-source="source:b"]'));
+ await h.click(document.querySelector('[data-comparison-source="missing-source"]'));
+ await h.click(h.button('Готово'));
+ before = reportCount();
+ await h.change('Быстрый период', 'yesterday');
+ assert.equal(reportCount(), before + 1);
+ params = h.f.requests.at(-1).searchParams;
+ assert.deepEqual(params.getAll('source_ids'), ['source:a', 'source:zero']);
+ assert.equal(params.get('window_days'), '14');
+ assert.equal(params.get('source_selection'), 'selected');
+ assert.equal(params.get('synthetic_batch'), 'demo-batch');
 });
 test('history has no hardcoded path; explicit arbitrary IDs determine sequence and window',async t=>{
  const h=await mount(t);await h.click(h.button('Прохождение'));assert.match(document.body.textContent,/Выберите хотя бы два шага/);
