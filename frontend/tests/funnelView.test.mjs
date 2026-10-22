@@ -5,7 +5,7 @@ import { fileURLToPath } from 'node:url';
 import React, { act } from 'react';
 import { build } from 'esbuild';
 import { JSDOM } from 'jsdom';
-import { funnelPresetRange } from '../src/utils/eventFunnel.js';
+import { funnelPresetRange, stagePreferenceKey } from '../src/utils/eventFunnel.js';
 
 const bootstrap = new JSDOM('<html><body></body></html>');
 globalThis.window = bootstrap.window; globalThis.document = bootstrap.window.document;
@@ -25,7 +25,7 @@ const fixtureRows=[{key:'source:a',name:'Канал А',total:6,snapshot:{'entry
 const rate=(a,b)=>b?Math.round(a/b*1000)/10:null;
 async function mount(t, options={}) {
  const dom=new JSDOM('<div id="root"></div>',{url:'https://fixture.invalid/crm-deals'+(options.batch?'?funnel_batch=demo-batch':'')});
- const f={columns:columns(),requests:[],fail:false,gate:null,optionsGate:options.optionsGate||null,optionsFail:options.optionsFail||false,user:options.user||{id:'manager',clinic_id:'clinic'},generation:0,
+ const f={columns:options.columns||columns(),requests:[],fail:false,gate:null,optionsGate:options.optionsGate||null,optionsFail:options.optionsFail||false,user:options.user||{id:'manager',clinic_id:'clinic'},generation:0,
   methodGates:{},methodFail:false,methods:{a:[{id:'contact-one',name:'Custom first',active:true},{id:'contact-old',name:'Archived second',active:false}],b:[{id:'contact-other',name:'Other source only',active:true}],zero:[]}};
  const original=new Map();const globals={window:dom.window,document:dom.window.document,localStorage:dom.window.localStorage,IS_REACT_ACT_ENVIRONMENT:true,
  fetch:async(input,init)=>{
@@ -54,6 +54,7 @@ async function mount(t, options={}) {
   return{ok:true,json:async()=>({mode,totals:summarize(rows),sources:rows.map(row=>({...row,...summarize([row])})),stage_options:f.columns,source_options:sources(),coverage:{current_without_observed_events:2},as_of:new Date().toISOString()})};
  }};
  for(const[key,value]of Object.entries(globals)){original.set(key,Object.getOwnPropertyDescriptor(globalThis,key));Object.defineProperty(globalThis,key,{configurable:true,writable:true,value});}
+ for(const [key,value]of Object.entries(options.storage||{}))localStorage.setItem(key,value);
  const root=createRoot(document.getElementById('root'));
  const render=async()=>act(async()=>root.render(React.createElement(View,{key:f.generation,user:f.user})));
  t.after(async()=>{await act(async()=>root.unmount());dom.window.close();for(const[key,value]of original){if(value)Object.defineProperty(globalThis,key,value);else delete globalThis[key];}});
@@ -308,4 +309,50 @@ test('late aborted catalog failure cannot replace a newer catalog or lose an ope
 test('an empty catalog is distinguished from zero history and has an explicit retry inside selector', async t => {
  const h=await mount(t);h.f.columns=[];await h.refresh();await h.click(h.button('Прохождение'));await h.click(h.button('Шаги воронки (0)'));
  const dialog=document.querySelector('[role="dialog"]');assert.match(dialog.textContent,/Нет доступных этапов/);assert.match(dialog.textContent,/Это не нулевой результат/);assert.equal(h.button('Готово').disabled,true);
+});
+
+const lifecycleColumns=()=>columns().map(column=>({...column,is_system:column.id!=='optional-q'}));
+const preferenceKey=(batch='')=>`${stagePreferenceKey({id:'manager',clinic_id:'clinic'})}:observed-v1:${batch}`;
+const historyRequests=h=>h.f.requests.filter(url=>url.pathname.endsWith('/report')&&url.searchParams.get('mode')==='history');
+
+test('clean direct history automatically requests server-defined lifecycle without snapshot priming or a storage write', async t => {
+ let release;const gate=new Promise(resolve=>{release=resolve;});const canonical=lifecycleColumns();
+ const h=await mount(t,{columns:canonical,optionsGate:gate});await h.click(h.button('Прохождение'));
+ assert.equal(historyRequests(h).length,0);assert.match(document.body.textContent,/Загрузка отчёта/);
+ await act(async()=>release());
+ assert.equal(historyRequests(h).length,1);assert.deepEqual(historyRequests(h)[0].searchParams.getAll('steps'),['end-z','entry-x','middle-y']);
+ assert.equal(h.f.requests.some(url=>url.searchParams.get('mode')==='snapshot'),false);
+ assert.match(h.total(),/^12/);assert.ok(h.button('Шаги воронки (3)'));assert.match(document.body.textContent,/Исходный путь/);
+ assert.equal(localStorage.getItem(preferenceKey()),null);
+ await h.remount();await h.click(h.button('Прохождение'));assert.match(h.total(),/^12/);assert.ok(h.button('Шаги воронки (3)'));
+});
+
+test('automatic path follows catalog reorder/rename/add/remove while custom detours stay optional and visibility does not freeze it', async t => {
+ const h=await mount(t,{columns:lifecycleColumns()});await h.click(h.button('Прохождение'));const total=h.total();
+ await h.click(h.button('Отображение этапов'));await h.click(document.querySelector('[data-stage-visibility="entry-x"]'));await h.click(h.button('Готово'));
+ assert.deepEqual(JSON.parse(localStorage.getItem(preferenceKey())).steps,[]);assert.equal(h.total(),total);
+ h.f.columns=h.f.columns.toReversed().filter(column=>column.id!=='end-z').map(column=>({...column,name:column.name+' renamed'}));
+ h.f.columns.push({id:'new-system',name:'Another lifecycle stage',is_system:true},{id:'optional-new',name:'Another detour',is_system:false});await h.refresh();
+ assert.deepEqual(historyRequests(h).at(-1).searchParams.getAll('steps'),['middle-y','entry-x','new-system']);
+ assert.match(document.body.textContent,/renamed/);assert.equal(document.body.textContent.includes('нет этапов выбранного пути'),false);
+ await h.remount();await h.click(h.button('Прохождение'));assert.deepEqual(historyRequests(h).at(-1).searchParams.getAll('steps'),['middle-y','entry-x','new-system']);
+});
+
+test('explicit saved path including custom and retired IDs stays authoritative with visible unavailable-stage warning', async t => {
+ const path=['entry-x','optional-q','end-z'],raw=JSON.stringify({version:1,steps:path,hidden:[]});
+ const h=await mount(t,{columns:lifecycleColumns(),storage:{[preferenceKey()]:raw}});await h.click(h.button('Прохождение'));
+ assert.deepEqual(historyRequests(h).at(-1).searchParams.getAll('steps'),path);assert.equal(document.body.textContent.includes('Исходный путь'),false);
+ h.f.columns=h.f.columns.toReversed().filter(column=>column.id!=='optional-q');await h.refresh();
+ assert.deepEqual(historyRequests(h).at(-1).searchParams.getAll('steps'),path);assert.match(document.body.textContent,/В текущем канбане нет этапов/);assert.match(document.body.textContent,/optional-q/);
+ assert.equal(localStorage.getItem(preferenceKey()),raw);
+});
+
+test('batch auto path has explicit API scope and does not import another scope saved path', async t => {
+ const working=JSON.stringify({version:1,steps:['entry-x','optional-q'],hidden:[]});
+ const h=await mount(t,{batch:true,columns:lifecycleColumns(),storage:{[preferenceKey()]:working}});await h.click(h.button('Прохождение'));
+ assert.deepEqual(historyRequests(h).at(-1).searchParams.getAll('steps'),['end-z','entry-x','middle-y']);
+ assert.equal(historyRequests(h).at(-1).searchParams.get('synthetic_batch'),'demo-batch');
+ await h.change('Быстрый период','7days');await h.change('Окно конверсии, дней','7');await h.change('Источник','source:a');await h.change('Способ обращения','contact-one');
+ const query=historyRequests(h).at(-1).searchParams;assert.equal(query.get('window_days'),'7');assert.equal(query.get('channel_id'),'contact-one');assert.deepEqual(query.getAll('source_ids'),['source:a']);
+ assert.equal(localStorage.getItem(preferenceKey()),working);assert.equal(localStorage.getItem(preferenceKey('demo-batch')),null);
 });

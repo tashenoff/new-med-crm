@@ -5,7 +5,7 @@ import FunnelRules from './FunnelRules';
 import FunnelReportBody from './FunnelReportBody';
 import useFunnelMethods from './useFunnelMethods';
 import '../crmReports.css';
-import { stagePreferenceKey, funnelRequest, initialPeriod, funnelPeriodPresets, funnelPresetRange, readReportPreference, reportPeriod } from '../../../utils/eventFunnel';
+import { stagePreferenceKey, funnelRequest, initialPeriod, initialHistorySteps, funnelPeriodPresets, funnelPresetRange, readReportPreference, reportPeriod } from '../../../utils/eventFunnel';
 
 const control = 'curai-crm-control';
 const action = 'curai-button curai-button-ghost';
@@ -58,7 +58,8 @@ export default function FunnelView({ user }) {
     });
     return () => controller.abort();
   }, [batchQuery, revision]);
-  const steps = currentPreference.steps;
+  const hasSavedPath = currentPreference.steps.length >= 2;
+  const steps = useMemo(() => hasSavedPath ? currentPreference.steps : initialHistorySteps(metadata?.columns), [hasSavedPath, currentPreference.steps, metadata]);
   const hidden = currentPreference.hidden;
   const query = useMemo(() => {
     if (!metadata) return null;
@@ -87,13 +88,14 @@ export default function FunnelView({ user }) {
   const report = result?.key === query?.key ? result?.data : null;
   const stageOptions = report?.stage_options || metadata?.columns || [];
   const sourceOptions = report?.source_options || metadata?.sources || [];
+  const missingSteps = metadata ? steps.filter(id => !metadata.columns.some(column => column.id === id)) : [];
   const selectedSourceKeys = comparisonSources || sourceOptions.map(item => item.key);
   const savePreference = next => {
     const value = { ...currentPreference, ...next };
     setPreference({ key: preferenceKey, ...value });
     if (preferenceKey) try { localStorage.setItem(preferenceKey, JSON.stringify({ version: 1, steps: value.steps, hidden: value.hidden })); } catch { /* Storage may be unavailable. */ }
   };
-  const label = id => stageOptions.find(stage => stage.id === id)?.name || `Архивный этап (${id})`;
+  const label = id => stageOptions.find(stage => stage.id === id)?.name || `Недоступный этап (${id})`;
   const completePanel = draft => {
     if (panel === 'steps') savePreference({ steps: draft });
     if (panel === 'visibility') savePreference({ hidden: draft });
@@ -151,13 +153,15 @@ export default function FunnelView({ user }) {
                 : 'Все способы включают обращения с неизвестным или неуказанным способом.'}
     </p>}
     {mode === 'history' ? <div className="curai-crm-caption">
+      {!hasSavedPath && steps.length >= 2 && <p>Исходный путь — системные этапы в порядке CRM. Дополнительные колонки можно включить кнопкой «Шаги воронки»; они не становятся обязательными автоматически.</p>}
       {steps.length > 0 && <p className="break-words">Путь: {steps.map(label).join(' → ')}.</p>}
+      {missingSteps.length > 0 && <p role="status">В текущем канбане нет этапов выбранного пути: {missingSteps.map(label).join(', ')}. Сохранённые ID и история остаются в расчёте; проверьте путь кнопкой «Шаги воронки».</p>}
       <p>Первый наблюдаемый вход · окно {windowDays} суток · источник и способ обращения на момент входа.</p>
       {view === 'sources' && <p>Выбранные источники сравниваются по одному периоду, пути и окну. Фильтр «По этапам» здесь не применяется.</p>}
     </div> : <details className="curai-crm-caption"><summary>Как читать текущий снимок</summary><p>Это текущие состояния обращений, не история прохождения. Проценты — доля от всех обращений выбранного периода создания. Разные обращения одного пациента считаются отдельно.</p></details>}
       {(error || query?.error || catalog.error) && <div role="alert" className="text-curai-negative">{error || query?.error || catalog.error} <button className="underline" onClick={reload}>Повторить</button></div>}
-      {mode === 'history' && steps.length < 2 && <p role="status">Выберите хотя бы два шага кнопкой «Шаги воронки». Готового пути по умолчанию нет.</p>}
-      {!report && !error && !query?.error && !catalog.error && (mode !== 'history' || steps.length >= 2) && <p role="status">Загрузка отчёта…</p>}
+      {mode === 'history' && metadata && steps.length < 2 && <p role="status">Выберите хотя бы два шага кнопкой «Шаги воронки». В конфигурации CRM нет полного системного пути для автоматического выбора.</p>}
+      {!report && !error && !query?.error && !catalog.error && (catalog.loading || mode !== 'history' || steps.length >= 2) && <p role="status">Загрузка отчёта…</p>}
       {report && <FunnelReportBody report={report} mode={mode} view={view} hidden={hidden} />}
     {(panel === 'rules' || panel === 'help') && <FunnelRules windowDays={windowDays} overview={panel === 'help'} onClose={closePanel} />}
     {panel && panel !== 'rules' && panel !== 'help' && <FunnelSettings key={panel} panel={panel} stages={panelStages} sources={sourceOptions} initial={panel === 'steps' ? [...steps] : panel === 'sources' ? [...selectedSourceKeys] : [...hidden]}

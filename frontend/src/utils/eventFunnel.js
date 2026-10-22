@@ -50,10 +50,20 @@ export function readReportPreference(key) {
   try {
     const saved = key && JSON.parse(localStorage.getItem(key));
     return saved?.version === 1 ? {
-      steps: Array.isArray(saved.steps) ? [...new Set(saved.steps.filter(id => typeof id === 'string'))].slice(0, 30) : [],
+      steps: Array.isArray(saved.steps) ? [...new Set(saved.steps.filter(id => typeof id === 'string' && id.trim().length > 0 && id.length <= 120))].slice(0, 30) : [],
       hidden: Array.isArray(saved.hidden) ? saved.hidden.filter(id => typeof id === 'string') : []
     } : { steps: [], hidden: [] };
   } catch { return { steps: [], hidden: [] }; }
+}
+
+// Canonical system columns describe the app-managed inquiry lifecycle. Custom
+// columns have no required/optional/outcome metadata: never make every custom
+// detour a mandatory conversion step merely because it is on the kanban.
+export function initialHistorySteps(columns = []) {
+  const ids = columns.filter(column => column.is_system === true && !column.archived && column.active !== false)
+    .map(column => column.id).filter(id => typeof id === 'string' && id.length > 0);
+  const steps = [...new Set(ids)];
+  return steps.length >= 2 && steps.length <= 30 ? steps : [];
 }
 
 export function stagePreferenceKey(user) {
