@@ -1,0 +1,15 @@
+**
+!server.py
+!database.py
+!dependencies.py
+!events.py
+!compensation.py
+!requirements.txt
+!models/**
+!routers/**
+!services/**
+!crm/**
+!data/**
+**/__pycache__/**
+**/.env*
+**/uploads/**

@@ -88,3 +88,9 @@ android-sdk/
 
 # Graphify knowledge graph output
 /graphify-out/
+
+# Disposable browser E2E evidence (may contain synthetic clinical data)
+/e2e-artifacts/
+
+# Private disposable E2E worktrees/build CA/session; removed by finally
+/e2e/.runtime-*/
