@@ -389,9 +389,13 @@ class IsolationTests(unittest.TestCase):
                 if isinstance(node, ast.Import):
                     self.assertFalse({alias.name.split('.')[0] for alias in node.names} & forbidden_modules)
                     if any(alias.name == "os" for alias in node.names):
-                        self.assertEqual(path.name, "grant_store.py")
+                        self.assertIn(path.name, {"grant_store.py", "grok_oauth.py"})
                 if isinstance(node, ast.ImportFrom) and node.module:
-                    self.assertNotIn(node.module.split('.')[0], forbidden_modules)
+                    if path.name == "oauth_server.py" and node.module == "routers.auth":
+                        self.assertLessEqual({alias.name for alias in node.names},
+                                             {"authenticate_user", "hydrate_access"})
+                    else:
+                        self.assertNotIn(node.module.split('.')[0], forbidden_modules)
                     if node.module.startswith("services"):
                         self.assertEqual(node.module, "services.salary_service")
                 if isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute):

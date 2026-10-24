@@ -1,5 +1,14 @@
 # MedCRM read-only reporting MCP
 
+The scoped Grok OAuth implementation and synthetic verification are documented in
+[GROK-OAUTH-OPERATIONS.md](GROK-OAUTH-OPERATIONS.md). This is a local candidate:
+production deployment, the current alex identity and the actual Grok callback
+round-trip have **not** been verified. Existing Paperclip binding, credential and
+grant-file format are preserved. Grok uses the published CIMD URL
+`https://grok.com/oauth/mcp-client.json` as client_id, only its web callback,
+and 30-day explicit consent with no refresh or automatic renewal. Nginx/forwarded
+header changes below are an operations contract to apply and verify later.
+
 Configuration-driven activation is implemented locally; see
 [HTTP-DEPLOYMENT-REVIEW.md](HTTP-DEPLOYMENT-REVIEW.md) for the Streamable HTTP sidecar
 and remaining deployment/access approvals. Production activation is not verified;
@@ -21,7 +30,8 @@ clinic membership and unexpired grant on every call. The model cannot supply tho
 identities, a URL, headers, SQL, Mongo queries, scope or timezone. This slice requires
 separately resolved, exactly scoped grants for the two reports; broad extra scopes
 are rejected. The existing live resolver is selected only by explicit backend
-configuration below. There is no credential issuer.
+configuration below. Only the separately provisioned Grok public client has an
+OAuth issuer; no Paperclip credential issuer is added.
 
 ## Explicit activation configuration
 
@@ -29,7 +39,7 @@ configuration below. There is no credential issuer.
 | --- | --- | --- |
 | Existing CRM backend | `REPORTING_BINDING_FILE` | Absolute path to the separately provisioned non-secret binding JSON |
 | Existing CRM backend | `REPORTING_GRANT_FILE` | Absolute path to the separately provisioned protected grant file |
-| Separate HTTP MCP sidecar | `FINANCE_MCP_BINDING_FILE` | Absolute path to the same non-secret binding JSON (or an identical copy) |
+| Separate HTTP MCP sidecar | `FINANCE_MCP_BINDING_FILE` | The exact same absolute binding-file path as `REPORTING_BINDING_FILE`; copies are not supported |
 
 The binding must be UTF-8 JSON, at most 16 KiB, with **exactly** these four fields.
 This example is synthetic, not a real deployment binding:
@@ -57,8 +67,9 @@ mismatch) selects the original two closed routers: anonymous requests get 401,
 bearer-looking requests get 503 `REPORTING_UNCONFIGURED`, and
 `/api/reporting/access` is absent. Configuration failures emit no values or exception
 text and do not prevent general CRM startup. Valid configuration replaces those
-registrations with exactly finance, payroll and access routers, in their original
-position. It creates no new Mongo client and changes no database lifecycle.
+registrations with finance, payroll, access and backend OAuth routers, in their original
+position. The root-running backend owns authorization, token, revocation and discovery;
+the unprivileged sidecar serves only `/api/reporting/mcp`. It creates no new Mongo client and changes no database lifecycle.
 
 The grant path is validated as absolute at startup; grant contents are **not** read
 until a request. The existing `JsonGrantStore` then enforces Linux ownership, mode,
@@ -78,13 +89,16 @@ review (the shown loopback port must first be checked):
 ```sh
 env -i PATH=/usr/bin:/bin FINANCE_MCP_BINDING_FILE=/etc/medcrm/finance-mcp/binding.json \
   /opt/medcrm/finance-mcp/venv/bin/python -m uvicorn tools.finance_mcp.http_bootstrap:app \
-  --app-dir /opt/medcrm/new-med-crm --host 127.0.0.1 --port 8766
+  --app-dir /opt/medcrm/new-med-crm --host 127.0.0.1 --port 8766 \
+  --proxy-headers --forwarded-allow-ips=127.0.0.1
 ```
 
 Use the separate sidecar venv and reviewed HTTP requirements/lockfile. Never inherit
 the backend environment, pass `MONGO_URL`, CRM credentials, a static bearer token,
-`REPORTING_GRANT_FILE`, or mount the grant file into the sidecar. Request credentials
-continue to be transiently forwarded by the existing HTTP transport only. No service,
+`REPORTING_GRANT_FILE`, or mount the Paperclip grant file into the sidecar. Grok uses
+its own root-only hash state at `<binding parent>/grok-oauth/grok-oauth.json`,
+read and written only by the backend, as detailed in the OAuth operations document.
+The shared binding path must be exact, not an identical copy elsewhere. Request credentials continue to be transiently forwarded by the HTTP transport. No service,
 proxy, key, grant or production connection is installed by this implementation.
 
 ## What the numbers mean

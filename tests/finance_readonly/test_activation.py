@@ -71,7 +71,7 @@ def mount(routers):
 
 
 def report_routes(app):
-    return [(route.path, route.methods) for route in app.routes if route.path.startswith("/api/reporting/")]
+    return [(route.path, route.methods) for route in app.routes if route.path.startswith("/api/reporting/") and not route.path.startswith("/api/reporting/oauth/")]
 
 
 async def assert_closed(routers):
@@ -154,7 +154,7 @@ def test_valid_activation_uses_existing_db_and_only_two_environment_keys(config)
     assert reads == ["REPORTING_BINDING_FILE", "REPORTING_GRANT_FILE"]
     assert db.users.reads + db.staff.reads + db.doctors.reads + db.treatment_plans.reads == []
     assert store.reads == 0  # Grants are re-read at request time, not at startup.
-    assert len(routers) == 3
+    assert len(routers) == 4
     app = mount(routers)
     assert report_routes(app) == [(PATH, {"GET"}), (PAYROLL_PATH, {"GET"}), (ACCESS_PATH, {"GET"})]
 
@@ -201,18 +201,32 @@ def test_actual_global_server_registrations_mount_one_set_in_place(config, confi
     paths = [route.path for route in app.routes]
     start = paths.index("/api/__auth_router")
     assert paths[start + 1:start + 1 + len(expected)] == [path for path, _ in expected]
-    assert paths[start + 1 + len(expected)] == "/api/__live_events_router"
-    assert paths[-1] == "/api/crm/__crm_router"
+    oauth_count = 6 if configured else 0
+    assert paths[start + 1 + len(expected) + oauth_count] == "/api/__live_events_router"
+    assert paths.count("/api/crm/__crm_router") == 1
+    assert paths.index("/api/crm/__crm_router") > start + len(expected)
+    assert paths[-1] == "/__lookups_router"
 
 
 def test_bootstrap_passes_only_valid_fixed_binding_to_factory(config):
     with patch.dict(os.environ, {"FINANCE_MCP_BINDING_FILE": config["REPORTING_BINDING_FILE"]}, clear=True):
         with patch("tools.finance_mcp.http_server.create_http_app") as factory:
             result = runpy.run_module(BOOTSTRAP)
-    factory.assert_called_once_with(BINDING)
+    factory.assert_called_once()
+    assert factory.call_args.args == (BINDING,)
+    assert factory.call_args.kwargs == {}  # Sidecar never receives/opens OAuth state.
     binding = factory.call_args.args[0]
     assert (binding.agent_id, binding.api_origin, binding.paperclip_runtime) == (AGENT_ID, API_ORIGIN, PAPERCLIP_RUNTIME)
     assert result["app"] is factory.return_value
+
+
+def test_grok_activation_uses_separate_lazy_store_without_env_or_paperclip_changes(config):
+    activation = importlib.import_module("reporting.activation")
+    with patch("reporting.grok_oauth.OAuthFileStore.read", side_effect=AssertionError("No OAuth state at startup")):
+        with patch.object(activation, "build_bound_routers") as build:
+            select(database(), config)
+    assert build.call_args.kwargs["oauth_store"].path == (
+        Path(config["REPORTING_BINDING_FILE"]).parent / "grok-oauth" / "grok-oauth.json")
 
 
 @pytest.mark.parametrize("path", [None, "", "relative.json", "C:relative.json" if os.name == "nt" else "relative.json"])

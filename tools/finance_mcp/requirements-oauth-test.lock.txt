@@ -1,0 +1,19 @@
+# Isolated Python 3.13 verification only; never install in backend/production venvs.
+-r requirements-http.lock.txt
+motor==3.7.1
+pymongo==4.13.2
+dnspython==2.9.0
+email-validator==2.3.0
+pytest==9.1.1
+pytest-asyncio==1.4.0
+iniconfig==2.3.1
+packaging==26.3
+pluggy==1.7.0
+pygments==2.21.0
+colorama==0.4.6; sys_platform == "win32"
+bcrypt==5.0.0
+python-jose==3.5.0
+ecdsa==0.19.2
+pyasn1==0.6.4
+rsa==4.9.1
+six==1.17.0

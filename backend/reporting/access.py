@@ -41,8 +41,14 @@ def authorize(context, now=None, *, required_scope=SCOPE, required_permission="f
             or not isinstance(grant.scopes, frozenset) or not isinstance(grant.expires_at, datetime)):
         raise ReportError("FORBIDDEN")
     now = now or datetime.now(timezone.utc)
-    identifiers = (user.subject_id, grant.agent_id, grant.owner_subject_id, grant.clinic_id)
+    identifiers = (user.subject_id, grant.owner_subject_id, grant.clinic_id)
     if any(type(value) is not str or not re.fullmatch(r"[A-Za-z0-9_-]{1,64}", value) for value in identifiers):
+        raise ReportError("FORBIDDEN")
+    # CIMD uses a URL as the principal. Only this exact approved URL is accepted;
+    # the existing Paperclip identifier rules and grant checks remain unchanged.
+    from .grok_oauth import CLIENT_ID
+    if (type(grant.agent_id) is not str or grant.agent_id != CLIENT_ID
+            and not re.fullmatch(r"[A-Za-z0-9_-]{1,64}", grant.agent_id)):
         raise ReportError("FORBIDDEN")
     if (user.active is not True or grant.active is not True
             or grant.owner_subject_id != user.subject_id

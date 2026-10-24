@@ -23,11 +23,28 @@ jobs:
             git pull --ff-only origin ref-2
             echo "=== deps ==="
             /opt/medcrm/venv/bin/pip install -q -r backend/requirements.txt || true
+            systemctl daemon-reload
             echo "=== restart backend ==="
             systemctl restart medcrm-backend
             sleep 3
             systemctl is-active medcrm-backend
             systemctl is-enabled medcrm-backend
+            echo "=== restart finance MCP sidecar ==="
+            systemctl restart medcrm-finance-mcp
+            sleep 3
+            systemctl is-active medcrm-finance-mcp
+            systemctl is-enabled medcrm-finance-mcp
+            MCP_HTTP=000
+            MCP_HEADERS=$(mktemp)
+            for attempt in $(seq 1 15); do
+              MCP_HTTP=$(curl -sS -D "$MCP_HEADERS" -o /dev/null -w '%{http_code}' --max-time 10 -H 'Origin: https://grok.com' -H 'Accept: application/json, text/event-stream' -H 'Content-Type: application/json' --data '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-03-26","capabilities":{},"clientInfo":{"name":"deploy-health","version":"1"}}}' https://medcrm.duckdns.org/api/reporting/mcp || true)
+              [ "$MCP_HTTP" = "401" ] && break
+              sleep 2
+            done
+            echo "Grok-origin MCP auth gate HTTP ${MCP_HTTP}"
+            test "$MCP_HTTP" = "401"
+            grep -qi '^WWW-Authenticate: Bearer' "$MCP_HEADERS"
+            rm -f "$MCP_HEADERS"
             echo "deployed: $(git rev-parse --short HEAD)"
             curl -sS -o /dev/null -w 'api HTTP %{http_code}\n' https://medcrm.duckdns.org/api/doctors
             curl -sS -o /dev/null -w 'front redirect %{http_code} -> %{redirect_url}\n' https://medcrm.duckdns.org/
