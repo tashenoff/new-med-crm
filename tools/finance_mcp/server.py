@@ -18,7 +18,8 @@ from mcp.server.stdio import stdio_server
 from reporting.access import authorize
 from reporting.contract import ReportError
 from tools.finance_mcp.core import (Adapter, AmountsDueApi, BreakdownApi, FinanceApi, PayrollApi,
-    INPUT_SCHEMA, ALL_TOOLS, TOOL_NAME, BREAKDOWN_TOOL, AMOUNTS_DUE_TOOL, PAYROLL_TOOL)
+    ServicesRenderedApi, INPUT_SCHEMA, ALL_TOOLS, TOOL_NAME, BREAKDOWN_TOOL, AMOUNTS_DUE_TOOL,
+    SERVICES_RENDERED_TOOL, PAYROLL_TOOL)
 from reporting.payroll import SCOPE as PAYROLL_SCOPE, PERMISSION as PAYROLL_PERMISSION
 
 
@@ -45,6 +46,12 @@ def build_server(adapter, demo=False, *, connected=False):
                 description=prefix
                     + "Clinic-level treatment-plan amounts due in KZT. Opaque plan ids only; no patient PII. "
                     + "Legacy or incomplete plan balances return an error without amounts.",
+                inputSchema=INPUT_SCHEMA,
+                annotations={"readOnlyHint": True, "destructiveHint": False, "idempotentHint": True, "openWorldHint": False}),
+            types.Tool(name=SERVICES_RENDERED_TOOL,
+                description=prefix
+                    + "Clinic services rendered aggregated by service_name for inclusive Asia/Bishkek dates by plan created_at. "
+                    + "Uses payment_status and proportional paid_amount; no patient PII; does not require ledger completeness.",
                 inputSchema=INPUT_SCHEMA,
                 annotations={"readOnlyHint": True, "destructiveHint": False, "idempotentHint": True, "openWorldHint": False}),
             types.Tool(name=PAYROLL_TOOL,
@@ -89,17 +96,21 @@ async def run(demo=False):
             from dataclasses import replace
             from reporting.amounts_due import SCOPE as AMOUNTS_DUE_SCOPE
             from reporting.breakdown import SCOPE as BREAKDOWN_SCOPE
+            from reporting.services_rendered import SCOPE as SERVICES_RENDERED_SCOPE
             finance_scope = authorize(DEMO_CONTEXT)
             breakdown_scope = authorize(replace(DEMO_CONTEXT, grant=replace(DEMO_CONTEXT.grant, scopes=frozenset({BREAKDOWN_SCOPE}))),
                 required_scope=BREAKDOWN_SCOPE)
             amounts_scope = authorize(replace(DEMO_CONTEXT, grant=replace(DEMO_CONTEXT.grant, scopes=frozenset({AMOUNTS_DUE_SCOPE}))),
                 required_scope=AMOUNTS_DUE_SCOPE)
+            services_scope = authorize(replace(DEMO_CONTEXT, grant=replace(DEMO_CONTEXT.grant, scopes=frozenset({SERVICES_RENDERED_SCOPE}))),
+                required_scope=SERVICES_RENDERED_SCOPE)
             payroll_scope = authorize(PAYROLL_CONTEXT, required_scope=PAYROLL_SCOPE,
                     required_permission=PAYROLL_PERMISSION)
             adapter = Adapter(FinanceApi(client, finance_scope, synthetic_only=True),
                 PayrollApi(client, payroll_scope, synthetic_only=True),
                 BreakdownApi(client, breakdown_scope, synthetic_only=True),
-                AmountsDueApi(client, amounts_scope, synthetic_only=True))
+                AmountsDueApi(client, amounts_scope, synthetic_only=True),
+                ServicesRenderedApi(client, services_scope, synthetic_only=True))
         server = build_server(adapter, demo)
         async with stdio_server() as (read, write):
             await server.run(read, write, server.create_initialization_options())

@@ -1,4 +1,4 @@
-"""P0: payroll idle-incomplete, amounts due, finance breakdown."""
+"""P0: payroll idle-incomplete, amounts due, finance breakdown, services rendered."""
 from copy import deepcopy
 from dataclasses import replace
 from datetime import datetime, timezone
@@ -14,10 +14,14 @@ UTC = timezone.utc
 from reporting.access import authorize
 from reporting.amounts_due import SCOPE as AMOUNTS_DUE_SCOPE, AmountsDueSnapshot, calculate as due_calculate
 from reporting.breakdown import SCOPE as BREAKDOWN_SCOPE, breakdown
+from reporting.services_rendered import (
+    SCOPE as SERVICES_RENDERED_SCOPE, ServicesRenderedSnapshot, calculate as services_calculate,
+)
 from reporting.contract import ReportError, parse_period
 from reporting.payroll import SCOPE as PAYROLL_SCOPE, PERMISSION, calculate as payroll_calculate
 from reporting.service import CoverageEvidence, Snapshot
 from reporting.access import AccessContext, AgentGrant, UserIdentity
+from tools.finance_mcp.core import Adapter, ALL_TOOLS, SERVICES_RENDERED_TOOL
 from tools.finance_mcp.synthetic import (
     DEMO_COVERAGE, DEMO_CONTEXT, DEMO_EVENTS, PAYROLL_CONTEXT, PAYROLL_SNAPSHOT, load_synthetic_salary,
 )
@@ -96,6 +100,64 @@ class AmountsDueTests(unittest.TestCase):
         with self.assertRaises(ReportError) as error:
             due_calculate(AmountsDueSnapshot((legacy,), DEMO_COVERAGE), scope, parse_period(PERIOD))
         self.assertEqual(error.exception.code, "INCOMPLETE_ACCOUNTING")
+
+
+
+class ServicesRenderedTests(unittest.TestCase):
+    def test_multi_service_proportional_paid_and_paid_status(self):
+        scope = authorize(scoped_context(SERVICES_RENDERED_SCOPE), required_scope=SERVICES_RENDERED_SCOPE)
+        when = datetime(2026, 10, 19, 12, tzinfo=UTC)
+        plan = dict(
+            id="plan-svc", clinic_id="demo-clinic", created_at=when,
+            paid_amount=100, total_cost=300,
+            services=[
+                dict(service_name=" Cleaning ", category="Hygiene", price_per_unit=100,
+                     total_price=100, quantity=1, payment_status="paid"),
+                dict(service_name="Filling", category="Therapy", price=200,
+                     total_price=200, quantity_total=2, payment_status="unpaid"),
+            ],
+        )
+        report = services_calculate(ServicesRenderedSnapshot((plan,), DEMO_COVERAGE), scope, parse_period(PERIOD))
+        by_name = {row.service_name: row for row in report.items}
+        self.assertEqual(set(by_name), {"Cleaning", "Filling"})
+        self.assertEqual(by_name["Cleaning"].total_expected, "100.00")
+        self.assertEqual(by_name["Cleaning"].total_paid, "100.00")
+        self.assertEqual(by_name["Cleaning"].total_outstanding, "0.00")
+        self.assertEqual(by_name["Cleaning"].quantity_total, 1)
+        self.assertEqual(by_name["Filling"].total_expected, "200.00")
+        self.assertEqual(by_name["Filling"].total_paid, "66.67")
+        self.assertEqual(by_name["Filling"].total_outstanding, "133.33")
+        self.assertEqual(by_name["Filling"].quantity_total, 2)
+        self.assertEqual(by_name["Filling"].price, "200.00")
+        self.assertEqual(report.totals.services_count, 2)
+        self.assertEqual(report.metric, "clinic_services_rendered")
+        self.assertEqual(report.date_basis, "plan_created_at")
+        self.assertEqual([row.service_name for row in report.items], ["Filling", "Cleaning"])
+
+    def test_period_filter_excludes_outside_plans(self):
+        scope = authorize(scoped_context(SERVICES_RENDERED_SCOPE), required_scope=SERVICES_RENDERED_SCOPE)
+        inside = dict(
+            id="in", clinic_id="demo-clinic", created_at=datetime(2026, 10, 19, 12, tzinfo=UTC),
+            paid_amount=0, total_cost=50,
+            services=[dict(service_name="InPeriod", category="X", price=50, total_price=50, quantity=1)],
+        )
+        outside = dict(
+            id="out", clinic_id="demo-clinic", created_at=datetime(2026, 10, 18, 12, tzinfo=UTC),
+            paid_amount=0, total_cost=999,
+            services=[dict(service_name="OutPeriod", category="X", price=999, total_price=999, quantity=1)],
+        )
+        report = services_calculate(
+            ServicesRenderedSnapshot((inside, outside), DEMO_COVERAGE), scope, parse_period(PERIOD))
+        self.assertEqual([row.service_name for row in report.items], ["InPeriod"])
+        self.assertEqual(report.totals.total_expected, "50.00")
+
+
+class ServicesRenderedAdapterTests(unittest.IsolatedAsyncioTestCase):
+    async def test_mcp_adapter_lists_services_rendered_tool(self):
+        self.assertIn(SERVICES_RENDERED_TOOL, ALL_TOOLS)
+        names = await Adapter().list_names()
+        self.assertEqual(names, ALL_TOOLS)
+        self.assertIn(SERVICES_RENDERED_TOOL, names)
 
 
 if __name__ == "__main__":

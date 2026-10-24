@@ -7,6 +7,7 @@ from .contract import MAX_EVENTS, ReportError
 from .live_access import bounded_find
 from .grok_oauth import CLIENT_ID
 from .amounts_due import AmountsDueSnapshot
+from .services_rendered import ServicesRenderedSnapshot
 from .payroll import MAX_RECORDS, PayrollSnapshot, check_size
 from .service import CoverageEvidence, NON_RECEIPTS, RECEIPTS, Snapshot, amount, instant
 
@@ -120,6 +121,15 @@ def amounts_due_projection():
     return {**plan_projection(), "total_cost": 1}
 
 
+def services_rendered_projection():
+    fields = {
+        "id", "clinic_id", "created_at", "paid_amount", "total_cost", "assigned_doctor_id",
+        "services.service_name", "services.category", "services.price_per_unit", "services.price",
+        "services.total_price", "services.quantity_total", "services.quantity", "services.payment_status",
+    }
+    return {"_id": 0, **{field: 1 for field in fields}}
+
+
 class LiveReadAdapter:
     def __init__(self, db, binding, *, principal_id=None):
         self.db, self.binding = db, binding
@@ -191,3 +201,9 @@ class LiveReadAdapter:
         async with await self.db.client.start_session(snapshot=True) as session:
             plans = await self.records(self.db.treatment_plans, amounts_due_projection(), session)
         return AmountsDueSnapshot(plans, self.coverage(scope, period))
+
+    async def services_rendered(self, scope, period):
+        self.guard(scope)
+        async with await self.db.client.start_session(snapshot=True) as session:
+            plans = await self.records(self.db.treatment_plans, services_rendered_projection(), session)
+        return ServicesRenderedSnapshot(plans, self.coverage(scope, period))

@@ -3,15 +3,18 @@ from fastapi import APIRouter, HTTPException, Request, Response
 
 from .access import authorize
 from .access_contract import (
-    ACCESS_PATH, ALL_TOOLS, AMOUNTS_DUE_TOOL, AccessEnvelope, BREAKDOWN_TOOL, FINANCE_TOOL, PAYROLL_TOOL,
+    ACCESS_PATH, ALL_TOOLS, AMOUNTS_DUE_TOOL, AccessEnvelope, BREAKDOWN_TOOL, FINANCE_TOOL,
+    PAYROLL_TOOL, SERVICES_RENDERED_TOOL,
 )
 from .amounts_due import SCOPE as AMOUNTS_DUE_SCOPE
 from .breakdown import SCOPE as BREAKDOWN_SCOPE
 from .contract import ReportError, SCOPE
 from .payroll import PERMISSION, SCOPE as PAYROLL_SCOPE
+from .services_rendered import SCOPE as SERVICES_RENDERED_SCOPE
 
 
-def create_access_router(finance_resolver, breakdown_resolver, amounts_due_resolver, payroll_resolver):
+def create_access_router(finance_resolver, breakdown_resolver, amounts_due_resolver,
+                         services_rendered_resolver, payroll_resolver):
     router = APIRouter(tags=["Read-only reporting access"])
 
     @router.get(ACCESS_PATH, response_model=AccessEnvelope)
@@ -25,6 +28,7 @@ def create_access_router(finance_resolver, breakdown_resolver, amounts_due_resol
                 (FINANCE_TOOL, finance_resolver, SCOPE, "finance_view"),
                 (BREAKDOWN_TOOL, breakdown_resolver, BREAKDOWN_SCOPE, "finance_view"),
                 (AMOUNTS_DUE_TOOL, amounts_due_resolver, AMOUNTS_DUE_SCOPE, "finance_view"),
+                (SERVICES_RENDERED_TOOL, services_rendered_resolver, SERVICES_RENDERED_SCOPE, "finance_view"),
                 (PAYROLL_TOOL, payroll_resolver, PAYROLL_SCOPE, PERMISSION),
             ):
                 try:

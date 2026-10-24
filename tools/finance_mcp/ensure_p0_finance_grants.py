@@ -1,8 +1,9 @@
 ﻿"""Idempotently add P0 finance grant scopes from the existing finance.summary.read row.
 
 Reads REPORTING_GRANT_FILE. Never prints token hashes. Clones owner/clinic/agent/
-expiry from the active finance.summary.read grant onto finance.amounts_due.read
-and finance.breakdown.read when missing. Does not touch payroll grants.
+expiry from the active finance.summary.read grant onto finance.amounts_due.read,
+finance.breakdown.read and finance.services_rendered.read when missing.
+Does not touch payroll grants.
 """
 from __future__ import annotations
 
@@ -14,8 +15,8 @@ import tempfile
 from pathlib import Path
 
 TEMPLATE_SCOPE = "finance.summary.read"
-EXTRA_SCOPES = ("finance.amounts_due.read", "finance.breakdown.read")
-MAX_GRANTS = 4
+EXTRA_SCOPES = ("finance.amounts_due.read", "finance.breakdown.read", "finance.services_rendered.read")
+MAX_GRANTS = 5  # must match len(reporting.live_access.ROUTES)
 FIELDS = frozenset(
     {
         "token_sha256",
