@@ -7,9 +7,12 @@ from enum import Enum
 class CallDirection(str, Enum):
     INBOUND = "inbound"
     OUTBOUND = "outbound"
+    UNKNOWN = "unknown"
 
 
 class CallStatus(str, Enum):
+    PENDING = "pending"
+    REVIEW_REQUIRED = "review_required"
     MISSED = "missed"
     ANSWERED = "answered"
     REJECTED = "rejected"
@@ -33,6 +36,14 @@ class TelephonyCall(BaseModel):
     lead_id: Optional[str] = None    # ID лида, если создан
     contact_name: Optional[str] = None  # Имя пациента или лида, подтянутое по номеру
     phone_number: str
+    called_did: Optional[str] = None
+    source_id: Optional[str] = None
+    source_name: Optional[str] = None
+    source_type: Optional[str] = None
+    channel_id: Optional[str] = None
+    channel_name: Optional[str] = None
+    campaign_id: Optional[str] = None
+    campaign_name: Optional[str] = None
     direction: CallDirection
     status: CallStatus
     disposition: Optional[Disposition] = None  # Статус завершения от АТС
@@ -46,6 +57,10 @@ class TelephonyCall(BaseModel):
     updated_at: Optional[datetime] = None
     user_id: Optional[str] = None  # кто принял/сделал звонок
     raw_payload: Optional[Dict[str, Any]] = None  # Сырой payload вебхука для отладки
+    channel: Optional[str] = None
+    channel_role: str = 'unknown'
+    call_outcome: str = 'unknown'
+    provider_evidence: Optional[Dict[str, Any]] = None
 
     class Config:
         use_enum_values = True

@@ -1,0 +1,115 @@
+{
+  "source": "Anonymized observed Zadarma PBX shapes, 2026-10-22; no phone, time or original ID",
+  "note": "SIP identities replaced by synthetic 201..205; is_recorded encoded as 0/1 strings from observed normalized values",
+  "known_extensions": [
+    "201"
+  ],
+  "calls": {
+    "C001": {
+      "ground_truth": "provider_answer_on_real_extension",
+      "rows": [
+        {
+          "pbx_call_id": "example-C001",
+          "call_id": "R001",
+          "sip": "0",
+          "disposition": "answered",
+          "seconds": 6.0,
+          "is_recorded": "0"
+        },
+        {
+          "pbx_call_id": "example-C001",
+          "call_id": "R002",
+          "sip": "201",
+          "disposition": "answered",
+          "seconds": 27.0,
+          "is_recorded": "1"
+        },
+        {
+          "pbx_call_id": "example-C001",
+          "call_id": "R003",
+          "sip": "202",
+          "disposition": "call failed",
+          "seconds": 0,
+          "is_recorded": "0"
+        },
+        {
+          "pbx_call_id": "example-C001",
+          "call_id": "R004",
+          "sip": "203",
+          "disposition": "call failed",
+          "seconds": 0,
+          "is_recorded": "0"
+        },
+        {
+          "pbx_call_id": "example-C001",
+          "call_id": "R005",
+          "sip": "204",
+          "disposition": "call failed",
+          "seconds": 0,
+          "is_recorded": "0"
+        },
+        {
+          "pbx_call_id": "example-C001",
+          "call_id": "R006",
+          "sip": "205",
+          "disposition": "call failed",
+          "seconds": 0,
+          "is_recorded": "0"
+        }
+      ]
+    },
+    "C005": {
+      "ground_truth": "user_confirmed_missed",
+      "rows": [
+        {
+          "pbx_call_id": "example-C005",
+          "call_id": "R025",
+          "sip": "0",
+          "disposition": "no answer",
+          "seconds": 0,
+          "is_recorded": "0"
+        },
+        {
+          "pbx_call_id": "example-C005",
+          "call_id": "R026",
+          "sip": "201",
+          "disposition": "no answer",
+          "seconds": 0,
+          "is_recorded": "0"
+        },
+        {
+          "pbx_call_id": "example-C005",
+          "call_id": "R027",
+          "sip": "202",
+          "disposition": "call failed",
+          "seconds": 0,
+          "is_recorded": "0"
+        },
+        {
+          "pbx_call_id": "example-C005",
+          "call_id": "R028",
+          "sip": "203",
+          "disposition": "call failed",
+          "seconds": 0,
+          "is_recorded": "0"
+        },
+        {
+          "pbx_call_id": "example-C005",
+          "call_id": "R029",
+          "sip": "204",
+          "disposition": "call failed",
+          "seconds": 0,
+          "is_recorded": "0"
+        },
+        {
+          "pbx_call_id": "example-C005",
+          "call_id": "R030",
+          "sip": "205",
+          "disposition": "call failed",
+          "seconds": 0,
+          "is_recorded": "0"
+        }
+      ]
+    }
+  }
+}

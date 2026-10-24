@@ -51,14 +51,25 @@ security = HTTPBearer()
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Startup
+    from services.patient_consent import ConsentConfig
+    consent_readiness = ConsentConfig().readiness()
+    consent_log = logging.getLogger("patient_terms")
+    (consent_log.info if consent_readiness["ready"] else consent_log.error)(
+        "Patient terms link readiness: %s", consent_readiness["reason"])
     try:
-        async with live_events_lifespan():
+        from services.calliq_events import reconciliation_lifespan
+        from services.calliq_client import get_calliq_client
+        from services.telephony_service import telephony_service
+        async with live_events_lifespan(), reconciliation_lifespan(db, telephony_service, get_calliq_client()):
             yield
     finally:
         await close_database()
 
 # Create the main app
 app = FastAPI(lifespan=lifespan, redirect_slashes=False)
+
+from routers.patient_terms import protect_patient_terms
+app.middleware("http")(protect_patient_terms)
 
 # Add CORS middleware first (before any routes)
 app.add_middleware(
@@ -90,7 +101,8 @@ app.add_middleware(
 # Create uploads directory and mount static files
 UPLOAD_DIR = Path("uploads")
 UPLOAD_DIR.mkdir(exist_ok=True)
-app.mount("/uploads", StaticFiles(directory=str(UPLOAD_DIR)), name="uploads")
+# Raw /uploads is intentionally unavailable; use authenticated /api/uploads.
+# A future signed, clinic-bound download route must preserve document ownership.
 
 # Root endpoint
 @app.get("/")
@@ -116,6 +128,7 @@ from routers.consultations import router as consultations_router
 from routers.wazzup import router as wazzup_router
 from routers.telephony import router as telephony_router
 from routers.notification_rules import router as notification_rules_router
+from routers.patient_terms import router as patient_terms_router
 from routers.feedback import router as feedback_router
 from routers.laboratories import laboratories_router
 from routers.staff import router as staff_router
@@ -130,6 +143,7 @@ for reporting_router in select_reporting_routers(db, os.environ):
     app.include_router(reporting_router)
 app.include_router(live_events_router, prefix="/api")
 app.include_router(patients_router, prefix="/api")
+app.include_router(patient_terms_router, prefix="/api")
 app.include_router(doctors_router, prefix="/api")
 app.include_router(appointments_router, prefix="/api")
 app.include_router(rooms_router, prefix="/api")
@@ -198,6 +212,11 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 # Database shutdown is now handled in lifespan context manager
+
+from api_permissions import install_api_permissions
+from routers.lookups import router as lookups_router
+app.include_router(lookups_router)
+install_api_permissions(app)
 
 if __name__ == "__main__":
     import uvicorn

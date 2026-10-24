@@ -5,6 +5,7 @@ Mongo-часть — апсейт чата на входящее/исходящ�
 Принимает db аргументом для тестируемости (как LeadService).
 """
 import re
+from services.patient_consent import redact_links
 from typing import List, Optional, Dict, Any
 from datetime import datetime
 
@@ -47,7 +48,7 @@ class WazzupChatService:
                 "phone": key,
                 "contact_name": contact_name or "",
                 "channel_id": channel_id or "",
-                "last_message": text or "",
+                "last_message": redact_links(text or ""),
                 "last_message_time": ts,
                 "updated_at": ts,
             },
@@ -71,7 +72,7 @@ class WazzupChatService:
         update: Dict[str, Any] = {
             "$set": {
                 "phone": key,
-                "last_message": text or "",
+                "last_message": redact_links(text or ""),
                 "last_message_time": ts,
                 "updated_at": ts,
                 "unread_count": 0,

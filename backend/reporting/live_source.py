@@ -5,6 +5,7 @@ from decimal import Decimal
 
 from .contract import MAX_EVENTS, ReportError
 from .live_access import bounded_find
+from .grok_oauth import CLIENT_ID
 from .amounts_due import AmountsDueSnapshot
 from .payroll import MAX_RECORDS, PayrollSnapshot, check_size
 from .service import CoverageEvidence, NON_RECEIPTS, RECEIPTS, Snapshot, amount, instant
@@ -114,17 +115,21 @@ def verify_finance_plan(plan):
     return events
 
 
+
 def amounts_due_projection():
     return {**plan_projection(), "total_cost": 1}
 
 
 class LiveReadAdapter:
-    def __init__(self, db, binding):
+    def __init__(self, db, binding, *, principal_id=None):
         self.db, self.binding = db, binding
+        if principal_id not in (None, CLIENT_ID):
+            raise ReportError("REPORTING_UNCONFIGURED")
+        self.principal_id = binding.agent_id if principal_id is None else principal_id
 
     def guard(self, scope):
         self.binding.verify(self.db)
-        if (scope.subject_id != self.binding.owner_id or scope.agent_id != self.binding.agent_id
+        if (scope.subject_id != self.binding.owner_id or scope.agent_id != self.principal_id
                 or scope.clinic_id != self.binding.clinic_id):
             raise ReportError("FORBIDDEN")
 

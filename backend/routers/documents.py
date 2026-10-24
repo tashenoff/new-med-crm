@@ -88,9 +88,18 @@ async def update_document(
 
 
 @documents_router.get("/uploads/{filename}")
-async def download_file(filename: str):
+async def download_file(filename: str, current_user: UserInDB = Depends(get_current_active_user)):
     """Serve uploaded files through API endpoint (workaround for ingress routing)"""
-    file_path = UPLOAD_DIR / filename
+    if Path(filename).name != filename or any(c in filename for c in ('\\', '/', ':')):
+        raise HTTPException(404, "File not found")
+    file_path = (UPLOAD_DIR / filename).resolve()
+    if file_path.parent != UPLOAD_DIR.resolve():
+        raise HTTPException(404, "File not found")
+    document = await db.documents.find_one({"filename": filename})
+    if not document:
+        raise HTTPException(404, "Document not found")
+    if current_user.role == UserRole.PATIENT and document.get('patient_id') != current_user.patient_id:
+        raise HTTPException(403, 'Access denied')
     
     if not file_path.exists():
         raise HTTPException(status_code=404, detail="File not found")

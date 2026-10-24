@@ -19,6 +19,7 @@ from models.staff import (
     Permission,
     ROLE_PERMISSIONS
 )
+from permission_policy import effective_permissions
 
 
 class StaffService:
@@ -135,8 +136,9 @@ class StaffService:
                 created_at=user_doc.get("created_at"),
                 updated_at=user_doc.get("updated_at"),
                 last_login=user_doc.get("last_login"),
-                permissions=[],
-                custom_permissions=[]
+                permissions=effective_permissions(user_doc),
+                permission_mode=user_doc.get("permission_mode", "legacy"),
+                custom_permissions=user_doc.get("custom_permissions", [])
             )
         
         staff_doc["id"] = str(staff_doc.pop("_id"))
@@ -186,6 +188,12 @@ class StaffService:
             if existing_login:
                 raise ValueError(f"Логин '{staff_data.login}' уже используется другим пользователем")
         
+        for field in ("email", "login"):
+            value = getattr(staff_data, field)
+            if value:
+                for collection in (self.collection, self.users_collection):
+                    if await collection.find_one({field: value}):
+                        raise ValueError(f"{field} already used by another account")
         # Хешируем пароль
         hashed_password = self._hash_password(staff_data.password)
         
@@ -197,7 +205,8 @@ class StaffService:
             role=staff_data.role,
             phone=staff_data.phone,
             extension=self._normalize_extension(staff_data.extension),
-            custom_permissions=staff_data.custom_permissions
+            custom_permissions=staff_data.custom_permissions,
+            permission_mode="explicit"
         )
         
         # Сохраняем в БД
@@ -216,6 +225,8 @@ class StaffService:
             "hashed_password": hashed_password,
             "full_name": staff_data.full_name,
             "role": staff_data.role.value,
+            "permission_mode": "explicit",
+            "custom_permissions": [p.value for p in staff_member.custom_permissions],
             "is_active": True,
             "created_at": staff_member.created_at,
             "updated_at": staff_member.updated_at
@@ -267,7 +278,8 @@ class StaffService:
                 "role": existing_user.get("role", "admin"),
                 "phone": existing_user.get("phone"),
                 "is_active": existing_user.get("is_active", True),
-                "custom_permissions": [],
+                "custom_permissions": existing_user.get("custom_permissions", []),
+                "permission_mode": existing_user.get("permission_mode", "legacy"),
                 "created_at": existing_user.get("created_at", datetime.utcnow()),
                 "updated_at": datetime.utcnow()
             }
@@ -278,6 +290,13 @@ class StaffService:
         
         # Подготавливаем данные для обновления
         update_data = staff_update.dict(exclude_unset=True)
+        # Saving a list is an explicit replacement, including []. A role-only
+        # change freezes the previous effective grants instead of broadening them.
+        if "custom_permissions" in update_data:
+            update_data["permission_mode"] = "explicit"
+        elif "role" in update_data or "permission_mode" in update_data:
+            update_data["custom_permissions"] = effective_permissions(existing_staff)
+            update_data["permission_mode"] = "explicit"
         if "extension" in update_data:
             update_data["extension"] = self._normalize_extension(update_data["extension"])
         
@@ -318,6 +337,8 @@ class StaffService:
         if "is_active" in update_data:
             user_update_fields["is_active"] = update_data["is_active"]
         # ВАЖНО: Обновляем custom_permissions тоже!
+        if "permission_mode" in update_data:
+            user_update_fields["permission_mode"] = update_data["permission_mode"]
         if "custom_permissions" in update_data:
             user_update_fields["custom_permissions"] = update_data["custom_permissions"]
         
@@ -456,6 +477,8 @@ class StaffService:
                 "created_at": created_at,
                 "has_access": user_doc is not None,
                 "custom_permissions": staff_doc.get("custom_permissions", []),
+                "permissions": effective_permissions(staff_doc),
+                "permission_mode": staff_doc.get("permission_mode", "legacy"),
                 "type": "staff"
             })
         
@@ -487,6 +510,8 @@ class StaffService:
                     "created_at": created_at,
                     "has_access": True,
                     "custom_permissions": user_doc.get("custom_permissions", []),
+                    "permissions": effective_permissions(user_doc),
+                    "permission_mode": user_doc.get("permission_mode", "legacy"),
                     "type": "staff"
                 })
         
@@ -567,6 +592,8 @@ class StaffService:
         
         # Проверяем, нет ли уже записи в staff для этого врача
         existing_staff = await self.collection.find_one({"_id": doctor_id})
+        if any(record and record.get("role") != "doctor" for record in (existing_user, existing_staff)):
+            raise ValueError("Doctor identity collides with another staff account")
         
         # Хешируем пароль
         hashed_password = self._hash_password(password)
@@ -583,7 +610,8 @@ class StaffService:
             "phone": doctor_doc.get("phone"),
             "is_active": True,
             "hashed_password": hashed_password,
-            "custom_permissions": [],
+            "custom_permissions": (existing_staff or existing_user or {}).get("custom_permissions", []),
+            "permission_mode": (existing_staff or existing_user or {}).get("permission_mode", "explicit"),
             "updated_at": current_time
         }
         
@@ -606,6 +634,8 @@ class StaffService:
             "hashed_password": hashed_password,
             "full_name": doctor_doc.get("full_name"),
             "role": "doctor",
+            "custom_permissions": staff_data["custom_permissions"],
+            "permission_mode": staff_data["permission_mode"],
             "doctor_id": doctor_id,  # ИСПРАВЛЕНИЕ: Устанавливаем doctor_id для фильтрации записей
             "is_active": True,
             "updated_at": current_time

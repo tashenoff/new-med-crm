@@ -59,12 +59,16 @@ class MemoryCollection:
         self.rows.append(deepcopy(document))
         return SimpleNamespace(inserted_id=document.get("id"))
 
-    async def update_one(self, query, update):
+    async def update_one(self, query, update, upsert=False):
         self.writes.append(deepcopy(update))
+        if upsert and not any(matches(row, query) for row in self.rows):
+            self.rows.append(deepcopy(update.get("$setOnInsert", {})))
         for row in self.rows:
             if matches(row, query):
                 old = deepcopy(row)
                 row.update(deepcopy(update.get("$set", {})))
+                for key, value in update.get("$push", {}).items():
+                    row.setdefault(key, []).append(deepcopy(value))
                 for key in update.get("$unset", {}):
                     row.pop(key, None)
                 return SimpleNamespace(matched_count=1, modified_count=int(old != row))
@@ -142,6 +146,8 @@ def harness(monkeypatch):
         doctor_schedules=MemoryCollection([dict(doctor_id="doctor-fixture", day_of_week=1,
             is_active=True, start_time="08:00", end_time="18:00")]),
         crm_clients=MemoryCollection(),
+        crm_sources=MemoryCollection([dict(id='source-fixture', name='Fixture source', type='other', status='active')]),
+        crm_funnel_events=MemoryCollection(),
         crm_leads=MemoryCollection([
             dict(id="lead-fixture", first_name="Fixture", phone="70000000801", source="other",
                 status="in_progress", converted_to_client_id="patient-fixture",
@@ -201,7 +207,14 @@ def test_create_initial_unconfirmed_and_scheduled_crm_card(harness, explicit_def
     response = h.client.post("/api/appointments", json=payload)
     assert response.status_code == 200, response.text
     assert response.json()["status"] == "unconfirmed"
+    assert response.json()["source_id"] == "source-fixture"
+    assert h.db.appointments.rows[0]["source_id"] == "source-fixture"
+    assert "source_id" not in h.db.patients.rows[0]
+    assert "source_id" not in h.db.crm_leads.rows[0]
     assert_correspondence(h, "unconfirmed", "contacted")
+    observed = h.db.crm_leads.rows[0]["_funnel_events"]
+    assert len(observed) == 1 and observed[0]["to_stage_id"] == "contacted"
+    assert observed[0]["kind"] == "transition"
     assert "kanban_column_id" not in h.db.crm_leads.rows[0]
     h.sender.send_appointment_created_notification.assert_awaited_once()
 
@@ -219,6 +232,8 @@ def test_calendar_patch_confirms_linked_card_and_later_stale_modal_cannot_reset_
     assert_correspondence(h, "confirmed", "in_progress")
     assert "kanban_column_id" not in h.db.crm_leads.rows[0]
     assert "Запись на прием подтверждена" in h.db.crm_leads.rows[0]["notes"]
+    observed = h.db.crm_leads.rows[0]["_funnel_events"]
+    assert len(observed) == 1 and observed[0]["to_stage_id"] == "in_progress"
     # Frontend regression covers the actual stale form; here exercise its HTTP contract.
     response = h.client.put("/api/appointments/appointment-fixture", json={"notes": "Saved after confirmation"})
     assert response.status_code == 200, response.text

@@ -1,0 +1,306 @@
+﻿method,path,module,permissions,existing_dependencies,conditional_requirements,response_filter
+GET,/,server,PUBLIC,,,
+POST,/api/auth/register,routers.auth,PUBLIC,get_database,,
+POST,/api/auth/login,routers.auth,PUBLIC,get_database,,
+GET,/api/auth/me,routers.auth,AUTHENTICATED_SELF,"HTTPBearer, get_current_active_user, get_current_user, get_database",,
+POST,/api/auth/change-password,routers.auth,AUTHENTICATED_SELF,"HTTPBearer, get_current_user, get_database",,
+GET,/api/reporting/finance/summary,reporting.api,EXISTING_MCP_GRANT,,,
+GET,/api/reporting/payroll/summary,reporting.payroll_api,EXISTING_MCP_GRANT,,,
+POST,/api/patients,routers.patients,patients_view & patients_edit,"HTTPBearer, get_current_active_user, get_current_user, get_database, role_checker",,
+GET,/api/patients,routers.patients,patients_view,"HTTPBearer, get_current_active_user, get_current_user, get_database, role_checker",,
+GET,/api/patients/{patient_id},routers.patients,patients_view,"HTTPBearer, get_current_active_user, get_current_user, get_database",,
+PUT,/api/patients/{patient_id},routers.patients,patients_view & patients_edit,"HTTPBearer, get_current_active_user, get_current_user, get_database, role_checker",,
+DELETE,/api/patients/{patient_id},routers.patients,patients_view & patients_delete,"HTTPBearer, get_current_active_user, get_current_user, get_database, role_checker",,
+GET,/api/patients/stats,routers.patients,patients_view,"HTTPBearer, get_current_active_user, get_current_user, get_database, role_checker",,
+GET,/api/patient-terms/readiness,routers.patient_terms,system_settings,"HTTPBearer, get_current_active_user, get_current_user, get_database",,
+POST,/api/public/patient-terms/lookup,routers.patient_terms,PUBLIC,get_database,,
+POST,/api/public/patient-terms/accept,routers.patient_terms,PUBLIC,get_database,,
+GET,/api/patients/{patient_id}/terms-status,routers.patient_terms,patients_view,"HTTPBearer, get_current_active_user, get_current_user, get_database",,
+POST,/api/patients/{patient_id}/terms/revoke-links,routers.patient_terms,patients_view & patients_edit,"HTTPBearer, get_current_active_user, get_current_user, get_database",,
+GET,/api/doctors/statistics,routers.doctors,statistics_view,"HTTPBearer, get_current_active_user, get_current_user, get_database, get_statistics_service, role_checker",,
+GET,/api/doctors/statistics/individual,routers.doctors,statistics_view,"HTTPBearer, get_current_active_user, get_current_user, get_database, get_statistics_service, role_checker",,
+GET,/api/doctors/salary-report,routers.doctors,payroll_view,"HTTPBearer, get_current_active_user, get_current_user, get_database, get_salary_service, role_checker",,
+GET,/api/doctors/available/{appointment_date},routers.doctors,calendar_view,"HTTPBearer, get_current_active_user, get_current_user, get_database, get_doctor_service",,
+POST,/api/doctors,routers.doctors,doctors_view & doctors_edit,"HTTPBearer, get_current_active_user, get_current_user, get_database, get_doctor_service, role_checker",,
+GET,/api/doctors,routers.doctors,doctors_view,"HTTPBearer, get_current_active_user, get_current_user, get_database, get_doctor_service",,
+GET,/api/doctors/{doctor_id},routers.doctors,doctors_view,"HTTPBearer, get_current_active_user, get_current_user, get_database, get_doctor_service",,
+PUT,/api/doctors/{doctor_id},routers.doctors,doctors_view & doctors_edit,"HTTPBearer, get_current_active_user, get_current_user, get_database, get_doctor_service, role_checker",,
+DELETE,/api/doctors/{doctor_id},routers.doctors,doctors_view & doctors_delete,"HTTPBearer, get_current_active_user, get_current_user, get_database, get_doctor_service, role_checker",,
+POST,/api/doctors/{doctor_id}/schedule,routers.doctors,calendar_view & calendar_edit,"HTTPBearer, get_current_active_user, get_current_user, get_database, role_checker",,
+GET,/api/doctors/{doctor_id}/schedule,routers.doctors,calendar_view,"HTTPBearer, get_current_active_user, get_current_user, get_database",,
+PUT,/api/doctors/{doctor_id}/schedule/{schedule_id},routers.doctors,calendar_view & calendar_edit,"HTTPBearer, get_current_active_user, get_current_user, get_database, role_checker",,
+PUT,/api/doctors/{doctor_id}/schedule/bulk,routers.doctors,calendar_view & calendar_edit,"HTTPBearer, get_current_active_user, get_current_user, get_database, role_checker",,
+DELETE,/api/doctors/{doctor_id}/schedule/{schedule_id},routers.doctors,calendar_view & calendar_delete,"HTTPBearer, get_current_active_user, get_current_user, get_database, role_checker",,
+POST,/api/doctors/schedule/with-room,routers.doctors,calendar_view & calendar_edit,"HTTPBearer, get_current_active_user, get_current_user, get_database, role_checker",,
+GET,/api/doctors/schedule/check-room-availability/{room_id},routers.doctors,calendar_view,"HTTPBearer, get_current_active_user, get_current_user, get_database",,
+POST,/api/appointments,routers.appointments,calendar_view & calendar_edit,"HTTPBearer, get_current_active_user, get_current_user, get_database",finance_view & finance_edit & patients_view & patients_edit for creating/changing/deleting a nonzero deposit source (may auto-complete funded treatment),
+POST,/api/appointments,routers.appointments,calendar_view & calendar_edit,"HTTPBearer, get_current_active_user, get_current_user, get_database",finance_view & finance_edit & patients_view & patients_edit for creating/changing/deleting a nonzero deposit source (may auto-complete funded treatment),
+GET,/api/appointments,routers.appointments,calendar_view,"HTTPBearer, get_current_active_user, get_current_user, get_database",,
+GET,/api/appointments/{appointment_id},routers.appointments,calendar_view,"HTTPBearer, get_current_active_user, get_current_user, get_database",,
+PUT,/api/appointments/{appointment_id},routers.appointments,calendar_view & calendar_edit,"HTTPBearer, get_current_active_user, get_current_user, get_database",finance_view & finance_edit & patients_view & patients_edit for creating/changing/deleting a nonzero deposit source (may auto-complete funded treatment),
+PATCH,/api/appointments/{appointment_id}/status,routers.appointments,calendar_view & calendar_edit,"HTTPBearer, get_current_active_user, get_current_user, get_database",finance_view & finance_edit & patients_view & patients_edit for creating/changing/deleting a nonzero deposit source (may auto-complete funded treatment),
+DELETE,/api/appointments/{appointment_id},routers.appointments,calendar_view & calendar_delete,"HTTPBearer, get_current_active_user, get_current_user, get_database, role_checker",finance_view & finance_edit & patients_view & patients_edit for creating/changing/deleting a nonzero deposit source (may auto-complete funded treatment),
+GET,/api/rooms,routers.rooms,calendar_view,"HTTPBearer, get_current_active_user, get_current_user, get_database, get_room_service",,
+POST,/api/rooms,routers.rooms,calendar_view & calendar_edit,"HTTPBearer, get_current_active_user, get_current_user, get_database, get_room_service, role_checker",,
+PUT,/api/rooms/{room_id},routers.rooms,calendar_view & calendar_edit,"HTTPBearer, get_current_active_user, get_current_user, get_database, get_room_service, role_checker",,
+DELETE,/api/rooms/{room_id},routers.rooms,calendar_view & calendar_delete,"HTTPBearer, get_current_active_user, get_current_user, get_database, get_room_service, role_checker",,
+GET,/api/rooms/{room_id}/schedule,routers.rooms,calendar_view,"HTTPBearer, get_current_active_user, get_current_user, get_database",,
+POST,/api/rooms/{room_id}/schedule,routers.rooms,calendar_view & calendar_edit,"HTTPBearer, get_current_active_user, get_current_user, get_database, role_checker",,
+PUT,/api/rooms/schedules/{schedule_id},routers.rooms,calendar_view & calendar_edit,"HTTPBearer, get_current_active_user, get_current_user, get_database, role_checker",,
+DELETE,/api/rooms/schedules/{schedule_id},routers.rooms,calendar_view & calendar_delete,"HTTPBearer, get_current_active_user, get_current_user, get_database, role_checker",,
+GET,/api/rooms/-with-schedule,routers.rooms,calendar_view,"HTTPBearer, get_current_active_user, get_current_user, get_database, get_room_service",,
+GET,/api/rooms/{room_id}/available-doctor,routers.rooms,calendar_view,"HTTPBearer, get_current_active_user, get_current_user, get_database, get_room_service",,
+POST,/api/patients/{patient_id}/documents,routers.documents,patients_view & patients_edit,"HTTPBearer, get_current_active_user, get_current_user, get_database, get_document_service, role_checker",,
+GET,/api/patients/{patient_id}/documents,routers.documents,patients_view,"HTTPBearer, get_current_active_user, get_current_user, get_database, get_document_service, role_checker",,
+DELETE,/api/documents/{document_id},routers.documents,patients_view & patients_delete,"HTTPBearer, get_current_active_user, get_current_user, get_database, get_document_service, role_checker",,
+PUT,/api/documents/{document_id},routers.documents,patients_view & patients_edit,"HTTPBearer, get_current_active_user, get_current_user, get_database, get_document_service, role_checker",,
+GET,/api/uploads/{filename},routers.documents,patients_view & patients_export,"HTTPBearer, get_current_active_user, get_current_user, get_database",,
+POST,/api/treatment-plans/{plan_id}/settle-remaining,routers.treatment_plans,patients_view & finance_view & finance_edit,"HTTPBearer, get_current_active_user, get_current_user, get_database, role_checker",finance_view & finance_edit if general snapshot changes payment fields; patients_edit additionally for finance commands on full_payment_v1 auto-completion plans,
+POST,/api/treatment-plans/{plan_id}/service-rows/{service_row_id}/receipts,routers.treatment_plans,patients_view & finance_view & finance_edit,"HTTPBearer, get_current_active_user, get_current_user, get_database, role_checker",finance_view & finance_edit if general snapshot changes payment fields; patients_edit additionally for finance commands on full_payment_v1 auto-completion plans,
+POST,/api/treatment-plans/{plan_id}/service-rows/{service_row_id}/occurrences/{occurrence_id}/complete,routers.treatment_plans,patients_view & patients_edit,"HTTPBearer, get_current_active_user, get_current_user, get_database, role_checker",finance_view & finance_edit if general snapshot changes payment fields; patients_edit additionally for finance commands on full_payment_v1 auto-completion plans,
+POST,/api/treatment-plans/{plan_id}/service-rows/{service_row_id}/components/{component_id}/occurrences/{occurrence_id}/complete,routers.treatment_plans,patients_view & patients_edit,"HTTPBearer, get_current_active_user, get_current_user, get_database, role_checker",finance_view & finance_edit if general snapshot changes payment fields; patients_edit additionally for finance commands on full_payment_v1 auto-completion plans,
+GET,/api/treatment-plans/statistics,routers.treatment_plans,patients_view,"HTTPBearer, get_current_active_user, get_current_user, get_database, get_statistics_service, role_checker",,
+GET,/api/treatment-plans/statistics/patients,routers.treatment_plans,patients_view,"HTTPBearer, get_current_active_user, get_current_user, get_database, role_checker",,
+POST,/api/patients/{patient_id}/treatment-plans,routers.treatment_plans,patients_view & patients_edit,"HTTPBearer, get_current_active_user, get_current_user, get_database, get_treatment_plan_service, role_checker",,
+GET,/api/patients/{patient_id}/treatment-plans,routers.treatment_plans,patients_view,"HTTPBearer, get_current_active_user, get_current_user, get_database, get_treatment_plan_service, role_checker",,
+GET,/api/patients/{patient_id}/funding-summary,routers.treatment_plans,patients_view,"HTTPBearer, get_current_active_user, get_current_user, get_database, role_checker",,
+GET,/api/treatment-plans/{plan_id},routers.treatment_plans,patients_view,"HTTPBearer, get_current_active_user, get_current_user, get_database, get_treatment_plan_service, role_checker",,
+PUT,/api/treatment-plans/{plan_id},routers.treatment_plans,patients_view & patients_edit,"HTTPBearer, get_current_active_user, get_current_user, get_database, get_treatment_plan_service, role_checker",finance_view & finance_edit if general snapshot changes payment fields; patients_edit additionally for finance commands on full_payment_v1 auto-completion plans,
+DELETE,/api/treatment-plans/{plan_id},routers.treatment_plans,patients_view & patients_delete,"HTTPBearer, get_current_active_user, get_current_user, get_database, get_treatment_plan_service, role_checker",,
+GET,/api/treatment-plans/{plan_id}/consultation,routers.treatment_plans,patients_view,"HTTPBearer, get_current_active_user, get_current_user, get_database, role_checker",,
+POST,/api/treatment-plans/{plan_id}/services/{service_id}/mark-completed,routers.treatment_plans,patients_view & patients_edit,"HTTPBearer, get_current_active_user, get_current_user, get_database, role_checker",finance_view & finance_edit if general snapshot changes payment fields; patients_edit additionally for finance commands on full_payment_v1 auto-completion plans,
+POST,/api/treatment-plans/{plan_id}/service/{service_id}/complete,routers.treatment_plans,patients_view & patients_edit,"HTTPBearer, get_current_active_user, get_current_user, get_database, role_checker",finance_view & finance_edit if general snapshot changes payment fields; patients_edit additionally for finance commands on full_payment_v1 auto-completion plans,
+POST,/api/treatment-plans/{plan_id}/complex-services/{service_id}/pay-remaining,routers.treatment_plans,patients_view & finance_view & finance_edit,"HTTPBearer, get_current_active_user, get_current_user, get_database, get_treatment_plan_service, role_checker",finance_view & finance_edit if general snapshot changes payment fields; patients_edit additionally for finance commands on full_payment_v1 auto-completion plans,
+POST,/api/treatment-plans/{plan_id}/complex-services/{service_id}/components/{component_service_id}/mark-paid,routers.treatment_plans,patients_view & finance_view & finance_edit,"HTTPBearer, get_current_active_user, get_current_user, get_database, get_treatment_plan_service, role_checker",finance_view & finance_edit if general snapshot changes payment fields; patients_edit additionally for finance commands on full_payment_v1 auto-completion plans,
+POST,/api/treatment-plans/{plan_id}/services/{service_id}/mark-paid,routers.treatment_plans,patients_view & finance_view & finance_edit,"HTTPBearer, get_current_active_user, get_current_user, get_database, role_checker",finance_view & finance_edit if general snapshot changes payment fields; patients_edit additionally for finance commands on full_payment_v1 auto-completion plans,
+POST,/api/treatment-plans/{plan_id}/add-deposit,routers.treatment_plans,patients_view & finance_view & finance_edit,"HTTPBearer, get_current_active_user, get_current_user, get_database",finance_view & finance_edit if general snapshot changes payment fields; patients_edit additionally for finance commands on full_payment_v1 auto-completion plans,
+POST,/api/treatment-plans/{plan_id}/services/{service_id}/sessions/{session_id}/mark-paid,routers.treatment_plans,patients_view & finance_view & finance_edit,"HTTPBearer, get_current_active_user, get_current_user, get_database, role_checker",finance_view & finance_edit if general snapshot changes payment fields; patients_edit additionally for finance commands on full_payment_v1 auto-completion plans,
+GET,/api/service-prices,routers.services_router,directory_view,"HTTPBearer, get_current_active_user, get_current_user, get_database, get_service_price_service",,
+GET,/api/service-prices/{price_id}/component-shares,routers.services_router,directory_view,"HTTPBearer, get_current_active_user, get_current_user, get_database, get_service_price_service",,
+GET,/api/service-prices/{price_id}/specialists-availability,routers.services_router,directory_view,"HTTPBearer, get_current_active_user, get_current_user, get_database, get_service_price_service",,
+GET,/api/service-prices/statistics/lab,routers.services_router,directory_view,"HTTPBearer, get_current_active_user, get_current_user, get_database, get_service_price_service",,
+POST,/api/service-prices,routers.services_router,directory_view & directory_edit,"HTTPBearer, get_current_active_user, get_current_user, get_database, get_service_price_service, role_checker",,
+PUT,/api/service-prices/{price_id},routers.services_router,directory_view & directory_edit,"HTTPBearer, get_current_active_user, get_current_user, get_database, get_service_price_service, role_checker",,
+DELETE,/api/service-prices/{price_id},routers.services_router,directory_view & directory_delete,"HTTPBearer, get_current_active_user, get_current_user, get_database, get_service_price_service, role_checker",,
+GET,/api/services,routers.services_router,directory_view,"HTTPBearer, get_current_active_user, get_current_user, get_database, role_checker",,
+POST,/api/services,routers.services_router,directory_view & directory_edit,"HTTPBearer, get_current_active_user, get_current_user, get_database, role_checker",,
+POST,/api/services/initialize,routers.services_router,directory_view & directory_edit,"HTTPBearer, get_current_active_user, get_current_user, get_database, role_checker",,
+GET,/api/reports/services-report,routers.services_router,statistics_view,"HTTPBearer, get_current_active_user, get_current_user, get_database",,
+GET,/api/reports/services-report/{service_name}/details,routers.services_router,statistics_view,"HTTPBearer, get_current_active_user, get_current_user, get_database",,
+GET,/api/reports/services-report/filters,routers.services_router,statistics_view,"HTTPBearer, get_current_active_user, get_current_user, get_database",,
+GET,/api/service-categories,routers.directories,directory_view,"HTTPBearer, get_current_active_user, get_current_user, get_database",,
+POST,/api/service-categories,routers.directories,directory_view & directory_edit,"HTTPBearer, get_current_active_user, get_current_user, get_database, role_checker",,
+PUT,/api/service-categories/{category_id},routers.directories,directory_view & directory_edit,"HTTPBearer, get_current_active_user, get_current_user, get_database, role_checker",,
+DELETE,/api/service-categories/{category_id},routers.directories,directory_view & directory_delete,"HTTPBearer, get_current_active_user, get_current_user, get_database, role_checker",,
+GET,/api/specialties,routers.directories,directory_view,"HTTPBearer, get_current_active_user, get_current_user, get_database",,
+POST,/api/specialties,routers.directories,directory_view & directory_edit,"HTTPBearer, get_current_active_user, get_current_user, get_database, role_checker",,
+PUT,/api/specialties/{specialty_id},routers.directories,directory_view & directory_edit,"HTTPBearer, get_current_active_user, get_current_user, get_database, role_checker",,
+DELETE,/api/specialties/{specialty_id},routers.directories,directory_view & directory_delete,"HTTPBearer, get_current_active_user, get_current_user, get_database, role_checker",,
+GET,/api/payment-types,routers.directories,directory_view,"HTTPBearer, get_current_active_user, get_current_user, get_database",,
+POST,/api/payment-types,routers.directories,directory_view & directory_edit,"HTTPBearer, get_current_active_user, get_current_user, get_database, role_checker",,
+PUT,/api/payment-types/{payment_type_id},routers.directories,directory_view & directory_edit,"HTTPBearer, get_current_active_user, get_current_user, get_database, role_checker",,
+DELETE,/api/payment-types/{payment_type_id},routers.directories,directory_view & directory_delete,"HTTPBearer, get_current_active_user, get_current_user, get_database, role_checker",,
+GET,/api/materials,routers.materials,warehouse_view,"HTTPBearer, get_current_active_user, get_current_user, get_database, get_material_service",,
+POST,/api/materials,routers.materials,warehouse_view & warehouse_edit,"HTTPBearer, get_current_active_user, get_current_user, get_database, get_material_service, role_checker",,
+PUT,/api/materials/{material_id},routers.materials,warehouse_view & warehouse_edit,"HTTPBearer, get_current_active_user, get_current_user, get_database, get_material_service, role_checker",,
+DELETE,/api/materials/{material_id},routers.materials,warehouse_view & warehouse_delete,"HTTPBearer, get_current_active_user, get_current_user, get_database, get_material_service, role_checker",,
+POST,/api/materials/{material_id}/restore,routers.materials,warehouse_view & warehouse_edit,"HTTPBearer, get_current_active_user, get_current_user, get_database, get_material_service, role_checker",,
+GET,/api/materials/export,routers.materials,warehouse_view & warehouse_export,"HTTPBearer, get_current_active_user, get_current_user, get_database, get_material_service",,
+GET,/api/insights/badges,routers.insights,system_settings,"HTTPBearer, get_current_active_user, get_current_user, get_database",,
+GET,/api/chat/test,routers.chat,system_settings,,,
+POST,/api/chat/,routers.chat,system_settings,"HTTPBearer, get_current_active_user, get_current_user, get_database",,
+GET,/api/inventories,routers.inventory,warehouse_view,"HTTPBearer, get_current_active_user, get_current_user, get_database, get_inventory_service",,
+GET,/api/inventories/{inventory_id},routers.inventory,warehouse_view,"HTTPBearer, get_current_active_user, get_current_user, get_database, get_inventory_service",,
+POST,/api/inventories,routers.inventory,warehouse_view & warehouse_edit,"HTTPBearer, get_current_active_user, get_current_user, get_database, get_inventory_service, role_checker",,
+PUT,/api/inventories/{inventory_id},routers.inventory,warehouse_view & warehouse_edit,"HTTPBearer, get_current_active_user, get_current_user, get_database, get_inventory_service, role_checker",,
+DELETE,/api/inventories/{inventory_id},routers.inventory,warehouse_view & warehouse_delete,"HTTPBearer, get_current_active_user, get_current_user, get_database, get_inventory_service, role_checker",,
+GET,/api/materials/needs-attention,routers.inventory,warehouse_view,"HTTPBearer, get_current_active_user, get_current_user, get_database, get_inventory_service",,
+GET,/api/loyalty/settings,routers.loyalty,loyalty_view,"HTTPBearer, get_current_active_user, get_current_user, get_database",,
+PUT,/api/loyalty/settings,routers.loyalty,loyalty_view & loyalty_edit,"HTTPBearer, get_current_active_user, get_current_user, get_database, role_checker",,
+GET,/api/loyalty/bonus/patient/{patient_id},routers.loyalty,loyalty_view,"HTTPBearer, get_current_active_user, get_current_user, get_database",,
+POST,/api/loyalty/bonus/calculate,routers.loyalty,loyalty_view & loyalty_edit,"HTTPBearer, get_current_active_user, get_current_user, get_database",,
+GET,/api/loyalty/bonus/patient/{patient_id}/history,routers.loyalty,loyalty_view,"HTTPBearer, get_current_active_user, get_current_user, get_database",,
+GET,/api/loyalty/cashback/doctor/{doctor_id},routers.loyalty,loyalty_view & payroll_view,"HTTPBearer, get_current_active_user, get_current_user, get_database",,
+GET,/api/loyalty/cashback/doctor/{doctor_id}/history,routers.loyalty,loyalty_view & payroll_view,"HTTPBearer, get_current_active_user, get_current_user, get_database",,
+GET,/api/loyalty/cashback/services,routers.loyalty,loyalty_view & payroll_view,"HTTPBearer, get_current_active_user, get_current_user, get_database",,
+GET,/api/loyalty/cashback/service/{service_id},routers.loyalty,loyalty_view & payroll_view,"HTTPBearer, get_current_active_user, get_current_user, get_database",,
+POST,/api/loyalty/cashback/service,routers.loyalty,loyalty_view & loyalty_edit & payroll_view,"HTTPBearer, get_current_active_user, get_current_user, get_database, role_checker",,
+PUT,/api/loyalty/cashback/service/{service_id},routers.loyalty,loyalty_view & loyalty_edit & payroll_view,"HTTPBearer, get_current_active_user, get_current_user, get_database, role_checker",,
+DELETE,/api/loyalty/cashback/service/{service_id},routers.loyalty,loyalty_view & loyalty_edit & payroll_view,"HTTPBearer, get_current_active_user, get_current_user, get_database, role_checker",,
+GET,/api/icd10/search,routers.consultations,patients_view,"HTTPBearer, get_current_user, get_database",,
+GET,/api/icd10/{code},routers.consultations,patients_view,"HTTPBearer, get_current_user, get_database",,
+POST,/api/patients/{patient_id}/consultation-sheets,routers.consultations,patients_view & patients_edit,"HTTPBearer, get_current_user, get_database",,
+GET,/api/patients/{patient_id}/consultation-sheets,routers.consultations,patients_view,"HTTPBearer, get_current_user, get_database",,
+GET,/api/consultation-sheets/{sheet_id},routers.consultations,patients_view,"HTTPBearer, get_current_user, get_database",,
+PUT,/api/consultation-sheets/{sheet_id},routers.consultations,patients_view & patients_edit,"HTTPBearer, get_current_user, get_database",,
+DELETE,/api/consultation-sheets/{sheet_id},routers.consultations,patients_view & patients_delete,"HTTPBearer, get_current_user, get_database",,
+POST,/api/wazzup/messages/send,routers.wazzup,crm_view|broadcast_view & crm_edit|broadcast_edit,"HTTPBearer, get_current_user, get_database",,HMS metadata requires patients_view; joined billing requires finance_view
+POST,/api/wazzup/messages/send-template,routers.wazzup,crm_view|broadcast_view & crm_edit|broadcast_edit,"HTTPBearer, get_current_user, get_database",,HMS metadata requires patients_view; joined billing requires finance_view
+POST,/api/wazzup/messages/send-media,routers.wazzup,crm_view|broadcast_view & crm_edit|broadcast_edit,"HTTPBearer, get_current_user, get_database",,HMS metadata requires patients_view; joined billing requires finance_view
+GET,/api/wazzup/messages,routers.wazzup,crm_view,"HTTPBearer, get_current_user, get_database",,HMS metadata requires patients_view; joined billing requires finance_view
+GET,/api/wazzup/messages/chat/{phone},routers.wazzup,crm_view,"HTTPBearer, get_current_user, get_database",,HMS metadata requires patients_view; joined billing requires finance_view
+GET,/api/wazzup/messages/{message_id}/status,routers.wazzup,crm_view,"HTTPBearer, get_current_user, get_database",,HMS metadata requires patients_view; joined billing requires finance_view
+POST,/api/wazzup/contacts,routers.wazzup,crm_view & crm_edit,"HTTPBearer, get_current_user, get_database",,HMS metadata requires patients_view; joined billing requires finance_view
+GET,/api/wazzup/contacts/{phone},routers.wazzup,crm_view,"HTTPBearer, get_current_user, get_database",,HMS metadata requires patients_view; joined billing requires finance_view
+PUT,/api/wazzup/contacts/{phone},routers.wazzup,crm_view & crm_edit,"HTTPBearer, get_current_user, get_database",,HMS metadata requires patients_view; joined billing requires finance_view
+GET,/api/wazzup/contacts,routers.wazzup,crm_view,"HTTPBearer, get_current_user, get_database",,HMS metadata requires patients_view; joined billing requires finance_view
+GET,/api/wazzup/channels,routers.wazzup,crm_view,"HTTPBearer, get_current_user, get_database",,HMS metadata requires patients_view; joined billing requires finance_view
+GET,/api/wazzup/channels/{channel_id},routers.wazzup,crm_view,"HTTPBearer, get_current_user, get_database",,HMS metadata requires patients_view; joined billing requires finance_view
+GET,/api/wazzup/dialogs,routers.wazzup,crm_view,"HTTPBearer, get_current_user, get_database",,HMS metadata requires patients_view; joined billing requires finance_view
+GET,/api/wazzup/templates,routers.wazzup,crm_view,"HTTPBearer, get_current_user, get_database",,HMS metadata requires patients_view; joined billing requires finance_view
+POST,/api/wazzup/appointments/send-reminder,routers.wazzup,crm_view & crm_edit & patients_view & patients_edit,"HTTPBearer, get_current_user, get_database",,HMS metadata requires patients_view; joined billing requires finance_view
+POST,/api/wazzup/appointments/send-confirmation,routers.wazzup,crm_view & crm_edit & patients_view & patients_edit,"HTTPBearer, get_current_user, get_database",,HMS metadata requires patients_view; joined billing requires finance_view
+POST,/api/wazzup/phone/format,routers.wazzup,crm_view & crm_edit,"HTTPBearer, get_current_user, get_database",,HMS metadata requires patients_view; joined billing requires finance_view
+GET,/api/wazzup/chats,routers.wazzup,crm_view,"HTTPBearer, get_current_user, get_database",,HMS metadata requires patients_view; joined billing requires finance_view
+GET,/api/wazzup/chats/{phone},routers.wazzup,crm_view,"HTTPBearer, get_current_user, get_database",,HMS metadata requires patients_view; joined billing requires finance_view
+PATCH,/api/wazzup/chats/{phone},routers.wazzup,crm_view & crm_edit,"HTTPBearer, get_current_user, get_database",,HMS metadata requires patients_view; joined billing requires finance_view
+POST,/api/wazzup/media/upload,routers.wazzup,crm_view & crm_edit,"HTTPBearer, get_current_user, get_database",,HMS metadata requires patients_view; joined billing requires finance_view
+POST,/api/wazzup/webhook/messages,routers.wazzup,PUBLIC,,,
+GET,/api/wazzup/messages/history/{phone},routers.wazzup,crm_view,"HTTPBearer, get_current_user, get_database",,HMS metadata requires patients_view; joined billing requires finance_view
+POST,/api/wazzup/messages/{message_id}/save-to-patient,routers.wazzup,crm_view & crm_edit & patients_view & patients_edit,"HTTPBearer, get_current_user, get_database",,HMS metadata requires patients_view; joined billing requires finance_view
+GET,/api/wazzup/health,routers.wazzup,crm_view,,,HMS metadata requires patients_view; joined billing requires finance_view
+POST,/api/telephony/webhook/events,routers.telephony,PUBLIC,,,
+GET,/api/telephony/webhook/events,routers.telephony,PUBLIC,,,
+POST,/api/telephony/callbacks,routers.telephony,crm_view & crm_edit,"HTTPBearer, get_current_user, get_database",,HMS metadata requires patients_view; joined billing requires finance_view
+GET,/api/telephony/webrtc-key,routers.telephony,crm_view,"HTTPBearer, get_current_user, get_database",,HMS metadata requires patients_view; joined billing requires finance_view
+GET,/api/telephony/calls,routers.telephony,crm_view,"HTTPBearer, get_current_user, get_database",,HMS metadata requires patients_view; joined billing requires finance_view
+GET,/api/telephony/calls/{phone},routers.telephony,crm_view,"HTTPBearer, get_current_user, get_database",,HMS metadata requires patients_view; joined billing requires finance_view
+GET,/api/telephony/health,routers.telephony,crm_view,,,HMS metadata requires patients_view; joined billing requires finance_view
+POST,/api/notification-rules,routers.notification_rules,system_settings,"HTTPBearer, get_current_user, get_database",,
+GET,/api/notification-rules,routers.notification_rules,system_settings,"HTTPBearer, get_current_user, get_database",,
+GET,/api/notification-rules/{rule_id},routers.notification_rules,system_settings,"HTTPBearer, get_current_user, get_database",,
+PUT,/api/notification-rules/{rule_id},routers.notification_rules,system_settings,"HTTPBearer, get_current_user, get_database",,
+POST,/api/notification-rules/{rule_id}/toggle,routers.notification_rules,system_settings,"HTTPBearer, get_current_user, get_database",,
+DELETE,/api/notification-rules/{rule_id},routers.notification_rules,system_settings,"HTTPBearer, get_current_user, get_database",,
+GET,/api/feedback/settings,routers.feedback,quality_view,"HTTPBearer, get_current_user, get_database",,
+PUT,/api/feedback/settings,routers.feedback,quality_view & quality_edit,"HTTPBearer, get_current_user, get_database",,
+GET,/api/feedback,routers.feedback,quality_view,"HTTPBearer, get_current_user, get_database",,
+GET,/api/laboratories,routers.laboratories,directory_view,"HTTPBearer, get_current_active_user, get_current_user, get_database, get_laboratory_service",,
+GET,/api/laboratories/{laboratory_id},routers.laboratories,directory_view,"HTTPBearer, get_current_active_user, get_current_user, get_database, get_laboratory_service",,
+POST,/api/laboratories,routers.laboratories,directory_view & directory_edit,"HTTPBearer, get_current_active_user, get_current_user, get_database, get_laboratory_service, role_checker",,
+PUT,/api/laboratories/{laboratory_id},routers.laboratories,directory_view & directory_edit,"HTTPBearer, get_current_active_user, get_current_user, get_database, get_laboratory_service, role_checker",,
+DELETE,/api/laboratories/{laboratory_id},routers.laboratories,directory_view & directory_delete,"HTTPBearer, get_current_active_user, get_current_user, get_database, get_laboratory_service, role_checker",,
+GET,/api/laboratories/statistics/all,routers.laboratories,directory_view,"HTTPBearer, get_current_active_user, get_current_user, get_database, get_laboratory_service",,
+POST,/api/laboratories/{laboratory_id}/import-price,routers.laboratories,directory_view & directory_edit,"HTTPBearer, get_current_active_user, get_current_user, get_database, get_import_service, get_laboratory_service, role_checker",,
+GET,/api/staff/,routers.staff,staff_view,"HTTPBearer, get_current_active_user, get_current_user, get_database, get_staff_service, require_staff_permission",,
+GET,/api/staff/{staff_id},routers.staff,staff_view,"HTTPBearer, get_current_active_user, get_current_user, get_database, get_staff_service, require_staff_permission",,
+POST,/api/staff/,routers.staff,staff_view & staff_edit,"HTTPBearer, get_current_active_user, get_current_user, get_database, get_staff_service, require_staff_permission",,
+PUT,/api/staff/{staff_id},routers.staff,staff_view & staff_edit,"HTTPBearer, get_current_active_user, get_current_user, get_database, get_staff_service, require_staff_permission",,
+DELETE,/api/staff/{staff_id},routers.staff,staff_view & staff_delete,"HTTPBearer, get_current_active_user, get_current_user, get_database, get_staff_service, require_staff_permission",,
+GET,/api/staff/{staff_id}/permissions,routers.staff,staff_view,"HTTPBearer, get_current_active_user, get_current_user, get_database, get_staff_service",,
+POST,/api/staff/{staff_id}/check-permission,routers.staff,staff_view & staff_edit,"HTTPBearer, get_current_active_user, get_current_user, get_database, get_staff_service",,
+GET,/api/staff/roles/permissions/{role},routers.staff,staff_view,"HTTPBearer, get_current_active_user, get_current_user, get_database, get_staff_service",,
+GET,/api/staff/personnel/all,routers.staff,staff_view,"HTTPBearer, get_current_active_user, get_current_user, get_database, get_staff_service, require_staff_permission",,
+POST,/api/staff/doctors/{doctor_id}/assign-access,routers.staff,staff_view & staff_edit,"HTTPBearer, get_current_active_user, get_current_user, get_database, get_staff_service, require_staff_permission",,
+POST,/api/staff/{staff_id}/reset-password,routers.staff,staff_view & staff_edit,"HTTPBearer, get_current_active_user, get_current_user, get_database, get_staff_service, require_staff_permission",,
+DELETE,/api/staff/doctors/{doctor_id}/revoke-access,routers.staff,staff_view & staff_delete,"HTTPBearer, get_current_active_user, get_current_user, get_database, get_staff_service, require_staff_permission",,
+GET,/api/settings/available-collections,routers.settings,system_settings,"HTTPBearer, get_current_active_user, get_current_user, get_database",,
+POST,/api/settings/reset-data,routers.settings,system_settings,"HTTPBearer, get_current_active_user, get_current_user, get_database",,
+DELETE,/api/settings/reset-all,routers.settings,system_settings,"HTTPBearer, get_current_active_user, get_current_user, get_database",,
+GET,/api/service-quality/settings,routers.service_quality,quality_view,"HTTPBearer, get_current_active_user, get_current_user, get_database",,
+PUT,/api/service-quality/settings,routers.service_quality,quality_view & quality_edit,"HTTPBearer, get_current_active_user, get_current_user, get_database",,
+POST,/api/service-quality/settings/toggle,routers.service_quality,quality_view & quality_edit,"HTTPBearer, get_current_active_user, get_current_user, get_database",,
+GET,/api/service-quality/analyses,routers.service_quality,quality_view,"HTTPBearer, get_current_active_user, get_current_user, get_database",,
+GET,/api/service-quality/analyses/{analysis_id},routers.service_quality,quality_view,"HTTPBearer, get_current_active_user, get_current_user, get_database",,
+GET,/api/service-quality/summary/users,routers.service_quality,quality_view,"HTTPBearer, get_current_active_user, get_current_user, get_database",,
+GET,/api/service-quality/summary/user/{user_id},routers.service_quality,quality_view,"HTTPBearer, get_current_active_user, get_current_user, get_database",,
+GET,/api/service-quality/summary/my,routers.service_quality,quality_view,"HTTPBearer, get_current_active_user, get_current_user, get_database",,
+POST,/api/service-quality/analyze/conversation,routers.service_quality,quality_view & quality_edit,"HTTPBearer, get_current_active_user, get_current_user, get_database",,
+GET,/api/service-quality/dashboard/stats,routers.service_quality,quality_view,"HTTPBearer, get_current_active_user, get_current_user, get_database",,
+POST,/api/price-import/upload,routers.price_import,directory_view & directory_edit,"HTTPBearer, get_current_active_user, get_current_user, get_database, get_import_service, role_checker",,
+POST,/api/price-import/preview,routers.price_import,directory_view & directory_edit,"HTTPBearer, get_current_active_user, get_current_user, get_database, get_import_service, role_checker",,
+GET,/api/price-import/template-info,routers.price_import,directory_view,"HTTPBearer, get_current_active_user, get_current_user, get_database",,
+DELETE,/api/price-import/clear-all,routers.price_import,directory_view & directory_delete,"HTTPBearer, get_current_active_user, get_current_user, get_database, role_checker",,
+GET,/api/price-import/stats,routers.price_import,directory_view,"HTTPBearer, get_current_active_user, get_current_user, get_database",,
+DELETE,/api/price-import/clear-specialties,routers.price_import,directory_view & directory_delete,"HTTPBearer, get_current_active_user, get_current_user, get_database, role_checker",,
+DELETE,/api/price-import/reset-all,routers.price_import,directory_view & directory_delete,"HTTPBearer, get_current_active_user, get_current_user, get_database, role_checker",,
+POST,/api/crm/leads/,crm.routes.leads,crm_view & crm_edit,get_database,,HMS metadata requires patients_view; joined billing requires finance_view
+GET,/api/crm/leads/,crm.routes.leads,crm_view,get_database,,HMS metadata requires patients_view; joined billing requires finance_view
+GET,/api/crm/leads/kanban,crm.routes.leads,crm_view,get_database,,HMS metadata requires patients_view; joined billing requires finance_view
+GET,/api/crm/leads/check-phone/{phone},crm.routes.leads,crm_view & patients_view,get_database,,HMS metadata requires patients_view; joined billing requires finance_view
+GET,/api/crm/leads/{lead_id},crm.routes.leads,crm_view,get_database,,HMS metadata requires patients_view; joined billing requires finance_view
+PUT,/api/crm/leads/{lead_id},crm.routes.leads,crm_view & crm_edit,get_database,,HMS metadata requires patients_view; joined billing requires finance_view
+DELETE,/api/crm/leads/{lead_id},crm.routes.leads,crm_view & crm_delete,get_database,,HMS metadata requires patients_view; joined billing requires finance_view
+PATCH,/api/crm/leads/{lead_id}/status,crm.routes.leads,crm_view & crm_edit,get_database,,HMS metadata requires patients_view; joined billing requires finance_view
+PATCH,/api/crm/leads/{lead_id}/assign,crm.routes.leads,crm_view & crm_edit,get_database,,HMS metadata requires patients_view; joined billing requires finance_view
+POST,/api/crm/leads/{lead_id}/convert,crm.routes.leads,crm_view & crm_edit,get_database,patients_view & patients_edit unless create_hms_patient=false; calendar_view & calendar_edit if create_appointment,HMS metadata requires patients_view; joined billing requires finance_view
+GET,/api/crm/leads/manager/{manager_id},crm.routes.leads,crm_view,get_database,,HMS metadata requires patients_view; joined billing requires finance_view
+GET,/api/crm/leads/statistics/summary,crm.routes.leads,crm_view,get_database,,HMS metadata requires patients_view; joined billing requires finance_view
+POST,/api/crm/leads/{lead_id}/schedule-appointment,crm.routes.leads,crm_view & crm_edit & patients_view & patients_edit & calendar_view & calendar_edit,get_database,finance_view & finance_edit if deposit is supplied,HMS metadata requires patients_view; joined billing requires finance_view
+GET,/api/crm/leads/{lead_id}/tasks,crm.routes.leads,crm_view,get_database,,HMS metadata requires patients_view; joined billing requires finance_view
+GET,/api/crm/kanban/columns,crm.routes.kanban,crm_view,"HTTPBearer, get_current_active_user, get_current_user, get_database, role_checker",,HMS metadata requires patients_view; joined billing requires finance_view
+POST,/api/crm/kanban/columns,crm.routes.kanban,crm_view & crm_edit,"HTTPBearer, get_current_active_user, get_current_user, get_database, role_checker",,HMS metadata requires patients_view; joined billing requires finance_view
+PUT,/api/crm/kanban/columns/order,crm.routes.kanban,crm_view & crm_edit,"HTTPBearer, get_current_active_user, get_current_user, get_database, role_checker",,HMS metadata requires patients_view; joined billing requires finance_view
+PATCH,/api/crm/kanban/columns/{column_id},crm.routes.kanban,crm_view & crm_edit,"HTTPBearer, get_current_active_user, get_current_user, get_database, role_checker",,HMS metadata requires patients_view; joined billing requires finance_view
+DELETE,/api/crm/kanban/columns/{column_id},crm.routes.kanban,crm_view & crm_delete,"HTTPBearer, get_current_active_user, get_current_user, get_database, role_checker",,HMS metadata requires patients_view; joined billing requires finance_view
+PATCH,/api/crm/leads/{lead_id}/kanban-column,crm.routes.kanban,crm_view & crm_edit,"HTTPBearer, get_current_active_user, get_current_user, get_database, role_checker",,HMS metadata requires patients_view; joined billing requires finance_view
+GET,/api/crm/whatsapp/kanban-stage,crm.routes.kanban,crm_view,"HTTPBearer, get_current_active_user, get_current_user, get_database, role_checker",,HMS metadata requires patients_view; joined billing requires finance_view
+PATCH,/api/crm/whatsapp/kanban-stage,crm.routes.kanban,crm_view & crm_edit,"HTTPBearer, get_current_active_user, get_current_user, get_database, role_checker",,HMS metadata requires patients_view; joined billing requires finance_view
+GET,/api/crm/inbound-source-mappings,crm.routes.inbound_sources,crm_view,"HTTPBearer, get_current_active_user, get_current_user, get_database, role_checker",,HMS metadata requires patients_view; joined billing requires finance_view
+POST,/api/crm/inbound-source-mappings/validate,crm.routes.inbound_sources,crm_view & crm_edit,"HTTPBearer, get_current_active_user, get_current_user, get_database, role_checker",,HMS metadata requires patients_view; joined billing requires finance_view
+POST,/api/crm/inbound-source-mappings,crm.routes.inbound_sources,crm_view & crm_edit,"HTTPBearer, get_current_active_user, get_current_user, get_database, role_checker",,HMS metadata requires patients_view; joined billing requires finance_view
+PUT,/api/crm/inbound-source-mappings/{phone},crm.routes.inbound_sources,crm_view & crm_edit,"HTTPBearer, get_current_active_user, get_current_user, get_database, role_checker",,HMS metadata requires patients_view; joined billing requires finance_view
+DELETE,/api/crm/inbound-source-mappings/{phone},crm.routes.inbound_sources,crm_view & crm_delete,"HTTPBearer, get_current_active_user, get_current_user, get_database, role_checker",,HMS metadata requires patients_view; joined billing requires finance_view
+POST,/api/crm/clients/,crm.routes.clients,crm_view & crm_edit,get_database,,HMS metadata requires patients_view; joined billing requires finance_view
+GET,/api/crm/clients/,crm.routes.clients,crm_view,get_database,,HMS metadata requires patients_view; joined billing requires finance_view
+GET,/api/crm/clients/{client_id},crm.routes.clients,crm_view,get_database,,HMS metadata requires patients_view; joined billing requires finance_view
+PUT,/api/crm/clients/{client_id},crm.routes.clients,crm_view & crm_edit,get_database,,HMS metadata requires patients_view; joined billing requires finance_view
+GET,/api/crm/clients/statistics/summary,crm.routes.clients,crm_view,get_database,,HMS metadata requires patients_view; joined billing requires finance_view
+GET,/api/crm/clients/statistics/detailed,crm.routes.clients,crm_view,get_database,,HMS metadata requires patients_view; joined billing requires finance_view
+POST,/api/crm/clients/{client_id}/convert-to-hms,crm.routes.clients,crm_view & crm_edit & patients_view & patients_edit,get_database,calendar_view & calendar_edit if create_appointment query is true,HMS metadata requires patients_view; joined billing requires finance_view
+POST,/api/crm/deals/,crm.routes.deals,crm_view & crm_edit,get_database,,HMS metadata requires patients_view; joined billing requires finance_view
+GET,/api/crm/deals/,crm.routes.deals,crm_view,get_database,,HMS metadata requires patients_view; joined billing requires finance_view
+GET,/api/crm/deals/{deal_id},crm.routes.deals,crm_view,get_database,,HMS metadata requires patients_view; joined billing requires finance_view
+PUT,/api/crm/deals/{deal_id},crm.routes.deals,crm_view & crm_edit,get_database,,HMS metadata requires patients_view; joined billing requires finance_view
+DELETE,/api/crm/deals/{deal_id},crm.routes.deals,crm_view & crm_delete,get_database,,HMS metadata requires patients_view; joined billing requires finance_view
+POST,/api/crm/deals/{deal_id}/win,crm.routes.deals,crm_view & crm_edit,get_database,,HMS metadata requires patients_view; joined billing requires finance_view
+POST,/api/crm/deals/{deal_id}/lose,crm.routes.deals,crm_view & crm_edit,get_database,,HMS metadata requires patients_view; joined billing requires finance_view
+GET,/api/crm/deals/statistics/summary,crm.routes.deals,crm_view,get_database,,HMS metadata requires patients_view; joined billing requires finance_view
+POST,/api/crm/managers/,crm.routes.managers,crm_view & crm_edit,get_database,,HMS metadata requires patients_view; joined billing requires finance_view
+GET,/api/crm/managers/,crm.routes.managers,crm_view,get_database,,HMS metadata requires patients_view; joined billing requires finance_view
+GET,/api/crm/managers/available,crm.routes.managers,crm_view,get_database,,HMS metadata requires patients_view; joined billing requires finance_view
+GET,/api/crm/managers/{manager_id},crm.routes.managers,crm_view,get_database,,HMS metadata requires patients_view; joined billing requires finance_view
+PUT,/api/crm/managers/{manager_id},crm.routes.managers,crm_view & crm_edit,get_database,,HMS metadata requires patients_view; joined billing requires finance_view
+POST,/api/crm/contacts/,crm.routes.contacts,crm_view & crm_edit,get_database,,HMS metadata requires patients_view; joined billing requires finance_view
+GET,/api/crm/contacts,crm.routes.contacts,crm_view,get_database,,HMS metadata requires patients_view; joined billing requires finance_view
+GET,/api/crm/contacts/,crm.routes.contacts,crm_view,get_database,,HMS metadata requires patients_view; joined billing requires finance_view
+GET,/api/crm/contacts/{contact_id},crm.routes.contacts,crm_view,get_database,,HMS metadata requires patients_view; joined billing requires finance_view
+PUT,/api/crm/contacts/{contact_id},crm.routes.contacts,crm_view & crm_edit,get_database,,HMS metadata requires patients_view; joined billing requires finance_view
+POST,/api/crm/sources/,crm.routes.sources,crm_view & crm_edit,get_database,,HMS metadata requires patients_view; joined billing requires finance_view
+GET,/api/crm/sources/,crm.routes.sources,crm_view,get_database,,HMS metadata requires patients_view; joined billing requires finance_view
+GET,/api/crm/sources/{source_id},crm.routes.sources,crm_view,get_database,,HMS metadata requires patients_view; joined billing requires finance_view
+PUT,/api/crm/sources/{source_id},crm.routes.sources,crm_view & crm_edit,get_database,,HMS metadata requires patients_view; joined billing requires finance_view
+DELETE,/api/crm/sources/{source_id},crm.routes.sources,crm_view & crm_delete,get_database,,HMS metadata requires patients_view; joined billing requires finance_view
+GET,/api/crm/sources/statistics/summary,crm.routes.sources,crm_view,get_database,,HMS metadata requires patients_view; joined billing requires finance_view
+POST,/api/crm/sources/update-statistics,crm.routes.sources,crm_view & crm_edit,get_database,,HMS metadata requires patients_view; joined billing requires finance_view
+POST,/api/crm/integration/sync-treatment-plan,crm.routes.integration,crm_edit & patients_edit,get_database,,HMS metadata requires patients_view; joined billing requires finance_view
+POST,/api/crm/integration/sync-all-treatment-plans,crm.routes.integration,crm_edit & patients_edit,get_database,,HMS metadata requires patients_view; joined billing requires finance_view
+GET,/api/crm/integration/client-revenue/{client_id},crm.routes.integration,crm_view & finance_view,get_database,,HMS metadata requires patients_view; joined billing requires finance_view
+GET,/api/crm/integration/hms-revenue-statistics,crm.routes.integration,crm_view & finance_view,get_database,,HMS metadata requires patients_view; joined billing requires finance_view
+GET,/api/crm/integration/sources-revenue-statistics,crm.routes.integration,crm_view & finance_view,get_database,,HMS metadata requires patients_view; joined billing requires finance_view
+GET,/api/crm/integration/client-last-appointment/{client_id},crm.routes.integration,crm_view & patients_view,get_database,,HMS metadata requires patients_view; joined billing requires finance_view
+GET,/api/crm/integration/client-hms-data/{client_id}/appointments,crm.routes.integration,crm_view & patients_view,get_database,,HMS metadata requires patients_view; joined billing requires finance_view
+GET,/api/crm/integration/dashboard-statistics,crm.routes.integration,crm_view & finance_view,get_database,,HMS metadata requires patients_view; joined billing requires finance_view
+GET,/api/crm/integration/client-hms-data/{client_id}/treatment-plans,crm.routes.integration,crm_view & patients_view,get_database,,HMS metadata requires patients_view; joined billing requires finance_view
+POST,/api/crm/tasks,crm.routes.tasks,crm_view & crm_edit,"HTTPBearer, get_current_user, get_database",,HMS metadata requires patients_view; joined billing requires finance_view
+GET,/api/crm/tasks,crm.routes.tasks,crm_view,"HTTPBearer, get_current_user, get_database",,HMS metadata requires patients_view; joined billing requires finance_view
+GET,/api/crm/tasks/count,crm.routes.tasks,crm_view,"HTTPBearer, get_current_user, get_database",,HMS metadata requires patients_view; joined billing requires finance_view
+GET,/api/crm/tasks/today,crm.routes.tasks,crm_view,"HTTPBearer, get_current_user, get_database",,HMS metadata requires patients_view; joined billing requires finance_view
+GET,/api/crm/tasks/overdue,crm.routes.tasks,crm_view,"HTTPBearer, get_current_user, get_database",,HMS metadata requires patients_view; joined billing requires finance_view
+GET,/api/crm/tasks/by-lead/{lead_id},crm.routes.tasks,crm_view,"HTTPBearer, get_current_user, get_database",,HMS metadata requires patients_view; joined billing requires finance_view
+GET,/api/crm/tasks/by-client/{client_id},crm.routes.tasks,crm_view,"HTTPBearer, get_current_user, get_database",,HMS metadata requires patients_view; joined billing requires finance_view
+GET,/api/crm/tasks/{task_id},crm.routes.tasks,crm_view,"HTTPBearer, get_current_user, get_database",,HMS metadata requires patients_view; joined billing requires finance_view
+PUT,/api/crm/tasks/{task_id},crm.routes.tasks,crm_view & crm_edit,"HTTPBearer, get_current_user, get_database",,HMS metadata requires patients_view; joined billing requires finance_view
+DELETE,/api/crm/tasks/{task_id},crm.routes.tasks,crm_view & crm_delete,"HTTPBearer, get_current_user, get_database",,HMS metadata requires patients_view; joined billing requires finance_view
+POST,/api/crm/tasks/{task_id}/complete,crm.routes.tasks,crm_view & crm_edit,"HTTPBearer, get_current_user, get_database",,HMS metadata requires patients_view; joined billing requires finance_view
+POST,/api/crm/tasks/{task_id}/cancel,crm.routes.tasks,crm_view & crm_edit,"HTTPBearer, get_current_user, get_database",,HMS metadata requires patients_view; joined billing requires finance_view
+POST,/api/crm/tasks/update-overdue,crm.routes.tasks,crm_view & crm_edit,"HTTPBearer, get_current_user, get_database",,HMS metadata requires patients_view; joined billing requires finance_view
+GET,/api/crm/task-statuses,crm.routes.task_statuses,crm_view,get_database,,HMS metadata requires patients_view; joined billing requires finance_view
+GET,/api/crm/task-statuses/{status_id},crm.routes.task_statuses,crm_view,get_database,,HMS metadata requires patients_view; joined billing requires finance_view
+POST,/api/crm/task-statuses,crm.routes.task_statuses,crm_view & crm_edit,get_database,,HMS metadata requires patients_view; joined billing requires finance_view
+PUT,/api/crm/task-statuses/{status_id},crm.routes.task_statuses,crm_view & crm_edit,get_database,,HMS metadata requires patients_view; joined billing requires finance_view
+DELETE,/api/crm/task-statuses/{status_id},crm.routes.task_statuses,crm_view & crm_delete,get_database,,HMS metadata requires patients_view; joined billing requires finance_view
+POST,/api/crm/task-statuses/reorder,crm.routes.task_statuses,crm_view & crm_edit,get_database,,HMS metadata requires patients_view; joined billing requires finance_view
+GET,/api/rooms-with-schedule,server,calendar_view,"HTTPBearer, get_current_active_user, get_current_user, get_database",,
+DELETE,/api/room-schedules/{schedule_id},server,calendar_view & calendar_delete,"HTTPBearer, get_current_active_user, get_current_user, get_database, role_checker",,
+GET,/api/lookups/doctors,routers.lookups,calendar_view|patients_view|doctors_view|crm_view|payroll_view,"HTTPBearer, get_current_active_user, get_current_user, get_database",,

@@ -3,12 +3,21 @@ Source Service - Сервис для работы с источниками об
 """
 
 import uuid
-from datetime import datetime, timedelta
+from datetime import datetime, date, timedelta, timezone
 from typing import Optional, List, Dict, Any
 from motor.motor_asyncio import AsyncIOMotorDatabase
 from pymongo import DESCENDING
 from ..models.source import Source, SourceStatus, SourceType
 from ..schemas.source_schemas import SourceCreate, SourceUpdate
+from ..models.source_dimensions import validate_dimensions
+
+
+def storage(value):
+    if isinstance(value, dict):
+        return {key: storage(item) for key, item in value.items()}
+    if isinstance(value, list):
+        return [storage(item) for item in value]
+    return value.isoformat() if isinstance(value, date) and not isinstance(value, datetime) else value
 
 
 class SourceService:
@@ -18,6 +27,24 @@ class SourceService:
         self.db = db
         self.collection = db.crm_sources
         self.leads_collection = db.crm_leads
+
+    @staticmethod
+    def tariff_version(tariff, previous=()):
+        if not tariff:
+            return None
+        tariff = dict(tariff)
+        effective = tariff['effective_at'].astimezone(timezone.utc)
+        now = datetime.now(timezone.utc)
+        if effective < now - timedelta(minutes=5):
+            raise ValueError('Новый тариф применяется с текущего или будущего времени; прошлые условия не переписываются')
+        for version in previous:
+            at = version['effective_at']
+            if isinstance(at, str):
+                at = datetime.fromisoformat(at.replace('Z', '+00:00'))
+            at = at.replace(tzinfo=timezone.utc) if at.tzinfo is None else at.astimezone(timezone.utc)
+            if effective <= at:
+                raise ValueError('Начало новой версии должно быть позже уже сохранённых версий')
+        return {**tariff, 'effective_at': effective, 'id': str(uuid.uuid4()), 'recorded_at': now}
 
     @staticmethod
     def _normalize_source_doc(doc: dict) -> dict:
@@ -39,6 +66,9 @@ class SourceService:
     async def create_source(self, source_data: SourceCreate, created_by: Optional[str] = None) -> Source:
         """Создать новый источник"""
         source_dict = source_data.dict()
+        validate_dimensions(source_dict['channels'], source_dict['campaigns'])
+        tariff = self.tariff_version(source_dict.pop('tariff', None))
+        source_dict['pricing_history'] = [tariff] if tariff else []
         source_dict["id"] = str(uuid.uuid4())
         source_dict["created_at"] = datetime.utcnow()
         source_dict["updated_at"] = datetime.utcnow()
@@ -55,7 +85,7 @@ class SourceService:
         source = Source(**source_dict)
         
         # Сохраняем в БД
-        await self.collection.insert_one(source.dict())
+        await self.collection.insert_one(storage(source.dict()))
         
         return source
     
@@ -72,24 +102,64 @@ class SourceService:
     async def update_source(self, source_id: str, update_data: SourceUpdate) -> Optional[Source]:
         """Обновить источник"""
         update_dict = {k: v for k, v in update_data.dict().items() if v is not None}
+        before = await self.collection.find_one({'id': source_id})
+        if before is None:
+            return None
+        channels, campaigns = validate_dimensions(update_dict.get('channels', before.get('channels', [])),
+                                                  update_dict.get('campaigns', before.get('campaigns', [])))
+        # Archive dimensions rather than delete/reuse their identities. Existing
+        # attribution remains resolvable even after a channel/campaign is retired.
+        for field, rows in (('channels', channels), ('campaigns', campaigns)):
+            if field not in update_dict:
+                continue
+            previous = before.get(field, [])
+            if {row['id'] for row in previous} - {row['id'] for row in rows}:
+                raise ValueError('Существующие каналы и кампании можно отключить, но нельзя удалять')
+        previous_channels = {row['id']: row for row in before.get('channels', [])}
+        if any(row['id'] in previous_channels and row['adapter'] != previous_channels[row['id']]['adapter'] for row in channels):
+            raise ValueError('Создайте новый канал для другого адаптера; ID существующего канала сохраняет свой смысл')
+        tariff = self.tariff_version(update_dict.pop('tariff', None), before.get('pricing_history', []))
+        guarded = {'id': source_id}
+        dimension_change = bool({'channels', 'campaigns'}.intersection(update_dict)) or tariff is not None
+        if dimension_change:
+            revision = before.get('dimensions_revision', 0)
+            if update_dict.pop('dimensions_revision', revision) != revision:
+                raise ValueError('Настройки уже изменены другим пользователем; откройте источник заново')
+            guarded['dimensions_revision'] = before.get('dimensions_revision')
+            update_dict['dimensions_revision'] = revision + 1
+        update = {'$set': update_dict}
+        if tariff:
+            update['$push'] = {'pricing_history': tariff}
         update_dict["updated_at"] = datetime.utcnow()
         
         result = await self.collection.update_one(
-            {"id": source_id},
-            {"$set": update_dict}
+            guarded,
+            storage(update)
         )
         
         if result.modified_count > 0:
             return await self.get_source_by_id(source_id)
+        if dimension_change and not result.matched_count:
+            raise ValueError('Настройки изменены одновременно; откройте источник заново')
         return None
     
     async def delete_source(self, source_id: str) -> bool:
         """Удалить источник (только если нет связанных заявок)"""
+        document = await self.collection.find_one({'id': source_id})
+        if document and document.get('expenses'):
+            raise ValueError('Источник с сохранёнными расходами нельзя удалить; отключите его')
         # Проверяем, есть ли заявки с этим источником
         leads_count = await self.leads_collection.count_documents({"source_id": source_id})
         
         if leads_count > 0:
             raise ValueError(f"Невозможно удалить источник: найдено {leads_count} заявок с этим источником")
+
+        for name in ('patients', 'appointments', 'crm_funnel_events'):
+            if await getattr(self.db, name).count_documents({'source_id': source_id}):
+                raise ValueError('Источник связан с историей пациента, записи или воронки; отключите его вместо удаления')
+
+        if await self.db.crm_inbound_source_mappings.find_one({'source_id': source_id}):
+            raise ValueError('Сначала снимите привязку входящего номера в форме источника')
         
         result = await self.collection.delete_one({"id": source_id})
         return result.deleted_count > 0

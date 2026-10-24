@@ -1,6 +1,6 @@
 from fastapi import APIRouter, HTTPException, Depends, status
 from pydantic import BaseModel, Field
-from typing import List, Optional
+from typing import List, Optional, Literal
 from datetime import datetime
 from motor.motor_asyncio import AsyncIOMotorDatabase
 from enum import Enum
@@ -12,6 +12,8 @@ from .auth import get_current_active_user, require_role
 from models.auth import UserInDB, UserRole
 from database import db
 from services.patient_status import matches_returning_filter, count_completed_appointments
+from services.patient_phone import normalize_patient_phone
+from services.patient_origin import with_patient_origin
 from services.patient_crm_sync import sync_crm_names_from_patient, parse_full_name
 
 # Router
@@ -34,7 +36,20 @@ class PatientSource(str, Enum):
     OTHER = "other"
 
 # Pydantic models
-class Patient(BaseModel):
+from models.attribution import AttributionDimensions
+from services.attribution import checked_attribution, dimensions
+
+
+class PatientOrigin(AttributionDimensions):
+    kind: Literal["crm_lead", "crm_client"]
+    entity_id: str
+    source: Optional[str] = None
+    source_id: Optional[str] = None
+    channel: Optional[str] = None
+    legacy_generated_note: bool = False
+
+
+class Patient(AttributionDimensions):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     full_name: str
     phone: str
@@ -45,6 +60,7 @@ class Patient(BaseModel):
     source_id: Optional[str] = None  # ID источника из CRM
     referrer: Optional[str] = None  # Who referred this patient
     notes: Optional[str] = None
+    origin: Optional[PatientOrigin] = None
     # Additional name fields (for CRM integration)
     first_name: Optional[str] = None
     last_name: Optional[str] = None
@@ -77,7 +93,7 @@ class Patient(BaseModel):
     class Config:
         extra = "ignore"  # Ignore extra fields not defined in the model
 
-class PatientCreate(BaseModel):
+class PatientCreate(AttributionDimensions):
     full_name: str
     phone: str
     last_name: Optional[str] = None  # Фамилия
@@ -89,7 +105,7 @@ class PatientCreate(BaseModel):
     notes: Optional[str] = None
     user_id: Optional[str] = None
 
-class PatientUpdate(BaseModel):
+class PatientUpdate(AttributionDimensions):
     full_name: Optional[str] = None
     phone: Optional[str] = None
     last_name: Optional[str] = None
@@ -112,6 +128,9 @@ async def create_patient(
     current_user: UserInDB = Depends(require_role([UserRole.ADMIN, UserRole.SUPER_ADMIN, UserRole.DOCTOR]))
 ):
     patient_dict = patient.dict()
+    patient_dict.update(await checked_attribution(db, patient_dict))
+    patient_dict['source'] = patient_dict.get('source') or PatientSource.OTHER
+    patient_dict["phone"] = normalize_patient_phone(patient_dict["phone"])
     patient_obj = Patient(**patient_dict)
     
     # Insert patient first
@@ -298,7 +317,7 @@ async def get_patients(
                 })
                 patient_data['appointments_count'] = completed_appointments_count
 
-            result.append(Patient(**patient_data))
+            result.append(Patient(**await with_patient_origin(db, patient_data)))
         except Exception as e:
             logger.error(f"Error converting patient {patient_data.get('id', 'unknown')}: {str(e)}")
             logger.error(f"Patient data keys: {list(patient_data.keys())}")
@@ -322,7 +341,7 @@ async def get_patient(
     if "_id" in patient:
         del patient["_id"]
     patient["appointments_count"] = await count_completed_appointments(db, patient_id)
-    return Patient(**patient)
+    return Patient(**await with_patient_origin(db, patient))
 
 @patients_router.put("/{patient_id}", response_model=Patient)
 async def update_patient(
@@ -331,6 +350,15 @@ async def update_patient(
     current_user: UserInDB = Depends(require_role([UserRole.ADMIN, UserRole.SUPER_ADMIN, UserRole.DOCTOR]))
 ):
     update_dict = {k: v for k, v in patient_update.dict().items() if v is not None}
+    supplied = patient_update.model_dump(exclude_unset=True)
+    if {'source_id', 'channel_id', 'campaign_id'}.intersection(supplied):
+        existing = await db.patients.find_one({'id': patient_id})
+        if not existing:
+            raise HTTPException(404, 'Patient not found')
+        existing = await with_patient_origin(db, existing)
+        checked = await checked_attribution(db, {key: supplied[key] for key in ('source_id', 'channel_id', 'campaign_id', 'source') if key in supplied}, existing)
+        update_dict.update(checked)
+        update_dict['source'] = checked.get('source') or PatientSource.OTHER
     update_dict["updated_at"] = datetime.utcnow()
 
     full_name = update_dict.get("full_name")
@@ -356,7 +384,7 @@ async def update_patient(
         except Exception as exc:
             logger.exception("CRM name sync failed for patient %s: %s", patient_id, exc)
 
-    return Patient(**updated_patient)
+    return Patient(**await with_patient_origin(db, updated_patient))
 
 @patients_router.delete("/{patient_id}")
 async def delete_patient(

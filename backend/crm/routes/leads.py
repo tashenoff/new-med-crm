@@ -16,6 +16,8 @@ from ..schemas.lead_schemas import (
 from ..models.lead import Lead, LeadStatus, LeadSource, LeadPriority
 from ..services.lead_identity import normalize_identity_phone, patient_link
 from ..services.lead_calls import call_history, load_group_calls, resolve_group_patients
+from services.patient_phone import normalize_patient_phone
+from services.patient_origin import crm_lead_origin, patient_notes_from_lead
 
 from ..dependencies import get_database
 
@@ -468,6 +470,17 @@ async def schedule_appointment_from_lead(
         if not lead:
             raise HTTPException(status_code=404, detail="Лид не найден")
 
+        # A manual choice belongs to this appointment, not patient/lead history.
+        from services.attribution import checked_attribution, dimensions
+        chosen = {key: appointment_data[key] for key in ('source_id', 'channel_id', 'campaign_id') if key in appointment_data}
+        if 'contactmethod_id' in appointment_data:
+            if 'channel_id' in chosen and chosen['channel_id'] != appointment_data['contactmethod_id']:
+                raise HTTPException(422, 'Несогласованные ID способа обращения')
+            chosen['channel_id'] = appointment_data['contactmethod_id']
+        appointment_attribution = await checked_attribution(db, chosen, lead.dict())
+        appointment_source_id = appointment_attribution['source_id']
+        appointment_source = appointment_attribution.get('source')
+
         patient_full_name = appointment_data.get("patient_full_name")
         if patient_full_name is not None and not isinstance(patient_full_name, str):
             raise HTTPException(status_code=422, detail="patient_full_name must be a string")
@@ -596,11 +609,13 @@ async def schedule_appointment_from_lead(
                 "first_name": first_name,
                 "last_name": last_name,
                 "middle_name": middle_name,
-                "phone": lead.phone or "",
+                "phone": normalize_patient_phone(lead.phone or ""),
                 "email": lead.email,
                 "source": str(lead.source.value) if hasattr(lead.source, 'value') else str(lead.source),
                 "source_id": lead.source_id,  # Передаем ID источника из лида
-                "notes": f"Создан из заявки CRM. {lead.description or ''}",
+                **{key: getattr(lead, key, None) for key in ('channel_id', 'channel_name', 'campaign_id', 'campaign_name')},
+                "origin": crm_lead_origin(lead),
+                "notes": patient_notes_from_lead(lead),
                 "crm_client_id": lead_id,
                 "revenue": 0.0,
                 "debt": 0.0,
@@ -683,8 +698,9 @@ async def schedule_appointment_from_lead(
             "deposit": deposit,
             "deposit_type": deposit_type,
             # Источник из лида
-            "source": str(lead.source.value) if hasattr(lead.source, 'value') else str(lead.source),
-            "source_id": lead.source_id,
+            "source": appointment_source,
+            "source_id": appointment_source_id,
+            **{key: appointment_attribution.get(key) for key in ('source_name', 'channel_id', 'channel_name', 'campaign_id', 'campaign_name')},
             "created_at": datetime.utcnow(),
             "updated_at": datetime.utcnow()
         }
@@ -730,6 +746,7 @@ async def schedule_appointment_from_lead(
                 appointment_date=appointment_date.strftime('%Y-%m-%d'),
                 appointment_time=new_appointment.get("appointment_time", "10:00"),
                 cabinet=_rm,
+                patient_id=patient_id, appointment_id=appointment_id,
             )
         except Exception as _ne:
             print(f"Не удалось отправить уведомление о создании записи: {_ne}")

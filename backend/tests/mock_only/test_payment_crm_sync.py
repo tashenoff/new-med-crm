@@ -62,6 +62,7 @@ def plan_document():
 def memory_db(document):
     saved = deepcopy(document)
     db = Mock()
+    db.crm_funnel_events.update_one = AsyncMock()
     db.appointments.find.return_value.sort.return_value.to_list = AsyncMock(return_value=[])
     db.treatment_plans.find_one = AsyncMock(side_effect=lambda *args: deepcopy(saved))
     db.treatment_plans.find.return_value.to_list = AsyncMock(side_effect=lambda *args, **kwargs: [deepcopy(saved)])
@@ -169,8 +170,9 @@ def lead_document(identifier, day=0, **fields):
 @pytest.mark.parametrize("statuses", [[], ["unpaid"], ["partially_paid"], ["paid", "partially_paid"], ["paid", "unpaid"]])
 def test_every_plan_must_be_paid_before_card_closes(modules, statuses):
     db = Mock()
+    db.crm_funnel_events.update_one = AsyncMock()
     db.treatment_plans.find.return_value.to_list = AsyncMock(return_value=[{"payment_status": status} for status in statuses])
-    db.crm_leads.update_one = AsyncMock(return_value=SimpleNamespace(modified_count=1))
+    db.crm_leads.update_one = AsyncMock(return_value=SimpleNamespace(matched_count=1, modified_count=1))
     service = modules.leads.LeadService(db)
     asyncio.run(service.sync_lead_from_payment_status("patient"))
     db.crm_leads.update_one.assert_not_awaited()
@@ -179,6 +181,7 @@ def test_every_plan_must_be_paid_before_card_closes(modules, statuses):
 @pytest.mark.parametrize("identity", ["patient_id", "converted_to_client_id", "crm_client"])
 def test_paid_patient_targets_first_touch_shown_on_kanban(modules, identity):
     db = Mock()
+    db.crm_funnel_events.update_one = AsyncMock()
     db.treatment_plans.find.return_value.to_list = AsyncMock(return_value=[{"payment_status": "paid", "paid_amount": 100}])
     link = "crm-client" if identity == "crm_client" else "patient"
     field = "converted_to_client_id" if identity == "crm_client" else identity
@@ -187,23 +190,25 @@ def test_paid_patient_targets_first_touch_shown_on_kanban(modules, identity):
     other = lead_document("other", -1, patient_id="other-patient", phone="77029998877")
     db.crm_clients.find_one = AsyncMock(return_value={"id": "crm-client", "hms_patient_id": "patient"} if identity == "crm_client" else None)
     db.crm_leads.find.return_value.to_list = AsyncMock(return_value=[later, other, first])
-    db.crm_leads.find_one = AsyncMock(return_value=None)
+    db.crm_leads.find_one = AsyncMock(return_value=first)
     db.patients.find_one = AsyncMock(return_value=None)
-    db.crm_leads.update_one = AsyncMock(return_value=SimpleNamespace(modified_count=1))
+    db.crm_leads.update_one = AsyncMock(return_value=SimpleNamespace(matched_count=1, modified_count=1))
     service = modules.leads.LeadService(db)
     service.get_lead_by_id = AsyncMock(return_value=first)
     asyncio.run(service.sync_lead_from_payment_status("patient"))
     query, update = db.crm_leads.update_one.call_args.args
-    assert query == {"id": "first"}
+    assert query["id"] == "first"
+    assert query["status"] == first["status"]
     assert update["$set"]["status"] == "closed"
     assert update["$unset"] == {"kanban_column_id": ""}
-    db.crm_leads.find_one.assert_not_awaited()
+    db.crm_leads.find_one.assert_awaited_once()
     db.patients.find_one.assert_not_awaited()
 
 
 @pytest.mark.parametrize("case", ["unlinked", "ambiguous_phone", "rejected", "qualified", "lost", "closed", "multiple_groups"])
 def test_unsafe_or_terminal_card_is_not_closed(modules, case):
     db = Mock()
+    db.crm_funnel_events.update_one = AsyncMock()
     db.treatment_plans.find.return_value.to_list = AsyncMock(return_value=[{"payment_status": "paid"}])
     first = lead_document("first")
     later = lead_document("later", 1, patient_id="patient")
@@ -219,13 +224,14 @@ def test_unsafe_or_terminal_card_is_not_closed(modules, case):
     db.crm_clients.find_one = AsyncMock(return_value={"id": "crm-client"} if case == "multiple_groups" else None)
     db.crm_leads.find.return_value.to_list = AsyncMock(return_value=documents)
     db.crm_leads.find_one = AsyncMock(return_value=None)
+    db.crm_leads.find_one = AsyncMock(side_effect=lambda query: next((deepcopy(item) for item in documents if item["id"] == query.get("id")), None))
     db.patients.find_one = AsyncMock(return_value={"phone": "7011234567"})
-    db.crm_leads.update_one = AsyncMock(return_value=SimpleNamespace(modified_count=1))
+    db.crm_leads.update_one = AsyncMock(return_value=SimpleNamespace(matched_count=1, modified_count=1))
     service = modules.leads.LeadService(db)
     service.get_lead_by_id = AsyncMock(return_value=first)
     asyncio.run(service.sync_lead_from_payment_status("patient"))
     if case == "ambiguous_phone":
-        assert db.crm_leads.update_one.call_args.args[0] == {"id": "later"}
+        assert db.crm_leads.update_one.call_args.args[0]["id"] == "later"
     else:
         db.crm_leads.update_one.assert_not_awaited()
 
@@ -254,7 +260,8 @@ def test_payment_to_card_end_to_end(modules, monkeypatch, flow, partial, other_s
     first = lead_document("first", kanban_column_id="custom_pending")
     later = lead_document("later", 1, patient_id="patient")
     db.crm_leads.find.return_value.to_list = AsyncMock(return_value=[later, first])
-    db.crm_leads.update_one = AsyncMock(return_value=SimpleNamespace(modified_count=1))
+    db.crm_leads.find_one = AsyncMock(return_value=first)
+    db.crm_leads.update_one = AsyncMock(return_value=SimpleNamespace(matched_count=1, modified_count=1))
     db.crm_clients.find_one = AsyncMock(return_value=None)
     monkeypatch.setattr(modules.routes, "db", db)
     deals = AsyncMock()
@@ -284,7 +291,8 @@ def test_payment_to_card_end_to_end(modules, monkeypatch, flow, partial, other_s
     assert db.crm_leads.update_one.await_count == int(not partial and other_status != "unpaid")
     if db.crm_leads.update_one.await_count:
         query, update = db.crm_leads.update_one.call_args.args
-        assert query == {"id": "first"}
+        assert query["id"] == "first"
+        assert query["status"] == first["status"]
         assert update["$set"]["status"] == "closed"
         assert update["$unset"] == {"kanban_column_id": ""}
 

@@ -438,7 +438,7 @@ async def test_webhook_notify_start_form_encoded_creates_call_record(clean_db, w
 
     assert call["direction"] == "inbound"
 
-    assert call["status"] == "missed"
+    assert call["status"] == "pending"  # Await provider statistics, never infer from START.
 
 
 
@@ -490,7 +490,7 @@ async def test_webhook_notify_start_creates_call_record(clean_db, webhook_client
 
     assert call["direction"] == "inbound"
 
-    assert call["status"] == "missed"
+    assert call["status"] == "pending"  # Await provider statistics, never infer from START.
 
     assert call["normalized_phone"] == "9991234567"  # последние 10 цифр от 79991234567
 
@@ -556,7 +556,7 @@ async def test_webhook_notify_answer_updates_call(clean_db, webhook_client):
 
     assert call is not None
 
-    assert call["status"] == "answered"
+    assert call["status"] == "pending"  # ANSWER/END alone are not API confirmation.
 
 
 
@@ -602,11 +602,11 @@ async def test_webhook_notify_end_with_disposition(clean_db, webhook_client):
 
     assert call is not None
 
-    assert call["status"] == "answered"
+    assert call["status"] == "pending"  # ANSWER/END alone are not API confirmation.
 
     assert call["duration"] == 45
 
-    assert call["disposition"] == "answered"
+    assert call["disposition"] is None  # Kept separately in sanitized event evidence.
 
     assert call["is_recorded"] is False  # NOTIFY_RECORD отдельно
 
@@ -1036,11 +1036,11 @@ async def test_normalize_phone_helper():
 
 
 
-async def test_health_endpoint(clean_db, webhook_client):
+async def test_health_endpoint(clean_db, webhook_client, auth_client):
 
     """GET /health возвращает статус (может быть unhealthy без реального API)."""
 
-    client = webhook_client
+    client = auth_client
 
     r = await client.get("/api/telephony/health")
 
@@ -1156,12 +1156,16 @@ def auth_client(clean_db, monkeypatch):
 
         is_active = True
 
+        permissions = ["crm_view"]
+
         email = "admin@test.ru"
 
 
 
     monkeypatch.setattr("database.db", clean_db)
 
+    from routers.auth import get_current_active_user as permission_user
+    server.app.dependency_overrides[permission_user] = lambda: _FakeUser()
     server.app.dependency_overrides[get_current_user] = lambda: _FakeUser()
 
     try:
@@ -1172,6 +1176,7 @@ def auth_client(clean_db, monkeypatch):
 
     finally:
 
+        server.app.dependency_overrides.pop(permission_user, None)
         server.app.dependency_overrides.pop(get_current_user, None)
 
 

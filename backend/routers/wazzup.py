@@ -525,6 +525,8 @@ async def _process_incoming_message(message_data: dict) -> None:
     from services.feedback_service import FeedbackService
     from models.wazzup import SendMessageRequest
 
+    from services.patient_consent import redact_links
+    message_data = redact_links(message_data)
     contact_phone = str(message_data.get("chatId", "")).split("@")[0]
     text = message_data.get("text", "") or ""
     contact = message_data.get("contact") or {}
@@ -638,10 +640,11 @@ async def _process_incoming_message(message_data: dict) -> None:
     first_name = name_parts[0] if len(name_parts) > 0 and name_parts[0] else "Клиент"
     last_name = name_parts[1] if len(name_parts) > 1 else "WhatsApp"
 
+    from services.patient_phone import normalize_patient_phone
     lead_data = LeadCreate(
         first_name=first_name,
         last_name=last_name,
-        phone=contact_phone,
+        phone=normalize_patient_phone(contact_phone),
         source=LeadSource.SOCIAL,
         description=f"Обращение через WhatsApp: {text[:200]}",
     )

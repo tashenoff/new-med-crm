@@ -13,7 +13,9 @@ from ..models.lead import Lead, LeadStatus, LeadSource, LeadPriority
 from ..schemas.lead_schemas import LeadCreate, LeadUpdate, LeadSearchFilters
 from ..models.task import Task, TaskType, TaskPriority, TaskStatus
 from ..schemas.task_schemas import TaskCreate
+from .funnel_journal import FunnelLeadCollection
 from .lead_identity import group_lead_touches, patient_link
+from .source_attribution import validate_lead_attribution
 
 
 class LeadService:
@@ -21,11 +23,13 @@ class LeadService:
     
     def __init__(self, db: AsyncIOMotorDatabase):
         self.db = db
-        self.collection = db.crm_leads
+        self.collection = FunnelLeadCollection(db, cause='lead_service')
     
     async def create_lead(self, lead_data: LeadCreate, created_by: Optional[str] = None) -> Lead:
         """Создать нового лида"""
         lead_dict = lead_data.dict()
+        if lead_dict.get('channel_id') or lead_dict.get('campaign_id'):
+            lead_dict.update(await validate_lead_attribution(self.db, lead_dict))
         lead_dict["id"] = str(uuid.uuid4())
         lead_dict["created_at"] = datetime.utcnow()
         lead_dict["updated_at"] = datetime.utcnow()
@@ -94,6 +98,9 @@ class LeadService:
     async def update_lead(self, lead_id: str, update_data: LeadUpdate) -> Optional[Lead]:
         """Обновить лида"""
         update_dict = {k: v for k, v in update_data.dict().items() if v is not None}
+        supplied = update_data.model_dump(exclude_unset=True)
+        if 'contact_point' in supplied:
+            update_dict['contact_point'] = supplied['contact_point']
         update_dict["updated_at"] = datetime.utcnow()
         update = {"$set": update_dict}
         if "status" in update_dict:
@@ -102,6 +109,11 @@ class LeadService:
                 return None
             lead_id = canonical["id"]
             update["$unset"] = {"kanban_column_id": ""}
+        if {'source_id', 'channel_id', 'campaign_id'}.intersection(supplied):
+            before = await self.collection.find_one({'id': lead_id})
+            dimensions = {key: supplied[key] for key in ('source_id', 'channel_id', 'campaign_id') if key in supplied}
+            update_dict.update(dimensions)
+            update_dict.update(await validate_lead_attribution(self.db, dimensions, before))
         
         result = await self.collection.update_one(
             {"id": lead_id},

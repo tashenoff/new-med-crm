@@ -283,6 +283,14 @@ class TelephonyService:
 
 
 
+    async def get_pbx_statistics(self, start: str, end: str, *, skip: int = 0,
+                                 call_type: Optional[str] = None) -> Dict[str, Any]:
+        """Documented v2 rows, never an invented whole-call result."""
+        params = {'start': start, 'end': end, 'version': 2, 'skip': skip, 'limit': 1000}
+        if call_type in ('in', 'out'):
+            params['call_type'] = call_type
+        return await self._api_request('GET', 'statistics/pbx', params=params)
+
     async def request_callback(self, phone: str, sip: Optional[str] = None) -> Dict[str, Any]:
 
         """

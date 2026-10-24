@@ -1,3 +1,4 @@
+from .funnel_journal import FunnelLeadCollection
 from datetime import datetime
 from uuid import uuid4
 
@@ -7,7 +8,7 @@ from pymongo.errors import DuplicateKeyError
 from pymongo.write_concern import WriteConcern
 
 from ..schemas.kanban_schemas import ColumnName
-from .lead_identity import group_lead_touches
+from .lead_identity import group_lead_touches, canonical_stage_id as canonical_column_id
 
 
 SETTINGS_ID = 'crm_kanban_columns'
@@ -18,13 +19,6 @@ SYSTEM_COLUMNS = {
     'converted': 'Пациент пришел',
     'closed': 'Оплачено',
 }
-
-
-def canonical_column_id(document):
-    status = document.get('status')
-    if status == 'new' or document.get('kanban_override_source') == 'whatsapp':
-        return document.get('kanban_column_id') or status
-    return status
 
 
 def normalized_columns(document):
@@ -62,7 +56,7 @@ class KanbanService:
         self.db = db
         write_concern = WriteConcern('majority', j=True)
         self.settings = db.system_settings.with_options(write_concern=write_concern)
-        self.leads = db.crm_leads.with_options(write_concern=write_concern)
+        self.leads = FunnelLeadCollection(db, db.crm_leads.with_options(write_concern=write_concern), cause='kanban')
 
     async def ensure_settings(self):
         try:

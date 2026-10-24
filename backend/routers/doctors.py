@@ -29,6 +29,22 @@ from database import db
 # Import services
 from services.doctor_service import DoctorService
 from services.salary_service import SalaryService
+from fastapi.encoders import jsonable_encoder
+from fastapi.responses import JSONResponse
+from compensation import COMPENSATION_FIELDS
+
+
+def doctor_response(value, user):
+    if 'payroll_view' in user.permissions:
+        return value
+    private = set(COMPENSATION_FIELDS) | {'services', 'payment_mode', 'cashback_balance', 'total_cashback_earned', 'currency', 'consultation_currency'}
+    def redact(item):
+        if isinstance(item, list):
+            return [redact(v) for v in item]
+        if isinstance(item, dict):
+            return {k: redact(v) for k, v in item.items() if k not in private}
+        return item
+    return JSONResponse(redact(jsonable_encoder(value)))
 from services.statistics_service import StatisticsService
 
 # Router
@@ -83,6 +99,8 @@ async def get_doctor_salary_report(
     service: SalaryService = Depends(get_salary_service)
 ):
     """Get doctor salary report with detailed commission calculations"""
+    if 'payroll_view' not in getattr(current_user, 'permissions', []):
+        raise HTTPException(403, 'Payroll permission required')
     report = await service.get_doctor_salary_report(date_from, date_to)
     if not report["compensation_complete"]:
         raise HTTPException(status_code=409, detail={
@@ -100,7 +118,7 @@ async def get_available_doctors(
     service: DoctorService = Depends(get_doctor_service)
 ):
     """Get doctors available on a specific date and optionally time"""
-    return await service.get_available_doctors(appointment_date, appointment_time)
+    return doctor_response(await service.get_available_doctors(appointment_date, appointment_time), current_user)
 
 
 # ============================================================================
@@ -114,6 +132,8 @@ async def create_doctor(
     service: DoctorService = Depends(get_doctor_service)
 ):
     """Create a new doctor"""
+    if 'payroll_view' not in current_user.permissions:
+        raise HTTPException(403, 'Payroll permission required to configure compensation')
     return await service.create_doctor(doctor)
 
 
@@ -123,7 +143,7 @@ async def get_doctors(
     service: DoctorService = Depends(get_doctor_service)
 ):
     """Get all active doctors"""
-    return await service.get_doctors()
+    return doctor_response(await service.get_doctors(), current_user)
 
 
 @doctors_router.get("/{doctor_id}", response_model=Doctor)
@@ -133,7 +153,7 @@ async def get_doctor(
     service: DoctorService = Depends(get_doctor_service)
 ):
     """Get doctor by ID"""
-    return await service.get_doctor_by_id(doctor_id)
+    return doctor_response(await service.get_doctor_by_id(doctor_id), current_user)
 
 
 @doctors_router.put("/{doctor_id}", response_model=Doctor)
@@ -144,7 +164,9 @@ async def update_doctor(
     service: DoctorService = Depends(get_doctor_service)
 ):
     """Update doctor"""
-    return await service.update_doctor(doctor_id, doctor_update)
+    if set(doctor_update.model_fields_set) & set(COMPENSATION_FIELDS) and 'payroll_view' not in current_user.permissions:
+        raise HTTPException(403, 'Payroll permission required to configure compensation')
+    return doctor_response(await service.update_doctor(doctor_id, doctor_update), current_user)
 
 
 @doctors_router.delete("/{doctor_id}")

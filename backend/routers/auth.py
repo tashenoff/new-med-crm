@@ -112,7 +112,24 @@ async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(s
         raise credentials_exception
     user["id"] = str(user.get("id") or user["_id"])
     user.pop("_id", None)
+    await hydrate_access(user, db)
     return UserInDB(**user)
+
+async def hydrate_access(user, db):
+    from permission_policy import effective_permissions
+    member = await db.staff.find_one({"_id": user["id"]})
+    # A users-only administrator remains a protected recovery/admin-login path.
+    source = member if member is not None else user
+    if member is not None and not member.get("is_active", True):
+        raise HTTPException(401, "Inactive staff member")
+    clinic = os.environ.get("APP_CLINIC_ID", os.environ.get("CONSENT_CLINIC_ID", "clinic"))
+    if any(d.get("clinic_id", clinic) != clinic for d in (user, source)):
+        raise HTTPException(403, "Clinic access denied")
+    if member is not None and source.get("role") != user.get("role"):
+        raise HTTPException(401, "Staff/user role mismatch")
+    user["permissions"] = effective_permissions(source)
+    if not user.get("is_active", True):
+        raise HTTPException(401, "Inactive user")
 
 async def get_user_by_email(email: str, db: AsyncIOMotorDatabase):
     """Find user by email"""
@@ -120,6 +137,7 @@ async def get_user_by_email(email: str, db: AsyncIOMotorDatabase):
     if user:
         user["id"] = str(user.get("id") or user["_id"])
         del user["_id"]
+        await hydrate_access(user, db)
         return UserInDB(**user)
     return None
 
@@ -130,6 +148,7 @@ async def get_user_by_login(login: str, db: AsyncIOMotorDatabase):
     if user:
         user["id"] = str(user.get("id") or user["_id"])
         del user["_id"]
+        await hydrate_access(user, db)
         return UserInDB(**user)
     return None
 
@@ -259,28 +278,15 @@ async def login(form_data: UserLogin, db: AsyncIOMotorDatabase = Depends(get_dat
         data=token_data, expires_delta=access_token_expires
     )
     
+    # Password expiry is enforced by business dependencies; preserve the login
+    # token needed for the existing password-change flow. Inactivity was checked
+    # during hydration before password authentication.
     # Convert to public user model
     user_data = {k: v for k, v in user.dict().items() if k != "hashed_password"}
     
     # Добавляем permissions из коллекции staff
-    staff_doc = await db.staff.find_one({"_id": user.id})
-    if staff_doc:
-        # Импортируем StaffRole и ROLE_PERMISSIONS
-        from models.staff import StaffRole, ROLE_PERMISSIONS
-        
-        # Получаем базовые права для роли
-        role = staff_doc.get("role")
-        base_permissions = ROLE_PERMISSIONS.get(StaffRole(role), []) if role else []
-        
-        # Получаем custom_permissions
-        custom_permissions = staff_doc.get("custom_permissions", [])
-        
-        # Объединяем и удаляем дубликаты
-        all_permissions = list(set(base_permissions + custom_permissions))
-        user_data["permissions"] = all_permissions
-    else:
-        user_data["permissions"] = []
-    
+    await hydrate_access(user_data, db)
+
     public_user = User(**user_data)
     
     return {"access_token": access_token, "token_type": "bearer", "user": public_user}
@@ -291,24 +297,8 @@ async def read_users_me(current_user: UserInDB = Depends(get_current_active_user
     user_data = {k: v for k, v in current_user.dict().items() if k != "hashed_password"}
     
     # Добавляем permissions из коллекции staff
-    staff_doc = await db.staff.find_one({"_id": current_user.id})
-    if staff_doc:
-        # Импортируем StaffRole и ROLE_PERMISSIONS
-        from models.staff import StaffRole, ROLE_PERMISSIONS
-        
-        # Получаем базовые права для роли
-        role = staff_doc.get("role")
-        base_permissions = ROLE_PERMISSIONS.get(StaffRole(role), []) if role else []
-        
-        # Получаем custom_permissions
-        custom_permissions = staff_doc.get("custom_permissions", [])
-        
-        # Объединяем и удаляем дубликаты
-        all_permissions = list(set(base_permissions + custom_permissions))
-        user_data["permissions"] = all_permissions
-    else:
-        user_data["permissions"] = []
-    
+    await hydrate_access(user_data, db)
+
     return User(**user_data)
 
 @auth_router.post("/change-password")

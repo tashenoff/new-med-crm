@@ -14,17 +14,20 @@ class WebSocketManager:
     def __init__(self, send_timeout: float = 2):
         self._clients: dict[WebSocket, asyncio.Lock] = {}
         self.send_timeout = send_timeout
+        self._authorization = {}
 
     @property
     def connection_count(self):
         return len(self._clients)
 
-    async def connect(self, websocket: WebSocket):
+    async def connect(self, websocket: WebSocket, authorize=None):
         await websocket.send_json({"type": "connection.ready", "version": 1})
         self._clients[websocket] = asyncio.Lock()
+        self._authorization[websocket] = authorize
 
     def disconnect(self, websocket: WebSocket):
         self._clients.pop(websocket, None)
+        self._authorization.pop(websocket, None)
 
     async def _close(self, websocket, code):
         try:
@@ -37,6 +40,11 @@ class WebSocketManager:
 
         async def deliver(websocket, lock):
             try:
+                authorize = self._authorization.get(websocket)
+                if authorize is not None and not await authorize(event):
+                    self.disconnect(websocket)
+                    await self._close(websocket, 1008)
+                    return
                 async def send():
                     async with lock:
                         await websocket.send_json(payload)
@@ -51,6 +59,7 @@ class WebSocketManager:
     async def close_all(self):
         clients = tuple(self._clients)
         self._clients.clear()
+        self._authorization.clear()
         await asyncio.gather(*(self._close(ws, 1001) for ws in clients))
 
 

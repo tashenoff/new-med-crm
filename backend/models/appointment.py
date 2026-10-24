@@ -10,6 +10,7 @@ from typing import Optional
 from datetime import datetime
 from enum import Enum
 import uuid
+from .attribution import AttributionDimensions
 
 
 class AppointmentStatus(str, Enum):
@@ -23,7 +24,7 @@ class AppointmentStatus(str, Enum):
     NO_SHOW = "no_show"             # Не явился - серый
 
 
-class Appointment(BaseModel):
+class Appointment(AttributionDimensions):
     """Main appointment model"""
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     patient_id: str
@@ -81,7 +82,7 @@ class Appointment(BaseModel):
         return v
 
 
-class AppointmentCreate(BaseModel):
+class AppointmentCreate(AttributionDimensions):
     """Model for creating appointment"""
     patient_id: str
     doctor_id: str
@@ -130,7 +131,7 @@ class AppointmentCreate(BaseModel):
         return v
 
 
-class AppointmentUpdate(BaseModel):
+class AppointmentUpdate(AttributionDimensions):
     """Model for updating appointment"""
     patient_id: Optional[str] = None
     doctor_id: Optional[str] = None
@@ -177,7 +178,7 @@ class AppointmentUpdate(BaseModel):
         return v
 
 
-class AppointmentWithDetails(BaseModel):
+class AppointmentWithDetails(AttributionDimensions):
     """Appointment model with detailed information (for API responses)"""
     id: str
     patient_id: str

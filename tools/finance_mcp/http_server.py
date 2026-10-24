@@ -1,8 +1,4 @@
-"""Stateless Streamable HTTP sidecar factory. Default app has no live binding/access.
-
-No credentials/config are discovered, created or persisted. A separately reviewed
-bootstrap must explicitly inject the approved non-secret binding before activation.
-"""
+"""Stateless, unprivileged MCP transport; OAuth state belongs to the backend."""
 from contextlib import asynccontextmanager
 from contextvars import ContextVar
 from dataclasses import dataclass, field
@@ -30,6 +26,7 @@ from .core import ALL_TOOLS, unique_object
 from .live_client import bound_adapter
 from .remote_access import check_access
 from .server import build_server
+from reporting.grok_oauth import RESOURCE_PATH
 
 MCP_PATH = "/api/reporting/mcp"
 MAX_REQUEST_BYTES = 16_384
@@ -84,7 +81,7 @@ class GuardedEndpoint:
             await send(message)
 
         async def refuse(status, code):
-            headers = {"WWW-Authenticate": "Bearer"} if status == 401 else None
+            headers = {"WWW-Authenticate": 'Bearer resource_metadata="' + API_ORIGIN + RESOURCE_PATH + '"'} if status == 401 else None
             await JSONResponse({"code": code}, status_code=status, headers=headers)(scope, receive, send_no_store)
 
         if len(request.headers.getlist("host")) != 1 or len(request.headers.getlist("origin")) > 1:
@@ -93,8 +90,10 @@ class GuardedEndpoint:
         if invalid is not None:
             return await refuse(invalid.status_code, "TRANSPORT_REJECTED")
         authorization = request.headers.getlist("authorization")
-        if len(authorization) != 1 or not re.fullmatch(r"Bearer mcr_[A-Za-z0-9_-]{43}", authorization[0], re.ASCII):
+        if len(authorization) != 1 or not re.fullmatch(r"Bearer (?:mcr|mgo)_[A-Za-z0-9_-]{43}", authorization[0], re.ASCII):
             return await refuse(401, "AUTH_REQUIRED")
+        if request.headers.get("origin") == "https://grok.com" and not authorization[0].startswith("Bearer mgo_"):
+            return await refuse(403, "FORBIDDEN")
         if self.binding is None:
             return await refuse(503, "REPORTING_UNCONFIGURED")
         if request.query_params or request.headers.get("mcp-session-id"):
@@ -115,7 +114,7 @@ class GuardedEndpoint:
             credential = authorization[0][7:]
             async with httpx.AsyncClient(base_url=API_ORIGIN, headers={"Authorization": authorization[0]},
                     timeout=10, trust_env=False, follow_redirects=False, transport=self.transport) as client:
-                names = await check_access(client, self.binding)
+                names = await check_access(client, self.binding, grok=credential.startswith("mgo_"))
         except ReportError as error:
             return await refuse(error.status, error.code)
         except Exception:
@@ -172,7 +171,7 @@ def create_http_app(binding=None, *, api_transport=None, allowed_hosts=None, all
         raise ReportError("REPORTING_UNCONFIGURED")
     security = TransportSecuritySettings(enable_dns_rebinding_protection=True,
         allowed_hosts=list(allowed_hosts) if allowed_hosts is not None else ["medcrm.duckdns.org"],
-        allowed_origins=list(allowed_origins) if allowed_origins is not None else ["https://paperclips.duckdns.org"])
+        allowed_origins=list(allowed_origins) if allowed_origins is not None else ["https://paperclips.duckdns.org", "https://grok.com"])
     server = build_server(RequestAdapter(binding, api_transport), connected=True)
     manager = StreamableHTTPSessionManager(server, json_response=True, stateless=True,
         security_settings=security, max_request_body_size=MAX_REQUEST_BYTES, max_sessions=1)

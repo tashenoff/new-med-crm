@@ -18,6 +18,7 @@ from models.wazzup import (
     MessageStatus
 )
 from database import get_database
+from services.patient_consent import redact_links
 
 
 class WazzupService:
@@ -64,7 +65,7 @@ class WazzupService:
             except httpx.HTTPStatusError as e:
                 raise HTTPException(
                     status_code=e.response.status_code,
-                    detail=f"Ошибка Wazzup24 API: {e.response.text}"
+                    detail=f"Ошибка Wazzup24 API: {redact_links(e.response.text)}"
                 )
             except httpx.RequestError as e:
                 raise HTTPException(
@@ -81,7 +82,7 @@ class WazzupService:
                 return channel.id
         raise HTTPException(status_code=500, detail="Нет активных каналов Wazzup24")
 
-    async def send_message(self, request: SendMessageRequest) -> WazzupMessage:
+    async def send_message(self, request: SendMessageRequest, *, persisted_text=None) -> WazzupMessage:
         """Отправить текстовое сообщение"""
         # Форматируем телефон и создаем chatId
         phone = await self.format_phone(request.phone)
@@ -101,7 +102,12 @@ class WazzupService:
             "text": request.text
         }
         
-        result = await self._make_request("POST", "message", data)
+        try:
+            result = await self._make_request("POST", "message", data)
+        except Exception:
+            if persisted_text is not None:
+                raise HTTPException(502, "Provider submission failed") from None
+            raise
         
         message_id = result.get("messageId")
         sent_time = datetime.now()
@@ -113,7 +119,7 @@ class WazzupService:
                 channel_id=channel_id,
                 phone=phone,
                 message_type=MessageType.TEXT,
-                text=request.text,
+                text=request.text if persisted_text is None else persisted_text,
                 direction="outgoing",
                 status=MessageStatus.SENT,
                 timestamp=sent_time
@@ -127,7 +133,7 @@ class WazzupService:
             from services.wazzup_chat_service import WazzupChatService
             from database import get_database
             await WazzupChatService(get_database()).upsert_outgoing(
-                phone=phone, text=request.text, ts=sent_time,
+                phone=phone, text=request.text if persisted_text is None else persisted_text, ts=sent_time,
             )
         except Exception as e:
             print(f"Не удалось обновить чат: {e}")
@@ -137,7 +143,7 @@ class WazzupService:
             channel_id=channel_id,
             contact_phone=phone,
             message_type=MessageType.TEXT,
-            text=request.text,
+            text=request.text if persisted_text is None else persisted_text,
             status=MessageStatus.SENT,
             sent_at=sent_time
         )
@@ -652,6 +658,9 @@ class WazzupService:
         phone_number = formatted_phone.replace("+", "")
         chat_id = f"{phone_number}@c.us"
         
+        text = redact_links(text)
+        metadata = redact_links(metadata)
+
         message_doc = {
             "message_id": message_id,
             "channel_id": channel_id,
