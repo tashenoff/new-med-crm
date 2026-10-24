@@ -196,7 +196,8 @@ class PayrollTests(unittest.IsolatedAsyncioTestCase):
             async with stdio_client(params) as (read, write):
                 async with ClientSession(read, write) as session:
                     await session.initialize()
-                    self.assertEqual([tool.name for tool in (await session.list_tools()).tools], [TOOL_NAME, PAYROLL_TOOL])
+                    from tools.finance_mcp.core import ALL_TOOLS
+                    self.assertEqual([tool.name for tool in (await session.list_tools()).tools], list(ALL_TOOLS))
                     result = await session.call_tool(PAYROLL_TOOL, PERIOD)
                     if demo:
                         self.assertFalse(result.isError)

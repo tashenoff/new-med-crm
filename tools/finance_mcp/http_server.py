@@ -22,7 +22,7 @@ from starlette.routing import Route
 
 from reporting.contract import ReportError, parse_period
 from reporting.live_access import AGENT_ID, API_ORIGIN, PAPERCLIP_RUNTIME
-from .core import PAYROLL_TOOL, TOOL_NAME, unique_object
+from .core import ALL_TOOLS, unique_object
 from .live_client import bound_adapter
 from .remote_access import check_access
 from .server import build_server
@@ -52,7 +52,7 @@ class RequestAdapter:
         return context.allowed_tools
 
     async def call(self, name, arguments):
-        if name not in (TOOL_NAME, PAYROLL_TOOL):
+        if name not in ALL_TOOLS:
             raise ReportError("UNKNOWN_TOOL")
         parse_period(arguments)
         context = active_call.get()
@@ -142,7 +142,7 @@ class GuardedEndpoint:
                 types.ClientNotification.model_validate(message)
             if method == "tools/call":
                 name = message["params"]["name"]
-                code = "UNKNOWN_TOOL" if name not in (TOOL_NAME, PAYROLL_TOOL) else ("FORBIDDEN" if name not in names else None)
+                code = "UNKNOWN_TOOL" if name not in ALL_TOOLS else ("FORBIDDEN" if name not in names else None)
                 if code:
                     return await JSONResponse({"jsonrpc": "2.0", "id": message["id"],
                         "result": {"isError": True, "content": [{"type": "text", "text": code}]}})(scope, receive, send_no_store)

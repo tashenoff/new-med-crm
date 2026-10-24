@@ -6,13 +6,20 @@ from hmac import compare_digest
 import re
 
 from .access import AccessContext, AgentGrant, UserIdentity
+from .amounts_due import PATH as AMOUNTS_DUE_PATH, SCOPE as AMOUNTS_DUE_SCOPE
+from .breakdown import PATH as BREAKDOWN_PATH, SCOPE as BREAKDOWN_SCOPE
 from .contract import PATH as FINANCE_PATH, SCOPE as FINANCE_SCOPE, ReportError
 from .payroll import PATH as PAYROLL_PATH, SCOPE as PAYROLL_SCOPE
 
 API_ORIGIN = "https://medcrm.duckdns.org"
 PAPERCLIP_RUNTIME = "https://paperclips.duckdns.org/MED/agents/7923c1ec-bf35-4cc4-adff-91c85fe660f1/runtime"
 AGENT_ID = "7923c1ec-bf35-4cc4-adff-91c85fe660f1"
-ROUTES = {FINANCE_PATH: (FINANCE_SCOPE, "finance_view"), PAYROLL_PATH: (PAYROLL_SCOPE, "payroll_view")}
+ROUTES = {
+    FINANCE_PATH: (FINANCE_SCOPE, "finance_view"),
+    BREAKDOWN_PATH: (BREAKDOWN_SCOPE, "finance_view"),
+    AMOUNTS_DUE_PATH: (AMOUNTS_DUE_SCOPE, "finance_view"),
+    PAYROLL_PATH: (PAYROLL_SCOPE, "payroll_view"),
+}
 
 
 @dataclass(frozen=True)

@@ -177,13 +177,50 @@ async def calculate(snapshot, scope, period):
         appointments = Records(scoped[2])
 
     result = await BoundedSalaryService(DetachedClinic()).get_doctor_salary_report(period.date_from, period.date_to)
-    if (result.get("compensation_complete") is not True or result.get("accounting_blockers") != []
-            or result.get("compensation_currency") != "KZT"):
+    if result.get("compensation_currency") != "KZT" or type(result.get("salary_data")) is not list:
+        raise ReportError("INCOMPLETE_ACCOUNTING")
+    # Do not invent payouts. Incomplete doctors may be omitted only when their zero
+    # period accrual is independently proven (idle consultation-mode gaps).
+    SAFE_IDLE = frozenset({"consultation_mode_unavailable"})
+
+    def proven_idle(row):
+        if type(row) is not dict:
+            return False
+        blockers = row.get("accounting_blockers") or []
+        if type(blockers) is not list or not blockers:
+            return False
+        codes = set()
+        for entry in blockers:
+            if type(entry) is not dict or type(entry.get("code")) is not str:
+                return False
+            codes.add(entry["code"])
+        if not codes <= SAFE_IDLE:
+            return False
+        try:
+            zero = (
+                amount(row.get("calculated_salary") or 0) == 0
+                and amount(row.get("treatment_plans_revenue") or 0) == 0
+                and amount(row.get("appointments_revenue") or 0) == 0
+                and (row.get("total_appointments") or 0) == 0
+            )
+        except ReportError:
+            return False
+        return zero is True
+
+    complete, blocked = [], []
+    for row in result["salary_data"]:
+        if type(row) is not dict or type(row.get("doctor_id")) is not str:
+            raise ReportError("INCOMPLETE_ACCOUNTING")
+        if row.get("compensation_complete") is True and not (row.get("accounting_blockers") or []):
+            complete.append(row)
+        else:
+            blocked.append(row)
+    if any(not proven_idle(row) for row in blocked):
         raise ReportError("INCOMPLETE_ACCOUNTING")
     doctors = tuple(DoctorAccrual(doctor_id=row["doctor_id"], accrued_kzt=f"{amount(row['calculated_salary']):.2f}")
-                    for row in result["salary_data"])
+                    for row in complete)
     total = amount(sum((Decimal(row.accrued_kzt) for row in doctors), Decimal(0)))
-    if amount(result["summary"]["total_salary"]) != total:
+    if not blocked and amount(result["summary"]["total_salary"]) != total:
         raise ReportError("SOURCE_DATA_INVALID")
     return PayrollReport(metric="existing_salary_service_accrual", period=period,
         date_basis="existing_earning_rules_with_explicit_utc_bounds", currency="KZT", doctors=doctors,

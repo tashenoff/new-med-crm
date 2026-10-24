@@ -22,6 +22,10 @@ sys.path.insert(0, str(ROOT / "backend"))
 
 from reporting.access_contract import ACCESS_PATH
 from reporting.api import router as closed_finance
+from reporting.amounts_due import PATH as AMOUNTS_DUE_PATH
+from reporting.amounts_due_api import router as closed_amounts_due
+from reporting.breakdown import PATH as BREAKDOWN_PATH
+from reporting.breakdown_api import router as closed_breakdown
 from reporting.contract import PATH, ReportError
 from reporting.live_access import AGENT_ID, API_ORIGIN, PAPERCLIP_RUNTIME
 from reporting.payroll import PATH as PAYROLL_PATH
@@ -75,11 +79,11 @@ def report_routes(app):
 
 
 async def assert_closed(routers):
-    assert routers == (closed_finance, closed_payroll)
+    assert routers == (closed_finance, closed_breakdown, closed_amounts_due, closed_payroll)
     app = mount(routers)
-    assert report_routes(app) == [(PATH, {"GET"}), (PAYROLL_PATH, {"GET"})]
+    assert report_routes(app) == [(PATH, {"GET"}), (BREAKDOWN_PATH, {"GET"}), (AMOUNTS_DUE_PATH, {"GET"}), (PAYROLL_PATH, {"GET"})]
     async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url=API_ORIGIN) as client:
-        for path in (PATH, PAYROLL_PATH):
+        for path in (PATH, BREAKDOWN_PATH, AMOUNTS_DUE_PATH, PAYROLL_PATH):
             assert (await client.get(path, params=PERIOD)).status_code == 401
             response = await client.get(path, params=PERIOD, headers={"Authorization": "Bearer " + TOKEN})
             assert response.status_code == 503
@@ -154,9 +158,9 @@ def test_valid_activation_uses_existing_db_and_only_two_environment_keys(config)
     assert reads == ["REPORTING_BINDING_FILE", "REPORTING_GRANT_FILE"]
     assert db.users.reads + db.staff.reads + db.doctors.reads + db.treatment_plans.reads == []
     assert store.reads == 0  # Grants are re-read at request time, not at startup.
-    assert len(routers) == 4
+    assert len(routers) == 6
     app = mount(routers)
-    assert report_routes(app) == [(PATH, {"GET"}), (PAYROLL_PATH, {"GET"}), (ACCESS_PATH, {"GET"})]
+    assert report_routes(app) == [(PATH, {"GET"}), (BREAKDOWN_PATH, {"GET"}), (AMOUNTS_DUE_PATH, {"GET"}), (PAYROLL_PATH, {"GET"}), (ACCESS_PATH, {"GET"})]
 
     async def check():
         load_synthetic_salary()
@@ -164,7 +168,7 @@ def test_valid_activation_uses_existing_db_and_only_two_environment_keys(config)
                                     headers={"Authorization": "Bearer " + TOKEN}) as client:
             metadata = await client.get(ACCESS_PATH)
             assert metadata.status_code == 200
-            assert metadata.json()["allowed_tools"] == ["get_finance_summary", "get_payroll_summary"]
+            assert metadata.json()["allowed_tools"] == ["get_finance_summary", "get_finance_breakdown", "get_amounts_due", "get_payroll_summary"]
             assert db.doctors.reads + db.treatment_plans.reads + db.appointments.reads == []
             assert (await client.get(PATH, params=PERIOD)).json()["report"]["gross_recorded_receipts_kzt"] == "0.00"
             assert (await client.get(PAYROLL_PATH, params=PERIOD)).json()["report"]["accrued_kzt"] == "125.00"
@@ -194,7 +198,7 @@ def test_actual_global_server_registrations_mount_one_set_in_place(config, confi
                 sentinel.add_api_route("/__" + name, lambda: None, methods=["GET"])
                 context[name] = sentinel
     exec(compile(ast.Module(body=nodes, type_ignores=[]), "server-router-registrations", "exec"), context)
-    expected = [(PATH, {"GET"}), (PAYROLL_PATH, {"GET"})]
+    expected = [(PATH, {"GET"}), (BREAKDOWN_PATH, {"GET"}), (AMOUNTS_DUE_PATH, {"GET"}), (PAYROLL_PATH, {"GET"})]
     if configured:
         expected.append((ACCESS_PATH, {"GET"}))
     assert report_routes(app) == expected

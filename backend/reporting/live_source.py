@@ -6,6 +6,7 @@ from decimal import Decimal
 from .contract import MAX_EVENTS, ReportError
 from .live_access import bounded_find
 from .grok_oauth import CLIENT_ID
+from .amounts_due import AmountsDueSnapshot
 from .payroll import MAX_RECORDS, PayrollSnapshot, check_size
 from .service import CoverageEvidence, NON_RECEIPTS, RECEIPTS, Snapshot, amount, instant
 
@@ -114,6 +115,11 @@ def verify_finance_plan(plan):
     return events
 
 
+
+def amounts_due_projection():
+    return {**plan_projection(), "total_cost": 1}
+
+
 class LiveReadAdapter:
     def __init__(self, db, binding, *, principal_id=None):
         self.db, self.binding = db, binding
@@ -179,3 +185,9 @@ class LiveReadAdapter:
         # SalaryService requires a full_name for its legacy internal DTO. Do not fetch it.
         doctors = tuple({**doctor, "full_name": "withheld"} for doctor in doctors)
         return PayrollSnapshot(doctors, plans, appointments, self.coverage(scope, period))
+
+    async def amounts_due(self, scope, period):
+        self.guard(scope)
+        async with await self.db.client.start_session(snapshot=True) as session:
+            plans = await self.records(self.db.treatment_plans, amounts_due_projection(), session)
+        return AmountsDueSnapshot(plans, self.coverage(scope, period))

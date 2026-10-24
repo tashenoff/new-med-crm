@@ -27,7 +27,7 @@ from reporting.access import authorize
 from reporting.api import create_router
 from reporting.contract import Envelope, FinanceReport, LIMITATIONS, MAX_EVENTS, MAX_RESPONSE_BYTES, PATH, ReportError, parse_period
 from reporting.service import aggregate, Snapshot
-from tools.finance_mcp.core import Adapter, FinanceApi, MARKER, TOOL_NAME, PAYROLL_TOOL
+from tools.finance_mcp.core import Adapter, FinanceApi, ALL_TOOLS, MARKER, TOOL_NAME, PAYROLL_TOOL
 from tools.finance_mcp.synthetic import DEMO_CONTEXT, DEMO_COVERAGE, DEMO_EVENTS, SyntheticBackend, SyntheticHttpStand, event
 
 PERIOD = {"date_from": "2026-10-19", "date_to": "2026-10-19"}
@@ -345,7 +345,7 @@ class ProtocolTests(unittest.IsolatedAsyncioTestCase):
     async def test_real_stdio_mcp_to_owned_synthetic_tcp_http_server(self):
         async with self.session(True) as session:
             tools = (await session.list_tools()).tools
-            self.assertEqual([tool.name for tool in tools], [TOOL_NAME, PAYROLL_TOOL])
+            self.assertEqual([tool.name for tool in tools], list(ALL_TOOLS))
             self.assertFalse(tools[0].inputSchema["additionalProperties"])
             self.assertTrue(tools[0].model_dump()["annotations"]["readOnlyHint"])
             result = await session.call_tool(TOOL_NAME, PERIOD)

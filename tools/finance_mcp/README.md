@@ -14,13 +14,15 @@ Configuration-driven activation is implemented locally; see
 and remaining deployment/access approvals. Production activation is not verified;
 the default configuration remains closed.
 
-Two stdio tools, one local MCP process. This release is deliberately **unconnected**
+Four stdio tools, one local MCP process. This release is deliberately **unconnected**
 to production data. Deploying these source files does not install an agent, issue a
 credential, grant access, or start a persistent MCP service.
 
 | Tool | Fixed GET endpoint | Required agent scope | Current owner permission |
 | --- | --- | --- | --- |
 | `get_finance_summary` | `/api/reporting/finance/summary` | `finance.summary.read` | `finance_view` |
+| `get_finance_breakdown` | `/api/reporting/finance/breakdown` | `finance.breakdown.read` | `finance_view` |
+| `get_amounts_due` | `/api/reporting/finance/amounts-due` | `finance.amounts_due.read` | `finance_view` |
 | `get_payroll_summary` | `/api/reporting/payroll/summary` | `payroll.summary.read` | `payroll_view` (new reporting contract; no existing rights changed) |
 
 Both accept **only** `date_from` and `date_to`, exact `YYYY-MM-DD`, inclusive dates
@@ -28,7 +30,7 @@ in `Asia/Bishkek`, 1–366 days. Local midnight bounds are converted to a half-o
 UTC interval. A trusted server-side resolver must supply the current owner, agent,
 clinic membership and unexpired grant on every call. The model cannot supply those
 identities, a URL, headers, SQL, Mongo queries, scope or timezone. This slice requires
-separately resolved, exactly scoped grants for the two reports; broad extra scopes
+separately resolved, exactly scoped grants for the four reports; broad extra scopes
 are rejected. The existing live resolver is selected only by explicit backend
 configuration below. Only the separately provisioned Grok public client has an
 OAuth issuer; no Paperclip credential issuer is added.
@@ -67,8 +69,8 @@ mismatch) selects the original two closed routers: anonymous requests get 401,
 bearer-looking requests get 503 `REPORTING_UNCONFIGURED`, and
 `/api/reporting/access` is absent. Configuration failures emit no values or exception
 text and do not prevent general CRM startup. Valid configuration replaces those
-registrations with finance, payroll, access and backend OAuth routers, in their original
-position. The root-running backend owns authorization, token, revocation and discovery;
+registrations with finance, breakdown, amounts-due, payroll, access and backend OAuth
+routers, in their original position. The root-running backend owns authorization, token, revocation and discovery;
 the unprivileged sidecar serves only `/api/reporting/mcp`. It creates no new Mongo client and changes no database lifecycle.
 
 The grant path is validated as absolute at startup; grant contents are **not** read
@@ -132,6 +134,21 @@ explicit. Sources exceeding the bounded contract fail closed. HTTP responses use
 `Cache-Control: no-store`; the MCP validates bounded closed DTOs and strips internal
 owner/agent/clinic identity before returning tool content. No generic HTTP or
 database tool exists.
+
+
+## P0 additions
+
+`get_finance_breakdown` reuses the same period rules and coverage proof as
+`get_finance_summary`, returning Asia/Bishkek day buckets and event-kind buckets
+that sum to the summary totals.
+
+`get_amounts_due` reports current clinic treatment-plan amounts due: opaque
+`plan_id` plus payable/funded/due KZT. Patient PII is never projected. Legacy or
+contradictory plan balances fail closed with `INCOMPLETE_ACCOUNTING`.
+
+`get_payroll_summary` still never invents `paid_kzt` / `outstanding_kzt`. Doctors
+whose only gap is an idle `consultation_mode_unavailable` with zero period activity
+no longer poison an otherwise complete clinic accrual.
 
 ## Synthetic verification
 

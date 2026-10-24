@@ -29,7 +29,7 @@ def decode_grants(raw):
         data = json.loads(raw, object_pairs_hook=unique_object)
         if type(data) is not dict or set(data) != {"version", "grants"} or type(data["version"]) is not int or data["version"] != 1:
             raise ValueError
-        if type(data["grants"]) is not list or len(data["grants"]) > 2:
+        if type(data["grants"]) is not list or len(data["grants"]) > len(ROUTES):
             raise ValueError
         result, seen = [], set()
         for row in data["grants"]:

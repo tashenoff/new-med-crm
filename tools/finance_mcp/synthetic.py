@@ -9,7 +9,11 @@ from fastapi import FastAPI
 import uvicorn
 
 from reporting.access import AccessContext, AgentGrant, UserIdentity
+from reporting.amounts_due import AmountsDueSnapshot, SCOPE as AMOUNTS_DUE_SCOPE
+from reporting.amounts_due_api import create_amounts_due_router
 from reporting.api import create_router
+from reporting.breakdown import SCOPE as BREAKDOWN_SCOPE
+from reporting.breakdown_api import create_breakdown_router
 from reporting.contract import SCOPE
 from reporting.service import CoverageEvidence, Snapshot
 from .core import MARKER
@@ -78,6 +82,16 @@ class SyntheticBackend:
         self.snapshot = Snapshot(deepcopy(DEMO_EVENTS), DEMO_COVERAGE)
         self.payroll_context = PAYROLL_CONTEXT
         self.payroll_snapshot = deepcopy(PAYROLL_SNAPSHOT)
+
+        self.breakdown_context = AccessContext(
+            UserIdentity("demo-owner", True, frozenset({"finance_view"}), frozenset({"demo-clinic"})),
+            AgentGrant("demo-finance-agent", "demo-owner", "demo-clinic", True, frozenset({BREAKDOWN_SCOPE}), datetime(2099, 1, 1, tzinfo=UTC)),
+        )
+        self.amounts_due_context = AccessContext(
+            UserIdentity("demo-owner", True, frozenset({"finance_view"}), frozenset({"demo-clinic"})),
+            AgentGrant("demo-finance-agent", "demo-owner", "demo-clinic", True, frozenset({AMOUNTS_DUE_SCOPE}), datetime(2099, 1, 1, tzinfo=UTC)),
+        )
+        self.amounts_due_snapshot = AmountsDueSnapshot((), DEMO_COVERAGE)
         self.context_reads = 0
         self.source_reads = 0
         self.marker = MARKER
@@ -102,6 +116,26 @@ class SyntheticBackend:
             return self.payroll_snapshot
 
         self.app.include_router(create_payroll_router(resolve_payroll_context, read_payroll_snapshot))
+
+        async def resolve_breakdown_context(request):
+            self.context_reads += 1
+            return self.breakdown_context
+
+        async def read_breakdown_snapshot(scope, period):
+            self.source_reads += 1
+            return self.snapshot
+
+        self.app.include_router(create_breakdown_router(resolve_breakdown_context, read_breakdown_snapshot))
+
+        async def resolve_amounts_due_context(request):
+            self.context_reads += 1
+            return self.amounts_due_context
+
+        async def read_amounts_due_snapshot(scope, period):
+            self.source_reads += 1
+            return self.amounts_due_snapshot
+
+        self.app.include_router(create_amounts_due_router(resolve_amounts_due_context, read_amounts_due_snapshot))
 
         @self.app.middleware("http")
         async def mark_synthetic(request, call_next):
