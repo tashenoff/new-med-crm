@@ -4,9 +4,18 @@ from typing import Literal
 from .contract import ClosedModel, Scope
 
 ACCESS_PATH = "/api/reporting/access"
-FINANCE_TOOL, PAYROLL_TOOL = "get_finance_summary", "get_payroll_summary"
+FINANCE_TOOL = "get_finance_summary"
+BREAKDOWN_TOOL = "get_finance_breakdown"
+AMOUNTS_DUE_TOOL = "get_amounts_due"
+PAYROLL_TOOL = "get_payroll_summary"
+ALL_TOOLS = (FINANCE_TOOL, BREAKDOWN_TOOL, AMOUNTS_DUE_TOOL, PAYROLL_TOOL)
 
 
 class AccessEnvelope(ClosedModel):
     scope: Scope
-    allowed_tools: tuple[Literal["get_finance_summary", "get_payroll_summary"], ...]
+    allowed_tools: tuple[Literal[
+        "get_finance_summary",
+        "get_finance_breakdown",
+        "get_amounts_due",
+        "get_payroll_summary",
+    ], ...]

@@ -17,7 +17,8 @@ from mcp.server.stdio import stdio_server
 
 from reporting.access import authorize
 from reporting.contract import ReportError
-from tools.finance_mcp.core import Adapter, FinanceApi, PayrollApi, INPUT_SCHEMA, TOOL_NAME, PAYROLL_TOOL
+from tools.finance_mcp.core import (Adapter, AmountsDueApi, BreakdownApi, FinanceApi, PayrollApi,
+    INPUT_SCHEMA, ALL_TOOLS, TOOL_NAME, BREAKDOWN_TOOL, AMOUNTS_DUE_TOOL, PAYROLL_TOOL)
 from reporting.payroll import SCOPE as PAYROLL_SCOPE, PERMISSION as PAYROLL_PERMISSION
 
 
@@ -27,18 +28,32 @@ def build_server(adapter, demo=False, *, connected=False):
     @server.list_tools()
     async def list_tools():
         prefix = "SYNTHETIC DEMO ONLY. " if demo else ("SERVER AUTHORIZED READ-ONLY. " if connected else "UNCONNECTED. Real access is disabled. ")
-        tools = [types.Tool(name=TOOL_NAME,
-            description=prefix
-                + "Gross recorded direct service receipts and plan advances in KZT by occurred_at, inclusive local dates in Asia/Bishkek. "
-                + "Not total clinic cashflow, profit, refunds or payroll. Missing source coverage returns an error without amounts.",
-            inputSchema=INPUT_SCHEMA,
-            annotations={"readOnlyHint": True, "destructiveHint": False, "idempotentHint": True, "openWorldHint": False}),
+        tools = [
+            types.Tool(name=TOOL_NAME,
+                description=prefix
+                    + "Gross recorded direct service receipts and plan advances in KZT by occurred_at, inclusive local dates in Asia/Bishkek. "
+                    + "Not total clinic cashflow, profit, refunds or payroll. Missing source coverage returns an error without amounts.",
+                inputSchema=INPUT_SCHEMA,
+                annotations={"readOnlyHint": True, "destructiveHint": False, "idempotentHint": True, "openWorldHint": False}),
+            types.Tool(name=BREAKDOWN_TOOL,
+                description=prefix
+                    + "Same gross recorded receipts metric as get_finance_summary, broken down by Asia/Bishkek day and event kind. "
+                    + "Missing source coverage returns an error without amounts.",
+                inputSchema=INPUT_SCHEMA,
+                annotations={"readOnlyHint": True, "destructiveHint": False, "idempotentHint": True, "openWorldHint": False}),
+            types.Tool(name=AMOUNTS_DUE_TOOL,
+                description=prefix
+                    + "Clinic-level treatment-plan amounts due in KZT. Opaque plan ids only; no patient PII. "
+                    + "Legacy or incomplete plan balances return an error without amounts.",
+                inputSchema=INPUT_SCHEMA,
+                annotations={"readOnlyHint": True, "destructiveHint": False, "idempotentHint": True, "openWorldHint": False}),
             types.Tool(name=PAYROLL_TOOL,
                 description=prefix
                     + "Accrued doctor compensation using existing SalaryService with inclusive Asia/Bishkek dates. "
                     + "Separate payroll scope required. Doctor IDs and accrued KZT only; paid/outstanding are unavailable, never inferred.",
                 inputSchema=INPUT_SCHEMA,
-                annotations={"readOnlyHint": True, "destructiveHint": False, "idempotentHint": True, "openWorldHint": False})]
+                annotations={"readOnlyHint": True, "destructiveHint": False, "idempotentHint": True, "openWorldHint": False}),
+        ]
         allowed = await adapter.list_names()
         return [tool for tool in tools if tool.name in allowed]
 
@@ -71,9 +86,20 @@ async def run(demo=False):
             load_synthetic_salary()
             stand = SyntheticHttpStand().start()
             client = httpx.AsyncClient(base_url=stand.origin, trust_env=False, timeout=5, follow_redirects=False)
-            adapter = Adapter(FinanceApi(client, authorize(DEMO_CONTEXT), synthetic_only=True),
-                PayrollApi(client, authorize(PAYROLL_CONTEXT, required_scope=PAYROLL_SCOPE,
-                    required_permission=PAYROLL_PERMISSION), synthetic_only=True))
+            from dataclasses import replace
+            from reporting.amounts_due import SCOPE as AMOUNTS_DUE_SCOPE
+            from reporting.breakdown import SCOPE as BREAKDOWN_SCOPE
+            finance_scope = authorize(DEMO_CONTEXT)
+            breakdown_scope = authorize(replace(DEMO_CONTEXT, grant=replace(DEMO_CONTEXT.grant, scopes=frozenset({BREAKDOWN_SCOPE}))),
+                required_scope=BREAKDOWN_SCOPE)
+            amounts_scope = authorize(replace(DEMO_CONTEXT, grant=replace(DEMO_CONTEXT.grant, scopes=frozenset({AMOUNTS_DUE_SCOPE}))),
+                required_scope=AMOUNTS_DUE_SCOPE)
+            payroll_scope = authorize(PAYROLL_CONTEXT, required_scope=PAYROLL_SCOPE,
+                    required_permission=PAYROLL_PERMISSION)
+            adapter = Adapter(FinanceApi(client, finance_scope, synthetic_only=True),
+                PayrollApi(client, payroll_scope, synthetic_only=True),
+                BreakdownApi(client, breakdown_scope, synthetic_only=True),
+                AmountsDueApi(client, amounts_scope, synthetic_only=True))
         server = build_server(adapter, demo)
         async with stdio_server() as (read, write):
             await server.run(read, write, server.create_initialization_options())

@@ -28,7 +28,7 @@ if MODERN:
     from reporting.access_api import ACCESS_PATH
     from reporting.configured import build_bound_routers
     from reporting.live_access import API_ORIGIN
-    from tools.finance_mcp.core import PAYROLL_TOOL, TOOL_NAME
+    from tools.finance_mcp.core import AMOUNTS_DUE_TOOL, BREAKDOWN_TOOL, PAYROLL_TOOL, TOOL_NAME
     from tools.finance_mcp.http_server import MCP_PATH, MAX_REQUEST_BYTES, create_http_app
     from tools.finance_mcp.synthetic import load_synthetic_salary
     from test_live_adapters import BINDING, PERIOD, TOKEN, Store, database, grant
@@ -82,7 +82,7 @@ class HttpMcpTests(unittest.IsolatedAsyncioTestCase):
             listed = await self.rpc(client, "tools/list", {})
             self.assertEqual(listed.status_code, 200, listed.text)
             tools = listed.json()["result"]["tools"]
-            self.assertEqual([row["name"] for row in tools], [TOOL_NAME, PAYROLL_TOOL])
+            self.assertEqual([row["name"] for row in tools], [TOOL_NAME, BREAKDOWN_TOOL, AMOUNTS_DUE_TOOL, PAYROLL_TOOL])
             self.assertTrue(all(row["annotations"]["readOnlyHint"] for row in tools))
             self.assertEqual(self.db.treatment_plans.reads + self.db.doctors.reads + self.db.appointments.reads, [])
             for name, key, expected in ((TOOL_NAME, "gross_recorded_receipts_kzt", "0.00"),

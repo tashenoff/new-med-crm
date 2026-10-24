@@ -5,13 +5,15 @@ Configuration-driven activation is implemented locally; see
 and remaining deployment/access approvals. Production activation is not verified;
 the default configuration remains closed.
 
-Two stdio tools, one local MCP process. This release is deliberately **unconnected**
+Four stdio tools, one local MCP process. This release is deliberately **unconnected**
 to production data. Deploying these source files does not install an agent, issue a
 credential, grant access, or start a persistent MCP service.
 
 | Tool | Fixed GET endpoint | Required agent scope | Current owner permission |
 | --- | --- | --- | --- |
 | `get_finance_summary` | `/api/reporting/finance/summary` | `finance.summary.read` | `finance_view` |
+| get_finance_breakdown | /api/reporting/finance/breakdown | inance.breakdown.read | inance_view |
+| get_amounts_due | /api/reporting/finance/amounts-due | inance.amounts_due.read | inance_view |
 | `get_payroll_summary` | `/api/reporting/payroll/summary` | `payroll.summary.read` | `payroll_view` (new reporting contract; no existing rights changed) |
 
 Both accept **only** `date_from` and `date_to`, exact `YYYY-MM-DD`, inclusive dates
@@ -118,6 +120,20 @@ explicit. Sources exceeding the bounded contract fail closed. HTTP responses use
 `Cache-Control: no-store`; the MCP validates bounded closed DTOs and strips internal
 owner/agent/clinic identity before returning tool content. No generic HTTP or
 database tool exists.
+
+## P0 additions
+
+get_finance_breakdown reuses the same period rules and coverage proof as
+get_finance_summary, returning Asia/Bishkek day buckets and event-kind buckets
+that sum to the summary totals.
+
+get_amounts_due reports current clinic treatment-plan amounts due: opaque
+plan_id plus payable/funded/due KZT. Patient PII is never projected. Legacy or
+contradictory plan balances fail closed with INCOMPLETE_ACCOUNTING.
+
+get_payroll_summary still never invents paid_kzt / outstanding_kzt. Doctors
+whose only gap is an idle consultation_mode_unavailable with zero period activity
+no longer poison an otherwise complete clinic accrual.
 
 ## Synthetic verification
 

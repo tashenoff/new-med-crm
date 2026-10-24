@@ -4,11 +4,16 @@ import json
 import httpx
 from pydantic import ValidationError
 
+from reporting.amounts_due import AmountsDueEnvelope, PATH as AMOUNTS_DUE_PATH, MAX_RESPONSE_BYTES as AMOUNTS_DUE_MAX
+from reporting.breakdown import FinanceBreakdownEnvelope, PATH as BREAKDOWN_PATH, MAX_RESPONSE_BYTES as BREAKDOWN_MAX
 from reporting.contract import Envelope, MAX_RESPONSE_BYTES, PATH, ReportError, parse_period
 from reporting.payroll import PayrollEnvelope, PATH as PAYROLL_PATH
 
 TOOL_NAME = "get_finance_summary"
+BREAKDOWN_TOOL = "get_finance_breakdown"
+AMOUNTS_DUE_TOOL = "get_amounts_due"
 PAYROLL_TOOL = "get_payroll_summary"
+ALL_TOOLS = (TOOL_NAME, BREAKDOWN_TOOL, AMOUNTS_DUE_TOOL, PAYROLL_TOOL)
 MARKER = "new-med-finance-synthetic-v1"
 INPUT_SCHEMA = {"type": "object", "additionalProperties": False,
     "properties": {"date_from": {"type": "string", "format": "date"},
@@ -28,6 +33,7 @@ def unique_object(pairs):
 class FinanceApi:
     path = PATH
     envelope_type = Envelope
+    max_bytes = MAX_RESPONSE_BYTES
     def __init__(self, client, binding, *, synthetic_only=False):
         # client/binding may only be supplied by trusted host code, never model arguments.
         self.client, self.binding, self.synthetic_only = client, binding, synthetic_only
@@ -47,7 +53,7 @@ class FinanceApi:
                     raise ReportError("SOURCE_CONTRACT_INVALID")
                 raw = bytearray()
                 async for chunk in response.aiter_bytes():
-                    if len(raw) + len(chunk) > MAX_RESPONSE_BYTES:
+                    if len(raw) + len(chunk) > self.max_bytes:
                         raise ReportError("SOURCE_CONTRACT_INVALID")
                     raw.extend(chunk)
             payload = json.loads(raw, object_pairs_hook=unique_object)
@@ -72,18 +78,48 @@ class PayrollApi(FinanceApi):
     envelope_type = PayrollEnvelope
 
 
+class BreakdownApi(FinanceApi):
+    path = BREAKDOWN_PATH
+    envelope_type = FinanceBreakdownEnvelope
+    max_bytes = BREAKDOWN_MAX
+
+
+class AmountsDueApi(FinanceApi):
+    path = AMOUNTS_DUE_PATH
+    envelope_type = AmountsDueEnvelope
+    max_bytes = AMOUNTS_DUE_MAX
+
+
 class Adapter:
-    def __init__(self, api=None, payroll_api=None):
-        self.api, self.payroll_api = api, payroll_api
+    def __init__(self, api=None, payroll_api=None, breakdown_api=None, amounts_due_api=None):
+        self.api = api
+        self.payroll_api = payroll_api
+        self.breakdown_api = breakdown_api
+        self.amounts_due_api = amounts_due_api
 
     async def list_names(self):
-        return (TOOL_NAME, PAYROLL_TOOL)
+        names = []
+        if self.api is not None:
+            names.append(TOOL_NAME)
+        if self.breakdown_api is not None:
+            names.append(BREAKDOWN_TOOL)
+        if self.amounts_due_api is not None:
+            names.append(AMOUNTS_DUE_TOOL)
+        if self.payroll_api is not None:
+            names.append(PAYROLL_TOOL)
+        return tuple(names) if names else ALL_TOOLS
 
     async def call(self, name, arguments):
-        if name not in (TOOL_NAME, PAYROLL_TOOL):
+        if name not in ALL_TOOLS:
             raise ReportError("UNKNOWN_TOOL")
         period = parse_period(arguments)
-        api = self.api if name == TOOL_NAME else self.payroll_api
+        apis = {
+            TOOL_NAME: self.api,
+            BREAKDOWN_TOOL: self.breakdown_api,
+            AMOUNTS_DUE_TOOL: self.amounts_due_api,
+            PAYROLL_TOOL: self.payroll_api,
+        }
+        api = apis[name]
         if api is None:
             raise ReportError("REPORTING_UNCONFIGURED")
         return await api.read(period)

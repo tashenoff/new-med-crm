@@ -1,9 +1,9 @@
 """Fixed MedCRM metadata probe, no report reads for MCP discovery/initialization."""
 import json
 
-from reporting.access_contract import ACCESS_PATH, AccessEnvelope
+from reporting.access_contract import ACCESS_PATH, ALL_TOOLS, AccessEnvelope
 from reporting.contract import ReportError, Scope
-from .core import PAYROLL_TOOL, TOOL_NAME, unique_object
+from .core import unique_object
 
 
 async def check_access(client, binding):
@@ -25,7 +25,7 @@ async def check_access(client, binding):
         if envelope.scope != expected:
             raise ReportError("FORBIDDEN")
         names = envelope.allowed_tools
-        if not names or len(names) != len(set(names)) or set(names) - {TOOL_NAME, PAYROLL_TOOL}:
+        if not names or len(names) != len(set(names)) or set(names) - set(ALL_TOOLS):
             raise ValueError
         return names
     except ReportError:

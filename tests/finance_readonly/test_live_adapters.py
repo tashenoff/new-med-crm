@@ -24,6 +24,8 @@ from reporting.contract import PATH, SCOPE, ReportError, parse_period
 from reporting.grant_store import JsonGrantStore, decode_grants
 from reporting.live_access import API_ORIGIN, PAPERCLIP_RUNTIME, AGENT_ID, DeploymentBinding, StoredGrant
 from reporting.live_source import LiveReadAdapter, APPOINTMENTS, doctor_projection, plan_projection
+from reporting.amounts_due import PATH as AMOUNTS_DUE_PATH, SCOPE as AMOUNTS_DUE_SCOPE
+from reporting.breakdown import PATH as BREAKDOWN_PATH, SCOPE as BREAKDOWN_SCOPE
 from reporting.payroll import PATH as PAYROLL_PATH, SCOPE as PAYROLL_SCOPE, PERMISSION
 from reporting.service import aggregate
 from tools.finance_mcp.core import PAYROLL_TOOL, TOOL_NAME
@@ -100,7 +102,7 @@ class Sessions:
 
 class Store:
     def __init__(self):
-        self.grants = (grant(), grant(PAYROLL_SCOPE))
+        self.grants = (grant(), grant(BREAKDOWN_SCOPE), grant(AMOUNTS_DUE_SCOPE), grant(PAYROLL_SCOPE))
         self.reads = 0
     def read(self):
         self.reads += 1
@@ -270,7 +272,7 @@ class GrantContractTests(unittest.TestCase):
     def test_grant_decoder_only_accepts_closed_metadata_and_two_exact_scopes(self):
         def document(grants):
             return json.dumps({"version": 1, "grants": [dict(asdict(row), expires_at=row.expires_at.isoformat()) for row in grants]})
-        self.assertEqual(len(decode_grants(document([grant(), grant(PAYROLL_SCOPE)]))), 2)
+        self.assertEqual(len(decode_grants(document([grant(), grant(BREAKDOWN_SCOPE), grant(AMOUNTS_DUE_SCOPE), grant(PAYROLL_SCOPE)]))), 4)
         for raw in (document([grant()] * 2), document([replace(grant(), scope="all")]),
                     document([grant(), grant(PAYROLL_SCOPE), grant()]),
                     '{"version":1,"version":1,"grants":[]}', '{"version":true,"grants":[]}',
