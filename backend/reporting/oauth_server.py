@@ -3,7 +3,6 @@
 Uses existing CRM authentication directly. No CRM JWT is issued or retained.
 """
 from collections import deque
-import asyncio
 from dataclasses import dataclass, field
 import base64
 from hashlib import sha256
@@ -15,11 +14,10 @@ import secrets
 import time
 from urllib.parse import parse_qsl, urlencode
 
-import httpx
 from starlette.responses import HTMLResponse, JSONResponse, RedirectResponse
 from starlette.routing import Route
 
-from reporting.binding_config import reject_constant, unique_object
+from reporting.binding_config import unique_object
 from reporting.grok_oauth import (CLIENT_ID, REDIRECT_URI, SCOPES, LIFETIME, RESOURCE_PATH,
                                   OAuthError, bound_state, current_owner)
 from reporting.contract import ReportError
@@ -30,6 +28,21 @@ TOKEN_PATH = "/api/reporting/oauth/token"
 REVOKE_PATH = "/api/reporting/oauth/revoke"
 MAX_BODY = 8192
 COOKIE = "__Host-medcrm-grok-oauth"
+# Operator-pinned snapshot of the single approved public Grok client, used because
+# production egress to its metadata URL is blocked (403). Never fetched at runtime.
+# The official document includes console/refresh support; our request validation
+# still permits only REDIRECT_URI and authorization_code, with no refresh tokens.
+PINNED_GROK_CLIENT_METADATA = {
+    "client_id": "https://grok.com/oauth/mcp-client.json",
+    "client_name": "Grok",
+    "client_uri": "https://grok.com",
+    "logo_uri": "https://grok.com/icon-512x512.png",
+    "redirect_uris": ["https://grok.com/connectors-oauth-exchange-code/",
+                      "https://console.x.ai/connectors-oauth-exchange-code/"],
+    "grant_types": ["authorization_code", "refresh_token"],
+    "response_types": ["code"],
+    "token_endpoint_auth_method": "none",
+}
 SECURITY = {"Cache-Control": "no-store", "Pragma": "no-cache", "Referrer-Policy": "no-referrer",
     "X-Content-Type-Options": "nosniff", "X-Frame-Options": "DENY",
     "Content-Security-Policy": "default-src 'none'; form-action 'self'; frame-ancestors 'none'; base-uri 'none'",
@@ -93,8 +106,8 @@ class Limits:
 
 
 class OAuthServer:
-    def __init__(self, binding, store, db, transport=None, clock=None):
-        self.binding, self.store, self.transport = binding, store, transport
+    def __init__(self, binding, store, db, clock=None):
+        self.binding, self.store = binding, store
         self.db = db
         self.clock = clock or time.time
         self.transactions, self.limits = {}, Limits()
@@ -191,7 +204,7 @@ class OAuthServer:
             raise OAuthError()
         row = self.state()
         self.available(row, now)
-        await self.validate_client_metadata()
+        self.validate_client_metadata()
         if len(self.transactions) >= 128:
             raise OAuthError("temporarily_unavailable", 429)
         tx = secrets.token_urlsafe(32)
@@ -220,11 +233,8 @@ class OAuthServer:
         response.set_cookie(COOKIE, tx, max_age=600, secure=True, httponly=True, samesite="lax", path="/")
         return response
 
-    async def validate_client_metadata(self):
-        # Never dereference request input; redirects and environment proxies are disabled.
-        async with asyncio.timeout(10), httpx.AsyncClient(transport=self.transport, timeout=5,
-                trust_env=False, follow_redirects=False) as client:
-            document = await self.fetch_metadata(client)
+    def validate_client_metadata(self):
+        document = PINNED_GROK_CLIENT_METADATA
         if (document.get("client_id") != CLIENT_ID
                 or document.get("token_endpoint_auth_method") != "none"
                 or any(type(document.get(key)) is not list
@@ -235,25 +245,6 @@ class OAuthServer:
                 or "code" not in document["response_types"]
                 or "authorization_code" not in document["grant_types"]):
             raise OAuthError("temporarily_unavailable", 503)
-
-    async def fetch_metadata(self, client):
-        async with client.stream("GET", CLIENT_ID, headers={"Accept": "application/json"}) as response:
-            if response.status_code != 200:
-                raise OAuthError("temporarily_unavailable", 503)
-            if response.headers.get("content-type", "").split(";")[0].strip() != "application/json":
-                raise OAuthError("temporarily_unavailable", 503)
-            raw = bytearray()
-            async for chunk in response.aiter_bytes():
-                if len(raw) + len(chunk) > 16384:
-                    raise OAuthError("temporarily_unavailable", 503)
-                raw.extend(chunk)
-        try:
-            row = json.loads(raw, object_pairs_hook=unique_object, parse_constant=reject_constant)
-            if type(row) is not dict:
-                raise ValueError
-            return row
-        except (ValueError, TypeError, UnicodeError):
-            raise OAuthError("temporarily_unavailable", 503) from None
 
     def check_owner(self, user):
         if (user.get("id") != self.binding.owner_id or user.get("login") != "alex"

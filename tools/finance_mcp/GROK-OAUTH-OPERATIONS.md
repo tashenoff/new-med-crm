@@ -41,13 +41,16 @@ restart both backend and sidecar after code updates, and pass an unauthenticated
 Grok-Origin MCP probe that returns 401; a 403 indicates the Grok origin was not
 activated, not a failed OAuth login.
 
-Authorization dereferences only the hardcoded HTTPS CIMD URL, with environment
-proxies disabled, no redirects, 5-second I/O timeouts, a 10-second overall deadline
-and a 16-KiB decoded body limit. Duplicate JSON keys, invalid JSON, non-JSON content,
-wrong client_id, missing web redirect, non-public auth method, missing code
-response type or missing authorization_code grant are rejected before login.
-The client's metadata may also list refresh_token; the server still never issues
-refresh tokens or accepts that grant.
+Authorization uses the version-controlled operator-pinned snapshot of the single
+approved public Grok client in `backend/reporting/oauth_server.py`. Production
+egress to its exact CIMD URL returns 403 `text/html`; no metadata HTTP request is
+made at runtime. Snapshot updates require code review. Wrong client_id, missing
+web redirect, non-public auth method, missing code response type, missing
+authorization_code grant and duplicate list entries are rejected before login.
+The official snapshot also lists the console callback and refresh_token; server
+acceptance remains restricted to the exact Grok web callback, PKCE S256, the two
+approved scopes and a 30-day access grant. The console callback and refresh grant
+remain rejected; refresh tokens are never issued.
 
 ## Shared binding and root-only state
 

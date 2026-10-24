@@ -83,6 +83,7 @@ class GrokOAuthTests(unittest.IsolatedAsyncioTestCase):
         self.auth_calls = []
         self.metadata_calls = []
         self.client_metadata = dict(client_id="https://grok.com/oauth/mcp-client.json",
+            client_name="Grok", client_uri="https://grok.com", logo_uri="https://grok.com/icon-512x512.png",
             redirect_uris=[REDIRECT_URI, "https://console.x.ai/connectors-oauth-exchange-code/"],
             token_endpoint_auth_method="none", response_types=["code"],
             grant_types=["authorization_code", "refresh_token"])
@@ -112,6 +113,7 @@ class GrokOAuthTests(unittest.IsolatedAsyncioTestCase):
             server = getattr(route.endpoint, "__self__", None)
             if isinstance(server, OAuthServer):
                 self.oauth_server = server
+                # Keep the former fetch seam mocked to catch reintroduced HTTP lookups.
                 server.transport = self.transport
                 server.clock = lambda: self.clock
 
@@ -199,43 +201,51 @@ class GrokOAuthTests(unittest.IsolatedAsyncioTestCase):
         self.assertTrue(required <= paths, required - paths)
         self.assertEqual([route.path for route in self.app.routes], [MCP_PATH])
 
-    async def test_cimd_only_exact_url_and_validated_document_before_login(self):
-        with patch("reporting.oauth_server.httpx.AsyncClient", wraps=httpx.AsyncClient) as factory:
-            await self.begin()
-        self.assertIs(factory.call_args.kwargs["trust_env"], False)
-        self.assertIs(factory.call_args.kwargs["follow_redirects"], False)
-        self.assertEqual([str(r.url) for r in self.metadata_calls],
-                         ["https://grok.com/oauth/mcp-client.json"])
-        self.assertEqual(self.metadata_calls[0].method, "GET")
-        self.assertEqual(self.metadata_calls[0].extensions["timeout"],
-                         dict(connect=5, read=5, write=5, pool=5))
+    async def test_authorize_uses_pinned_client_when_metadata_upstream_returns_403(self):
+        self.metadata_response = httpx.Response(403, content=b"<html>Forbidden</html>",
+                                               headers={"content-type": "text/html"})
+        await self.begin()
+        self.assertEqual(self.metadata_calls, [])
+        self.assertEqual(self.auth_calls, [])
+        self.assertIsNone(self.oauth.data["consented_at"])
+        self.assertIsNone(self.oauth.data["token_hash"])
+
+    async def test_pinned_client_only_exact_id_and_validated_snapshot_before_login(self):
+        from reporting.oauth_server import PINNED_GROK_CLIENT_METADATA
+        self.assertEqual(PINNED_GROK_CLIENT_METADATA, self.client_metadata)
+        await self.begin()
         for client in ("https://evil.invalid/client.json", "http://grok.com/oauth/mcp-client.json",
                        "https://grok.com/oauth/mcp-client.json?x=1", "grok-medcrm"):
             params = self.params()
             params["client_id"] = client
             self.assertEqual((await self.client.get(AUTHORIZE_PATH, params=params)).status_code, 400)
-        self.assertEqual(len(self.metadata_calls), 1)
         for change in (dict(client_id="other"), dict(redirect_uris=["https://console.x.ai/connectors-oauth-exchange-code/"]),
                        dict(token_endpoint_auth_method="client_secret_post"), dict(response_types=["token"]),
                        dict(grant_types=["refresh_token"]), dict(redirect_uris=REDIRECT_URI)):
-            saved = deepcopy(self.client_metadata)
-            self.client_metadata.update(change)
-            self.assertEqual((await self.client.get(AUTHORIZE_PATH, params=self.params())).status_code, 503)
-            self.client_metadata = saved
+            with self.subTest(change=change), patch("reporting.oauth_server.PINNED_GROK_CLIENT_METADATA",
+                                                   {**self.client_metadata, **change}):
+                self.assertEqual((await self.client.get(AUTHORIZE_PATH, params=self.params())).status_code, 503)
+        for key in ("redirect_uris", "response_types", "grant_types"):
+            for value in ([], None, [1], self.client_metadata[key] * 2):
+                with self.subTest(key=key, value=value), patch("reporting.oauth_server.PINNED_GROK_CLIENT_METADATA",
+                                                             {**self.client_metadata, key: value}):
+                    self.assertEqual((await self.client.get(AUTHORIZE_PATH, params=self.params())).status_code, 503)
+        self.assertEqual(self.metadata_calls, [])
         self.assertIsNone(self.oauth.data["consented_at"])
 
-    async def test_cimd_rejects_redirect_duplicate_keys_bad_json_and_oversize(self):
-        for response in (httpx.Response(302, headers={"Location": "https://evil.invalid/"}),
-                         httpx.Response(200, content=b'{"client_id":"x","client_id":"x"}',
-                                        headers={"content-type": "application/json"}),
-                         httpx.Response(200, content=b"x" * 16385,
-                                        headers={"content-type": "application/json"}),
-                         httpx.Response(200, content=b"\xff", headers={"content-type": "application/json"}),
-                         httpx.Response(200, json=self.client_metadata, headers={"content-type": "text/html"})):
-            self.metadata_response = response
-            self.assertEqual((await self.client.get(AUTHORIZE_PATH, params=self.params())).status_code, 503)
-        self.assertEqual(len(self.metadata_calls), 5)
+    async def test_malformed_external_parameters_fail_before_login(self):
+        for raw in (b"state=%", b"state=%GG", b"state=%FF", b"state=%00", b"state=%7F",
+                    b"state=\xff", b"=value", b"state", b"state=one&state=two"):
+            with self.subTest(raw=raw):
+                response = await self.client.post(AUTHORIZE_PATH, content=raw,
+                    headers={"Content-Type": "application/x-www-form-urlencoded", "Origin": API_ORIGIN})
+                self.assertEqual(response.status_code, 400)
+        response = await self.client.post(AUTHORIZE_PATH, content=b"state=" + b"x" * 8192,
+            headers={"Content-Type": "application/x-www-form-urlencoded", "Origin": API_ORIGIN})
+        self.assertEqual(response.status_code, 413)
+        self.assertEqual(self.metadata_calls, [])
         self.assertEqual(self.auth_calls, [])
+        self.assertIsNone(self.oauth.data["consented_at"])
 
     async def test_expired_grant_requires_new_login_consent_and_old_token_stays_denied(self):
         self.clock = int(datetime.now(timezone.utc).timestamp())
