@@ -10,6 +10,7 @@ from pathlib import Path
 import re
 import sys
 import socket
+import subprocess
 import threading
 import time
 import unittest
@@ -200,6 +201,74 @@ class GrokOAuthTests(unittest.IsolatedAsyncioTestCase):
                     "/.well-known/oauth-protected-resource"}
         self.assertTrue(required <= paths, required - paths)
         self.assertEqual([route.path for route in self.app.routes], [MCP_PATH])
+
+    async def test_login_and_consent_guard_submissions_with_fresh_csp_nonce(self):
+        nonces = set()
+        for _ in range(2):
+            login = await self.client.get(AUTHORIZE_PATH, params=self.params())
+            tx = re.search(r'name="transaction" value="([A-Za-z0-9_-]+)"', login.text)[1]
+            consent = await self.client.post(AUTHORIZE_PATH, data=dict(transaction=tx, action="login",
+                username="alex", password="synthetic-password"))
+            for page, actions in ((login, ["login"]), (consent, ["approve", "deny"])):
+                self.assertEqual(page.status_code, 200, page.text)
+                scripts = re.findall(r'<script nonce="([A-Za-z0-9+/_=-]+)">(.*?)</script>',
+                                     page.text, re.DOTALL)
+                self.assertEqual(len(scripts), 1, "The form needs one nonce-authorized submit guard")
+                nonce, script = scripts[0]
+                self.assertGreaterEqual(len(base64.b64decode(nonce, altchars=b"-_", validate=True)), 16)
+                self.assertNotIn(nonce, nonces, "Each rendered page needs a fresh nonce")
+                nonces.add(nonce)
+                directives = {part.strip() for part in page.headers["content-security-policy"].split(";")}
+                self.assertEqual(directives, {"default-src 'none'", "form-action 'self'",
+                    "frame-ancestors 'none'", "base-uri 'none'", f"script-src 'nonce-{nonce}'"})
+                self.assertEqual(page.text.count("<script"), 1)
+                self.assertEqual(page.headers["cache-control"], "no-store")
+                self.assertEqual(page.headers["referrer-policy"], "no-referrer")
+                self.assertNotIn("set-cookie", page.headers)
+                buttons = [dict(re.findall(r'(\w+)="([^"]*)"', tag))
+                           for tag in re.findall(r'<button\b([^>]*)>', page.text)]
+                self.assertEqual([button.get("type") for button in buttons], ["submit"] * len(actions))
+                self.assertEqual([button.get("value") for button in buttons], actions)
+                # Execute the rendered handler against a small DOM double using Node's
+                # built-in JS runtime; no browser packages or network are needed.
+                result = subprocess.run(["node", "-e", r"""
+const {readFileSync} = require('node:fs');
+const {runInNewContext} = require('node:vm');
+const assert = require('node:assert/strict');
+const {script, buttons} = JSON.parse(readFileSync(0, 'utf8'));
+for (let index = 0; index < buttons.length; index++) {
+    const controls = buttons.map(button => ({...button, disabled: false}));
+    const form = new EventTarget();
+    form.querySelectorAll = selector => {
+        assert.equal(selector, 'button[type="submit"]');
+        return controls.filter(control => control.type === 'submit');
+    };
+    form.appendChild = control => controls.push(control);
+    const document = {
+        querySelector: selector => { assert.equal(selector, 'form'); return form; },
+        createElement: tag => { assert.equal(tag, 'input'); return {}; }
+    };
+    runInNewContext(script, {document});
+    function submit(submitter) {
+        const event = new Event('submit', {cancelable: true});
+        event.submitter = submitter;
+        form.dispatchEvent(event);
+        return event;
+    }
+    const first = submit(controls[index]);
+    assert.equal(first.defaultPrevented, false, 'The first POST must proceed');
+    assert.ok(controls.slice(0, buttons.length).every(button => button.disabled),
+              'Every submit button must be disabled synchronously');
+    const postedActions = () => controls.filter(control => control.name === 'action' && !control.disabled)
+                                       .map(control => control.value);
+    assert.deepEqual(postedActions(), [buttons[index].value], 'Preserve exactly the selected action');
+    const duplicate = submit(controls[(index + 1) % buttons.length]);
+    assert.equal(duplicate.defaultPrevented, true, 'A second submit must not POST');
+    assert.deepEqual(postedActions(), [buttons[index].value], 'A second submit must not change the action');
+}
+"""], input=json.dumps(dict(script=script, buttons=buttons)), capture_output=True, text=True, timeout=10)
+                self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertEqual(len(nonces), 4)
 
     async def test_authorize_uses_pinned_client_when_metadata_upstream_returns_403(self):
         self.metadata_response = httpx.Response(403, content=b"<html>Forbidden</html>",

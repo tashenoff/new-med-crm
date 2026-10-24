@@ -214,24 +214,42 @@ class OAuthServer:
         return self.page(tx, authenticated=False)
 
     def page(self, tx, *, authenticated):
+        nonce = secrets.token_urlsafe(24)
         if authenticated:
             content = f"""<h1>Доступ Grok к отчётам MedCRM</h1>
 <p>Владелец: alex. Клиника: curai.</p>
 <ul><li>Финансовая сводка — {SCOPES[0]}</li><li>Сводка начислений зарплаты — {SCOPES[1]}</li></ul>
 <p>Только чтение. Срок: 30 дней с согласия, без автоматического продления.
 Пациенты, диагнозы, медицинские записи и изменение данных недоступны.</p>
-<button name="action" value="approve">Разрешить на 30 дней</button>
-<button name="action" value="deny">Отказать</button>"""
+<button type="submit" name="action" value="approve">Разрешить на 30 дней</button>
+<button type="submit" name="action" value="deny">Отказать</button>"""
         else:
             content = """<h1>Вход владельца MedCRM для Grok</h1><p>Клиника curai. Войдите как alex.
 Пароль вводится только на MedCRM. После входа потребуется отдельное согласие.</p>
 <label>Логин <input name="username" value="alex" autocomplete="username" required maxlength="64"></label>
 <label>Пароль <input type="password" name="password" autocomplete="current-password" required maxlength="1024"></label>
-<button name="action" value="login">Войти</button>"""
+<button type="submit" name="action" value="login">Войти</button>"""
+        script = """const form = document.querySelector('form');
+let submitted = false;
+form.addEventListener('submit', event => {
+    if (submitted) { event.preventDefault(); return; }
+    submitted = true;
+    // Disabled buttons are omitted from the POST; preserve the chosen action.
+    if (event.submitter) {
+        const action = document.createElement('input');
+        action.type = 'hidden';
+        action.name = event.submitter.name;
+        action.value = event.submitter.value;
+        form.appendChild(action);
+    }
+    form.querySelectorAll('button[type="submit"]').forEach(button => { button.disabled = true; });
+});"""
         response = HTMLResponse(f'<!doctype html><html lang="ru"><meta charset="utf-8">'
             f'<title>MedCRM — Grok</title><body><form method="post" action="{AUTHORIZE_PATH}">'
-            f'<input type="hidden" name="transaction" value="{escape(tx, quote=True)}">{content}</form></body></html>',
-            headers=SECURITY)
+            f'<input type="hidden" name="transaction" value="{escape(tx, quote=True)}">{content}</form>'
+            f'<script nonce="{nonce}">{script}</script></body></html>',
+            headers={**SECURITY, "Content-Security-Policy":
+                     SECURITY["Content-Security-Policy"] + f"; script-src 'nonce-{nonce}'"})
         return response
 
     def validate_client_metadata(self):
