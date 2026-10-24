@@ -181,8 +181,13 @@ Use the same explicit forwarded-header trust on the sidecar's loopback Uvicorn
 command. Do not use `*` or expose either upstream port. OAuth endpoints require
 HTTPS scheme as interpreted by Uvicorn and exactly Host `medcrm.duckdns.org`;
 the application never trusts a raw X-Forwarded-Proto header itself. Consent POSTs
-also require the exact MedCRM Origin and a matching Secure/HttpOnly cookie plus
-single-use form transaction. Avoid query/body/header logging for OAuth requests;
+use a synchronizer-token CSRF check: the opaque random `__Host-medcrm-grok-oauth`
+Secure/HttpOnly cookie must exactly match the hidden form transaction, and that
+transaction must exist server-side. Duplicate or missing cookies, mismatches and
+unknown transactions fail closed. Each validated POST consumes its transaction;
+transactions expire after 10 minutes and retain binding/state-revision checks.
+The browser Origin value is not the CSRF proof; unexpected or absent Origin does
+not reject an otherwise matching cookie/transaction. Avoid query/body/header logging for OAuth requests;
 never print authorization codes, bearer tokens, passwords or CRM records.
 
 ## Later release verification and rollback
@@ -216,7 +221,7 @@ field. Only code-defined stage labels are recorded, with no request values or
 exception details. Client errors and statuses are unchanged; a 403 still returns
 only `{"error":"access_denied"}`. Remove this diagnostic block after diagnosis.
 
-Login gates include `origin`, `transaction_cookie`, `transaction_expired`,
+Login gates include `transaction_cookie`, `transaction_expired`,
 `state_binding`, `grant_available`, `state_revision`, `login_form`, `login_limit`,
 `crm_auth_exception`, `credentials_rejected`, `owner_profile` and `owner_recheck`.
 Approval also uses `approval_owner`, `grant_update` and `approval_redirect`;

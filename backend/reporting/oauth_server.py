@@ -270,11 +270,9 @@ class OAuthServer:
 
     async def consent(self, request, data, now, address):
         # Temporary diagnostics: only fixed stages, never request values or exceptions.
-        stage = "origin"
+        stage = "transaction_cookie"
         try:
-            if request.headers.get("origin") != API_ORIGIN:
-                raise OAuthError("access_denied", 403)
-            stage = "transaction_cookie"
+            # CSRF proof is the random host-only cookie + server-held form transaction.
             tx = data.get("transaction", "")
             # Reject duplicate cookies rather than relying on the cookie parser's last value.
             cookies = [part.strip().split("=", 1) for header in request.headers.getlist("cookie") for part in header.split(";")]
