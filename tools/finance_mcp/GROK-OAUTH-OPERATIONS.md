@@ -181,13 +181,18 @@ Use the same explicit forwarded-header trust on the sidecar's loopback Uvicorn
 command. Do not use `*` or expose either upstream port. OAuth endpoints require
 HTTPS scheme as interpreted by Uvicorn and exactly Host `medcrm.duckdns.org`;
 the application never trusts a raw X-Forwarded-Proto header itself. Consent POSTs
-use a synchronizer-token CSRF check: the opaque random `__Host-medcrm-grok-oauth`
-Secure/HttpOnly cookie must exactly match the hidden form transaction, and that
-transaction must exist server-side. Duplicate or missing cookies, mismatches and
-unknown transactions fail closed. Each validated POST consumes its transaction;
-transactions expire after 10 minutes and retain binding/state-revision checks.
-The browser Origin value is not the CSRF proof; unexpected or absent Origin does
-not reject an otherwise matching cookie/transaction. Avoid query/body/header logging for OAuth requests;
+use a synchronizer-token CSRF check: the opaque 256-bit hidden form transaction
+must exist in the server's in-memory transaction map. Every authorization POST
+consumes that transaction once before checking its 10-minute age, exact binding,
+state revision, owner and action schema. Missing, unknown, expired and replayed
+transactions fail closed. Login rotates the transaction without extending its age.
+Only the same-origin MedCRM form embeds the token; external sites cannot read it.
+The page retains CSP `form-action 'self'` and `frame-ancestors 'none'`.
+No cookie is issued or required; stale `__Host-medcrm-grok-oauth` cookies are
+ignored and cleared on callback redirects. Client-supplied cookie values are
+never proof of a transaction. Unexpected or absent Origin does not reject a valid
+server-held transaction. Run one backend worker: transactions are process-local
+and a restart invalidates pending forms. Avoid query/body/header logging for OAuth requests;
 never print authorization codes, bearer tokens, passwords or CRM records.
 
 ## Later release verification and rollback
@@ -221,13 +226,13 @@ field. Only code-defined stage labels are recorded, with no request values or
 exception details. Client errors and statuses are unchanged; a 403 still returns
 only `{"error":"access_denied"}`. Remove this diagnostic block after diagnosis.
 
-Login gates include `transaction_cookie`, `transaction_expired`,
+Login gates include `transaction`, `transaction_expired`,
 `state_binding`, `grant_available`, `state_revision`, `login_form`, `login_limit`,
 `crm_auth_exception`, `credentials_rejected`, `owner_profile` and `owner_recheck`.
 Approval also uses `approval_owner`, `grant_update` and `approval_redirect`;
 `login_page` covers rendering after successful authentication. Expired transactions
 are normally pruned before consent, so a retry with one records
-`transaction_cookie`, as does a missing transaction after a worker restart. No
+`transaction`, as does a missing transaction after a worker restart. No
 transaction or cookie values are recorded to distinguish these cases.
 
 Run from this checkout, using the dedicated Python 3.13 test environment only:

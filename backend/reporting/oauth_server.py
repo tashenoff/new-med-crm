@@ -232,7 +232,6 @@ class OAuthServer:
             f'<title>MedCRM — Grok</title><body><form method="post" action="{AUTHORIZE_PATH}">'
             f'<input type="hidden" name="transaction" value="{escape(tx, quote=True)}">{content}</form></body></html>',
             headers=SECURITY)
-        response.set_cookie(COOKIE, tx, max_age=600, secure=True, httponly=True, samesite="lax", path="/")
         return response
 
     def validate_client_metadata(self):
@@ -270,14 +269,12 @@ class OAuthServer:
 
     async def consent(self, request, data, now, address):
         # Temporary diagnostics: only fixed stages, never request values or exceptions.
-        stage = "transaction_cookie"
+        stage = "transaction"
         try:
-            # CSRF proof is the random host-only cookie + server-held form transaction.
+            # The server-held 256-bit, one-time form transaction is the synchronizer
+            # CSRF token. Only the same-origin form exposes it; no cookie is required.
             tx = data.get("transaction", "")
-            # Reject duplicate cookies rather than relying on the cookie parser's last value.
-            cookies = [part.strip().split("=", 1) for header in request.headers.getlist("cookie") for part in header.split(";")]
-            matches = [pair[1] for pair in cookies if len(pair) == 2 and pair[0] == COOKIE]
-            if (len(matches) != 1 or not compare_digest(matches[0], tx) or tx not in self.transactions):
+            if tx not in self.transactions:
                 raise OAuthError("access_denied", 403)
             transaction = self.transactions.pop(tx)  # Each POST consumes its CSRF transaction.
             stage = "transaction_expired"

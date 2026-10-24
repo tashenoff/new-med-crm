@@ -14,7 +14,7 @@ import threading
 import time
 import unittest
 from urllib.parse import parse_qs, urlencode, urlsplit
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
 ROOT = Path(__file__).resolve().parents[2]
 sys.path[:0] = [str(ROOT), str(ROOT / "backend")]
@@ -305,12 +305,11 @@ class GrokOAuthTests(unittest.IsolatedAsyncioTestCase):
         response = await self.client.post(AUTHORIZE_PATH, data=dict(transaction=tx, action="login",
             username="alex", password="synthetic-password"), headers={"Origin": API_ORIGIN})
         stale = re.search(r'name="transaction" value="([A-Za-z0-9_-]+)"', response.text)[1]
-        cookie = response.cookies.get("__Host-medcrm-grok-oauth")
         token = await self.token()
         await self.client.post(REVOKE_PATH, data=dict(client_id=CLIENT_ID, token=token))
         self.client.cookies.clear()
         response = await self.client.post(AUTHORIZE_PATH, data=dict(transaction=stale, action="approve"),
-            headers={"Origin": API_ORIGIN, "Cookie": "__Host-medcrm-grok-oauth=" + cookie})
+            headers={"Origin": API_ORIGIN})
         self.assertEqual(response.status_code, 403)
         self.assertFalse(self.oauth.data["active"])
 
@@ -516,12 +515,85 @@ class GrokOAuthTests(unittest.IsolatedAsyncioTestCase):
         self.assertIsNone(captured.records[0].stack_info)
         self.assertNotIn(password, repr([record.__dict__ for record in captured.records]))
 
+    async def test_cookie_free_login_and_approval_use_one_time_server_transaction(self):
+        from routers import auth
+        initial = self.oauth.read()
+        paperclip = deepcopy(self.paperclip.grants)
+        identity = deepcopy(self.identity)
+        user = Mock()
+        user.model_dump.return_value = dict(id=self.binding.owner_id, login="alex", clinic_id="curai",
+            is_active=True, permissions=["finance_view", "payroll_view"])
+        for origin in (None, "https://synthetic-origin-canary.invalid"):
+            with self.subTest(origin=origin):
+                self.oauth.data = deepcopy(initial)
+                self.clock += 61
+                with patch.object(auth, "authenticate_user", return_value=user) as authenticate, patch.object(
+                        self.oauth_server, "owner", return_value=self.binding.owner_id) as owner, patch.object(
+                        self.oauth, "update", wraps=self.oauth.update) as update, self.assertLogs(
+                        "reporting.oauth_server", level="WARNING") as captured:
+                    page = await self.client.get(AUTHORIZE_PATH, params=self.params())
+                    self.assertEqual(page.status_code, 200)
+                    tx = re.search(r'name="transaction" value="([A-Za-z0-9_-]+)"', page.text)[1]
+                    self.client.cookies.clear()
+                    login = await self.client.post(AUTHORIZE_PATH,
+                        data=dict(transaction=tx, action="login", username="alex", password="synthetic-password"),
+                        headers={"Origin": "https://synthetic-login-origin.invalid"})
+                    self.assertNotIn("cookie", login.request.headers)
+                    self.assertEqual(login.status_code, 200, login.text)
+                    self.assertIn('value="approve"', login.text)
+                    self.assertIn("30", login.text)
+                    approved_tx = re.search(r'name="transaction" value="([A-Za-z0-9_-]+)"', login.text)[1]
+                    self.assertNotEqual(tx, approved_tx)
+                    self.assertNotIn(tx, self.oauth_server.transactions)
+                    self.assertEqual(self.oauth.read(), initial)
+                    update.assert_not_called()
+                    self.client.cookies.clear()
+                    response = await self.client.post(AUTHORIZE_PATH,
+                        data=dict(transaction=approved_tx, action="approve"),
+                        headers={} if origin is None else {"Origin": origin})
+                    self.assertNotIn("cookie", response.request.headers)
+                    self.assertEqual(response.status_code, 303, response.text)
+                    self.assertNotIn(approved_tx, self.oauth_server.transactions)
+                    callback = urlsplit(response.headers["location"])
+                    self.assertEqual(callback.scheme + "://" + callback.netloc + callback.path, REDIRECT_URI)
+                    query = parse_qs(callback.query)
+                    self.assertEqual(set(query), {"code", "state"})
+                    self.assertEqual(query["state"], ["synthetic-state"])
+                    code = query["code"][0]
+                    self.assertEqual(self.oauth.read(), {**initial, "active": True, "consented_at": self.clock,
+                        "expires_at": self.clock + 30 * 86400, "code_hash": sha256(code.encode()).hexdigest(),
+                        "code_expires_at": self.clock + 120, "code_challenge": CHALLENGE})
+                    self.assertNotIn("access_token", response.text + str(response.headers))
+                    self.assertNotIn("mgo_", response.text + str(response.headers))
+                    self.assertNotIn(code, json.dumps(self.oauth.data))
+                    for form in (page, login):
+                        self.assertNotIn("set-cookie", form.headers)
+                        self.assertIn("form-action 'self'", form.headers["content-security-policy"])
+                        self.assertIn("frame-ancestors 'none'", form.headers["content-security-policy"])
+                    replay = await self.client.post(AUTHORIZE_PATH,
+                        data=dict(transaction=approved_tx, action="approve"))
+                    self.assertEqual(replay.status_code, 403)
+                authenticate.assert_awaited_once_with("alex", "synthetic-password", self.db)
+                self.assertEqual(owner.await_count, 2)
+                update.assert_called_once()
+                self.assertEqual(self.paperclip.grants, paperclip)
+                self.assertEqual(self.identity, identity)
+                self.assertEqual(captured.output,
+                    ["WARNING:reporting.oauth_server:grok_oauth_consent_rejected stage=transaction"])
+                self.assertEqual(captured.records[0].args, ("transaction",))
+                self.assertEqual(captured.records[0].stage, "transaction")
+                payload = repr([record.__dict__ for record in captured.records])
+                for value in (tx, approved_tx, code, "synthetic-password", "synthetic-state",
+                              "synthetic-origin-canary", "synthetic-login-origin", self.binding.owner_id):
+                    self.assertNotIn(value, payload)
+
     async def test_matching_csrf_without_expected_origin_reaches_credentials_rejected(self):
         from routers import auth
         password = "synthetic-rejected-password-canary"
         for origin in ("https://synthetic-origin-canary.invalid", "null", "", None):
             with self.subTest(origin=origin):
                 tx = await self.begin()
+                self.client.cookies.clear()
                 with patch.object(auth, "authenticate_user", return_value=None) as authenticate, self.assertLogs(
                         "reporting.oauth_server", level="WARNING") as captured:
                     response = await self.client.post(AUTHORIZE_PATH,
@@ -542,40 +614,63 @@ class GrokOAuthTests(unittest.IsolatedAsyncioTestCase):
                 for value in (tx, password, "synthetic-origin-canary", "synthetic-state"):
                     self.assertNotIn(value, payload)
 
-    async def test_transaction_cookie_rejection_logs_only_fixed_stage(self):
-        from reporting.oauth_server import COOKIE
+    async def test_missing_or_unknown_server_transaction_never_authenticates_or_approves(self):
         from routers import auth
-        for case in ("missing", "mismatch", "duplicate", "unknown_transaction", "missing_transaction"):
-            with self.subTest(case=case):
+        initial = self.oauth.read()
+        cookie = "__Host-medcrm-grok-oauth"
+        for action, case, cookie_case in ((action, case, cookie_case)
+                for action in ("login", "approve") for case in ("missing", "unknown")
+                for cookie_case in ("absent", "known", "submitted")):
+            with self.subTest(action=action, case=case, cookie=cookie_case):
                 tx = await self.begin()
                 self.client.cookies.clear()
                 headers = {"Origin": "https://synthetic-origin-canary.invalid"}
-                if case == "mismatch":
-                    headers["Cookie"] = COOKIE + "=synthetic-cookie-canary"
-                elif case == "duplicate":
-                    headers["Cookie"] = f"{COOKIE}={tx}; {COOKIE}={tx}"
-                elif case == "unknown_transaction":
-                    tx = "synthetic-unknown-transaction-canary"
-                    headers["Cookie"] = COOKIE + "=" + tx
-                elif case == "missing_transaction":
-                    headers["Cookie"] = COOKIE + "=" + tx
-                data = dict(transaction=tx, action="login", username="alex", password="synthetic-password")
-                if case == "missing_transaction":
+                unknown = "synthetic-unknown-transaction-canary"
+                if cookie_case != "absent":
+                    headers["Cookie"] = cookie + "=" + (tx if cookie_case == "known" else unknown)
+                data = dict(transaction=unknown, action=action)
+                if action == "login":
+                    data.update(username="alex", password="synthetic-password")
+                if case == "missing":
                     del data["transaction"]
-                with patch.object(auth, "authenticate_user", return_value=None) as authenticate, self.assertLogs(
+                with patch.object(auth, "authenticate_user", return_value=None) as authenticate, patch.object(
+                        self.oauth_server, "owner") as owner, patch.object(self.oauth, "update") as update, self.assertLogs(
                         "reporting.oauth_server", level="WARNING") as captured:
                     response = await self.client.post(AUTHORIZE_PATH,
                         data=data, headers=headers)
                 self.assertEqual(response.status_code, 403)
                 self.assertEqual(response.text, '{"error":"access_denied"}')
                 self.assertEqual(captured.output,
-                    ["WARNING:reporting.oauth_server:grok_oauth_consent_rejected stage=transaction_cookie"])
-                self.assertEqual(captured.records[0].args, ("transaction_cookie",))
-                self.assertEqual(captured.records[0].stage, "transaction_cookie")
+                    ["WARNING:reporting.oauth_server:grok_oauth_consent_rejected stage=transaction"])
+                self.assertEqual(captured.records[0].args, ("transaction",))
+                self.assertEqual(captured.records[0].stage, "transaction")
                 authenticate.assert_not_awaited()
+                owner.assert_not_awaited()
+                update.assert_not_called()
+                self.assertIn(tx, self.oauth_server.transactions)
+                self.assertEqual(self.oauth.read(), initial)
                 payload = repr([record.__dict__ for record in captured.records])
-                for value in (tx, COOKIE, "synthetic-cookie-canary", "synthetic-password", "synthetic-origin-canary"):
+                for value in (tx, unknown, cookie, "synthetic-password", "synthetic-origin-canary"):
                     self.assertNotIn(value, payload)
+
+    async def test_cookie_values_cannot_replace_server_transaction_or_block_valid_form(self):
+        from routers import auth
+        cookie = "__Host-medcrm-grok-oauth"
+        for value in ("synthetic-cookie-canary", "duplicate"):
+            with self.subTest(cookie=value):
+                tx = await self.begin()
+                self.client.cookies.clear()
+                header = f"{cookie}={tx}; {cookie}={tx}" if value == "duplicate" else f"{cookie}={value}"
+                with patch.object(auth, "authenticate_user", return_value=None) as authenticate, self.assertLogs(
+                        "reporting.oauth_server", level="WARNING") as captured:
+                    response = await self.client.post(AUTHORIZE_PATH,
+                        data=dict(transaction=tx, action="login", username="alex", password="synthetic-password"),
+                        headers={"Cookie": header})
+                self.assertEqual(response.status_code, 403)
+                authenticate.assert_awaited_once_with("alex", "synthetic-password", self.db)
+                self.assertEqual(captured.records[0].stage, "credentials_rejected")
+                self.assertNotIn(tx, self.oauth_server.transactions)
+                self.assertIsNone(self.oauth.data["consented_at"])
 
     async def test_crm_auth_exception_logs_stage_without_exception_details(self):
         from fastapi import HTTPException
@@ -609,15 +704,22 @@ class GrokOAuthTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual((await self.consent()).status_code, 403)
         self.assertIsNone(self.oauth.data["consented_at"])
 
-    async def test_csrf_missing_cookie_and_expired_transaction(self):
-        tx = await self.begin()
-        data = dict(transaction=tx, action="login", username="alex", password="synthetic-password")
-        self.client.cookies.clear()
-        self.assertEqual((await self.client.post(AUTHORIZE_PATH, data=data, headers={"Origin": API_ORIGIN})).status_code, 403)
-        tx = await self.begin()
-        self.clock += 601
-        data["transaction"] = tx
-        self.assertEqual((await self.client.post(AUTHORIZE_PATH, data=data, headers={"Origin": API_ORIGIN})).status_code, 403)
+    async def test_server_transaction_expires_at_ten_minutes_without_cookie(self):
+        from routers import auth
+        for age in (600, 601):
+            with self.subTest(age=age):
+                tx = await self.begin()
+                self.clock += age
+                self.client.cookies.clear()
+                with patch.object(auth, "authenticate_user") as authenticate, patch.object(
+                        self.oauth, "update") as update:
+                    response = await self.client.post(AUTHORIZE_PATH,
+                        data=dict(transaction=tx, action="login", username="alex", password="synthetic-password"))
+                self.assertEqual(response.status_code, 403)
+                self.assertEqual(response.text, '{"error":"access_denied"}')
+                self.assertNotIn(tx, self.oauth_server.transactions)
+                authenticate.assert_not_awaited()
+                update.assert_not_called()
 
     async def test_code_verifier_expiry_wrong_client_and_replay(self):
         redirect = await self.consent()
