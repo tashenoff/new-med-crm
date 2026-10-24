@@ -14,7 +14,7 @@ Configuration-driven activation is implemented locally; see
 and remaining deployment/access approvals. Production activation is not verified;
 the default configuration remains closed.
 
-Four stdio tools, one local MCP process. This release is deliberately **unconnected**
+Five stdio tools, one local MCP process. This release is deliberately **unconnected**
 to production data. Deploying these source files does not install an agent, issue a
 credential, grant access, or start a persistent MCP service.
 
@@ -23,6 +23,7 @@ credential, grant access, or start a persistent MCP service.
 | `get_finance_summary` | `/api/reporting/finance/summary` | `finance.summary.read` | `finance_view` |
 | `get_finance_breakdown` | `/api/reporting/finance/breakdown` | `finance.breakdown.read` | `finance_view` |
 | `get_amounts_due` | `/api/reporting/finance/amounts-due` | `finance.amounts_due.read` | `finance_view` |
+| `get_services_rendered` | `/api/reporting/finance/services-rendered` | `finance.services_rendered.read` | `finance_view` |
 | `get_payroll_summary` | `/api/reporting/payroll/summary` | `payroll.summary.read` | `payroll_view` (new reporting contract; no existing rights changed) |
 
 Both accept **only** `date_from` and `date_to`, exact `YYYY-MM-DD`, inclusive dates
@@ -30,7 +31,7 @@ in `Asia/Bishkek`, 1–366 days. Local midnight bounds are converted to a half-o
 UTC interval. A trusted server-side resolver must supply the current owner, agent,
 clinic membership and unexpired grant on every call. The model cannot supply those
 identities, a URL, headers, SQL, Mongo queries, scope or timezone. This slice requires
-separately resolved, exactly scoped grants for the four reports; broad extra scopes
+separately resolved, exactly scoped grants for the five reports; broad extra scopes
 are rejected. The existing live resolver is selected only by explicit backend
 configuration below. Only the separately provisioned Grok public client has an
 OAuth issuer; no Paperclip credential issuer is added.
@@ -69,7 +70,7 @@ mismatch) selects the original two closed routers: anonymous requests get 401,
 bearer-looking requests get 503 `REPORTING_UNCONFIGURED`, and
 `/api/reporting/access` is absent. Configuration failures emit no values or exception
 text and do not prevent general CRM startup. Valid configuration replaces those
-registrations with finance, breakdown, amounts-due, payroll, access and backend OAuth
+registrations with finance, breakdown, amounts-due, services-rendered, payroll, access and backend OAuth
 routers, in their original position. The root-running backend owns authorization, token, revocation and discovery;
 the unprivileged sidecar serves only `/api/reporting/mcp`. It creates no new Mongo client and changes no database lifecycle.
 
@@ -102,6 +103,9 @@ its own root-only hash state at `<binding parent>/grok-oauth/grok-oauth.json`,
 read and written only by the backend, as detailed in the OAuth operations document.
 The shared binding path must be exact, not an identical copy elsewhere. Request credentials continue to be transiently forwarded by the HTTP transport. No service,
 proxy, key, grant or production connection is installed by this implementation.
+
+
+`get_services_rendered` aggregates treatment-plan service lines by trimmed `service_name` for plans whose `created_at` falls in the requested period. Paid uses per-line `payment_status` and proportional `paid_amount`/`total_cost`; it does **not** require ledger completeness (unlike amounts due).
 
 ## What the numbers mean
 

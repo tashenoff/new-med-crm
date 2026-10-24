@@ -2,6 +2,7 @@
 from .api import router as closed_finance_router
 from .amounts_due_api import router as closed_amounts_due_router
 from .breakdown_api import router as closed_breakdown_router
+from .services_rendered_api import router as closed_services_rendered_router
 from .binding_config import absolute_path, read_binding
 from .configured import build_bound_routers
 from .grant_store import JsonGrantStore
@@ -25,5 +26,6 @@ def select_reporting_routers(db, environment):
             closed_finance_router,
             closed_breakdown_router,
             closed_amounts_due_router,
+            closed_services_rendered_router,
             closed_payroll_router,
         )

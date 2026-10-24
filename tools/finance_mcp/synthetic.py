@@ -11,6 +11,8 @@ import uvicorn
 from reporting.access import AccessContext, AgentGrant, UserIdentity
 from reporting.amounts_due import AmountsDueSnapshot, SCOPE as AMOUNTS_DUE_SCOPE
 from reporting.amounts_due_api import create_amounts_due_router
+from reporting.services_rendered import ServicesRenderedSnapshot, SCOPE as SERVICES_RENDERED_SCOPE
+from reporting.services_rendered_api import create_services_rendered_router
 from reporting.api import create_router
 from reporting.breakdown import SCOPE as BREAKDOWN_SCOPE
 from reporting.breakdown_api import create_breakdown_router
@@ -92,6 +94,12 @@ class SyntheticBackend:
             AgentGrant("demo-finance-agent", "demo-owner", "demo-clinic", True, frozenset({AMOUNTS_DUE_SCOPE}), datetime(2099, 1, 1, tzinfo=UTC)),
         )
         self.amounts_due_snapshot = AmountsDueSnapshot((), DEMO_COVERAGE)
+        self.services_rendered_context = AccessContext(
+            UserIdentity("demo-owner", True, frozenset({"finance_view"}), frozenset({"demo-clinic"})),
+            AgentGrant("demo-finance-agent", "demo-owner", "demo-clinic", True,
+                       frozenset({SERVICES_RENDERED_SCOPE}), datetime(2099, 1, 1, tzinfo=UTC)),
+        )
+        self.services_rendered_snapshot = ServicesRenderedSnapshot((), DEMO_COVERAGE)
         self.context_reads = 0
         self.source_reads = 0
         self.marker = MARKER
@@ -136,6 +144,17 @@ class SyntheticBackend:
             return self.amounts_due_snapshot
 
         self.app.include_router(create_amounts_due_router(resolve_amounts_due_context, read_amounts_due_snapshot))
+
+        async def resolve_services_rendered_context(request):
+            self.context_reads += 1
+            return self.services_rendered_context
+
+        async def read_services_rendered_snapshot(scope, period):
+            self.source_reads += 1
+            return self.services_rendered_snapshot
+
+        self.app.include_router(create_services_rendered_router(
+            resolve_services_rendered_context, read_services_rendered_snapshot))
 
         @self.app.middleware("http")
         async def mark_synthetic(request, call_next):

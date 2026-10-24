@@ -8,12 +8,17 @@ from reporting.amounts_due import AmountsDueEnvelope, PATH as AMOUNTS_DUE_PATH, 
 from reporting.breakdown import FinanceBreakdownEnvelope, PATH as BREAKDOWN_PATH, MAX_RESPONSE_BYTES as BREAKDOWN_MAX
 from reporting.contract import Envelope, MAX_RESPONSE_BYTES, PATH, ReportError, parse_period
 from reporting.payroll import PayrollEnvelope, PATH as PAYROLL_PATH
+from reporting.services_rendered import (
+    ServicesRenderedEnvelope, PATH as SERVICES_RENDERED_PATH,
+    MAX_RESPONSE_BYTES as SERVICES_RENDERED_MAX,
+)
 
 TOOL_NAME = "get_finance_summary"
 BREAKDOWN_TOOL = "get_finance_breakdown"
 AMOUNTS_DUE_TOOL = "get_amounts_due"
+SERVICES_RENDERED_TOOL = "get_services_rendered"
 PAYROLL_TOOL = "get_payroll_summary"
-ALL_TOOLS = (TOOL_NAME, BREAKDOWN_TOOL, AMOUNTS_DUE_TOOL, PAYROLL_TOOL)
+ALL_TOOLS = (TOOL_NAME, BREAKDOWN_TOOL, AMOUNTS_DUE_TOOL, SERVICES_RENDERED_TOOL, PAYROLL_TOOL)
 MARKER = "new-med-finance-synthetic-v1"
 INPUT_SCHEMA = {"type": "object", "additionalProperties": False,
     "properties": {"date_from": {"type": "string", "format": "date"},
@@ -90,12 +95,20 @@ class AmountsDueApi(FinanceApi):
     max_bytes = AMOUNTS_DUE_MAX
 
 
+class ServicesRenderedApi(FinanceApi):
+    path = SERVICES_RENDERED_PATH
+    envelope_type = ServicesRenderedEnvelope
+    max_bytes = SERVICES_RENDERED_MAX
+
+
 class Adapter:
-    def __init__(self, api=None, payroll_api=None, breakdown_api=None, amounts_due_api=None):
+    def __init__(self, api=None, payroll_api=None, breakdown_api=None, amounts_due_api=None,
+                 services_rendered_api=None):
         self.api = api
         self.payroll_api = payroll_api
         self.breakdown_api = breakdown_api
         self.amounts_due_api = amounts_due_api
+        self.services_rendered_api = services_rendered_api
 
     async def list_names(self):
         names = []
@@ -105,6 +118,8 @@ class Adapter:
             names.append(BREAKDOWN_TOOL)
         if self.amounts_due_api is not None:
             names.append(AMOUNTS_DUE_TOOL)
+        if self.services_rendered_api is not None:
+            names.append(SERVICES_RENDERED_TOOL)
         if self.payroll_api is not None:
             names.append(PAYROLL_TOOL)
         return tuple(names) if names else ALL_TOOLS
@@ -117,6 +132,7 @@ class Adapter:
             TOOL_NAME: self.api,
             BREAKDOWN_TOOL: self.breakdown_api,
             AMOUNTS_DUE_TOOL: self.amounts_due_api,
+            SERVICES_RENDERED_TOOL: self.services_rendered_api,
             PAYROLL_TOOL: self.payroll_api,
         }
         api = apis[name]

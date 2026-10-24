@@ -396,7 +396,7 @@ class IsolationTests(unittest.TestCase):
                                              {"authenticate_user", "hydrate_access"})
                     else:
                         self.assertNotIn(node.module.split('.')[0], forbidden_modules)
-                    if node.module.startswith("services"):
+                    if node.module == "services" or node.module.startswith("services."):
                         self.assertEqual(node.module, "services.salary_service")
                 if isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute):
                     self.assertNotIn(node.func.attr, forbidden_calls)
