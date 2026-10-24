@@ -500,6 +500,84 @@ class GrokOAuthTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual((await self.exchange("random")).status_code, 400)
         self.assertEqual(self.auth_calls, [])
 
+    async def test_wrong_password_logs_safe_stage_and_keeps_generic_denial(self):
+        password = "synthetic-wrong-password-log-canary"
+        tx = await self.begin()
+        with self.assertLogs(level="WARNING") as captured:
+            response = await self.client.post(AUTHORIZE_PATH,
+                data=dict(transaction=tx, action="login", username="alex", password=password),
+                headers={"Origin": API_ORIGIN})
+        self.assertEqual(response.status_code, 403)
+        self.assertEqual(response.text, '{"error":"access_denied"}')
+        self.assertEqual(captured.output,
+            ["WARNING:reporting.oauth_server:grok_oauth_consent_rejected stage=credentials_rejected"])
+        self.assertEqual(captured.records[0].stage, "credentials_rejected")
+        self.assertIsNone(captured.records[0].exc_info)
+        self.assertIsNone(captured.records[0].stack_info)
+        self.assertNotIn(password, repr([record.__dict__ for record in captured.records]))
+
+    async def test_origin_rejection_logs_only_fixed_stage(self):
+        tx = await self.begin()
+        for origin in ("https://synthetic-origin-canary.invalid", "null", "", None):
+            with self.subTest(origin=origin), self.assertLogs(level="WARNING") as captured:
+                response = await self.client.post(AUTHORIZE_PATH,
+                    data=dict(transaction=tx, action="login", username="alex", password="synthetic-password"),
+                    headers={} if origin is None else {"Origin": origin})
+            self.assertEqual(response.status_code, 403)
+            self.assertEqual(response.text, '{"error":"access_denied"}')
+            self.assertEqual(captured.output,
+                ["WARNING:reporting.oauth_server:grok_oauth_consent_rejected stage=origin"])
+            self.assertEqual(captured.records[0].args, ("origin",))
+            self.assertEqual(captured.records[0].stage, "origin")
+            self.assertNotIn(tx, repr([record.__dict__ for record in captured.records]))
+            self.assertNotIn("synthetic-origin-canary", repr([record.__dict__ for record in captured.records]))
+        self.assertIn(tx, self.oauth_server.transactions)
+
+    async def test_transaction_cookie_rejection_logs_only_fixed_stage(self):
+        from reporting.oauth_server import COOKIE
+        for case in ("missing", "mismatch", "duplicate", "unknown_transaction"):
+            with self.subTest(case=case):
+                tx = await self.begin()
+                self.client.cookies.clear()
+                headers = {"Origin": API_ORIGIN}
+                if case == "mismatch":
+                    headers["Cookie"] = COOKIE + "=synthetic-cookie-canary"
+                elif case == "duplicate":
+                    headers["Cookie"] = f"{COOKIE}={tx}; {COOKIE}={tx}"
+                elif case == "unknown_transaction":
+                    tx = "synthetic-unknown-transaction-canary"
+                    headers["Cookie"] = COOKIE + "=" + tx
+                with self.assertLogs(level="WARNING") as captured:
+                    response = await self.client.post(AUTHORIZE_PATH,
+                        data=dict(transaction=tx, action="login", username="alex", password="synthetic-password"),
+                        headers=headers)
+                self.assertEqual(response.status_code, 403)
+                self.assertEqual(response.text, '{"error":"access_denied"}')
+                self.assertEqual(captured.output,
+                    ["WARNING:reporting.oauth_server:grok_oauth_consent_rejected stage=transaction_cookie"])
+                self.assertEqual(captured.records[0].args, ("transaction_cookie",))
+                self.assertEqual(captured.records[0].stage, "transaction_cookie")
+                payload = repr([record.__dict__ for record in captured.records])
+                for value in (tx, COOKIE, "synthetic-cookie-canary", "synthetic-password"):
+                    self.assertNotIn(value, payload)
+
+    async def test_crm_auth_exception_logs_stage_without_exception_details(self):
+        from fastapi import HTTPException
+        from routers import auth
+        tx = await self.begin()
+        canary = "synthetic-private-exception-canary"
+        with patch.object(auth, "authenticate_user", side_effect=HTTPException(401, canary)), self.assertLogs(
+                level="WARNING") as captured:
+            response = await self.client.post(AUTHORIZE_PATH,
+                data=dict(transaction=tx, action="login", username="alex", password="synthetic-password"),
+                headers={"Origin": API_ORIGIN})
+        self.assertEqual(response.status_code, 403)
+        self.assertEqual(response.text, '{"error":"access_denied"}')
+        self.assertEqual(captured.output,
+            ["WARNING:reporting.oauth_server:grok_oauth_consent_rejected stage=crm_auth_exception"])
+        self.assertIsNone(captured.records[0].exc_info)
+        self.assertNotIn(canary, repr([record.__dict__ for record in captured.records]))
+
     async def test_login_cannot_authorize_other_inactive_or_permissionless_owner(self):
         for change in ({"id": "other"}, {"login": "other"}, {"is_active": False},
                        {"clinic_id": "other"}, {"password_expires_at": datetime(2000, 1, 1, tzinfo=timezone.utc)}):

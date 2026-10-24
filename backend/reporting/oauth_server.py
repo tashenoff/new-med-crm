@@ -9,6 +9,7 @@ from hashlib import sha256
 from hmac import compare_digest
 from html import escape
 import json
+import logging
 import re
 import secrets
 import time
@@ -28,6 +29,7 @@ TOKEN_PATH = "/api/reporting/oauth/token"
 REVOKE_PATH = "/api/reporting/oauth/revoke"
 MAX_BODY = 8192
 COOKIE = "__Host-medcrm-grok-oauth"
+logger = logging.getLogger(__name__)
 # Operator-pinned snapshot of the single approved public Grok client, used because
 # production egress to its metadata URL is blocked (403). Never fetched at runtime.
 # The official document includes console/refresh support; our request validation
@@ -267,57 +269,84 @@ class OAuthServer:
             raise OAuthError("access_denied", 403) from None
 
     async def consent(self, request, data, now, address):
-        if request.headers.get("origin") != API_ORIGIN:
-            raise OAuthError("access_denied", 403)
-        tx = data.get("transaction", "")
-        # Reject duplicate cookies rather than relying on the cookie parser's last value.
-        cookies = [part.strip().split("=", 1) for header in request.headers.getlist("cookie") for part in header.split(";")]
-        matches = [pair[1] for pair in cookies if len(pair) == 2 and pair[0] == COOKIE]
-        if (len(matches) != 1 or not compare_digest(matches[0], tx) or tx not in self.transactions):
-            raise OAuthError("access_denied", 403)
-        transaction = self.transactions.pop(tx)  # Each POST consumes its CSRF transaction.
-        if transaction.created <= now - 600:
-            raise OAuthError("access_denied", 403)
-        row = self.state()
-        self.available(row, now)
-        if not compare_digest(transaction.revision, self.revision(row)):
-            raise OAuthError("access_denied", 403)
-        action = data.get("action")
-        if action == "login":
-            from fastapi import HTTPException
-            from routers.auth import authenticate_user
-            if set(data) != {"transaction", "action", "username", "password"} or data["username"] != "alex":
+        # Temporary diagnostics: only fixed stages, never request values or exceptions.
+        stage = "origin"
+        try:
+            if request.headers.get("origin") != API_ORIGIN:
                 raise OAuthError("access_denied", 403)
-            self.limits.check(address, now, login=True)
-            try:
-                user = await authenticate_user("alex", data["password"], self.db)
-            except HTTPException:
-                raise OAuthError("access_denied", 403) from None
-            if not user:
+            stage = "transaction_cookie"
+            tx = data.get("transaction", "")
+            # Reject duplicate cookies rather than relying on the cookie parser's last value.
+            cookies = [part.strip().split("=", 1) for header in request.headers.getlist("cookie") for part in header.split(";")]
+            matches = [pair[1] for pair in cookies if len(pair) == 2 and pair[0] == COOKIE]
+            if (len(matches) != 1 or not compare_digest(matches[0], tx) or tx not in self.transactions):
                 raise OAuthError("access_denied", 403)
-            self.check_owner(user.model_dump())
-            owner_id = await self.owner()
-            new_tx = secrets.token_urlsafe(32)
-            self.transactions[new_tx] = Transaction(transaction.state, transaction.challenge,
-                transaction.created, transaction.revision, owner_id)
-            return self.page(new_tx, authenticated=True)
-        if (set(data) != {"transaction", "action"} or action not in {"approve", "deny"}
-                or transaction.owner_id != self.binding.owner_id):
-            raise OAuthError("access_denied", 403)
-        if action == "deny":
-            return self.redirect({"error": "access_denied", "state": transaction.state})
-        await self.owner()
-        code = secrets.token_urlsafe(32)
-
-        def grant(row):
-            bound_state(row, self.binding, require_active=False)
+            transaction = self.transactions.pop(tx)  # Each POST consumes its CSRF transaction.
+            stage = "transaction_expired"
+            if transaction.created <= now - 600:
+                raise OAuthError("access_denied", 403)
+            stage = "state_binding"
+            row = self.state()
+            stage = "grant_available"
             self.available(row, now)
+            stage = "state_revision"
             if not compare_digest(transaction.revision, self.revision(row)):
                 raise OAuthError("access_denied", 403)
-            row.update(active=True, consented_at=now, expires_at=now + LIFETIME, code_hash=digest(code),
-                       code_expires_at=now + 120, code_challenge=transaction.challenge, token_hash=None)
-        self.store.update(grant)
-        return self.redirect({"code": code, "state": transaction.state})
+            action = data.get("action")
+            if action == "login":
+                from fastapi import HTTPException
+                from routers.auth import authenticate_user
+                stage = "login_form"
+                if set(data) != {"transaction", "action", "username", "password"} or data["username"] != "alex":
+                    raise OAuthError("access_denied", 403)
+                stage = "login_limit"
+                self.limits.check(address, now, login=True)
+                stage = "crm_auth_exception"
+                try:
+                    user = await authenticate_user("alex", data["password"], self.db)
+                except HTTPException:
+                    raise OAuthError("access_denied", 403) from None
+                stage = "credentials_rejected"
+                if not user:
+                    raise OAuthError("access_denied", 403)
+                stage = "owner_profile"
+                self.check_owner(user.model_dump())
+                stage = "owner_recheck"
+                owner_id = await self.owner()
+                stage = "login_page"
+                new_tx = secrets.token_urlsafe(32)
+                self.transactions[new_tx] = Transaction(transaction.state, transaction.challenge,
+                    transaction.created, transaction.revision, owner_id)
+                return self.page(new_tx, authenticated=True)
+            stage = "approval_owner"
+            if (set(data) != {"transaction", "action"} or action not in {"approve", "deny"}
+                    or transaction.owner_id != self.binding.owner_id):
+                raise OAuthError("access_denied", 403)
+            if action == "deny":
+                return self.redirect({"error": "access_denied", "state": transaction.state})
+            stage = "owner_recheck"
+            await self.owner()
+            stage = "grant_update"
+            code = secrets.token_urlsafe(32)
+
+            def grant(row):
+                nonlocal stage
+                stage = "state_binding"
+                bound_state(row, self.binding, require_active=False)
+                stage = "grant_available"
+                self.available(row, now)
+                stage = "state_revision"
+                if not compare_digest(transaction.revision, self.revision(row)):
+                    raise OAuthError("access_denied", 403)
+                stage = "grant_update"
+                row.update(active=True, consented_at=now, expires_at=now + LIFETIME, code_hash=digest(code),
+                           code_expires_at=now + 120, code_challenge=transaction.challenge, token_hash=None)
+            self.store.update(grant)
+            stage = "approval_redirect"
+            return self.redirect({"code": code, "state": transaction.state})
+        except Exception:
+            logger.warning("grok_oauth_consent_rejected stage=%s", stage, extra={"stage": stage})
+            raise
 
     def redirect(self, params):
         response = RedirectResponse(REDIRECT_URI + "?" + urlencode(params), status_code=303, headers=SECURITY)

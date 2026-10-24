@@ -210,6 +210,21 @@ published metadata alone do not establish actual Grok compatibility.
 
 ## Isolated verification commands
 
+Temporary consent POST diagnostics use logger `reporting.oauth_server` at WARNING:
+`grok_oauth_consent_rejected stage=<fixed stage>`. The LogRecord also has a `stage`
+field. Only code-defined stage labels are recorded, with no request values or
+exception details. Client errors and statuses are unchanged; a 403 still returns
+only `{"error":"access_denied"}`. Remove this diagnostic block after diagnosis.
+
+Login gates include `origin`, `transaction_cookie`, `transaction_expired`,
+`state_binding`, `grant_available`, `state_revision`, `login_form`, `login_limit`,
+`crm_auth_exception`, `credentials_rejected`, `owner_profile` and `owner_recheck`.
+Approval also uses `approval_owner`, `grant_update` and `approval_redirect`;
+`login_page` covers rendering after successful authentication. Expired transactions
+are normally pruned before consent, so a retry with one records
+`transaction_cookie`, as does a missing transaction after a worker restart. No
+transaction or cookie values are recorded to distinguish these cases.
+
 Run from this checkout, using the dedicated Python 3.13 test environment only:
 
 ```powershell
