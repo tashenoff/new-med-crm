@@ -21,6 +21,21 @@ jobs:
             cd /opt/medcrm/new-med-crm
             git fetch origin ref-2 --quiet
             git pull --ff-only origin ref-2
+            echo "=== ensure P0 finance grant scopes ==="
+            GRANT_ENV=$(systemctl show medcrm-backend -p Environment --value 2>/dev/null || true)
+            GRANT_FILE=$(printf '%s\n' "$GRANT_ENV" | tr ' ' '\n' | sed -n 's/^REPORTING_GRANT_FILE=//p' | head -n1)
+            if [ -z "$GRANT_FILE" ]; then
+              for candidate in /etc/systemd/system/medcrm-backend.service /etc/systemd/system/medcrm-backend.service.d/*.conf; do
+                [ -f "$candidate" ] || continue
+                GRANT_FILE=$(sed -n 's/.*REPORTING_GRANT_FILE=\([^" ]*\).*/\1/p' "$candidate" | head -n1)
+                [ -n "$GRANT_FILE" ] && break
+              done
+            fi
+            if [ -z "$GRANT_FILE" ] && [ -f /opt/medcrm/new-med-crm/backend/.env ]; then
+              GRANT_FILE=$(sed -n 's/^REPORTING_GRANT_FILE=//p' /opt/medcrm/new-med-crm/backend/.env | head -n1)
+            fi
+            test -n "$GRANT_FILE"
+            REPORTING_GRANT_FILE="$GRANT_FILE" /opt/medcrm/venv/bin/python /opt/medcrm/new-med-crm/tools/finance_mcp/ensure_p0_finance_grants.py
             echo "=== deps ==="
             /opt/medcrm/venv/bin/pip install -q -r backend/requirements.txt || true
             systemctl daemon-reload
