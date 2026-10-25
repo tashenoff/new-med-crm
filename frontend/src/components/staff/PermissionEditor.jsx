@@ -17,6 +17,7 @@ export default function PermissionEditor({ form, onChange }) {
   return <section className="space-y-4" aria-label="Права доступа">
     <p className="text-sm">Сохраняется только выбранный набор. Смена роли не добавляет права.</p>
     <p className="text-xs">Создание, изменение, удаление и экспорт также требуют просмотра соответствующего раздела. Они не включают его автоматически.</p>
+    <p className="text-xs">«Создание врача» позволяет добавить карточку врача. Настройка оплаты требует отдельного разрешения «Зарплаты».</p>
     <div className="flex gap-3">
       <button className="px-3 py-2 border border-curai-control rounded-md" type="button" onClick={applyPreset} disabled={!form.role}>Применить шаблон роли</button>
       <button className="px-3 py-2 border border-curai-control rounded-md" type="button" onClick={() => replace([])}>Снять все права</button>

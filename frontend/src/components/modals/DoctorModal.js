@@ -1,3 +1,4 @@
+import { hasPermission } from '../../utils/permissions';
 import React, { useState, useEffect, useMemo } from 'react';
 import Modal from './Modal';
 import CuraiColorPicker from '../common/CuraiColorPicker';
@@ -7,6 +8,7 @@ import { initializeDoctorForm, initializeDoctorServices, buildDoctorPayload, ser
 import { formatPhoneChange } from '../../hooks/phoneFormatter';
 
 const DoctorModal = ({ 
+  user,
   show, 
   onClose, 
   onSave, 
@@ -16,6 +18,7 @@ const DoctorModal = ({
   loading = false, 
   errorMessage = null 
 }) => {
+  const canConfigureCompensation = hasPermission(user, 'payroll_view');
   const [specialties, setSpecialties] = useState([]);
   const [services, setServices] = useState([]);
   const [selectedServices, setSelectedServices] = useState([]);
@@ -46,9 +49,9 @@ const DoctorModal = ({
       setServiceQuery('');
       setSelectedServicesOnly(false);
       fetchSpecialties();
-      fetchServices();
+      if (canConfigureCompensation) fetchServices();
     }
-  }, [show, editingItem]);
+  }, [show, editingItem, canConfigureCompensation]);
 
   const fetchSpecialties = async () => {
     try {
@@ -151,7 +154,7 @@ const DoctorModal = ({
           e.preventDefault();
           const servicesData = serializeDoctorServices(selectedServices, serviceCommissions, paymentMode);
           try {
-            const payload = buildDoctorPayload({ ...doctorForm, services: servicesData, payment_mode: paymentMode });
+            const payload = buildDoctorPayload({ ...doctorForm, services: servicesData, payment_mode: paymentMode }, { includeCompensation: canConfigureCompensation });
             setValidationError(null);
             onSave(e, { ...payload, editingItem });
           } catch (error) {
@@ -159,12 +162,12 @@ const DoctorModal = ({
           }
         }} className="space-y-6">
           {validationError && <p role="alert" className="text-curai-negative">{validationError}</p>}
-          {((doctorForm.currency && doctorForm.currency !== 'KZT') || Object.values(serviceCommissions).some(commission => commission.currency !== 'KZT')) && (
+          {canConfigureCompensation && ((doctorForm.currency && doctorForm.currency !== 'KZT') || Object.values(serviceCommissions).some(commission => commission.currency !== 'KZT')) && (
             <p role="alert" className="text-curai-negative">В записи есть иностранная валюта ({doctorForm.currency !== 'KZT' ? doctorForm.currency : Object.values(serviceCommissions).filter(commission => commission.currency !== 'KZT').map(commission => commission.currency).join(', ')}). Значения не конвертированы. Сохранение требует явного согласования значений в KZT.</p>
           )}
           
           {/* Две колонки: Основная информация и Услуги врача */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <div className={`grid grid-cols-1 ${canConfigureCompensation ? 'lg:grid-cols-2' : ''} gap-6`}>
             
             {/* Левая колонка - Основная информация */}
             <div className="space-y-4">
@@ -286,7 +289,7 @@ const DoctorModal = ({
             </div>
             
             {/* Правая колонка - Услуги врача */}
-            <div className="space-y-4">
+            {canConfigureCompensation && <div className="space-y-4">
               <div className="space-y-3">
                 <h3 className="text-sm font-medium text-curai-ink border-b pb-2">
                   Услуги врача
@@ -475,9 +478,10 @@ const DoctorModal = ({
                   ⚠️ Выберите услуги для настройки индивидуальных комиссий
                 </div>
               )}
-            </div>
+            </div>}
           </div>
           
+          {canConfigureCompensation && <>
           <fieldset disabled={paymentMode === 'individual' && doctorForm.consultation_compensation_mode !== 'inherit' && selectedServices.every(serviceId => serviceCommissions[serviceId] !== undefined)}>
           <div className="bg-curai-warningBg p-4 rounded-md border border-curai-warning ">
             <h3 className="flex items-center text-sm font-medium text-curai-warning mb-4">
@@ -650,6 +654,7 @@ const DoctorModal = ({
               </div>
             )}
           </section>
+          </>}
 
           <div className="flex space-x-3">
             <button

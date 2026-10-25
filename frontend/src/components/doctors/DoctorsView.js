@@ -32,7 +32,7 @@ const DoctorsView = ({
         <PanelHeader
           title="Врачи"
           subtitle="Управление врачами и их специальностями"
-          onAction={canAction(user, "doctors_view", "doctors_edit", "payroll_view") ? (canManage ? onAddDoctor : undefined) : undefined}
+          onAction={canAction(user, "doctors_view", "doctors_create") ? (canManage ? onAddDoctor : undefined) : undefined}
           actionLabel="+ Добавить врача"
         />
 
@@ -128,7 +128,7 @@ const DoctorsView = ({
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
                           <div className="text-sm text-curai-ink">
-                            {doctor.payment_type === 'percentage' ? (
+                            {!canAction(user, 'payroll_view') ? <span className="text-curai-muted">Нет доступа</span> : doctor.payment_type === 'percentage' ? (
                               <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-curai-positiveBg text-curai-positive">
                                 📊 {doctor.payment_value || 0}%
                               </span>
@@ -143,7 +143,7 @@ const DoctorsView = ({
                             )}
                           </div>
                           <div className="text-xs text-curai-muted">
-                            {doctor.payment_type === 'percentage' ? 'от выручки' :
+                            {!canAction(user, 'payroll_view') ? '' : doctor.payment_type === 'percentage' ? 'от выручки' :
                              doctor.payment_type === 'hybrid' ? 'гибридная' : 'фиксированная'}
                           </div>
                         </td>
@@ -155,7 +155,7 @@ const DoctorsView = ({
                             <button
                               onClick={() => onEditDoctor(doctor)}
                               className="text-curai-blue hover:text-curai-blue"
-                             {...permissionProps(user, "doctors_view", "doctors_edit", "payroll_view")}>
+                             {...permissionProps(user, "doctors_view", "doctors_edit")}>
                               Редактировать
                             </button>
                             <button

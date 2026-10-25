@@ -99,7 +99,7 @@ async function modal(context, editingItem = null, initial = {}, response) {
   function Harness({ editingItem }) {
     const [form, setForm] = React.useState(initial);
     return React.createElement(DoctorModal, {
-      show: true, editingItem, doctorForm: form,
+      show: true, user: {permissions: ['payroll_view']}, editingItem, doctorForm: form,
       setDoctorForm: value => { assert.equal(typeof value, 'object', 'ModalContext requires plain objects'); setForm(value); },
       onClose() {}, onSave: (event, payload) => { event.preventDefault(); saved.push(payload); }
     });

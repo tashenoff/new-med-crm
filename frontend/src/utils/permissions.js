@@ -2,7 +2,7 @@
 export const permissionGroups = [
   { key: 'hms', title: 'HMS', rows: [
     ['Пациенты и лечение', ['patients_view', 'patients_edit', 'patients_delete', 'patients_export']],
-    ['Врачи', ['doctors_view', 'doctors_edit', 'doctors_delete']],
+    ['Врачи', ['doctors_view', 'doctors_create', 'doctors_edit', 'doctors_delete']],
     ['Календарь и расписание', ['calendar_view', 'calendar_edit', 'calendar_delete']],
     ['Справочники и цены', ['directory_view', 'directory_edit', 'directory_delete']],
     ['Рассылки', ['broadcast_view', 'broadcast_edit']],
@@ -35,6 +35,8 @@ export const permissionProps = (user, ...keys) => ({
   } : {}),
 });
 export const permissionLabel = key => key === 'system_settings' ? 'Настройки'
+  : key === 'doctors_create' ? 'Создание врача'
+  : key === 'doctors_edit' ? 'Изменение'
   : key === 'payroll_view' ? 'Зарплаты (явное разрешение)'
   : ({ view: 'Просмотр', edit: 'Создание / изменение', delete: 'Удаление', export: 'Экспорт' }[key.split('_').at(-1)] || key);
 

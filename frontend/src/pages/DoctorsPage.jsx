@@ -80,7 +80,7 @@ const DoctorsPage = ({ user }) => {
 
     try {
       // Очищаем данные от лишних полей, которых нет в API
-      const cleanDoctorData = buildDoctorPayload(doctorForm);
+      const cleanDoctorData = buildDoctorPayload(doctorForm, { includeCompensation: hasPermission(user, 'payroll_view') });
       
       let result;
       if (editingItem) {
@@ -162,7 +162,7 @@ const DoctorsPage = ({ user }) => {
         onAddDoctor={handleAddDoctor}
         onEditDoctor={handleEditDoctor}
         onDeleteDoctor={handleDeleteDoctor}
-        canManage={['admin', 'super_admin'].includes(user?.role) && (canAction(user, 'doctors_view', 'doctors_edit', 'payroll_view') || canAction(user, 'doctors_view', 'doctors_delete'))}
+        canManage={['admin', 'super_admin'].includes(user?.role) && (canAction(user, 'doctors_view', 'doctors_create') || canAction(user, 'doctors_view', 'doctors_edit') || canAction(user, 'doctors_view', 'doctors_delete'))}
       />
 
       {/* Модальные окна теперь управляются через ModalManager */}

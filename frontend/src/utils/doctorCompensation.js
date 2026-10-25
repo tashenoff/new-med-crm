@@ -81,12 +81,16 @@ const validateScheme = (type, value, hybridPercentage, label) => {
   if (type === 'hybrid') validateValue(hybridPercentage, true, `${label}, процентная часть`);
 };
 
-export const buildDoctorPayload = (doctor) => {
+export const buildDoctorPayload = (doctor, { includeCompensation = true } = {}) => {
   const form = initializeDoctorForm(doctor);
   // Match DoctorCreate's optional phone validation before sending a rejected request.
   const phone = String(form.phone || '').trim();
   if (phone && (!/^[0-9 +()\-]+$/.test(phone) || phone.replace(/\D/g, '').length < 7)) {
     throw new Error('Телефон: укажите не менее 7 цифр; допустимы только цифры, пробелы и символы + - ( ).');
+  }
+  if (!includeCompensation) {
+    return { full_name: form.full_name.trim(), specialty: form.specialty,
+      specialties: form.specialties, phone: phone || null, calendar_color: form.calendar_color };
   }
   if (form.currency !== 'KZT' || form.consultation_currency !== 'KZT' || form.services.some(service => typeof service === 'object' && service.commission_currency && service.commission_currency !== 'KZT')) {
     throw new Error('В записи есть иностранная валюта. Автоматическая конвертация запрещена; требуется явное согласование значений в KZT.');

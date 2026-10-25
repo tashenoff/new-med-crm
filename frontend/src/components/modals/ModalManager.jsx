@@ -30,6 +30,7 @@ const ModalManager = ({ user }) => {
 
       {/* Doctor Modal */}
       <DoctorModal
+        user={user}
         show={isModalOpen('doctor')}
         onClose={() => closeModal('doctor')}
         {...getModalProps('doctor')}
