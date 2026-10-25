@@ -93,28 +93,38 @@ const CalendarPage = ({ user }) => {
 
   // Обработчики записей
   const handleNewAppointment = () => {
+    const appointmentForm = {
+      patient_id: '',
+      doctor_id: '',
+      appointment_date: '',
+      appointment_time: '',
+      end_time: '',
+      price: '',
+      deposit_type: '',
+      deposit: 0,
+      status: 'unconfirmed',
+      reason: '',
+      notes: '',
+      patient_notes: '',
+      room_id: ''
+    };
+    editingItemRef.current = null;
+    appointmentFormRef.current = appointmentForm;
+    setCurrentEditingItem(null);
+    setCurrentAppointmentForm(appointmentForm);
+    setErrorMessage(null);
     openModal('appointment', {
-      appointmentForm: {
-        patient_id: '',
-        doctor_id: '',
-        appointment_date: '',
-        appointment_time: '',
-        end_time: '',
-        price: '',
-        deposit_type: '',
-        deposit: 0,
-        status: 'unconfirmed',
-        reason: '',
-        notes: '',
-        patient_notes: '',
-        room_id: ''
+      appointmentForm,
+      setAppointmentForm: (form) => {
+        appointmentFormRef.current = form;
+        setCurrentAppointmentForm(form);
+        updateModalProps('appointment', { appointmentForm: form });
       },
-      setAppointmentForm: (form) => updateModalProps('appointment', { appointmentForm: form }),
       patients: patientsHook.patients,
       doctors: doctorsHook.doctors,
       editingItem: null,
       loading,
-      errorMessage,
+      errorMessage: null,
       onSave: handleSaveAppointment,
       onCreatePatient: handleCreatePatientFromAppointment,
       appointments: appointmentsHook.appointments,
@@ -168,7 +178,7 @@ const CalendarPage = ({ user }) => {
       doctors: doctorsHook.doctors,
       editingItem: null,
       loading,
-      errorMessage,
+      errorMessage: null,
       onSave: handleSaveAppointment,
       onCreatePatient: handleCreatePatientFromAppointment,
       appointments: appointmentsHook.appointments,
@@ -188,7 +198,7 @@ const CalendarPage = ({ user }) => {
       end_time: appointment.end_time || '',
       price: appointment.price || '',
       deposit_type: appointment.deposit_type || '',
-      deposit: appointment.deposit || '',
+      deposit: appointment.deposit ?? 0,
       source: appointment.source || '',
       source_id: appointment.source_id || '',
       channel_id: appointment.channel_id || null,
@@ -220,7 +230,7 @@ const CalendarPage = ({ user }) => {
       doctors: doctorsHook.doctors,
       editingItem: appointment,
       loading,
-      errorMessage,
+      errorMessage: null,
       onSave: handleSaveAppointment,
       onCreatePatient: handleCreatePatientFromAppointment,
       appointments: appointmentsHook.appointments,
@@ -246,56 +256,21 @@ const CalendarPage = ({ user }) => {
       
       // Проверяем обязательные поля
       if (!appointmentForm.patient_id) {
-        alert('Выберите пациента!');
-        setLoading(false);
-        return;
+        throw new Error('Выберите пациента!');
       }
       if (!appointmentForm.doctor_id) {
-        alert('Выберите врача!');
-        setLoading(false);
-        return;
+        throw new Error('Выберите врача!');
       }
       if (!appointmentForm.appointment_date) {
-        alert('Выберите дату!');
-        setLoading(false);
-        return;
+        throw new Error('Выберите дату!');
       }
       if (!appointmentForm.appointment_time) {
-        alert('Выберите время!');
-        setLoading(false);
-        return;
+        throw new Error('Выберите время!');
       }
       
-      // Проверяем конфликты времени перед сохранением
-      if (!editingItem) {
-        // Простая проверка пересечений по времени
-        const conflictingAppointments = appointmentsHook.appointments.filter(apt => {
-          if (apt.appointment_date === appointmentForm.appointment_date) {
-            // Проверяем записи в том же кабинете
-            if (apt.room_id === appointmentForm.room_id) {
-              return doTimesOverlapSimple(
-                appointmentForm.appointment_time,
-                appointmentForm.end_time,
-                apt.appointment_time,
-                apt.end_time
-              );
-            }
-          }
-          return false;
-        });
-        
-        if (conflictingAppointments.length > 0) {
-          const conflictNames = conflictingAppointments.map(apt => {
-            const patient = patientsHook.patients.find(p => p.id === apt.patient_id);
-            return patient?.full_name || apt.patient_name || 'Неизвестный пациент';
-          }).join(', ');
-          
-          alert(`ОШИБКА: Время пересекается с записями: ${conflictNames}\n\nИзмените время записи.`);
-          setLoading(false);
-          return;
-        }
-      }
-      
+      // The server picks the next free interval for new bookings. Cached
+      // calendar rows must not block that shared scheduling rule.
+      let savedBooking;
       if (editingItem) {
         const appointmentId = editingItem.id || editingItem._id;
         
@@ -307,6 +282,7 @@ const CalendarPage = ({ user }) => {
         });
         
         const result = await appointmentsHook.updateAppointment(appointmentId, appointmentForm);
+        savedBooking = result.data;
         if (!result.success) {
           throw new Error(result.error);
         }
@@ -316,6 +292,7 @@ const CalendarPage = ({ user }) => {
         await appointmentsHook.fetchAppointments();
       } else {
         const result = await appointmentsHook.createAppointment(appointmentForm);
+        savedBooking = result.data;
         if (!result.success) {
           throw new Error(result.error);
         }
@@ -326,10 +303,13 @@ const CalendarPage = ({ user }) => {
       }
       
       closeModal('appointment');
+      return savedBooking;
     } catch (error) {
       console.error('Error saving appointment:', error);
       const errorMessage = error.message || 'Ошибка при сохранении записи';
       setErrorMessage(errorMessage);
+      updateModalProps('appointment', { errorMessage });
+      throw error;
     } finally {
       setLoading(false);
     }

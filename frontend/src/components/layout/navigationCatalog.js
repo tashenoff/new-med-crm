@@ -143,11 +143,6 @@ export const getNavigationMenu = (user, activeSection) => {
       baseItems.push({ key: 'quality-assessment', label: 'Оценка качества', type: 'tab' });
     }
 
-    // Настройки (только для админов)
-    if (user?.role === 'admin' || user?.role === 'super_admin') {
-      baseItems.push({ key: 'settings', label: 'Настройки', type: 'tab' });
-    }
-
     if (hasPermission('loyalty_view') && !hasPermission('directory_view')) baseItems.push({key: 'loyalty', label: 'Лояльность', type: 'tab'});
     return baseItems;
   };

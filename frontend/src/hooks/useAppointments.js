@@ -1,6 +1,7 @@
 import { sendAppointmentStatus } from '../utils/appointmentStatus';
 import { useState, useCallback } from 'react';
 import axios from 'axios';
+import { handleApiError } from '../api/config';
 import { appointmentPayment, ledgerCommands } from '../utils/accountingLedger';
 
 const BACKEND_URL = import.meta.env.VITE_BACKEND_URL;
@@ -9,6 +10,7 @@ const API = `${BACKEND_URL}/api`;
 // Вспомогательная функция для очистки данных записи
 const cleanAppointmentData = (appointmentData) => {
   const cleanData = appointmentPayment(appointmentData);
+  if (cleanData.deposit === '' || cleanData.deposit === null) cleanData.deposit = 0;
   delete cleanData.chair_number; // Удалено поле chair_number
   
   // Конвертируем price в число если оно не пустое
@@ -119,7 +121,7 @@ export const useAppointments = () => {
       return { success: true, data: response.data };
     } catch (error) {
       console.error('Ошибка при обновлении записи:', error);
-      const errorMessage = error.response?.data?.detail || 'Ошибка при обновлении записи';
+      const errorMessage = handleApiError(error);
       return { success: false, error: errorMessage };
     }
   }, []);

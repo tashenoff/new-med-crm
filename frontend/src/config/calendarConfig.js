@@ -2,14 +2,14 @@
  * Единая конфигурация календаря и длительности приёмов
  *
  * Сетка календаря строится с шагом 30 минут.
- * При выборе «Произвольное время» можно указать любую длительность.
+ * При выборе «Произвольное время» длительность должна быть не меньше 30 минут.
  */
 
 // Шаг сетки календаря (минуты)
 export const SLOT_INTERVAL_MINUTES = 30;
 
-// Минимальная длительность приёма (минуты) — без ограничений
-export const MIN_APPOINTMENT_DURATION = 1;
+// Минимальная длительность приёма (минуты)
+export const MIN_APPOINTMENT_DURATION = 30;
 
 // Длительность приёма по умолчанию (минуты)
 export const DEFAULT_APPOINTMENT_DURATION = 30;
@@ -99,11 +99,11 @@ export const validateAppointmentDuration = (startTime, endTime) => {
     return { valid: false, duration: null, message: 'Некорректное время приёма' };
   }
 
-  if (duration <= 0) {
+  if (duration < MIN_APPOINTMENT_DURATION) {
     return {
       valid: false,
       duration,
-      message: 'Время окончания должно быть позже времени начала'
+      message: 'Минимальная длительность приёма — 30 минут'
     };
   }
 

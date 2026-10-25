@@ -54,7 +54,7 @@ export function requiredForPath(path) {
     laboratories: 'directory_view', specialties: 'directory_view',
     'payment-types': 'directory_view', 'room-management': 'directory_view',
     loyalty: 'loyalty_view', 'quality-assessment': 'quality_view',
-    'staff-management': 'staff_view', settings: 'system_settings',
+    'staff-management': 'staff_view',
   };
   return map[key] ? [map[key]] : null;
 }
@@ -64,7 +64,7 @@ export const canOpenPath = (user, path) => {
 };
 export const homeForUser = user => [
   '/calendar', '/patients', '/doctors', '/crm-dashboard', '/warehouse',
-  '/finance-dashboard', '/finance-salaries', '/staff-management', '/settings',
+  '/finance-dashboard', '/finance-salaries', '/staff-management',
   '/service-prices', '/statistics', '/broadcast', '/loyalty', '/quality-assessment',
 ].find(path => canOpenPath(user, path)) || '/no-access';
 export const canOpenSpace = (user, space) => space === 'hms'

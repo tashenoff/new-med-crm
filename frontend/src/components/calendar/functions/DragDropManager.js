@@ -149,7 +149,19 @@ export class DragDropManager {
 
     // Проверяем помещается ли запись в расписание
     const room = this.rooms.find(r => r.id === roomId);
-    const endTime = movingAppointment.end_time || null;
+    let endTime = null;
+    if (movingAppointment.end_time && movingAppointment.appointment_time) {
+      const minutes = value => {
+        const [hours, mins] = value.split(':').map(Number);
+        return hours * 60 + mins;
+      };
+      const targetEnd = minutes(time) + minutes(movingAppointment.end_time) - minutes(movingAppointment.appointment_time);
+      if (targetEnd >= 24 * 60 || targetEnd <= minutes(time)) {
+        alert('Запись должна начинаться и заканчиваться в пределах одного дня');
+        return;
+      }
+      endTime = `${String(Math.floor(targetEnd / 60)).padStart(2, '0')}:${String(targetEnd % 60).padStart(2, '0')}`;
+    }
     
     if (room && endTime && !this.canAppointmentFitInSchedule(room, date, time, endTime)) {
       const appointmentDuration = `${movingAppointment.appointment_time} - ${endTime}`;

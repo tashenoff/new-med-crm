@@ -4,6 +4,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { formatPhoneChange } from '../../hooks/phoneFormatter';
 import { appointmentPayment } from '../../utils/accountingLedger';
 import { useAppointmentSource } from '../../hooks/useAppointmentSource';
+import { useBookingTime } from '../../hooks/useBookingTime';
 import LeadAttributionFields from '../crm/leads/LeadAttributionFields';
 import { emptyAttribution } from '../../utils/attribution';
 import { sourceRequest } from '../../utils/crmSources';
@@ -90,7 +91,6 @@ const AppointmentModal = ({
   const [patientSearch, setPatientSearch] = useState('');
   const [showPatientDropdown, setShowPatientDropdown] = useState(false);
   const [filteredPatients, setFilteredPatients] = useState([]);
-  const [timeConflictMessage, setTimeConflictMessage] = useState('');
   const [consentFile, setConsentFile] = useState(null);
   const [consentFileError, setConsentFileError] = useState('');
   const [consentDragOver, setConsentDragOver] = useState(false);
@@ -135,6 +135,8 @@ const [sources, setSources] = useState([]);
   const [justCreatedPatient, setJustCreatedPatient] = useState(null);
 
   const API = import.meta.env.VITE_BACKEND_URL;
+  const bookingTime = useBookingTime({ show, editing: Boolean(editingItem),
+    form: appointmentForm, update: setAppointmentForm, api: API });
   
   // Ищем пациента в списке patients, затем в justCreatedPatient (для только что созданных),
   // затем в filteredPatients. Если не найден - создаём объект из данных формы/editingItem
@@ -162,73 +164,6 @@ const [sources, setSources] = useState([]);
   const currentTreatmentPlans = plansPatientId === selectedPatient?.id ? treatmentPlans : [];
   const planDataPending = plansLoading || (!plansError && plansPatientId !== selectedPatient?.id);
 
-
-  // Простая функция проверки пересечения времени
-  const doTimesOverlap = (start1, end1, start2, end2) => {
-    const timeToMinutes = (timeStr) => {
-      const [hours, minutes] = timeStr.split(':').map(n => parseInt(n));
-      return hours * 60 + minutes;
-    };
-
-    const start1Minutes = timeToMinutes(start1);
-    const end1Minutes = end1 ? timeToMinutes(end1) : start1Minutes + 30;
-    const start2Minutes = timeToMinutes(start2);
-    const end2Minutes = end2 ? timeToMinutes(end2) : start2Minutes + 30;
-
-    return start1Minutes < end2Minutes && start2Minutes < end1Minutes;
-  };
-
-  // Проверяет конфликт времени и устанавливает сообщение
-  const checkTimeConflict = (roomId, date, time, doctorId = null) => {
-    setTimeConflictMessage('');
-
-    if (!editingItem && appointments?.length > 0) { // Только для новых записей
-      const conflicts = [];
-      
-      // Проверяем конфликты по кабинету
-      if (roomId) {
-        const roomConflicts = appointments.filter(apt => {
-          return apt.appointment_date === date &&
-            apt.room_id === roomId &&
-            apt.status !== 'cancelled' && apt.status !== 'no_show' &&
-            doTimesOverlap(time, appointmentForm.end_time, apt.appointment_time, apt.end_time);
-        });
-        
-        if (roomConflicts.length > 0) {
-          const conflictNames = roomConflicts.map(apt => {
-            const patient = patients.find(p => p.id === apt.patient_id);
-            return patient?.full_name || apt.patient_name || 'Неизвестный пациент';
-          }).join(', ');
-          conflicts.push(`Кабинет занят (${conflictNames})`);
-        }
-      }
-      
-      // Проверяем конфликты по врачу
-      const checkDoctorId = doctorId || appointmentForm.doctor_id;
-      if (checkDoctorId) {
-        const doctorConflicts = appointments.filter(apt => {
-          return apt.appointment_date === date &&
-            apt.doctor_id === checkDoctorId &&
-            apt.status !== 'cancelled' && apt.status !== 'no_show' &&
-            doTimesOverlap(time, appointmentForm.end_time, apt.appointment_time, apt.end_time);
-        });
-        
-        if (doctorConflicts.length > 0) {
-          const doctor = doctors.find(d => d.id === checkDoctorId);
-          const doctorName = doctor?.full_name || 'Врач';
-          const conflictNames = doctorConflicts.map(apt => {
-            const patient = patients.find(p => p.id === apt.patient_id);
-            return patient?.full_name || apt.patient_name || 'Неизвестный пациент';
-          }).join(', ');
-          conflicts.push(`${doctorName} уже записан (${conflictNames})`);
-        }
-      }
-      
-      if (conflicts.length > 0) {
-        setTimeConflictMessage(`⚠️ КОНФЛИКТ: ${conflicts.join('; ')}`);
-      }
-    }
-  };
 
   // Функция для получения врачей, работающих в выбранном кабинете
   const fetchAvailableDoctors = async (date, time = null, roomId = null) => {
@@ -403,11 +338,6 @@ if (timeSchedule) {
     };
     setAppointmentForm(newForm);
 
-    // Проверяем конфликты времени
-    if (appointmentForm.appointment_date && appointmentForm.room_id && time) {
-      checkTimeConflict(appointmentForm.room_id, appointmentForm.appointment_date, time);
-    }
-
     if (appointmentForm.appointment_date) {
       fetchAvailableDoctors(appointmentForm.appointment_date, time, appointmentForm.room_id);
     }
@@ -417,9 +347,6 @@ if (timeSchedule) {
   const handleEndTimeChange = (endTime) => {
     setAppointmentForm({ ...appointmentForm, end_time: endTime });
 
-    if (appointmentForm.appointment_date && appointmentForm.room_id && appointmentForm.appointment_time) {
-      checkTimeConflict(appointmentForm.room_id, appointmentForm.appointment_date, appointmentForm.appointment_time);
-    }
   };
 
   // Обработчик изменения кабинета
@@ -1007,7 +934,7 @@ const handleCreateNewPatient = async (e) => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (submitting) return;
+    if (submitting || bookingTime.checking) return;
     let payload;
     try {
       const base = { ...appointmentForm };
@@ -1094,7 +1021,12 @@ const handleCreateNewPatient = async (e) => {
     // Передаём данные формы, а не event
     try {
       setSubmitError('');
-      await onSave(payload);
+      const saved = await onSave(payload);
+      // Another booking can arrive after the preview. Show the actual server
+      // result rather than leaving the operator with the originally typed time.
+      if (!editingItem && saved?.appointment_time && saved.appointment_time !== payload.appointment_time) {
+        alert(`Запись создана на ${saved.appointment_date}, ${saved.appointment_time}–${saved.end_time}`);
+      }
     } catch (error) {
       const detail = error?.response?.data?.detail;
       setSubmitError(typeof detail === 'string' ? detail : error?.message || 'Не удалось сохранить запись');
@@ -1336,12 +1268,9 @@ const handleCreateNewPatient = async (e) => {
             onEndTimeChange={handleEndTimeChange}
           />
 
-          {/* Предупреждение о конфликте времени */}
-          {timeConflictMessage && (
-            <div className="bg-curai-negativeBg border border-curai-negative rounded-md p-3 text-curai-negative text-sm">
-              {timeConflictMessage}
-            </div>
-          )}
+          {bookingTime.checking && <p role="status" className="text-sm text-curai-muted">Подбираем свободное время…</p>}
+          {bookingTime.notice && <p role="status" className="text-sm text-curai-blue">{bookingTime.notice}</p>}
+          {bookingTime.error && <p role="alert" className="text-sm text-curai-negative">{bookingTime.error}</p>}
 
           {/* Выбор кабинета */}
           <div>
@@ -1386,7 +1315,6 @@ const handleCreateNewPatient = async (e) => {
                 setAppointmentForm({ ...appointmentForm, doctor_id: newDoctorId });
                 // Проверяем конфликты с новым врачом
                 if (appointmentForm.appointment_date && appointmentForm.appointment_time) {
-                  checkTimeConflict(appointmentForm.room_id, appointmentForm.appointment_date, appointmentForm.appointment_time, newDoctorId);
                 }
               }}
               className={inputClasses}
@@ -1522,7 +1450,7 @@ const handleCreateNewPatient = async (e) => {
               <label className="block text-sm font-medium">Депозит
                 <select value={appointmentForm.deposit_type || ''}
                   onChange={event => setAppointmentForm({ ...appointmentForm, deposit_type: event.target.value, deposit: '' })}
-                  className={selectClasses} disabled={submitting} {...documentPermissionProps(user, 'finance_view', 'finance_edit', 'patients_view', 'patients_edit')}>
+                  className={selectClasses} disabled={submitting} {...documentPermissionProps(user, 'calendar_view', 'calendar_edit')}>
                   <option value="">Без депозита</option>
                   <option value="fixed">Фиксированная сумма</option>
                   <option value="percent">Процент от стоимости</option>
@@ -1537,7 +1465,7 @@ const handleCreateNewPatient = async (e) => {
                     placeholder={appointmentForm.deposit_type === 'percent' ? '0-100' : '0'}
                     value={appointmentForm.deposit ?? ''}
                     onChange={event => setAppointmentForm({ ...appointmentForm, deposit: event.target.value })}
-                    className={inputClasses} disabled={submitting} {...documentPermissionProps(user, 'finance_view', 'finance_edit', 'patients_view', 'patients_edit')} />
+                    className={inputClasses} disabled={submitting} {...documentPermissionProps(user, 'calendar_view', 'calendar_edit')} />
                 </label>
               )}
             </div>
@@ -1714,7 +1642,7 @@ const handleCreateNewPatient = async (e) => {
           <div className="flex space-x-3">
             <button
               type="submit"
-              disabled={loading || uploadingConsent || submitting}
+              disabled={loading || uploadingConsent || submitting || bookingTime.checking}
               className="flex-1 bg-curai-blue text-white py-2 rounded-md hover:bg-curai-blue disabled:opacity-50 flex items-center justify-center gap-2"
               data-guide="save-appointment-btn"
              {...documentPermissionProps(user, "calendar_view", "calendar_edit")}>

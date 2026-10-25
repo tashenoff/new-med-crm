@@ -17,6 +17,7 @@ import { isTimeInAppointmentRange } from './timeUtils';
 export const isSlotOccupied = (appointments, rooms, getAvailableDoctorForSlot, roomId, date, time) => {
   // Сначала ищем записи с правильным room_id (новые записи)
   let appointment = appointments.find(apt => 
+    !['cancelled', 'no_show'].includes(apt.status) &&
     apt.room_id === roomId && 
     apt.appointment_date === date && 
     isTimeInAppointmentRange(apt.appointment_time, apt.end_time, time)
@@ -29,6 +30,7 @@ export const isSlotOccupied = (appointments, rooms, getAvailableDoctorForSlot, r
   // Если не нашли записи с room_id, ищем старые записи без room_id
   if (!appointment) {
     const oldAppointment = appointments.find(apt => 
+      !['cancelled', 'no_show'].includes(apt.status) &&
       (!apt.room_id || apt.room_id === null || apt.room_id === '') && 
       apt.appointment_date === date && 
       isTimeInAppointmentRange(apt.appointment_time, apt.end_time, time)
@@ -116,6 +118,7 @@ export const checkTimeConflicts = (
   if (!endTime) return [];
   
   const conflictingAppointments = appointments.filter(apt => {
+    if (['cancelled', 'no_show'].includes(apt.status)) return false;
     // Исключаем саму перемещаемую запись
     if (excludeAppointmentId && (apt._id === excludeAppointmentId || apt.id === excludeAppointmentId)) {
       return false;

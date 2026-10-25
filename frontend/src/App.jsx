@@ -47,7 +47,6 @@ import { CalendarPage, PatientsPage, DoctorsPage, WarehousePage, QualityAssessme
 import LoyaltyPage from './pages/LoyaltyPage';
 import BroadcastPage from './pages/BroadcastPage';
 import StaffManagementPage from './pages/StaffManagementPage';
-import SettingsPage from './pages/SettingsPage';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { ModalProvider } from './context/ModalContext';
 import { NotificationProvider } from './context/NotificationContext';
@@ -354,7 +353,7 @@ function ClinicApp() {
           <Route path="/loyalty" element={<LoyaltyPage user={user} />} />
           <Route path="/services-report" element={<ServicesReport user={user} />} />
           <Route path="/staff-management" element={<StaffManagementPage user={user} />} />
-          <Route path="/settings" element={<SettingsPage user={user} />} />
+          <Route path="/settings" element={<Navigate to={homeForUser(user)} replace />} />
           <Route path="/quality-assessment" element={<QualityAssessmentPage user={user} />} />
           <Route path="/warehouse" element={<WarehousePage user={user} warehouseView={warehouseView} onOpenAiChat={openAiChatWithMaterialForm} onCloseAiChat={closeAiChatSidebar} aiChatSidebarOpen={aiChatSidebarOpen} materialRefreshTrigger={materialRefreshTrigger} />} />
           

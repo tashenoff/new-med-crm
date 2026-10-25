@@ -815,7 +815,6 @@ const EnhancedLeadsView = ({ user }) => {
 
           if (response.ok) {
             const result = await response.json();
-            alert(`Прием успешно назначен!\nПациент: ${result.patient_id}\nЗапись: ${result.appointment_id}`);
             closeModal('appointment');
             // Обновляем список заявок
             await fetchLeads();
@@ -828,6 +827,7 @@ const EnhancedLeadsView = ({ user }) => {
               const appointmentsData = await appointmentsResponse.json();
               setAppointments(appointmentsData);
             }
+            return result;
           } else {
             const error = await response.json();
             throw new Error(error.detail || 'Не удалось назначить прием');
