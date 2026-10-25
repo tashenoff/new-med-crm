@@ -46,10 +46,10 @@ export const getAppointmentHeight = (appointment) => {
   const startMinutes = start[0] * 60 + start[1];
   const endMinutes = end[0] * 60 + end[1];
   // Минимальная длительность сеанса — 30 минут
-  const durationMinutes = Math.max(DEFAULT_APPOINTMENT_DURATION, endMinutes - startMinutes);
+  const durationMinutes = endMinutes > startMinutes ? endMinutes - startMinutes : DEFAULT_APPOINTMENT_DURATION;
   
   // SLOT_HEIGHT_PX на каждые SLOT_INTERVAL_MINUTES минут
-  return Math.max(SLOT_HEIGHT_PX, (durationMinutes / SLOT_INTERVAL_MINUTES) * SLOT_HEIGHT_PX);
+  return (durationMinutes / SLOT_INTERVAL_MINUTES) * SLOT_HEIGHT_PX;
 };
 
 /**

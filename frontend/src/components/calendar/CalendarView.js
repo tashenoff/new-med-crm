@@ -4,17 +4,16 @@ import { DragDropManager } from './functions/DragDropManager';
 import { themeClasses } from '../../hooks/useTheme';
 import {
   generateTimeSlots,
-  getAppointmentHeight,
   canAppointmentFitInSchedule
 } from './utils/timeUtils';
 import {
   isSlotOccupied,
-  getAppointmentForSlot,
   checkTimeConflicts,
   getStatusColor
 } from './utils/appointmentUtils';
 import {
   SLOT_INTERVAL_MINUTES,
+  SLOT_HEIGHT_PX,
   CALENDAR_START_TIME,
   CALENDAR_END_TIME
 } from '../../config/calendarConfig';
@@ -174,23 +173,24 @@ const CalendarView = ({
   const isSlotOccupiedWrapper = (roomId, date, time) => 
     isSlotOccupied(appointments, rooms, getAvailableDoctorForSlot, roomId, date, time);
 
-  const getAppointmentForSlotWrapper = (roomId, date, time) => 
-    getAppointmentForSlot(appointments, rooms, getAvailableDoctorForSlot, roomId, date, time);
 
 
   // Рендер grid календаря (переиспользуемый)
   const renderCalendarGrid = () => (
-      <div className={`calendar-grid flex ${themeClasses.border.default} border-b`}>
+      <div className={`calendar-grid flex ${themeClasses.border.default} border-b`} style={{ '--curai-calendar-slot-height': `${SLOT_HEIGHT_PX}px` }}>
         {/* Колонка времени — фиксированная (sticky left) */}
         <div className={`calendar-time-column-sticky w-20 flex-shrink-0 border-r ${themeClasses.border.light} calendar-time-column`}>
 <div className={`h-16 border-b border-l ${themeClasses.border.default} ${themeClasses.bg.secondary} flex items-center justify-center font-semibold ${themeClasses.text.primary} calendar-time-header`}>
           Время
         </div>
+        <div className="calendar-time-scale">
         {timeSlots.map((time) => (
           <div key={time} className={`h-16 border-b border-l ${themeClasses.border.light} flex items-center justify-center text-sm font-medium ${themeClasses.text.secondary} calendar-time-label`}>
-            {time}
+            <span className="calendar-time-mark">{time}</span>
           </div>
         ))}
+        <div className="calendar-time-label calendar-time-end"><span className="calendar-time-mark">{CALENDAR_END_TIME}</span></div>
+        </div>
       </div>
 
       {/* Кабинеты */}
@@ -210,8 +210,6 @@ const CalendarView = ({
               patients={patients}
               doctors={doctors}
               getAvailableDoctorForSlot={getAvailableDoctorForSlot}
-              getAppointmentForSlot={getAppointmentForSlotWrapper}
-              getAppointmentHeight={getAppointmentHeight}
               getStatusColor={getStatusColor}
               isSlotOccupied={isSlotOccupiedWrapper}
               canEdit={canEdit}

@@ -21,6 +21,7 @@ const AppointmentCard = ({
   patient,
   doctor,
   height,
+  top = 0,
   statusColor, // Оставляем для обратной совместимости, но не используем
   canEdit,
   onEdit,
@@ -190,8 +191,9 @@ const AppointmentCard = ({
           if (!e.repeat) handleClick(e);
         }
       }}
-      className="curai-appointment-card absolute top-0 left-1 right-1 min-w-0 rounded text-xs cursor-move z-50 transition-none overflow-hidden focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-blue-600"
+      className="curai-appointment-card absolute left-1 right-1 min-w-0 rounded text-xs cursor-move z-50 transition-none overflow-hidden focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-blue-600"
       style={{
+        top: `${top}px`,
         height: `${cardHeight}px`,
         backgroundColor: 'var(--curai-color-surface)',
         color: 'var(--curai-color-ink)',

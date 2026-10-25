@@ -23,7 +23,7 @@
 .calendar-grid { min-width: 100%; width: max-content; border-color: var(--curai-color-border); }
 .calendar-time-column-sticky { position: sticky; left: 0; z-index: 30; width: var(--curai-calendar-time-width); background: var(--curai-color-surface); border-color: var(--curai-color-border); }
 .calendar-time-header { position: sticky; top: 0; z-index: 31; height: var(--curai-calendar-header-height); background: var(--curai-color-surface); color: var(--curai-color-muted); justify-content: flex-start; align-items: flex-start; padding: var(--curai-space-16) var(--curai-space-12); font-size: var(--curai-type-size-11); font-weight: 400; border-color: var(--curai-color-border); border-left: 0; }
-.calendar-time-label { height: var(--curai-calendar-slot-height); align-items: flex-start; justify-content: flex-start; padding: var(--curai-space-8) var(--curai-space-12); color: var(--curai-color-muted); background: var(--curai-color-surface); font-size: var(--curai-type-size-11); font-weight: 400; border-color: var(--curai-color-border); border-left: 0; }
+.calendar-time-label { position: relative; height: var(--curai-calendar-slot-height); align-items: flex-start; justify-content: flex-start; padding: 0 var(--curai-space-12); color: var(--curai-color-muted); background: var(--curai-color-surface); font-size: var(--curai-type-size-11); font-weight: 400; border-color: var(--curai-color-border); border-left: 0; }
 .calendar-rooms-wrapper { flex: 1; min-width: 0; background: var(--curai-color-surface); }
 .calendar-no-rooms { min-width: var(--curai-calendar-cabinet-width); color: var(--curai-color-muted); }
 .calendar-room-column { width: var(--curai-calendar-cabinet-width); min-width: var(--curai-calendar-cabinet-width); flex: 1 0 var(--curai-calendar-cabinet-width); background: var(--curai-color-surface); border-color: var(--curai-color-border); }
@@ -56,3 +56,12 @@
   .calendar-rooms-wrapper { width: 0; flex: 1 1 0; }
   .calendar-room-column { width: auto; min-width: 0; flex: 1 1 0; }
 }
+
+/* Time labels and card edges share one continuous minutes-to-pixels scale.
+   The gutter keeps the opening and closing marks clear of sticky headers. */
+.calendar-time-scale, .calendar-room-slots { padding-block: 12px; }
+.calendar-time-mark { position: absolute; top: 0; transform: translateY(-50%); line-height: 18px; }
+.calendar-time-label::after { content: ''; position: absolute; top: 0; right: 0; width: 6px; border-top: 1px solid var(--curai-color-border); }
+.calendar-time-end { height: 0; border: 0; }
+.calendar-room-timeline { position: relative; }
+.calendar-room-timeline > .curai-appointment-card:focus-within { z-index: 51; }
