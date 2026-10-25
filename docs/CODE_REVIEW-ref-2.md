@@ -4,13 +4,13 @@ Static review of the backend on `ref-2` (reporting, finance MCP, authz around th
 
 Reviewed surface: `backend/reporting/`, `tools/finance_mcp/`, `.github/workflows/deploy.yml`, CRM services report in `backend/routers/services_router.py`, auth in `backend/routers/auth.py` and `backend/server.py`, and the chat/webhook paths that sit next to those controls. Payroll payout accounting is noted and left closed.
 
-This PR also removes a committed Metabase embedding key from `backend/routers/chat.py` (separate commit). Rotate that key in Metabase. It remains in git history.
+Metabase is gone on `ref-2` after #7 (`657d061`, squash of “Remove unused Metabase”). That commit deletes the compose stack, the embed helpers, the iframe UI, and the committed embedding key. This PR does not put any of that back and does not add `METABASE_*` settings. The old key is still in git history; treat it as compromised if it was ever used. Do not reintroduce an env signing path.
 
 ## Executive summary
 
 The finance MCP is built to fail closed: exact one-scope grants, hashed bearers, fixed origins, closed DTOs, and no patient fields in the reporting projections. That part is in good shape. The clinic data around it is not.
 
-Two issues should be treated as urgent. A Metabase embed signing key was committed in `backend/routers/chat.py` (removed here; rotate the old key). `POST /api/auth/register` still issues a live patient JWT with no invite, and several report and chat routes accept any active user. A self-registered account can read patient names on the services-report detail API and can cause recent patient names and phones to be sent to OpenRouter.
+The urgent code issue that remains is open registration. `POST /api/auth/register` still issues a live patient JWT with no invite, and several report and chat routes accept any active user. A self-registered account can read patient names on the services-report detail API and can cause recent patient names and phones to be sent to OpenRouter. The Metabase embed key that was committed in `chat.py` is no longer a live signing path: #7 removed Metabase instead of moving the key to the environment.
 
 Finance math for ledger receipts (summary and breakdown, Asia/Bishkek, half-open UTC bounds) is consistent and tested. `get_services_rendered` is not: `payment_status == "paid"` and proportional `paid_amount` are added together, so paid cash is overstated. The same formula is copied in the CRM UI report, which also filters calendar years in naive UTC rather than Asia/Bishkek. `get_amounts_due` ignores the requested period and returns current plan balances; the MCP client will also reject a realistic plan list because of a 32 KiB cap.
 
@@ -18,11 +18,11 @@ Paperclip grants and Grok OAuth do not see the same tools. Deploy clones one Pap
 
 ## Critical
 
-### C1. Metabase embed key was committed
+### C1. Metabase embed key was committed — product removed in #7
 
-- **Location:** `backend/routers/chat.py` (`METABASE_SECRET_KEY`, `generate_metabase_token`). Previously a literal HS256 key. This PR reads `METABASE_SECRET_KEY` from the environment and refuses to sign when it is unset. `backend/.env.example` documents the variable with an empty placeholder.
-- **Why it matters:** Anyone with the repository can mint Metabase embed JWTs for the questions this server embeds (patient stats call `get_metabase_iframe_url(38)`). History still contains the old value, so deleting it from HEAD does not revoke it.
-- **Suggested fix:** Rotate the key in Metabase, set `METABASE_SECRET_KEY` on the VPS, redeploy. Do not paste the old value into tickets or logs. Treat git history as exposed.
+- **Location:** Was `backend/routers/chat.py` (`METABASE_SECRET_KEY`, `generate_metabase_token`, `get_metabase_iframe_url`) and `metabase/docker-compose.yml` (`MB_EMBEDDING_SECRET_KEY`). #7 (`657d061`) deleted the compose file, the embed helpers, the iframe instructions, and the AI-chat iframe UI. `ref-2` has no `METABASE_*` signing path. This PR does not restore one, and `.env.example` has no Metabase stubs.
+- **Why it matters:** At review time anyone with the repository could mint embed JWTs for saved question 38. HEAD no longer signs those tokens. The literal key remains in git history, so a deployment that already installed that key should rotate or shut down Metabase. Do not paste the old value into tickets or logs.
+- **Suggested fix:** No further code in this PR. If that key was ever loaded in a running Metabase, rotate it there and leave the clinic app without embed settings. Do not add `METABASE_SECRET_KEY` back.
 
 ### C2. Open registration plus unscoped report and chat reads
 
@@ -157,7 +157,7 @@ Paperclip grants and Grok OAuth do not see the same tools. Deploy clones one Pap
 
 ## Suggested next PRs
 
-1. **Authz on reports and registration.** Close or staff-gate `POST /api/auth/register`. Require `finance_view` on `/api/reports/services-report` and the detail and filters routes. Remove patient names and phones from `get_crm_context_for_ai`. Delete `GET /api/chat/test`. Rotate the Metabase key and set `METABASE_SECRET_KEY` (the code change is already in this PR).
+1. **Authz on reports and registration.** Close or staff-gate `POST /api/auth/register`. Require `finance_view` on `/api/reports/services-report` and the detail and filters routes. Remove patient names and phones from `get_crm_context_for_ai`. Delete `GET /api/chat/test`. Metabase itself was removed in #7; do not add it back. Rotating the historical embed key is an ops step only if that key was ever used.
 2. **`LiveResolver` uses `effective_permissions`.** Flip `test_known_explicit_admin_mismatch_is_conditional_on_a_separate_valid_grant` to expect `FORBIDDEN` for an explicit admin without `finance_view`. Re-run `tests/finance_readonly/`.
 3. **Services paid formula.** Fix H2/H3 in one helper. New tests: mixed paid/unpaid lines cannot exceed plan `paid_amount`; Bishkek New Year boundary matches between CRM and MCP. Do not require a complete ledger for this report.
 4. **Amounts due contract.** Either document point-in-time in the MCP tool text and drop zero-due rows, or define a real period field and test it. Align `MAX_RESPONSE_BYTES` with `MAX_PLANS` so a full clinic returns a report or a clear `INCOMPLETE_ACCOUNTING`.
