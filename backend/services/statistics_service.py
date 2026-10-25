@@ -2,7 +2,7 @@
 Statistics service - business logic for statistics calculations
 """
 from motor.motor_asyncio import AsyncIOMotorDatabase
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Optional, Dict, Any, List
 
 
@@ -326,7 +326,11 @@ class StatisticsService:
             if date_from:
                 date_query["$gte"] = datetime.fromisoformat(date_from.replace('Z', '+00:00'))
             if date_to:
-                date_query["$lte"] = datetime.fromisoformat(date_to.replace('Z', '+00:00'))
+                end = datetime.fromisoformat(date_to.replace('Z', '+00:00'))
+                if len(date_to) == 10:
+                    date_query["$lt"] = end + timedelta(days=1)
+                else:
+                    date_query["$lte"] = end
             date_filter["created_at"] = date_query
         
         # Get all treatment plans

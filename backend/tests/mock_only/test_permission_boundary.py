@@ -301,8 +301,12 @@ async def test_conversion_body_must_explicitly_disable_hms_for_crm_only():
     request.json.return_value = {'create_hms_patient': False}
     await check_cross_space_write(request, '/api/crm/leads/{lead_id}/convert', actor)
     request.json.return_value = {'deposit': 100}
+    path = '/api/crm/leads/{lead_id}/schedule-appointment'
     with pytest.raises(HTTPException):
-        await check_cross_space_write(request, '/api/crm/leads/{lead_id}/schedule-appointment', actor)
+        check_access(actor, requirements(path, 'POST'))
+    calendar_actor = user(['crm_view', 'crm_edit', 'patients_view', 'patients_edit', 'calendar_view', 'calendar_edit'])
+    check_access(calendar_actor, requirements(path, 'POST'))
+    await check_cross_space_write(request, path, calendar_actor)
 
 
 async def test_registered_crm_response_redacts_joined_hms_after_serialization():
@@ -320,31 +324,36 @@ async def test_registered_crm_response_redacts_joined_hms_after_serialization():
         assert int(result.headers['content-length']) == len(result.content)
 
 
-async def test_calendar_deposit_requires_finance_even_through_direct_calendar_api():
+@pytest.mark.parametrize('role', ['admin', 'administrator', 'doctor', 'marketer', 'super_admin'])
+async def test_calendar_editor_can_receive_deposit_without_finance_permissions(role):
     from api_permissions import check_financial_side_effects
     db = DB()
-    actor = user(['calendar_view', 'calendar_edit'])
-    request = SimpleNamespace(method='POST', path_params={}, json=AsyncMock(return_value={'deposit': 500}))
-    with pytest.raises(HTTPException):
-        await check_financial_side_effects(request, '/api/appointments', actor, db)
-    finance_only = user(['calendar_view', 'calendar_edit', 'finance_view', 'finance_edit'])
-    with pytest.raises(HTTPException):
-        await check_financial_side_effects(request, '/api/appointments', finance_only, db)
-    finance_only.permissions.extend(['patients_view', 'patients_edit'])
-    await check_financial_side_effects(request, '/api/appointments', finance_only, db)
-    request.json.return_value = {'deposit': 0, 'price': 1000}
+    actor = user(['calendar_view', 'calendar_edit'], role=role)
+    request = SimpleNamespace(method='POST', path_params={}, json=AsyncMock(return_value={'deposit': 2000}))
+    check_access(actor, requirements('/api/appointments', 'POST'))
     await check_financial_side_effects(request, '/api/appointments', actor, db)
-    await db.appointments.insert_one({'id': 'booking', 'deposit': 10, 'deposit_type': 'percent', 'price': 1000})
+    await db.appointments.insert_one({'id': 'booking', 'deposit': 0, 'deposit_type': 'fixed', 'price': 1000})
     request.method = 'PUT'
     request.path_params = {'appointment_id': 'booking'}
-    request.json.return_value = {'deposit': 10, 'deposit_type': 'percent', 'price': 1000, 'notes': 'unchanged receipt'}
+    request.json.return_value = {'deposit': 2000, 'deposit_type': 'fixed', 'price': 1000}
+    check_access(actor, requirements('/api/appointments/{appointment_id}', 'PUT'))
     await check_financial_side_effects(request, '/api/appointments/{appointment_id}', actor, db)
-    request.json.return_value['price'] = 2000
+    request.json.return_value = {'deposit': 0, 'price': 1000}
+    await check_financial_side_effects(request, '/api/appointments/{appointment_id}', actor, db)
+
+
+def test_calendar_read_only_still_cannot_record_a_deposit():
     with pytest.raises(HTTPException):
-        await check_financial_side_effects(request, '/api/appointments/{appointment_id}', actor, db)
-    request.method = 'DELETE'
+        check_access(user(['calendar_view']), requirements('/api/appointments', 'POST'))
+
+
+async def test_deleting_a_booking_with_deposit_retains_existing_financial_check():
+    from api_permissions import check_financial_side_effects
+    db = DB()
+    await db.appointments.insert_one({'id': 'booking', 'deposit': 2000})
+    request = SimpleNamespace(method='DELETE', path_params={'appointment_id': 'booking'})
     with pytest.raises(HTTPException):
-        await check_financial_side_effects(request, '/api/appointments/{appointment_id}', actor, db)
+        await check_financial_side_effects(request, '/api/appointments/{appointment_id}', user(['calendar_view', 'calendar_delete']), db)
 
 
 async def test_legacy_snapshot_payments_and_auto_clinical_completion_are_separate_permissions():

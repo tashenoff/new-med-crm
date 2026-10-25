@@ -143,12 +143,17 @@ class ConsultationService:
         existing_sheet = await self.get_consultation_sheet(sheet_id)
         if not existing_sheet:
             return None
-        linked_plan = await self.db.treatment_plans.find_one({"consultation_sheet_id": sheet_id})
-        if linked_plan:
-            reject_ledger_writer(linked_plan)
-        
         update_data = {k: v for k, v in data.dict().items() if v is not None}
-        
+        existing_data = existing_sheet.dict()
+        # The UI sends the whole form. Only actual financial/doctor changes
+        # must pass the ledger lock; ordinary clinical notes remain editable.
+        for key in ("doctor_id", "treatment_services"):
+            if key in update_data and update_data[key] == existing_data.get(key):
+                del update_data[key]
+        linked_plan = await self.db.treatment_plans.find_one({"consultation_sheet_id": sheet_id})
+        if linked_plan and any(key in update_data for key in ("doctor_id", "treatment_services")):
+            reject_ledger_writer(linked_plan)
+
         if update_data:
             update_data["updated_at"] = datetime.utcnow()
             

@@ -486,90 +486,19 @@ async def schedule_appointment_from_lead(
             raise HTTPException(status_code=422, detail="patient_full_name must be a string")
         patient_full_name = (patient_full_name or "").strip()
         
-        # === ПРОВЕРКА КОНФЛИКТОВ ВРЕМЕНИ ===
-        appointments_collection = db["appointments"]
-        
-        appointment_date = appointment_data.get('appointment_date')
-        appointment_time = appointment_data.get('appointment_time', '10:00')
-        end_time = appointment_data.get('end_time', '10:30')
-        doctor_id = appointment_data.get('doctor_id')
-        room_id = appointment_data.get('room_id')
-        
-        # Функция проверки пересечения времени
-        def times_overlap(start1: str, end1: str, start2: str, end2: str) -> bool:
-            """Проверяет пересечение двух временных интервалов"""
-            def time_to_minutes(t: str) -> int:
-                if not t:
-                    return 0
-                parts = t.split(':')
-                return int(parts[0]) * 60 + int(parts[1])
-            
-            s1, e1 = time_to_minutes(start1), time_to_minutes(end1)
-            s2, e2 = time_to_minutes(start2), time_to_minutes(end2)
-            return s1 < e2 and s2 < e1
-        
-        # Нормализуем дату для поиска
-        if appointment_date:
-            try:
-                parsed_date = datetime.fromisoformat(appointment_date.replace('Z', '+00:00'))
-                search_date = parsed_date.strftime('%Y-%m-%d')
-            except:
-                search_date = appointment_date
-        else:
-            search_date = datetime.utcnow().strftime('%Y-%m-%d')
-        
-        # Ищем все записи на эту дату
-        existing_appointments = await appointments_collection.find({
-            "appointment_date": search_date,
-            "status": {"$nin": ["cancelled", "no_show"]}  # Исключаем отмененные
-        }).to_list(None)
-        
-        conflicts = []
-        
-        for apt in existing_appointments:
-            apt_start = apt.get('appointment_time', '')
-            apt_end = apt.get('end_time', '')
-            
-            if not apt_start:
-                continue
-            
-            # Проверяем пересечение времени
-            if times_overlap(appointment_time, end_time, apt_start, apt_end):
-                # Проверяем конфликт по врачу
-                if doctor_id and apt.get('doctor_id') == doctor_id:
-                    # Получаем имя врача для сообщения
-                    doctor = await db.doctors.find_one({"id": doctor_id})
-                    doctor_name = doctor.get('full_name', 'Врач') if doctor else 'Врач'
-                    
-                    # Получаем имя пациента для сообщения
-                    patient = await db.patients.find_one({"id": apt.get('patient_id')})
-                    patient_name = patient.get('full_name', 'Пациент') if patient else 'Пациент'
-                    
-                    conflicts.append(
-                        f"Врач '{doctor_name}' уже записан на {apt_start}-{apt_end} (пациент: {patient_name})"
-                    )
-                
-                # Проверяем конфликт по кабинету
-                if room_id and apt.get('room_id') == room_id:
-                    # Получаем название кабинета
-                    room = await db.rooms.find_one({"id": room_id})
-                    room_name = room.get('name', 'Кабинет') if room else 'Кабинет'
-                    
-                    # Получаем имя пациента
-                    patient = await db.patients.find_one({"id": apt.get('patient_id')})
-                    patient_name = patient.get('full_name', 'Пациент') if patient else 'Пациент'
-                    
-                    conflicts.append(
-                        f"Кабинет '{room_name}' уже занят на {apt_start}-{apt_end} (пациент: {patient_name})"
-                    )
-        
-        # Если есть конфликты - возвращаем ошибку
-        if conflicts:
-            raise HTTPException(
-                status_code=409,
-                detail=f"Конфликт расписания: {'; '.join(conflicts)}"
-            )
-        # === КОНЕЦ ПРОВЕРКИ КОНФЛИКТОВ ===
+        # Resolve the slot before creating a patient or changing CRM links.
+        from services.appointment_scheduling import resolve_booking_time
+        raw_date = appointment_data.get('appointment_date') or datetime.utcnow().strftime('%Y-%m-%d')
+        try:
+            search_date = datetime.fromisoformat(raw_date.replace('Z', '+00:00')).strftime('%Y-%m-%d')
+        except (TypeError, ValueError):
+            raise HTTPException(400, 'Некорректная дата записи') from None
+        appointment_data = await resolve_booking_time(db, {
+            **appointment_data, 'appointment_date': search_date,
+            'appointment_time': appointment_data.get('appointment_time', '10:00'),
+            'end_time': appointment_data.get('end_time'),
+        })
+
         
         # Работаем напрямую с базой данных
         patients_collection = db["patients"]
@@ -755,7 +684,9 @@ async def schedule_appointment_from_lead(
             "message": "Прием успешно назначен",
             "patient_id": patient_id,
             "appointment_id": appointment_id,
-            "appointment_date": appointment_date.strftime('%Y-%m-%d')
+            "appointment_date": appointment_date.strftime('%Y-%m-%d'),
+            "appointment_time": new_appointment["appointment_time"],
+            "end_time": new_appointment["end_time"],
         }
     except HTTPException:
         raise

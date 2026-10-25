@@ -2,7 +2,7 @@
 Services router - HTTP endpoints for service prices and services operations
 Uses ServicePriceService for business logic
 """
-from fastapi import APIRouter, HTTPException, Depends, status
+from fastapi import APIRouter, HTTPException, Depends, status, Query
 from typing import List, Optional
 from datetime import datetime
 
@@ -22,6 +22,7 @@ from database import db
 
 # Import service
 from services.service_price_service import ServicePriceService
+from services.service_report_amounts import service_report_amounts
 
 # Router
 services_api_router = APIRouter(tags=["Services"])
@@ -188,8 +189,8 @@ async def initialize_default_services(
 
 @services_api_router.get("/reports/services-report")
 async def get_services_report(
-    year: Optional[int] = None,
-    month: Optional[int] = None,
+    year: Optional[int] = Query(None, ge=1, le=9998),
+    month: Optional[int] = Query(None, ge=1, le=12),
     categories: Optional[str] = None,
     doctor_ids: Optional[str] = None,
     current_user: UserInDB = Depends(get_current_active_user),
@@ -208,7 +209,7 @@ async def get_services_report(
     # Формируем фильтр по дате
     date_filter = {}
     if year is not None:
-        start_date = datetime(year, 1, 1, 0, 0, 0)
+        start_date = datetime(year, month or 1, 1, 0, 0, 0)
         if month is not None:
             next_month = month + 1 if month < 12 else 1
             next_year = year if month < 12 else year + 1
@@ -241,12 +242,12 @@ async def get_services_report(
         if not plan_services:
             continue
 
-        for svc in plan_services:
+        for svc, (expected, paid) in zip(plan_services, service_report_amounts(plan)):
             svc_name = svc.get("service_name", "").strip()
             if not svc_name:
                 continue
 
-            svc_category = svc.get("category", "Без категории")
+            svc_category = (svc.get("category") or "Без категории")
 
             # Фильтр по категориям
             if categories:
@@ -255,7 +256,6 @@ async def get_services_report(
                     continue
 
             unit_price = svc.get("price_per_unit", svc.get("price", 0))
-            total_price = svc.get("total_price", 0)
             quantity = svc.get("quantity_total", svc.get("quantity", 1))
 
             if svc_name not in services_map:
@@ -268,34 +268,10 @@ async def get_services_report(
                     "quantity_total": 0
                 }
 
-            services_map[svc_name]["total_expected"] += float(total_price)
+            services_map[svc_name]["total_expected"] += expected
             services_map[svc_name]["quantity_total"] += quantity
 
-            if svc.get("payment_status") == "paid":
-                services_map[svc_name]["total_paid"] += float(total_price)
-
-    # Пропорциональное распределение paid_amount плана
-    for plan in treatment_plans:
-        plan_services = plan.get("services", [])
-        plan_paid = float(plan.get("paid_amount", 0))
-        plan_total = float(plan.get("total_cost", 0))
-
-        if plan_paid > 0 and plan_total > 0 and plan_services:
-            for svc in plan_services:
-                svc_name = svc.get("service_name", "").strip()
-                if not svc_name or svc_name not in services_map:
-                    continue
-
-                # Если фильтр по категориям, проверяем что услуга в результатах
-                if categories:
-                    categories_list = [cat.strip().lower() for cat in categories.split(",") if cat.strip()]
-                    if categories_list and svc.get("category", "").lower() not in categories_list:
-                        continue
-
-                svc_total = float(svc.get("total_price", 0))
-                if svc_total > 0 and svc.get("payment_status") != "paid":
-                    proportion = svc_total / plan_total
-                    services_map[svc_name]["total_paid"] += plan_paid * proportion
+            services_map[svc_name]["total_paid"] += paid
 
     # Преобразуем в список и сортируем
     result = list(services_map.values())
@@ -321,8 +297,8 @@ async def get_services_report(
 @services_api_router.get("/reports/services-report/{service_name}/details")
 async def get_service_detail_report(
     service_name: str,
-    year: Optional[int] = None,
-    month: Optional[int] = None,
+    year: Optional[int] = Query(None, ge=1, le=9998),
+    month: Optional[int] = Query(None, ge=1, le=12),
     current_user: UserInDB = Depends(get_current_active_user),
 ):
     """
@@ -337,7 +313,7 @@ async def get_service_detail_report(
     # Формируем фильтр по дате
     date_filter = {}
     if year is not None:
-        start_date = datetime(year, 1, 1, 0, 0, 0)
+        start_date = datetime(year, month or 1, 1, 0, 0, 0)
         if month is not None:
             next_month = month + 1 if month < 12 else 1
             next_year = year if month < 12 else year + 1
@@ -399,25 +375,11 @@ async def get_service_detail_report(
 
         patients_map[patient_id]["plans_count"] += 1
 
-        # Суммируем только стоимость данной услуги в плане
         plan_services = plan.get("services", [])
-        for svc in plan_services:
-            svc_name = svc.get("service_name", "").strip()
-            if svc_name.lower() == decoded_service_name.lower():
-                svc_total = float(svc.get("total_price", svc.get("price", 0)))
-                patients_map[patient_id]["total_expected"] += svc_total
-
-        # Оплаченная сумма - пропорционально доли услуги в плане
-        plan_paid = float(plan.get("paid_amount", 0))
-        plan_total = float(plan.get("total_cost", 0))
-        if plan_paid > 0 and plan_total > 0:
-            for svc in plan_services:
-                svc_name = svc.get("service_name", "").strip()
-                if svc_name.lower() == decoded_service_name.lower():
-                    svc_total = float(svc.get("total_price", svc.get("price", 0)))
-                    if svc_total > 0:
-                        proportion = svc_total / plan_total
-                        patients_map[patient_id]["total_paid"] += plan_paid * proportion
+        for svc, (expected, paid) in zip(plan_services, service_report_amounts(plan)):
+            if svc.get("service_name", "").strip().lower() == decoded_service_name.lower():
+                patients_map[patient_id]["total_expected"] += expected
+                patients_map[patient_id]["total_paid"] += paid
 
         # Получаем информацию о кабинетах из связанных записей
         appointment_ids = plan.get("appointment_ids", [])

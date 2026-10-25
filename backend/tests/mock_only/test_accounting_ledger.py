@@ -834,7 +834,7 @@ def test_all_legacy_writers_reject_event_owned_plan(modules, monkeypatch, writer
     sheet_service = object.__new__(modules.sheets.ConsultationService)
     sheet_service.db = db
     sheet_service.collection = Mock()
-    sheet_service.get_consultation_sheet = AsyncMock(return_value=SimpleNamespace(id="sheet"))
+    sheet_service.get_consultation_sheet = AsyncMock(return_value=SimpleNamespace(id="sheet", dict=lambda: {"doctor_id": "doctor"}))
 
     async def write():
         if writer == "deposit":
@@ -853,7 +853,7 @@ def test_all_legacy_writers_reject_event_owned_plan(modules, monkeypatch, writer
             return await service.persist_payment_update({"id": "plan"}, {"services": []})
         if writer == "sheet_update":
             model = importlib.import_module("models.consultation").ConsultationSheetUpdate
-            return await sheet_service.update_consultation_sheet("sheet", model(recommendations="changed"))
+            return await sheet_service.update_consultation_sheet("sheet", model(doctor_id="changed"))
         return await sheet_service.delete_consultation_sheet("sheet")
 
     with pytest.raises(HTTPException) as error:

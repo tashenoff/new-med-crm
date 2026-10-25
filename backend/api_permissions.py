@@ -146,8 +146,6 @@ async def check_cross_space_write(request, path, user):
         check_access(user, ('patients_view', 'patients_edit'))
         if body.get('create_appointment'):
             check_access(user, ('calendar_view', 'calendar_edit'))
-    if path.endswith('/schedule-appointment') and body.get('deposit'):
-        check_access(user, ('finance_view', 'finance_edit'))
 
 
 async def check_financial_side_effects(request, path, user, db):
@@ -160,21 +158,13 @@ async def check_financial_side_effects(request, path, user, db):
     if request.method not in ('POST', 'PUT', 'PATCH', 'DELETE'):
         return
     if path.startswith('/api/appointments'):
-        identity = request.path_params.get('appointment_id')
-        previous = await db.appointments.find_one({'id': identity}) if identity else {}
-        previous = previous or {}
-        body = {} if request.method == 'DELETE' else await request.json()
-        if not isinstance(body, dict):
-            return  # Endpoint validation supplies the normal 422.
-        prospective = dict(previous, **body)
-        has_deposit = bool(previous.get('deposit') or prospective.get('deposit'))
-        if has_deposit and (request.method == 'DELETE' or any(
-                prospective.get(key) != previous.get(key)
-                for key in ('patient_id', 'deposit', 'deposit_type', 'price'))):
-            # Assignment may fund a full-payment plan and auto-complete its
-            # procedures. Keep the cross-space permission explicit, including
-            # pending assignment retries, without changing allocation logic.
-            check_access(user, ('finance_view', 'finance_edit', 'patients_view', 'patients_edit'))
+        # Receiving a booking deposit is part of calendar editing. The route's
+        # normal calendar/ownership checks and immutable receipt guards apply.
+        if request.method == 'DELETE':
+            identity = request.path_params.get('appointment_id')
+            previous = await db.appointments.find_one({'id': identity}) if identity else {}
+            if previous and previous.get('deposit'):
+                check_access(user, ('finance_view', 'finance_edit', 'patients_view', 'patients_edit'))
         return
     if not path.startswith('/api/treatment-plans'):
         return

@@ -159,6 +159,8 @@ def test_schedule_from_legacy_lead_normalizes_only_the_new_patient(harness, monk
     db.patients.find_one = AsyncMock(return_value=None)
     db.patients.insert_one = AsyncMock()
     db.appointments.find.return_value.to_list = AsyncMock(return_value=[])
+    db.doctor_schedules.find.return_value.to_list = AsyncMock(return_value=[{
+        'start_time': '08:00', 'end_time': '20:00'}])
     db.appointments.insert_one = AsyncMock()
     db.crm_leads.update_one = AsyncMock()
     db.wazzup_chats.update_many = AsyncMock()

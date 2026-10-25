@@ -224,72 +224,56 @@ async def update_doctor_schedule(
     if not current_schedule:
         raise HTTPException(status_code=404, detail="Schedule not found")
     
-    update_dict = {k: v for k, v in schedule_update.dict().items() if v is not None}
+    update_dict = schedule_update.model_dump(exclude_none=True)
+    prospective = {**current_schedule, **update_dict}
+    start_time = datetime.strptime(prospective["start_time"], "%H:%M").time()
+    end_time = datetime.strptime(prospective["end_time"], "%H:%M").time()
+    if start_time >= end_time:
+        raise HTTPException(400, "Время начала должно быть раньше времени окончания")
+    old_room_query = {key: current_schedule[key] for key in
+                      ("doctor_id", "day_of_week", "start_time", "end_time")}
+    linked_room = await db.room_schedules.find_one(old_room_query)
+    room_id = prospective.get("room_id") or (linked_room or {}).get("room_id")
+    if room_id:
+        room_queries = [{"id": room_id}, {"_id": room_id}]
+        if ObjectId.is_valid(room_id):
+            room_queries.append({"_id": ObjectId(room_id)})
+        room = await db.rooms.find_one({"$or": room_queries, "is_active": True})
+        if not room and ("room_id" in update_dict or prospective.get("is_active", True)):
+            raise HTTPException(404, "Кабинет не найден")
+        prospective["room_id"] = room_id
+        update_dict["room_id"] = room_id
+    if prospective.get("is_active", True):
+        other = await db.doctor_schedules.find_one({
+            "doctor_id": doctor_id, "day_of_week": prospective["day_of_week"],
+            "is_active": True, "id": {"$ne": schedule_id}})
+        if other:
+            raise HTTPException(400, "Schedule already exists for this day")
+        if room_id:
+            schedules = await db.room_schedules.find({"room_id": room_id,
+                "day_of_week": prospective["day_of_week"], "is_active": True}).to_list(None)
+            for other in schedules:
+                if linked_room and other == linked_room:
+                    continue
+                if start_time < datetime.strptime(other["end_time"], "%H:%M").time() and datetime.strptime(other["start_time"], "%H:%M").time() < end_time:
+                    raise HTTPException(400, "Кабинет занят в это время")
+
+    # Validate both projections before either is changed.
     update_dict["updated_at"] = datetime.utcnow()
-    
-    # Validate time format if provided
-    if "start_time" in update_dict:
-        try:
-            datetime.strptime(update_dict["start_time"], "%H:%M")
-        except ValueError:
-            raise HTTPException(status_code=400, detail="Invalid start_time format. Use HH:MM")
-    
-    if "end_time" in update_dict:
-        try:
-            datetime.strptime(update_dict["end_time"], "%H:%M")
-        except ValueError:
-            raise HTTPException(status_code=400, detail="Invalid end_time format. Use HH:MM")
-    
-    # Проверка на дублирование дня недели (если день меняется)
-    if "day_of_week" in update_dict:
-        existing_schedule = await db.doctor_schedules.find_one({
-            "doctor_id": doctor_id,
-            "day_of_week": update_dict["day_of_week"],
-            "is_active": True,
-            "id": {"$ne": schedule_id}
-        })
-        if existing_schedule:
-            raise HTTPException(status_code=400, detail="Schedule already exists for this day")
-    
-    # Обновляем doctor_schedules
     result = await db.doctor_schedules.update_one(
-        {"id": schedule_id, "doctor_id": doctor_id}, 
-        {"$set": update_dict}
-    )
-    
-    if result.matched_count == 0:
-        raise HTTPException(status_code=404, detail="Schedule not found")
-    
-    # ВАЖНО: Также обновляем связанную запись в room_schedules
-    # Ищем по doctor_id и старым значениям day_of_week, start_time, end_time
-    room_schedule_query = {
-        "doctor_id": doctor_id,
-        "day_of_week": current_schedule["day_of_week"],
-        "start_time": current_schedule["start_time"],
-        "end_time": current_schedule["end_time"],
-        "is_active": True
-    }
-    
-    # Формируем данные для обновления room_schedule
-    room_update_dict = {"updated_at": datetime.utcnow()}
-    if "day_of_week" in update_dict:
-        room_update_dict["day_of_week"] = update_dict["day_of_week"]
-    if "start_time" in update_dict:
-        room_update_dict["start_time"] = update_dict["start_time"]
-    if "end_time" in update_dict:
-        room_update_dict["end_time"] = update_dict["end_time"]
-    if "is_active" in update_dict:
-        room_update_dict["is_active"] = update_dict["is_active"]
-    
-    # Обновляем room_schedules если есть связанная запись
-    room_update_result = await db.room_schedules.update_one(
-        room_schedule_query,
-        {"$set": room_update_dict}
-    )
-    
-    if room_update_result.modified_count > 0:
-        print(f"Также обновлена связанная запись в room_schedules для врача {doctor_id}")
-    
+        {"id": schedule_id, "doctor_id": doctor_id}, {"$set": update_dict})
+    if not result.matched_count:
+        raise HTTPException(404, "Schedule not found")
+    room_update = {key: prospective[key] for key in
+                   ("day_of_week", "start_time", "end_time", "is_active") if key in prospective}
+    room_update["updated_at"] = update_dict["updated_at"]
+    if room_id:
+        room_update["room_id"] = room_id
+    if linked_room:
+        room_query = {"id": linked_room["id"]} if linked_room.get("id") else old_room_query
+        await db.room_schedules.update_one(room_query, {"$set": room_update})
+    elif room_id:
+        await db.room_schedules.insert_one(RoomSchedule(doctor_id=doctor_id, **room_update).dict())
     updated_schedule = await db.doctor_schedules.find_one({"id": schedule_id})
     return DoctorSchedule(**updated_schedule)
 
@@ -574,6 +558,7 @@ async def create_doctor_schedule_with_room(
     
     # Create doctor schedule
     doctor_schedule = DoctorSchedule(
+        room_id=schedule_data.room_id,
         doctor_id=doctor_id,
         day_of_week=schedule_data.day_of_week,
         start_time=schedule_data.start_time,

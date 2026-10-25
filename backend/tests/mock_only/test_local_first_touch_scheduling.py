@@ -56,6 +56,8 @@ def test_first_touch_scheduling_keeps_patient_link_and_contacted_status(monkeypa
     db.patients.find_one = AsyncMock(return_value={"id": "patient-a"})
     db.patients.insert_one = AsyncMock()
     db.appointments.find.return_value.to_list = AsyncMock(return_value=[])
+    db.doctor_schedules.find.return_value.to_list = AsyncMock(return_value=[{
+        'start_time': '08:00', 'end_time': '20:00'}])
     db.appointments.insert_one = AsyncMock()
     db.crm_leads.update_one = AsyncMock()
     db.wazzup_chats.update_many = AsyncMock()
@@ -77,6 +79,61 @@ def test_first_touch_scheduling_keeps_patient_link_and_contacted_status(monkeypa
     db.crm_leads.update_one.assert_awaited_once()
     assert db.crm_leads.update_one.call_args.args[1]["$set"]["converted_to_client_id"] == "patient-a"
     notifications.assert_awaited_once()
+
+
+@pytest.mark.parametrize('notes', ['Запись из CRM', 'Запись из WhatsApp'])
+def test_crm_and_whatsapp_booking_use_next_free_time_in_storage_response_and_notification(monkeypatch, notes):
+    from crm.models.lead import Lead
+    from crm.routes import leads as routes
+    from services.notification_sender import NotificationSender
+    lead = Lead(id='first', first_name='Client', phone='+77011234567', source='phone',
+        converted_to_client_id='patient-a', created_at=datetime(2026, 1, 1))
+    service = SimpleNamespace(get_lead_by_id=AsyncMock(return_value=lead), update_lead_status=AsyncMock())
+    monkeypatch.setattr(routes, 'LeadService', lambda db: service)
+    notifications = AsyncMock()
+    monkeypatch.setattr(NotificationSender, 'send_appointment_created_notification', notifications)
+    db = MagicMock()
+    db.__getitem__.side_effect = lambda name: getattr(db, name)
+    db.patients.find_one = AsyncMock(return_value={'id': 'patient-a'})
+    db.appointments.find.return_value.to_list = AsyncMock(return_value=[{
+        'appointment_time': '10:00', 'end_time': '10:30'}])
+    db.doctor_schedules.find.return_value.to_list = AsyncMock(return_value=[{'start_time': '08:00', 'end_time': '18:00'}])
+    db.appointments.insert_one = AsyncMock()
+    db.crm_leads.update_one = AsyncMock()
+    db.wazzup_chats.update_many = AsyncMock()
+    db.doctors.find_one = AsyncMock(return_value={'full_name': 'Doctor'})
+    result = asyncio.run(routes.schedule_appointment_from_lead('first', {
+        'appointment_date': '2026-10-08', 'appointment_time': '10:00', 'end_time': '10:30',
+        'doctor_id': 'doctor-a', 'notes': notes, 'deposit': 2000, 'deposit_type': 'fixed',
+    }, db))
+    appointment = db.appointments.insert_one.call_args.args[0]
+    assert appointment['appointment_time'] == result['appointment_time'] == '10:30'
+    assert appointment['end_time'] == result['end_time'] == '11:00'
+    assert appointment['deposit'] == 2000
+    assert notifications.call_args.kwargs['appointment_time'] == '10:30'
+
+
+def test_full_day_crm_booking_does_not_create_patient_or_change_lead(monkeypatch):
+    from fastapi import HTTPException
+    from crm.models.lead import Lead
+    from crm.routes import leads as routes
+    lead = Lead(id='full-day', first_name='Client', phone='+77011234567', source='phone')
+    service = SimpleNamespace(get_lead_by_id=AsyncMock(return_value=lead), update_lead_status=AsyncMock())
+    monkeypatch.setattr(routes, 'LeadService', lambda db: service)
+    db = MagicMock()
+    db.appointments.find.return_value.to_list = AsyncMock(return_value=[{
+        'appointment_time': '08:00', 'end_time': '18:00'}])
+    db.doctor_schedules.find.return_value.to_list = AsyncMock(return_value=[{'start_time': '08:00', 'end_time': '18:00'}])
+    db.patients.insert_one = AsyncMock()
+    db.crm_leads.update_one = AsyncMock()
+    with pytest.raises(HTTPException) as caught:
+        asyncio.run(routes.schedule_appointment_from_lead('full-day', {
+            'appointment_date': '2026-10-08', 'appointment_time': '10:00',
+            'end_time': '10:30', 'doctor_id': 'doctor-a'}, db))
+    assert caught.value.status_code == 409
+    db.patients.insert_one.assert_not_awaited()
+    db.crm_leads.update_one.assert_not_awaited()
+    service.update_lead_status.assert_not_awaited()
 
 
 @pytest.mark.parametrize("chosen,source,expected_id,expected_type,error", [
@@ -106,6 +163,8 @@ def test_scheduling_keeps_selected_appointment_source_without_changing_history(m
     db.patients.insert_one = AsyncMock()
     db.patients.update_one = AsyncMock()
     db.appointments.find.return_value.to_list = AsyncMock(return_value=[])
+    db.doctor_schedules.find.return_value.to_list = AsyncMock(return_value=[{
+        'start_time': '08:00', 'end_time': '20:00'}])
     db.appointments.insert_one = AsyncMock()
     db.crm_sources.find_one = AsyncMock(return_value=source)
     db.crm_leads.update_one = AsyncMock()

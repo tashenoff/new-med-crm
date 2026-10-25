@@ -168,6 +168,7 @@ class DoctorUpdate(CompensationWriteModel):
 
 class DoctorSchedule(BaseModel):
     """Doctor schedule model"""
+    room_id: Optional[str] = None
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     doctor_id: str
     day_of_week: int  # 0 = Понедельник, 1 = Вторник, ..., 6 = Воскресенье
@@ -212,6 +213,16 @@ class DoctorScheduleCreate(BaseModel):
 
 class DoctorScheduleUpdate(BaseModel):
     """Model for updating doctor schedule"""
+    room_id: Optional[str] = Field(None, min_length=1)
+
+    @validator("room_id")
+    def validate_room(cls, value):
+        if value is not None:
+            value = value.strip()
+            if not value:
+                raise ValueError("Выберите кабинет")
+        return value
+
     day_of_week: Optional[int] = None
     start_time: Optional[str] = None
     end_time: Optional[str] = None

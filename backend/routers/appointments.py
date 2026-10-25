@@ -1,6 +1,7 @@
 from crm.services.funnel_journal import FunnelLeadCollection
 from services.attribution import checked_attribution, dimensions
 from services.appointment_status_policy import guard_appointment_status
+from services.appointment_scheduling import validate_booking, needs_booking_validation, resolve_booking_time
 from fastapi import APIRouter, HTTPException, Depends, status
 from pydantic import BaseModel
 from typing import List, Optional, Union
@@ -46,6 +47,24 @@ class AppointmentStatusUpdate(BaseModel):
     status: AppointmentStatus
     cancel_reason: Optional[CancelReason] = None
     notes: Optional[str] = None
+
+
+class BookingTimeRequest(BaseModel):
+    doctor_id: str
+    room_id: Optional[str] = None
+    appointment_date: str
+    appointment_time: str
+    end_time: Optional[str] = None
+    complex_id: Optional[str] = None
+
+
+@appointments_router.post("/resolve-time")
+async def resolve_new_booking_time(booking: BookingTimeRequest,
+    current_user: UserInDB = Depends(get_current_active_user),
+    db: AsyncIOMotorDatabase = Depends(get_database)):
+    """Read-only preview shared by calendar, CRM and WhatsApp booking forms."""
+    resolved = await resolve_booking_time(db, booking.model_dump())
+    return {key: resolved.get(key) for key in ("appointment_date", "appointment_time", "end_time")}
 
 
 # Helper functions
@@ -404,36 +423,6 @@ async def create_appointment(
     if current_user.role == UserRole.PATIENT and current_user.patient_id != appointment.patient_id:
         raise HTTPException(status_code=403, detail="You can only create appointments for yourself")
     
-    # Check doctor's schedule availability.
-    # Для записей из комплексной услуги (complex_id задан) расписание НЕ проверяем:
-    # слот/datetime выбраны вручную администратором (в т.ч. когда у врача нет
-    # расписания) — иначе ручной режим блокировался бы. Конфликт времени всё
-    # равно проверяется ниже.
-    if not appointment.complex_id:
-        is_available, availability_message = await check_doctor_availability(
-            appointment.doctor_id,
-            appointment.appointment_date,
-            appointment.appointment_time,
-            db
-        )
-
-        if not is_available:
-            raise HTTPException(status_code=400, detail=availability_message)
-    
-    # Check for time conflicts
-    print(f"Checking conflicts for doctor {appointment.doctor_id} on {appointment.appointment_date} at {appointment.appointment_time}")
-    existing_appointment = await db.appointments.find_one({
-        "doctor_id": appointment.doctor_id,
-        "appointment_date": appointment.appointment_date,  # Now both are strings
-        "appointment_time": appointment.appointment_time,
-        "status": {"$nin": [AppointmentStatus.CANCELLED.value, AppointmentStatus.NO_SHOW.value]}
-    })
-    
-    print(f"Found existing appointment: {existing_appointment}")
-    if existing_appointment:
-        print(f"Conflict detected with appointment ID: {existing_appointment['id']}")
-        raise HTTPException(status_code=400, detail="Time slot already booked")
-    
     appointment_dict = appointment.dict()
     appointment_dict.update(await checked_attribution(db, appointment_dict))
 
@@ -455,6 +444,7 @@ async def create_appointment(
             if room_sched and room_sched.get("room_id"):
                 appointment_dict["room_id"] = room_sched["room_id"]
 
+    appointment_dict = await resolve_booking_time(db, appointment_dict)
     guard_appointment_status(appointment.dict(), appointment.status)
     appointment_obj = Appointment(**appointment_dict)
     await db.appointments.insert_one(appointment_obj.dict())
@@ -923,23 +913,10 @@ async def update_appointment(
         update_dict["deposit_assignment_pending"] = appointment_deposit_kzt(prospective) > 0
     update_dict["updated_at"] = datetime.utcnow()
     
-    # Check for time conflicts if updating time/date
-    if "appointment_date" in update_dict or "appointment_time" in update_dict or "doctor_id" in update_dict:
-        check_date = update_dict.get("appointment_date", existing["appointment_date"])
-        check_time = update_dict.get("appointment_time", existing["appointment_time"])
-        check_doctor = update_dict.get("doctor_id", existing["doctor_id"])
-        
-        conflict = await db.appointments.find_one({
-            "id": {"$ne": appointment_id},
-            "doctor_id": check_doctor,
-            "appointment_date": check_date,
-            "appointment_time": check_time,
-            "status": {"$nin": [AppointmentStatus.CANCELLED.value, AppointmentStatus.NO_SHOW.value]}
-        })
-        
-        if conflict:
-            raise HTTPException(status_code=400, detail="Time slot already booked")
-    
+    prospective = {**existing, **update_dict}
+    if needs_booking_validation(existing, prospective):
+        await validate_booking(db, prospective, appointment_id)
+
     result = await db.appointments.update_one(query, {"$set": update_dict})
     if not result.matched_count:
         raise HTTPException(409, "Concurrent appointment receipt assignment; retry edit")
@@ -992,6 +969,9 @@ async def update_appointment_status(
     if not existing:
         raise HTTPException(status_code=404, detail="Appointment not found")
 
+    prospective = {**existing, "status": status_update.status}
+    if needs_booking_validation(existing, prospective):
+        await validate_booking(db, prospective, appointment_id)
     guard_appointment_status(existing, status_update.status)
     update_dict = status_update.model_dump(exclude_none=True)
     update_dict["updated_at"] = datetime.utcnow()

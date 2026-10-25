@@ -21,6 +21,13 @@ class Collection:
     async def insert_one(self, row):
         self.rows.append(deepcopy(row))
 
+    async def update_one(self, query, update):
+        for row in self.rows:
+            if matches(row, query):
+                row.update(deepcopy(update.get('$set', {})))
+                return SimpleNamespace(matched_count=1, modified_count=1)
+        return SimpleNamespace(matched_count=0, modified_count=0)
+
 
 def matches(row, query):
     for key, expected in query.items():
@@ -30,7 +37,8 @@ def matches(row, query):
             for operator, value in expected.items():
                 actual = row.get(key)
                 if not {'$lt': lambda: actual < value, '$lte': lambda: actual <= value,
-                        '$gt': lambda: actual > value, '$gte': lambda: actual >= value}[operator](): return False
+                        '$gt': lambda: actual > value, '$gte': lambda: actual >= value,
+                        '$ne': lambda: actual != value}[operator](): return False
         elif row.get(key) != expected: return False
     return True
 
@@ -120,3 +128,49 @@ def test_historical_roomless_records_and_partial_update_remain_valid():
     assert DoctorSchedule(doctor_id='old', day_of_week=1, start_time='09:00', end_time='18:00')
     assert DoctorScheduleUpdate(start_time='10:00').start_time == '10:00'
     assert DoctorScheduleBulkUpdate(schedule_ids=['old'], start_time='10:00').room_id is None
+
+
+def prepare_edit(h):
+    response = h.client.post('/api/doctors/schedule/with-room', json=payload())
+    assert response.status_code == 200, response.text
+    h.db.rooms.rows.append(dict(id='new-room', is_active=True))
+    return '/api/doctors/doctor/schedule/' + h.db.doctor_schedules.rows[0]['id']
+
+
+def test_room_change_updates_both_projections(harness):
+    h = harness
+    path = prepare_edit(h)
+    response = h.client.put(path, json={'room_id': 'new-room'})
+    assert response.status_code == 200, response.text
+    assert response.json()['room_id'] == 'new-room'
+    assert h.db.doctor_schedules.rows[0]['room_id'] == 'new-room'
+    assert h.db.room_schedules.rows[0]['room_id'] == 'new-room'
+    assert len(h.db.room_schedules.rows) == 1
+
+
+@pytest.mark.parametrize('changes', [{'room_id': 'new-room'}, {'end_time': '19:00'}, {'is_active': True}])
+def test_room_edit_conflict_leaves_both_projections_unchanged(harness, changes):
+    h = harness
+    path = prepare_edit(h)
+    if changes == {'is_active': True}:
+        h.db.doctor_schedules.rows[0]['is_active'] = False
+        h.db.room_schedules.rows[0]['is_active'] = False
+    room_id = changes.get('room_id', 'room')
+    start = '18:00' if 'end_time' in changes else '10:00'
+    h.db.room_schedules.rows.append(dict(id='other-shift', doctor_id='other', room_id=room_id,
+        day_of_week=1, start_time=start, end_time='19:00', is_active=True))
+    before = deepcopy((h.db.doctor_schedules.rows, h.db.room_schedules.rows))
+    response = h.client.put(path, json=changes)
+    assert response.status_code == 400, response.text
+    assert (h.db.doctor_schedules.rows, h.db.room_schedules.rows) == before
+
+
+@pytest.mark.parametrize('changes,status', [({'room_id': 'missing'}, 404), ({'room_id': 'inactive'}, 404),
+    ({'room_id': '   '}, 422), ({'start_time': '19:00'}, 400)])
+def test_invalid_schedule_edit_rejected_before_writes(harness, changes, status):
+    h = harness
+    path = prepare_edit(h)
+    before = deepcopy((h.db.doctor_schedules.rows, h.db.room_schedules.rows))
+    response = h.client.put(path, json=changes)
+    assert response.status_code == status, response.text
+    assert (h.db.doctor_schedules.rows, h.db.room_schedules.rows) == before

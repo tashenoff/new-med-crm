@@ -10,6 +10,7 @@ from .lead_service import LeadService
 from .client_service import ClientService
 from ..models.lead import LeadStatus
 from services.patient_phone import normalize_patient_phone
+from services.appointment_scheduling import resolve_booking_time
 from services.patient_origin import crm_lead_origin, patient_notes_from_lead
 
 
@@ -72,6 +73,9 @@ class IntegrationService:
         appointment_data: Optional[Dict[str, Any]] = None
     ) -> Dict[str, Any]:
         """Конвертировать лида в пациента HMS"""
+
+        if create_appointment and appointment_data:
+            appointment_data = await resolve_booking_time(self.db, appointment_data)
         
         # Получаем лида
         lead = await self.lead_service.get_lead_by_id(lead_id)
@@ -148,6 +152,7 @@ class IntegrationService:
                 "notes": f"Создано из CRM лида {lead_id}"
             })
             
+            appointment_data = await resolve_booking_time(self.db, appointment_data)
             await self.appointments_collection.insert_one(appointment_data)
             from services.notification_sender import notify_created_appointment
             await notify_created_appointment(self.db, appointment_data)
@@ -257,6 +262,9 @@ class IntegrationService:
         appointment_data: Optional[Dict[str, Any]] = None
     ) -> Dict[str, Any]:
         """Конвертировать клиента CRM в пациента HMS"""
+
+        if create_appointment and appointment_data:
+            appointment_data = await resolve_booking_time(self.db, appointment_data)
         
         # Получаем клиента
         client = await self.client_service.get_client_by_id(client_id)
@@ -328,6 +336,7 @@ class IntegrationService:
                 "notes": f"Создано из CRM клиента {client_id}"
             })
             
+            appointment_data = await resolve_booking_time(self.db, appointment_data)
             await self.appointments_collection.insert_one(appointment_data)
             from services.notification_sender import notify_created_appointment
             await notify_created_appointment(self.db, appointment_data)
