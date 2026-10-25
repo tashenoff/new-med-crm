@@ -183,14 +183,11 @@ const CalendarView = ({
 <div className={`h-16 border-b border-l ${themeClasses.border.default} ${themeClasses.bg.secondary} flex items-center justify-center font-semibold ${themeClasses.text.primary} calendar-time-header`}>
           Время
         </div>
-        <div className="calendar-time-scale">
         {timeSlots.map((time) => (
           <div key={time} className={`h-16 border-b border-l ${themeClasses.border.light} flex items-center justify-center text-sm font-medium ${themeClasses.text.secondary} calendar-time-label`}>
-            <span className="calendar-time-mark">{time}</span>
+            {time}
           </div>
         ))}
-        <div className="calendar-time-label calendar-time-end"><span className="calendar-time-mark">{CALENDAR_END_TIME}</span></div>
-        </div>
       </div>
 
       {/* Кабинеты */}

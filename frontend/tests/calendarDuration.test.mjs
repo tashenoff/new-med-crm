@@ -36,7 +36,7 @@ const compiled=await build({
 });
 const module={exports:{}};
 new Function('require','module','exports',compiled.outputFiles[0].text)(createRequire(import.meta.url),module,module.exports);
-test('actual calendar renders off-grid, overlapping and clipped cards once and exposes closing time',()=>{
+test('actual calendar keeps labels inside rows and renders off-grid, overlapping and clipped cards once',()=>{
   globalThis.window={innerWidth:1280};
   const data=[appointment('09:00','09:30'),appointment('09:30','10:00'),appointment('09:15','10:00'),
     appointment('07:45','08:30'),appointment('19:30','20:15'),appointment('20:00','20:30'),
@@ -49,6 +49,6 @@ test('actual calendar renders off-grid, overlapping and clipped cards once and e
   assert.match(html,/top:160px;height:96px/);
   assert.match(html,/top:0px;height:64px/);
   assert.match(html,/top:1472px;height:64px/);
-  assert.match(html,/calendar-time-end[^>]*><span class="calendar-time-mark">20:00/);
+  assert.doesNotMatch(html,/calendar-time-mark|calendar-time-end/);
   assert.equal((html.match(/calendar-timeslot /g)||[]).length,24);
 });
