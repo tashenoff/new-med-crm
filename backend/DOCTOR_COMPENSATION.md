@@ -93,8 +93,8 @@ service ID alone must not pay multiple doctors. A missing owner is a blocker.
   A legacy currency is preserved in settings/report metadata, not converted to
   KZT; its tariff is blocked. Missing individual tariffs also block accrual.
 - Doctor statistics and service revenue reports are not payroll calculators and
-  remain unchanged. Repository searches found no payroll consumer in Metabase
-  or Superset configuration. `backend/debug_salary.py` and root diagnostic/API
+  remain unchanged. Repository searches found no payroll consumer in Superset
+  configuration. `backend/debug_salary.py` and root diagnostic/API
   scripts and older DB-backed payroll tests contain obsolete gross/full-paid
   or salary-like examples: they are not runtime consumers, must not be used as
   payroll authorities, and were not executed or changed.

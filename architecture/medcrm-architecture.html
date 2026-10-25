@@ -4841,7 +4841,7 @@
     </div>
 
     <script id="archify-guided-views-data" type="application/json">[]</script>
-    <script id="archify-source-evidence-data" type="application/json">{"schemaVersion":1,"verified":true,"repository":{"url":"https://github.com/tashenoff/new-med-crm","revision":"8f32cb347997d7005a28e63f8e1a46288606be37","shortRevision":"8f32cb3"},"referenceCount":7,"nodes":{"frontend":[{"path":"frontend/src/App.jsx","line":1,"href":"https://github.com/tashenoff/new-med-crm/blob/8f32cb347997d7005a28e63f8e1a46288606be37/frontend/src/App.jsx#L1"}],"api":[{"path":"backend/server.py","line":58,"href":"https://github.com/tashenoff/new-med-crm/blob/8f32cb347997d7005a28e63f8e1a46288606be37/backend/server.py#L58"}],"mongo":[{"path":"backend/database.py","line":13,"href":"https://github.com/tashenoff/new-med-crm/blob/8f32cb347997d7005a28e63f8e1a46288606be37/backend/database.py#L13"}],"llm":[{"path":"backend/routers/chat.py","line":24,"href":"https://github.com/tashenoff/new-med-crm/blob/8f32cb347997d7005a28e63f8e1a46288606be37/backend/routers/chat.py#L24"}],"wazzup":[{"path":"backend/services/wazzup_service.py","line":23,"href":"https://github.com/tashenoff/new-med-crm/blob/8f32cb347997d7005a28e63f8e1a46288606be37/backend/services/wazzup_service.py#L23"}],"tgbot":[{"path":"backend/telegram_bot/bot.py","line":57,"href":"https://github.com/tashenoff/new-med-crm/blob/8f32cb347997d7005a28e63f8e1a46288606be37/backend/telegram_bot/bot.py#L57"}],"bi":[{"path":"metabase/docker-compose.yml","line":4,"href":"https://github.com/tashenoff/new-med-crm/blob/8f32cb347997d7005a28e63f8e1a46288606be37/metabase/docker-compose.yml#L4"}]}}</script>
+    <script id="archify-source-evidence-data" type="application/json">{"schemaVersion":1,"verified":true,"repository":{"url":"https://github.com/tashenoff/new-med-crm","revision":"8f32cb347997d7005a28e63f8e1a46288606be37","shortRevision":"8f32cb3"},"referenceCount":6,"nodes":{"frontend":[{"path":"frontend/src/App.jsx","line":1,"href":"https://github.com/tashenoff/new-med-crm/blob/8f32cb347997d7005a28e63f8e1a46288606be37/frontend/src/App.jsx#L1"}],"api":[{"path":"backend/server.py","line":58,"href":"https://github.com/tashenoff/new-med-crm/blob/8f32cb347997d7005a28e63f8e1a46288606be37/backend/server.py#L58"}],"mongo":[{"path":"backend/database.py","line":13,"href":"https://github.com/tashenoff/new-med-crm/blob/8f32cb347997d7005a28e63f8e1a46288606be37/backend/database.py#L13"}],"llm":[{"path":"backend/routers/chat.py","line":24,"href":"https://github.com/tashenoff/new-med-crm/blob/8f32cb347997d7005a28e63f8e1a46288606be37/backend/routers/chat.py#L24"}],"wazzup":[{"path":"backend/services/wazzup_service.py","line":23,"href":"https://github.com/tashenoff/new-med-crm/blob/8f32cb347997d7005a28e63f8e1a46288606be37/backend/services/wazzup_service.py#L23"}],"tgbot":[{"path":"backend/telegram_bot/bot.py","line":57,"href":"https://github.com/tashenoff/new-med-crm/blob/8f32cb347997d7005a28e63f8e1a46288606be37/backend/telegram_bot/bot.py#L57"}]}}</script>
     <div class="guided-views no-print" id="guided-views" hidden aria-label="Guided diagram views">
       <button id="guided-view-prev" type="button" aria-label="Previous guided view" title="Previous guided view ([)">&#8592;</button>
       <div class="guided-view-copy">
@@ -4918,7 +4918,6 @@
         <path data-edge-from="api" data-edge-to="mongo" data-edge-label="Motor · async" data-edge-key="2" data-edge-id="api-db" data-composition-points="1300,103;1750,103" d="M 1300 103 L 1750 103" class="a-emphasis" stroke-width="1.8" marker-end="url(#arrowhead-emphasis)"/>
         <path data-edge-from="api" data-edge-to="llm" data-edge-label="LLM-чат · AI-анализ" data-edge-key="3" data-edge-id="api-llm" data-composition-points="1180,117;1145,117;1145,230;1110,230" d="M 1180 117 L 1153 117 Q 1145 117 1145 125 L 1145 222 Q 1145 230 1137 230 L 1110 230" class="a-default" stroke-width="1.5" marker-end="url(#arrowhead)"/>
         <path data-edge-from="api" data-edge-to="wazzup" data-edge-label="Рассылки WhatsApp" data-edge-key="4" data-edge-id="api-wazzup" data-composition-points="1300,117;1430,117;1430,230;1560,230" d="M 1300 117 L 1422 117 Q 1430 117 1430 125 L 1430 222 Q 1430 230 1438 230 L 1560 230" class="a-default" stroke-width="1.5" marker-end="url(#arrowhead)"/>
-        <path data-edge-from="api" data-edge-to="bi" data-edge-label="Встраивание дашбордов" data-edge-key="5" data-edge-id="api-bi" data-composition-points="1300,110;1715,110;1715,350;2130,350" d="M 1300 110 L 1707 110 Q 1715 110 1715 118 L 1715 342 Q 1715 350 1723 350 L 2130 350" class="a-dashed" stroke-width="1.5" marker-end="url(#arrowhead-dashed)"/>
         <path data-edge-from="tgbot" data-edge-to="mongo" data-edge-label="Общая БД" data-edge-key="6" data-edge-id="bot-db" data-composition-points="1810,200;1810,140" d="M 1810 200 L 1810 140" class="a-dashed" stroke-width="1.5" marker-end="url(#arrowhead-dashed)"/>
 
         <!-- Components -->
@@ -5006,17 +5005,6 @@
         <text data-detail="context" x="1810" y="244" class="t-muted" font-size="9" text-anchor="middle">python-telegram-bot</text>
         </g>
 
-        <g id="node-bi" data-node-id="bi" data-node-label="Metabase / Superset" tabindex="0" role="button" aria-label="Focus Metabase / Superset, BI-дашборды · Postgres, Architecture component" aria-pressed="false" data-node-kind="cloud" data-node-sublabel="BI-дашборды · Postgres" data-node-context="Architecture component">
-          <title>Metabase / Superset · BI-дашборды · Postgres · Architecture component</title>
-          <rect x="2130" y="320" width="120" height="60" rx="6" class="c-mask"/>
-          <rect x="2130" y="320" width="120" height="60" rx="6" class="c-cloud" stroke-width="1.5"/>
-          <g aria-hidden="true" data-semantic-sigil="cloud" class="semantic-sigil s-cloud" transform="translate(2136 326) scale(0.6875)">
-            <path d="M4.3 12.5h7.3a2.4 2.4 0 0 0 .2-4.8 4 4 0 0 0-7.5-1.3A3.1 3.1 0 0 0 4.3 12.5Z"/>
-          </g>
-          <text data-detail-anchor x="2190" y="348" class="t-primary" font-size="11" font-weight="600" text-anchor="middle">Metabase / Superset</text>
-        <text data-detail="context" x="2190" y="364" class="t-muted" font-size="8.4" text-anchor="middle">BI-дашборды · Postgres</text>
-        </g>
-
         <!-- Connection labels -->
         <g data-detail="context" data-edge-from="users" data-edge-to="frontend" data-edge-label="HTTPS · Веб" data-edge-key="0" data-edge-id="users-web">
           <rect x="353.6" y="90" width="62.8" height="14" rx="3" class="c-mask"/>
@@ -5037,10 +5025,6 @@
         <g data-detail="context" data-edge-from="api" data-edge-to="wazzup" data-edge-label="Рассылки WhatsApp" data-edge-key="4" data-edge-id="api-wazzup">
           <rect x="1384.2" y="153.5" width="91.6" height="14" rx="3" class="c-mask"/>
           <text x="1430" y="163.5" class="t-muted" font-size="8" text-anchor="middle">Рассылки WhatsApp</text>
-        </g>
-        <g data-detail="context" data-edge-from="api" data-edge-to="bi" data-edge-label="Встраивание дашбордов" data-edge-key="5" data-edge-id="api-bi">
-          <rect x="1659.6" y="264" width="110.8" height="14" rx="3" class="c-mask"/>
-          <text x="1715" y="274" class="t-messagebus" font-size="8" text-anchor="middle">Встраивание дашбордов</text>
         </g>
         <g data-detail="context" data-edge-from="tgbot" data-edge-to="mongo" data-edge-label="Общая БД" data-edge-key="6" data-edge-id="bot-db">
           <rect x="1785.8" y="180" width="48.4" height="14" rx="3" class="c-mask"/>
@@ -5286,7 +5270,7 @@
         <ul>
           <li>&bull; OpenRouter — LLM-чат и AI-анализ качества</li>
           <li>&bull; WAZZUP24 — WhatsApp-уведомления</li>
-          <li>&bull; Telegram-бот и Metabase/Superset (BI)</li>
+          <li>&bull; Telegram-бот</li>
         </ul>
       </div>
     </div>

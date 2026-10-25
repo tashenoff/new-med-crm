@@ -65,7 +65,7 @@
       "label": "OpenRouter",
       "sublabel": "LLM · AI-чат · качество",
       "sources": [
-        { "path": "backend/routers/chat.py", "line": 24 }
+        { "path": "backend/routers/chat.py", "line": 22 }
       ],
       "row": 1,
       "col": 5
@@ -91,17 +91,6 @@
       ],
       "row": 1,
       "col": 9
-    },
-    {
-      "id": "bi",
-      "type": "cloud",
-      "label": "Metabase / Superset",
-      "sublabel": "BI-дашборды · Postgres",
-      "sources": [
-        { "path": "metabase/docker-compose.yml", "line": 4 }
-      ],
-      "row": 2,
-      "col": 11
     }
   ],
   "boundaries": [
@@ -117,7 +106,6 @@
     { "id": "api-db", "from": "api", "to": "mongo", "label": "Motor · async", "variant": "emphasis" },
     { "id": "api-llm", "from": "api", "to": "llm", "label": "LLM-чат · AI-анализ" },
     { "id": "api-wazzup", "from": "api", "to": "wazzup", "label": "Рассылки WhatsApp" },
-    { "id": "api-bi", "from": "api", "to": "bi", "label": "Встраивание дашбордов", "variant": "dashed", "labelAt": [1715, 274] },
     { "id": "bot-db", "from": "tgbot", "to": "mongo", "label": "Общая БД", "variant": "dashed" }
   ],
   "cards": [
@@ -145,7 +133,7 @@
       "items": [
         "OpenRouter — LLM-чат и AI-анализ качества",
         "WAZZUP24 — WhatsApp-уведомления",
-        "Telegram-бот и Metabase/Superset (BI)"
+        "Telegram-бот"
       ]
     }
   ]

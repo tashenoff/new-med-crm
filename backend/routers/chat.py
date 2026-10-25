@@ -13,8 +13,6 @@ class JSONEncoder(json.JSONEncoder):
         if isinstance(obj, datetime):
             return obj.isoformat()
         return super().default(obj)
-import jwt
-import time
 from dependencies import get_current_active_user
 from models.auth import UserInDB
 from database import db
@@ -25,10 +23,6 @@ OPEN_ROUTER_API_KEY = os.environ.get("OPEN_ROUTER_API_KEY")
 OPEN_ROUTER_MODEL = os.environ.get("OPEN_ROUTER_MODEL")
 OPEN_ROUTER_TEMPERATURE = float(os.environ.get("OPEN_ROUTER_TEMPERATURE", "0.7"))
 OPEN_ROUTER_URL = "https://openrouter.ai/api/v1/chat/completions"
-
-# Metabase configuration
-METABASE_SECRET_KEY = "6e107b0b6bdbd2736457c8c3c90561dccdf9318004497fb5df66b3af4702ee7d"
-METABASE_SITE_URL = os.environ.get("METABASE_SITE_URL", "http://localhost:3000")  # Adjust as needed
 
 class ChatRequest(BaseModel):
     message: str
@@ -82,10 +76,7 @@ async def chat_with_ai(
                     "У тебя есть доступ к актуальным данным из CRM системы через MCP инструменты. "
                     "Используй предоставленные данные и MCP инструменты для получения дополнительной информации. "
                     "Доступные коллекции в базе данных: patients, doctors, appointments, materials, treatment_plans, rooms. "
-                    "Если тебе нужны дополнительные данные, ты можешь использовать инструменты для запросов к базе. "
-                    "ВАЖНО: Если в предоставленных данных есть 'metabase_iframe_url', ОБЯЗАТЕЛЬНО включи эту ссылку в свой ответ. "
-                    "Предоставляй iframe URL как есть, без изменений. Пользователь увидит интерактивный график с данными. "
-                    "Всегда предлагай визуализацию данных, когда это уместно для вопросов о статистике."
+                    "Если тебе нужны дополнительные данные, ты можешь использовать инструменты для запросов к базе."
                 )
             },
             {
@@ -172,15 +163,11 @@ async def get_crm_context_for_ai(user_message: str) -> str:
             }).sort("created_at", -1).limit(5)
             recent_patients = await recent_patients_cursor.to_list(None)
 
-            # Metabase iframe для пациентов (question ID 38)
-            patients_iframe_url = get_metabase_iframe_url(38)
-
             context_data['patient_stats'] = {
                 'total_patients': total_patients,
                 'active_patients': active_patients,
                 'new_patients_last_month': new_patients,
-                'recent_patients': recent_patients,
-                'metabase_iframe_url': patients_iframe_url
+                'recent_patients': recent_patients
             }
 
         if any(keyword in message_lower for keyword in ['выручка', 'доход', 'revenue', 'money', 'рубл']):
@@ -305,27 +292,3 @@ async def get_crm_context_for_ai(user_message: str) -> str:
         context_data['error'] = f"Не удалось получить данные из CRM: {str(e)}"
 
     return json.dumps(context_data, ensure_ascii=False, indent=2, cls=JSONEncoder)
-
-
-def generate_metabase_token(question_id: int, params: dict = None) -> str:
-    """Генерировать JWT токен для Metabase iframe"""
-    if params is None:
-        params = {}
-
-    current_time = round(time.time())
-    payload = {
-        "resource": {"question": question_id},
-        "params": params,
-        "iat": current_time,  # issued at - обязательное поле
-        "exp": current_time + (60 * 10),  # 10 minute expiration
-        "_embedding_params": {}  # обязательное поле для embedded
-    }
-
-    token = jwt.encode(payload, METABASE_SECRET_KEY, algorithm="HS256")
-    return token
-
-
-def get_metabase_iframe_url(question_id: int, params: dict = None) -> str:
-    """Получить URL для Metabase iframe"""
-    token = generate_metabase_token(question_id, params)
-    return f"{METABASE_SITE_URL}/embed/question/{token}#bordered=true&titled=true"

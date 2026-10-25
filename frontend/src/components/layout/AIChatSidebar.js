@@ -1,60 +1,9 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useInsightsBadges } from '../../hooks/useInsightsBadges';
 
-// Компонент для отображения содержимого сообщения с поддержкой iframe
-const MessageContent = ({ content }) => {
-  // Проверяем, содержит ли сообщение iframe тег
-  const iframeTagMatch = content.match(/<iframe[^>]*src="([^"]*)"[^>]*><\/iframe>/);
-
-  if (iframeTagMatch) {
-    const iframeTag = iframeTagMatch[0];
-    const iframeSrc = iframeTagMatch[1];
-    const textContent = content.replace(iframeTag, '').trim();
-
-    return (
-      <div className="space-y-3">
-        {textContent && <div className="text-sm whitespace-pre-wrap">{textContent}</div>}
-        <div className="border rounded-lg overflow-hidden">
-          <iframe
-            src={iframeSrc}
-            width="100%"
-            height="300"
-            frameBorder="0"
-            allowTransparency="true"
-            className="w-full"
-            title="Metabase Dashboard"
-          />
-        </div>
-      </div>
-    );
-  }
-
-  // Также проверяем на случай, если URL указан без iframe тега
-  const urlMatch = content.match(/(https?:\/\/[^\s]+\.embed\.question\.[^\s#]+#[^\s]*)/);
-  if (urlMatch) {
-    const url = urlMatch[1];
-    const textContent = content.replace(url, '').trim();
-
-    return (
-      <div className="space-y-3">
-        {textContent && <div className="text-sm whitespace-pre-wrap">{textContent}</div>}
-        <div className="border rounded-lg overflow-hidden">
-          <iframe
-            src={url}
-            width="100%"
-            height="300"
-            frameBorder="0"
-            allowTransparency="true"
-            className="w-full"
-            title="Metabase Dashboard"
-          />
-        </div>
-      </div>
-    );
-  }
-
-  return <div className="text-sm whitespace-pre-wrap">{content}</div>;
-};
+const MessageContent = ({ content }) => (
+  <div className="text-sm whitespace-pre-wrap">{content}</div>
+);
 
 const AIChatSidebar = ({ isOpen, onClose, badge, showMaterialForm = false, onMaterialSubmit }) => {
   const [messages, setMessages] = useState([]);
