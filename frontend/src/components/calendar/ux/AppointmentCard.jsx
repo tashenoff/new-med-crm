@@ -100,7 +100,7 @@ const AppointmentCard = ({
   const timeRange = appointment.end_time
     ? `${formatTime(appointment.appointment_time)} – ${formatTime(appointment.end_time)}`
     : formatTime(appointment.appointment_time);
-  const cardHeight = height - 8;
+  const cardHeight = height;
   // Reserve space for both detail rows before allowing extra text.
   const allowTwoPatientLines = cardHeight >= 72;
   const showReason = Boolean(appointment.reason) && cardHeight >= 76;
@@ -190,7 +190,7 @@ const AppointmentCard = ({
           if (!e.repeat) handleClick(e);
         }
       }}
-      className="curai-appointment-card absolute top-1 left-1 right-1 min-w-0 rounded text-xs cursor-move z-50 transition-none overflow-hidden focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-blue-600"
+      className="curai-appointment-card absolute top-0 left-1 right-1 min-w-0 rounded text-xs cursor-move z-50 transition-none overflow-hidden focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-blue-600"
       style={{
         height: `${cardHeight}px`,
         backgroundColor: 'var(--curai-color-surface)',
