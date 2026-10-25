@@ -11,7 +11,7 @@ from datetime import datetime
 from enum import Enum
 import uuid
 
-from compensation import validate_compensation
+from compensation import COMPENSATION_FIELDS, validate_compensation
 
 
 class PaymentType(str, Enum):
@@ -75,6 +75,9 @@ class CompensationWriteModel(BaseModel):
     def validate_compensation_settings(cls, values):
         if isinstance(values, dict):
             settings = dict(values)
+            # A basic profile may be created before payroll is configured.
+            if not set(settings) & COMPENSATION_FIELDS:
+                return values
             if cls.__name__ == "DoctorCreate":
                 settings.setdefault("payment_type", "percentage")
                 settings.setdefault("consultation_payment_type", "percentage" if settings.get("consultation_compensation_mode") != "separate" else None)
@@ -118,7 +121,7 @@ class DoctorCreate(CompensationWriteModel):
     # Дополнительные поля для гибридного типа оплаты за консультации
     consultation_hybrid_fixed_amount: Optional[float] = 0.0
     consultation_hybrid_percentage_value: Optional[float] = 0.0
-    consultation_compensation_mode: Literal["none", "inherit", "separate"]
+    consultation_compensation_mode: Optional[Literal["none", "inherit", "separate"]] = None
     # Услуги врача
     services: Optional[List] = []
     payment_mode: Optional[str] = "general"

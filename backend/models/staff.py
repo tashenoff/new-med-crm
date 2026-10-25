@@ -24,6 +24,7 @@ class Permission(str, Enum):
     
     # Врачи
     DOCTORS_VIEW = "doctors_view"
+    DOCTORS_CREATE = "doctors_create"
     DOCTORS_EDIT = "doctors_edit"
     DOCTORS_DELETE = "doctors_delete"
     
@@ -89,13 +90,14 @@ class StaffRole(str, Enum):
 
 # Права доступа для каждой роли
 ROLE_PERMISSIONS: Dict[StaffRole, List[Permission]] = {
-    StaffRole.SUPER_ADMIN: [Permission.PATIENTS_VIEW, Permission.PATIENTS_EDIT, Permission.PATIENTS_DELETE, Permission.BROADCAST_VIEW, Permission.DOCTORS_VIEW, Permission.DOCTORS_EDIT, Permission.DOCTORS_DELETE, Permission.CALENDAR_VIEW, Permission.CALENDAR_EDIT, Permission.CRM_VIEW, Permission.CRM_EDIT, Permission.WAREHOUSE_VIEW, Permission.WAREHOUSE_EDIT, Permission.DIRECTORY_VIEW, Permission.DIRECTORY_EDIT, Permission.FINANCE_VIEW, Permission.FINANCE_EDIT, Permission.STATISTICS_VIEW, Permission.STAFF_VIEW, Permission.STAFF_EDIT, Permission.STAFF_DELETE, Permission.SYSTEM_SETTINGS],  # Payroll requires explicit assignment.
+    StaffRole.SUPER_ADMIN: [Permission.PATIENTS_VIEW, Permission.PATIENTS_EDIT, Permission.PATIENTS_DELETE, Permission.BROADCAST_VIEW, Permission.DOCTORS_VIEW, Permission.DOCTORS_CREATE, Permission.DOCTORS_EDIT, Permission.DOCTORS_DELETE, Permission.CALENDAR_VIEW, Permission.CALENDAR_EDIT, Permission.CRM_VIEW, Permission.CRM_EDIT, Permission.WAREHOUSE_VIEW, Permission.WAREHOUSE_EDIT, Permission.DIRECTORY_VIEW, Permission.DIRECTORY_EDIT, Permission.FINANCE_VIEW, Permission.FINANCE_EDIT, Permission.STATISTICS_VIEW, Permission.STAFF_VIEW, Permission.STAFF_EDIT, Permission.STAFF_DELETE, Permission.SYSTEM_SETTINGS],  # Payroll requires explicit assignment.
     
     StaffRole.ADMIN: [
         Permission.PATIENTS_VIEW,
         Permission.PATIENTS_EDIT,
         Permission.PATIENTS_DELETE,
         Permission.DOCTORS_VIEW,
+        Permission.DOCTORS_CREATE,
         Permission.DOCTORS_EDIT,
         Permission.CALENDAR_VIEW,
         Permission.CALENDAR_EDIT,

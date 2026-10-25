@@ -65,6 +65,8 @@ def requirements(path, method, module=''):
     elif path.startswith(('/api/settings', '/api/notification-rules', '/api/patient-terms')):
         return ('system_settings',)
     elif path.startswith('/api/doctors'):
+        if path.rstrip('/') == '/api/doctors' and method == 'POST':
+            return ('doctors_view', 'doctors_create')
         if '/statistics' in path:
             return ('statistics_view',)
         family = 'calendar' if '/schedule' in path or '/available/' in path else 'doctors'

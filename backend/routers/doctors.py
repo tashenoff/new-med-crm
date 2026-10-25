@@ -132,9 +132,9 @@ async def create_doctor(
     service: DoctorService = Depends(get_doctor_service)
 ):
     """Create a new doctor"""
-    if 'payroll_view' not in current_user.permissions:
+    if set(doctor.model_fields_set) & set(COMPENSATION_FIELDS) and 'payroll_view' not in current_user.permissions:
         raise HTTPException(403, 'Payroll permission required to configure compensation')
-    return await service.create_doctor(doctor)
+    return doctor_response(await service.create_doctor(doctor), current_user)
 
 
 @doctors_router.get("", response_model=List[Doctor])

@@ -267,9 +267,10 @@ def test_appointment_price_and_deposit_are_not_consultation_receipts(modules):
     assert "consultation_receipts_unavailable" in {entry["code"] for entry in result["accounting_blockers"]}
 
 
-def test_creation_requires_explicit_consultation_mode(modules):
+def test_compensation_configuration_requires_explicit_consultation_mode(modules):
+    assert modules.models.DoctorCreate(full_name="Doctor").consultation_compensation_mode is None
     with pytest.raises(ValueError):
-        modules.models.DoctorCreate(full_name="Doctor")
+        modules.models.DoctorCreate(full_name="Doctor", payment_value=25)
     for mode in ("none", "inherit"):
         assert modules.models.DoctorCreate(full_name="Doctor", consultation_compensation_mode=mode)
     with pytest.raises(ValueError):
