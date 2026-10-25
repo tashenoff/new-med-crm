@@ -2,65 +2,9 @@ import React, { useState, useRef, useEffect } from 'react';
 import Modal from './Modal';
 import { apiClient } from '../../api/config';
 
-// Компонент для отображения содержимого сообщения с поддержкой iframe
-const MessageContent = ({ content }) => {
-  // Проверяем, содержит ли сообщение iframe тег
-  const iframeTagMatch = content.match(/<iframe[^>]*src="([^"]*)"[^>]*><\/iframe>/);
-
-  if (iframeTagMatch) {
-    const iframeTag = iframeTagMatch[0];
-    const iframeSrc = iframeTagMatch[1];
-    const textContent = content.replace(iframeTag, '').trim();
-
-    return (
-      <div className="space-y-3">
-        {textContent && <div className="text-sm whitespace-pre-wrap">{textContent}</div>}
-        <div className="border rounded-lg overflow-hidden">
-          <iframe
-            src={iframeSrc}
-            width="100%"
-            height="400"
-            frameBorder="0"
-            allowTransparency="true"
-            className="w-full"
-            title="Metabase Dashboard"
-          />
-        </div>
-      </div>
-    );
-  }
-
-  // Также проверяем на случай, если URL указан без iframe тега
-  // Ищем любой URL, содержащий "localhost:3000/embed/question"
-  const urlMatch = content.match(/(https?:\/\/[^\s]*localhost:3000\/embed\/question\/[^\s"',}\]]+)/);
-  if (urlMatch) {
-    const url = urlMatch[1];
-    const textContent = content.replace(url, '').trim();
-    
-    console.log('Found Metabase URL:', url);
-
-    return (
-      <div className="space-y-3">
-        {textContent && <div className="text-sm whitespace-pre-wrap">{textContent}</div>}
-        <div className="border rounded-lg overflow-hidden">
-          <iframe
-            src={url}
-            width="100%"
-            height="600"
-            frameBorder="0"
-            allowTransparency="true"
-            className="w-full"
-            title="Metabase Dashboard"
-          />
-        </div>
-      </div>
-    );
-  }
-  
-  console.log('No Metabase URL found in content:', content);
-
-  return <div className="text-sm whitespace-pre-wrap">{content}</div>;
-};
+const MessageContent = ({ content }) => (
+  <div className="text-sm whitespace-pre-wrap">{content}</div>
+);
 
 const AIChatModal = ({ show, onClose, badge }) => {
   const [messages, setMessages] = useState([]);
