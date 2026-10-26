@@ -2,6 +2,8 @@ import React, { useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import CuraiButton from '../common/CuraiButton';
 import AuthDots from './AuthDots';
+import { Download } from 'lucide-react';
+import { WINDOWS_APP } from '../../config/windowsApp';
 import '../../theme/curai-auth.css';
 
 function LoginForm() {
@@ -42,6 +44,12 @@ function LoginForm() {
           <label className="curai-auth-remember" htmlFor="rememberMe"><input id="rememberMe" name="rememberMe" type="checkbox" checked={rememberMe} onChange={e => setRememberMe(e.target.checked)} /><span>Запомнить меня</span></label>
           <CuraiButton variant="primary" type="submit" className="curai-auth-submit" disabled={loading || !isFormValid}>{loading ? 'Вход...' : 'Войти'}</CuraiButton>
         </form>
+        {WINDOWS_APP.downloadUrl && <div className="curai-auth-download">
+          <a href={WINDOWS_APP.downloadUrl} download={WINDOWS_APP.fileName} className="curai-auth-download-link" aria-label={`Скачать MedCRM ${WINDOWS_APP.version} для Windows`}>
+            <Download className="curai-icon" strokeWidth={1.75} aria-hidden="true" /><span>Версия для Windows</span>
+          </a>
+          <span className="curai-auth-download-details">MedCRM {WINDOWS_APP.version} · 121 МБ</span>
+        </div>}
       </section>
     </main>
   );

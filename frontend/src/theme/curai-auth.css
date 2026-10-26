@@ -24,3 +24,9 @@
   .curai-auth-dots-desktop {display:none;}
   .curai-auth-dots-mobile {display:block;}
 }
+
+.curai-auth-download {display:flex;flex-direction:column;align-items:center;gap:var(--curai-space-6);margin-top:var(--curai-space-24);}
+.curai-auth-download-link {display:inline-flex;align-items:center;justify-content:center;gap:var(--curai-space-8);min-height:var(--curai-control-compact);color:var(--curai-color-blue);font-size:var(--curai-type-size-13);line-height:var(--curai-type-line-20);text-decoration:none;}
+.curai-auth-download-link:hover {text-decoration:underline;text-underline-offset:3px;}
+.curai-auth-download-link:focus-visible {outline:2px solid var(--curai-color-focus);outline-offset:4px;border-radius:var(--curai-radius-4);}
+.curai-auth-download-details {color:var(--curai-color-muted);font-size:var(--curai-type-size-12);line-height:var(--curai-type-line-18);}
