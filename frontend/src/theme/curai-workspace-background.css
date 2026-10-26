@@ -1,6 +1,11 @@
 .curai-workspace { position:relative; isolation:isolate; }
 .curai-workspace-frame { background:transparent; }
-.curai-workspace-decoration { position:fixed; inset:0; z-index:-1; pointer-events:none; opacity:.9; background:linear-gradient(rgba(244,247,251,.82),rgba(244,247,251,.9)),url('/images/workspace-background.jpg') center/cover no-repeat; }
+.curai-workspace-decoration { position:fixed; inset:0; z-index:-1; pointer-events:none; }
+.curai-workspace-decoration::before,
+.curai-workspace-decoration::after { content:''; position:absolute; inset:0; }
+/* Dim the photograph before the existing light overlay is composited. */
+.curai-workspace-decoration::before { background:url('/images/workspace-background.jpg') center/cover no-repeat; filter:brightness(.9); }
+.curai-workspace-decoration::after { background:linear-gradient(rgba(244,247,251,.82),rgba(244,247,251,.9)); }
 
 @media (min-width: 769px) {
   .curai-workspace .calendar-schedule-header {
