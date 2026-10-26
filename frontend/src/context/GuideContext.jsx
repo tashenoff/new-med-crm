@@ -34,6 +34,7 @@ export const GUIDE_STEPS = {
     },
     {
       id: 'appointment-modal',
+      collapseWhenEditing: true,
       title: 'Шаг 3: Заполните форму',
       description: 'Выберите пациента, врача, дату и время приема. Укажите причину визита.',
       targetSelector: '[data-guide="save-appointment-btn"]',
@@ -66,10 +67,9 @@ export const GUIDE_STEPS = {
     {
       id: 'patient-select',
       requireInteraction: true,
-      nextLabel: 'Выберите пациента',
       advanceWhenVisible: '[data-guide="consultations-tab"]',
       title: 'Шаг 2: Выберите пациента',
-      description: 'Найдите нужного пациента и откройте его карточку.',
+      description: 'Нажмите на строку нужного пациента в списке. После открытия карточки гид продолжится автоматически.',
       targetSelector: '[data-guide="patient-row"]',
       position: 'bottom'
     },
@@ -96,6 +96,7 @@ export const GUIDE_STEPS = {
     },
     {
       id: 'consultation-fields',
+      collapseWhenEditing: true,
       title: 'Шаг 5: Заполните консультацию',
       description: 'Выберите врача и заполните клинические данные консультации. Далее добавим услуги из прайса.',
       targetSelector: '.curai-consultation-form select[required]',
@@ -119,7 +120,6 @@ export const GUIDE_STEPS = {
       description: 'Отметьте услуги в прайс-листе, проверьте количество и нажмите «Добавить». Гид продолжится, когда услуги появятся в консультации.',
       targetSelector: '.curai-clinical-service-dialog',
       requireInteraction: true,
-      nextLabel: 'Выберите услуги',
       advanceWhenVisible: '.curai-consultation-selected-services',
       waitForAbsent: '.curai-clinical-service-dialog',
       fallbackSelector: '.curai-open-service-picker',

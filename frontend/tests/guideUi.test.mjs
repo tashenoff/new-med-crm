@@ -79,7 +79,8 @@ test('guide waits for actual form actions and ignores Enter and arrows while typ
  assert.equal(h.opened,0);assert.equal(document.querySelector('input[aria-label="Причина"]'),null);
  await h.run(()=>document.querySelector('[data-guide="add-appointment-btn"]').click());
  assert.equal(h.opened,1);assert.equal(h.guide.currentStep,2);
- const input=document.querySelector('input[aria-label="Причина"]');input.focus();
+ const input=document.querySelector('input[aria-label="Причина"]');await h.run(()=>input.focus());
+ assert.ok(document.querySelector('.guide-tour-compact'));assert.equal(document.activeElement,input);
  await h.run(()=>{input.dispatchEvent(new window.KeyboardEvent('keydown',{key:'Enter',bubbles:true}));input.dispatchEvent(new window.KeyboardEvent('keydown',{key:'ArrowRight',bubbles:true}));});
  assert.equal(h.guide.currentStep,2);
  await h.run(()=>input.dispatchEvent(new window.KeyboardEvent('keydown',{key:'Escape',bubbles:true,cancelable:true})));
@@ -101,7 +102,7 @@ test('continuing the appointment tour opens the real entry action and can reopen
 test('continuing treatment waits for the chosen patient, then opens the consultation tab and form',async t=>{
  const h=await mount(t);const button=text=>[...document.querySelectorAll('.guide-tour-tooltip button')].find(b=>b.textContent===text);
  await h.run(()=>h.guide.startGuide('treatmentPlan'));await h.run(()=>button('Далее').click());
- assert.equal(button('Выберите пациента').disabled,true);assert.equal(h.selected,0);
+ assert.equal(button('Выберите пациента'),undefined);assert.equal(h.selected,0);
  await h.run(()=>document.body.dispatchEvent(new window.KeyboardEvent('keydown',{key:'ArrowRight',bubbles:true,cancelable:true})));
  assert.equal(h.guide.currentStep,1);
  await h.run(()=>[...document.querySelectorAll('button')].find(b=>b.textContent==='Другой пациент').click());
@@ -109,9 +110,15 @@ test('continuing treatment waits for the chosen patient, then opens the consulta
  await h.run(()=>button('Открыть консультации').click());assert.equal(h.guide.currentStep,3);
  await h.run(()=>button('Открыть форму').click());assert.equal(h.guide.currentStep,4);
  assert.ok(document.querySelector('.curai-consultation-form select[required]'));
+ const doctor=document.querySelector('.curai-consultation-form select[required]');
+ await h.run(()=>{doctor.focus();doctor.value='fixture-doctor';doctor.dispatchEvent(new window.Event('change',{bubbles:true}));});
+ assert.ok(document.querySelector('.guide-tour-compact'));assert.equal(document.querySelector('.guide-tour-tooltip'),null);assert.equal(document.activeElement,doctor);
+ await h.run(()=>document.querySelector('[aria-label="Показать подсказку"]').click());
+ assert.ok(document.querySelector('.guide-tour-tooltip'));assert.equal(doctor.value,'fixture-doctor');
  await h.run(()=>button('Далее').click());assert.equal(h.guide.currentStep,5);
  await h.run(()=>button('Выбрать услуги').click());assert.equal(h.guide.currentStep,6);
  assert.ok(document.querySelector('.curai-clinical-service-dialog'));
+ assert.equal(button('Выберите услуги'),undefined);
  await h.run(()=>[...document.querySelectorAll('.curai-clinical-service-dialog button')].find(b=>b.textContent==='Отмена').click());
  assert.equal(h.guide.currentStep,6);await h.run(()=>button('Выбрать услуги').click());
  await h.run(()=>document.querySelector('.curai-clinical-service-dialog input[type="checkbox"]').click());

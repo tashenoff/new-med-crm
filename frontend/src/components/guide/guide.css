@@ -14,6 +14,9 @@
 .guide-tour-highlight { position: fixed; border: 2px solid var(--curai-color-focus); border-radius: var(--curai-radius-6); pointer-events: none; }
 .guide-tour-tooltip { position: fixed; width: 360px; max-width: calc(100vw - 32px); max-height: calc(100dvh - 32px); overflow: auto; pointer-events: auto; border: 1px solid var(--curai-color-border); border-radius: var(--curai-radius-6); color: var(--curai-color-ink); background: var(--curai-color-surface); box-shadow: var(--curai-shadow-popover, 0 4px 16px rgb(0 0 0 / 12%)); font-family: var(--curai-type-family), sans-serif; }
 .guide-tour-tooltip-header { display: flex; align-items: center; justify-content: space-between; gap: var(--curai-space-8); padding: var(--curai-space-8) var(--curai-space-12); border-bottom: 1px solid var(--curai-color-border); color: var(--curai-color-muted); font-size: var(--curai-type-size-11); }
+.guide-tour-header-actions { display: flex; align-items: center; gap: var(--curai-space-4); }
+.guide-tour-compact { position: fixed; top: var(--curai-space-8); left: var(--curai-space-16); display: flex; align-items: center; gap: var(--curai-space-4); max-width: calc(100vw - 64px); padding: var(--curai-space-4); pointer-events: auto; background: var(--curai-color-surface); border: 1px solid var(--curai-color-border); border-radius: var(--curai-radius-6); box-shadow: var(--curai-shadow-popover, 0 4px 16px rgb(0 0 0 / 12%)); }
+.guide-tour-compact .curai-button { white-space: nowrap; font-size: var(--curai-type-size-12); }
 .guide-tour-tooltip-content { display: grid; gap: var(--curai-space-8); padding: var(--curai-space-16); }
 .guide-tour-tooltip-content h3 { margin: 0; font-size: var(--curai-type-size-16); line-height: var(--curai-type-line-24); font-weight: 600; }
 .guide-tour-tooltip-content p { margin: 0; font-size: var(--curai-type-size-12); line-height: var(--curai-type-line-18); }

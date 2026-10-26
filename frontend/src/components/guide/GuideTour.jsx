@@ -19,6 +19,8 @@ export default function GuideTour({ onNavigate }) {
   const nextReady = readiness.step === step && readiness.next;
   const canActivate = readiness.step === step && readiness.action;
   const [position, setPosition] = useState({ top: 16, left: 16 });
+  const [collapsedStep, setCollapsedStep] = useState(null);
+  const collapsed = collapsedStep === step;
   const tooltipRef = useRef(null);
   const navigateRef = useRef(onNavigate);
   const advanceRef = useRef(nextStep);
@@ -26,6 +28,14 @@ export default function GuideTour({ onNavigate }) {
   navigateRef.current = onNavigate;
   advanceRef.current = nextStep;
   const id = useId();
+  const expand = () => {
+    setCollapsedStep(null);
+    window.requestAnimationFrame(() => tooltipRef.current?.querySelector('[aria-label="Свернуть подсказку"]')?.focus());
+  };
+  const collapse = () => {
+    setCollapsedStep(step);
+    window.requestAnimationFrame(() => tooltipRef.current?.querySelector('[aria-label="Показать подсказку"]')?.focus());
+  };
   const actionSelector = step?.activateOnNext ? step.targetSelector : (!targetRect ? step?.fallbackSelector : null);
   const continueGuide = () => {
     if (nextIsReady(step)) { nextStep(); return; }
@@ -38,6 +48,16 @@ export default function GuideTour({ onNavigate }) {
     nextStep();
   };
   continueRef.current = continueGuide;
+
+  useEffect(() => {
+    setCollapsedStep(null);
+    if (!activeGuide || !step?.collapseWhenEditing) return;
+    const handleFocus = event => {
+      if (event.target.matches?.('input, textarea, select, [contenteditable="true"]') && event.target.closest('form')) setCollapsedStep(step);
+    };
+    document.addEventListener('focusin', handleFocus);
+    return () => document.removeEventListener('focusin', handleFocus);
+  }, [activeGuide, step]);
 
   useEffect(() => {
     if (!activeGuide || !step) return;
@@ -114,19 +134,21 @@ export default function GuideTour({ onNavigate }) {
 
   if (!activeGuide || !step) return null;
   return createPortal(<div className="guide-tour-overlay">
-    {targetRect?.outline && <div className="guide-tour-highlight" style={{ top: targetRect.top - 4, left: targetRect.left - 4, width: targetRect.width + 8, height: targetRect.height + 8 }} />}
-    <section ref={tooltipRef} role="dialog" aria-modal="false" aria-labelledby={`${id}-title`} className="guide-tour-tooltip curai-surface-root" style={position}>
+    {!collapsed && targetRect?.outline && <div className="guide-tour-highlight" style={{ top: targetRect.top - 4, left: targetRect.left - 4, width: targetRect.width + 8, height: targetRect.height + 8 }} />}
+    <section ref={tooltipRef} role={collapsed ? 'region' : 'dialog'} aria-modal={collapsed ? undefined : 'false'} aria-label={collapsed ? 'Свёрнутая подсказка гида' : undefined} aria-labelledby={collapsed ? undefined : `${id}-title`} className={`${collapsed ? 'guide-tour-compact' : 'guide-tour-tooltip'} curai-surface-root`} style={collapsed ? undefined : position}>
+      {collapsed ? <><CuraiButton variant="ghost" onClick={expand} aria-expanded="false" aria-label="Показать подсказку"><CuraiIcon name="help" /><span>Подсказка · {currentStep + 1} из {totalSteps}</span></CuraiButton><CuraiButton variant="ghost" iconOnly onClick={endGuide} aria-label="Закрыть гид"><CuraiIcon name="close" /></CuraiButton></> : <>
       <div className="guide-tour-tooltip-header"><span aria-live="polite">Шаг {currentStep + 1} из {totalSteps}</span>
-        <CuraiButton variant="ghost" iconOnly onClick={endGuide} aria-label="Закрыть гид"><CuraiIcon name="close" /></CuraiButton>
+        <div className="guide-tour-header-actions"><CuraiButton variant="ghost" iconOnly onClick={collapse} aria-label="Свернуть подсказку"><span aria-hidden="true">−</span></CuraiButton><CuraiButton variant="ghost" iconOnly onClick={endGuide} aria-label="Закрыть гид"><CuraiIcon name="close" /></CuraiButton></div>
       </div>
       <div className="guide-tour-tooltip-content"><h3 id={`${id}-title`}>{step.title}</h3><p>{step.description}</p>
-        {!targetRect && <p className="guide-tour-waiting" role="status">Откройте элемент по описанию шага. Если он недоступен, можно продолжить или закрыть гид.</p>}
+        {!targetRect && <p className="guide-tour-waiting" role="status">{step.requireInteraction ? 'Выполните действие в основном окне. Гид продолжится автоматически.' : 'Откройте элемент по описанию шага. Если он недоступен, можно продолжить или закрыть гид.'}</p>}
       </div>
       <div className="guide-tour-tooltip-actions">
         <CuraiButton disabled={currentStep === 0} onClick={prevStep}>Назад</CuraiButton>
         <CuraiButton variant="ghost" onClick={endGuide}>Пропустить</CuraiButton>
-        <CuraiButton variant="primary" onClick={continueGuide} disabled={Boolean(!nextReady && ((step.requireInteraction && !actionSelector) || (actionSelector && !canActivate)))}>{nextReady ? 'Продолжить' : actionSelector ? ((step.activateOnNext ? step.nextLabel : step.fallbackLabel) || 'Открыть') : step.requireInteraction ? step.nextLabel : currentStep === totalSteps - 1 ? 'Завершить' : 'Далее'}</CuraiButton>
+        {(!step.requireInteraction || nextReady || actionSelector) && <CuraiButton variant="primary" onClick={continueGuide} disabled={Boolean(!nextReady && actionSelector && !canActivate)}>{nextReady ? 'Продолжить' : actionSelector ? ((step.activateOnNext ? step.nextLabel : step.fallbackLabel) || 'Открыть') : currentStep === totalSteps - 1 ? 'Завершить' : 'Далее'}</CuraiButton>}
       </div>
+      </>}
     </section>
   </div>, document.body);
 }
