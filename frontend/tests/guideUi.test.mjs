@@ -123,6 +123,8 @@ test('appointment guide opens the actual appointment modal before showing form i
  const h=await mount(t,{realAppointment:true});await h.run(()=>h.guide.startGuide('appointment'));await h.run(()=>h.guide.nextStep());
  await h.run(()=>[...document.querySelectorAll('.guide-tour-tooltip button')].find(b=>b.textContent==='Открыть форму').click());
  assert.equal(h.guide.currentStep,2);assert.ok(document.querySelector('[data-guide="save-appointment-btn"]')?.closest('form'));assert.equal(h.writes.length,0);
+ assert.equal(document.querySelector('.guide-tour-highlight'),null,'the guide must not draw a blue frame around the appointment window');
+ assert.equal(document.querySelector('.guide-tour-mask'),null,'the guide must not add a dimming mask over the form');
  assert.equal(h.scrolled.some(element=>element.dataset.guide==='save-appointment-btn'),false,'form instructions should leave the patient and date fields visible');
 });
 test('unavailable entry controls cannot advance into an absent appointment form',async t=>{

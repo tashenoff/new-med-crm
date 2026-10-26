@@ -11,7 +11,6 @@
 .guide-option-card > span:nth-child(2) > span { color: var(--curai-color-muted); font-size: var(--curai-type-size-12); line-height: var(--curai-type-line-18); }
 .guide-option-arrow { margin-left: auto; color: var(--curai-color-muted); }
 .guide-tour-overlay { position: fixed; inset: 0; z-index: 100000; pointer-events: none; }
-.guide-tour-mask { position: fixed; inset: 0; pointer-events: none; }
 .guide-tour-highlight { position: fixed; border: 2px solid var(--curai-color-focus); border-radius: var(--curai-radius-6); pointer-events: none; }
 .guide-tour-tooltip { position: fixed; width: 360px; max-width: calc(100vw - 32px); max-height: calc(100dvh - 32px); overflow: auto; pointer-events: auto; border: 1px solid var(--curai-color-border); border-radius: var(--curai-radius-6); color: var(--curai-color-ink); background: var(--curai-color-surface); box-shadow: var(--curai-shadow-popover, 0 4px 16px rgb(0 0 0 / 12%)); font-family: var(--curai-type-family), sans-serif; }
 .guide-tour-tooltip-header { display: flex; align-items: center; justify-content: space-between; gap: var(--curai-space-8); padding: var(--curai-space-8) var(--curai-space-12); border-bottom: 1px solid var(--curai-color-border); color: var(--curai-color-muted); font-size: var(--curai-type-size-11); }

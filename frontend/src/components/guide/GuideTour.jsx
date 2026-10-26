@@ -5,7 +5,7 @@ import CuraiButton from '../common/CuraiButton';
 import CuraiIcon from '../common/CuraiIcon';
 import { guidePosition } from './guidePosition';
 
-const sameRect = (a, b) => a && b && ['top', 'left', 'width', 'height'].every(key => a[key] === b[key]);
+const sameRect = (a, b) => a && b && ['top', 'left', 'width', 'height', 'outline'].every(key => a[key] === b[key]);
 const visibleTarget = selector => [...document.querySelectorAll(selector)].find(element => {
   const rect = element.getBoundingClientRect();
   return rect.width > 0 && rect.height > 0 && !element.closest('[hidden], [aria-hidden="true"]');
@@ -73,7 +73,7 @@ export default function GuideTour({ onNavigate }) {
       const action = step.activateOnNext ? target : (!bounds && step.fallbackSelector ? visibleTarget(step.fallbackSelector) : null);
       const enabled = Boolean(action && !action.disabled && action.getAttribute('aria-disabled') !== 'true');
       setReadiness(previous => previous.step === step && previous.next === ready && previous.action === enabled ? previous : { step, next: ready, action: enabled });
-      const rect = bounds ? { top: bounds.top, left: bounds.left, width: bounds.width, height: bounds.height } : null;
+      const rect = bounds ? { top: bounds.top, left: bounds.left, width: bounds.width, height: bounds.height, outline: !element.matches('form, [role="dialog"]') } : null;
       setTargetRect(previous => (sameRect(previous, rect) || previous === rect) ? previous : rect);
       const measured = tooltipRef.current?.getBoundingClientRect();
       const next = guidePosition(rect, step.position, { width: measured?.width || 360, height: measured?.height || 240 }, { width: window.innerWidth, height: window.innerHeight });
@@ -114,13 +114,7 @@ export default function GuideTour({ onNavigate }) {
 
   if (!activeGuide || !step) return null;
   return createPortal(<div className="guide-tour-overlay">
-    <svg className="guide-tour-mask" width="100%" height="100%" aria-hidden="true">
-      <defs><mask id={`${id}-mask`}><rect width="100%" height="100%" fill="white" />
-        {targetRect && <rect x={targetRect.left - 4} y={targetRect.top - 4} width={targetRect.width + 8} height={targetRect.height + 8} rx="6" fill="black" />}
-      </mask></defs>
-      <rect width="100%" height="100%" fill="var(--curai-color-ink)" opacity="0.16" mask={`url(#${id}-mask)`} />
-    </svg>
-    {targetRect && <div className="guide-tour-highlight" style={{ top: targetRect.top - 4, left: targetRect.left - 4, width: targetRect.width + 8, height: targetRect.height + 8 }} />}
+    {targetRect?.outline && <div className="guide-tour-highlight" style={{ top: targetRect.top - 4, left: targetRect.left - 4, width: targetRect.width + 8, height: targetRect.height + 8 }} />}
     <section ref={tooltipRef} role="dialog" aria-modal="false" aria-labelledby={`${id}-title`} className="guide-tour-tooltip curai-surface-root" style={position}>
       <div className="guide-tour-tooltip-header"><span aria-live="polite">Шаг {currentStep + 1} из {totalSteps}</span>
         <CuraiButton variant="ghost" iconOnly onClick={endGuide} aria-label="Закрыть гид"><CuraiIcon name="close" /></CuraiButton>
