@@ -205,7 +205,7 @@ const StaffModal = ({
       show={isOpen}
       onClose={onClose}
       title={isEditingDoctor ? `Права доступа: ${editingItem.full_name}` : (editingItem ? 'Редактировать сотрудника' : 'Добавить сотрудника')}
-      subheader={editingItem && (
+      subheader={(
         <nav className="curai-patient-tabs px-4 pt-2" role="tablist" aria-label="Разделы сотрудника">
           {[['profile', 'Профиль'], ['permissions', 'Права']].map(([tab, label]) => (
             <button
@@ -234,12 +234,10 @@ const StaffModal = ({
       )}
     >
       <form onSubmit={handleSubmit} className="space-y-4" onInvalidCapture={(event) => {
-        const panel = event.target.closest('[data-staff-tab]');
-        if (editingItem && panel?.hidden) {
-          event.preventDefault();
-          flushSync(() => setActiveTab(panel.dataset.staffTab));
-          event.target.reportValidity();
-        }
+        const firstInvalid = Array.from(event.currentTarget.elements).find(field => field.willValidate && !field.validity.valid);
+        const panel = firstInvalid?.closest('[data-staff-tab]');
+        if (panel?.hidden) flushSync(() => setActiveTab(panel.dataset.staffTab));
+        if (event.target !== firstInvalid) event.preventDefault();
       }}>
         {errorMessage && (
           <div className="bg-curai-negativeBg border border-curai-negative text-curai-negative px-4 py-3 rounded relative">
@@ -249,10 +247,10 @@ const StaffModal = ({
 
         <div
           id={`${tabId}-profile-panel`}
-          role={editingItem ? 'tabpanel' : undefined}
-          aria-labelledby={editingItem ? `${tabId}-profile-tab` : undefined}
+          role="tabpanel"
+          aria-labelledby={`${tabId}-profile-tab`}
           data-staff-tab="profile"
-          hidden={Boolean(editingItem) && activeTab !== 'profile'}
+          hidden={activeTab !== 'profile'}
           className="space-y-4"
         >
         {/* Информация о враче (только при редактировании врача) */}
@@ -406,10 +404,10 @@ const StaffModal = ({
 
         <div
           id={`${tabId}-permissions-panel`}
-          role={editingItem ? 'tabpanel' : undefined}
-          aria-labelledby={editingItem ? `${tabId}-permissions-tab` : undefined}
+          role="tabpanel"
+          aria-labelledby={`${tabId}-permissions-tab`}
           data-staff-tab="permissions"
-          hidden={Boolean(editingItem) && activeTab !== 'permissions'}
+          hidden={activeTab !== 'permissions'}
           className="space-y-4"
         >
           {!isEditingDoctor && (<>
@@ -434,7 +432,7 @@ const StaffModal = ({
 
           </>)}
         {/* Дополнительные права доступа */}
-        {staffForm.role && <PermissionEditor form={staffForm} onChange={setStaffForm} />}
+        <PermissionEditor form={staffForm} onChange={setStaffForm} />
 
         </div>
 

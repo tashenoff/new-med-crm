@@ -23,7 +23,7 @@ async function mount(t,{doctor=false,creating=false}={}){
   Object.assign(globalThis,{window:dom.window,document:dom.window.document,IS_REACT_ACT_ENVIRONMENT:true});
   const root=createRoot(document.getElementById('root'));const calls=[];let form,setForm;
   const props={isOpen:true,editingItem:creating?null:{id:'first',type:doctor?'doctor':'staff',full_name:'Staff',specialty:'Dentist'},onClose(){},onSave:(e,data)=>calls.push(structuredClone(data)),onResetPassword:()=>{throw new Error('Unexpected password reset');}};
-  function Harness(){[form,setForm]=useState({full_name:'Staff',email:'staff@example.test',login:'staff',phone:'555',role:doctor?'doctor':'admin',custom_permissions:[]});return React.createElement(StaffModal,{...props,staffForm:form,setStaffForm:setForm});}
+  function Harness(){[form,setForm]=useState({full_name:'Staff',email:'staff@example.test',login:'staff',phone:'555',role:creating?'':doctor?'doctor':'admin',custom_permissions:[]});return React.createElement(StaffModal,{...props,staffForm:form,setStaffForm:setForm});}
   const render=async()=>act(async()=>root.render(React.createElement(Harness)));
   await render();
   t.after(async()=>{await act(async()=>root.unmount());dom.window.close();for(const [k,d]of saved){if(d)Object.defineProperty(globalThis,k,d);else delete globalThis[k];}});
@@ -78,13 +78,34 @@ test('tabs support keyboard navigation without submitting the form',async t=>{
   await act(async()=>h.tab('Права').dispatchEvent(new window.KeyboardEvent('keydown',{key:'Home',bubbles:true,cancelable:true})));
   assert.equal(h.tab('Профиль').getAttribute('aria-selected'),'true');assert.equal(h.calls.length,0);
 });
-test('creating staff retains its single form with profile, role and password requirements',async t=>{
+test('creating staff uses the same two tabs and validates the first incomplete field across them',async t=>{
   const h=await mount(t,{creating:true});
-  assert.equal(document.querySelectorAll('[role=tab]').length,0);
-  assert.equal(h.panel('profile').hidden,false);assert.equal(h.panel('permissions').hidden,false);
+  assert.deepEqual([...document.querySelectorAll('[role=tab]')].map(e=>e.textContent.trim()),['Профиль','Права']);
+  assert.equal(h.panel('profile').hidden,false);assert.equal(h.panel('permissions').hidden,true);
   assert.equal(h.panel('profile').querySelector('input[type=password]').required,true);
+  await act(async()=>h.setForm({...h.getForm(),full_name:'',password:'',role:''}));
+  await act(async()=>h.tab('Права').click());
+  assert.equal(h.panel('permissions').querySelectorAll('input[type=checkbox]').length,allPermissionKeys.length);
   await act(async()=>document.querySelector('button[type=submit]').click());
-  assert.equal(h.calls.length,0);
+  assert.equal(h.calls.length,0);assert.equal(h.panel('profile').hidden,false);
+  await act(async()=>h.setForm({...h.getForm(),full_name:'New staff',password:'fixture-password'}));
+  await act(async()=>document.querySelector('button[type=submit]').click());
+  assert.equal(h.calls.length,0);assert.equal(h.panel('permissions').hidden,false);
+});
+test('creating staff saves profile, password and granular rights together from the rights tab',async t=>{
+  const h=await mount(t,{creating:true});
+  await act(async()=>h.setForm({...h.getForm(),full_name:'New staff',password:'fixture-password',permission_mode:'explicit'}));
+  await act(async()=>h.tab('Права').click());
+  const role=h.panel('permissions').querySelector('select');
+  await act(async()=>{role.value='marketer';role.dispatchEvent(new window.Event('change',{bubbles:true}));});
+  await act(async()=>document.querySelector('input[name="patients_export"]').click());
+  await act(async()=>h.tab('Профиль').click());
+  assert.equal(h.panel('profile').querySelector('input[type=password]').value,'fixture-password');
+  await act(async()=>h.tab('Права').click());
+  await act(async()=>document.querySelector('button[type=submit]').click());
+  assert.equal(h.calls.length,1);assert.equal(h.calls[0].password,'fixture-password');
+  assert.equal(h.calls[0].full_name,'New staff');assert.equal(h.calls[0].role,'marketer');
+  assert.deepEqual(h.calls[0].custom_permissions,['patients_export']);assert.equal(h.calls[0].permission_mode,'explicit');
 });
 test('all production permission groups and granular selections survive tab changes and save',async t=>{
   const h=await mount(t);
