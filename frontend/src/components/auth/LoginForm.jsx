@@ -45,7 +45,7 @@ function LoginForm() {
           <CuraiButton variant="primary" type="submit" className="curai-auth-submit" disabled={loading || !isFormValid}>{loading ? 'Вход...' : 'Войти'}</CuraiButton>
         </form>
         {WINDOWS_APP.downloadUrl && <div className="curai-auth-download">
-          <a href={WINDOWS_APP.downloadUrl} download={WINDOWS_APP.fileName} className="curai-auth-download-link" aria-label={`Скачать MedCRM ${WINDOWS_APP.version} для Windows`}>
+          <a href={WINDOWS_APP.downloadUrl} target="_blank" rel="noopener noreferrer" className="curai-auth-download-link" aria-label={`Скачать MedCRM ${WINDOWS_APP.version} для Windows (новая вкладка)`}>
             <Download className="curai-icon" strokeWidth={1.75} aria-hidden="true" /><span>Версия для Windows</span>
           </a>
           <span className="curai-auth-download-details">MedCRM {WINDOWS_APP.version} · 121 МБ</span>
