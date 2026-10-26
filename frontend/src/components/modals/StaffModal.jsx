@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useId } from 'react';
+import { flushSync } from 'react-dom';
 import Modal from './Modal';
 import PermissionEditor from '../staff/PermissionEditor';
 
@@ -13,6 +14,8 @@ const StaffModal = ({
   onSave,
   onResetPassword
 }) => {
+  const [activeTab, setActiveTab] = useState('profile');
+  const tabId = useId();
   const [showPassword, setShowPassword] = useState(false);
   const [resetPasswordMode, setResetPasswordMode] = useState(false);
   const [resetPasswordData, setResetPasswordData] = useState({
@@ -24,6 +27,7 @@ const StaffModal = ({
   const [resetPasswordSuccess, setResetPasswordSuccess] = useState('');
 
   useEffect(() => {
+    setActiveTab('profile');
     setResetPasswordMode(false);
     setResetPasswordData({ newPassword: '', confirmPassword: '' });
     setResetPasswordError('');
@@ -201,14 +205,56 @@ const StaffModal = ({
       show={isOpen}
       onClose={onClose}
       title={isEditingDoctor ? `Права доступа: ${editingItem.full_name}` : (editingItem ? 'Редактировать сотрудника' : 'Добавить сотрудника')}
+      subheader={editingItem && (
+        <nav className="curai-patient-tabs px-4 pt-2" role="tablist" aria-label="Разделы сотрудника">
+          {[['profile', 'Профиль'], ['permissions', 'Права']].map(([tab, label]) => (
+            <button
+              key={tab}
+              id={`${tabId}-${tab}-tab`}
+              type="button"
+              role="tab"
+              aria-selected={activeTab === tab}
+              aria-controls={`${tabId}-${tab}-panel`}
+              tabIndex={activeTab === tab ? 0 : -1}
+              onClick={() => setActiveTab(tab)}
+              onKeyDown={(event) => {
+                if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return;
+                event.preventDefault();
+                const next = event.key === 'Home' ? 'profile'
+                  : event.key === 'End' ? 'permissions'
+                  : tab === 'profile' ? 'permissions' : 'profile';
+                setActiveTab(next);
+                document.getElementById(`${tabId}-${next}-tab`)?.focus();
+              }}
+            >
+              {label}
+            </button>
+          ))}
+        </nav>
+      )}
     >
-      <form onSubmit={handleSubmit} className="space-y-4">
+      <form onSubmit={handleSubmit} className="space-y-4" onInvalidCapture={(event) => {
+        const panel = event.target.closest('[data-staff-tab]');
+        if (editingItem && panel?.hidden) {
+          event.preventDefault();
+          flushSync(() => setActiveTab(panel.dataset.staffTab));
+          event.target.reportValidity();
+        }
+      }}>
         {errorMessage && (
           <div className="bg-curai-negativeBg border border-curai-negative text-curai-negative px-4 py-3 rounded relative">
             {errorMessage}
           </div>
         )}
 
+        <div
+          id={`${tabId}-profile-panel`}
+          role={editingItem ? 'tabpanel' : undefined}
+          aria-labelledby={editingItem ? `${tabId}-profile-tab` : undefined}
+          data-staff-tab="profile"
+          hidden={Boolean(editingItem) && activeTab !== 'profile'}
+          className="space-y-4"
+        >
         {/* Информация о враче (только при редактировании врача) */}
         {isEditingDoctor && (
           <div className="bg-curai-selected border border-curai-control rounded-md p-4 mb-4">
@@ -241,8 +287,6 @@ const StaffModal = ({
             </p>
           </div>
         )}
-
-        {editingItem && resetPasswordSection}
 
         {/* Для врачей не показываем основные поля (кроме логина) */}
         {!isEditingDoctor && (
@@ -339,7 +383,36 @@ const StaffModal = ({
               </div>
             )}
 
-            {/* Роль */}
+
+            {/* Телефон */}
+            <div>
+              <label className="block text-sm font-medium text-curai-ink mb-1">
+                Телефон
+              </label>
+              <input
+                type="tel"
+                value={staffForm.phone || ''}
+                onChange={(e) => setStaffForm({ ...staffForm, phone: e.target.value })}
+                className="w-full px-3 py-2 border border-curai-control rounded-md focus:ring-2 focus:ring-curai-focus focus:border-transparent"
+                placeholder="+7 (777) 123-45-67"
+              />
+            </div>
+
+          </>
+        )}
+
+        {editingItem && resetPasswordSection}
+        </div>
+
+        <div
+          id={`${tabId}-permissions-panel`}
+          role={editingItem ? 'tabpanel' : undefined}
+          aria-labelledby={editingItem ? `${tabId}-permissions-tab` : undefined}
+          data-staff-tab="permissions"
+          hidden={Boolean(editingItem) && activeTab !== 'permissions'}
+          className="space-y-4"
+        >
+          {!isEditingDoctor && (<>
             <div>
               <label className="block text-sm font-medium text-curai-ink mb-1">
                 Роль <span className="text-curai-negative">*</span>
@@ -359,24 +432,11 @@ const StaffModal = ({
               </select>
             </div>
 
-            {/* Телефон */}
-            <div>
-              <label className="block text-sm font-medium text-curai-ink mb-1">
-                Телефон
-              </label>
-              <input
-                type="tel"
-                value={staffForm.phone || ''}
-                onChange={(e) => setStaffForm({ ...staffForm, phone: e.target.value })}
-                className="w-full px-3 py-2 border border-curai-control rounded-md focus:ring-2 focus:ring-curai-focus focus:border-transparent"
-                placeholder="+7 (777) 123-45-67"
-              />
-            </div>
-
-            {/* Права задаются отдельно от роли ниже. */}
-          </>
-        )}
+          </>)}
+        {/* Дополнительные права доступа */}
         {staffForm.role && <PermissionEditor form={staffForm} onChange={setStaffForm} />}
+
+        </div>
 
         {/* Кнопки */}
         <div className="flex justify-end gap-3 pt-4">
