@@ -1,222 +1,104 @@
-import React, { useEffect, useState, useRef, useMemo } from 'react';
+import React, { useEffect, useState, useRef, useId } from 'react';
 import { createPortal } from 'react-dom';
 import { useGuide, GUIDE_STEPS } from '../../context/GuideContext';
-import { useModal } from '../../context/ModalContext';
+import CuraiButton from '../common/CuraiButton';
+import CuraiIcon from '../common/CuraiIcon';
+import { guidePosition } from './guidePosition';
 
-const GuideTour = ({ onNavigate }) => {
-  const { openModal } = useModal();
+const sameRect = (a, b) => a && b && ['top', 'left', 'width', 'height'].every(key => a[key] === b[key]);
+export default function GuideTour({ onNavigate }) {
   const { activeGuide, currentStep, nextStep, prevStep, endGuide, totalSteps } = useGuide();
-
+  const step = GUIDE_STEPS[activeGuide]?.[currentStep];
   const [targetRect, setTargetRect] = useState(null);
-  const [tooltipPosition, setTooltipPosition] = useState({ top: 0, left: 0 });
-  const retryTimeoutRef = useRef(null);
-  const lastStepRef = useRef(null);
+  const [position, setPosition] = useState({ top: 16, left: 16 });
+  const tooltipRef = useRef(null);
+  const navigateRef = useRef(onNavigate);
+  const advanceRef = useRef(nextStep);
+  navigateRef.current = onNavigate;
+  advanceRef.current = nextStep;
+  const id = useId();
 
-  // Получаем текущий шаг напрямую
-  const step = useMemo(() => {
-    if (!activeGuide || !GUIDE_STEPS[activeGuide]) return null;
-    return GUIDE_STEPS[activeGuide][currentStep] || null;
-  }, [activeGuide, currentStep]);
-
-  const calculateTooltipPosition = (rect, position = 'bottom') => {
-    if (!rect) return { top: 0, left: 0 };
-    const tooltipWidth = 380, tooltipHeight = 200, offset = 16, padding = 20;
-    let top, left;
-
-    switch (position) {
-      case 'top':
-        top = rect.top - tooltipHeight - offset;
-        left = rect.left + (rect.width / 2) - (tooltipWidth / 2);
-        break;
-      case 'bottom':
-        top = rect.bottom + offset;
-        left = rect.left + (rect.width / 2) - (tooltipWidth / 2);
-        break;
-      case 'left':
-        top = rect.top + (rect.height / 2) - (tooltipHeight / 2);
-        left = rect.left - tooltipWidth - offset;
-        break;
-      case 'right':
-        top = rect.top + (rect.height / 2) - (tooltipHeight / 2);
-        left = rect.right + offset;
-        break;
-      default:
-        top = rect.bottom + offset;
-        left = rect.left + (rect.width / 2) - (tooltipWidth / 2);
-    }
-
-    const windowWidth = window.innerWidth, windowHeight = window.innerHeight;
-    if (left < padding) left = padding;
-    if (left + tooltipWidth > windowWidth - padding) left = windowWidth - tooltipWidth - padding;
-    if (top < padding) top = padding;
-    if (top + tooltipHeight > windowHeight - padding) top = windowHeight - tooltipHeight - padding;
-
-    return { top, left };
-  };
-
-  const findAndHighlight = () => {
-    if (!step) return;
-    const target = document.querySelector(step.targetSelector);
-    if (target) {
-      const rect = target.getBoundingClientRect();
-      setTargetRect({ top: rect.top, left: rect.left, width: rect.width, height: rect.height });
-      setTooltipPosition(calculateTooltipPosition(rect, step.position));
-    }
-  };
-
-  // Эффект для выполнения действий при смене шага
   useEffect(() => {
-    if (!step || !activeGuide) return;
-    
-    // Проверяем, изменился ли шаг
-    const stepKey = `${activeGuide}-${currentStep}`;
-    if (lastStepRef.current === stepKey) return;
-    lastStepRef.current = stepKey;
-
-    // Очищаем предыдущие таймеры
-    if (retryTimeoutRef.current) {
-      clearTimeout(retryTimeoutRef.current);
-    }
-
-    // Сбрасываем подсветку при смене шага, чтобы старая не оставалась
+    if (!activeGuide || !step) return;
+    let frame = null, target = null;
+    let targetObserver = null;
+    const advance = () => advanceRef.current();
+    const attach = next => {
+      if (next === target) return;
+      if (target && step.advanceOnClick) target.removeEventListener('click', advance);
+      targetObserver?.disconnect();
+      target = next;
+      if (target && step.advanceOnClick) target.addEventListener('click', advance, { once: true });
+      if (target && typeof ResizeObserver !== 'undefined') { targetObserver = new ResizeObserver(schedule); targetObserver.observe(target); }
+    };
+    const refresh = () => {
+      frame = null;
+      const found = [...document.querySelectorAll(step.targetSelector)].find(element => {
+        const rect = element.getBoundingClientRect();
+        return rect.width > 0 && rect.height > 0 && !element.closest('[hidden], [aria-hidden="true"]');
+      });
+      attach(found || null);
+      const element = step.targetAncestor ? target?.closest(step.targetAncestor) : target;
+      const bounds = element?.getBoundingClientRect();
+      const rect = bounds ? { top: bounds.top, left: bounds.left, width: bounds.width, height: bounds.height } : null;
+      setTargetRect(previous => (sameRect(previous, rect) || previous === rect) ? previous : rect);
+      const measured = tooltipRef.current?.getBoundingClientRect();
+      const next = guidePosition(rect, step.position, { width: measured?.width || 360, height: measured?.height || 240 }, { width: window.innerWidth, height: window.innerHeight });
+      setPosition(previous => previous.top === next.top && previous.left === next.left ? previous : next);
+    };
+    function schedule() { if (frame === null) frame = window.requestAnimationFrame(refresh); }
     setTargetRect(null);
-
-    // Выполняем действие шага
-    if (step.action?.type === 'navigate' && onNavigate) {
-      onNavigate(step.action.tab, step.action.section);
-    }
-    
-    if (step.action?.type === 'openModal') {
-      setTimeout(() => openModal(step.action.modal, {}), 300);
-    }
-    
-    // Клик на первого пациента для открытия модалки
-    if (step.action?.type === 'clickFirstPatient') {
-      setTimeout(() => {
-        const patientRow = document.querySelector('[data-guide="patient-row"]');
-        if (patientRow) {
-          patientRow.click();
-          console.log('[Guide] Clicked patient row, waiting for modal...');
-        } else {
-          console.log('[Guide] Patient row not found');
-        }
-      }, 300);
-    }
-
-    // Ищем элемент с задержкой
-    const findElement = (attempts = 0) => {
-      if (attempts > 20) return;
-      
-      const target = document.querySelector(step.targetSelector);
-      if (target) {
-        const rect = target.getBoundingClientRect();
-        setTargetRect({ top: rect.top, left: rect.left, width: rect.width, height: rect.height });
-        setTooltipPosition(calculateTooltipPosition(rect, step.position));
-      } else {
-        retryTimeoutRef.current = setTimeout(() => findElement(attempts + 1), 500);
-      }
-    };
-
-    // Если это клик на пациента - ждём дольше чтобы модалка открылась
-    const initialDelay = step.action?.type === 'clickFirstPatient' ? 1000 : 400;
-    retryTimeoutRef.current = setTimeout(findElement, initialDelay);
-
+    if (step.action?.type === 'navigate') navigateRef.current?.(step.action.tab, step.action.section);
+    const observer = new MutationObserver(schedule);
+    observer.observe(document.body, { childList: true, subtree: true });
+    const tooltipObserver = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(schedule);
+    if (tooltipRef.current) tooltipObserver?.observe(tooltipRef.current);
+    window.addEventListener('scroll', schedule, true);
+    window.addEventListener('resize', schedule);
+    schedule();
     return () => {
-      if (retryTimeoutRef.current) clearTimeout(retryTimeoutRef.current);
+      if (frame !== null) window.cancelAnimationFrame(frame);
+      observer.disconnect(); tooltipObserver?.disconnect(); targetObserver?.disconnect();
+      if (target && step.advanceOnClick) target.removeEventListener('click', advance);
+      window.removeEventListener('scroll', schedule, true);
+      window.removeEventListener('resize', schedule);
     };
-  }, [activeGuide, currentStep, step, onNavigate, openModal]);
+  }, [activeGuide, currentStep, step]);
 
-
-
-  // Обработка клавиш
   useEffect(() => {
     if (!activeGuide) return;
-    const handleKeyDown = (e) => {
-      if (e.key === 'Escape') endGuide();
-      else if (e.key === 'ArrowRight' || e.key === 'Enter') nextStep();
-      else if (e.key === 'ArrowLeft') prevStep();
+    const handleKey = event => {
+      if (event.key === 'Escape') { event.preventDefault(); event.stopPropagation(); endGuide(); return; }
+      if (event.defaultPrevented || event.isComposing || event.ctrlKey || event.metaKey || event.altKey ||
+          event.target.closest?.('input, textarea, select, [contenteditable="true"]')) return;
+      if (event.key === 'ArrowRight') { event.preventDefault(); nextStep(); }
+      if (event.key === 'ArrowLeft') { event.preventDefault(); prevStep(); }
     };
-    document.addEventListener('keydown', handleKeyDown);
-    return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [activeGuide, nextStep, prevStep, endGuide]);
-
-  // Сброс при закрытии
-  useEffect(() => {
-    if (!activeGuide) {
-      lastStepRef.current = null;
-      setTargetRect(null);
-    }
-  }, [activeGuide]);
+    document.addEventListener('keydown', handleKey, true);
+    return () => document.removeEventListener('keydown', handleKey, true);
+  }, [activeGuide, endGuide, nextStep, prevStep]);
 
   if (!activeGuide || !step) return null;
-
-  return createPortal(
-    <div className="guide-tour-overlay" style={{ pointerEvents: 'none' }}>
-      <svg className="guide-tour-mask" width="100%" height="100%" style={{ pointerEvents: 'none' }}>
-        <defs>
-          <mask id="guide-mask">
-            <rect x="0" y="0" width="100%" height="100%" fill="white" />
-            {targetRect && (
-              <rect x={targetRect.left - 8} y={targetRect.top - 8}
-                width={targetRect.width + 16} height={targetRect.height + 16} rx="8" fill="black" />
-            )}
-          </mask>
-        </defs>
-        <rect x="0" y="0" width="100%" height="100%" fill="rgba(0, 0, 0, 0.5)" mask="url(#guide-mask)" style={{ pointerEvents: 'none' }} />
-      </svg>
-
-      {targetRect && (
-        <div className="guide-tour-highlight" style={{
-          top: targetRect.top - 8, left: targetRect.left - 8,
-          width: targetRect.width + 16, height: targetRect.height + 16,
-          pointerEvents: 'none'
-        }} />
-      )}
-
-      <div className="guide-tour-tooltip" style={{ top: tooltipPosition.top, left: tooltipPosition.left }}>
-        <div className="guide-tour-tooltip-header">
-          <div className="guide-tour-tooltip-step-badge">{currentStep + 1} / {totalSteps}</div>
-          <button onClick={endGuide} className="guide-tour-tooltip-close" aria-label="Закрыть гид">
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-            </svg>
-          </button>
-        </div>
-
-        <div className="guide-tour-tooltip-content">
-          <h3 className="guide-tour-tooltip-title">{step.title}</h3>
-          <p className="guide-tour-tooltip-description">{step.description}</p>
-        </div>
-
-        <div className="guide-tour-progress">
-          {GUIDE_STEPS[activeGuide].map((_, index) => (
-            <div key={index} className={`guide-tour-progress-dot ${
-              index === currentStep ? 'active' : index < currentStep ? 'completed' : ''
-            }`} />
-          ))}
-        </div>
-
-        <div className="guide-tour-tooltip-actions">
-          <button onClick={prevStep} disabled={currentStep === 0} className="guide-tour-btn guide-tour-btn-secondary">
-            <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-            </svg>
-            Назад
-          </button>
-          <button onClick={endGuide} className="guide-tour-btn guide-tour-btn-ghost">Пропустить</button>
-          <button onClick={nextStep} className="guide-tour-btn guide-tour-btn-primary">
-            {currentStep === totalSteps - 1 ? 'Завершить' : 'Далее'}
-            {currentStep !== totalSteps - 1 && (
-              <svg className="w-4 h-4 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-              </svg>
-            )}
-          </button>
-        </div>
+  return createPortal(<div className="guide-tour-overlay">
+    <svg className="guide-tour-mask" width="100%" height="100%" aria-hidden="true">
+      <defs><mask id={`${id}-mask`}><rect width="100%" height="100%" fill="white" />
+        {targetRect && <rect x={targetRect.left - 4} y={targetRect.top - 4} width={targetRect.width + 8} height={targetRect.height + 8} rx="6" fill="black" />}
+      </mask></defs>
+      <rect width="100%" height="100%" fill="var(--curai-color-ink)" opacity="0.16" mask={`url(#${id}-mask)`} />
+    </svg>
+    {targetRect && <div className="guide-tour-highlight" style={{ top: targetRect.top - 4, left: targetRect.left - 4, width: targetRect.width + 8, height: targetRect.height + 8 }} />}
+    <section ref={tooltipRef} role="dialog" aria-modal="false" aria-labelledby={`${id}-title`} className="guide-tour-tooltip curai-surface-root" style={position}>
+      <div className="guide-tour-tooltip-header"><span aria-live="polite">Шаг {currentStep + 1} из {totalSteps}</span>
+        <CuraiButton variant="ghost" iconOnly onClick={endGuide} aria-label="Закрыть гид"><CuraiIcon name="close" /></CuraiButton>
       </div>
-    </div>,
-    document.body
-  );
-};
-
-export default GuideTour;
+      <div className="guide-tour-tooltip-content"><h3 id={`${id}-title`}>{step.title}</h3><p>{step.description}</p>
+        {!targetRect && <p className="guide-tour-waiting" role="status">Откройте элемент по описанию шага. Если он недоступен, можно продолжить или закрыть гид.</p>}
+      </div>
+      <div className="guide-tour-tooltip-actions">
+        <CuraiButton disabled={currentStep === 0} onClick={prevStep}>Назад</CuraiButton>
+        <CuraiButton variant="ghost" onClick={endGuide}>Пропустить</CuraiButton>
+        <CuraiButton variant="primary" onClick={nextStep}>{currentStep === totalSteps - 1 ? 'Завершить' : 'Далее'}</CuraiButton>
+      </div>
+    </section>
+  </div>, document.body);
+}

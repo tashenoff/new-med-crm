@@ -94,7 +94,7 @@ const NavigationSearch = ({ user, onNavigate }) => {
         type="button"
         ref={triggerRef}
         onClick={() => { setQuery(''); setActiveIndex(0); setOpen(true); }}
-        aria-label="Поиск разделов"
+        aria-label="Перейти к разделу"
         aria-haspopup="dialog"
         aria-keyshortcuts="F2"
         title="F2"
@@ -102,10 +102,10 @@ const NavigationSearch = ({ user, onNavigate }) => {
         className="curai-search-trigger"
       >
         <CuraiIcon name="search" />
-        <span className="curai-search-label">Поиск разделов</span>
+        <span className="curai-search-label">Перейти к разделу</span>
         <kbd className="curai-search-shortcut">F2</kbd>
       </button>
-      <Modal show={open} onClose={close} title="Поиск разделов" size="max-w-[640px]" className="curai-section-search" dialogLabel="Поиск" onKeyDown={handleKeyDown}
+      <Modal show={open} onClose={close} title="Перейти к разделу" size="max-w-[640px]" className="curai-section-search" dialogLabel="Перейти к разделу" onKeyDown={handleKeyDown}
         footer={<div className="curai-search-keyboard"><span>↑ ↓ &nbsp;Выбрать</span><span>Enter &nbsp;Перейти</span><span>Esc &nbsp;Закрыть</span></div>}>
         <div ref={panelRef} className="curai-search-panel">
           <div className="curai-search-field">

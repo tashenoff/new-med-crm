@@ -138,10 +138,7 @@ export const getNavigationMenu = (user, activeSection) => {
       baseItems.push({ key: 'staff-management', label: 'Управление персоналом', type: 'tab' });
     }
 
-    // Оценка качества (только для админов) - AI анализ WhatsApp коммуникаций
-    if (hasPermission('quality_view')) {
-      baseItems.push({ key: 'quality-assessment', label: 'Оценка качества', type: 'tab' });
-    }
+
 
     if (hasPermission('loyalty_view') && !hasPermission('directory_view')) baseItems.push({key: 'loyalty', label: 'Лояльность', type: 'tab'});
     return baseItems;

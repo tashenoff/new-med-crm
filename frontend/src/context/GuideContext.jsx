@@ -27,15 +27,15 @@ export const GUIDE_STEPS = {
       title: 'Шаг 2: Создайте новую запись',
       description: 'Нажмите кнопку "Новая запись" или кликните на свободный слот в календаре.',
       targetSelector: '[data-guide="add-appointment-btn"]',
-      action: { type: 'click' },
+      advanceOnClick: true,
       position: 'bottom'
     },
     {
       id: 'appointment-modal',
       title: 'Шаг 3: Заполните форму',
       description: 'Выберите пациента, врача, дату и время приема. Укажите причину визита.',
-      targetSelector: '.modal-content',
-      action: { type: 'openModal', modal: 'appointment' },
+      targetSelector: '[data-guide="save-appointment-btn"]',
+      targetAncestor: 'form',
       position: 'left'
     },
     {
@@ -60,21 +60,23 @@ export const GUIDE_STEPS = {
     },
     {
       id: 'patient-select',
+      advanceOnClick: true,
       title: 'Шаг 2: Выберите пациента',
-      description: 'Нажмите "Далее" и мы откроем карточку первого пациента.',
+      description: 'Найдите нужного пациента и откройте его карточку.',
       targetSelector: '[data-guide="patient-row"]',
       position: 'bottom'
     },
     {
       id: 'consultations-tab',
       title: 'Шаг 3: Перейдите в Консультации',
-      description: 'В карточке пациента выберите вкладку "Консультации" для создания консультационного листа.',
+      description: 'В открытой карточке пациента выберите вкладку "Консультации".',
       targetSelector: '[data-guide="consultations-tab"]',
-      action: { type: 'clickFirstPatient' },
+      advanceOnClick: true,
       position: 'bottom'
     },
     {
       id: 'create-consultation',
+      advanceOnClick: true,
       title: 'Шаг 4: Создайте консультационный лист',
       description: 'Нажмите кнопку "Добавить", заполните данные осмотра и добавьте услуги.',
       targetSelector: '[data-guide="new-consultation-btn"]',
@@ -84,7 +86,7 @@ export const GUIDE_STEPS = {
     {
       id: 'create-treatment-plan',
       title: 'Шаг 5: Сохраните и создайте план лечения',
-      description: 'Добавьте услуги в консультационный лист. При сохранении автоматически создастся план лечения с выбранными услугами.',
+      description: 'Проверьте выбранные услуги и стоимость, затем сохраните результат кнопкой формы.',
       targetSelector: '[data-guide="create-treatment-plan-btn"]',
       action: { type: 'highlight' },
       position: 'top'
@@ -102,7 +104,7 @@ export function GuideProvider({ children }) {
   
   // Автопоказ гида отключён — модалка открывается только по кнопке "Помощь"
   
-  const openGuideModal = useCallback(() => setShowStartModal(true), []);
+  const openGuideModal = useCallback(() => { setActiveGuide(null); setCurrentStep(0); setShowStartModal(true); }, []);
   
   const closeGuideModal = useCallback((rememberChoice = false) => {
     setShowStartModal(false);
@@ -113,6 +115,7 @@ export function GuideProvider({ children }) {
   }, [dontShowAgain]);
   
   const startGuide = useCallback((guideType) => {
+    if (!GUIDE_STEPS[guideType]) return;
     setActiveGuide(guideType);
     setCurrentStep(0);
     setShowStartModal(false);

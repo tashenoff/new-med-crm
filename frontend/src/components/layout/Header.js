@@ -16,7 +16,7 @@ const Header = ({ user, onLogout, onToggleSidebar, sidebarOpen, activeSection, s
     {user && <WorkspaceTabs user={user} activeSection={activeSection} onChange={setActiveSection} />}
     {user && <div className="curai-navbar-actions">
       <NavigationSearch user={user} onNavigate={onNavigate} />
-      <CuraiButton variant="ghost" iconOnly onClick={openGuideModal} aria-label="Помощь" title="Помощь по системе"><CuraiIcon name="help" /></CuraiButton>
+      <CuraiButton variant="ghost" iconOnly onClick={openGuideModal} aria-label="Гид по системе" title="Гид по системе" data-guide="guide-help"><CuraiIcon name="help" /></CuraiButton>
       <CuraiButton variant="ghost" iconOnly className="relative" onClick={togglePanel} aria-label="Уведомления" title="Уведомления"><CuraiIcon name="notifications" />{unreadCount > 0 && <span className="curai-notification-count">{unreadCount > 9 ? '9+' : unreadCount}</span>}</CuraiButton>
       <div className="curai-user" title={`${user.full_name || ''} · ${role}`}><span className="curai-user-name">{user.full_name}</span><span className="curai-avatar" aria-label={user.full_name}>{user.full_name?.charAt(0)?.toUpperCase()}</span></div>
       <CuraiButton variant="ghost" iconOnly onClick={onLogout} aria-label="Выход" title="Выход"><CuraiIcon name="logout" /></CuraiButton>
