@@ -12,32 +12,38 @@ import { allPermissionKeys } from '../src/utils/permissions.js';
 const boot=new JSDOM('<body/>');globalThis.window=boot.window;globalThis.document=boot.window.document;
 const {createRoot}=await import('react-dom/client');delete globalThis.window;delete globalThis.document;boot.window.close();
 const base=fileURLToPath(new URL('..',import.meta.url));
-const compiled=await build({stdin:{contents:`export {GuideProvider,useGuide} from './src/context/GuideContext.jsx'; export {default as GuideTour} from './src/components/guide/GuideTour.jsx'; export {default as GuideTourModal} from './src/components/guide/GuideTourModal.jsx'; export {default as Modal} from './src/components/modals/Modal.js'; export {default as NavigationSearch} from './src/components/layout/NavigationSearch.jsx';`,resolveDir:base,loader:'jsx'},bundle:true,write:false,platform:'node',format:'cjs',external:['react','react-dom','react-router-dom'],loader:{'.js':'jsx','.css':'empty'}});
+const compiled=await build({stdin:{contents:`export {GuideProvider,useGuide} from './src/context/GuideContext.jsx'; export {default as GuideTour} from './src/components/guide/GuideTour.jsx'; export {default as GuideTourModal} from './src/components/guide/GuideTourModal.jsx'; export {default as Modal} from './src/components/modals/Modal.js'; export {default as NavigationSearch} from './src/components/layout/NavigationSearch.jsx'; export {default as PatientModal} from './src/components/modals/PatientModal.js'; export {default as AppointmentModal} from './src/components/modals/AppointmentModal.js'; export {GlobalRefreshProvider} from './src/hooks/useGlobalRefresh.js'; export {apiClient} from './src/api/config.js';`,resolveDir:base,loader:'jsx'},bundle:true,write:false,platform:'node',format:'cjs',define:{'import.meta.env':JSON.stringify({VITE_BACKEND_URL:'https://fixture.test'})},external:['react','react-dom','react-router-dom'],loader:{'.js':'jsx','.css':'empty'}});
 const mod={exports:{}};const require=createRequire(import.meta.url);
 new Function('require','module','exports',compiled.outputFiles[0].text)(require,mod,mod.exports);
-const {GuideProvider,useGuide,GuideTour,GuideTourModal,Modal,NavigationSearch}=mod.exports;
+const {GuideProvider,useGuide,GuideTour,GuideTourModal,Modal,NavigationSearch,PatientModal,AppointmentModal,GlobalRefreshProvider,apiClient}=mod.exports;
 const {MemoryRouter}=require('react-router-dom');
 const tick=()=>new Promise(resolve=>setTimeout(resolve,20));
 
-async function mount(t){
+async function mount(t,{realAppointment=false}={}){
  const dom=new JSDOM('<div id="root"></div>',{url:'https://crm.test'});
- const globals={window:dom.window,document:dom.window.document,localStorage:dom.window.localStorage,MutationObserver:dom.window.MutationObserver,IS_REACT_ACT_ENVIRONMENT:true};
+ const writes=[];const person={id:'fixture-patient',full_name:'Тестовый пациент',phone:'',gender:'male'};
+ const doctor={id:'fixture-doctor',full_name:'Тестовый врач',specialty:'Терапевт'};
+ const fixtureFetch=async(input,options={})=>{assert.equal(options.method||'GET','GET','guide must not write records');const url=String(input);return new Response(JSON.stringify(url.includes('/doctors')?[doctor]:url.includes('/service-prices')?[{id:'fixture-service',service_name:'Тестовая консультация',price:3500,unit:'услуга',service_type:'single',category:'Консультации'}]:[]),{status:200,headers:{'Content-Type':'application/json'}});};
+ const globals={window:dom.window,document:dom.window.document,localStorage:dom.window.localStorage,MutationObserver:dom.window.MutationObserver,fetch:async(...args)=>{if(args[1]?.method&&args[1].method!=='GET')writes.push(args);return fixtureFetch(...args);},IS_REACT_ACT_ENVIRONMENT:true};
  const saved=new Map(Object.keys(globals).map(k=>[k,Object.getOwnPropertyDescriptor(globalThis,k)]));Object.assign(globalThis,globals);
  window.requestAnimationFrame=cb=>setTimeout(cb,0);window.cancelAnimationFrame=clearTimeout;
- window.HTMLElement.prototype.getBoundingClientRect=function(){const top=Number(this.dataset.top||100),width=this.classList.contains('guide-tour-tooltip')?360:120,height=this.classList.contains('guide-tour-tooltip')?240:40;return {top,left:80,width,height,right:80+width,bottom:top+height};};
+ const adapter=apiClient.defaults.adapter;apiClient.defaults.adapter=async config=>({data:{accepted:false,version:'fixture'},status:200,statusText:'OK',headers:{},config});
+ const scrolled=[];window.HTMLElement.prototype.scrollIntoView=function(){scrolled.push(this);};
+ window.HTMLElement.prototype.getBoundingClientRect=function(){const top=Number(this.dataset.top||(this.dataset.guide==='save-appointment-btn'?1200:100)),width=this.classList.contains('guide-tour-tooltip')?360:120,height=this.classList.contains('guide-tour-tooltip')?240:40;return {top,left:80,width,height,right:80+width,bottom:top+height};};
  let guide;let opened=0,selected=0,closed=0;
  const el=React.createElement;
- function Screen(){const [page,setPage]=useState('');const [form,setForm]=useState(false);guide=useGuide();return el(React.Fragment,null,
+ function Screen(){const [page,setPage]=useState('');const [form,setForm]=useState(false);const [patient,setPatient]=useState(false);guide=useGuide();return el(React.Fragment,null,
   el('button',{onClick:guide.openGuideModal},'Гид'),el(NavigationSearch,{user:{role:'admin',permissions:allPermissionKeys},onNavigate:setPage}),
   page==='calendar'&&el(React.Fragment,null,el('button',{'data-guide':'nav-calendar'},'Календарь'),el('button',{'data-guide':'add-appointment-btn',onClick:()=>{opened++;setForm(true);}},'Новая запись')),
-  page==='patients'&&el(React.Fragment,null,el('button',{'data-guide':'nav-patients'},'Пациенты'),el('button',{'data-guide':'patient-row',onClick:()=>selected++},'Пациент')),
-  el(Modal,{show:form,onClose:()=>{closed++;setForm(false);},title:'Запись'},el('form',null,el('input',{'aria-label':'Причина'}),el('button',{type:'button','data-guide':'save-appointment-btn'},'Сохранить запись'))),
+  page==='patients'&&el(React.Fragment,null,el('button',{'data-guide':'nav-patients'},'Пациенты'),el('button',{'data-guide':'patient-row',onClick:()=>{selected++;setPatient(true);}},'Пациент'),el('button',{onClick:()=>{selected++;setPatient(true);}},'Другой пациент')),
+  realAppointment?(form&&el(AppointmentModal,{user:{role:'admin',permissions:allPermissionKeys},show:true,onClose:()=>setForm(false),patients:[person],doctors:[doctor],onSave:()=>{},hideAddPlanForm:true})):el(Modal,{show:form,onClose:()=>{closed++;setForm(false);},title:'Запись'},el('form',null,el('input',{'aria-label':'Причина'}),el('button',{type:'button','data-guide':'save-appointment-btn'},'Сохранить запись'))),
+  patient&&el(PatientModal,{user:{role:'admin',permissions:allPermissionKeys},show:true,onClose:()=>setPatient(false),editingItem:person,patientForm:person,onSave:()=>{}}),
   el(GuideTourModal),el(GuideTour,{onNavigate:tab=>setPage(tab)}));}
  const root=createRoot(document.getElementById('root'));
- await act(async()=>root.render(el(MemoryRouter,null,el(GuideProvider,null,el(Screen)))));
- t.after(async()=>{await act(async()=>root.unmount());dom.window.close();for(const [k,d]of saved){if(d)Object.defineProperty(globalThis,k,d);else delete globalThis[k];}});
- const run=async cb=>{await act(async()=>cb());await act(async()=>{await tick();});};
- return {get guide(){return guide;},run,get opened(){return opened;},get selected(){return selected;},get closed(){return closed;}};
+ await act(async()=>root.render(el(MemoryRouter,null,el(GlobalRefreshProvider,null,el(GuideProvider,null,el(Screen))))));
+ t.after(async()=>{await act(async()=>root.unmount());apiClient.defaults.adapter=adapter;dom.window.close();for(const [k,d]of saved){if(d)Object.defineProperty(globalThis,k,d);else delete globalThis[k];}});
+ const run=async cb=>{await act(async()=>cb());for(let frame=0;frame<2;frame++)await act(async()=>{await tick();});};
+ return {get guide(){return guide;},run,writes,scrolled,get opened(){return opened;},get selected(){return selected;},get closed(){return closed;}};
 }
 
 test('navigation label is updated and quality assessment is absent from menu and search for every role',async t=>{
@@ -78,6 +84,54 @@ test('guide waits for actual form actions and ignores Enter and arrows while typ
  assert.equal(h.guide.currentStep,2);
  await h.run(()=>input.dispatchEvent(new window.KeyboardEvent('keydown',{key:'Escape',bubbles:true,cancelable:true})));
  assert.equal(h.guide.activeGuide,null);assert.equal(h.closed,0);assert.ok(document.querySelector('input[aria-label="Причина"]'));
+});
+test('continuing the appointment tour opens the real entry action and can reopen a closed form',async t=>{
+ const h=await mount(t);const button=text=>[...document.querySelectorAll('.guide-tour-tooltip button')].find(b=>b.textContent===text);
+ await h.run(()=>h.guide.startGuide('appointment'));await h.run(()=>button('Далее').click());
+ assert.equal(h.opened,0);assert.equal(h.guide.currentStep,1);
+ await h.run(()=>button('Открыть форму').click());
+ assert.equal(h.opened,1);assert.equal(h.guide.currentStep,2);assert.ok(document.querySelector('input[aria-label="Причина"]'));
+ await h.run(()=>button('Назад').click());assert.equal(h.guide.currentStep,1);
+ await h.run(()=>button('Продолжить').click());assert.equal(h.guide.currentStep,2);assert.equal(h.opened,1,'back and continue must retain the existing form');
+ await h.run(()=>document.querySelector('.curai-dialog-close').click());
+ assert.equal(h.guide.currentStep,2);assert.ok(button('Открыть форму'));
+ await h.run(()=>button('Открыть форму').click());
+ assert.equal(h.opened,2);assert.equal(h.guide.currentStep,2);assert.ok(document.querySelector('input[aria-label="Причина"]'));
+});
+test('continuing treatment waits for the chosen patient, then opens the consultation tab and form',async t=>{
+ const h=await mount(t);const button=text=>[...document.querySelectorAll('.guide-tour-tooltip button')].find(b=>b.textContent===text);
+ await h.run(()=>h.guide.startGuide('treatmentPlan'));await h.run(()=>button('Далее').click());
+ assert.equal(button('Выберите пациента').disabled,true);assert.equal(h.selected,0);
+ await h.run(()=>document.body.dispatchEvent(new window.KeyboardEvent('keydown',{key:'ArrowRight',bubbles:true,cancelable:true})));
+ assert.equal(h.guide.currentStep,1);
+ await h.run(()=>[...document.querySelectorAll('button')].find(b=>b.textContent==='Другой пациент').click());
+ assert.equal(h.selected,1);assert.equal(h.guide.currentStep,2);
+ await h.run(()=>button('Открыть консультации').click());assert.equal(h.guide.currentStep,3);
+ await h.run(()=>button('Открыть форму').click());assert.equal(h.guide.currentStep,4);
+ assert.ok(document.querySelector('.curai-consultation-form select[required]'));
+ await h.run(()=>button('Далее').click());assert.equal(h.guide.currentStep,5);
+ await h.run(()=>button('Выбрать услуги').click());assert.equal(h.guide.currentStep,6);
+ assert.ok(document.querySelector('.curai-clinical-service-dialog'));
+ await h.run(()=>[...document.querySelectorAll('.curai-clinical-service-dialog button')].find(b=>b.textContent==='Отмена').click());
+ assert.equal(h.guide.currentStep,6);await h.run(()=>button('Выбрать услуги').click());
+ await h.run(()=>document.querySelector('.curai-clinical-service-dialog input[type="checkbox"]').click());
+ await h.run(()=>[...document.querySelectorAll('.curai-clinical-service-dialog button')].find(b=>b.textContent.trim()==='Добавить 1').click());
+ assert.equal(h.guide.currentStep,7);assert.match(document.querySelector('.curai-consultation-selected-services').textContent,/Тестовая консультация/);
+ await h.run(()=>button('Завершить').click());assert.equal(h.guide.activeGuide,null);assert.ok(document.querySelector('.curai-consultation-form'));assert.equal(h.writes.length,0);
+});
+test('appointment guide opens the actual appointment modal before showing form instructions',async t=>{
+ const h=await mount(t,{realAppointment:true});await h.run(()=>h.guide.startGuide('appointment'));await h.run(()=>h.guide.nextStep());
+ await h.run(()=>[...document.querySelectorAll('.guide-tour-tooltip button')].find(b=>b.textContent==='Открыть форму').click());
+ assert.equal(h.guide.currentStep,2);assert.ok(document.querySelector('[data-guide="save-appointment-btn"]')?.closest('form'));assert.equal(h.writes.length,0);
+ assert.equal(h.scrolled.some(element=>element.dataset.guide==='save-appointment-btn'),false,'form instructions should leave the patient and date fields visible');
+});
+test('unavailable entry controls cannot advance into an absent appointment form',async t=>{
+ const h=await mount(t);await h.run(()=>h.guide.startGuide('appointment'));await h.run(()=>h.guide.nextStep());
+ await h.run(()=>{document.querySelector('[data-guide="add-appointment-btn"]').hidden=true;window.dispatchEvent(new window.Event('resize'));});
+ const open=[...document.querySelectorAll('.guide-tour-tooltip button')].find(b=>b.textContent==='Открыть форму');
+ assert.equal(open.disabled,true);
+ await h.run(()=>document.body.dispatchEvent(new window.KeyboardEvent('keydown',{key:'ArrowRight',bubbles:true,cancelable:true})));
+ assert.equal(h.opened,0);assert.equal(h.guide.currentStep,1);
 });
 test('treatment guide never chooses a patient automatically and handles missing targets',async t=>{
  const h=await mount(t);await h.run(()=>h.guide.startGuide('treatmentPlan'));await h.run(()=>h.guide.nextStep());await h.run(()=>h.guide.nextStep());

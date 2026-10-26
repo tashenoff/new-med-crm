@@ -27,7 +27,9 @@ export const GUIDE_STEPS = {
       title: 'Шаг 2: Создайте новую запись',
       description: 'Нажмите кнопку "Новая запись" или кликните на свободный слот в календаре.',
       targetSelector: '[data-guide="add-appointment-btn"]',
-      advanceOnClick: true,
+      activateOnNext: true,
+      nextLabel: 'Открыть форму',
+      advanceWhenVisible: '[data-guide="save-appointment-btn"]',
       position: 'bottom'
     },
     {
@@ -36,14 +38,17 @@ export const GUIDE_STEPS = {
       description: 'Выберите пациента, врача, дату и время приема. Укажите причину визита.',
       targetSelector: '[data-guide="save-appointment-btn"]',
       targetAncestor: 'form',
+      fallbackSelector: '[data-guide="add-appointment-btn"]',
+      fallbackLabel: 'Открыть форму',
       position: 'left'
     },
     {
       id: 'appointment-save',
-      title: 'Шаг 4: Сохраните запись',
-      description: 'После заполнения всех полей нажмите кнопку "Сохранить".',
+      title: 'Шаг 4: Создайте запись',
+      description: 'После заполнения обязательных полей нажмите «Создать» в форме записи. Кнопка «Завершить» закрывает только гид.',
       targetSelector: '[data-guide="save-appointment-btn"]',
-      action: { type: 'highlight' },
+      fallbackSelector: '[data-guide="add-appointment-btn"]',
+      fallbackLabel: 'Открыть форму',
       position: 'top'
     }
   ],
@@ -60,7 +65,9 @@ export const GUIDE_STEPS = {
     },
     {
       id: 'patient-select',
-      advanceOnClick: true,
+      requireInteraction: true,
+      nextLabel: 'Выберите пациента',
+      advanceWhenVisible: '[data-guide="consultations-tab"]',
       title: 'Шаг 2: Выберите пациента',
       description: 'Найдите нужного пациента и откройте его карточку.',
       targetSelector: '[data-guide="patient-row"]',
@@ -71,12 +78,16 @@ export const GUIDE_STEPS = {
       title: 'Шаг 3: Перейдите в Консультации',
       description: 'В открытой карточке пациента выберите вкладку "Консультации".',
       targetSelector: '[data-guide="consultations-tab"]',
-      advanceOnClick: true,
+      activateOnNext: true,
+      nextLabel: 'Открыть консультации',
+      advanceWhenVisible: '[data-guide="new-consultation-btn"]',
       position: 'bottom'
     },
     {
       id: 'create-consultation',
-      advanceOnClick: true,
+      activateOnNext: true,
+      nextLabel: 'Открыть форму',
+      advanceWhenVisible: '.curai-consultation-form',
       title: 'Шаг 4: Создайте консультационный лист',
       description: 'Нажмите кнопку "Добавить", заполните данные осмотра и добавьте услуги.',
       targetSelector: '[data-guide="new-consultation-btn"]',
@@ -84,11 +95,44 @@ export const GUIDE_STEPS = {
       position: 'bottom'
     },
     {
+      id: 'consultation-fields',
+      title: 'Шаг 5: Заполните консультацию',
+      description: 'Выберите врача и заполните клинические данные консультации. Далее добавим услуги из прайса.',
+      targetSelector: '.curai-consultation-form select[required]',
+      fallbackSelector: '[data-guide="new-consultation-btn"]',
+      fallbackLabel: 'Открыть форму',
+      position: 'bottom'
+    },
+    {
+      id: 'open-services',
+      title: 'Шаг 6: Откройте выбор услуг',
+      description: 'Нажмите «Выбрать услуги», чтобы открыть прайс-лист в консультации.',
+      targetSelector: '.curai-open-service-picker',
+      activateOnNext: true,
+      nextLabel: 'Выбрать услуги',
+      advanceWhenVisible: '.curai-clinical-service-dialog',
+      position: 'top'
+    },
+    {
+      id: 'select-services',
+      title: 'Шаг 7: Добавьте нужные услуги',
+      description: 'Отметьте услуги в прайс-листе, проверьте количество и нажмите «Добавить». Гид продолжится, когда услуги появятся в консультации.',
+      targetSelector: '.curai-clinical-service-dialog',
+      requireInteraction: true,
+      nextLabel: 'Выберите услуги',
+      advanceWhenVisible: '.curai-consultation-selected-services',
+      waitForAbsent: '.curai-clinical-service-dialog',
+      fallbackSelector: '.curai-open-service-picker',
+      fallbackLabel: 'Выбрать услуги',
+      position: 'right'
+    },
+    {
       id: 'create-treatment-plan',
-      title: 'Шаг 5: Сохраните и создайте план лечения',
-      description: 'Проверьте выбранные услуги и стоимость, затем сохраните результат кнопкой формы.',
+      title: 'Шаг 8: Проверьте и сохраните консультацию',
+      description: 'Проверьте услуги и сумму. Нажмите «Сохранить» в консультации, чтобы сохранить её и создать план лечения. Кнопка «Завершить» закрывает только гид.',
       targetSelector: '[data-guide="create-treatment-plan-btn"]',
-      action: { type: 'highlight' },
+      fallbackSelector: '[data-guide="new-consultation-btn"]',
+      fallbackLabel: 'Открыть форму',
       position: 'top'
     }
   ]
