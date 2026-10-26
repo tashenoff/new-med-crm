@@ -1,3 +1,4 @@
+import { LoadingSpinner } from '../../common/LoadingIndicator';
 import React, { useState, useEffect, useRef } from 'react';
 import { formatCompensation, formatConsultationCompensation } from '../../../utils/doctorCompensation';
 
@@ -219,7 +220,7 @@ const SalariesView = ({ user, refreshVersion = 0 }) => {
         
         {loading ? (
           <div className="flex justify-center items-center py-8">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-curai-control"></div>
+            <LoadingSpinner />
             <span className="ml-2 text-curai-muted ">Загрузка данных...</span>
           </div>
         ) : salaryData.length > 0 ? (

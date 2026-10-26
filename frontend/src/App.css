@@ -11,7 +11,7 @@ body {
     sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  background-color: #f9fafb;
+  background-color: var(--curai-color-canvas, #F4F7FB);
 }
 
 code {

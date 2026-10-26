@@ -1,3 +1,4 @@
+import LoadingIndicator from '../../common/LoadingIndicator';
 import { permissionProps, canAction } from '../../../utils/permissions.js';
 import { bookingAttribution } from '../../../utils/attribution';
 import PatientTermsStatus from '../../patients/PatientTermsStatus';
@@ -653,7 +654,7 @@ const WhatsAppInbox = ({ isOpen, onClose, user, openRequest = null, suspended = 
               {/* Сообщения */}
               <div ref={messagesRef} className="curai-chat-messages">
                 {loadingMessages && messages.length === 0 && (
-                  <div className="text-center text-curai-muted text-sm py-10">Загрузка…</div>
+                  <LoadingIndicator label="Загрузка…" className="text-center text-curai-muted text-sm py-10" />
                 )}
                 {messages.length === 0 && !loadingMessages && (
                   <div className="text-center text-curai-muted text-sm py-10">Сообщений пока нет</div>
@@ -764,7 +765,7 @@ const WhatsAppInbox = ({ isOpen, onClose, user, openRequest = null, suspended = 
                       </div>
 
                       {loadingDocs && patientDocs.length === 0 && (
-                        <div className="px-4 py-2 text-xs text-curai-muted">Загрузка документов…</div>
+                        <LoadingIndicator label="Загрузка документов…" className="px-4 py-2 text-xs text-curai-muted" />
                       )}
 
                       {!loadingDocs && patientDocs.length > 0 && (

@@ -1,3 +1,5 @@
+import "./theme/curai-loading.css";
+import { AppLoading } from './components/common/LoadingIndicator';
 import "./components/patients/patientTerms.css";
 import React from "react";
 import ReactDOM from "react-dom/client";
@@ -20,7 +22,7 @@ const root = ReactDOM.createRoot(document.getElementById("root"));
 root.render(
   <React.StrictMode>
     <BrowserRouter>
-      <React.Suspense fallback={<p role="status">Загрузка…</p>}>
+      <React.Suspense fallback={<AppLoading />}>
         {isPublicTerms ? <PatientTermsPage /> : <App />}
       </React.Suspense>
     </BrowserRouter>

@@ -1,3 +1,4 @@
+import { LoadingSpinner } from '../common/LoadingIndicator';
 import React, { useState, useRef, useEffect } from 'react';
 import Modal from './Modal';
 import { apiClient } from '../../api/config';
@@ -178,7 +179,7 @@ const AIChatModal = ({ show, onClose, badge }) => {
             <div className="flex justify-start">
               <div className="bg-curai-surface px-4 py-2 rounded-md">
                 <div className="flex items-center space-x-2">
-                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-curai-control "></div>
+                  <LoadingSpinner size="sm" />
                   <span className="text-sm text-curai-muted ">ИИ думает...</span>
                 </div>
               </div>

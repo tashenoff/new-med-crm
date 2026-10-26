@@ -1,3 +1,4 @@
+import { LoadingSpinner } from '../components/common/LoadingIndicator';
 import { permissionProps } from '../utils/permissions.js';
 import React, { useState, useEffect } from 'react';
 import { usePatients } from '../hooks/usePatients';
@@ -544,7 +545,7 @@ const BroadcastPage = ({ user }) => {
 
                 {loadingRules ? (
                   <div className="text-center py-8">
-                    <div className="animate-spin w-10 h-10 border-4 border-curai-control border-t-transparent rounded-full mx-auto"></div>
+                    <LoadingSpinner />
                     <p className="mt-2 text-curai-muted">Загрузка...</p>
                   </div>
                 ) : rules.length === 0 ? (

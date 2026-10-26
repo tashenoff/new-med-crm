@@ -1,3 +1,4 @@
+import { LoadingSpinner } from '../../common/LoadingIndicator';
 import { canAction, permissionProps } from '../../../utils/permissions.js';
 import React, { useState, useEffect } from 'react';
 import {
@@ -292,7 +293,7 @@ const TasksView = ({ user }) => {
           <div className="space-y-3">
             {loading ? (
               <div className="text-center py-12">
-                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-curai-control mx-auto"></div>
+                <LoadingSpinner />
                 <p className={cn("mt-4", themeClasses.text.muted)}>Загрузка задач...</p>
               </div>
             ) : filteredTasks.length === 0 ? (

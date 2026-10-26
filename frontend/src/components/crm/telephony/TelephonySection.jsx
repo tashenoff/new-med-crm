@@ -1,3 +1,4 @@
+import { LoadingSpinner } from '../../common/LoadingIndicator';
 import { permissionProps } from '../../../utils/permissions.js';
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { apiClient, handleApiError } from '../../../api/config';
@@ -350,7 +351,7 @@ const TelephonySection = ({ user }) => {
 
                   {loading ? (
                     <div className="text-center py-12">
-                      <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-curai-control"></div>
+                      <LoadingSpinner />
                       <p className="mt-2 text-curai-muted">Загрузка журнала звонков...</p>
                     </div>
                   ) : error ? (

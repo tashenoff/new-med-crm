@@ -1,3 +1,4 @@
+import { LoadingSpinner } from '../common/LoadingIndicator';
 import { permissionProps } from '../../utils/permissions.js';
 import { scheduleErrorMessage } from './scheduleValidation';
 import React, { useState, useEffect, useMemo } from 'react';
@@ -1024,7 +1025,7 @@ const DoctorSchedule = ({ doctors, user, canEdit, rooms = [] }) => {
           <div className="overflow-x-auto">
             {loading ? (
               <div className="text-center py-8">
-                <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-curai-control"></div>
+                <LoadingSpinner />
                 <div className="text-curai-muted mt-2">Загружаем расписание...</div>
               </div>
             ) : (

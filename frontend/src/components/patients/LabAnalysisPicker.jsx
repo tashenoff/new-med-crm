@@ -1,3 +1,4 @@
+import { LoadingSpinner } from '../common/LoadingIndicator';
 import React, { useState, useEffect, useMemo, useRef, memo } from 'react';
 
 const PAGE_SIZE = 40;
@@ -146,7 +147,7 @@ const LabAnalysisPicker = memo(({ onAdd, disabled = false }) => {
         />
         {loading && (
           <div className="absolute right-3 top-3">
-            <div className="animate-spin h-5 w-5 border-2 border-curai-control border-t-transparent rounded-full"></div>
+            <LoadingSpinner size="sm" />
           </div>
         )}
       </div>

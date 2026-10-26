@@ -1,3 +1,4 @@
+import LoadingIndicator from '../../common/LoadingIndicator';
 import React, { useCallback, useContext, useEffect, useRef, useState } from 'react';
 import AuthContext from '../../../context/AuthContext';
 import { apiClient, handleApiError } from '../../../api/config';
@@ -18,7 +19,7 @@ function AppointmentsDialog({ state, patientName, reload, onClose, onBook, booki
   return <Modal show onClose={onClose} dialogLabel="Приёмы пациента" title="Приёмы пациента" className="curai-appointments-dialog" size="max-w-[960px]" subheader={<div className="curai-appointments-subheader"><span>{patientName}{state.records && <> · {state.records.length} записей</>}</span>{showBookAction && <CuraiButton variant="primary" disabled={booking} onClick={onBook}>Записать</CuraiButton>}</div>}>
     <div ref={body}>
       {(error || state.error) && <p role="alert" className="curai-communication-error">{error || state.error} {state.error && <CuraiButton onClick={reload}>Повторить</CuraiButton>}</p>}
-      {state.loading ? <p role="status">Загрузка приёмов…</p> : state.records?.length ? <table className="curai-appointments-table"><thead><tr><th>Дата и время</th><th>Врач / компонент</th><th>Статус записи</th><th>Действие</th></tr></thead><tbody>
+      {state.loading ? <LoadingIndicator label="Загрузка приёмов…" /> : state.records?.length ? <table className="curai-appointments-table"><thead><tr><th>Дата и время</th><th>Врач / компонент</th><th>Статус записи</th><th>Действие</th></tr></thead><tbody>
         {state.records.map(appointment => {
           const id = appointment.id || appointment._id, action = nextAction[appointment.status], reason = action ? appointmentStatusReason(appointment, action[0]) : '';
           return <tr key={id}><td><strong>{dateLabel(appointment.appointment_date)}</strong><span>{appointment.appointment_time}{appointment.end_time ? `–${appointment.end_time}` : ''}</span></td><td><strong title={appointment.doctor_name}>{appointment.doctor_name || 'Врач не указан'}</strong><span>{appointment.reason || appointment.doctor_specialty || '—'}</span></td><td><AppointmentStatusControl appointment={appointment} disabled={!canEdit || Boolean(busy)} onChange={status => onStatus(appointment, status)}/></td><td>{action ? <CuraiButton disabled={!canEdit || Boolean(busy) || Boolean(reason)} title={!canEdit ? 'Недостаточно прав для изменения календаря' : reason || action[1]} onClick={() => onStatus(appointment, action[0])}>{busy === id ? 'Обработка…' : action[1]}</CuraiButton> : <span>—</span>}</td></tr>;

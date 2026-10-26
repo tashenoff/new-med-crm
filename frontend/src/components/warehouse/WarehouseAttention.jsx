@@ -1,3 +1,4 @@
+import LoadingIndicator from '../common/LoadingIndicator';
 import React, { useState, useEffect } from 'react';
 import { AlertTriangle, Package, Calendar, TrendingDown } from 'lucide-react';
 
@@ -61,7 +62,7 @@ const WarehouseAttention = () => {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="text-curai-muted">Загрузка...</div>
+        <LoadingIndicator label="Загрузка..." className="text-curai-muted" />
       </div>
     );
   }

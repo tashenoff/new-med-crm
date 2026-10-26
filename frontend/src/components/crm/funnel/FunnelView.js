@@ -1,3 +1,4 @@
+import LoadingIndicator from '../../common/LoadingIndicator';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import PanelHeader from '../../common/PanelHeader';
 import FunnelSettings from './FunnelSettings';
@@ -161,7 +162,7 @@ export default function FunnelView({ user }) {
     </div> : <details className="curai-crm-caption"><summary>Как читать текущий снимок</summary><p>Это текущие состояния обращений, не история прохождения. Проценты — доля от всех обращений выбранного периода создания. Разные обращения одного пациента считаются отдельно.</p></details>}
       {(error || query?.error || catalog.error) && <div role="alert" className="text-curai-negative">{error || query?.error || catalog.error} <button className="underline" onClick={reload}>Повторить</button></div>}
       {mode === 'history' && metadata && steps.length < 2 && <p role="status">Выберите хотя бы два шага кнопкой «Шаги воронки». В конфигурации CRM нет полного системного пути для автоматического выбора.</p>}
-      {!report && !error && !query?.error && !catalog.error && (catalog.loading || mode !== 'history' || steps.length >= 2) && <p role="status">Загрузка отчёта…</p>}
+      {!report && !error && !query?.error && !catalog.error && (catalog.loading || mode !== 'history' || steps.length >= 2) && <LoadingIndicator label="Загрузка отчёта…" />}
       {report && <FunnelReportBody report={report} mode={mode} view={view} hidden={hidden} />}
     {(panel === 'rules' || panel === 'help') && <FunnelRules windowDays={windowDays} overview={panel === 'help'} onClose={closePanel} />}
     {panel && panel !== 'rules' && panel !== 'help' && <FunnelSettings key={panel} panel={panel} stages={panelStages} sources={sourceOptions} initial={panel === 'steps' ? [...steps] : panel === 'sources' ? [...selectedSourceKeys] : [...hidden]}

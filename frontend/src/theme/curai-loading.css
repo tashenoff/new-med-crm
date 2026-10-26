@@ -1,0 +1,9 @@
+.curai-spinner { display:inline-block; flex-shrink:0; width:32px; height:32px; border:2px solid var(--curai-color-border); border-top-color:var(--curai-color-blue); border-radius:50%; vertical-align:middle; animation:curai-spin .8s linear infinite; }
+.curai-spinner-sm { width:16px; height:16px; }
+.curai-loading-indicator { display:flex; flex-direction:column; align-items:center; justify-content:center; gap:var(--curai-space-12); color:var(--curai-color-muted); font-family:var(--curai-type-family),sans-serif; font-size:var(--curai-type-size-13); line-height:var(--curai-type-line-20); }
+.curai-loading-indicator.is-inline { display:inline-flex; flex-direction:row; gap:var(--curai-space-8); vertical-align:middle; }
+.curai-app-loading { position:relative; display:grid; place-items:center; min-height:100vh; min-height:100dvh; padding:24px; background:var(--curai-color-canvas,#F4F7FB); color:var(--curai-color-ink,#18283E); color-scheme:light; }
+.curai-app-loading-content { display:flex; flex-direction:column; align-items:center; gap:var(--curai-space-24); }
+.curai-app-loading-brand { color:var(--curai-color-blue); font-size:var(--curai-type-size-28); line-height:var(--curai-type-line-40); font-weight:600; }
+@keyframes curai-spin { to { transform:rotate(360deg); } }
+@media(prefers-reduced-motion:reduce) { .curai-spinner { animation:none; } }

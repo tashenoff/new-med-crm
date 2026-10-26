@@ -1,3 +1,4 @@
+import LoadingIndicator from '../common/LoadingIndicator';
 import { permissionProps, canAction } from '../../utils/permissions.js';
 import React, { useState, useEffect, useRef } from 'react';
 import { Calendar, FileText, Plus, Edit, Trash2, CheckCircle, Clock } from 'lucide-react';
@@ -114,7 +115,7 @@ const WarehouseInventory = ({ user }) => {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="text-curai-muted">Загрузка...</div>
+        <LoadingIndicator label="Загрузка..." className="text-curai-muted" />
       </div>
     );
   }

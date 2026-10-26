@@ -1,3 +1,4 @@
+import { LoadingSpinner } from '../common/LoadingIndicator';
 import React, { useState, useEffect } from 'react';
 import Modal from './Modal';
 import { API_BASE_URL } from '../../api/config';
@@ -60,7 +61,7 @@ const ServiceDetailModal = ({
     >
       {loading ? (
         <div className="flex items-center justify-center py-16">
-          <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-curai-control"></div>
+          <LoadingSpinner />
         </div>
       ) : error ? (
         <div className="bg-curai-negativeBg border border-curai-negative text-curai-negative px-6 py-4 rounded-md">

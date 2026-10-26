@@ -1,0 +1,11 @@
+.curai-workspace { position:relative; isolation:isolate; }
+.curai-workspace-frame { background:transparent; }
+.curai-workspace-decoration { position:fixed; inset:0; z-index:-1; pointer-events:none; background:linear-gradient(rgba(244,247,251,.82),rgba(244,247,251,.9)),url('/images/workspace-background.jpg') center/cover no-repeat; }
+
+@media (min-width: 769px) {
+  .curai-workspace .calendar-schedule-header {
+    padding: var(--curai-space-24);
+    margin-bottom: var(--curai-space-16);
+    border-radius: var(--curai-radius-6);
+  }
+}

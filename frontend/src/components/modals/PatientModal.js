@@ -1,3 +1,4 @@
+import { LoadingSpinner } from '../common/LoadingIndicator';
 import { downloadPatientDocument } from '../../utils/documentDownload';
 import { canAction, permissionProps as documentPermissionProps } from '../../utils/permissions';
 import PatientTermsStatus from '../patients/PatientTermsStatus';
@@ -992,7 +993,7 @@ const PatientModal = ({
         {/* Прелоадер при загрузке данных пациента */}
         {pageLoading && editingItem ? (
           <div className="flex flex-col items-center justify-center py-20">
-            <div className="w-12 h-12 border-4 border-curai-control border-t-blue-600 rounded-full animate-spin mb-4"></div>
+            <LoadingSpinner />
             <p className="text-curai-muted text-sm">Загрузка данных пациента...</p>
           </div>
         ) : (
@@ -1065,7 +1066,7 @@ const PatientModal = ({
                 )}
                 {phoneHook.isChecking && (
                   <div className="absolute right-3 top-1/2 -translate-y-1/2">
-                    <div className="w-4 h-4 animate-spin rounded-full border-2 border-curai-control border-t-transparent"></div>
+                    <LoadingSpinner size="sm" />
                   </div>
                 )}
               </div>

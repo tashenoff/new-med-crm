@@ -1,3 +1,4 @@
+import { LoadingSpinner } from '../common/LoadingIndicator';
 import { permissionProps, canAction } from '../../utils/permissions.js';
 import React, { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
@@ -266,7 +267,7 @@ const Laboratories = ({ user }) => {
   if (loading) {
     return (
       <div className="flex items-center justify-center py-12">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-curai-control"></div>
+        <LoadingSpinner />
       </div>
     );
   }

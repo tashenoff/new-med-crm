@@ -1,3 +1,4 @@
+import LoadingIndicator from '../common/LoadingIndicator';
 import React, { useState, useEffect } from 'react';
 import { API_BASE_URL } from '../../api/config';
 
@@ -64,7 +65,7 @@ const LoyaltySettings = () => {
   };
 
   if (loading) {
-    return <div className="p-4">Загрузка...</div>;
+    return <LoadingIndicator label="Загрузка..." className="p-4" />;
   }
 
   return (

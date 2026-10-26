@@ -1,3 +1,4 @@
+import { LoadingSpinner } from '../common/LoadingIndicator';
 import React, { useState, useRef, useEffect } from 'react';
 import { useInsightsBadges } from '../../hooks/useInsightsBadges';
 
@@ -334,7 +335,7 @@ const AIChatSidebar = ({ isOpen, onClose, badge, showMaterialForm = false, onMat
           <div className="flex justify-start">
             <div className="bg-white dark:bg-gray-700 px-3 py-2 rounded-lg">
               <div className="flex items-center space-x-2">
-                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-gray-900 dark:border-white"></div>
+                <LoadingSpinner size="sm" />
                 <span className="text-sm text-gray-500 dark:text-gray-300">ИИ думает...</span>
               </div>
             </div>

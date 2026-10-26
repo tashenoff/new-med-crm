@@ -1,3 +1,4 @@
+import { LoadingSpinner } from '../../common/LoadingIndicator';
 import React, { useState } from 'react';
 import { useCrm } from '../../../hooks/useCrm';
 
@@ -67,7 +68,7 @@ const DealsView = ({ user }) => {
   if (!isInitialized || loading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-curai-control"></div>
+        <LoadingSpinner />
       </div>
     );
   }

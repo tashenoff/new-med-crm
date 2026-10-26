@@ -1,3 +1,4 @@
+import { LoadingSpinner } from '../../common/LoadingIndicator';
 import React from 'react';
 
 /**
@@ -12,7 +13,7 @@ const TreatmentPlanInfo = ({
   if (isLoading) {
     return (
       <div className="flex items-center space-x-2">
-        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-curai-control"></div>
+        <LoadingSpinner size="sm" />
         <span className="text-xs text-curai-muted">Загрузка планов...</span>
       </div>
     );

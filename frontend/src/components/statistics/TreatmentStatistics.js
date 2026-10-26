@@ -1,3 +1,4 @@
+import { LoadingSpinner } from '../common/LoadingIndicator';
 import React, { useState, useEffect } from 'react';
 
 const TreatmentStatistics = () => {
@@ -213,7 +214,7 @@ const TreatmentStatistics = () => {
     return (
       <div className="flex items-center justify-center h-64">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-curai-control mx-auto mb-4"></div>
+          <LoadingSpinner />
           <p className="text-curai-muted">Загрузка статистики...</p>
         </div>
       </div>

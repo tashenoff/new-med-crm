@@ -1,3 +1,4 @@
+import LoadingIndicator from '../../common/LoadingIndicator';
 import React, { useCallback, useEffect, useState } from 'react';
 import { canAction } from '../../../utils/permissions';
 import { sourceRequest } from '../../../utils/crmSources';
@@ -30,7 +31,7 @@ export default function ContactsView({ user }) {
     <PanelHeader title="Источники обращений" subtitle="Справочники привлечения и связи. Статистика — в разделе «Привлечение»." actions={tab === 'sources' && <button type="button" className="curai-button curai-button-primary" disabled={!canEdit} onClick={() => setEditor({})}>Новый источник</button>} />
     <div role="tablist" aria-label="Настройки источников" className="curai-patient-tabs">{[['sources', 'Источники'], ['channels', 'Способы обращения'], ['campaigns', 'Кампании']].map(([key, label]) => <button key={key} type="button" role="tab" aria-selected={tab === key} onClick={() => setTab(key)}>{label}</button>)}</div>
     {error && <p role="alert" className="text-curai-negative">{error} <button className="underline" onClick={refresh}>Повторить</button></p>}
-    {loading ? <p role="status">Загрузка справочников…</p> : tab === 'sources' ? <section aria-label="Список источников" className="space-y-4">
+    {loading ? <LoadingIndicator label="Загрузка справочников…" /> : tab === 'sources' ? <section aria-label="Список источников" className="space-y-4">
       {!sources.length && <p>Источников пока нет. Создайте источник, затем при необходимости добавьте способы обращения и кампании на соседних вкладках.</p>}
       {sources.length > 0 && <div className="curai-crm-table-wrap"><table className="curai-crm-table"><thead><tr><th scope="col">Источник</th><th scope="col">Статус</th><th scope="col">Связи</th><th scope="col">Схема оплаты</th><th scope="col">Действия</th></tr></thead><tbody>{sources.map(source => {
         const now = Date.now();

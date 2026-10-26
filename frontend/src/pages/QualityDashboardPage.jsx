@@ -1,3 +1,4 @@
+import { LoadingSpinner } from '../components/common/LoadingIndicator';
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 
@@ -49,7 +50,7 @@ const QualityDashboardPage = ({ user }) => {
   const sc = s=>s>=4.5?"text-curai-positive":s>=3.5?"text-curai-blue":s>=2.5?"text-curai-warning":"text-curai-negative";
 
   if(!user||(user.role!=='admin'&&user.role!=='super_admin'))return<div className="p-6 text-curai-negative">Нет доступа</div>;
-  if(loading)return<div className="flex items-center justify-center h-full"><div className="animate-spin rounded-full h-12 w-12 border-b-2 border-curai-control"/></div>;
+  if(loading)return<div className="flex items-center justify-center h-full"><LoadingSpinner /></div>;
 
   return(
     <div className="p-6 max-w-7xl mx-auto space-y-6">

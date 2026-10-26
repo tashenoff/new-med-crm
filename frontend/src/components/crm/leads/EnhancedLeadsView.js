@@ -1,3 +1,4 @@
+import { LoadingSpinner } from '../../common/LoadingIndicator';
 import { permissionProps, canAction } from '../../../utils/permissions.js';
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
@@ -5,7 +6,7 @@ import {
   UserPlus, MessageSquare, PhoneCall, Eye, Edit, Trash2,
   Target, Plus, Filter, MoreHorizontal, FileText,
   Star, Flag, ArrowRight, CheckSquare, PlayCircle, DollarSign,
-  User, Building, Loader2, UserCheck, AlertTriangle
+  User, Building, UserCheck, AlertTriangle
 } from 'lucide-react';
 import { FaWhatsapp } from 'react-icons/fa';
 import { useCrm } from '../../../hooks/useCrm';
@@ -1125,7 +1126,7 @@ const EnhancedLeadsView = ({ user }) => {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-curai-control"></div>
+        <LoadingSpinner />
       </div>
     );
   }
@@ -1331,7 +1332,7 @@ const EnhancedLeadsView = ({ user }) => {
               />
               {isCheckingPhone && (
                 <div className="absolute right-3 top-1/2 -translate-y-1/2">
-                  <Loader2 className="w-4 h-4 animate-spin text-curai-blue" />
+                  <LoadingSpinner size="sm" />
                 </div>
               )}
             </div>
@@ -1647,7 +1648,7 @@ const EnhancedLeadsView = ({ user }) => {
       >
         {loadingHmsData ? (
           <div className="flex justify-center items-center py-8">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-curai-control"></div>
+            <LoadingSpinner />
             <span className="ml-2 text-curai-muted">Загрузка...</span>
           </div>
         ) : (

@@ -1,3 +1,4 @@
+import { LoadingSpinner } from '../../common/LoadingIndicator';
 import { permissionProps } from '../../../utils/permissions.js';
 import React, { useState, useEffect, useMemo } from 'react';
 import { useCrm } from '../../../hooks/useCrm';
@@ -283,7 +284,7 @@ const ClientsView = ({ user }) => {
   if (!isInitialized || loading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-curai-control"></div>
+        <LoadingSpinner />
       </div>
     );
   }
@@ -701,7 +702,7 @@ const ClientsView = ({ user }) => {
       >
         {loadingHmsData ? (
           <div className="flex justify-center items-center py-8">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-curai-control"></div>
+            <LoadingSpinner />
             <span className="ml-2 text-curai-muted ">Загрузка данных HMS...</span>
           </div>
         ) : (

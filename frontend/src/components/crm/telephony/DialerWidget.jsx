@@ -1,3 +1,4 @@
+import LoadingIndicator from '../../common/LoadingIndicator';
 import { permissionProps, canAction } from '../../../utils/permissions.js';
 import React, { useState, useEffect, useCallback } from "react";
 import { createPortal } from "react-dom";
@@ -198,7 +199,7 @@ const DialerWidget = ({ isOpen, onClose, initialPhone = "" }) => {
         ) : (
           <div className="space-y-3">
             {loadingCalls && calls.length === 0 && (
-              <div className="text-center text-curai-muted text-sm py-6">Загрузка…</div>
+              <LoadingIndicator label="Загрузка…" className="text-center text-curai-muted text-sm py-6" />
             )}
             {!loadingCalls && calls.length === 0 && (
               <div className="text-center text-curai-muted text-sm py-6">История звонков пуста</div>

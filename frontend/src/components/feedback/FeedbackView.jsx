@@ -1,3 +1,4 @@
+import LoadingIndicator from '../common/LoadingIndicator';
 import React, { useState, useEffect, useCallback } from 'react';
 import { API_BASE_URL } from '../../api/config';
 
@@ -74,7 +75,7 @@ const FeedbackView = () => {
   };
 
   if (loading || !settings) {
-    return <div className="text-center py-10 text-curai-muted">Загрузка...</div>;
+    return <LoadingIndicator label="Загрузка..." className="text-center py-10 text-curai-muted" />;
   }
 
   const fmtDate = (d) => d ? new Date(d).toLocaleString('ru-RU', { dateStyle: 'short', timeStyle: 'short' }) : '—';

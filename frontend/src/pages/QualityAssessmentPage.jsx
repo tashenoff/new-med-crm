@@ -1,3 +1,4 @@
+import { LoadingSpinner } from '../components/common/LoadingIndicator';
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 
@@ -121,7 +122,7 @@ const QualityAssessmentPage = ({ user }) => {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-full min-h-[400px]">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-curai-control" />
+        <LoadingSpinner />
       </div>
     );
   }

@@ -1,3 +1,4 @@
+import { LoadingSpinner } from '../../common/LoadingIndicator';
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useCrm } from '../../../hooks/useCrm';
 import Modal from '../../modals/Modal';
@@ -252,7 +253,7 @@ const LeadsView = ({ user }) => {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-curai-control"></div>
+        <LoadingSpinner />
       </div>
     );
   }
@@ -428,7 +429,7 @@ const LeadsView = ({ user }) => {
                   />
                   {isCheckingPhone && (
                     <div className="absolute right-3 top-1/2 -translate-y-1/2">
-                      <div className="w-4 h-4 animate-spin rounded-full border-2 border-curai-control border-t-transparent"></div>
+                      <LoadingSpinner size="sm" />
                     </div>
                   )}
                 </div>

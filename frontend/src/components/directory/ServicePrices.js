@@ -1,3 +1,4 @@
+import { LoadingSpinner } from '../common/LoadingIndicator';
 import { canAction, permissionProps } from '../../utils/permissions.js';
 import React, { useState, useEffect } from 'react';
 import Modal from '../modals/Modal';
@@ -821,7 +822,7 @@ const ServicePrices = ({ user }) => {
 
       {loading && (
         <div className="text-center py-4">
-          <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-curai-control "></div>
+          <LoadingSpinner />
         </div>
       )}
 
@@ -1376,7 +1377,7 @@ const ServicePrices = ({ user }) => {
 
               {importLoading && (
                 <div className="text-center py-4">
-                  <div className="inline-block animate-spin rounded-full h-6 w-6 border-b-2 border-curai-control"></div>
+                  <LoadingSpinner size="sm" />
                   <p className="mt-2 text-sm text-curai-muted ">Анализ файла...</p>
                 </div>
               )}

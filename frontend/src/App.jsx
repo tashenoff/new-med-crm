@@ -1,3 +1,5 @@
+import './theme/curai-workspace-background.css';
+import { AppLoading } from './components/common/LoadingIndicator';
 import { canOpenPath, hasPermission, homeForUser } from './utils/permissions';
 import React, { useState, useEffect, useRef } from 'react';
 import { Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom';
@@ -296,6 +298,7 @@ function ClinicApp() {
     <div
       className="curai-workspace relative min-h-screen"
     >
+      <div className="curai-workspace-decoration" aria-hidden="true" />
       <div className="curai-workspace-frame relative min-h-screen">
         {/* Sidebar Navigation */}
         <Navigation
@@ -445,14 +448,7 @@ function AppContent() {
   const { user, loading } = useAuth();
 
   if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-gray-900 dark:border-gray-100 mx-auto"></div>
-          <p className="mt-4 text-gray-600 dark:text-gray-300">Загрузка...</p>
-        </div>
-      </div>
-    );
+    return <AppLoading />;
   }
   
   if (!user) {

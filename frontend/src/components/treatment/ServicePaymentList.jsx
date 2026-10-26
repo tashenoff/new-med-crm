@@ -1,3 +1,4 @@
+import { LoadingSpinner } from '../common/LoadingIndicator';
 import { PlanDisclosure } from './shared/PatientPlanWorkspace';
 import TreatmentPlanDetails from './TreatmentPlanDetails';
 import PaymentPlanDetails from './payment/PaymentPlanDetails';
@@ -31,7 +32,7 @@ const PaymentModal = ({ show, loading, onClose, paymentTypes, loadingPaymentType
         <div className="curai-payment-methods space-y-2 max-h-72 overflow-y-auto"><h4>Способ оплаты *</h4>
           {loadingPaymentTypes ? (
             <div className="text-center py-8 text-curai-muted">
-              <div className="w-8 h-8 border-4 border-curai-control border-t-blue-600 rounded-full animate-spin mx-auto mb-2"></div>
+              <LoadingSpinner />
               Загрузка способов оплаты...
             </div>
           ) : paymentTypes.length === 0 ? (

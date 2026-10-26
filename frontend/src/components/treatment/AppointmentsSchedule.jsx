@@ -1,3 +1,4 @@
+import { LoadingSpinner } from '../common/LoadingIndicator';
 import React, { useState, useEffect } from 'react';
 import { ledgerFetch, positiveKzt, requireSessionId } from '../../utils/accountingLedger';
 
@@ -152,7 +153,7 @@ const AppointmentsSchedule = ({ patientId, onUpdate }) => {
   if (loading && appointments.length === 0) {
     return (
       <div className="flex justify-center items-center py-8">
-        <div className="animate-spin h-8 w-8 border-4 border-curai-control border-t-transparent rounded-full"></div>
+        <LoadingSpinner />
       </div>
     );
   }
