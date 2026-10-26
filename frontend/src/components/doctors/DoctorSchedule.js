@@ -972,7 +972,7 @@ const DoctorSchedule = ({ doctors, user, canEdit, rooms = [] }) => {
                 onChange={(e) => setSelectedRoom(e.target.value)}
                 className="px-3 py-2 border border-curai-control rounded-md text-sm bg-curai-surface min-w-[150px]"
               >
-                <option value="all">Любое кресло</option>
+                <option value="all">Любой кабинет</option>
                 {allRooms.map(room => (
                   <option key={room.id} value={room.id}>
                     {room.name}
@@ -1042,7 +1042,7 @@ const DoctorSchedule = ({ doctors, user, canEdit, rooms = [] }) => {
                       Сменный график работы
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-curai-muted uppercase tracking-wider ">
-                      Кресло
+                      Кабинет
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-curai-muted uppercase tracking-wider ">
                       Заменяемый врач
@@ -1215,11 +1215,11 @@ const DoctorSchedule = ({ doctors, user, canEdit, rooms = [] }) => {
           </div>
 
           <div>
-            <label className="block text-sm font-medium mb-1 ">Кабинет/Кресло *</label>
+            <label className="block text-sm font-medium mb-1 ">Кабинет *</label>
             <select
               value={formData.room_id}
               onChange={(e) => { setRoomError(''); setFormData({ ...formData, room_id: e.target.value }); }}
-              id="doctor-schedule-room" aria-label="Кабинет/кресло" required aria-required="true" aria-invalid={Boolean(roomError)} aria-describedby={roomError ? 'doctor-schedule-room-error' : undefined}
+              id="doctor-schedule-room" aria-label="Кабинет" required aria-required="true" aria-invalid={Boolean(roomError)} aria-describedby={roomError ? 'doctor-schedule-room-error' : undefined}
               className={selectClasses}
             >
               <option value="">Выберите кабинет</option>
@@ -1359,7 +1359,7 @@ const DoctorSchedule = ({ doctors, user, canEdit, rooms = [] }) => {
           )}
 
           <div>
-            <label className="block text-sm font-medium mb-1 ">Кабинет/Кресло</label>
+            <label className="block text-sm font-medium mb-1 ">Кабинет</label>
             <select
               value={formData.room_id}
               onChange={(e) => setFormData({ ...formData, room_id: e.target.value })}
@@ -1484,8 +1484,8 @@ const DoctorSchedule = ({ doctors, user, canEdit, rooms = [] }) => {
           </div>
 
           <div>
-            <label className="block text-sm font-medium mb-1 ">Кабинет/Кресло *</label>
-            <select aria-label="Кабинет/кресло" required aria-required="true" aria-invalid={Boolean(roomError)} aria-describedby={roomError ? "doctor-week-room-error" : undefined} value={weekScheduleData.room_id} onChange={(e) => { setRoomError(''); updateWeekScheduleWithCheck({ room_id: e.target.value }); }} className={selectClasses}>
+            <label className="block text-sm font-medium mb-1 ">Кабинет *</label>
+            <select aria-label="Кабинет" required aria-required="true" aria-invalid={Boolean(roomError)} aria-describedby={roomError ? "doctor-week-room-error" : undefined} value={weekScheduleData.room_id} onChange={(e) => { setRoomError(''); updateWeekScheduleWithCheck({ room_id: e.target.value }); }} className={selectClasses}>
               <option value="">Выберите кабинет</option>
               {allRooms.map(room => <option key={room.id} value={room.id}>{room.name}</option>)}
             </select>

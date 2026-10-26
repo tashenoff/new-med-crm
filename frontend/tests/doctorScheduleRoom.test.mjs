@@ -31,7 +31,7 @@ test('single-day creation blocks a missing room inline, then sends the selected 
 test('weekly creation blocks all days without a room, then includes one for every selected day',async t=>{
  const ui=await mount(t);await ui.click('📅 На неделю');await ui.select(document.querySelector('[role="dialog"] select'),'doctor');await ui.click('Пн-Пт');await ui.click('Сохранить (5 дн.)');
  assert.equal(ui.writes.length,0);assert.match(document.querySelector('#doctor-week-room-error').textContent,/Выберите кабинет/);
- await ui.select(document.querySelector('select[aria-label="Кабинет/кресло"]'),'room');await ui.click('Сохранить (5 дн.)');assert.equal(ui.writes.length,5);assert.deepEqual(ui.writes.map(w=>w.day_of_week),[0,1,2,3,4]);assert.ok(ui.writes.every(w=>w.room_id==='room'));
+ await ui.select(document.querySelector('select[aria-label="Кабинет"]'),'room');await ui.click('Сохранить (5 дн.)');assert.equal(ui.writes.length,5);assert.deepEqual(ui.writes.map(w=>w.day_of_week),[0,1,2,3,4]);assert.ok(ui.writes.every(w=>w.room_id==='room'));
 });
 test('structured validation errors stay readable in the open creation dialog',async t=>{
  const ui=await mount(t,[{loc:['body','room_id'],msg:'Выберите действующий кабинет'}]);await ui.click('+ График врача');await ui.select(document.querySelector('[role="dialog"] select'),'doctor');await ui.select(document.querySelector('#doctor-schedule-room'),'room');await ui.click('Добавить');

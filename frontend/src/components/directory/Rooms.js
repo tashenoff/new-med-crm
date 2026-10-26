@@ -360,7 +360,6 @@ const Rooms = ({ user }) => {
               <th className="px-6 py-3 text-left">Название</th>
               <th className="px-6 py-3 text-left">Номер</th>
               <th className="px-6 py-3 text-left">Описание</th>
-              <th className="px-6 py-3 text-left">Расписание</th>
               <th className="px-6 py-3 text-left">Действия</th>
             </tr>
           </thead>
@@ -370,19 +369,6 @@ const Rooms = ({ user }) => {
                 <td className="px-6 py-4 font-medium">{room.name}</td>
                 <td className="px-6 py-4">{room.number || '-'}</td>
                 <td className="px-6 py-4">{room.description || '-'}</td>
-                <td className="px-6 py-4">
-                  {room.schedule.length > 0 ? (
-                    <div className="text-sm">
-                      {room.schedule.map((s, index) => (
-                        <div key={index}>
-                          {getDayName(s.day_of_week)}: {s.start_time}-{s.end_time} ({getDoctorName(s.doctor_id)})
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <span className="text-curai-muted">Не настроено</span>
-                  )}
-                </td>
                 <td className="px-6 py-4">
                   <div className="flex space-x-2">
                     <button
@@ -416,7 +402,7 @@ const Rooms = ({ user }) => {
             ))}
             {rooms.length === 0 && !loading && (
               <tr>
-                <td colSpan="5" className="px-6 py-4 text-center text-curai-muted">
+                <td colSpan="4" className="px-6 py-4 text-center text-curai-muted">
                   Кабинеты не найдены
                 </td>
               </tr>

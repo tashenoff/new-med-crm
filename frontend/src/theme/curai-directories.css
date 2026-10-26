@@ -10,10 +10,8 @@
 .curai-rooms table {table-layout:fixed;}
 .curai-rooms table th:nth-child(1) {width:21%;}
 .curai-rooms table th:nth-child(2) {width:9.7%;}
-.curai-rooms table th:nth-child(3) {width:25.8%;}
-.curai-rooms table th:nth-child(4) {width:22.6%;}
-.curai-rooms table th:nth-child(5) {width:20.9%;}
-.curai-rooms table tbody td:nth-child(4)>div {font-size:13px;line-height:20px;}
+.curai-rooms table th:nth-child(3) {width:48.4%;}
+.curai-rooms table th:nth-child(4) {width:20.9%;}
 .curai-specialties .curai-specialty-filter {padding:0;border:0;background:transparent;border-radius:0;}
 .curai-specialty-filter label {font-size:12px;line-height:18px;margin-bottom:6px;}
 .curai-specialties .curai-directory-counts {display:flex;flex-wrap:wrap;gap:8px 24px;font-size:12px;line-height:18px;color:var(--curai-color-muted);margin:12px 0 28px;}
