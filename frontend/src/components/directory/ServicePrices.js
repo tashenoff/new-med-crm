@@ -1,3 +1,4 @@
+import RowActions from '../common/RowActions';
 import { LoadingSpinner } from '../common/LoadingIndicator';
 import { canAction, permissionProps } from '../../utils/permissions.js';
 import React, { useState, useEffect } from 'react';
@@ -834,7 +835,7 @@ const ServicePrices = ({ user }) => {
               <th className="px-6 py-3 text-left">Категория</th>
               <th className="px-6 py-3 text-left">Цена</th>
               <th className="px-6 py-3 text-left">Описание</th>
-              <th className="px-6 py-3 text-left">Действия</th>
+              <th className="px-6 py-3 text-right">Действия</th>
             </tr>
           </thead>
           <tbody>
@@ -857,26 +858,24 @@ const ServicePrices = ({ user }) => {
                 <td className="px-6 py-4">{price.price ? `${price.price.toLocaleString()} ₸` : '-'}</td>
                 <td className="px-6 py-4 max-w-xs truncate">{price.description || '-'}</td>
                 <td className="px-6 py-4">
-                  <div className="flex space-x-2">
-                    {(user?.role === 'admin' || user?.role === 'super_admin' || user?.role === 'marketer') && (
-                      <>
-                        <button
-                          onClick={() => handleEdit(price)}
-                          className="text-curai-warning hover:text-curai-warning "
-                          title="Редактировать"
-                         {...permissionProps(user, "directory_view", "directory_edit")}>
-                          ✏️
-                        </button>
-                        <button
-                          onClick={() => handleDelete(price.id)}
-                          className="text-curai-negative hover:text-curai-negative "
-                          title="Удалить"
-                         {...permissionProps(user, "directory_view", "directory_delete")}>
-                          🗑️
-                        </button>
-                      </>
-                    )}
-                  </div>
+                  <RowActions>
+                    <>
+                      {(user?.role === 'admin' || user?.role === 'super_admin' || user?.role === 'marketer') && (
+                        <>
+                          <RowActions.Item action="edit"
+                            onClick={() => handleEdit(price)}
+                            title="Редактировать"
+                            {...permissionProps(user, "directory_view", "directory_edit")}
+                          />
+                          <RowActions.Item action="delete"
+                            onClick={() => handleDelete(price.id)}
+                            title="Удалить"
+                            {...permissionProps(user, "directory_view", "directory_delete")}
+                          />
+                        </>
+                      )}
+                    </>
+                  </RowActions>
                 </td>
               </tr>
               {price.service_type === 'complex' && expandId === price.id && (

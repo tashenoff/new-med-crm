@@ -6,7 +6,7 @@ import {
   Funnel, HeartPulse, HelpCircle, ListTodo, LogOut, Mail, Maximize2, Menu,
   MessageSquare, Minimize2, Package, PanelLeftClose, PanelLeftOpen, Plus,
   Search, Settings, ShieldCheck, SlidersHorizontal, Stethoscope, Tag, UsersRound,
-  UserRound, Wallet, ChevronDown, X, Paperclip, FileText, FileInput, Play, Pause, LockKeyhole, Trash2, Clock3, ArrowRight, ArrowLeft, PanelsTopLeft,
+  UserRound, Wallet, Pencil, KeyRound, ChevronDown, X, Paperclip, FileText, FileInput, Play, Pause, LockKeyhole, Trash2, Clock3, ArrowRight, ArrowLeft, PanelsTopLeft,
 } from 'lucide-react';
 
 const icons = {
@@ -31,7 +31,7 @@ const icons = {
   materials: Package, deleted: Archive, attention: ShieldCheck, inventory: ClipboardList,
   'warehouse-materials': Package, 'warehouse-deleted': Archive,
   'warehouse-attention': ShieldCheck, 'warehouse-inventory': ClipboardList,
-  check: Check, person: UserRound, close: X, paperclip: Paperclip, file: FileText, 'save-file': FileInput,
+  edit: Pencil, key: KeyRound, permissions: ShieldCheck, check: Check, person: UserRound, close: X, paperclip: Paperclip, file: FileText, 'save-file': FileInput,
   play: Play, pause: Pause, lock: LockKeyhole, delete: Trash2, clock: Clock3, 'arrow-right': ArrowRight, 'arrow-left': ArrowLeft, 'crm-card': PanelsTopLeft,
 };
 

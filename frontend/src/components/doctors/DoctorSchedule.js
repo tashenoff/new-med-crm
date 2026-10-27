@@ -1,3 +1,4 @@
+import RowActions from '../common/RowActions';
 import { LoadingSpinner } from '../common/LoadingIndicator';
 import { permissionProps } from '../../utils/permissions.js';
 import { scheduleErrorMessage } from './scheduleValidation';
@@ -1048,7 +1049,7 @@ const DoctorSchedule = ({ doctors, user, canEdit, rooms = [] }) => {
                       Заменяемый врач
                     </th>
                     {canEdit && (
-                      <th className="px-6 py-3 text-left text-xs font-medium text-curai-muted uppercase tracking-wider ">
+                      <th className="px-6 py-3 text-right text-xs font-medium text-curai-muted uppercase tracking-wider ">
                         Действия
                       </th>
                     )}
@@ -1095,22 +1096,19 @@ const DoctorSchedule = ({ doctors, user, canEdit, rooms = [] }) => {
                         </td>
                         {canEdit && (
                           <td className="px-6 py-4">
-                            <div className="flex items-center gap-2">
-                              <button
-                                onClick={() => handleOpenEditModal(item)}
-                                className="text-curai-blue hover:text-curai-blue "
-                                title="Редактировать"
-                              >
-                                ✏️
-                              </button>
-                              <button
-                                onClick={() => handleDeleteAllSchedules(item.doctor_id, item.schedules)}
-                                className="text-curai-negative hover:text-curai-negative "
-                                title={`Удалить все расписания (${item.schedules?.length || 0} дн.)`}
-                               {...permissionProps(user, "calendar_view", "calendar_delete")}>
-                                🗑️
-                              </button>
-                            </div>
+                            <RowActions>
+                              <>
+                                <RowActions.Item action="edit"
+                                  onClick={() => handleOpenEditModal(item)}
+                                  title="Редактировать"
+                                />
+                                <RowActions.Item action="delete"
+                                  onClick={() => handleDeleteAllSchedules(item.doctor_id, item.schedules)}
+                                  title={`Удалить все расписания (${item.schedules?.length || 0} дн.)`}
+                                  {...permissionProps(user, "calendar_view", "calendar_delete")}
+                                />
+                              </>
+                            </RowActions>
                           </td>
                         )}
                       </tr>

@@ -1,3 +1,4 @@
+import RowActions from '../common/RowActions';
 import { LoadingSpinner } from '../common/LoadingIndicator';
 import { canAction, permissionProps } from '../../utils/permissions.js';
 import React, { useState, useEffect } from 'react';
@@ -334,7 +335,7 @@ const Rooms = ({ user }) => {
       <div className={`calendar-container calendar-view-panel rounded-md`}>
         <PanelHeader
           title="Кабинеты"
-          subtitle="Управление медицинскими кабинетами и их расписанием"
+          subtitle="Управление медицинскими кабинетами"
           onAction={canAction(user, "calendar_view", "calendar_edit") ? (user?.role === 'admin' || user?.role === 'super_admin' ? handleCreateRoom : undefined) : undefined}
           actionLabel="+ Добавить кабинет"
         />
@@ -360,7 +361,7 @@ const Rooms = ({ user }) => {
               <th className="px-6 py-3 text-left">Название</th>
               <th className="px-6 py-3 text-left">Номер</th>
               <th className="px-6 py-3 text-left">Описание</th>
-              <th className="px-6 py-3 text-left">Действия</th>
+              <th className="px-6 py-3 text-right">Действия</th>
             </tr>
           </thead>
           <tbody>
@@ -370,33 +371,25 @@ const Rooms = ({ user }) => {
                 <td className="px-6 py-4">{room.number || '-'}</td>
                 <td className="px-6 py-4">{room.description || '-'}</td>
                 <td className="px-6 py-4">
-                  <div className="flex space-x-2">
-                    <button
-                      onClick={() => handleManageSchedule(room)}
-                      className="text-curai-blue hover:text-curai-blue "
-                      title="Управление расписанием"
-                    >
-                      График
-                    </button>
-                    {(user?.role === 'admin' || user?.role === 'super_admin') && (
-                      <>
-                        <button
-                          onClick={() => handleEditRoom(room)}
-                          className="text-curai-warning hover:text-curai-warning "
-                          title="Редактировать"
-                         {...permissionProps(user, "calendar_view", "calendar_edit")}>
-                          Правка
-                        </button>
-                        <button
-                          onClick={() => handleDeleteRoom(room.id)}
-                          className="text-curai-negative hover:text-curai-negative "
-                          title="Удалить"
-                         {...permissionProps(user, "calendar_view", "calendar_delete")}>
-                          Удалить
-                        </button>
-                      </>
-                    )}
-                  </div>
+                  <RowActions>
+                    <>
+
+                      {(user?.role === 'admin' || user?.role === 'super_admin') && (
+                        <>
+                          <RowActions.Item action="edit"
+                            onClick={() => handleEditRoom(room)}
+                            title="Редактировать"
+                            {...permissionProps(user, "calendar_view", "calendar_edit")}
+                          />
+                          <RowActions.Item action="delete"
+                            onClick={() => handleDeleteRoom(room.id)}
+                            title="Удалить"
+                            {...permissionProps(user, "calendar_view", "calendar_delete")}
+                          />
+                        </>
+                      )}
+                    </>
+                  </RowActions>
                 </td>
               </tr>
             ))}
@@ -561,7 +554,7 @@ const Rooms = ({ user }) => {
                       <th className="px-4 py-2 text-left">День недели</th>
                       <th className="px-4 py-2 text-left">Время</th>
                       <th className="px-4 py-2 text-left">Врач</th>
-                      <th className="px-4 py-2 text-left">Действия</th>
+                      <th className="px-4 py-2 text-right">Действия</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -571,13 +564,13 @@ const Rooms = ({ user }) => {
                         <td className="px-4 py-2">{schedule.start_time} - {schedule.end_time}</td>
                         <td className="px-4 py-2">{getDoctorName(schedule.doctor_id)}</td>
                         <td className="px-4 py-2">
-                          <button
-                            onClick={() => handleDeleteSchedule(schedule.id)}
-                            className="text-curai-negative hover:text-curai-negative "
-                            title="Удалить"
-                           {...permissionProps(user, "calendar_view", "calendar_delete")}>
-                            Удалить
-                          </button>
+                          <RowActions>
+                            <RowActions.Item action="delete"
+                              onClick={() => handleDeleteSchedule(schedule.id)}
+                              title="Удалить"
+                              {...permissionProps(user, "calendar_view", "calendar_delete")}
+                            />
+                          </RowActions>
                         </td>
                       </tr>
                     ))}

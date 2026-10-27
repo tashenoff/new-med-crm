@@ -1,3 +1,4 @@
+import RowActions from '../common/RowActions';
 import { canAction, permissionProps } from '../../utils/permissions.js';
 import React, { useState, useEffect } from 'react';
 import Modal from '../modals/Modal';
@@ -214,7 +215,7 @@ const Specialties = ({ user }) => {
                     Дата создания
                   </th>
                   {(user?.role === 'admin' || user?.role === 'super_admin') && (
-                    <th className="px-6 py-3 text-left text-xs font-medium text-curai-muted uppercase tracking-wider">
+                    <th className="px-6 py-3 text-right text-xs font-medium text-curai-muted uppercase tracking-wider">
                       Действия
                     </th>
                   )}
@@ -239,20 +240,18 @@ const Specialties = ({ user }) => {
                     </td>
                     {(user?.role === 'admin' || user?.role === 'super_admin') && (
                       <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                        <div className="flex gap-2">
-                          <button
-                            onClick={() => handleEdit(specialty)}
-                            className="text-curai-blue hover:text-curai-blue"
-                           {...permissionProps(user, "directory_view", "directory_edit")}>
-                            Изменить
-                          </button>
-                          <button
-                            onClick={() => handleDelete(specialty.id)}
-                            className="text-curai-negative hover:text-curai-negative"
-                           {...permissionProps(user, "directory_view", "directory_delete")}>
-                            Удалить
-                          </button>
-                        </div>
+                        <RowActions>
+                          <>
+                            <RowActions.Item action="edit"
+                              onClick={() => handleEdit(specialty)}
+                              {...permissionProps(user, "directory_view", "directory_edit")}
+                            />
+                            <RowActions.Item action="delete"
+                              onClick={() => handleDelete(specialty.id)}
+                              {...permissionProps(user, "directory_view", "directory_delete")}
+                            />
+                          </>
+                        </RowActions>
                       </td>
                     )}
                   </tr>

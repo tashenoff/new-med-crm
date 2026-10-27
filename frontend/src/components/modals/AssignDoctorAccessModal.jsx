@@ -122,7 +122,7 @@ const AssignDoctorAccessModal = ({
             <button
               type="button"
               onClick={() => setShowPassword(!showPassword)}
-              className="absolute right-2 top-1/2 transform -translate-y-1/2 text-curai-muted hover:text-curai-ink"
+              className="absolute inset-y-0 right-2 flex items-center justify-center !transform-none text-curai-muted hover:text-curai-ink"
             >
               {showPassword ? (
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">

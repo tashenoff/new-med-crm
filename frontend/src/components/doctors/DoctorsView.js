@@ -1,3 +1,4 @@
+import RowActions from '../common/RowActions';
 import { canAction, permissionProps } from '../../utils/permissions.js';
 import React from 'react';
 import PanelHeader from '../common/PanelHeader';
@@ -78,7 +79,7 @@ const DoctorsView = ({
                         Дата добавления
                       </th>
                       {canManage && (
-                        <th className="px-6 py-3 text-left text-xs font-medium text-curai-muted uppercase tracking-wider">
+                        <th className="px-6 py-3 text-right text-xs font-medium text-curai-muted uppercase tracking-wider">
                           Действия
                         </th>
                       )}
@@ -152,18 +153,16 @@ const DoctorsView = ({
                         </td>
                         {canManage && (
                           <td className="px-6 py-4 whitespace-nowrap text-sm font-medium space-x-2">
-                            <button
-                              onClick={() => onEditDoctor(doctor)}
-                              className="text-curai-blue hover:text-curai-blue"
-                             {...permissionProps(user, "doctors_view", "doctors_edit")}>
-                              Редактировать
-                            </button>
-                            <button
-                              onClick={() => onDeleteDoctor(doctor.id)}
-                              className="text-curai-negative hover:text-curai-negative"
-                             {...permissionProps(user, "doctors_view", "doctors_delete")}>
-                              Удалить
-                            </button>
+                            <RowActions>
+                              <RowActions.Item action="edit"
+                                onClick={() => onEditDoctor(doctor)}
+                                {...permissionProps(user, "doctors_view", "doctors_edit")}
+                              />
+                              <RowActions.Item action="delete"
+                                onClick={() => onDeleteDoctor(doctor.id)}
+                                {...permissionProps(user, "doctors_view", "doctors_delete")}
+                              />
+                            </RowActions>
                           </td>
                         )}
                       </tr>

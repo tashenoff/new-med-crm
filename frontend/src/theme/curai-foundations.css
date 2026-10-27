@@ -128,3 +128,12 @@
 .curai-dialog form > .flex:last-child { justify-content: flex-end; border-top: 1px solid var(--curai-color-border); padding-top: var(--curai-space-16); gap: var(--curai-space-16); }
 .curai-dialog form > .flex:last-child > button { flex: 0 1 160px; margin-left: 0; }
 .curai-dialog form > .flex:last-child > button[type='submit'] { order: 2; }
+
+/* Shared list-row actions. Callers keep their handlers and permission guards. */
+.curai-row-actions { display:flex; flex-wrap:wrap; align-items:center; justify-content:flex-end; gap:4px 8px; }
+.curai-row-actions button.curai-row-action[data-tone] { display:inline-flex; align-items:center; justify-content:center; min-height:var(--curai-control-compact); margin:0; padding:4px 8px; border:0; border-radius:var(--curai-radius-4); background:transparent; color:var(--curai-color-muted); font-family:inherit; font-size:var(--curai-type-size-13); line-height:var(--curai-type-line-20); font-weight:400; white-space:nowrap; text-decoration:none; cursor:pointer; transform:none; box-shadow:none; }
+.curai-row-actions button.curai-row-action[data-tone]:hover:not(:disabled) { background:var(--curai-color-hover); transform:none; box-shadow:none; }
+.curai-row-actions button.curai-row-action[data-tone]:active:not(:disabled) { transform:none; }
+.curai-row-actions button.curai-row-action[data-tone]:disabled { color:var(--curai-color-disabled); background:transparent; cursor:not-allowed; }
+
+.curai-row-actions button.curai-row-action[data-icon-only='true'] { width:var(--curai-control-compact); min-width:var(--curai-control-compact); padding:0; }

@@ -1,3 +1,4 @@
+import RowActions from '../common/RowActions';
 import { permissionProps } from '../../utils/permissions.js';
 import React from 'react';
 
@@ -210,54 +211,46 @@ const StaffView = ({
                   </td>
                   {canManage && (
                     <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                      {member.type === 'doctor' ? (
-                        // Для врачей показываем кнопки управления доступом
-                        member.has_access ? (
-                          <div className="flex justify-end gap-2">
-                            <button
-                              onClick={() => onEditStaff(member)}
-                              className="text-curai-blue hover:text-curai-blue"
-                              title="Редактировать права"
-                             {...permissionProps(user, "staff_view", "staff_edit")}>
-                              Права доступа
-                            </button>
-                            <span className="text-curai-disabled">|</span>
-                            <button
-                              onClick={() => onRevokeAccess && onRevokeAccess(member)}
-                              className="text-curai-warning hover:text-curai-warning"
-                              title="Отозвать доступ"
-                             {...permissionProps(user, "staff_view", "staff_delete")}>
-                              Отозвать доступ
-                            </button>
-                          </div>
+                      <RowActions>
+                        {member.type === 'doctor' ? (
+                          // Для врачей показываем кнопки управления доступом
+                          member.has_access ? (
+                            <>
+                              <RowActions.Item action="access"
+                                onClick={() => onEditStaff(member)}
+                                title="Редактировать права"
+                                {...permissionProps(user, "staff_view", "staff_edit")}
+                              />
+
+                              <RowActions.Item action="revokeAccess"
+                                onClick={() => onRevokeAccess && onRevokeAccess(member)}
+                                title="Отозвать доступ"
+                                {...permissionProps(user, "staff_view", "staff_delete")}
+                              />
+                            </>
+                          ) : (
+                            <RowActions.Item action="assignAccess"
+                              onClick={() => onAssignAccess && onAssignAccess(member)}
+                              title="Назначить доступ"
+                              {...permissionProps(user, "staff_view", "staff_edit")}
+                            />
+                          )
                         ) : (
-                          <button
-                            onClick={() => onAssignAccess && onAssignAccess(member)}
-                            className="text-curai-positive hover:text-curai-positive font-semibold"
-                            title="Назначить доступ"
-                           {...permissionProps(user, "staff_view", "staff_edit")}>
-                            Назначить доступ
-                          </button>
-                        )
-                      ) : (
-                        // Для обычного персонала - редактирование и удаление
-                        <>
-                          <button
-                            onClick={() => onEditStaff(member)}
-                            className="text-curai-blue hover:text-curai-blue mr-3"
-                            title="Редактировать"
-                           {...permissionProps(user, "staff_view", "staff_edit")}>
-                            Редактировать
-                          </button>
-                          <button
-                            onClick={() => onDeleteStaff(member.id)}
-                            className="text-curai-negative hover:text-curai-negative"
-                            title="Удалить"
-                           {...permissionProps(user, "staff_view", "staff_delete")}>
-                            Удалить
-                          </button>
-                        </>
-                      )}
+                          // Для обычного персонала - редактирование и удаление
+                          <>
+                            <RowActions.Item action="edit"
+                              onClick={() => onEditStaff(member)}
+                              title="Редактировать"
+                              {...permissionProps(user, "staff_view", "staff_edit")}
+                            />
+                            <RowActions.Item action="delete"
+                              onClick={() => onDeleteStaff(member.id)}
+                              title="Удалить"
+                              {...permissionProps(user, "staff_view", "staff_delete")}
+                            />
+                          </>
+                        )}
+                      </RowActions>
                     </td>
                   )}
                 </tr>
