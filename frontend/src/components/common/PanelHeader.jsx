@@ -7,6 +7,7 @@ const PanelHeader = ({
   actionLabel,
   actionClass = "calendar-new-appointment-btn bg-curai-positive hover:bg-curai-positive text-white rounded-md px-4 py-2 transition-colors",
   actions,
+  actionGuide,
   className = ''
 }) => (
   <div
@@ -18,7 +19,7 @@ const PanelHeader = ({
     </div>
     {actions}
     {onAction && actionLabel && (
-      <button onClick={onAction} className={`curai-button curai-button-primary ${actionClass}`}>
+      <button data-guide={actionGuide} onClick={onAction} className={`curai-button curai-button-primary ${actionClass}`}>
         {actionLabel}
       </button>
     )}

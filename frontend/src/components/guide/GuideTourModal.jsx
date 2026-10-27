@@ -36,6 +36,16 @@ export default function GuideTourModal() {
           <span><strong>Как добавить план лечения</strong><span>Карточка пациента, консультация и выбор услуг.</span></span>
           <span className="guide-option-arrow" aria-hidden="true">→</span>
         </button>
+        <button type="button" className="guide-option-card" onClick={() => startGuide('room')}>
+          <span className="guide-option-icon"><CuraiIcon name="rooms" /></span>
+          <span><strong>Как создать кабинет</strong><span>Название, номер и описание кабинета.</span></span>
+          <span className="guide-option-arrow" aria-hidden="true"><CuraiIcon name="arrow-right" /></span>
+        </button>
+        <button type="button" className="guide-option-card" onClick={() => startGuide('doctorSchedule')}>
+          <span className="guide-option-icon"><CuraiIcon name="doctor-schedule" /></span>
+          <span><strong>Как создать расписание врача</strong><span>Врач, рабочее время и кабинет.</span></span>
+          <span className="guide-option-arrow" aria-hidden="true"><CuraiIcon name="arrow-right" /></span>
+        </button>
       </div>
     </div>
   </Modal>;

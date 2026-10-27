@@ -12,6 +12,86 @@ export const useGuide = () => {
 
 // Определение шагов для каждого гида
 export const GUIDE_STEPS = {
+  room: [
+    {
+      id: 'nav-rooms',
+      title: 'Шаг 1: Перейдите в кабинеты',
+      description: 'Откройте «Кабинеты» в справочнике HMS. Здесь создаются кабинеты; рабочее время задаётся в разделе «Расписание врачей».',
+      targetSelector: '.curai-rooms .curai-panel-title',
+      action: { type: 'navigate', tab: 'room-management', section: 'hms' },
+      position: 'right'
+    },
+    {
+      id: 'room-add-button',
+      title: 'Шаг 2: Откройте новый кабинет',
+      description: 'Нажмите «Добавить кабинет», чтобы открыть форму.',
+      targetSelector: '[data-guide="add-room-btn"]',
+      activateOnNext: true,
+      nextLabel: 'Открыть форму',
+      advanceWhenVisible: '[data-guide="save-room-btn"]',
+      position: 'bottom'
+    },
+    {
+      id: 'room-fields',
+      title: 'Шаг 3: Заполните кабинет',
+      description: 'Введите название кабинета. Номер и описание можно указать дополнительно. При вводе подсказка свернётся, чтобы не закрывать поля.',
+      targetSelector: '[data-guide="save-room-btn"]',
+      targetAncestor: '[data-guide-form="room"]',
+      collapseWhenEditing: true,
+      fallbackSelector: '[data-guide="add-room-btn"]',
+      fallbackLabel: 'Открыть форму',
+      position: 'left'
+    },
+    {
+      id: 'room-save',
+      title: 'Шаг 4: Сохраните кабинет',
+      description: 'Проверьте данные и нажмите «Сохранить» в форме. После сохранения кабинет появится в списке. «Завершить» закрывает только гид.',
+      targetSelector: '[data-guide="save-room-btn"]',
+      fallbackSelector: '[data-guide="add-room-btn"]',
+      fallbackLabel: 'Открыть форму',
+      position: 'top'
+    }
+  ],
+  doctorSchedule: [
+    {
+      id: 'nav-doctor-schedule',
+      title: 'Шаг 1: Откройте расписание врачей',
+      description: 'В разделе «Расписание врачей» задаётся рабочее время врача и кабинет. Сначала создайте врача и кабинет, если их ещё нет.',
+      targetSelector: '[data-guide="nav-doctor-schedule"]',
+      action: { type: 'navigate', tab: 'doctor-schedule', section: 'hms' },
+      position: 'right'
+    },
+    {
+      id: 'doctor-schedule-add-button',
+      title: 'Шаг 2: Добавьте график врача',
+      description: 'Нажмите «График врача», чтобы открыть форму для одного дня недели. Для нескольких дней есть отдельная кнопка «На неделю».',
+      targetSelector: '[data-guide="add-doctor-schedule-btn"]',
+      activateOnNext: true,
+      nextLabel: 'Открыть форму',
+      advanceWhenVisible: '[data-guide="save-doctor-schedule-btn"]',
+      position: 'bottom'
+    },
+    {
+      id: 'doctor-schedule-fields',
+      title: 'Шаг 3: Настройте рабочее время',
+      description: 'Выберите действующего врача, день недели, время начала и окончания работы и кабинет. Кабинет обязателен. При вводе подсказка свернётся.',
+      targetSelector: '[data-guide="save-doctor-schedule-btn"]',
+      targetAncestor: '[data-guide-form="doctor-schedule"]',
+      collapseWhenEditing: true,
+      fallbackSelector: '[data-guide="add-doctor-schedule-btn"]',
+      fallbackLabel: 'Открыть форму',
+      position: 'left'
+    },
+    {
+      id: 'doctor-schedule-save',
+      title: 'Шаг 4: Сохраните расписание',
+      description: 'Проверьте врача, день, время и кабинет, затем нажмите «Добавить» в форме. Если кабинет занят, исправьте время или выберите другой кабинет. «Завершить» закрывает только гид.',
+      targetSelector: '[data-guide="save-doctor-schedule-btn"]',
+      fallbackSelector: '[data-guide="add-doctor-schedule-btn"]',
+      fallbackLabel: 'Открыть форму',
+      position: 'top'
+    }
+  ],
   // Гид: Как добавить запись на прием
   appointment: [
     {

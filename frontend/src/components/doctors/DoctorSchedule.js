@@ -912,6 +912,7 @@ const DoctorSchedule = ({ doctors, user, canEdit, rooms = [] }) => {
             {canEdit && (
               <div className="flex gap-2 flex-wrap">
                 <button
+                  data-guide="add-doctor-schedule-btn"
                   onClick={() => setShowAddModal(true)}
                   className="px-4 py-2 bg-curai-blue text-white rounded-md hover:bg-curai-blue text-sm font-medium"
                  {...permissionProps(user, "calendar_view", "calendar_edit")}>
@@ -1156,7 +1157,7 @@ const DoctorSchedule = ({ doctors, user, canEdit, rooms = [] }) => {
         }}
         title={showFixedModal ? 'Добавить зафиксированный график' : 'Добавить график врача'}
       >
-        <div className="space-y-4">
+        <div className="space-y-4" data-guide-form="doctor-schedule">
           {error && <p role="alert" className="text-sm text-curai-negative">{error}</p>}
           <div>
             <label className="block text-sm font-medium mb-1 ">Врач *</label>
@@ -1242,6 +1243,7 @@ const DoctorSchedule = ({ doctors, user, canEdit, rooms = [] }) => {
               Отмена
             </button>
             <button
+              data-guide="save-doctor-schedule-btn"
               onClick={handleCreateSchedule}
               className={buttonPrimaryClasses}
               disabled={!formData.doctor_id}

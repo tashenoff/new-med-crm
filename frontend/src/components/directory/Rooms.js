@@ -334,6 +334,7 @@ const Rooms = ({ user }) => {
     <div className="curai-directory-page curai-rooms space-y-6">
       <div className={`calendar-container calendar-view-panel rounded-md`}>
         <PanelHeader
+          actionGuide="add-room-btn"
           title="Кабинеты"
           subtitle="Управление медицинскими кабинетами"
           onAction={canAction(user, "calendar_view", "calendar_edit") ? (user?.role === 'admin' || user?.role === 'super_admin' ? handleCreateRoom : undefined) : undefined}
@@ -411,7 +412,7 @@ const Rooms = ({ user }) => {
         title={editingRoom ? 'Редактировать кабинет' : 'Новый кабинет'}
         size="max-w-[600px]" className="curai-directory-dialog curai-room-dialog"
       >
-        <div className="space-y-4">
+        <div className="space-y-4" data-guide-form="room">
           <div>
             <label className="block text-sm font-medium mb-1">Название *</label>
             <input
@@ -454,6 +455,7 @@ const Rooms = ({ user }) => {
                         Отмена
                       </button>
                       <button
+                        data-guide="save-room-btn"
                         onClick={handleSaveRoom}
                         className={`${buttonPrimaryClasses} h-10 inline-flex items-center justify-center gap-2 px-5`}
                         disabled={!roomForm.name || loading}

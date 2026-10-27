@@ -53,7 +53,7 @@ export default function GuideTour({ onNavigate }) {
     setCollapsedStep(null);
     if (!activeGuide || !step?.collapseWhenEditing) return;
     const handleFocus = event => {
-      if (event.target.matches?.('input, textarea, select, [contenteditable="true"]') && event.target.closest('form')) setCollapsedStep(step);
+      if (event.target.matches?.('input, textarea, select, [contenteditable="true"]') && event.target.closest('form, [data-guide-form]')) setCollapsedStep(step);
     };
     document.addEventListener('focusin', handleFocus);
     return () => document.removeEventListener('focusin', handleFocus);
@@ -71,7 +71,7 @@ export default function GuideTour({ onNavigate }) {
       targetObserver?.disconnect();
       target = next;
       const anchor = step.targetAncestor ? target?.closest(step.targetAncestor) : target;
-      const scrollTarget = anchor?.tagName === 'FORM' ? anchor.querySelector('input:not([type="hidden"]), select, textarea') : anchor;
+      const scrollTarget = anchor?.matches('form, [data-guide-form]') ? anchor.querySelector('input:not([type="hidden"]), select, textarea') : anchor;
       const bounds = scrollTarget?.getBoundingClientRect();
       if (bounds && (bounds.top < 64 || bounds.bottom > window.innerHeight - 16)) scrollTarget.scrollIntoView?.({ block: 'nearest', behavior: 'instant' });
       if (target && step.advanceOnClick) target.addEventListener('click', advance, { once: true });
@@ -93,7 +93,7 @@ export default function GuideTour({ onNavigate }) {
       const action = step.activateOnNext ? target : (!bounds && step.fallbackSelector ? visibleTarget(step.fallbackSelector) : null);
       const enabled = Boolean(action && !action.disabled && action.getAttribute('aria-disabled') !== 'true');
       setReadiness(previous => previous.step === step && previous.next === ready && previous.action === enabled ? previous : { step, next: ready, action: enabled });
-      const rect = bounds ? { top: bounds.top, left: bounds.left, width: bounds.width, height: bounds.height, outline: !element.matches('form, [role="dialog"]') } : null;
+      const rect = bounds ? { top: bounds.top, left: bounds.left, width: bounds.width, height: bounds.height, outline: !element.matches('form, [data-guide-form], [role="dialog"]') } : null;
       setTargetRect(previous => (sameRect(previous, rect) || previous === rect) ? previous : rect);
       const measured = tooltipRef.current?.getBoundingClientRect();
       const next = guidePosition(rect, step.position, { width: measured?.width || 360, height: measured?.height || 240 }, { width: window.innerWidth, height: window.innerHeight });
