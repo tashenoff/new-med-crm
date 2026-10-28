@@ -39,6 +39,7 @@ import FinanceDashboard from './components/finance/dashboard/FinanceDashboard';
 import IncomeView from './components/finance/income/IncomeView';
 import ExpensesView from './components/finance/expenses/ExpensesView';
 import SalariesView from './components/finance/salaries/SalariesView';
+import AdminBonuses from './components/finance/AdminBonuses';
 import ReportsView from './components/finance/reports/ReportsView';
 
 import DoctorStatistics from './components/statistics/DoctorStatistics';
@@ -192,7 +193,7 @@ function ClinicApp() {
     if (section === 'crm') {
       handleTabChange('crm-dashboard');
     } else if (section === 'finance') {
-      handleTabChange(canViewFinance ? 'finance-dashboard' : 'finance-salaries');
+      handleTabChange(canViewFinance ? 'finance-dashboard' : hasPermission(user, 'payroll_view') ? 'finance-salaries' : 'finance-admin-bonuses');
     } else if (section === 'warehouse') {
       handleTabChange('warehouse');
     } else {
@@ -373,7 +374,8 @@ function ClinicApp() {
               {activeTab === 'crm-contacts' && <SourcesView user={user} />}
               {activeTab === 'crm-task-statuses' && <TaskStatuses user={user} />}
               {activeTab.startsWith('finance') && (
-                !canViewFinance && activeTab !== 'finance-salaries' ? <Navigate to={homeForUser(user)} replace />
+                activeTab === 'finance-admin-bonuses' ? <AdminBonuses user={user} refreshVersion={refreshTriggers.treatmentPlans} />
+                : !canViewFinance && activeTab !== 'finance-salaries' ? <Navigate to={homeForUser(user)} replace />
                 : activeTab === 'finance-salaries' ? <SalariesView user={user} refreshVersion={refreshTriggers.treatmentPlans} />
                 : !canManageFinance || activeTab === 'finance' ? <Navigate to="/finance-dashboard" replace />
                 : <>

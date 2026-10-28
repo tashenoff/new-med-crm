@@ -1,4 +1,4 @@
-// Mirrors backend models.staff.Permission. No role bypass and no implicit grants.
+// Mirrors the canonical backend permission check; active super-admin has full access.
 export const permissionGroups = [
   { key: 'hms', title: 'HMS', rows: [
     ['Пациенты и лечение', ['patients_view', 'patients_edit', 'patients_delete', 'patients_export']],
@@ -21,10 +21,12 @@ export const permissionGroups = [
   { key: 'finance', title: 'Финансы', rows: [
     ['Финансовая отчётность', ['finance_view', 'finance_edit', 'finance_delete', 'finance_export']],
     ['Персональные зарплаты и ставки²', ['payroll_view']],
+    ['Начисления по сотрудникам (явное разрешение)', ['admin_bonus_view']],
+    ['Единая ставка (уполномоченный руководитель)', ['admin_bonus_manage']],
   ] },
 ];
 export const allPermissionKeys = permissionGroups.flatMap(group => group.rows.flatMap(row => row[1]));
-export const hasPermission = (user, key) => user?.is_active !== false && Boolean(user?.permissions?.includes(key));
+export const hasPermission = (user, key) => user?.is_active !== false && Boolean(user?.role === 'super_admin' || user?.permissions?.includes(key));
 export const canAction = (user, ...keys) => keys.every(key => hasPermission(user, key));
 // Spread last: deny must win over a pending/loading disabled expression.
 // For an allowed action, leave its existing busy/validation state untouched.
@@ -35,6 +37,8 @@ export const permissionProps = (user, ...keys) => ({
   } : {}),
 });
 export const permissionLabel = key => key === 'system_settings' ? 'Настройки'
+  : key === 'admin_bonus_view' ? 'Просмотр начислений'
+  : key === 'admin_bonus_manage' ? 'Изменение ставки'
   : key === 'doctors_create' ? 'Создание врача'
   : key === 'doctors_edit' ? 'Изменение'
   : key === 'payroll_view' ? 'Зарплаты (явное разрешение)'
@@ -44,6 +48,7 @@ export function requiredForPath(path) {
   const key = path.replace(/^\//, '').split('/')[0];
   if (key === 'no-access') return [];
   if (key === 'finance-salaries') return ['payroll_view'];
+  if (key === 'finance-admin-bonuses') return ['admin_bonus_view|admin_bonus_manage'];
   if (key.startsWith('finance')) return ['finance_view'];
   if (key.startsWith('crm')) return ['crm_view'];
   if (key.startsWith('warehouse')) return ['warehouse_view'];
@@ -62,16 +67,16 @@ export function requiredForPath(path) {
 }
 export const canOpenPath = (user, path) => {
   const required = requiredForPath(path);
-  return required !== null && required.every(key => hasPermission(user, key));
+  return required !== null && required.every(clause => clause.split('|').some(key => hasPermission(user, key)));
 };
 export const homeForUser = user => [
   '/calendar', '/patients', '/doctors', '/crm-dashboard', '/warehouse',
-  '/finance-dashboard', '/finance-salaries', '/staff-management',
+  '/finance-dashboard', '/finance-salaries', '/finance-admin-bonuses', '/staff-management',
   '/service-prices', '/statistics', '/broadcast', '/loyalty', '/quality-assessment',
 ].find(path => canOpenPath(user, path)) || '/no-access';
 export const canOpenSpace = (user, space) => space === 'hms'
   ? permissionGroups[0].rows.some(row => row[1].some(key => hasPermission(user, key)))
-  : space === 'finance' ? hasPermission(user, 'finance_view') || hasPermission(user, 'payroll_view')
+  : space === 'finance' ? hasPermission(user, 'finance_view') || hasPermission(user, 'payroll_view') || canOpenPath(user, '/finance-admin-bonuses')
   : hasPermission(user, space + '_view');
 
 export const permissionsForEditor = record => record?.permission_mode === 'explicit'

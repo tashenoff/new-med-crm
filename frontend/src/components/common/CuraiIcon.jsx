@@ -27,7 +27,7 @@ const icons = {
   'crm-task-statuses': CircleCheck, 'crm-telephony': MessageSquare, 'crm-funnel': Funnel,
   'crm-sources': SlidersHorizontal, 'finance-dashboard': ChartNoAxesCombined,
   'finance-income': ArrowDownLeft, 'finance-expenses': ArrowUpRight,
-  'finance-salaries': Wallet, 'finance-reports': ClipboardList,
+  'finance-salaries': Wallet, 'finance-admin-bonuses': Wallet, 'finance-reports': ClipboardList,
   materials: Package, deleted: Archive, attention: ShieldCheck, inventory: ClipboardList,
   'warehouse-materials': Package, 'warehouse-deleted': Archive,
   'warehouse-attention': ShieldCheck, 'warehouse-inventory': ClipboardList,

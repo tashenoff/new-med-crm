@@ -42,6 +42,7 @@ export const getNavigationMenu = (user, activeSection) => {
     if (activeSection === 'finance') {
       if (!canOpenSpace(user, 'finance')) return [];
       const financeItems = [
+        { key: 'finance-admin-bonuses', label: 'Бонусы администраторам', type: 'tab' },
         { key: 'finance-dashboard', label: 'Дашборд', type: 'tab' },
         { key: 'finance-income', label: 'Доходы', type: 'tab' },
         { key: 'finance-expenses', label: 'Расходы', type: 'tab' },

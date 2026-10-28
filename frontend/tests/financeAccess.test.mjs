@@ -143,7 +143,7 @@ test('mobile sidebar starts collapsed, closes via overlay and navigation, and st
   assertSidebar(document, false);
 });
 
-const staff = ['admin', 'super_admin', 'doctor', 'marketer', 'administrator'];
+const staff = ['admin', 'doctor', 'marketer', 'administrator'];
 for (const role of staff) {
   test(`No implicit finance or payroll UI for ${role}`, async context => {
     const document = await mount(context, role, '/finance-salaries');
@@ -172,10 +172,17 @@ test('CRM-only direct HMS navigation redirects before any HMS page mounts', asyn
   assert.ok(![...document.querySelectorAll('header button')].some(b => b.textContent.trim() === 'HMS'));
 });
 test('Empty permissions land on no-access without mounting business screens', async context => {
-  const document = await mount(context, 'super_admin', '/patients', 1024, []);
+  const document = await mount(context, 'admin', '/patients', 1024, []);
   assert.equal(document.querySelector('#location').textContent, '/no-access');
   assert.ok(document.querySelector('[role="status"]'));
   assert.ok(!globalThis.financeMounts.includes('PatientsPage'));
+});
+
+test('super-admin without scopes mounts bonus route and sees its navigation entry', async context => {
+  const document = await mount(context, 'super_admin', '/finance-admin-bonuses', 1024, []);
+  assert.equal(document.querySelector('#location').textContent, '/finance-admin-bonuses');
+  assert.ok(document.querySelector('[data-screen="AdminBonuses"]'));
+  assert.ok(document.querySelector('[data-guide="nav-finance-admin-bonuses"]'));
 });
 
 test('search traps focus, wraps arrows, ignores composing Enter and handles empty results', async context => {

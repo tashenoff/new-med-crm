@@ -5,11 +5,11 @@ import { getNavigationMenu, getSearchNavigation, filterSearchNavigation } from '
 
 const permissions = ['calendar_view', 'patients_view', 'broadcast_view', 'statistics_view', 'doctors_view', 'directory_view', 'crm_view', 'warehouse_view', 'finance_view', 'payroll_view'];
 
-test('role names never expand the navigation permission list', () => {
+test('ordinary admin navigation remains within explicit permissions', () => {
   for (let mask = 0; mask < 2 ** permissions.length; mask++) {
     const selected = permissions.filter((_, index) => mask & (1 << index));
     for (const section of ['hms', 'crm', 'finance', 'warehouse']) {
-      const restricted = getNavigationMenu({role: 'super_admin', permissions: selected}, section);
+      const restricted = getNavigationMenu({role: 'admin', permissions: selected}, section);
       for (const item of restricted.flatMap(item => item.subItems || item.children || [item])) {
         const required = item.key === 'finance-salaries' ? 'payroll_view'
           : item.key.startsWith('finance') ? 'finance_view'
@@ -20,7 +20,7 @@ test('role names never expand the navigation permission list', () => {
     }
   }
   for (const section of ['hms', 'crm', 'finance', 'warehouse']) {
-    assert.deepEqual(getNavigationMenu({role: 'super_admin', permissions: []}, section), []);
+    assert.deepEqual(getNavigationMenu({role: 'admin', permissions: []}, section), []);
     assert.deepEqual(getNavigationMenu(null, section), []);
   }
 });
@@ -33,8 +33,8 @@ test('search contains only accessible route destinations, excluding accordion an
       const user = { role, permissions };
       const entries = getSearchNavigation(user);
 
-      assert.equal(entries.some(item => item.section === 'crm'), permissions.includes('crm_view'));
-      assert.equal(entries.some(item => item.key === 'warehouse'), permissions.includes('warehouse_view'));
+      assert.equal(entries.some(item => item.section === 'crm'), role === 'super_admin' || permissions.includes('crm_view'));
+      assert.equal(entries.some(item => item.key === 'warehouse'), role === 'super_admin' || permissions.includes('warehouse_view'));
       assert.deepEqual(entries.filter(item => item.section === 'finance').map(item => item.key),
         getNavigationMenu(user, 'finance').map(item => item.key));
       for (const item of entries) {

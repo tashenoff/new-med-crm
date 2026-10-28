@@ -81,7 +81,7 @@ test('creation checkbox toggles independently of payroll and survives reopening'
 for (const permissions of [['doctors_view', 'doctors_create'], ['doctors_view', 'doctors_edit', 'payroll_view']]) {
   test(`add button uses creation permission: ${permissions.join(',')}`, async t => {
     let clicks = 0;
-    const body = await mount(t, DoctorsView, {user: {role: 'super_admin', permissions}, doctors: [],
+    const body = await mount(t, DoctorsView, {user: {role: 'admin', permissions}, doctors: [],
       searchTerm: '', setSearchTerm() {}, onAddDoctor() {clicks++;}, canManage: true});
     const button = [...body.querySelectorAll('button')].find(item => item.textContent.includes('Добавить врача'));
     assert.equal(Boolean(button), permissions.includes('doctors_create'));

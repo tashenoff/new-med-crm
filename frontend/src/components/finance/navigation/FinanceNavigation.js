@@ -3,6 +3,7 @@ import React from 'react';
 
 const FinanceNavigation = ({ activeTab, setActiveTab, user }) => {
   const menuItems = [
+    { key: 'finance-admin-bonuses', label: 'Бонусы администраторам', icon: '₸', description: 'Начисления по сотрудникам и месяцу оплаты' },
     {
       key: 'finance-dashboard',
       label: '📊 Дашборд',

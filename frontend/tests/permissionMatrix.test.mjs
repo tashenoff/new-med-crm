@@ -14,7 +14,7 @@ const cases = [
   ['empty', [], '/no-access', ['hms', 'crm', 'warehouse', 'finance']],
 ];
 for (const [name, permissions, home, denied] of cases) test(`${name}: independent spaces and direct route denial`, () => {
-  for (const role of ['super_admin', 'admin', 'marketer', 'doctor']) {
+  for (const role of ['admin', 'marketer', 'doctor']) {
     const user = { role, permissions };
     assert.equal(homeForUser(user), home);
     for (const space of denied) assert.equal(canOpenSpace(user, space), false);
@@ -27,11 +27,11 @@ for (const [name, permissions, home, denied] of cases) test(`${name}: independen
     assert.equal(canOpenPath(user, '/unknown-section'), false);
   }
 });
-test('four groups have unique keys, payroll is separate, no hidden role grants', () => {
+test('four groups have unique keys and ordinary empty accounts have no implicit grants', () => {
   assert.deepEqual(permissionGroups.map(group => group.key), ['hms', 'crm', 'warehouse', 'finance']);
   assert.equal(new Set(allPermissionKeys).size, allPermissionKeys.length);
   assert.ok(allPermissionKeys.includes('payroll_view'));
-  assert.equal(homeForUser({role: 'super_admin'}), '/no-access');
+  assert.equal(homeForUser({role: 'admin'}), '/no-access');
 });
 test('editor preserves effective legacy rights and exact explicit lists on reopening', () => {
   assert.deepEqual(permissionsForEditor({permissions: ['crm_view', 'patients_view'], custom_permissions: ['crm_view']}), ['crm_view', 'patients_view']);
@@ -40,7 +40,7 @@ test('editor preserves effective legacy rights and exact explicit lists on reope
 });
 
 test('action controls require every explicit key and preserve a permitted pending state', () => {
-  for (const role of ['admin', 'super_admin', 'marketer']) {
+  for (const role of ['admin', 'marketer']) {
     const viewer = {role, permissions: ['crm_view']};
     assert.equal(canAction(viewer, 'crm_view', 'crm_edit'), false);
     assert.equal(permissionProps(viewer, 'crm_view', 'crm_edit').disabled, true);
@@ -50,6 +50,15 @@ test('action controls require every explicit key and preserve a permitted pendin
   assert.equal(canAction(writer, 'crm_view', 'crm_edit'), true);
   assert.equal(({disabled: true, ...permissionProps(writer, 'crm_view', 'crm_edit')}).disabled, true);
   assert.equal(permissionProps(writer, 'crm_view', 'crm_export').disabled, true);
+});
+
+test('canonical permission checks give active super-admin full access without scoped assignments', () => {
+  const owner = { role: 'super_admin', permissions: [] };
+  for (const space of ['hms', 'crm', 'warehouse', 'finance']) assert.equal(canOpenSpace(owner, space), true);
+  for (const path of ['/calendar', '/finance-dashboard', '/finance-admin-bonuses']) assert.equal(canOpenPath(owner, path), true);
+  assert.equal(canAction(owner, 'admin_bonus_manage', 'admin_bonus_view', 'patients_view'), true);
+  assert.equal(canOpenPath(owner, '/unknown-section'), false);
+  assert.equal(canAction({ ...owner, is_active: false }, 'admin_bonus_manage'), false);
 });
 
 test('document download denies before loading the API client and never accepts supplied URL paths', async () => {
