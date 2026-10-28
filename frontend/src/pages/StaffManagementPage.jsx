@@ -64,6 +64,10 @@ const StaffManagementPage = ({ user }) => {
     // Для врачей загружаем custom_permissions из staff коллекции
     if (staffMember.type === 'doctor') {
       const result = await staffHook.fetchStaffMember(staffMember.id);
+      if (!result.success || !result.data) {
+        setErrorMessage(result.error || 'Не удалось загрузить текущие права врача');
+        return;
+      }
       setStaffForm({
         full_name: staffMember.full_name || '',
         email: staffMember.email || '',
