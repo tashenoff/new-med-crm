@@ -453,7 +453,208 @@ class StaffService:
             {"_id": staff_id},
             {
                 "$set": {
-                    "hashed_password":…3801 tokens truncated…bьтрации записей
+                    "hashed_password": hashed_password,
+                    "updated_at": datetime.utcnow()
+                }
+            }
+        )
+        
+        return result.modified_count > 0
+    
+    async def get_all_personnel(self, skip: int = 0, limit: int = 500) -> List[Dict[str, Any]]:
+        """
+        Получить всех сотрудников и врачей для отображения в управлении персоналом
+        Врачи читаются из коллекции doctors и помечаются как type="doctor"
+        Остальные сотрудники читаются из коллекции staff
+        """
+        personnel = []
+        
+        # Получаем обычный персонал из staff (ИСКЛЮЧАЯ врачей - они приходят из doctors)
+        # Врачи в staff создаются только для хранения учетных данных (email/password)
+        staff_cursor = self.collection.find({
+            "is_active": True,
+            "role": {"$ne": "doctor"}  # Исключаем врачей - они читаются из коллекции doctors
+        })
+        async for staff_doc in staff_cursor:
+            # Проверяем есть ли у сотрудника запись в users (т.е. есть ли доступ)
+            user_doc = await self.users_collection.find_one({"_id": staff_doc["_id"]})
+            
+            # Преобразуем created_at в строку ISO если это datetime
+            created_at = staff_doc.get("created_at")
+            if created_at and hasattr(created_at, 'isoformat'):
+                created_at = created_at.isoformat()
+            
+            personnel.append({
+                "id": str(staff_doc["_id"]),
+                "full_name": staff_doc.get("full_name", ""),
+                "email": staff_doc.get("email", ""),
+                "login": staff_doc.get("login", ""),
+                "phone": staff_doc.get("phone", ""),
+                "role": staff_doc.get("role", ""),
+                "is_active": staff_doc.get("is_active", True),
+                "created_at": created_at,
+                "has_access": user_doc is not None,
+                "custom_permissions": staff_doc.get("custom_permissions", []),
+                "permissions": effective_permissions(staff_doc),
+                "permission_mode": staff_doc.get("permission_mode", "legacy"),
+                "type": "staff"
+            })
+        
+        # Дополнительно: получаем пользователей из users, у которых нет записи в staff
+        # (старые администраторы, созданные до внедрения коллекции staff)
+        users_cursor = self.users_collection.find({
+            "role": {"$nin": ["doctor", "patient"]},  # Не врачи и не пациенты
+            "is_active": True
+        })
+        async for user_doc in users_cursor:
+            # Используем поле "id" (UUID строку) вместо _id (ObjectId),
+            # чтобы фронтенд отправлял правильный ID для поиска
+            actual_id = user_doc.get("id") or str(user_doc["_id"])
+            # Проверяем, что этот пользователь уже не попал из staff
+            already_added = any(p["id"] == actual_id for p in personnel)
+            if not already_added:
+                created_at = user_doc.get("created_at")
+                if created_at and hasattr(created_at, 'isoformat'):
+                    created_at = created_at.isoformat()
+                
+                personnel.append({
+                    "id": actual_id,
+                    "full_name": user_doc.get("full_name", ""),
+                    "email": user_doc.get("email", ""),
+                    "login": user_doc.get("login", ""),
+                    "phone": user_doc.get("phone", ""),
+                    "role": user_doc.get("role", ""),
+                    "is_active": user_doc.get("is_active", True),
+                    "created_at": created_at,
+                    "has_access": True,
+                    "custom_permissions": user_doc.get("custom_permissions", []),
+                    "permissions": effective_permissions(user_doc),
+                    "permission_mode": user_doc.get("permission_mode", "legacy"),
+                    "type": "staff"
+                })
+        
+        # Получаем врачей из doctors
+        doctors_cursor = self.db.doctors.find({"is_active": True})
+        async for doctor_doc in doctors_cursor:
+            doctor_id = doctor_doc.get("id")
+            
+            # Проверяем есть ли у врача аккаунт в users/staff
+            user_doc = await self.users_collection.find_one({"_id": doctor_id})
+            staff_doc = await self.collection.find_one({"_id": doctor_id})
+            
+            email = None
+            if staff_doc:
+                email = staff_doc.get("email")
+            elif user_doc:
+                email = user_doc.get("email")
+            
+            # Преобразуем created_at в строку ISO если это datetime
+            created_at = doctor_doc.get("created_at")
+            if created_at and hasattr(created_at, 'isoformat'):
+                created_at = created_at.isoformat()
+            
+            # Получаем специальность врача (поддерживаем оба формата: specialty и specialties)
+            doctor_specialty = ""
+            doctor_specialties = doctor_doc.get("specialties", [])
+            if isinstance(doctor_specialties, list) and len(doctor_specialties) > 0:
+                doctor_specialty = ", ".join(doctor_specialties)
+            else:
+                doctor_specialty = doctor_doc.get("specialty", "")
+            
+            personnel.append({
+                "id": str(doctor_id),  # Убедимся что id это строка
+                "full_name": doctor_doc.get("full_name", ""),
+                "email": email or "",
+                "login": (staff_doc.get("login") if staff_doc else "") or (user_doc.get("login") if user_doc else ""),
+                "phone": doctor_doc.get("phone", ""),
+                "specialty": doctor_specialty,
+                "role": "doctor",
+                "is_active": doctor_doc.get("is_active", True),
+                "created_at": created_at,
+                "has_access": user_doc is not None,
+                "type": "doctor"
+            })
+        
+        return personnel
+    
+    async def assign_access_to_doctor(
+        self, 
+        doctor_id: str, 
+        email: Optional[str],
+        password: str,
+        login: Optional[str] = None
+    ) -> Dict[str, Any]:
+        """
+        Назначить врачу логин и пароль для доступа в систему
+        """
+        # Проверяем, существует ли врач
+        if not email and not login:
+            raise ValueError("Email or login is required")
+
+        doctor_doc = await self.db.doctors.find_one({"id": doctor_id, "is_active": True})
+        if not doctor_doc:
+            raise ValueError("Врач не найден")
+        
+        # Проверяем, не занят ли email
+        if email:
+            email_owner = await self.users_collection.find_one({"email": email})
+            if email_owner and email_owner["_id"] != doctor_id:
+                raise ValueError(f"Email {email} уже используется другим пользователем")
+        existing_user = await self.users_collection.find_one({"_id": doctor_id})
+        
+        # Проверяем уникальность логина (если указан)
+        if login:
+            existing_login = await self.users_collection.find_one({"login": login})
+            if existing_login and existing_login["_id"] != doctor_id:
+                raise ValueError(f"Логин '{login}' уже используется другим пользователем")
+        
+        # Проверяем, нет ли уже записи в staff для этого врача
+        existing_staff = await self.collection.find_one({"_id": doctor_id})
+        if any(record and record.get("role") != "doctor" for record in (existing_user, existing_staff)):
+            raise ValueError("Doctor identity collides with another staff account")
+        
+        # Хешируем пароль
+        hashed_password = self._hash_password(password)
+        
+        current_time = datetime.utcnow()
+        
+        # Создаем/обновляем запись в staff
+        staff_data = {
+            "_id": doctor_id,
+            "email": email,
+            "login": login,
+            "full_name": doctor_doc.get("full_name"),
+            "role": "doctor",
+            "phone": doctor_doc.get("phone"),
+            "is_active": True,
+            "hashed_password": hashed_password,
+            "custom_permissions": (existing_staff or existing_user or {}).get("custom_permissions", []),
+            "permission_mode": (existing_staff or existing_user or {}).get("permission_mode", "explicit"),
+            "updated_at": current_time
+        }
+        
+        if existing_staff:
+            # Обновляем существующую запись
+            await self.collection.update_one(
+                {"_id": doctor_id},
+                {"$set": staff_data}
+            )
+        else:
+            # Создаем новую запись
+            staff_data["created_at"] = current_time
+            await self.collection.insert_one(staff_data)
+        
+        # Создаем/обновляем запись в users
+        user_data = {
+            "_id": doctor_id,
+            "email": email,
+            "login": login,
+            "hashed_password": hashed_password,
+            "full_name": doctor_doc.get("full_name"),
+            "role": "doctor",
+            "custom_permissions": staff_data["custom_permissions"],
+            "permission_mode": staff_data["permission_mode"],
+            "doctor_id": doctor_id,  # ИСПРАВЛЕНИЕ: Устанавливаем doctor_id для фильтрации записей
             "is_active": True,
             "updated_at": current_time
         }
