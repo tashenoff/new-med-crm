@@ -47,6 +47,8 @@ class Permission(str, Enum):
     # Финансы
     FINANCE_VIEW = "finance_view"
     PAYROLL_VIEW = "payroll_view"  # Explicit assignment only; no role receives it by default.
+    ADMIN_BONUS_VIEW = "admin_bonus_view"  # Explicit assignment; includes employee compensation.
+    ADMIN_BONUS_MANAGE = "admin_bonus_manage"  # Explicit assignment to an authorized manager.
     FINANCE_EDIT = "finance_edit"
     
     # Статистика

@@ -49,6 +49,7 @@ def memory_db(kind="hybrid", value=50, percent=20):
     settings = dict(id="doctor", payment_mode="general", payment_type=kind,
                     payment_value=value, hybrid_percentage_value=percent, currency="KZT")
     db = Mock()
+    db.admin_bonus_settings.find_one = AsyncMock(return_value=None)
     db.service_prices.find_one = AsyncMock(side_effect=lambda query: dict(id=query["id"], service_type="regular"))
     db.appointments.find.return_value.sort.return_value.to_list = AsyncMock(return_value=[])
     db.treatment_plans.find_one = AsyncMock(side_effect=lambda query: deepcopy(document))

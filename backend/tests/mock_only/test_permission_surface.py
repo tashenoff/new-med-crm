@@ -1,4 +1,4 @@
-"""All registered HTTP API operations are exercised against an empty grant set."""
+"""All registered HTTP API operations reject ordinary admins with empty grants."""
 import os
 import re
 
@@ -16,7 +16,7 @@ async def test_every_registered_api_denies_empty_permissions(monkeypatch):
     monkeypatch.setenv('MONGO_URL', 'mongodb://localhost:27017/permission_synthetic')
     monkeypatch.setenv('DB_NAME', 'permission_synthetic')
     import server
-    actor = UserInDB(id='synthetic', full_name='Synthetic', role='super_admin', hashed_password='synthetic', permissions=[])
+    actor = UserInDB(id='synthetic', full_name='Synthetic', role='admin', hashed_password='synthetic', permissions=[])
     server.app.dependency_overrides[get_current_active_user] = lambda: actor
     checked = 0
     known = {p.value for p in Permission}

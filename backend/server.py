@@ -164,6 +164,8 @@ app.include_router(feedback_router)
 app.include_router(laboratories_router)
 app.include_router(staff_router)
 app.include_router(settings_router)
+from routers.admin_bonuses import router as admin_bonuses_router
+app.include_router(admin_bonuses_router)
 app.include_router(service_quality_router)
 app.include_router(price_import_router, prefix="/api")
 

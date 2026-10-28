@@ -204,7 +204,8 @@ class PaymentCompletionService:
                 raise HTTPException(409, 'Remaining amount changed; refresh the plan before paying')
             staged = _StagedPlan(plan)
             ledger = AccountingLedgerService(SimpleNamespace(treatment_plans=staged,
-                service_prices=self.db.service_prices, doctors=self.db.doctors), sync_payment=False)
+                service_prices=self.db.service_prices, doctors=self.db.doctors,
+                admin_bonus_settings=self.db.admin_bonus_settings), sync_payment=False)
             for parent, target, prefix, due, discount in units:
                 key = target_key(parent, target, prefix)
                 child_operation = str(uuid5(UUID(operation_id), json.dumps(['settle-target', *key])))

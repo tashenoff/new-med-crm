@@ -12,6 +12,7 @@ from starlette.routing import request_response
 from routers.auth import get_current_active_user
 from database import get_database
 from clinic_boundary import assert_single_clinic
+from permission_policy import has_permission
 
 PUBLIC = {
     ('POST', '/api/auth/login'), ('POST', '/api/auth/register'),
@@ -32,6 +33,12 @@ def requirements(path, method, module=''):
             return ('staff_view', 'staff_delete')
         return ('staff_view',) if method in ('GET', 'HEAD') else ('staff_view', 'staff_edit')
     read = method in ('GET', 'HEAD')
+    if path == '/api/admin-bonuses/settings':
+        return ('admin_bonus_view|admin_bonus_manage',) if read else ('admin_bonus_manage',)
+    if path == '/api/admin-bonuses/context':
+        return ('admin_bonus_view|admin_bonus_manage',) if read else None
+    if path == '/api/admin-bonuses':
+        return ('admin_bonus_view', 'patients_view') if read else None
     if path == '/api/doctors/salary-report':
         return ('payroll_view',)
     if path == '/api/lookups/doctors':
@@ -100,8 +107,17 @@ def requirements(path, method, module=''):
 
 
 def check_access(user, required):
-    if required is None or not user.is_active or not all(set(clause.split('|')) & set(user.permissions) for clause in required):
+    if required is None or not user.is_active or not all(any(has_permission(user, key) for key in clause.split('|')) for clause in required):
         raise HTTPException(403, 'Permission denied')
+
+
+def redact_admin_bonus(value):
+    """A clinical receipt response must not grant access to employee pay."""
+    if isinstance(value, list):
+        return [redact_admin_bonus(item) for item in value]
+    if isinstance(value, dict):
+        return {key: redact_admin_bonus(item) for key, item in value.items() if key != 'admin_bonus'}
+    return value
 
 
 def redact_crm_payload(value, user):
@@ -112,13 +128,13 @@ remain CRM data. Clinical identity/demographics and joined treatment billing do
 not become available merely because they were copied into a CRM response.
 """
     hidden = set()
-    if 'patients_view' not in user.permissions:
+    if not has_permission(user, 'patients_view'):
         hidden |= {'patient', 'patient_id', 'linked_patient_id', 'identity_patient_id', 'hms_patient_id',
                    'is_hms_patient', 'converted_to_appointment_id', 'converted_to_client_id',
                    'iin', 'birth_date', 'gender', 'appointments_count', 'records_count',
                    'hms_patients', 'hms_conversion_rate', 'treatment_plans', 'appointments',
                    'medical_history', 'diagnoses', 'diagnosis', 'last_appointment'}
-    if 'finance_view' not in user.permissions:
+    if not has_permission(user, 'finance_view'):
         hidden |= {'treatment_plan_total', 'deposit_amount', 'extra_deposit', 'deposit_balance',
                    'patient_debt', 'total_revenue', 'avg_revenue', 'avg_revenue_per_client',
                    'revenue', 'total_paid', 'paid_amount'}
@@ -247,6 +263,12 @@ def install_api_permissions(app):
                     user = request.state.permission_user
                     payload = redact_crm_payload(json.loads(response.body), user)
                     response.body = json.dumps(payload, ensure_ascii=False, separators=(',', ':')).encode('utf-8')
+                    response.headers['content-length'] = str(len(response.body))
+                user = getattr(request.state, 'permission_user', None)
+                if ('application/json' in response.headers.get('content-type', '')
+                        and b'"admin_bonus"' in response.body
+                        and (user is None or not has_permission(user, 'admin_bonus_view'))):
+                    response.body = json.dumps(redact_admin_bonus(json.loads(response.body)), ensure_ascii=False, separators=(',', ':')).encode('utf-8')
                     response.headers['content-length'] = str(len(response.body))
                 return response
             return handler

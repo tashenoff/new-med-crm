@@ -1,9 +1,12 @@
 """One permission resolver. Explicit lists replace role presets; never union them.
 
 Documents without permission_mode keep legacy grants until deliberately saved.
-New accounts default to explicit deny-all, including when the list is omitted.
+Ordinary accounts default to explicit deny-all, including omitted lists.
+Authorization recognizes active SUPER_ADMIN in the shared check below, without
+rewriting any account's stored grants.
 """
 from models.staff import Permission, ROLE_PERMISSIONS, StaffRole
+from models.auth import UserRole
 
 # These two operations were authorized by admin role before per-action guards:
 # staff management and receiving clinical payments. Preserve that existing
@@ -33,4 +36,4 @@ def effective_permissions(document):
 
 
 def has_permission(user, permission):
-    return bool(user.is_active and permission in user.permissions)
+    return bool(user.is_active and (getattr(user, 'role', None) == UserRole.SUPER_ADMIN or permission in user.permissions))

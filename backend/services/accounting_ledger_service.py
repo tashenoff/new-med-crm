@@ -285,6 +285,8 @@ def event_result(event):
     result = deepcopy(event)
     for field in ("occurred_at", "recorded_at"):
         result[field] = utc_datetime(result[field])
+    if isinstance(result.get("admin_bonus"), dict):
+        result["admin_bonus"]["paid_at"] = utc_datetime(result["admin_bonus"]["paid_at"])
     return {"event": result}
 
 
@@ -468,6 +470,8 @@ class AccountingLedgerService:
     def __init__(self, db, sync_payment=True):
         self.db = db
         self._sync_enabled = sync_payment
+        self._bonus_setting_loaded = False
+        self._bonus_setting = None
 
     async def _sync_payment(self, plan_id):
         if self._sync_enabled:
@@ -477,6 +481,12 @@ class AccountingLedgerService:
     async def _payment_append(self, plan, fields, events, recorded_by, operation_id):
         from services.payment_completion_service import append_auto_completions
         result = await append_auto_completions(self.db, plan, fields, events, recorded_by, operation_id)
+        from services.admin_bonus_service import AdminBonusService, RECEIPT_KINDS, attach_bonuses
+        if any(event.get("kind") in RECEIPT_KINDS for event in result):
+            if not self._bonus_setting_loaded:
+                self._bonus_setting = await AdminBonusService(self.db).setting()
+                self._bonus_setting_loaded = True
+            result = attach_bonuses(plan, result, self._bonus_setting)
         return result[0] if len(result) == 1 else {"$each": result}
 
     async def plan_deposit_allocations(self, plan, events, balance, operation_id, recorded_by, now):
