@@ -7,6 +7,8 @@ import PanelHeader from '../common/PanelHeader';
 import { inputClasses, selectClasses, buttonPrimaryClasses, buttonSecondaryClasses, buttonDangerClasses, tableClasses, tableHeaderClasses, tableRowClasses, labelClasses } from '../modals/modalUtils';
 import { materialsApi } from '../../api/materials';
 import { validateServicePrice, servicePriceSaveError } from './servicePriceForm';
+import PriceImportHistory from './PriceImportHistory';
+import { canImportPreview, importErrorText, previewErrors } from './priceImport';
 
 const API = import.meta.env.VITE_BACKEND_URL;
 
@@ -27,6 +29,7 @@ const ServicePrices = ({ user }) => {
   const [importLoading, setImportLoading] = useState(false);
   const [importError, setImportError] = useState('');
   const [importResult, setImportResult] = useState(null);
+  const [importHistoryVersion, setImportHistoryVersion] = useState(0);
   const [importOptions, setImportOptions] = useState({
     update_existing: false,
     skip_duplicates: true
@@ -519,6 +522,8 @@ const ServicePrices = ({ user }) => {
 
   const handleFileSelect = async (e) => {
     const file = e.target.files[0];
+    setImportFile(null);
+    setImportPreview(null);
     if (!file) return;
     
     const allowedTypes = ['.xls', '.xlsx'];
@@ -551,7 +556,7 @@ const ServicePrices = ({ user }) => {
         setImportPreview(data);
       } else {
         const errorData = await response.json();
-        setImportError(errorData.detail?.message || errorData.detail || 'Ошибка предпросмотра файла');
+        setImportError(importErrorText(errorData.detail));
       }
     } catch (error) {
       console.error('Preview error:', error);
@@ -562,7 +567,7 @@ const ServicePrices = ({ user }) => {
   };
 
   const handleImportConfirm = async () => {
-    if (!importFile) return;
+    if (!importFile || !canImportPreview(importPreview)) return;
     
     try {
       setImportLoading(true);
@@ -591,13 +596,14 @@ const ServicePrices = ({ user }) => {
         await fetchCategories();
       } else {
         const errorData = await response.json();
-        setImportError(errorData.detail?.message || errorData.detail || 'Ошибка импорта');
+        setImportError(importErrorText(errorData.detail));
       }
     } catch (error) {
       console.error('Import error:', error);
       setImportError('Ошибка подключения к серверу');
     } finally {
       setImportLoading(false);
+      setImportHistoryVersion(version => version + 1);
     }
   };
 
@@ -719,6 +725,7 @@ const ServicePrices = ({ user }) => {
         />
 
         <div className="bg-curai-surface rounded-b-md border border-t-0 border-curai-border p-4 space-y-4 shadow-none">
+          <PriceImportHistory refreshKey={importHistoryVersion} />
           
           {/* Category Management Section */}
           {(user?.role === 'admin' || user?.role === 'super_admin' || user?.role === 'marketer') && (
@@ -1382,17 +1389,21 @@ const ServicePrices = ({ user }) => {
               )}
 
               {importError && (
-                <div className="p-3 bg-curai-negativeBg border border-curai-negative text-curai-negative rounded text-sm">
+                <div role="alert" className="p-3 bg-curai-negativeBg border border-curai-negative text-curai-negative rounded text-sm whitespace-pre-wrap">
                   {importError}
                 </div>
               )}
 
               {importPreview && !importLoading && (
                 <div className="space-y-3">
+                  {previewErrors(importPreview).length > 0 && <div role="alert" className="bg-curai-warningBg p-3 rounded-md text-sm">
+                    <p>{canImportPreview(importPreview) ? 'Импортируются только корректные строки. Ошибки файла:' : 'Импорт недоступен. Ошибки файла:'}</p>
+                    <ul className="list-disc pl-5">{previewErrors(importPreview).map((message, index) => <li key={index}>{message}</li>)}</ul>
+                  </div>}
                   <div className="bg-curai-selected p-3 rounded-md">
                     <h4 className="font-medium text-curai-blue mb-2">Предпросмотр</h4>
                     <div className="grid grid-cols-2 gap-2 text-sm">
-                      <div>Услуг в файле: <b>{importPreview.total_services}</b></div>
+                      <div>Корректных строк: <b>{importPreview.total_services}</b></div>
                       <div>Новых: <b className="text-curai-positive">{importPreview.services_preview?.new_count || 0}</b></div>
                       <div>Дубликатов: <b className="text-curai-warning">{importPreview.services_preview?.duplicate_count || 0}</b></div>
                       <div>Категорий: <b>{importPreview.categories?.total || 0}</b></div>
@@ -1419,14 +1430,17 @@ const ServicePrices = ({ user }) => {
           )}
 
           {importResult && (
-            <div className="p-4 bg-curai-positiveBg rounded-md">
-              <h4 className="font-medium text-curai-positive mb-2">✅ Импорт завершён!</h4>
+            <div role="status" className={`p-4 rounded-md ${importResult.status === 'partial' ? 'bg-curai-warningBg' : importResult.status === 'failed' ? 'bg-curai-negativeBg' : 'bg-curai-positiveBg'}`}>
+              <h4 className="font-medium mb-2">{importResult.status === 'partial' ? 'Импорт выполнен частично' : importResult.status === 'failed' ? 'Импорт не выполнен' : 'Импорт завершён'}</h4>
               <div className="grid grid-cols-2 gap-2 text-sm text-curai-positive ">
                 <div>Создано: <b>{importResult.services?.created || 0}</b></div>
                 <div>Обновлено: <b>{importResult.services?.updated || 0}</b></div>
                 <div>Пропущено: <b>{importResult.services?.skipped || 0}</b></div>
                 <div>Новых категорий: <b>{importResult.categories?.created || 0}</b></div>
               </div>
+              {[...(importResult.errors?.parse || []), ...(importResult.errors?.import || [])].length > 0 && <ul className="list-disc pl-5 text-sm mt-2">
+                {[...(importResult.errors?.parse || []), ...(importResult.errors?.import || [])].map((message, index) => <li key={index}>{message}</li>)}
+              </ul>}
             </div>
           )}
 
@@ -1435,8 +1449,8 @@ const ServicePrices = ({ user }) => {
               {importResult ? 'Закрыть' : 'Отмена'}
             </button>
             {!importResult && importPreview && (
-              <button onClick={handleImportConfirm} className={buttonPrimaryClasses} disabled={importLoading} {...permissionProps(user, "directory_view", "directory_edit")}>
-                {importLoading ? 'Импорт...' : `Импортировать (${importPreview.services_preview?.new_count || 0})`}
+              <button onClick={handleImportConfirm} className={buttonPrimaryClasses} disabled={importLoading || !canImportPreview(importPreview)} {...permissionProps(user, "directory_view", "directory_edit")}>
+                {importLoading ? 'Импорт...' : `Импортировать (${importPreview.total_services || 0})`}
               </button>
             )}
           </div>

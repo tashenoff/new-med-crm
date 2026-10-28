@@ -211,9 +211,11 @@ const Laboratories = ({ user }) => {
         { headers: { Authorization: `Bearer ${token}` } }
       );
       const d = res.data;
-      const msg = `Импорт завершен: создано ${d.parsed.created}, обновлено ${d.parsed.updated}, пропущено ${d.parsed.skipped}`;
-      if (d.errors?.parse?.length) {
-        alert(msg + `\nОшибки парсинга (${d.errors.parse.length}):\n` + d.errors.parse.slice(0, 5).join('\n'));
+      const status = d.status === 'partial' ? 'Импорт выполнен частично' : d.status === 'failed' ? 'Импорт не выполнен' : 'Импорт завершён';
+      const msg = `${status}: создано ${d.parsed.created}, обновлено ${d.parsed.updated}, пропущено ${d.parsed.skipped}`;
+      const issues = [...(d.errors?.parse || []), ...(d.errors?.import || [])];
+      if (issues.length) {
+        alert(msg + `\nОшибки (${issues.length}):\n` + issues.slice(0, 5).join('\n'));
       } else {
         alert(msg);
       }
