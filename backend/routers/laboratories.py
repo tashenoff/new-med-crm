@@ -103,42 +103,16 @@ async def import_laboratory_price(
     """
     lab = await lab_service.get_laboratory(laboratory_id)
 
-    if not file.filename:
-        raise HTTPException(status_code=400, detail="Файл не выбран")
-
-    allowed_ext = ['.xls', '.xlsx']
-    file_ext = '.' + file.filename.split('.')[-1].lower() if '.' in file.filename else ''
-    if file_ext not in allowed_ext:
-        raise HTTPException(status_code=400, detail=f"Разрешены: {', '.join(allowed_ext)}")
-
-    content = await file.read()
-    if len(content) == 0:
-        raise HTTPException(status_code=400, detail="Файл пустой")
-
-    services, categories, parse_errors = import_service.parse_excel(content, file.filename)
-
-    if parse_errors and not services:
-        raise HTTPException(status_code=400, detail={"message": "Ошибка парсинга", "errors": parse_errors})
-
-    # Привязываем услуги к лаборатории: категория = имя лабы, плюс id/имя лабы
     lab_name = lab.name
-    for svc in services:
-        svc['category'] = lab_name
-        svc['laboratory_id'] = lab.id
-        svc['laboratory_name'] = lab_name
-
-    import_result = await import_service.import_services(services, update_existing, skip_duplicates)
+    result = await import_service.import_file(
+        await file.read(), file.filename, update_existing, skip_duplicates,
+        laboratory={'id': lab.id, 'name': lab_name}
+    )
 
     return {
-        "success": True,
-        "message": "Импорт в лабораторию завершен",
+        **result,
         "laboratory": {"id": lab.id, "name": lab_name},
-        "file_name": file.filename,
         "parsed": {
-            "total_in_file": len(services),
-            "created": import_result['created'],
-            "updated": import_result['updated'],
-            "skipped": import_result['skipped']
+            **result['services']
         },
-        "errors": {"parse": parse_errors, "import": import_result['errors']}
     }

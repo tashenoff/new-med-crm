@@ -5,7 +5,10 @@ Supports .xls and .xlsx formats
 import pandas as pd
 import re
 import uuid
-from datetime import datetime
+from fastapi import HTTPException
+from datetime import datetime, timezone
+from copy import deepcopy
+from math import isfinite
 from typing import List, Dict, Any, Tuple, Optional
 from motor.motor_asyncio import AsyncIOMotorDatabase
 from io import BytesIO
@@ -41,6 +44,112 @@ class PriceImportService:
     
     def __init__(self, db: AsyncIOMotorDatabase):
         self.db = db
+
+    @staticmethod
+    def service_identity(service: Dict) -> Dict:
+        """Import identity includes specialty and the laboratory boundary.
+
+        An ordinary price import must never overwrite a laboratory's catalog.
+        Match disabled rows too, so re-importing them does not create copies.
+        """
+        category = service.get('category') or None
+        identity = {
+            'service_name': service['service_name'],
+            'category': category if category else {'$in': [None, '']},
+        }
+        if service.get('laboratory_id'):
+            identity['laboratory_id'] = service['laboratory_id']
+        else:
+            identity['laboratory_id'] = {'$in': [None, '']}
+            identity['laboratory_name'] = {'$in': [None, '']}
+        return identity
+
+    async def find_existing_service(self, service: Dict):
+        matches = await self.db.service_prices.find(self.service_identity(service)).limit(2).to_list(2)
+        if len(matches) > 1:
+            raise ValueError(f"Несколько существующих услуг: {service['service_name']} / {service.get('category') or 'Без специальности'}. Требуется проверка.")
+        return matches[0] if matches else None
+
+    async def preview_services(self, services: List[Dict]) -> Dict:
+        new_services, duplicates, errors, seen = [], [], [], set()
+        for service in services:
+            key = (service['service_name'], service.get('category') or None, service.get('laboratory_id') or None)
+            try:
+                existing = await self.find_existing_service(service)
+                (duplicates if existing or key in seen else new_services).append(service['service_name'])
+                seen.add(key)
+            except ValueError as error:
+                errors.append(str(error))
+        return {'new_count': len(new_services), 'duplicate_count': len(duplicates),
+                'sample': services[:20], 'match_errors': errors}
+
+    @staticmethod
+    def _public_run(run):
+        if not run:
+            return None
+        result = {key: value for key, value in run.items() if key != '_id'}
+        timestamp = result['finished_at']
+        if timestamp.tzinfo is None:
+            timestamp = timestamp.replace(tzinfo=timezone.utc)
+        result['finished_at'] = timestamp.astimezone(timezone.utc).isoformat().replace('+00:00', 'Z')
+        return result
+
+    async def get_import_history(self):
+        order = [('finished_at', -1), ('_id', -1)]
+        return {
+            'last_import': self._public_run(await self.db.price_import_runs.find_one({}, sort=order)),
+            'last_successful_import': self._public_run(await self.db.price_import_runs.find_one({'status': 'success'}, sort=order)),
+        }
+
+    async def _record_import(self, filename, status, counts, errors, laboratory):
+        run = {
+            'finished_at': datetime.now(timezone.utc), 'status': status,
+            'file_name': filename, 'services': counts, 'errors': errors,
+            'scope': 'laboratory' if laboratory else 'general',
+        }
+        if laboratory:
+            run.update(laboratory_id=laboratory['id'], laboratory_name=laboratory['name'])
+        await self.db.price_import_runs.insert_one(run)
+        return self._public_run(run)
+
+    async def import_file(self, content, filename, update_existing=False, skip_duplicates=True, laboratory=None):
+        """One shared import workflow; only complete runs receive success history."""
+        filename = filename or ''
+        errors = []
+        services, categories = [], []
+        if not filename:
+            errors = ['Файл не выбран']
+        elif filename.rsplit('.', 1)[-1].lower() not in ('xls', 'xlsx'):
+            errors = ['Разрешены: .xls, .xlsx']
+        elif not content:
+            errors = ['Файл пустой']
+        else:
+            services, categories, errors = self.parse_excel(content, filename)
+        counts = {'total_in_file': len(services), 'created': 0, 'updated': 0, 'skipped': 0}
+        if not services:
+            errors = errors or ['Нет корректных услуг для импорта']
+            await self._record_import(filename, 'failed', counts, {'parse': errors, 'import': []}, laboratory)
+            raise HTTPException(400, detail={'message': 'Ошибка парсинга', 'errors': errors, 'status': 'failed'})
+        if laboratory:
+            for service in services:
+                service.update(category=laboratory['name'], laboratory_id=laboratory['id'], laboratory_name=laboratory['name'])
+        try:
+            category_stats = {'created': 0, 'existing': 0} if laboratory else await self.ensure_categories_exist(categories)
+            imported = await self.import_services(services, update_existing, skip_duplicates)
+        except Exception:
+            await self._record_import(filename, 'failed', counts, {'parse': errors, 'import': ['Не удалось завершить импорт']}, laboratory)
+            raise
+        counts.update({key: imported[key] for key in ('created', 'updated', 'skipped')})
+        issues = {'parse': errors, 'import': imported['errors']}
+        has_errors = bool(errors or imported['errors'])
+        status = ('partial' if imported['total_processed'] else 'failed') if has_errors else 'success'
+        run = await self._record_import(filename, status, counts, issues, laboratory)
+        return {
+            'success': status == 'success', 'status': status,
+            'message': {'success': 'Импорт завершён', 'partial': 'Импорт выполнен частично', 'failed': 'Импорт не выполнен'}[status],
+            'file_name': filename, 'categories': {'found': len(categories), **category_stats},
+            'services': counts, 'errors': issues, 'import_run': run,
+        }
     
     def _clean_price(self, price_value: Any) -> Optional[float]:
         """Clean price value from string format (e.g., '11 500₸' -> 11500.0)"""
@@ -79,7 +188,7 @@ class PriceImportService:
         """Map DataFrame columns to model fields"""
         column_map = {}
         for col in df.columns:
-            normalized = col.lower().strip()
+            normalized = str(col).lower().strip()
             if normalized in self.COLUMN_MAPPING:
                 column_map[col] = self.COLUMN_MAPPING[normalized]
         return column_map
@@ -101,7 +210,7 @@ class PriceImportService:
             df = None
             # Try reading as Excel first
             try:
-                engine = 'xlrd' if filename.endswith('.xls') else 'openpyxl'
+                engine = 'xlrd' if filename.lower().endswith('.xls') else 'openpyxl'
                 df = pd.read_excel(BytesIO(file_content), engine=engine)
             except Exception as excel_err:
                 # If Excel fails, try reading as HTML (common for web exports)
@@ -148,7 +257,7 @@ class PriceImportService:
                     service_name = str(service_name).strip()
                     price = self._clean_price(row.get(price_col))
                     
-                    if price is None or price < 0:
+                    if price is None or not isfinite(price) or price < 0:
                         errors.append(f"Строка {idx + 2}: Некорректная цена для '{service_name}'")
                         continue
                     
@@ -244,12 +353,11 @@ class PriceImportService:
         skipped = 0
         errors = []
         
-        for svc in services:
+        for source in services:
+            svc = deepcopy(source)
             try:
                 service_name = svc['service_name']
-                existing = await self.db.service_prices.find_one({
-                    "service_name": service_name, "is_active": True
-                })
+                existing = await self.find_existing_service(svc)
                 
                 if existing:
                     if update_existing:
@@ -263,7 +371,7 @@ class PriceImportService:
                     elif skip_duplicates:
                         skipped += 1
                     else:
-                        errors.append(f"Услуга '{service_name}' уже существует")
+                        errors.append(f"Услуга '{service_name}' / '{svc.get('category') or 'Без специальности'}' уже существует")
                 else:
                     await self.db.service_prices.insert_one(svc)
                     created += 1

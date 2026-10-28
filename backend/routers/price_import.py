@@ -16,6 +16,15 @@ def get_import_service():
     return PriceImportService(db)
 
 
+@price_import_router.get("/history")
+async def get_import_history(
+    current_user: UserInDB = Depends(get_current_active_user),
+    service: PriceImportService = Depends(get_import_service)
+):
+    """Persisted UTC history shared by every device; no inferred legacy date."""
+    return await service.get_import_history()
+
+
 @price_import_router.post("/upload")
 async def upload_price_file(
     file: UploadFile = File(...),
@@ -30,40 +39,7 @@ async def upload_price_file(
     Категории из колонки 'Специальность' автоматически добавляются
     в справочник специальностей врачей (specialties).
     """
-    if not file.filename:
-        raise HTTPException(status_code=400, detail="Файл не выбран")
-    
-    allowed_ext = ['.xls', '.xlsx']
-    file_ext = '.' + file.filename.split('.')[-1].lower() if '.' in file.filename else ''
-    
-    if file_ext not in allowed_ext:
-        raise HTTPException(status_code=400, detail=f"Разрешены: {', '.join(allowed_ext)}")
-    
-    content = await file.read()
-    if len(content) == 0:
-        raise HTTPException(status_code=400, detail="Файл пустой")
-    
-    services, categories, parse_errors = service.parse_excel(content, file.filename)
-    
-    if parse_errors and not services:
-        raise HTTPException(status_code=400, detail={"message": "Ошибка парсинга", "errors": parse_errors})
-    
-    category_stats = await service.ensure_categories_exist(categories)
-    import_result = await service.import_services(services, update_existing, skip_duplicates)
-    
-    return {
-        "success": True,
-        "message": "Импорт завершен",
-        "file_name": file.filename,
-        "categories": {"found": len(categories), **category_stats},
-        "services": {
-            "total_in_file": len(services),
-            "created": import_result['created'],
-            "updated": import_result['updated'],
-            "skipped": import_result['skipped']
-        },
-        "errors": {"parse": parse_errors, "import": import_result['errors']}
-    }
+    return await service.import_file(await file.read(), file.filename, update_existing, skip_duplicates)
 
 
 @price_import_router.post("/preview")
@@ -95,23 +71,17 @@ async def preview_price_file(
         exists = await db.specialties.find_one({"name": cat, "is_active": True})
         (existing_cats if exists else new_cats).append(cat)
     
-    # Check duplicates
-    duplicates = []
-    new_services = []
-    for svc in services:
-        exists = await db.service_prices.find_one({"service_name": svc['service_name'], "is_active": True})
-        (duplicates if exists else new_services).append(svc['service_name'])
+    preview = await service.preview_services(services)
+    can_import = bool(services) and not preview['match_errors']
     
     return {
-        "success": True,
+        "success": can_import,
+        "can_import": can_import,
+        "status": ('partial' if parse_errors else 'ready') if can_import else 'failed',
         "file_name": file.filename,
         "total_services": len(services),
         "categories": {"total": len(categories), "existing": existing_cats, "new": new_cats},
-        "services_preview": {
-            "new_count": len(new_services),
-            "duplicate_count": len(duplicates),
-            "sample": services[:20]
-        },
+        "services_preview": preview,
         "parse_errors": parse_errors
     }
 
