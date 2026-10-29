@@ -1,0 +1,71 @@
+/* Page layout on the existing Curai foundations, controls and semantic tokens. */
+.curai-admin-bonuses { display: grid; gap: var(--curai-space-24); min-width: 0; color: var(--curai-color-ink); }
+.curai-admin-bonuses > .curai-panel-header { padding-bottom: 0; }
+.curai-admin-bonuses h3, .curai-admin-bonuses h4, .curai-admin-bonuses p { margin: 0; }
+.curai-admin-bonuses .curai-bonus-card { min-width: 0; background: var(--curai-color-surface); border: 1px solid var(--curai-color-border); border-radius: var(--curai-radius-6); }
+.curai-bonus-card-heading { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: var(--curai-space-16); padding: var(--curai-space-20) var(--curai-space-24); border-bottom: 1px solid var(--curai-color-border); }
+.curai-bonus-heading { display: flex; align-items: flex-start; gap: var(--curai-space-12); min-width: 0; }
+.curai-bonus-heading h3 { font-size: var(--curai-type-size-16); line-height: var(--curai-type-line-24); font-weight: 600; }
+.curai-bonus-heading p { margin-top: var(--curai-space-4); color: var(--curai-color-muted); font-size: var(--curai-type-size-13); line-height: var(--curai-type-line-20); }
+.curai-bonus-icon { display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; width: var(--curai-control-default); height: var(--curai-control-default); border-radius: var(--curai-radius-6); background: var(--curai-color-selected); color: var(--curai-color-blue); }
+.curai-bonus-card-body { padding: var(--curai-space-24); }
+.curai-bonus-setting-layout { display: grid; grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr); gap: var(--curai-space-32); align-items: start; }
+.curai-bonus-form { display: grid; gap: var(--curai-space-20); min-width: 0; }
+.curai-admin-bonuses .curai-bonus-enable { display: flex; align-items: center; gap: var(--curai-space-8); color: var(--curai-color-ink); font-size: var(--curai-type-size-14); font-weight: 500; }
+.curai-bonus-fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--curai-space-16); }
+.curai-bonus-field { display: grid; gap: var(--curai-space-8); min-width: 0; font-size: var(--curai-type-size-12); color: var(--curai-color-muted); }
+.curai-bonus-field input, .curai-bonus-field select { width: 100%; min-width: 0; }
+.curai-bonus-form-footer { display: flex; justify-content: flex-end; }
+.curai-bonus-note { display: grid; gap: var(--curai-space-12); padding: var(--curai-space-20); border: 1px solid var(--curai-color-border); border-radius: var(--curai-radius-6); background: var(--curai-color-subtle); color: var(--curai-color-muted); font-size: var(--curai-type-size-13); line-height: var(--curai-type-line-20); }
+.curai-bonus-note h4 { color: var(--curai-color-ink); font-weight: 600; }
+.curai-bonus-current-rate { display: grid; gap: var(--curai-space-8); color: var(--curai-color-muted); font-size: var(--curai-type-size-13); }
+.curai-bonus-current-rate strong { color: var(--curai-color-ink); font-size: var(--curai-type-size-24); line-height: var(--curai-type-line-32); font-weight: 600; }
+.curai-bonus-message { display: flex; align-items: flex-start; gap: var(--curai-space-12); padding: var(--curai-space-16); border: 1px solid var(--curai-color-border); border-radius: var(--curai-radius-6); overflow-wrap: anywhere; font-size: var(--curai-type-size-13); line-height: var(--curai-type-line-20); }
+.curai-bonus-card-body > .curai-bonus-message { margin-top: var(--curai-space-16); }
+.curai-bonus-message.is-error { color: var(--curai-color-negative); background: var(--curai-color-negativeBg); border-color: var(--curai-color-negative); }
+.curai-bonus-message.is-success { color: var(--curai-color-positive); background: var(--curai-color-positiveBg); }
+.curai-bonus-message .curai-button { margin-top: var(--curai-space-12); max-width: 100%; white-space: normal; }
+.curai-bonus-filters { display: grid; grid-template-columns: minmax(160px, 220px) minmax(180px, 300px) minmax(0, 1fr); gap: var(--curai-space-20); align-items: end; padding: var(--curai-space-20) var(--curai-space-24); border-bottom: 1px solid var(--curai-color-border); }
+.curai-bonus-zone { display: grid; grid-template-columns: auto minmax(0, 1fr); column-gap: var(--curai-space-8); align-items: center; justify-self: end; color: var(--curai-color-muted); font-size: var(--curai-type-size-12); line-height: var(--curai-type-line-18); }
+.curai-bonus-zone .curai-icon { grid-row: span 2; }
+.curai-bonus-zone span { color: var(--curai-color-ink); overflow-wrap: anywhere; }
+.curai-bonus-summary { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 240px), 1fr)); gap: var(--curai-space-16); padding: var(--curai-space-24); }
+.curai-bonus-employee { display: flex; align-items: center; gap: var(--curai-space-12); padding: var(--curai-space-16); border: 1px solid var(--curai-color-border); border-radius: var(--curai-radius-6); min-width: 0; }
+.curai-bonus-employee > div { min-width: 0; }
+.curai-bonus-employee p { color: var(--curai-color-muted); font-size: var(--curai-type-size-13); overflow-wrap: anywhere; }
+.curai-bonus-employee strong { display: block; margin-top: var(--curai-space-4); font-size: var(--curai-type-size-20); line-height: var(--curai-type-line-28); font-weight: 600; font-variant-numeric: tabular-nums; }
+.curai-bonus-state { display: grid; justify-items: center; gap: var(--curai-space-12); padding: var(--curai-space-32) var(--curai-space-20); text-align: center; color: var(--curai-color-muted); font-size: var(--curai-type-size-13); }
+.curai-bonus-state h4 { color: var(--curai-color-ink); font-size: var(--curai-type-size-16); font-weight: 600; }
+.curai-bonus-state p { max-width: 440px; }
+.curai-bonus-empty-icon { display: inline-flex; padding: var(--curai-space-16); border-radius: var(--curai-radius-6); color: var(--curai-color-blue); background: var(--curai-color-selected); }
+.curai-bonus-table-hint { display: none; }
+.curai-bonus-table-scroll { width: 100%; max-width: 100%; overflow-x: auto; border-top: 1px solid var(--curai-color-border); }
+.curai-bonus-table-scroll:focus-visible { outline: 2px solid var(--curai-color-focus); outline-offset: -2px; }
+.curai-admin-bonuses .curai-bonus-table { min-width: 1080px; border: 0; border-radius: 0; }
+.curai-bonus-table td { max-width: 240px; overflow-wrap: anywhere; }
+.curai-bonus-table th { white-space: nowrap; }
+.curai-bonus-table tbody tr:hover { background: var(--curai-color-hover); }
+.curai-bonus-position { font-weight: 500; }
+.curai-bonus-detail { margin-top: var(--curai-space-4); color: var(--curai-color-muted); font-size: var(--curai-type-size-11); line-height: var(--curai-type-line-18); }
+.curai-bonus-date { min-width: 140px; font-variant-numeric: tabular-nums; }
+.curai-bonus-amount { white-space: nowrap; font-variant-numeric: tabular-nums; }
+.curai-bonus-earned { color: var(--curai-color-positive); font-weight: 600; }
+.curai-bonus-badge { display: inline-flex; align-items: center; padding: var(--curai-space-4) var(--curai-space-8); border-radius: var(--curai-radius-4); color: var(--curai-color-muted); background: var(--curai-color-subtle); font-size: var(--curai-type-size-11); line-height: var(--curai-type-line-18); overflow-wrap: normal; word-break: normal; }
+.curai-bonus-badge.is-accrued { background: var(--curai-color-positiveBg); color: var(--curai-color-positive); }
+.curai-bonus-badge.is-first_payment_already_recorded { background: var(--curai-color-selected); color: var(--curai-color-blue); }
+.curai-bonus-pagination { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: var(--curai-space-16); padding: var(--curai-space-16) var(--curai-space-24); border-top: 1px solid var(--curai-color-border); color: var(--curai-color-muted); font-size: var(--curai-type-size-13); }
+.curai-bonus-pagination > div { display: flex; gap: var(--curai-space-8); }
+@media (max-width: 1100px) {
+  .curai-bonus-setting-layout { grid-template-columns: minmax(0, 1fr); gap: var(--curai-space-20); }
+  .curai-bonus-filters { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .curai-bonus-zone { grid-column: 1 / -1; justify-self: start; }
+  .curai-admin-bonuses .curai-bonus-table-hint { display: flex; align-items: center; gap: var(--curai-space-8); padding: 0 var(--curai-space-16) var(--curai-space-16); color: var(--curai-color-muted); font-size: var(--curai-type-size-12); }
+}
+@media (max-width: 640px) {
+  .curai-admin-bonuses { gap: var(--curai-space-16); }
+  .curai-bonus-card-heading, .curai-bonus-card-body, .curai-bonus-filters, .curai-bonus-summary, .curai-bonus-pagination { padding: var(--curai-space-16); }
+  .curai-bonus-heading > .curai-bonus-icon { display: none; }
+  .curai-bonus-fields, .curai-bonus-filters { grid-template-columns: minmax(0, 1fr); }
+  .curai-bonus-form-footer .curai-button { width: 100%; }
+  .curai-bonus-note { padding: var(--curai-space-16); }
+}

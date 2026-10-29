@@ -1,5 +1,5 @@
 import './theme/curai-workspace-background.css';
-import { AppLoading } from './components/common/LoadingIndicator';
+import SessionGate from './components/auth/SessionGate';
 import { canOpenPath, hasPermission, homeForUser } from './utils/permissions';
 import React, { useState, useEffect, useRef } from 'react';
 import { Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom';
@@ -24,7 +24,6 @@ import Rooms from './components/directory/Rooms';
 import Specialties from './components/specialties/Specialties';
 import PaymentTypes from './components/payment-types/PaymentTypes';
 import ServicesReport from './components/reports/ServicesReport';
-import ChangePasswordModal from './components/modals/ChangePasswordModal';
 
 import EnhancedCrmDashboard from './components/crm/dashboard/EnhancedCrmDashboard';
 import EnhancedLeadsView from './components/crm/leads/EnhancedLeadsView';
@@ -68,7 +67,7 @@ const BACKEND_URL = import.meta.env.VITE_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
 
 function ClinicApp() {
-  const { user, logout, showPasswordExpiredModal, handlePasswordChanged } = useAuth();
+  const { user, logout } = useAuth();
   // API hook
   const api = useApi();
   
@@ -423,13 +422,6 @@ function ClinicApp() {
             onMaterialSubmit={handleMaterialSubmit}
           />
 
-          {/* Password Expired Modal */}
-          <ChangePasswordModal
-            isOpen={showPasswordExpiredModal}
-            onClose={() => {}} // Prevent closing without password change
-            onPasswordChanged={handlePasswordChanged}
-          />
-
           {/* Guide Tour Components */}
           <GuideTourModal />
           <GuideTour onNavigate={(tab, section) => {
@@ -447,21 +439,13 @@ function ClinicApp() {
 // App Content Component
 function AppContent() {
   const [isLogin, setIsLogin] = useState(true);
-  const { user, loading } = useAuth();
+  const { user } = useAuth();
 
-  if (loading) {
-    return <AppLoading />;
-  }
-  
-  if (!user) {
-    return isLogin ? (
+  return <SessionGate>{user ? <ClinicApp /> : isLogin ? (
       <LoginForm onSwitchToRegister={() => setIsLogin(false)} />
     ) : (
       <RegisterForm onSwitchToLogin={() => setIsLogin(true)} />
-    );
-  }
-  
-  return <ClinicApp />;
+    )}</SessionGate>;
 }
 
 // Main App Component

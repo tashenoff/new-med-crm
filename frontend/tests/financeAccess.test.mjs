@@ -26,6 +26,7 @@ const compiled = await build({
   plugins: [{ name: 'unrelated-app-dependencies', setup(builder) {
     builder.onResolve({ filter: /^\.\.?\// }, args => {
       if (args.path.includes('common/LoadingIndicator')) return;
+      if (args.path.includes('auth/SessionGate')) return;
       if (/App\.jsx$/.test(args.importer) && /layout\/(Header|Navigation)$/.test(args.path)) return;
       if (args.path.includes('utils/permissions')) return;
       if (['./NavigationSearch', './navigationCatalog', '../modals/Modal', './WorkspaceTabs', './NavigationItem', '../common/CuraiIcon', '../common/CuraiButton'].includes(args.path)) return;

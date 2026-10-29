@@ -74,7 +74,7 @@ const ChangePasswordModal = ({ isOpen, onClose, onPasswordChanged }) => {
   };
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} title="Смена пароля">
+    <Modal show={isOpen} onClose={onClose} title="Смена пароля">
       <form onSubmit={handleSubmit} className="space-y-4">
         {error && (
           <div className="bg-curai-negativeBg border border-curai-negative text-curai-negative px-4 py-3 rounded">

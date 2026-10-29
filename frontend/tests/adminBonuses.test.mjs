@@ -16,7 +16,7 @@ delete globalThis.window; delete globalThis.document; bootstrap.window.close();
 const compiled = await build({
   entryPoints: [fileURLToPath(new URL('../src/components/finance/AdminBonuses.jsx', import.meta.url))],
   bundle: true, write: false, platform: 'node', format: 'cjs', external: ['react', 'react-dom'],
-  loader: { '.js': 'jsx' },
+  loader: { '.js': 'jsx', '.css': 'empty' },
   plugins: [{ name: 'synthetic-bonus-api', setup(builder) {
     builder.onResolve({ filter: /api\/config$/ }, args => ({ path: args.path, namespace: 'fixture' }));
     builder.onLoad({ filter: /.*/, namespace: 'fixture' }, () => ({ contents: `
@@ -186,4 +186,45 @@ test('missing clinic timezone is visible and does not fetch an assumed UTC repor
   assert.equal(view.document.querySelector('input[type=month]').disabled, true);
   assert.match(view.document.querySelector('[role=alert]').textContent, /ADMIN_BONUS_TIMEZONE/);
   assert.ok(!view.document.body.textContent.includes('За выбранный месяц начислений нет'));
+});
+
+test('bonus settings card does not match the global header surface reset; register is a separate region', async t => {
+  const view = await mount(t, [...grants, 'admin_bonus_manage']);
+  const setting = view.document.querySelector('[aria-labelledby="bonus-setting-title"]');
+  const register = view.document.querySelector('[aria-labelledby="bonus-register-title"]');
+  assert.ok(setting && register && setting !== register);
+  assert.ok(setting.previousElementSibling.classList.contains('curai-panel-header'));
+  assert.equal(setting.matches('.curai-panel-header + .bg-curai-surface'), false);
+  assert.ok(setting.querySelector('form'));
+  assert.ok(register.querySelector('input[type=month]'));
+  assert.ok(register.querySelector('[role=region][tabindex="0"] table'));
+  assert.equal(register.querySelectorAll('th[scope=col]').length, 8);
+});
+
+test('empty register has explanatory content and disabled pagination', async t => {
+  const view = await mount(t, grants, { report: empty });
+  const register = view.document.querySelector('[aria-labelledby="bonus-register-title"]');
+  assert.match(register.textContent, /За выбранный месяц начислений нет/);
+  assert.match(register.textContent, /Записей: 0/);
+  assert.equal(register.querySelector('table'), null);
+  assert.ok([...register.querySelectorAll('button')].every(button => button.disabled));
+});
+
+test('pending register uses shared loading state without a false empty result', async t => {
+  const view = await mount(t, grants, { getReport: () => new Promise(() => {}) });
+  const register = view.document.querySelector('[aria-labelledby="bonus-register-title"]');
+  assert.equal(register.getAttribute('aria-busy'), 'true');
+  assert.match(register.querySelector('[role=status]').textContent, /Загрузка начислений/);
+  assert.equal(register.querySelector('table'), null);
+  assert.ok(!register.textContent.includes('начислений нет'));
+});
+
+test('failed register keeps filters available and presents an alert without stale rows', async t => {
+  const view = await mount(t, grants, { getReport: async () => { throw new Error('Synthetic report unavailable'); } });
+  const register = view.document.querySelector('[aria-labelledby="bonus-register-title"]');
+  assert.equal(register.getAttribute('aria-busy'), 'false');
+  assert.match(register.querySelector('[role=alert]').textContent, /Synthetic report unavailable/);
+  assert.equal(register.querySelector('input[type=month]').disabled, false);
+  assert.equal(register.querySelector('table'), null);
+  assert.ok(!register.textContent.includes('начислений нет'));
 });

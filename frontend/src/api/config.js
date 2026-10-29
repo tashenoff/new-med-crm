@@ -1,44 +1,15 @@
 import axios from 'axios';
-
-// Базовая конфигурация API
-const BACKEND_URL = import.meta.env.VITE_BACKEND_URL;
-export const API_BASE_URL = `${BACKEND_URL}/api`;
+import { API_BASE_URL, configureSessionHandling } from './session';
+export { API_BASE_URL } from './session';
 
 // Создаем экземпляр axios с базовой конфигурацией
-export const apiClient = axios.create({
+export const apiClient = configureSessionHandling(axios.create({
   baseURL: API_BASE_URL,
   timeout: 30000,
   headers: {
     'Content-Type': 'application/json',
   },
-});
-
-// Интерцептор для автоматического добавления токена авторизации
-apiClient.interceptors.request.use(
-  (config) => {
-    const token = localStorage.getItem('token');
-    if (token) {
-      config.headers.Authorization = `Bearer ${token}`;
-    }
-    return config;
-  },
-  (error) => {
-    return Promise.reject(error);
-  }
-);
-
-// Интерцептор для обработки ответов
-apiClient.interceptors.response.use(
-  (response) => response,
-  (error) => {
-    // Автоматический логаут при 401 ошибке
-    if (error.response?.status === 401) {
-      localStorage.removeItem('token');
-      window.location.href = '/';
-    }
-    return Promise.reject(error);
-  }
-);
+}));
 
 // Вспомогательные функции для обработки ошибок
 export const handleApiError = (error) => {
