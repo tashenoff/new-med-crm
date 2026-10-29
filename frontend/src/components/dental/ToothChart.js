@@ -50,7 +50,7 @@ const ToothChart = ({ selectedTeeth = [], onTeethSelect, multiSelect = false, di
 
   return (
     <div className={`bg-curai-subtle p-4 rounded-md border ${disabled ? 'opacity-60' : ''}`}>
-      <div className="flex justify-between items-center mb-3">
+      <div className="flex flex-col sm:flex-row justify-between items-center gap-2 mb-3">
         <h4 className="font-medium text-center flex-1">Стоматологическая карта</h4>
         {selectedTeeth.length > 0 && (
           <div className="text-sm text-curai-blue font-medium">

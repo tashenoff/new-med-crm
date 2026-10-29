@@ -12,6 +12,7 @@ import PriceImportHistory from './PriceImportHistory';
 import { canImportPreview, importErrorText, previewErrors } from './priceImport';
 
 const API = import.meta.env.VITE_BACKEND_URL;
+const SERVICE_UNITS = ['процедура', 'зуб', 'услуга', 'сеанс', 'час', 'шт'];
 
 const ServicePrices = ({ user }) => {
   const [servicePrices, setServicePrices] = useState([]);
@@ -58,6 +59,7 @@ const ServicePrices = ({ user }) => {
     service_name_kz: '',
     service_code: '',
     category: '',
+    unit: 'процедура',
     price: '',
     description: '',
     disable_discount: false,
@@ -330,6 +332,7 @@ const ServicePrices = ({ user }) => {
       service_name_kz: '',
       service_code: '',
       category: '',
+      unit: 'процедура',
       price: '',
       description: '',
       disable_discount: false,
@@ -351,6 +354,7 @@ const ServicePrices = ({ user }) => {
       service_name_kz: price.service_name_kz || '',
       service_code: price.service_code || '',
       category: price.category || '',
+      unit: price.unit || 'процедура',
       price: price.price ?? '',
       description: price.description || '',
       disable_discount: price.disable_discount || false,
@@ -1022,6 +1026,16 @@ const ServicePrices = ({ user }) => {
               <p className="text-xs text-curai-muted mt-1">
                 Используется для внутреннего учета
               </p>
+            </div>
+            <div>
+              <label htmlFor="service-unit" className={labelClasses}>Единица измерения</label>
+              <select id="service-unit" value={formData.unit}
+                onChange={event => setFormData(previous => ({ ...previous, unit: event.target.value }))}
+                className={selectClasses}>
+                {!SERVICE_UNITS.includes(formData.unit) && <option value={formData.unit}>{formData.unit}</option>}
+                {SERVICE_UNITS.map(unit => <option key={unit} value={unit}>{unit}</option>)}
+              </select>
+              <p className="text-xs text-curai-muted mt-1">Для единицы «зуб» номера выбираются в консультационном листе.</p>
             </div>
           </div>
 

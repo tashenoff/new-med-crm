@@ -61,13 +61,13 @@ test('save error formatting retains loc/msg and safely handles all detail shapes
   assert.equal(component.priceError, '', 'Component errors must not mark the total price');
 });
 
-async function mount(t, { existingPrice = 25, existingType = 'regular', detail } = {}) {
+async function mount(t, { existingPrice = 25, existingType = 'regular', existingUnit = 'процедура', detail } = {}) {
   const dom = new JSDOM('<div id="root"></div>', { url:'https://crm.test' });
   const component = {service_id:'regular-fixture',service_name:'Fixture service',quantity:1,price:25,discount:0,doctor_id:''};
   const fixture = {
     services: [
       {id:'regular-fixture',service_name:'Fixture service',price:25,service_type:'regular'},
-      {id:'existing-fixture',service_name:'Fixture existing',price:existingPrice,service_type:existingType,
+      {id:'existing-fixture',service_name:'Fixture existing',price:existingPrice,service_type:existingType,unit:existingUnit,
         components:existingType === 'complex' ? [component] : [],materials:[],description:'Fixture description'}
     ], writes:[], detail, reads:[], errors:[]
   };
@@ -120,8 +120,10 @@ async function mount(t, { existingPrice = 25, existingType = 'regular', detail }
   const change = async (node, value) => {
     assert.ok(node);
     await act(async () => {
-      Object.getOwnPropertyDescriptor(dom.window.HTMLInputElement.prototype,'value').set.call(node,value);
+      const prototype = node.tagName === 'SELECT' ? dom.window.HTMLSelectElement.prototype : dom.window.HTMLInputElement.prototype;
+      Object.getOwnPropertyDescriptor(prototype,'value').set.call(node,value);
       node.dispatchEvent(new dom.window.Event('input',{bubbles:true}));
+      node.dispatchEvent(new dom.window.Event('change',{bubbles:true}));
     });
   };
   const price = () => document.getElementById('service-price');
@@ -149,6 +151,26 @@ async function mount(t, { existingPrice = 25, existingType = 'regular', detail }
   };
   return {fixture,create,edit,price,change,save,inline};
 }
+
+test('new service defaults to procedure and can save the tooth unit', async t => {
+  const h = await mount(t); await h.create(false); await h.change(h.price(),'1000');
+  assert.equal(document.getElementById('service-unit').value,'процедура');
+  await h.change(document.getElementById('service-unit'),'зуб'); await h.save();
+  assert.equal(h.fixture.writes[0].data.unit,'зуб'); assert.equal(h.fixture.writes[0].data.price,1000);
+});
+
+test('edited unit survives save and reopening without changing price', async t => {
+  const h = await mount(t,{existingPrice:1000}); await h.edit();
+  await h.change(document.getElementById('service-unit'),'зуб'); await h.save(); await h.edit();
+  assert.equal(document.getElementById('service-unit').value,'зуб'); assert.equal(h.price().value,'1000');
+  await h.save(); assert.equal(h.fixture.writes[1].data.unit,'зуб');
+});
+
+test('existing custom backend units are preserved rather than reset by the select', async t => {
+  const h = await mount(t,{existingUnit:'квадратный сантиметр'}); await h.edit();
+  assert.equal(document.getElementById('service-unit').value,'квадратный сантиметр');
+  await h.save(); assert.equal(h.fixture.writes[0].data.unit,'квадратный сантиметр');
+});
 
 for (const value of ['', 'abc', '12abc', 'NaN', 'Infinity', '1e309', '-0.01']) {
   test(`complex form blocks invalid price ${JSON.stringify(value)} before HTTP`, async t => {
