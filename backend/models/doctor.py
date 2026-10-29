@@ -19,6 +19,7 @@ class PaymentType(str, Enum):
     PERCENTAGE = "percentage"
     FIXED = "fixed"
     HYBRID = "hybrid"
+    MONTHLY = "monthly"
 
 
 class Doctor(BaseModel):

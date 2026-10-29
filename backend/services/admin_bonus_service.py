@@ -24,9 +24,15 @@ def target_key(event):
     return (event.get("service_row_id"), event.get("component_id"), event.get("session_id"))
 
 
+def _insufficient_source_positions(plan):
+    """Count all source payment units, including unpaid components and sessions."""
+    from services.payment_completion_service import payment_positions
+    return sum(1 for _ in payment_positions(plan.get("services") or [])) < 2
+
+
 def attach_bonuses(plan, appended, setting):
     """Called before the plan CAS; replay and concurrency share its atomicity."""
-    if not setting:
+    if not setting or _insufficient_source_positions(plan):
         return appended
     history = list(plan.get("accounting_events") or [])
     rows = plan.get("services") or []

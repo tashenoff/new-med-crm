@@ -15,22 +15,30 @@ from services.accounting_ledger_service import (
 )
 
 
-def payable_targets(rows, selected_keys=None):
+def payment_positions(rows):
+    """Existing payment units, without pricing or counting their parent twice."""
     for parent in rows:
         if parent.get('is_complex'):
             for child in parent.get('components') or []:
-                if selected_keys is not None and target_key(parent, child, 'component') not in selected_keys:
-                    continue
-                yield parent, child, 'component', component_price(parent, child)
+                yield parent, child, 'component'
         elif parent.get('is_course') or parent.get('payment_type') == 'per_session':
             for session in parent.get('sessions') or []:
-                if selected_keys is not None and target_key(parent, session, 'session') not in selected_keys:
-                    continue
-                yield parent, session, 'session', money(session.get('price', parent.get('session_price', parent.get('price_per_unit'))), 'session price')
+                yield parent, session, 'session'
         else:
-            if selected_keys is not None and target_key(parent, parent, 'service') not in selected_keys:
-                continue
-            yield parent, parent, 'service', money(parent.get('total_price'), 'total_price')
+            yield parent, parent, 'service'
+
+
+def payable_targets(rows, selected_keys=None):
+    for parent, target, prefix in payment_positions(rows):
+        if selected_keys is not None and target_key(parent, target, prefix) not in selected_keys:
+            continue
+        if prefix == 'component':
+            price = component_price(parent, target)
+        elif prefix == 'session':
+            price = money(target.get('price', parent.get('session_price', parent.get('price_per_unit'))), 'session price')
+        else:
+            price = money(parent.get('total_price'), 'total_price')
+        yield parent, target, prefix, price
 
 
 def target_key(parent, target, prefix):

@@ -39,8 +39,11 @@ def validate_compensation(settings, require_mode=False):
         if currency_field in settings and settings[currency_field] != "KZT":
             raise ValueError(f"{currency_field}: compensation currency must be KZT")
         kind = settings.get(prefix + "payment_type")
-        if prefix + "payment_type" in settings and kind not in ("percentage", "fixed", "hybrid"):
+        allowed = ("percentage", "fixed", "hybrid") if prefix else ("percentage", "fixed", "hybrid", "monthly")
+        if prefix + "payment_type" in settings and kind not in allowed:
             raise ValueError(f"{prefix}payment_type is invalid")
+        if kind == "monthly" and settings.get("payment_value") is None:
+            raise ValueError("payment_value is required for monthly compensation")
         for suffix in ("payment_value", "hybrid_percentage_value", "hybrid_fixed_amount"):
             field = prefix + suffix
             if field not in settings:
@@ -89,6 +92,8 @@ def individual_service_settings(service):
 
 def service_tariff_settings(doctor, service_id):
     """Resolve only this doctor's service; overrides replace the whole general tariff."""
+    if doctor.get("payment_type") == "monthly":
+        return doctor
     mode = doctor.get("payment_mode") or "general"
     if mode == "general":
         return doctor
@@ -105,6 +110,8 @@ def service_tariff_settings(doctor, service_id):
 def tariff(settings, prefix=""):
     """Read the canonical tariff without substituting deprecated hybrid aliases."""
     kind = settings.get(prefix + "payment_type") or "percentage"
+    if kind == "monthly":
+        nonnegative(settings.get(prefix + "payment_value"), prefix + "payment_value")
     value = settings.get(prefix + "payment_value") or 0
     percent = settings.get(prefix + "hybrid_percentage_value") or 0
     currency = settings.get(prefix + "currency", "KZT")
@@ -120,6 +127,9 @@ def tariff(settings, prefix=""):
 
 def accrue(scheme, received, completed):
     kind, value, percent = scheme
+    # The monthly amount belongs to the report, never to a receipt or occurrence.
+    if kind == "monthly":
+        return 0.0
     if kind == "fixed":
         return value * completed
     if kind == "hybrid":

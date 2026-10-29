@@ -216,6 +216,9 @@ class ConsultationService:
                 "payment_status": "unpaid"
             }
             
+            if getattr(ts, 'unit', None) == 'зуб':
+                service.update(unit=ts.unit, teeth_numbers=list(ts.teeth_numbers), discount=ts.discount)
+
             # Копировать данные о курсе если есть
             if hasattr(ts, 'is_course') and ts.is_course:
                 service["is_course"] = ts.is_course
@@ -324,6 +327,10 @@ class ConsultationService:
                 for existing_service in existing_plan.get("services", []):
                     if existing_service.get("service_id") == ts.service_id:
                         for key in ("service_row_id", "occurrence_ids"):
+                            # Unpaid dental edits may change the number of billable occurrences.
+                            if (key == 'occurrence_ids' and getattr(ts, 'unit', None) == 'зуб'
+                                    and len(existing_service.get(key, [])) != ts.quantity):
+                                continue
                             if key in existing_service:
                                 service[key] = existing_service[key]
                         service["quantity_completed"] = existing_service.get("quantity_completed", 0)
@@ -331,6 +338,9 @@ class ConsultationService:
                         service["payment_status"] = existing_service.get("payment_status", "unpaid")
                         break
             
+            if getattr(ts, 'unit', None) == 'зуб':
+                service.update(unit=ts.unit, teeth_numbers=list(ts.teeth_numbers), discount=ts.discount)
+
             # Копировать данные о курсе если есть
             if hasattr(ts, 'is_course') and ts.is_course:
                 service["is_course"] = ts.is_course

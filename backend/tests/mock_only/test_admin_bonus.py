@@ -30,6 +30,7 @@ def event(row="row", paid=300, **extra):
 @pytest.mark.parametrize("kind,value,expected", [("fixed", 80, 80), ("percentage", 10, 30)])
 def test_real_writer_stores_bonus_atomically_and_retry_is_identical(modules, monkeypatch, factory, kind, value, expected):
     db, saved, _ = factory()
+    saved["services"].append(dict(service_row_id="second-row", service_id="second-service", total_price=1000))
     db.admin_bonus_settings.find_one = AsyncMock(return_value=setting(kind, value))
     monkeypatch.setattr(modules.plans.TreatmentPlanService, "sync_persisted_payment", AsyncMock())
     body = receipt(discount_amount_kzt=0)
@@ -51,7 +52,7 @@ def test_real_writer_stores_bonus_atomically_and_retry_is_identical(modules, mon
 
 
 def test_fixed_one_per_patient_position_first_payment_only():
-    plan = dict(patient_id="patient", services=[], accounting_events=[])
+    plan = dict(patient_id="patient", services=[dict(service_row_id="row"), dict(service_row_id="other-row")], accounting_events=[])
     tariff = setting("fixed", 70)
     first = event()
     attach_bonuses(plan, [first], tariff)
@@ -65,13 +66,13 @@ def test_fixed_one_per_patient_position_first_payment_only():
     attach_bonuses(plan, [other], tariff)
     assert other["admin_bonus"]["amount_kzt"] == 70
     another_patient = event()
-    attach_bonuses(dict(patient_id="another", accounting_events=[]), [another_patient], tariff)
+    attach_bonuses(dict(patient_id="another", services=plan["services"], accounting_events=[]), [another_patient], tariff)
     assert another_patient["admin_bonus"]["amount_kzt"] == 70
 
 
 def test_no_default_no_backfill_and_no_late_fixed_on_previously_paid_row():
     old = event()
-    plan = dict(patient_id="patient", accounting_events=[old])
+    plan = dict(patient_id="patient", services=[dict(service_row_id="row"), dict(service_row_id="other-row")], accounting_events=[old])
     unchanged = deepcopy(plan)
     assert attach_bonuses(plan, [], setting()) == [] and plan == unchanged
     new = event()
@@ -83,7 +84,7 @@ def test_no_default_no_backfill_and_no_late_fixed_on_previously_paid_row():
 
 
 def test_snapshot_and_half_up_rounding_survive_rate_change():
-    plan = dict(patient_id="patient", accounting_events=[])
+    plan = dict(patient_id="patient", services=[dict(service_row_id="row"), dict(service_row_id="other-row")], accounting_events=[])
     old, new = event(paid=0.05), event(paid=0.05)
     tariff = setting(value=10)
     attach_bonuses(plan, [old], tariff)
@@ -247,8 +248,27 @@ def test_report_context_requires_explicit_zone_and_does_not_grant_ordinary_admin
 def test_missing_report_timezone_does_not_block_recording_real_payment(modules, monkeypatch):
     monkeypatch.delenv("ADMIN_BONUS_TIMEZONE", raising=False)
     db, saved, _ = memory_db()
+    saved["services"].append(dict(service_row_id="second-row", service_id="second-service", total_price=1000))
     db.admin_bonus_settings.find_one = AsyncMock(return_value=setting())
     result = asyncio.run(modules.ledger.AccountingLedgerService(db, sync_payment=False).record_ordinary_service(
         "plan", "row", "service_receipt", receipt(), "cashier-a"))
     assert result["event"]["admin_bonus"]["amount_kzt"] == 30
     assert saved["paid_amount"] == 300
+
+
+@pytest.mark.parametrize("kind,value", [("fixed", 100), ("percentage", 5)])
+def test_quantity_of_one_plain_position_does_not_meet_source_threshold(kind, value):
+    plan = dict(patient_id="patient", services=[dict(service_row_id="row", quantity=3)], accounting_events=[])
+    payment = event()
+    assert attach_bonuses(plan, [payment], setting(kind, value)) == [payment]
+    assert "admin_bonus" not in payment
+
+
+def test_eligibility_counts_identities_without_pricing_unpaid_siblings():
+    from services.payment_completion_service import payment_positions, payable_targets
+    rows = [dict(service_row_id="row", total_price=1000), dict(service_row_id="other", total_price=None)]
+    assert len(list(payment_positions(rows))) == 2
+    assert len(list(payable_targets(rows, {("row", None, None)}))) == 1
+    payment = event(paid=300)
+    attach_bonuses(dict(services=rows, accounting_events=[]), [payment], setting("percentage", 5))
+    assert payment["admin_bonus"]["amount_kzt"] == 15

@@ -8,6 +8,7 @@ from datetime import datetime, timezone
 import os
 from types import SimpleNamespace
 from uuid import uuid4
+from unittest.mock import AsyncMock
 
 from fastapi import HTTPException
 from motor.motor_asyncio import AsyncIOMotorClient
@@ -129,9 +130,13 @@ async def test_concurrent_distinct_partial_payments_fixed_once(synthetic_db):
     assert sum(b["status"] == "accrued" for b in bonuses) == 1
 
 
-async def test_batch_payment_records_each_position_with_one_setting_snapshot(synthetic_db, monkeypatch):
+@pytest.mark.parametrize("kind,value,expected", [
+    ("fixed", 80, {"consultation": 80, "blood": 80, "urine": 80}),
+    ("percentage", 5, {"consultation": 350, "blood": 175, "urine": 150}),
+])
+async def test_batch_payment_records_each_position_with_one_setting_snapshot(synthetic_db, monkeypatch, kind, value, expected):
     db = synthetic_db
-    await seed(db, "fixed", 80)
+    await seed(db, kind, value)
     await db.treatment_plans.update_one({"id": "plan"}, {"$set": {"payment_completion_policy": "full_payment_v1"}})
     async def no_crm_sync(self, plan_id):
         pass
@@ -142,7 +147,8 @@ async def test_batch_payment_records_each_position_with_one_setting_snapshot(syn
     plan = await db.treatment_plans.find_one({"id": "plan"})
     receipts = [e for e in plan["accounting_events"] if e["kind"] == "service_receipt"]
     assert {e["amount_kzt"] for e in receipts} == {7000, 3500, 3000}
-    assert sum(e["admin_bonus"]["amount_kzt"] for e in receipts) == 240
+    assert {e["service_row_id"]: e["admin_bonus"]["amount_kzt"] for e in receipts} == expected
+    assert len(receipts) == 3
     assert all(e["admin_bonus"]["setting_revision"] == "revision-original" for e in receipts)
     await PaymentCompletionService(db).settle_remaining("plan", body, "cashier-b")
     assert (await db.treatment_plans.find_one({"id": "plan"}))["accounting_events"] == plan["accounting_events"]
@@ -229,3 +235,231 @@ async def test_clinic_month_edges_include_start_exclude_end_and_keep_utc_receipt
     plan = await db.treatment_plans.find_one({"id": "plan"})
     assert [event["occurred_at"].replace(tzinfo=timezone.utc) for event in plan["accounting_events"]] == instants
     assert all(row["paid_at"].tzinfo == timezone.utc for row in october["rows"])
+
+
+@pytest.mark.parametrize("kind,value", [("percentage", 5), ("fixed", 100)])
+@pytest.mark.parametrize("analysis", [False, True])
+async def test_single_source_position_is_ineligible_for_both_rates(synthetic_db, kind, value, analysis):
+    db = synthetic_db
+    await seed(db, kind, value)
+    plan = await db.treatment_plans.find_one({"id": "plan"})
+    urine = next(row for row in plan["services"] if row["service_row_id"] == "urine")
+    await db.treatment_plans.update_one({"id": "plan"}, {"$set": {
+        "services": [urine], "total_cost": 3000, "consultation_sheet_id": "synthetic-assignment"}})
+    if analysis:
+        await db.service_prices.update_one({"id": "urine"}, {"$set": {"service_type": "analysis"}})
+    body = command(3000)
+    first = await pay(db, "urine", 3000, body=body)
+    snapshot = await db.treatment_plans.find_one({"id": "plan"})
+    assert snapshot["paid_amount"] == 3000 and snapshot["payment_status"] == "paid"
+    assert "admin_bonus" not in first["event"]
+    assert (await pay(db, "urine", 3000, "cashier-b", body=body)) == first
+    from services.admin_bonus_period import report_context
+    report = await AdminBonusService(db).report(report_context()["current_month"])
+    assert report["total"] == 0 and report["rows"] == [] and report["employees"] == []
+    assert (await db.treatment_plans.find_one({"id": "plan"}))["accounting_events"] == snapshot["accounting_events"]
+
+
+@pytest.mark.parametrize("kind,value", [("percentage", 5), ("fixed", 100)])
+async def test_separate_single_position_plans_of_one_patient_do_not_combine(synthetic_db, kind, value):
+    from copy import deepcopy
+    db = synthetic_db
+    await seed(db, kind, value)
+    original = await db.treatment_plans.find_one({"id": "plan"})
+    urine = next(row for row in original["services"] if row["service_row_id"] == "urine")
+    await db.treatment_plans.update_one({"id": "plan"}, {"$set": {"services": [urine], "total_cost": 3000}})
+    other = deepcopy(original)
+    other.pop("_id")
+    other.update(id="other-plan", services=[deepcopy(urine)], total_cost=3000)
+    await db.treatment_plans.insert_one(other)
+    await pay(db, "urine", 3000)
+    result = await AccountingLedgerService(db, sync_payment=False).record_ordinary_service(
+        "other-plan", "urine", "service_receipt", command(3000), "cashier-b")
+    assert "admin_bonus" not in result["event"]
+    for identity in ("plan", "other-plan"):
+        plan = await db.treatment_plans.find_one({"id": identity})
+        assert "admin_bonus" not in plan["accounting_events"][0]
+
+
+@pytest.mark.parametrize("kind,value,first,second", [("percentage", 5, 150, 525), ("fixed", 100, 100, 200)])
+async def test_eligible_source_counts_all_positions_across_months(synthetic_db, monkeypatch, kind, value, first, second):
+    db = synthetic_db
+    await seed(db, kind, value)
+    clock(monkeypatch, datetime(2026, 9, 15, tzinfo=timezone.utc))
+    await pay(db, "urine", 3000)
+    clock(monkeypatch, datetime(2026, 10, 15, tzinfo=timezone.utc))
+    await pay(db, "consultation", 7000, "cashier-b")
+    await pay(db, "blood", 3500, "cashier-b")
+    september = await AdminBonusService(db).report("2026-09")
+    october = await AdminBonusService(db).report("2026-10")
+    assert [row["basis_amount_kzt"] for row in september["rows"]] == [3000]
+    assert sum(row["basis_amount_kzt"] for row in october["rows"]) == 10500
+    assert september["employees"][0]["bonus_amount_kzt"] == first
+    assert october["employees"][0]["bonus_amount_kzt"] == second
+    assert len(september["rows"]) == 1 and len(october["rows"]) == 2
+
+
+@pytest.mark.parametrize("kind,value,expected", [("percentage", 5, [50, 100, 175]), ("fixed", 100, [100, 0, 100])])
+async def test_two_position_source_partial_payments_preserve_rate_semantics(synthetic_db, kind, value, expected):
+    db = synthetic_db
+    await seed(db, kind, value)
+    plan = await db.treatment_plans.find_one({"id": "plan"})
+    await db.treatment_plans.update_one({"id": "plan"}, {"$set": {
+        "services": [row for row in plan["services"] if row["service_row_id"] != "consultation"], "total_cost": 6500}})
+    payments = [await pay(db, "urine", 1000), await pay(db, "urine", 2000, "cashier-b"), await pay(db, "blood", 3500)]
+    assert [payment["event"]["admin_bonus"]["amount_kzt"] for payment in payments] == expected
+    assert all(payment["event"]["admin_bonus"]["recipient_user_id"] in ("cashier-a", "cashier-b") for payment in payments)
+
+
+@pytest.mark.parametrize("kind,value,historical", [("percentage", 5, 50), ("fixed", 100, 100)])
+async def test_threshold_does_not_rewrite_preexisting_single_position_bonus(synthetic_db, kind, value, historical):
+    from copy import deepcopy
+    from services.admin_bonus_period import report_context
+    db = synthetic_db
+    await seed(db, kind, value)
+    plan = await db.treatment_plans.find_one({"id": "plan"})
+    await db.treatment_plans.update_one({"id": "plan"}, {"$set": {
+        "services": [row for row in plan["services"] if row["service_row_id"] == "urine"], "total_cost": 3000}})
+    await pay(db, "urine", 1000)
+    before = await db.treatment_plans.find_one({"id": "plan"})
+    receipt = before["accounting_events"][0]
+    # Seed a pre-rule snapshot without recalculating or migrating old data.
+    receipt["admin_bonus"] = dict(policy="admin_bonus_v1", setting_revision="historical-rate",
+        rate_type=kind, rate_value=value, enabled=True, currency="KZT", status="accrued",
+        recipient_user_id="cashier-a", paid_at=receipt["occurred_at"], basis_amount_kzt=1000,
+        amount_kzt=historical, patient_id="patient", service_name="urine")
+    await db.treatment_plans.update_one({"id": "plan"}, {"$set": {"accounting_events": before["accounting_events"]}})
+    original = deepcopy(receipt["admin_bonus"])
+    second = await pay(db, "urine", 2000, "cashier-b")
+    assert "admin_bonus" not in second["event"]
+    after = await db.treatment_plans.find_one({"id": "plan"})
+    assert after["accounting_events"][0]["admin_bonus"] == original
+    report = await AdminBonusService(db).report(report_context()["current_month"])
+    assert report["total"] == 1 and report["rows"][0]["amount_kzt"] == historical
+    assert report["rows"][0]["setting_revision"] == "historical-rate"
+
+
+async def stage_source(db, shape, count, mixed=False):
+    if shape == "course":
+        row = dict(service_row_id="stage-row", service_id="consultation", service_name="Synthetic course",
+            is_course=True, payment_type="per_session", quantity=count, quantity_total=count,
+            session_price=1000, total_price=count * 1000, payment_status="unpaid",
+            sessions=[dict(session_id=f"step-{index}", price=1000) for index in range(count)])
+    else:
+        catalogs = ("consultation", "blood", "urine")
+        row = dict(service_row_id="stage-row", service_id="complex", service_name="Synthetic complex",
+            is_complex=True, quantity=1, total_price=count * 1000, payment_status="unpaid",
+            components=[dict(component_id=f"step-{index}", service_id=catalogs[index],
+                service_name=f"Synthetic stage {index}", price=1000, quantity=1,
+                occurrence_ids=[f"stage-occurrence-{index}"]) for index in range(count)])
+        await db.service_prices.insert_one(dict(id="complex", service_type="complex"))
+    rows = [row]
+    if mixed:
+        rows.append(dict(service_row_id="plain-row", service_id="urine", service_name="Synthetic analysis",
+            total_price=2000, quantity=1, occurrence_ids=["plain-occurrence"], payment_status="unpaid"))
+    await db.treatment_plans.update_one({"id": "plan"}, {"$set": {
+        "services": rows, "total_cost": count * 1000 + (2000 if mixed else 0),
+        "payment_completion_policy": "full_payment_v1"}})
+    return row
+
+
+async def stage_payment(db, shape, step, amount_kzt, actor="cashier-a", body=None):
+    ledger = AccountingLedgerService(db, sync_payment=False)
+    payment = body or command(amount_kzt)
+    if shape == "course":
+        return await ledger.record_session("plan", "consultation", step,
+            dict(payment, service_row_id="stage-row", session_id=step), actor)
+    return await ledger.record_ordinary_service("plan", "stage-row", "component_receipt",
+        payment, actor, component_id=step)
+
+
+@pytest.mark.parametrize("kind,value", [("percentage", 5), ("fixed", 100)])
+@pytest.mark.parametrize("shape", ["course", "complex"])
+async def test_single_stage_source_has_no_bonus_and_parent_is_not_a_second_position(synthetic_db, kind, value, shape):
+    from services.payment_completion_service import payment_positions
+    from services.admin_bonus_period import report_context
+    db = synthetic_db
+    await seed(db, kind, value)
+    row = await stage_source(db, shape, 1)
+    assert len(list(payment_positions([row]))) == 1
+    body = command(1000)
+    first = await stage_payment(db, shape, "step-0", 1000, body=body)
+    assert "admin_bonus" not in first["event"]
+    before = await db.treatment_plans.find_one({"id": "plan"})
+    await stage_payment(db, shape, "step-0", 1000, "cashier-b", body=body)
+    after = await db.treatment_plans.find_one({"id": "plan"})
+    assert after["accounting_events"] == before["accounting_events"]
+    assert after["paid_amount"] == 1000 and after["payment_status"] == "paid"
+    assert (await AdminBonusService(db).report(report_context()["current_month"]))["total"] == 0
+
+
+@pytest.mark.parametrize("kind,value,per_stage", [("percentage", 5, 50), ("fixed", 100, 100)])
+@pytest.mark.parametrize("mode", ["staged", "aggregate"])
+async def test_five_session_course_qualifies_per_session_with_partial_payment_and_retry(synthetic_db, monkeypatch, kind, value, per_stage, mode):
+    from services.payment_completion_service import payment_positions, PaymentCompletionService
+    from services.admin_bonus_period import report_context
+    db = synthetic_db
+    await seed(db, kind, value)
+    row = await stage_source(db, "course", 5)
+    assert len(list(payment_positions([row]))) == 5
+    if mode == "aggregate":
+        monkeypatch.setattr(AccountingLedgerService, "_sync_payment", AsyncMock())
+        body = command(5000)
+        await PaymentCompletionService(db).settle_remaining("plan", body, "cashier-a")
+        before = await db.treatment_plans.find_one({"id": "plan"})
+        await PaymentCompletionService(db).settle_remaining("plan", body, "cashier-b")
+    else:
+        first = await stage_payment(db, "course", "step-0", 400)
+        assert first["event"]["admin_bonus"]["amount_kzt"] == (20 if kind == "percentage" else 100)
+        await stage_payment(db, "course", "step-0", 600, "cashier-b")
+        for index in range(1, 5):
+            body = command(1000)
+            await stage_payment(db, "course", f"step-{index}", 1000, "cashier-b", body=body)
+        before = await db.treatment_plans.find_one({"id": "plan"})
+        await stage_payment(db, "course", "step-4", 1000, "cashier-a", body=body)
+    after = await db.treatment_plans.find_one({"id": "plan"})
+    assert after["accounting_events"] == before["accounting_events"]
+    assert after["paid_amount"] == 5000 and after["payment_status"] == "paid"
+    report = await AdminBonusService(db).report(report_context()["current_month"])
+    assert report["total"] == (5 if mode == "aggregate" else 6)
+    totals = {}
+    for receipt in report["rows"]:
+        totals[receipt["session_id"]] = totals.get(receipt["session_id"], 0) + receipt["amount_kzt"]
+    assert totals == {f"step-{index}": per_stage for index in range(5)}
+    assert sum(row["basis_amount_kzt"] for row in report["rows"]) == 5000
+
+
+@pytest.mark.parametrize("kind,value", [("percentage", 5), ("fixed", 100)])
+@pytest.mark.parametrize("shape", ["course", "complex"])
+async def test_mixed_source_one_stage_and_one_analysis_qualifies_as_two(synthetic_db, kind, value, shape):
+    from services.payment_completion_service import payment_positions
+    db = synthetic_db
+    await seed(db, kind, value)
+    await stage_source(db, shape, 1, mixed=True)
+    plan = await db.treatment_plans.find_one({"id": "plan"})
+    assert len(list(payment_positions(plan["services"]))) == 2
+    first = await stage_payment(db, shape, "step-0", 1000)
+    second = await AccountingLedgerService(db, sync_payment=False).record_ordinary_service(
+        "plan", "plain-row", "service_receipt", command(2000), "cashier-b")
+    assert first["event"]["admin_bonus"]["amount_kzt"] == (50 if kind == "percentage" else 100)
+    assert second["event"]["admin_bonus"]["amount_kzt"] == 100
+
+
+@pytest.mark.parametrize("kind,value,per_stage", [("percentage", 5, 50), ("fixed", 100, 100)])
+async def test_one_complex_row_with_three_stages_counts_three_and_accrues_separately(synthetic_db, monkeypatch, kind, value, per_stage):
+    from services.payment_completion_service import payment_positions, PaymentCompletionService
+    from services.admin_bonus_period import report_context
+    db = synthetic_db
+    await seed(db, kind, value)
+    row = await stage_source(db, "complex", 3)
+    assert len(list(payment_positions([row]))) == 3
+    monkeypatch.setattr(AccountingLedgerService, "_sync_payment", AsyncMock())
+    body = command(3000)
+    await PaymentCompletionService(db).settle_remaining("plan", body, "cashier-a")
+    report = await AdminBonusService(db).report(report_context()["current_month"])
+    assert report["total"] == 3
+    assert {row["component_id"]: row["amount_kzt"] for row in report["rows"]} == {
+        f"step-{index}": per_stage for index in range(3)}
+    before = await db.treatment_plans.find_one({"id": "plan"})
+    await PaymentCompletionService(db).settle_remaining("plan", body, "cashier-b")
+    assert (await db.treatment_plans.find_one({"id": "plan"}))["accounting_events"] == before["accounting_events"]

@@ -32,10 +32,11 @@ from services.salary_service import SalaryService
 from fastapi.encoders import jsonable_encoder
 from fastapi.responses import JSONResponse
 from compensation import COMPENSATION_FIELDS
+from permission_policy import has_permission
 
 
 def doctor_response(value, user):
-    if 'payroll_view' in user.permissions:
+    if has_permission(user, 'payroll_view'):
         return value
     private = set(COMPENSATION_FIELDS) | {'services', 'payment_mode', 'cashback_balance', 'total_cashback_earned', 'currency', 'consultation_currency'}
     def redact(item):
@@ -99,7 +100,7 @@ async def get_doctor_salary_report(
     service: SalaryService = Depends(get_salary_service)
 ):
     """Get doctor salary report with detailed commission calculations"""
-    if 'payroll_view' not in getattr(current_user, 'permissions', []):
+    if not has_permission(current_user, 'payroll_view'):
         raise HTTPException(403, 'Payroll permission required')
     report = await service.get_doctor_salary_report(date_from, date_to)
     if not report["compensation_complete"]:
@@ -132,7 +133,7 @@ async def create_doctor(
     service: DoctorService = Depends(get_doctor_service)
 ):
     """Create a new doctor"""
-    if set(doctor.model_fields_set) & set(COMPENSATION_FIELDS) and 'payroll_view' not in current_user.permissions:
+    if set(doctor.model_fields_set) & set(COMPENSATION_FIELDS) and not has_permission(current_user, 'payroll_view'):
         raise HTTPException(403, 'Payroll permission required to configure compensation')
     return doctor_response(await service.create_doctor(doctor), current_user)
 
@@ -164,7 +165,7 @@ async def update_doctor(
     service: DoctorService = Depends(get_doctor_service)
 ):
     """Update doctor"""
-    if set(doctor_update.model_fields_set) & set(COMPENSATION_FIELDS) and 'payroll_view' not in current_user.permissions:
+    if set(doctor_update.model_fields_set) & set(COMPENSATION_FIELDS) and not has_permission(current_user, 'payroll_view'):
         raise HTTPException(403, 'Payroll permission required to configure compensation')
     return doctor_response(await service.update_doctor(doctor_id, doctor_update), current_user)
 

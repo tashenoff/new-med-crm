@@ -1,7 +1,8 @@
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 from typing import Optional, List
 from datetime import datetime
 import uuid
+from decimal import Decimal, ROUND_HALF_UP
 
 
 class ICD10Code(BaseModel):
@@ -18,6 +19,9 @@ class TreatmentService(BaseModel):
     quantity: int = 1
     price_per_unit: float
     total_price: float
+    unit: Optional[str] = None
+    teeth_numbers: Optional[List[str]] = None
+    discount: float = Field(default=0, ge=0, le=100, allow_inf_nan=False)
     
     # Поля для курсовых услуг
     is_course: bool = False  # Это курс или разовая услуга
@@ -31,6 +35,23 @@ class TreatmentService(BaseModel):
     # Комплексная услуга: одна строка плана со встроенным составом
     is_complex: bool = False
     components: Optional[list] = []
+
+    @model_validator(mode='after')
+    def synchronize_teeth(self):
+        if self.unit != 'зуб':
+            return self
+        valid = {f'{quadrant}{number}' for quadrant in range(1, 5) for number in range(1, 9)}
+        teeth = self.teeth_numbers or []
+        if not teeth or len(teeth) != len(set(teeth)) or any(tooth not in valid for tooth in teeth):
+            raise ValueError('Select unique valid tooth numbers for a tooth service')
+        if self.is_course:
+            raise ValueError('Tooth services use selected teeth, not course sessions')
+        price = Decimal(str(self.price_per_unit))
+        if not price.is_finite() or price < 0:
+            raise ValueError('Tooth service price must be finite and non-negative')
+        self.quantity = len(teeth)
+        self.total_price = float((price * len(teeth) * (1 - Decimal(str(self.discount)) / 100)).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP))
+        return self
 
 
 class ConsultationSheet(BaseModel):

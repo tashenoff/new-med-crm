@@ -427,7 +427,7 @@ def test_incomplete_report_endpoint_fails_closed_for_legacy_ui(modules, monkeypa
     service = SimpleNamespace(get_doctor_salary_report=AsyncMock(return_value={
         "compensation_complete": False, "accounting_blockers": [{"code": "consultation_receipts_unavailable"}]}))
     with pytest.raises(Exception) as error:
-        asyncio.run(routes.get_doctor_salary_report("2026-10-01", "2026-10-31", SimpleNamespace(permissions=["payroll_view"]), service))
+        asyncio.run(routes.get_doctor_salary_report("2026-10-01", "2026-10-31", SimpleNamespace(is_active=True, permissions=["payroll_view"]), service))
     assert error.value.status_code == 409
     assert error.value.detail["accounting_blockers"][0]["code"] == "consultation_receipts_unavailable"
 
@@ -496,7 +496,7 @@ def test_complete_report_endpoint_preserves_success_response(modules, monkeypatc
     routes = importlib.import_module("routers.doctors")
     payload = dict(compensation_complete=True, accounting_blockers=[], salary_data=[], summary={})
     service = SimpleNamespace(get_doctor_salary_report=AsyncMock(return_value=payload))
-    assert asyncio.run(routes.get_doctor_salary_report("2026-10-01", "2026-10-31", SimpleNamespace(permissions=["payroll_view"]), service)) == payload
+    assert asyncio.run(routes.get_doctor_salary_report("2026-10-01", "2026-10-31", SimpleNamespace(is_active=True, permissions=["payroll_view"]), service)) == payload
 
 
 @pytest.mark.parametrize("per_session", [False, True])
@@ -538,9 +538,9 @@ def test_actual_modal_http_persist_readback_contract(modules, monkeypatch, tmp_p
 
     run_ui("DOCTOR_CONTRACT_PAYLOADS", payload_path)
     cases = json.loads(payload_path.read_text(encoding="utf-8"))
-    assert len(cases) == 57
+    assert len(cases) == 58
     auth = ModuleType("routers.auth")
-    auth.get_current_active_user = lambda: SimpleNamespace(id="mock-user", permissions=["doctors_view", "doctors_edit", "payroll_view"])
+    auth.get_current_active_user = lambda: SimpleNamespace(id="mock-user", is_active=True, permissions=["doctors_view", "doctors_edit", "payroll_view"])
     auth.require_role = lambda roles: auth.get_current_active_user
     monkeypatch.setitem(sys.modules, "routers.auth", auth)
     routes = importlib.import_module("routers.doctors")
@@ -634,7 +634,7 @@ def test_salary_report_employee_role_authorization(modules, monkeypatch, role, e
         loaded[name] = module
     auth, routes = loaded["auth"], loaded["doctors"]
     user = UserInDB(full_name="Employee", role=UserRole(role), hashed_password="unused", permissions=["payroll_view"] if payroll else [])
-    expected_status = expected_status if payroll else 403
+    expected_status = expected_status if payroll or role == 'super_admin' else 403
     payload = dict(compensation_complete=True, accounting_blockers=[], salary_data=[], summary={})
     service = SimpleNamespace(get_doctor_salary_report=AsyncMock(return_value=payload))
     app = FastAPI()
@@ -661,7 +661,7 @@ def test_individual_inheritance_http_create_edit_roundtrip_and_validation(module
     from fastapi.testclient import TestClient
 
     auth = ModuleType("routers.auth")
-    auth.get_current_active_user = lambda: SimpleNamespace(id="mock-user", permissions=["doctors_view", "doctors_edit", "payroll_view"])
+    auth.get_current_active_user = lambda: SimpleNamespace(id="mock-user", is_active=True, permissions=["doctors_view", "doctors_edit", "payroll_view"])
     auth.require_role = lambda roles: auth.get_current_active_user
     monkeypatch.setitem(sys.modules, "routers.auth", auth)
     routes = importlib.import_module("routers.doctors")

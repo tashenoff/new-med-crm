@@ -660,6 +660,7 @@ def test_completion_projects_execution_from_events_atomically(modules):
 
 @pytest.mark.parametrize("kind,value,percent,expected", [
     ("percentage", 25, 0, 75), ("fixed", 50, 0, 0), ("hybrid", 50, 20, 60),
+    ("monthly", 120000, 0, 0),
 ])
 def test_partial_discounted_receipt_snapshot_and_retry(modules, monkeypatch, kind, value, percent, expected):
     db, saved, settings = memory_db(kind, value, percent)
@@ -692,6 +693,7 @@ def test_partial_discounted_receipt_snapshot_and_retry(modules, monkeypatch, kin
 
 @pytest.mark.parametrize("kind,value,percent,expected", [
     ("percentage", 25, 0, 0), ("fixed", 50, 0, 50), ("hybrid", 50, 20, 50),
+    ("monthly", 120000, 0, 0),
 ])
 def test_completion_stable_occurrence_not_payment(modules, kind, value, percent, expected):
     db, saved, settings = memory_db(kind, value, percent)

@@ -78,6 +78,31 @@ class SalaryService:
         salary_data = []
         for doctor in doctors:
             doctor_id = doctor["id"]
+            if doctor.get("payment_type") == "monthly":
+                # Profile settings have no effective-date history. Report the current
+                # monthly amount once, independently of patient accounting evidence.
+                blocker_count = len(self.accounting_blockers)
+                appointments_revenue, total_appointments = await self._calculate_appointments_revenue(doctor_id, start, end)
+                # Revenue still uses the existing report calculation. Its evidence
+                # cannot affect or add per-service compensation to a monthly salary.
+                treatment_plans_revenue, _ = await self._calculate_treatment_plans_salary(doctor, doctor_id, start, end)
+                revenue_blockers = self.accounting_blockers[blocker_count:]
+                del self.accounting_blockers[blocker_count:]
+                scheme = self._tariff(doctor)
+                monthly_salary = scheme[1] if scheme else 0.0
+                monthly_period_calculated = (start.year, start.month) == (end.year, end.month) and start <= end
+                item = self._build_salary_item(doctor, total_appointments, appointments_revenue,
+                    treatment_plans_revenue, appointments_revenue + treatment_plans_revenue,
+                    0.0, 0.0, monthly_salary if monthly_period_calculated else None)
+                item["monthly_salary"] = monthly_salary
+                item["monthly_period_calculated"] = monthly_period_calculated
+                item["salary_settings_basis"] = "current_doctor_profile"
+                item["revenue_accounting_blockers"] = revenue_blockers
+                item["revenue_complete"] = not revenue_blockers
+                item["accounting_blockers"] = [entry for entry in self.accounting_blockers if entry["doctor_id"] == doctor_id]
+                item["compensation_complete"] = not item["accounting_blockers"]
+                salary_data.append(item)
+                continue
             appointments_revenue, total_appointments = await self._calculate_appointments_revenue(doctor_id, start, end)
             treatment_plans_revenue, treatment_plans_salary = await self._calculate_treatment_plans_salary(doctor, doctor_id, start, end)
             consultations_salary = self._calculate_consultations_salary(doctor, appointments_revenue, total_appointments)
@@ -234,10 +259,11 @@ class SalaryService:
 
     def _calculate_summary(self, salary_data: List[Dict[str, Any]], date_from, date_to) -> Dict[str, Any]:
         revenue = sum(item["total_revenue"] for item in salary_data)
-        salary = sum(item["calculated_salary"] for item in salary_data)
+        salary = sum(item["calculated_salary"] for item in salary_data if item["calculated_salary"] is not None)
         return {
             "total_revenue": revenue, "total_salary": salary, "total_doctors": len(salary_data),
             "date_from": date_from, "date_to": date_to,
             "salary_percentage": round(salary / revenue * 100 if revenue else 0, 2),
             "compensation_complete": not self.accounting_blockers, "compensation_currency": "KZT",
+            "salary_total_complete": all(item["calculated_salary"] is not None for item in salary_data),
         }

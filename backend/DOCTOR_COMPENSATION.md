@@ -4,9 +4,10 @@
 
 - Payroll amounts are KZT. New settings and effective compensation updates reject
   other currencies, negative/non-finite values, and percentages outside 0..100.
-- `payment_type`: `percentage`, `fixed`, or `hybrid`.
+- `payment_type`: `percentage`, `fixed`, `hybrid`, or `monthly`.
 - `payment_value`: percent for percentage; KZT **per completed occurrence** for
-  fixed and the fixed part of hybrid. It is never a monthly salary.
+  fixed and the fixed part of hybrid; KZT per month for `monthly`.
+  See `MONTHLY_SALARY.md` for monthly period and history limitations.
 - `hybrid_percentage_value`: hybrid percent of actual receipts after discounts.
 - `payment_mode`: `general` uses the main tariff; `individual` uses each service's
   `commission_type` (`fixed` or `percentage`), `commission_value`, and KZT
