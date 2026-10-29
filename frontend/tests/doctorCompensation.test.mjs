@@ -39,6 +39,72 @@ async function compile(path, page = false) {
 const DoctorModal = await compile('../src/components/modals/DoctorModal.js');
 const DoctorsPage = await compile('../src/pages/DoctorsPage.jsx', true);
 const SalariesView = await compile('../src/components/finance/salaries/SalariesView.js');
+
+test('monthly type reuses the KZT input, has no example default, saves and reopens', async context => {
+  const ui = await modal(context, null, { full_name: 'Synthetic monthly', consultation_compensation_mode: 'none' });
+  const kind = ui.container.querySelector('[name="payment_type"]');
+  assert.equal(kind.options.length, 4);
+  await ui.change(kind, 'monthly');
+  const amount = ui.container.querySelector('[name="payment_value"]');
+  assert.equal(amount.value, '');
+  assert.equal(amount.required, true);
+  assert.equal(ui.container.querySelectorAll('[name="payment_value"]').length, 1);
+  assert.equal(ui.container.querySelector('[name="consultation_payment_value"]'), null);
+  await ui.submit();
+  assert.equal(ui.saved.length, 0);
+  await ui.change(amount, '120000');
+  await ui.submit();
+  assert.equal(ui.saved.length, 1);
+  const saved = ui.saved[0];
+  assert.equal(saved.payment_type, 'monthly');
+  assert.equal(saved.payment_value, 120000);
+  assert.equal(saved.currency, 'KZT');
+  assert.equal(saved.payment_mode, 'general');
+  const reopened = await modal(context, { ...saved, id: 'synthetic-monthly' });
+  assert.equal(reopened.container.querySelector('[name="payment_value"]').value, '120000');
+  await reopened.change(reopened.container.querySelector('[name="payment_value"]'), '135000.5');
+  await reopened.submit();
+  assert.equal(reopened.saved[0].payment_value, 135000.5);
+});
+
+test('monthly salary UI shows the amount at zero patients and keeps existing columns', async context => {
+  const ui = await mount(context, SalariesView, { user: { role: 'super_admin', permissions: [] } }, {
+    salary_data: [{ doctor_id: 'monthly', doctor_name: 'Synthetic monthly', payment_type: 'monthly',
+      payment_value: 120000, currency: 'KZT', total_appointments: 0, completed_appointments: 0,
+      total_revenue: 0, calculated_salary: 120000, revenue_complete: true }],
+    summary: { total_doctors: 1, total_revenue: 0, total_salary: 120000 }, compensation_complete: true
+  });
+  assert.match(ui.container.textContent, /Ежемесячная оплата/);
+  assert.match(ui.container.textContent, /120\s*000 KZT в месяц/);
+  assert.match(ui.container.textContent, /История изменения оклада не хранится/);
+  assert.equal(ui.container.querySelectorAll('tbody tr').length, 1);
+  assert.equal(ui.container.querySelectorAll('tbody td').length, 9);
+});
+
+test('cross-month report retains existing salary rows, monthly rate, and visibly qualified subtotal', async context => {
+  const ui = await mount(context, SalariesView, {}, {
+    salary_data: [
+      { doctor_id: 'monthly', doctor_name: 'Synthetic monthly', payment_type: 'monthly', payment_value: 120000,
+        currency: 'KZT', calculated_salary: null, monthly_salary: 120000 },
+      { doctor_id: 'percentage', doctor_name: 'Existing percentage', payment_type: 'percentage', payment_value: 25,
+        currency: 'KZT', calculated_salary: 3500 }
+    ],
+    summary: { total_doctors: 2, total_revenue: 14000, total_salary: 3500, salary_total_complete: false },
+    compensation_complete: true, accounting_blockers: []
+  });
+  assert.equal(ui.container.querySelectorAll('tbody tr').length, 2);
+  assert.match(ui.container.textContent, /120\s*000 KZT в месяц/);
+  assert.match(ui.container.textContent, /За период не рассчитана/);
+  assert.match(ui.container.textContent, /Зарплата по рассчитанным схемам/);
+  assert.match(ui.container.textContent, /3\s*500 KZT/);
+  assert.match(ui.container.textContent, /не включены в итог/);
+  assert.match(ui.container.textContent, /изменение суммы меняет и отображение прошлых месяцев/);
+  assert.equal(ui.container.querySelector('[role="alert"]'), null);
+  const date = ui.container.querySelector('input[type="date"]');
+  await ui.change(date, '2026-09-01');
+  assert.equal(date.value, '2026-09-01');
+  assert.equal(ui.container.querySelectorAll('tbody tr').length, 2);
+});
 const doctor = {
   id: 'a', full_name: 'Doctor A', specialty: 'Therapy', specialties: ['Therapy'],
   payment_mode: 'individual', payment_type: 'hybrid', payment_value: 2500,
@@ -327,7 +393,7 @@ for (const editing of [false, true]) {
       hook: { doctors: [], fetchDoctors: async () => {}, createDoctor: async data => { calls.push(data); return { success: true }; }, updateDoctor: async (id, data) => { calls.push({ id, ...data }); return { success: true }; } },
       modals: { openModal: (id, props) => { globalThis.doctorFixture.opened = props; }, closeModal() {}, updateModalProps() {}, getModalProps() {} }
     };
-    await mount(context, DoctorsPage, { user: { role: 'admin' } });
+    await mount(context, DoctorsPage, { user: { role: 'admin', permissions: ['payroll_view'] } });
     await act(async () => editing ? globalThis.doctorFixture.view.onEditDoctor(doctor) : globalThis.doctorFixture.view.onAddDoctor());
     const opened = globalThis.doctorFixture.opened;
     if (editing) assert.equal(opened.doctorForm.consultation_payment_value, 1500);
@@ -653,7 +719,15 @@ test('cross-stack modal payloads and API readback', async context => {
     assert.deepEqual(edited.services, created.services.map(service => service.service_id === 'service' ? 'service' : service));
     cases.push({ created, edited });
   }
-  assert.equal(cases.length, 57);
+  const monthly = await modal(context, null, { full_name: 'Monthly contract', payment_type: 'monthly', payment_value: 120000, currency: 'KZT' });
+  await monthly.submit();
+  assert.equal(monthly.saved.length, 1);
+  const monthlyCreated = buildDoctorPayload(monthly.saved[0]);
+  const monthlyEdit = await modal(context, { ...monthlyCreated, id: 'monthly-contract' });
+  await monthlyEdit.change(monthlyEdit.container.querySelector('[name="payment_value"]'), '135000');
+  await monthlyEdit.submit();
+  cases.push({ created: monthlyCreated, edited: buildDoctorPayload(monthlyEdit.saved[0]) });
+  assert.equal(cases.length, 58);
   if (process.env.DOCTOR_CONTRACT_PAYLOADS) await writeFile(process.env.DOCTOR_CONTRACT_PAYLOADS, JSON.stringify(cases));
 });
 

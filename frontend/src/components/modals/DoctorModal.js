@@ -303,7 +303,7 @@ const DoctorModal = ({
                 
                 {/* Переключатель режима оплаты */}
                 <label className="curai-doctor-field">Режим настройки комиссий
-  <select name="paymentMode" aria-label="Режим настройки комиссий" value={paymentMode} onChange={event => handlePaymentModeChange(event.target.value)} className={selectClasses}>
+  <select name="paymentMode" aria-label="Режим настройки комиссий" disabled={doctorForm.payment_type === 'monthly'} value={paymentMode} onChange={event => handlePaymentModeChange(event.target.value)} className={selectClasses}>
     <option value="general">Общая оплата</option><option value="individual">Индивидуальные комиссии</option>
   </select>
 </label>
@@ -482,14 +482,6 @@ const DoctorModal = ({
           </div>
           
           {canConfigureCompensation && <>
-          <fieldset disabled={paymentMode === 'individual' && doctorForm.consultation_compensation_mode !== 'inherit' && selectedServices.every(serviceId => serviceCommissions[serviceId] !== undefined)}>
-          <div className="bg-curai-warningBg p-4 rounded-md border border-curai-warning ">
-            <h3 className="flex items-center text-sm font-medium text-curai-warning mb-4">
-              <span className="mr-2">💰</span> Основная схема оплаты
-            </h3>
-            
-            <div className="space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <label className={labelClasses}>Тип оплаты</label>
                   <select
@@ -501,7 +493,7 @@ const DoctorModal = ({
                     const updatedForm = {
                       ...doctorForm,
                       payment_type: newPaymentType,
-                      payment_value: 0 // Сброс значения при смене типа
+                      payment_value: newPaymentType === 'monthly' ? '' : 0 // Оклад вводится явно
                     };
 
                     // Только для гибридного типа сбрасываем дополнительные поля
@@ -509,6 +501,7 @@ const DoctorModal = ({
                       updatedForm.hybrid_percentage_value = 0;
                     }
 
+                    if (newPaymentType === 'monthly') setPaymentMode('general');
                     setDoctorForm(updatedForm);
                   }}
                     className={inputClasses}
@@ -516,16 +509,26 @@ const DoctorModal = ({
                     <option value="percentage">Процент от выручки</option>
                     <option value="fixed">Фиксированная оплата</option>
                     <option value="hybrid">Гибридная оплата</option>
+                    <option value="monthly">Ежемесячная оплата</option>
                   </select>
                 </div>
+          <fieldset disabled={doctorForm.payment_type !== 'monthly' && paymentMode === 'individual' && doctorForm.consultation_compensation_mode !== 'inherit' && selectedServices.every(serviceId => serviceCommissions[serviceId] !== undefined)}>
+          <div className="bg-curai-warningBg p-4 rounded-md border border-curai-warning ">
+            <h3 className="flex items-center text-sm font-medium text-curai-warning mb-4">
+              <span className="mr-2">💰</span> Основная схема оплаты
+            </h3>
+
+            <div className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
 
                 <div>
                   <label className={labelClasses}>
-                    {doctorForm.payment_type === 'percentage' ? 'Процент (%)' : 'Фиксированная сумма (KZT за завершённую услугу/приём)'}
+                    {doctorForm.payment_type === 'percentage' ? 'Процент (%)' : doctorForm.payment_type === 'monthly' ? 'Ежемесячная сумма (KZT)' : 'Фиксированная сумма (KZT за завершённую услугу/приём)'}
                   </label>
                   <div className="flex">
                     <input
                       name="payment_value"
+                      required={doctorForm.payment_type === 'monthly'}
                       aria-label="Значение основной оплаты"
                       type="number"
                       min="0"
@@ -548,6 +551,7 @@ const DoctorModal = ({
                   {doctorForm.payment_type === 'percentage' && (
                     <p className="text-xs text-curai-muted mt-1">Укажите процент от общей выручки врача</p>
                   )}
+                  {doctorForm.payment_type === 'monthly' && <p className="text-xs text-curai-muted mt-1">Оклад за месяц, независимо от количества приёмов и услуг.</p>}
                   {doctorForm.payment_type === 'fixed' && (
                     <p className="text-xs text-curai-muted mt-1">KZT за каждую завершённую услугу/приём, не за отчётный период</p>
                   )}
@@ -595,7 +599,7 @@ const DoctorModal = ({
           </div>
           </fieldset>
 
-          <section className="space-y-4 rounded-md border border-curai-warning p-4">
+          {doctorForm.payment_type !== 'monthly' && <section className="space-y-4 rounded-md border border-curai-warning p-4">
             <h3 className={labelClasses}>Оплата консультаций</h3>
             <label htmlFor="consultation_compensation_mode" className={labelClasses}>Режим оплаты консультаций (обязательно)</label>
             <select
@@ -653,7 +657,7 @@ const DoctorModal = ({
                 )}
               </div>
             )}
-          </section>
+          </section>}
           </>}
 
           <div className="flex space-x-3">

@@ -2,6 +2,8 @@ import { LoadingSpinner } from '../common/LoadingIndicator';
 import React, { useState, useEffect, useMemo, useRef, memo } from 'react';
 import { inputClasses } from '../modals/modalUtils';
 import { nextWorkDate, autofillSlot, isBookableSlot, freeTimesFor, hasScheduleWindow } from '../../utils/scheduling';
+import ToothChart from '../dental/ToothChart';
+import { isToothService, dentalTotal } from '../../utils/dentalService';
 
 const PAGE_SIZE = 40;
 
@@ -134,6 +136,8 @@ const ServiceCheckboxSelector = ({ onAddServices, alreadyAddedIds = [], disabled
         next[service.id] = {
           service,
           quantity: 1,
+          teeth_numbers: [],
+          discount: 0,
           isCourse: false,
           durationDays: 7,
           frequencyPerDay: 2,
@@ -157,12 +161,16 @@ const ServiceCheckboxSelector = ({ onAddServices, alreadyAddedIds = [], disabled
   };
 
   const getEffectiveCount = (cfg) => {
+    if (isToothService(cfg.service)) return cfg.teeth_numbers.length;
     if (cfg.isCourse) return (cfg.durationDays || 1) * (cfg.frequencyPerDay || 1);
     return cfg.quantity || 1;
   };
 
-  const getLineTotal = (cfg) => (cfg.service.price || 0) * getEffectiveCount(cfg);
+  const getLineTotal = (cfg) => isToothService(cfg.service)
+    ? dentalTotal(cfg.service.price, cfg.teeth_numbers, cfg.discount)
+    : (cfg.service.price || 0) * getEffectiveCount(cfg);
   const totalPrice = selectedList.reduce((sum, cfg) => sum + getLineTotal(cfg), 0);
+  const dentalSelectionMissing = selectedList.some(cfg => isToothService(cfg.service) && !cfg.teeth_numbers.length);
 
   const ensureAvailability = async (complexId, date) => {
     if (!complexId || !date) return;
@@ -279,13 +287,18 @@ const ServiceCheckboxSelector = ({ onAddServices, alreadyAddedIds = [], disabled
   });
 
   const handleAdd = () => {
-    if (selectedCount === 0 || schedulingBlocked) return;
+    if (disabled || selectedCount === 0 || schedulingBlocked || dentalSelectionMissing) return;
     const servicesToAdd = selectedList.map((cfg) => {
       const base = {
         service_id: cfg.service.id,
         service_name: cfg.service.service_name,
         category: cfg.service.category || '',
         price_per_unit: cfg.service.price || 0,
+        ...(isToothService(cfg.service) ? {
+          unit: cfg.service.unit,
+          teeth_numbers: cfg.teeth_numbers,
+          discount: cfg.discount,
+        } : {}),
         ...(cfg.service.service_type === 'complex'
           ? {
               is_complex: true,
@@ -361,8 +374,8 @@ const ServiceCheckboxSelector = ({ onAddServices, alreadyAddedIds = [], disabled
       }
       return {
         ...base,
-        quantity: cfg.quantity || 1,
-        total_price: (cfg.service.price || 0) * (cfg.quantity || 1),
+        quantity: getEffectiveCount(cfg),
+        total_price: getLineTotal(cfg),
         is_course: false,
         ...(scheduling ? { scheduling } : {})
       };
@@ -659,18 +672,27 @@ const ServiceCheckboxSelector = ({ onAddServices, alreadyAddedIds = [], disabled
                     ✕
                   </button>
                 </div>
-                <div className="grid grid-cols-2 gap-3">
+                {isToothService(cfg.service) && <div className="curai-consultation-teeth">
+                  <ToothChart selectedTeeth={cfg.teeth_numbers} onTeethSelect={teeth => updateSetting(cfg.service.id, 'teeth_numbers', teeth)} multiSelect disabled={disabled} />
+                  {!cfg.teeth_numbers.length && <p role="status" className="text-sm text-curai-negative">Выберите хотя бы один зуб для этой услуги.</p>}
+                </div>}
+                <div className={`grid ${isToothService(cfg.service) ? 'grid-cols-3' : 'grid-cols-2'} gap-3`}>
                   <div>
                     <label className="block text-xs font-medium text-curai-ink mb-1">Количество</label>
                     <input
                       type="number"
                       min="1"
-                      value={cfg.quantity}
-                      disabled={cfg.isCourse}
+                      aria-label={`Количество: ${cfg.service.service_name}`}
+                      value={isToothService(cfg.service) ? getEffectiveCount(cfg) : cfg.quantity}
+                      disabled={cfg.isCourse || isToothService(cfg.service)}
                       onChange={(e) => updateSetting(cfg.service.id, 'quantity', parseInt(e.target.value) || 1)}
                       className="w-full px-3 py-2 border border-curai-control rounded-md text-sm disabled:bg-curai-subtle"
                     />
                   </div>
+                  {isToothService(cfg.service) && <label className="block text-xs font-medium text-curai-ink">Скидка (%)
+                    <input type="number" min="0" max="100" step="0.01" aria-label={`Скидка (%): ${cfg.service.service_name}`} value={cfg.discount} disabled={disabled}
+                      onChange={e => updateSetting(cfg.service.id, 'discount', Math.min(100, Math.max(0, Number(e.target.value) || 0)))} className="w-full px-3 py-2 border border-curai-control rounded-md text-sm" />
+                  </label>}
                   <div>
                     <label className="block text-xs font-medium text-curai-ink mb-1">Итого</label>
                     <div className="w-full px-3 py-2 bg-curai-subtle border border-curai-control rounded-md text-sm font-medium">
@@ -678,7 +700,7 @@ const ServiceCheckboxSelector = ({ onAddServices, alreadyAddedIds = [], disabled
                     </div>
                   </div>
                 </div>
-                <div className="flex items-center space-x-2">
+                {!isToothService(cfg.service) && <div className="flex items-center space-x-2">
                   <input
                     type="checkbox"
                     id={`isCourse-${cfg.service.id}`}
@@ -689,7 +711,7 @@ const ServiceCheckboxSelector = ({ onAddServices, alreadyAddedIds = [], disabled
                   <label htmlFor={`isCourse-${cfg.service.id}`} className="text-sm font-medium text-curai-ink cursor-pointer">
                     Это курс (несколько процедур)
                   </label>
-                </div>
+                </div>}
 
                 {cfg.isCourse && (
                   <div className="space-y-3 pl-2 border-l-2 border-curai-control">
@@ -740,7 +762,7 @@ const ServiceCheckboxSelector = ({ onAddServices, alreadyAddedIds = [], disabled
             <button
               type="button"
               onClick={handleAdd}
-              disabled={disabled || schedulingBlocked}
+              disabled={disabled || schedulingBlocked || dentalSelectionMissing}
               className="bg-curai-positive hover:bg-curai-positive text-white font-medium py-2 px-4 rounded-md disabled:opacity-50"
             >
               Добавить {selectedCount}

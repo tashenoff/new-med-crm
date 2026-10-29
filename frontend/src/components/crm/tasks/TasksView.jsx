@@ -7,6 +7,7 @@ import {
 } from 'lucide-react';
 import { useTheme, themeClasses, cn } from '../../../hooks/useTheme';
 import PanelHeader from '../../common/PanelHeader';
+import PagePanel from '../../common/PagePanel';
 import Modal from '../../modals/Modal';
 import { inputClasses, selectClasses, labelClasses, buttonPrimaryClasses } from '../../modals/modalUtils';
 
@@ -189,7 +190,7 @@ const TasksView = ({ user }) => {
 
   return (
     <div className="space-y-6">
-      <div className={`calendar-container calendar-view-panel rounded-md ${themeClasses.shadow.default}`}>
+      <PagePanel>
         <PanelHeader
           title="Задачи"
           subtitle="Управление задачами CRM"
@@ -197,7 +198,7 @@ const TasksView = ({ user }) => {
           actionLabel="+ Создать задачу"
         />
 
-        <div className="bg-curai-surface rounded-b-md border border-t-0 border-curai-border p-6 space-y-6 shadow-none">
+        <div className="curai-page-panel-body p-6 space-y-6">
           {/* Статистика */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
             <div className={cn("p-4 rounded-md", themeClasses.bg.card, themeClasses.border.default)}>
@@ -432,7 +433,7 @@ const TasksView = ({ user }) => {
             )}
           </div>
         </div>
-      </div>
+      </PagePanel>
 
       {/* Модальное окно создания/редактирования */}
       <Modal

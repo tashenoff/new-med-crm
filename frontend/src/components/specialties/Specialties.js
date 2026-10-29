@@ -3,6 +3,7 @@ import { canAction, permissionProps } from '../../utils/permissions.js';
 import React, { useState, useEffect } from 'react';
 import Modal from '../modals/Modal';
 import PanelHeader from '../common/PanelHeader';
+import PagePanel from '../common/PagePanel';
 import { inputClasses, textareaClasses, labelClasses, buttonPrimaryClasses, buttonSecondaryClasses } from '../modals/modalUtils';
 
 const Specialties = ({ user }) => {
@@ -144,7 +145,7 @@ const Specialties = ({ user }) => {
 
   return (
     <div className="curai-directory-page curai-specialties space-y-6">
-      <div className={`calendar-container calendar-view-panel rounded-md`}>
+      <PagePanel>
         <PanelHeader
           title="Специальности врачей"
           subtitle="Управление медицинскими специальностями"
@@ -152,7 +153,7 @@ const Specialties = ({ user }) => {
           actionLabel="+ Добавить специальность"
         />
 
-        <div className="bg-curai-surface rounded-b-md border border-t-0 border-curai-border p-4 space-y-4 shadow-none">
+        <div className="curai-page-panel-body p-6 space-y-4">
 
       {/* Сообщения */}
       {error && (
@@ -321,7 +322,7 @@ const Specialties = ({ user }) => {
             </form>
       </Modal>
         </div>
-      </div>
+      </PagePanel>
     </div>
   );
 };

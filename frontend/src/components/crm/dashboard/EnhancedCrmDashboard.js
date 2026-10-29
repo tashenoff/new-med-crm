@@ -12,6 +12,7 @@ import { useCrm } from '../../../hooks/useCrm';
 import { useCrmApi } from '../../../hooks/useCrmApi';
 import { useTheme, themeClasses, cn } from '../../../hooks/useTheme';
 import PanelHeader from '../../common/PanelHeader';
+import PagePanel from '../../common/PagePanel';
 
 const EnhancedCrmDashboard = ({ user }) => {
   const [recentActivity, setRecentActivity] = useState([]);
@@ -196,13 +197,13 @@ const EnhancedCrmDashboard = ({ user }) => {
 
   return (
     <div className="space-y-6">
-      <div className={`calendar-container calendar-view-panel rounded-md ${themeClasses.shadow.default}`}>
+      <PagePanel>
         <PanelHeader
           title="CRM Аналитика"
           subtitle="Детальный обзор ключевых метрик и активности"
         />
 
-        <div className="bg-curai-surface rounded-b-md border border-t-0 border-curai-border p-4 space-y-4 shadow-none">
+        <div className="curai-page-panel-body p-6 space-y-4">
           {/* Фильтры */}
           <div className="flex items-center justify-end space-x-4">
             <select
@@ -457,7 +458,7 @@ const EnhancedCrmDashboard = ({ user }) => {
             </div>
           </div>
         </div>
-      </div>
+      </PagePanel>
     </div>
   );
 };

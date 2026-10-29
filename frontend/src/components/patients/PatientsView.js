@@ -1,6 +1,7 @@
 import { canAction } from '../../utils/permissions.js';
 import React, { useState, useEffect } from 'react';
 import PanelHeader from '../common/PanelHeader';
+import PagePanel from '../common/PagePanel';
 import { formatPatientPhone } from '../../utils/patientPhone';
 import { patientOriginLabel, visiblePatientNotes } from '../../utils/patientOrigin';
 import { firstAcquisitionLabel } from '../../utils/attribution';
@@ -122,7 +123,7 @@ const PatientsView = ({
 
   return (
     <div className="space-y-6">
-      <div className={`calendar-container calendar-view-panel rounded-md`}>
+      <PagePanel>
         <PanelHeader
           title="Пациенты"
           subtitle="Управление списком пациентов клиники"
@@ -130,9 +131,9 @@ const PatientsView = ({
           actionLabel="+ Добавить пациента"
         />
 
-        <div className="bg-curai-surface rounded-b-md border border-t-0 border-curai-border p-4 space-y-4 shadow-none">
+        <div className="curai-page-panel-body">
           {/* Фильтры */}
-          <div className="mb-6 space-y-4">
+          <div className="curai-page-panel-filters space-y-4">
             {/* Поиск */}
             <div>
               <input
@@ -226,7 +227,7 @@ const PatientsView = ({
           </div>
 
           {/* Список пациентов */}
-          <div className="bg-curai-surface rounded-md shadow-none overflow-hidden">
+          <div className="curai-page-panel-table overflow-hidden rounded-b-md">
             {filteredPatients.length === 0 ? (
               <div className="text-center py-8 text-curai-muted">
                 <p>Пациенты не найдены</p>
@@ -374,7 +375,7 @@ const PatientsView = ({
             )}
           </div>
         </div>
-      </div>
+      </PagePanel>
     </div>
   );
 };

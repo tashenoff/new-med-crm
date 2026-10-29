@@ -4,6 +4,7 @@ import { canAction, permissionProps } from '../../utils/permissions.js';
 import React, { useState, useEffect } from 'react';
 import Modal from '../modals/Modal';
 import PanelHeader from '../common/PanelHeader';
+import PagePanel from '../common/PagePanel';
 import { inputClasses, selectClasses, buttonPrimaryClasses, buttonSecondaryClasses, buttonDangerClasses, tableClasses, tableHeaderClasses, tableRowClasses, labelClasses } from '../modals/modalUtils';
 import { materialsApi } from '../../api/materials';
 import { validateServicePrice, servicePriceSaveError } from './servicePriceForm';
@@ -716,7 +717,7 @@ const ServicePrices = ({ user }) => {
 
   return (
     <div className="space-y-6">
-      <div className={`calendar-container calendar-view-panel rounded-md`}>
+      <PagePanel>
         <PanelHeader
           title="Прайс-лист услуг"
           subtitle="Управление ценами и категориями медицинских услуг"
@@ -724,17 +725,17 @@ const ServicePrices = ({ user }) => {
           actionLabel="+ Добавить услугу"
         />
 
-        <div className="bg-curai-surface rounded-b-md border border-t-0 border-curai-border p-4 space-y-4 shadow-none">
+        <div className="curai-page-panel-body p-6 space-y-4">
           <PriceImportHistory refreshKey={importHistoryVersion} />
           
           {/* Category Management Section */}
           {(user?.role === 'admin' || user?.role === 'super_admin' || user?.role === 'marketer') && (
             <div className="bg-curai-subtle p-4 rounded-md">
-              <div className="flex items-center justify-between mb-3">
+              <div className="flex flex-wrap items-center justify-between gap-4 mb-3">
                 <h3 className="text-lg font-semibold text-curai-ink ">
                   Категории услуг
                 </h3>
-                <div className="flex gap-2">
+                <div className="flex flex-wrap gap-2">
                   <button
                                       onClick={handleClearClick}
                                       className={`${buttonDangerClasses} h-10 inline-flex items-center justify-center gap-2 whitespace-nowrap px-4`}
@@ -1516,7 +1517,7 @@ const ServicePrices = ({ user }) => {
       </Modal>
 
         </div>
-      </div>
+      </PagePanel>
     </div>
   );
 };

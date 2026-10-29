@@ -1,6 +1,7 @@
 import { LoadingSpinner } from '../common/LoadingIndicator';
 import React, { useState, useEffect } from 'react';
 import PanelHeader from '../common/PanelHeader';
+import PagePanel from '../common/PagePanel';
 
 const DoctorStatistics = () => {
   const [doctorStats, setDoctorStats] = useState(null);
@@ -108,9 +109,9 @@ const DoctorStatistics = () => {
           <div className="flex items-center">
             <p className="text-curai-muted text-sm font-medium">{title}</p>
             {tooltip && (
-              <div className="ml-2 relative">
+              <div className="ml-2">
                 <div className="w-4 h-4 text-curai-muted cursor-help">ℹ️</div>
-                <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-3 py-2 bg-curai-ink text-white text-xs rounded-md opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 whitespace-nowrap z-10 max-w-xs">
+                <div className="absolute bottom-full left-4 right-4 mb-2 px-3 py-2 bg-curai-ink text-white text-xs rounded-md opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 whitespace-normal z-10">
                   {tooltip}
                   <div className="absolute top-full left-1/2 transform -translate-x-1/2 border-4 border-transparent border-t-gray-800"></div>
                 </div>
@@ -169,15 +170,15 @@ const DoctorStatistics = () => {
 
   return (
     <div className="space-y-6">
-      <div className={`calendar-container calendar-view-panel rounded-md`}>
+      <PagePanel>
         <PanelHeader
           title="Статистика врачей"
           subtitle="Аналитика работы врачей и эффективности приемов"
         />
 
-        <div className="bg-curai-surface rounded-b-md border border-t-0 border-curai-border p-4 space-y-4 shadow-none">
+        <div className="curai-page-panel-body p-6 space-y-4">
           {/* Date Filter */}
-          <div className="flex items-center justify-end space-x-4">
+          <div className="flex flex-wrap items-center justify-end gap-4">
             <div className="flex items-center space-x-2">
               <label className="text-sm font-medium text-curai-ink">От:</label>
               <input
@@ -783,7 +784,7 @@ const DoctorStatistics = () => {
         </div>
       )}
         </div>
-      </div>
+      </PagePanel>
     </div>
   );
 };

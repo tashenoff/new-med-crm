@@ -34,6 +34,7 @@ const ToothChart = ({ selectedTeeth = [], onTeethSelect, multiSelect = false, di
       type="button"
       onClick={() => handleToothClick(toothNumber)}
       disabled={disabled}
+      aria-pressed={isSelected}
       className={`w-8 h-12 border-2 rounded text-xs font-medium transition-colors ${
         disabled 
           ? "bg-curai-border text-curai-muted border-curai-control cursor-not-allowed"
@@ -106,7 +107,7 @@ const ToothChart = ({ selectedTeeth = [], onTeethSelect, multiSelect = false, di
             Выбранные зубы ({selectedTeeth.length}):
           </div>
           <div className="flex flex-wrap gap-1">
-            {selectedTeeth.sort((a, b) => parseInt(a) - parseInt(b)).map(tooth => (
+            {[...selectedTeeth].sort((a, b) => parseInt(a) - parseInt(b)).map(tooth => (
               <span 
                 key={tooth}
                 className="inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-curai-selected text-curai-blue"
@@ -114,6 +115,7 @@ const ToothChart = ({ selectedTeeth = [], onTeethSelect, multiSelect = false, di
                 #{tooth}
                 {!disabled && (
                   <button
+                    type="button"
                     onClick={() => handleToothClick(tooth)}
                     className="ml-1 text-curai-blue hover:text-curai-blue"
                     title="Убрать зуб"

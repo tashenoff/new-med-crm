@@ -1,6 +1,7 @@
 import { LoadingSpinner } from '../../common/LoadingIndicator';
 import React, { useState, useEffect, useRef } from 'react';
 import { formatCompensation, formatConsultationCompensation } from '../../../utils/doctorCompensation';
+import { localDateKey } from '../../../utils/firstTouchDateFilter';
 
 const formatReportDetail = (value) => {
   if (value == null) return '';
@@ -20,10 +21,10 @@ const SalariesView = ({ user, refreshVersion = 0 }) => {
   const [loading, setLoading] = useState(false);
   const [dateFrom, setDateFrom] = useState(() => {
     const date = new Date();
-    return new Date(date.getFullYear(), date.getMonth(), 1).toISOString().split('T')[0];
+    return localDateKey(new Date(date.getFullYear(), date.getMonth(), 1));
   });
   const [dateTo, setDateTo] = useState(() => {
-    return new Date().toISOString().split('T')[0];
+    return localDateKey(new Date());
   });
 
   const API = import.meta.env.VITE_BACKEND_URL;
@@ -93,6 +94,7 @@ const SalariesView = ({ user, refreshVersion = 0 }) => {
   }, [dateFrom, dateTo, refreshVersion]);
 
   const getPaymentTypeLabel = (type) => {
+    if (type === 'monthly') return 'Ежемесячная оплата';
     return type === 'hybrid' ? 'Гибридная' : type === 'fixed' ? 'Фиксированная' : type === 'percentage' ? 'Процентная' : 'Не указан';
   };
 
@@ -110,7 +112,7 @@ const SalariesView = ({ user, refreshVersion = 0 }) => {
       <div className="flex justify-between items-center">
         <div>
           <h1 className="text-2xl font-semibold text-curai-ink ">👨‍⚕️ Зарплата врачей</h1>
-          <p className="text-curai-muted mt-1">Расчет заработной платы врачей на основе выполненных услуг</p>
+          <p className="text-curai-muted mt-1">Расчет заработной платы врачей и ежемесячных окладов</p>
         </div>
       </div>
 
@@ -160,6 +162,12 @@ const SalariesView = ({ user, refreshVersion = 0 }) => {
       )}
 
       {/* Summary Cards */}
+      {salaryData.some(doctor => doctor.payment_type === 'monthly') && (
+        <p className="text-sm text-curai-muted">Ежемесячная оплата: текущий оклад из карточки врача. История изменения оклада не хранится — изменение суммы меняет и отображение прошлых месяцев. Оклад не зависит от числа дней, приёмов или услуг.</p>
+      )}
+      {summary?.salary_total_complete === false && (
+        <p role="status" className="text-sm text-curai-warning">Период выходит за пределы одного календарного месяца. Текущие месячные оклады показаны в строках врачей, но не включены в итог: их сумма за такой период не определена. Остальные схемы рассчитаны за выбранный период.</p>
+      )}
       {summary && (
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
           <div className="bg-curai-surface rounded-md shadow-none p-6 border border-curai-border ">
@@ -192,7 +200,7 @@ const SalariesView = ({ user, refreshVersion = 0 }) => {
                 <span className="text-2xl">💳</span>
               </div>
               <div className="ml-4">
-                <p className="text-sm font-medium text-curai-muted ">Общая зарплата</p>
+                <p className="text-sm font-medium text-curai-muted ">{summary.salary_total_complete === false ? 'Зарплата по рассчитанным схемам' : 'Общая зарплата'}</p>
                 <p className="text-2xl font-semibold text-curai-ink ">{formatCurrency(summary.total_salary || 0)}</p>
               </div>
             </div>
@@ -276,9 +284,10 @@ const SalariesView = ({ user, refreshVersion = 0 }) => {
                       </span>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-curai-ink ">
-                      <div>{doctor.payment_mode === 'individual' ? 'Услуги плана: индивидуальные комиссии' : formatCompensation(doctor.payment_type, doctor.payment_value, doctor.hybrid_percentage_value, doctor.currency || 'KZT')}</div>
-                      {doctor.payment_mode === 'individual' && <div className="text-xs text-curai-muted">Основная схема: {formatCompensation(doctor.payment_type, doctor.payment_value, doctor.hybrid_percentage_value, doctor.currency || 'KZT')}</div>}
+                      <div>{doctor.payment_mode === 'individual' && doctor.payment_type !== 'monthly' ? 'Услуги плана: индивидуальные комиссии' : formatCompensation(doctor.payment_type, doctor.payment_value, doctor.hybrid_percentage_value, doctor.currency || 'KZT')}</div>
+                      {doctor.payment_mode === 'individual' && doctor.payment_type !== 'monthly' && <div className="text-xs text-curai-muted">Основная схема: {formatCompensation(doctor.payment_type, doctor.payment_value, doctor.hybrid_percentage_value, doctor.currency || 'KZT')}</div>}
                       <div className="text-xs text-curai-muted">{formatConsultationCompensation(doctor)}</div>
+                      {doctor.revenue_complete === false && <div role="status" className="text-xs text-curai-warning">Выручка неполная: {formatReportDetail(doctor.revenue_accounting_blockers)}. Оклад от выручки не зависит.</div>}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-curai-ink ">
                       <div>
@@ -313,7 +322,7 @@ const SalariesView = ({ user, refreshVersion = 0 }) => {
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <span className="text-lg font-semibold text-curai-positive ">
-                        {formatCurrency(doctor.calculated_salary)}
+                        {doctor.calculated_salary == null ? 'За период не рассчитана' : formatCurrency(doctor.calculated_salary)}
                       </span>
                     </td>
                   </tr>

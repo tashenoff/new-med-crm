@@ -2,6 +2,8 @@ import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react'
 import { inputClasses, textareaClasses, buttonSuccessClasses, buttonSecondaryClasses } from '../modals/modalUtils';
 import Modal from '../modals/Modal';
 import ServiceCheckboxSelector from './ServiceCheckboxSelector';
+import ToothChart from '../dental/ToothChart';
+import { isToothService, dentalTotal } from '../../utils/dentalService';
 
 const ConsultationSheetForm = ({ patientId, onSave, onSaved, onCancel, editingSheet = null }) => {
   const [showServicePicker, setShowServicePicker] = useState(false);
@@ -161,6 +163,14 @@ const ConsultationSheetForm = ({ patientId, onSave, onSaved, onCancel, editingSh
     }));
   }, []);
 
+  const updateDentalService = (index, changes) => {
+    setForm(previous => ({ ...previous, treatment_services: previous.treatment_services.map((service, position) => {
+      if (position !== index) return service;
+      const updated = { ...service, ...changes };
+      return { ...updated, quantity: updated.teeth_numbers.length, total_price: dentalTotal(updated.price_per_unit, updated.teeth_numbers, updated.discount) };
+    }) }));
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (saving || persisted) return;
@@ -168,6 +178,10 @@ const ConsultationSheetForm = ({ patientId, onSave, onSaved, onCancel, editingSh
     // Валидация: услуги обязательны
     if (form.treatment_services.length === 0) {
       setServicesError('Необходимо добавить хотя бы одну услугу из прайса');
+      return;
+    }
+    if (form.treatment_services.some(service => isToothService(service) && !service.teeth_numbers?.length)) {
+      setServicesError('Выберите хотя бы один зуб для каждой услуги с единицей «зуб»');
       return;
     }
 
@@ -491,10 +505,12 @@ const ConsultationSheetForm = ({ patientId, onSave, onSaved, onCancel, editingSh
         )}
 
         {/* Добавленные услуги */}
-        {form.treatment_services.length > 0 && (<div className="curai-consultation-selected-services"><div className="overflow-x-auto"><table><thead><tr><th>Услуга</th><th>Количество</th><th>Цена</th><th>Сумма</th><th aria-label="Действия" /></tr></thead><tbody>{form.treatment_services.map((service, index) => (<tr key={index}><td>{service.service_name}</td><td><input
+        {form.treatment_services.length > 0 && (<div className="curai-consultation-selected-services"><div className="overflow-x-auto"><table><thead><tr><th>Услуга</th><th>Количество</th><th>Цена</th><th>Сумма</th><th aria-label="Действия" /></tr></thead><tbody>{form.treatment_services.map((service, index) => (<React.Fragment key={index}><tr><td>{service.service_name}</td><td><input
                     type="number"
                     min="1"
                     value={service.quantity}
+                    aria-label={`Количество: ${service.service_name}`}
+                    disabled={isToothService(service)}
                     onChange={(e) => {
                       const newQuantity = parseInt(e.target.value) || 1;
                       const newServices = [...form.treatment_services];
@@ -517,7 +533,12 @@ const ConsultationSheetForm = ({ patientId, onSave, onSaved, onCancel, editingSh
                     className="text-curai-negative hover:text-curai-negative p-1"
                   >
                     🗑️
-                  </button></td></tr>))}</tbody></table></div><div className="text-right font-semibold text-curai-ink pt-2 border-t border-curai-border">
+                  </button></td></tr>{isToothService(service) && <tr><td colSpan={5}><details className="curai-consultation-teeth">
+                    <summary>Зубы: {service.teeth_numbers?.join(', ') || 'не выбраны'}{Number(service.discount) > 0 && ` · Скидка ${service.discount}%`}</summary>
+                    <ToothChart selectedTeeth={service.teeth_numbers || []} onTeethSelect={teeth => updateDentalService(index, { teeth_numbers: teeth })} multiSelect disabled={saving || persisted} />
+                    <label>Скидка (%) <input type="number" min="0" max="100" step="0.01" aria-label={`Скидка (%): ${service.service_name}`} value={service.discount || 0} disabled={saving || persisted}
+                      onChange={event => updateDentalService(index, { discount: Math.min(100, Math.max(0, Number(event.target.value) || 0)) })} /></label>
+                  </details></td></tr>}</React.Fragment>))}</tbody></table></div><div className="text-right font-semibold text-curai-ink pt-2 border-t border-curai-border">
               Итого: {form.treatment_services.reduce((sum, s) => sum + s.total_price, 0).toLocaleString()} ₸
             </div></div>)}
 {form.treatment_services.length === 0 && <p className="curai-consultation-services-empty">Услуги пока не выбраны. Выберите их из прайс-листа.</p>}

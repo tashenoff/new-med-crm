@@ -13,6 +13,7 @@ import "./theme/curai-doctors.css";
 import "./theme/curai-patients.css";
 import "./theme/curai-clinical.css";
 import "./theme/curai-directories.css";
+import "./components/common/PagePanel.css";
 import "./theme/curai-consultation-picker.css";
 const App = React.lazy(() => import("./App"));
 const PatientTermsPage = React.lazy(() => import("./pages/PatientTermsPage"));

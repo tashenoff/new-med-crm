@@ -4,6 +4,7 @@ import { permissionProps } from '../../utils/permissions.js';
 import { scheduleErrorMessage } from './scheduleValidation';
 import React, { useState, useEffect, useMemo } from 'react';
 import PanelHeader from '../common/PanelHeader';
+import PagePanel from '../common/PagePanel';
 import Modal from '../modals/Modal';
 import { inputClasses, selectClasses, buttonPrimaryClasses, buttonSecondaryClasses, tableClasses, tableHeaderClasses, tableRowClasses } from '../modals/modalUtils';
 
@@ -896,20 +897,11 @@ const DoctorSchedule = ({ doctors, user, canEdit, rooms = [] }) => {
 
   return (
     <div className="space-y-6">
-      <div className={`calendar-container calendar-view-panel rounded-md`}>
+      <PagePanel>
         <PanelHeader
           title="Расписание врачей"
           subtitle="Управление рабочим временем и графиком врачей"
-        />
-
-        <div className="bg-curai-surface rounded-b-md border border-t-0 border-curai-border p-4 space-y-4 shadow-none">
-          {/* Статистика и кнопки управления */}
-          <div className="flex flex-wrap justify-between items-center gap-4">
-            <div className="text-sm text-curai-muted">
-              Врачей: {doctors.length} (активных: {doctors.filter(doctor => doctor.is_active).length})
-            </div>
-            
-            {canEdit && (
+          actions={canEdit && (
               <div className="flex gap-2 flex-wrap">
                 <button
                   data-guide="add-doctor-schedule-btn"
@@ -926,10 +918,18 @@ const DoctorSchedule = ({ doctors, user, canEdit, rooms = [] }) => {
                 </button>
               </div>
             )}
+        />
+
+        <div className="curai-page-panel-body">
+          {/* Статистика */}
+          <div className="curai-page-panel-toolbar flex flex-wrap justify-between items-center gap-4">
+            <div className="text-sm text-curai-muted">
+              Врачей: {doctors.length} (активных: {doctors.filter(doctor => doctor.is_active).length})
+            </div>
           </div>
 
           {/* Фильтры */}
-          <div className="bg-curai-surface p-4 rounded-md border border-curai-border ">
+          <div className="curai-page-panel-filters">
             <div className="flex flex-wrap gap-4 items-center">
               {/* Тип графика */}
               <select
@@ -1012,19 +1012,19 @@ const DoctorSchedule = ({ doctors, user, canEdit, rooms = [] }) => {
 
           {/* Сообщения */}
           {error && (
-            <div className="bg-curai-negativeBg border border-curai-negative text-curai-negative px-4 py-3 rounded-md ">
+            <div className="curai-page-panel-message bg-curai-negativeBg border border-curai-negative text-curai-negative px-4 py-3 rounded-md ">
               {error}
             </div>
           )}
           
           {success && (
-            <div className="bg-curai-positiveBg border border-curai-positive text-curai-positive px-4 py-3 rounded-md ">
+            <div className="curai-page-panel-message bg-curai-positiveBg border border-curai-positive text-curai-positive px-4 py-3 rounded-md ">
               {success}
             </div>
           )}
 
           {/* Таблица расписания */}
-          <div className="overflow-x-auto">
+          <div className="curai-page-panel-table overflow-x-auto">
             {loading ? (
               <div className="text-center py-8">
                 <LoadingSpinner />
@@ -1121,7 +1121,7 @@ const DoctorSchedule = ({ doctors, user, canEdit, rooms = [] }) => {
           </div>
 
           {/* Пагинация */}
-          <div className="flex flex-col sm:flex-row justify-between items-center gap-4 pt-4">
+          <div className="curai-page-panel-footer flex flex-col sm:flex-row justify-between items-center gap-4">
             <div className="text-sm text-curai-muted ">
               Всего {filteredSchedules.length} записей
             </div>
@@ -1145,7 +1145,7 @@ const DoctorSchedule = ({ doctors, user, canEdit, rooms = [] }) => {
             )}
           </div>
         </div>
-      </div>
+      </PagePanel>
 
       {/* Модальное окно добавления графика */}
       <Modal

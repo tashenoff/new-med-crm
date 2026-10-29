@@ -3,6 +3,7 @@ import { canAction, permissionProps } from '../../utils/permissions.js';
 import React, { useState, useEffect } from 'react';
 import Modal from '../modals/Modal';
 import PanelHeader from '../common/PanelHeader';
+import PagePanel from '../common/PagePanel';
 import { inputClasses, textareaClasses, labelClasses, buttonPrimaryClasses, buttonSecondaryClasses } from '../modals/modalUtils';
 
 const PaymentTypes = ({ user }) => {
@@ -150,7 +151,7 @@ const PaymentTypes = ({ user }) => {
 
   return (
     <div className="space-y-6">
-      <div className={`calendar-container calendar-view-panel rounded-md`}>
+      <PagePanel>
         <PanelHeader
           title="Типы оплат"
           subtitle="Управление способами оплаты и комиссиями"
@@ -158,7 +159,7 @@ const PaymentTypes = ({ user }) => {
           actionLabel="+ Добавить тип оплаты"
         />
 
-        <div className="bg-curai-surface rounded-b-md border border-t-0 border-curai-border p-4 space-y-4 shadow-none">
+        <div className="curai-page-panel-body p-6 space-y-4">
 
       {/* Сообщения */}
       {error && (
@@ -395,7 +396,7 @@ const PaymentTypes = ({ user }) => {
             </form>
       </Modal>
         </div>
-      </div>
+      </PagePanel>
     </div>
   );
 };

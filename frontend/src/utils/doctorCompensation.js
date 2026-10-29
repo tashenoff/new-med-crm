@@ -76,7 +76,7 @@ const validateValue = (value, percentage, label) => {
 };
 
 const validateScheme = (type, value, hybridPercentage, label) => {
-  if (!['percentage', 'fixed', 'hybrid'].includes(type)) throw new Error(`${label}: выберите тип оплаты.`);
+  if (!['percentage', 'fixed', 'hybrid', 'monthly'].includes(type)) throw new Error(`${label}: выберите тип оплаты.`);
   validateValue(value, type === 'percentage', label);
   if (type === 'hybrid') validateValue(hybridPercentage, true, `${label}, процентная часть`);
 };
@@ -95,6 +95,15 @@ export const buildDoctorPayload = (doctor, { includeCompensation = true } = {}) 
   if (form.currency !== 'KZT' || form.consultation_currency !== 'KZT' || form.services.some(service => typeof service === 'object' && service.commission_currency && service.commission_currency !== 'KZT')) {
     throw new Error('В записи есть иностранная валюта. Автоматическая конвертация запрещена; требуется явное согласование значений в KZT.');
   }
+  if (form.payment_type === 'monthly') {
+    if (doctor.payment_value === '' || doctor.payment_value == null || !['number', 'string'].includes(typeof doctor.payment_value) || String(doctor.payment_value).trim() === '') throw new Error('Укажите ежемесячную сумму в KZT.');
+    validateScheme('monthly', form.payment_value, 0, 'Ежемесячная оплата');
+    return { ...form, full_name: form.full_name.trim(), phone: phone || null,
+      payment_value: Number(form.payment_value), currency: 'KZT', payment_mode: 'general',
+      hybrid_fixed_amount: 0, hybrid_percentage_value: 0,
+      consultation_compensation_mode: 'none', consultation_currency: 'KZT',
+      consultation_hybrid_fixed_amount: 0 };
+  }
   if (!['general', 'individual'].includes(form.payment_mode)) throw new Error('Выберите режим комиссий.');
   if (!['none', 'inherit', 'separate'].includes(form.consultation_compensation_mode)) {
     throw new Error('Выберите режим оплаты консультаций.');
@@ -103,6 +112,7 @@ export const buildDoctorPayload = (doctor, { includeCompensation = true } = {}) 
     validateScheme(form.payment_type, form.payment_value, form.hybrid_percentage_value, 'Основная оплата');
   }
   if (form.consultation_compensation_mode === 'separate') {
+    if (form.consultation_payment_type === 'monthly') throw new Error('Ежемесячная оплата выбирается в основной схеме.');
     validateScheme(form.consultation_payment_type, form.consultation_payment_value, form.consultation_hybrid_percentage_value, 'Оплата консультаций');
   }
   if (form.payment_mode === 'individual') {
@@ -136,6 +146,7 @@ export const buildDoctorPayload = (doctor, { includeCompensation = true } = {}) 
 
 export const formatCompensation = (type, value, hybridPercentage, currency = 'KZT', occurrence = 'услугу/приём') => {
   const amount = Number(value ?? 0).toLocaleString('ru-RU');
+  if (type === 'monthly') return `${amount} ${currency} в месяц`;
   if (type === 'percentage') return `${amount}% от выручки`;
   const fixed = `${amount} ${currency} за завершённую ${occurrence}`;
   if (type === 'hybrid') return `${fixed} + ${hybridPercentage ?? 0}% от выручки`;
@@ -144,6 +155,7 @@ export const formatCompensation = (type, value, hybridPercentage, currency = 'KZ
 };
 
 export const formatConsultationCompensation = doctor => {
+  if (doctor.payment_type === 'monthly') return 'Консультации и услуги входят в месячный оклад';
   if (doctor.consultation_compensation_mode === 'none') return 'Консультации: без оплаты';
   if (doctor.consultation_compensation_mode === 'inherit') return `Консультации: основная схема — ${formatCompensation(doctor.payment_type, doctor.payment_value, doctor.hybrid_percentage_value, doctor.currency || 'KZT', 'консультацию')}`;
   if (doctor.consultation_compensation_mode === 'separate') return `Консультации: ${formatCompensation(doctor.consultation_payment_type, doctor.consultation_payment_value, doctor.consultation_hybrid_percentage_value, 'KZT', 'консультацию')}`;

@@ -14,6 +14,7 @@ import {
 import { materialsApi } from '../../api/materials';
 import { themeClasses } from '../../hooks/useTheme';
 import PanelHeader from '../common/PanelHeader';
+import PagePanel from '../common/PagePanel';
 
 const defaultWarehouses = [
   { warehouse_name: 'Склад по умолчанию', min_stock: 0 },
@@ -243,7 +244,7 @@ const WarehouseMaterials = ({ user, viewKey = 'warehouse-materials', onOpenAiCha
   return (
     <>
       <div className="space-y-6">
-        <div className={`calendar-container calendar-view-panel rounded-md ${themeClasses.shadow.default}`}>
+        <PagePanel>
           <PanelHeader
             title="Материалы"
             subtitle="Список складских материалов, поступлений и остатков."
@@ -251,7 +252,7 @@ const WarehouseMaterials = ({ user, viewKey = 'warehouse-materials', onOpenAiCha
             actionLabel="+ Добавить материал"
           />
 
-          <div className="bg-curai-surface rounded-b-md border border-t-0 border-curai-border p-4 space-y-4 shadow-none">
+          <div className="curai-page-panel-body p-6 space-y-4">
             <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
               <div className="flex gap-3 flex-wrap">
                 <input
@@ -383,7 +384,7 @@ const WarehouseMaterials = ({ user, viewKey = 'warehouse-materials', onOpenAiCha
               )}
             </div>
           </div>
-        </div>
+        </PagePanel>
       </div>
 
       <Modal

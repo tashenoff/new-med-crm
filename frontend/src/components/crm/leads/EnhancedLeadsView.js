@@ -16,6 +16,7 @@ import { useTheme, themeClasses, cn } from '../../../hooks/useTheme';
 import { useModal } from '../../../context/ModalContext';
 import Modal from '../../modals/Modal';
 import PanelHeader from '../../common/PanelHeader';
+import PagePanel from '../../common/PagePanel';
 import { openWhatsAppChat, normalizeWhatsAppPhone } from '../../../utils/openWhatsAppChat';
 import { normalizeIdentityPhone } from '../../../utils/leadIdentity';
 import { loadLeadHmsData } from '../../../utils/leadHmsData';
@@ -1133,7 +1134,7 @@ const EnhancedLeadsView = ({ user }) => {
 
   return (
     <div className="space-y-6">
-      <div className={`calendar-container calendar-view-panel rounded-md ${themeClasses.shadow.default}`}>
+      <PagePanel>
         <PanelHeader
           title="Сделки"
           subtitle="Управление заявками и сделками"
@@ -1141,7 +1142,7 @@ const EnhancedLeadsView = ({ user }) => {
           actionLabel="+ Добавить"
         />
 
-        <div className="bg-curai-surface rounded-b-md border border-t-0 border-curai-border p-4 space-y-4 shadow-none">
+        <div className="curai-page-panel-body p-6 space-y-4">
           {/* Controls */}
           <div className="flex flex-col gap-3 lg:flex-row lg:flex-wrap lg:items-end lg:justify-between">
             <div className="flex min-w-0 flex-1 flex-wrap items-end gap-2">
@@ -1772,7 +1773,7 @@ const EnhancedLeadsView = ({ user }) => {
 
 
         </div>
-      </div>
+      </PagePanel>
     </div>
   );
 };

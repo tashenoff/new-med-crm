@@ -1,6 +1,7 @@
 import { LoadingSpinner } from '../common/LoadingIndicator';
 import React, { useState, useEffect } from 'react';
 import PanelHeader from '../common/PanelHeader';
+import PagePanel from '../common/PagePanel';
 import TreatmentPlansModal from '../modals/TreatmentPlansModal';
 
 const TreatmentPlanStatistics = () => {
@@ -184,15 +185,15 @@ const TreatmentPlanStatistics = () => {
 
   return (
     <div className="space-y-6">
-      <div className={`calendar-container calendar-view-panel rounded-md`}>
+      <PagePanel>
         <PanelHeader
           title="Планы лечения"
           subtitle="Статистика и аналитика планов лечения пациентов"
         />
 
-        <div className="bg-curai-surface rounded-b-md border border-t-0 border-curai-border p-4 space-y-4 shadow-none">
+        <div className="curai-page-panel-body p-6 space-y-4">
           {/* Date Filter */}
-          <div className="flex items-center justify-end space-x-4">
+          <div className="flex flex-wrap items-center justify-end gap-4">
             <div className="flex items-center space-x-2">
               <label className="text-sm font-medium text-curai-ink">От:</label>
               <input
@@ -649,7 +650,7 @@ const TreatmentPlanStatistics = () => {
         </div>
       )}
         </div>
-      </div>
+      </PagePanel>
     {treatmentPlansModal.show && (
         <TreatmentPlansModal
           show={treatmentPlansModal.show}

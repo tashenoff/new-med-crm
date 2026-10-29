@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import PanelHeader from '../../common/PanelHeader';
+import PagePanel from '../../common/PagePanel';
 
 const FinanceDashboard = ({ user }) => {
   const [stats, setStats] = useState({
@@ -47,7 +48,7 @@ const FinanceDashboard = ({ user }) => {
   return (
     <div className="space-y-6">
       <p role="note" className="rounded-md bg-curai-warningBg p-3 text-sm">Демонстрационный раздел: данные и операции пока не подключены к учёту клиники.</p>
-      <div className={`calendar-container calendar-view-panel rounded-md`}>
+      <PagePanel>
         <PanelHeader
           title="💰 Финансовый дашборд"
           subtitle="Анализ финансовой деятельности клиники"
@@ -55,7 +56,7 @@ const FinanceDashboard = ({ user }) => {
           actionLabel="➕ Добавить транзакцию"
         />
 
-        <div className="bg-curai-surface rounded-b-md border border-t-0 border-curai-border p-4 space-y-4 shadow-none">
+        <div className="curai-page-panel-body p-6 space-y-4">
           {/* Дополнительные кнопки */}
           <div className="flex justify-end">
             <button className="bg-curai-blue text-white px-4 py-2 rounded-md hover:bg-curai-blue transition-colors">
@@ -152,7 +153,7 @@ const FinanceDashboard = ({ user }) => {
         </div>
       </div>
         </div>
-      </div>
+      </PagePanel>
     </div>
   );
 };

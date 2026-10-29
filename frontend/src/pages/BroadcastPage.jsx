@@ -3,6 +3,7 @@ import { permissionProps } from '../utils/permissions.js';
 import React, { useState, useEffect } from 'react';
 import { usePatients } from '../hooks/usePatients';
 import PanelHeader from '../components/common/PanelHeader';
+import PagePanel from '../components/common/PagePanel';
 import { API_BASE_URL } from '../api/config';
 import FeedbackView from '../components/feedback/FeedbackView';
 
@@ -345,16 +346,16 @@ const BroadcastPage = ({ user }) => {
 
   return (
     <div className="space-y-6">
-      <div className="calendar-container calendar-view-panel rounded-md">
+      <PagePanel>
         <PanelHeader
           title="Рассылка WhatsApp"
           subtitle="Массовая отправка сообщений пациентам через WhatsApp"
         />
 
-        <div className="bg-curai-surface rounded-b-md border border-t-0 border-curai-border shadow-none">
+        <div className="curai-page-panel-body">
           {/* Вкладки */}
           <div className="border-b border-curai-border ">
-            <nav className="flex space-x-4 px-6 pt-6" aria-label="Tabs">
+            <nav className="flex gap-4 overflow-x-auto px-6 pt-6" aria-label="Tabs">
               <button
                 onClick={() => setActiveTab('broadcast')}
                 className={`px-4 py-2 text-sm font-medium rounded-t-md transition-colors ${
@@ -661,7 +662,7 @@ const BroadcastPage = ({ user }) => {
             )}
           </div>
         </div>
-      </div>
+      </PagePanel>
 
       {/* Модалка редактирования шаблона уведомления */}
       {editingRule && (

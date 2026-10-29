@@ -4,6 +4,7 @@ import { canAction, permissionProps } from '../../utils/permissions.js';
 import React, { useState, useEffect } from 'react';
 import Modal from '../modals/Modal';
 import PanelHeader from '../common/PanelHeader';
+import PagePanel from '../common/PagePanel';
 import { inputClasses, selectClasses, buttonPrimaryClasses, buttonSecondaryClasses, buttonDangerClasses, tableClasses, tableHeaderClasses, tableRowClasses } from '../modals/modalUtils';
 
 const API = import.meta.env.VITE_BACKEND_URL;
@@ -332,7 +333,7 @@ const Rooms = ({ user }) => {
 
   return (
     <div className="curai-directory-page curai-rooms space-y-6">
-      <div className={`calendar-container calendar-view-panel rounded-md`}>
+      <PagePanel>
         <PanelHeader
           actionGuide="add-room-btn"
           title="Кабинеты"
@@ -341,7 +342,7 @@ const Rooms = ({ user }) => {
           actionLabel="+ Добавить кабинет"
         />
 
-        <div className="bg-curai-surface rounded-b-md border border-t-0 border-curai-border p-4 space-y-4 shadow-none">
+        <div className="curai-page-panel-body p-6 space-y-4">
 
       {error && (
         <div className="mb-4 p-4 bg-curai-negativeBg border border-curai-negative text-curai-negative rounded ">
@@ -595,7 +596,7 @@ const Rooms = ({ user }) => {
         </div>
       </Modal>
         </div>
-      </div>
+      </PagePanel>
     </div>
   );
 };

@@ -2,6 +2,7 @@ import RowActions from '../common/RowActions';
 import { canAction, permissionProps } from '../../utils/permissions.js';
 import React from 'react';
 import PanelHeader from '../common/PanelHeader';
+import PagePanel from '../common/PagePanel';
 
 const DoctorsView = ({
   user,
@@ -29,7 +30,7 @@ const DoctorsView = ({
 
   return (
     <div className="space-y-6">
-      <div className={`calendar-container calendar-view-panel rounded-md`}>
+      <PagePanel>
         <PanelHeader
           title="Врачи"
           subtitle="Управление врачами и их специальностями"
@@ -37,9 +38,9 @@ const DoctorsView = ({
           actionLabel="+ Добавить врача"
         />
 
-        <div className="bg-curai-surface rounded-b-md border border-t-0 border-curai-border p-4 space-y-4 shadow-none">
+        <div className="curai-page-panel-body">
           {/* Поиск */}
-          <div className="mb-6">
+          <div className="curai-page-panel-filters">
             <input
               type="text"
               placeholder="Поиск по имени, специальности или телефону..."
@@ -50,7 +51,7 @@ const DoctorsView = ({
           </div>
 
           {/* Список врачей */}
-          <div className="bg-curai-surface rounded-md shadow-none overflow-hidden">
+          <div className="curai-page-panel-table overflow-hidden rounded-b-md">
             {filteredDoctors.length === 0 ? (
               <div className="text-center py-8 text-curai-muted">
                 <p>Врачи не найдены</p>
@@ -145,7 +146,7 @@ const DoctorsView = ({
                           </div>
                           <div className="text-xs text-curai-muted">
                             {!canAction(user, 'payroll_view') ? '' : doctor.payment_type === 'percentage' ? 'от выручки' :
-                             doctor.payment_type === 'hybrid' ? 'гибридная' : 'фиксированная'}
+                             doctor.payment_type === 'hybrid' ? 'гибридная' : doctor.payment_type === 'monthly' ? 'Ежемесячная оплата' : 'фиксированная'}
                           </div>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-curai-ink">
@@ -173,7 +174,7 @@ const DoctorsView = ({
             )}
           </div>
         </div>
-      </div>
+      </PagePanel>
     </div>
   );
 };
