@@ -177,7 +177,9 @@ test('month and displayed dates use server clinic timezone with a hostile browse
   assert.equal(request.config.params.month, '2026-10');
   assert.match(view.document.querySelector('tbody').textContent, /01\.10\.2026/);
   assert.match(view.document.querySelector('tbody').textContent, /00:00:00/);
-  assert.match(view.document.querySelector('thead').textContent, /Asia\/Almaty/);
+  assert.equal(view.document.querySelector('thead th').textContent, 'Дата оплаты');
+  assert.doesNotMatch(view.document.body.textContent, /Asia\/Almaty|Часовой пояс клиники/);
+  assert.equal(view.document.querySelector('.curai-bonus-zone'), null);
 });
 
 test('missing clinic timezone is visible and does not fetch an assumed UTC report', async t => {

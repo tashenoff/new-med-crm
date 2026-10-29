@@ -25,10 +25,7 @@
 .curai-bonus-message.is-error { color: var(--curai-color-negative); background: var(--curai-color-negativeBg); border-color: var(--curai-color-negative); }
 .curai-bonus-message.is-success { color: var(--curai-color-positive); background: var(--curai-color-positiveBg); }
 .curai-bonus-message .curai-button { margin-top: var(--curai-space-12); max-width: 100%; white-space: normal; }
-.curai-bonus-filters { display: grid; grid-template-columns: minmax(160px, 220px) minmax(180px, 300px) minmax(0, 1fr); gap: var(--curai-space-20); align-items: end; padding: var(--curai-space-20) var(--curai-space-24); border-bottom: 1px solid var(--curai-color-border); }
-.curai-bonus-zone { display: grid; grid-template-columns: auto minmax(0, 1fr); column-gap: var(--curai-space-8); align-items: center; justify-self: end; color: var(--curai-color-muted); font-size: var(--curai-type-size-12); line-height: var(--curai-type-line-18); }
-.curai-bonus-zone .curai-icon { grid-row: span 2; }
-.curai-bonus-zone span { color: var(--curai-color-ink); overflow-wrap: anywhere; }
+.curai-bonus-filters { display: grid; grid-template-columns: minmax(160px, 220px) minmax(180px, 300px); gap: var(--curai-space-20); align-items: end; padding: var(--curai-space-20) var(--curai-space-24); border-bottom: 1px solid var(--curai-color-border); }
 .curai-bonus-summary { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 240px), 1fr)); gap: var(--curai-space-16); padding: var(--curai-space-24); }
 .curai-bonus-employee { display: flex; align-items: center; gap: var(--curai-space-12); padding: var(--curai-space-16); border: 1px solid var(--curai-color-border); border-radius: var(--curai-radius-6); min-width: 0; }
 .curai-bonus-employee > div { min-width: 0; }
@@ -58,7 +55,6 @@
 @media (max-width: 1100px) {
   .curai-bonus-setting-layout { grid-template-columns: minmax(0, 1fr); gap: var(--curai-space-20); }
   .curai-bonus-filters { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .curai-bonus-zone { grid-column: 1 / -1; justify-self: start; }
   .curai-admin-bonuses .curai-bonus-table-hint { display: flex; align-items: center; gap: var(--curai-space-8); padding: 0 var(--curai-space-16) var(--curai-space-16); color: var(--curai-color-muted); font-size: var(--curai-type-size-12); }
 }
 @media (max-width: 640px) {

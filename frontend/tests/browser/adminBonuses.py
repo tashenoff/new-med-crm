@@ -47,6 +47,8 @@ with sync_playwright() as p:
                 page.evaluate('document.fonts.ready')
                 card = page.locator('[aria-labelledby="bonus-setting-title"]')
                 expect(card).to_be_visible()
+                expect(page.locator('.curai-bonus-zone')).to_have_count(0)
+                expect(page.locator('body')).not_to_contain_text('Asia/Almaty')
                 if state == 'loading':
                     expect(card).to_have_attribute('aria-busy', 'true')
                     expect(page.get_by_role('status').first).to_be_visible()

@@ -145,10 +145,9 @@ export default function AdminBonuses({ user, refreshVersion = 0 }) {
         <label className="curai-bonus-field">Сотрудник<select aria-label="Сотрудник" value={employee} onChange={e => { setEmployee(e.target.value); setOffset(0); }}>
           <option value="">Все сотрудники</option>{employees.map(row => <option key={row.user_id} value={row.user_id}>{row.employee_name}</option>)}
         </select></label>
-        <p className="curai-bonus-zone"><CuraiIcon name="clock" />Часовой пояс клиники<span>{reportZone || 'Загрузка…'}</span></p>
       </div>
       {(contextLoading || loading || contextError || error) && <div className="curai-bonus-card-body">
-        {contextLoading && <LoadingIndicator label="Загрузка часового пояса клиники…" />}
+        {contextLoading && <LoadingIndicator label="Подготовка отчёта…" />}
         {loading && <LoadingIndicator label="Загрузка начислений…" />}
         {contextError && <div role="alert" className="curai-bonus-message is-error"><CuraiIcon name="attention" /><p>{contextError}</p></div>}
         {error && <div role="alert" className="curai-bonus-message is-error"><CuraiIcon name="attention" /><p>{error}</p></div>}
@@ -161,7 +160,7 @@ export default function AdminBonuses({ user, refreshVersion = 0 }) {
           <p className="curai-bonus-table-hint"><CuraiIcon name="arrow-right" />Прокрутите таблицу, чтобы увидеть все столбцы.</p>
           <div className="curai-bonus-table-scroll" tabIndex={0} role="region" aria-label="Таблица начислений">
           <table className="curai-bonus-table"><caption className="sr-only">Начисления за {month}</caption>
-            <thead><tr>{[`Дата оплаты (${reportZone})`, 'Сотрудник', 'Пациент', 'Позиция', 'Платёж', 'Ставка', 'Бонус', 'Состояние'].map(title => <th key={title} scope="col">{title}</th>)}</tr></thead>
+            <thead><tr>{['Дата оплаты', 'Сотрудник', 'Пациент', 'Позиция', 'Платёж', 'Ставка', 'Бонус', 'Состояние'].map(title => <th key={title} scope="col">{title}</th>)}</tr></thead>
             <tbody>{report.rows.map(row => <tr key={row.event_id}>
               <td className="curai-bonus-date">{new Date(row.paid_at).toLocaleString('ru-RU', { timeZone: reportZone })}</td>
               <td>{row.employee_name || 'Сотрудник не определён'}</td><td>{row.patient_name}</td>
