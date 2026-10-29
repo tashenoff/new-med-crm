@@ -39,7 +39,7 @@ async def upload_document(
     patient_id: str,
     file: UploadFile = File(...),
     description: Optional[str] = Form(None),
-    current_user: UserInDB = Depends(require_role([UserRole.ADMIN, UserRole.DOCTOR])),
+    current_user: UserInDB = Depends(require_role([UserRole.ADMIN, UserRole.SUPER_ADMIN, UserRole.DOCTOR])),
     service: DocumentService = Depends(get_document_service)
 ):
     """Upload a document for a patient"""
@@ -55,7 +55,7 @@ async def upload_document(
 @documents_router.get("/patients/{patient_id}/documents", response_model=List[Document])
 async def get_patient_documents(
     patient_id: str,
-    current_user: UserInDB = Depends(require_role([UserRole.ADMIN, UserRole.DOCTOR, UserRole.PATIENT])),
+    current_user: UserInDB = Depends(require_role([UserRole.ADMIN, UserRole.SUPER_ADMIN, UserRole.DOCTOR, UserRole.PATIENT])),
     service: DocumentService = Depends(get_document_service)
 ):
     """Get all documents for a patient"""
@@ -69,7 +69,7 @@ async def get_patient_documents(
 @documents_router.delete("/documents/{document_id}")
 async def delete_document(
     document_id: str,
-    current_user: UserInDB = Depends(require_role([UserRole.ADMIN, UserRole.DOCTOR])),
+    current_user: UserInDB = Depends(require_role([UserRole.ADMIN, UserRole.SUPER_ADMIN, UserRole.DOCTOR])),
     service: DocumentService = Depends(get_document_service)
 ):
     """Delete a document"""
@@ -80,7 +80,7 @@ async def delete_document(
 async def update_document(
     document_id: str,
     update_data: DocumentUpdate,
-    current_user: UserInDB = Depends(require_role([UserRole.ADMIN, UserRole.DOCTOR])),
+    current_user: UserInDB = Depends(require_role([UserRole.ADMIN, UserRole.SUPER_ADMIN, UserRole.DOCTOR])),
     service: DocumentService = Depends(get_document_service)
 ):
     """Update document description"""
