@@ -1,0 +1,65 @@
+name: Disposable browser E2E
+
+on:
+  pull_request:
+    branches: [main, ref-2]
+  workflow_dispatch:
+    inputs:
+      candidate_side:
+        description: Which source uses this workflow revision (HEAD)?
+        type: choice
+        options: [frontend, backend, released_pair]
+        default: frontend
+
+permissions:
+  contents: read
+
+jobs:
+  payment-payroll:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          # pull_request checks the candidate merge revision, never the old base alone.
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Check artifact redaction and harness syntax
+        run: |
+          python3 -m unittest discover -s e2e -p 'test_*.py'
+          python3 -m py_compile e2e/*.py
+          node --check e2e/scenario.mjs
+      - name: Select frontend/backend source pair and run five isolated browser scenarios
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          BASE_BRANCH: ${{ github.event.pull_request.base.ref }}
+          CANDIDATE_SIDE: ${{ inputs.candidate_side }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          frontend=refs/remotes/origin/main
+          backend=refs/remotes/origin/ref-2
+          case "$EVENT_NAME:$BASE_BRANCH" in
+            pull_request:main) frontend=HEAD ;;
+            pull_request:ref-2) backend=HEAD ;;
+            workflow_dispatch:)
+              case "$CANDIDATE_SIDE" in
+                frontend) frontend=HEAD ;;
+                backend) backend=HEAD ;;
+                released_pair) ;;
+                *) exit 2 ;;
+              esac ;;
+            *) exit 2 ;;
+          esac
+          # checkout fetched refs using its read-only token, then removed credentials.
+          python3 e2e/run.py --no-fetch --frontend-ref "$frontend" --backend-ref "$backend"
+      - name: Upload sanitized evidence even on failure
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: browser-e2e-${{ github.run_id }}-${{ github.run_attempt }}
+          # No upload of raw/partially scrubbed files after cancellation or failure.
+          path: e2e-artifacts/*/published/
+          if-no-files-found: warn
+          retention-days: 7
