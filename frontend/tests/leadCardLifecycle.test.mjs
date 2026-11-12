@@ -20,7 +20,7 @@ const compiled = await build({
     contents: `import React from 'react';
       import View from './src/components/crm/leads/EnhancedLeadsView.js';
       import { ThemeProvider } from './src/hooks/useTheme.js';
-      export default () => <ThemeProvider><View user={{ id: 'manager', permissions: ['crm_view','crm_edit','crm_delete','patients_view','patients_edit','calendar_view','calendar_edit','finance_view','finance_edit'] }} /></ThemeProvider>;`,
+      export default () => <ThemeProvider><View user={{ id: 'manager', permissions: globalThis.cardFixture.permissions }} /></ThemeProvider>;`,
     resolveDir: fileURLToPath(new URL('..', import.meta.url)),
     loader: 'jsx'
   },
@@ -34,6 +34,17 @@ const compiled = await build({
   plugins: [{
     name: 'test-contexts',
     setup(builder) {
+      builder.onResolve({ filter: /\/api\/config$/ }, args => ({ path: args.path, namespace: 'task-api-fixture' }));
+      builder.onLoad({ filter: /.*/, namespace: 'task-api-fixture' }, () => ({ contents: `
+        export const API_BASE_URL = 'https://crm.test/api';
+        export const handleApiError = error => error.message;
+        export const apiClient = {get: async path => {
+          const response = await globalThis.fetch(API_BASE_URL + path);
+          if (!response.ok) throw Error('API request failed');
+          return {data: await response.json()};
+        }};
+      ` }));
+
       builder.onResolve({ filter: /\/useCrm$|\/useCrmApi$|\/ModalContext$|\/WhatsAppSidebar$/ }, args => ({
         path: args.path, namespace: 'test-contexts'
       }));
@@ -112,6 +123,7 @@ async function mountView(context, leads = [lead], options = {}) {
   let initialLeadsFetched = false;
   const noop = async () => {};
   globalThis.cardFixture = {
+    permissions: options.permissions ?? ['crm_tasks_view','crm_tasks_create','crm_view','crm_edit','crm_delete','patients_view','patients_edit','calendar_view','calendar_edit','finance_view','finance_edit'],
     realCrm: options.realCrm,
     loadingStates: [],
     apiLoadingTransitions: [],
@@ -413,6 +425,20 @@ test('Kanban date filter uses only canonical first touch and preserves linked in
   assert.equal(JSON.stringify([current, old]), snapshot);
 });
 
+test('CRM rights alone cannot create or read tasks from the lead card', async context => {
+  const { container, requests, pendingTasks, dom, mouse } = await mountView(context, [lead], { permissions: ['crm_view', 'crm_edit', 'patients_view'] });
+  const card = container.querySelector('[draggable="true"]');
+  assert.ok(card);
+  assert.equal([...card.querySelectorAll('button')].some(button => button.textContent.includes('Создать задачу')), false);
+  assert.equal(pendingTasks.length, 0);
+  assert.equal(requests.some(url => url.endsWith(`/api/crm/leads/${lead.id}/tasks`)), false);
+  await act(async () => mouse(card, 'click'));
+  const modal = dom.window.document.querySelector('.modal-content');
+  assert.ok(modal, 'ordinary lead history remains available');
+  assert.match(modal.textContent, /Нет доступа к просмотру задач/);
+  assert.equal([...modal.querySelectorAll('button')].some(button => button.textContent.includes('Создать задачу')), false);
+});
+
 test('first card click survives task loading between press and release and opens history', async context => {
   const { container, dom, mouse, settleTasks, requests, pendingTasks } = await mountView(context);
   const card = container.querySelector('[draggable="true"]');
@@ -446,7 +472,7 @@ test('card action buttons do not open history and drag/drop retains lead identit
   const card = container.querySelector('[draggable="true"]');
   const taskButton = [...card.querySelectorAll('button')].find(button => button.textContent.includes('Создать задачу'));
   await act(async () => mouse(taskButton, 'click'));
-  assert.match(dom.window.document.querySelector('.modal-content').textContent, /Новое задание/);
+  assert.match(dom.window.document.querySelector('.modal-content').textContent, /Задача по сделке/);
   assert.doesNotMatch(dom.window.document.querySelector('.modal-content').textContent, /История и данные/);
   await act(async () => dom.window.document.dispatchEvent(new dom.window.KeyboardEvent('keydown', { key: 'Escape', bubbles: true })));
   let whatsappTarget;

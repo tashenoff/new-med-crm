@@ -20,13 +20,24 @@ const compiled = await build({
     contents: `import React from 'react';
       import View from './src/components/crm/leads/EnhancedLeadsView.js';
       import { ThemeProvider } from './src/hooks/useTheme.js';
-      export default () => <ThemeProvider><View user={{ id: 'manager', permissions: ['crm_view','crm_edit','crm_delete','patients_view','patients_edit','calendar_view','calendar_edit','finance_view','finance_edit'] }} /></ThemeProvider>;`,
+      export default () => <ThemeProvider><View user={{ id: 'manager', permissions: ['crm_tasks_view','crm_tasks_create','crm_view','crm_edit','crm_delete','patients_view','patients_edit','calendar_view','calendar_edit','finance_view','finance_edit'] }} /></ThemeProvider>;`,
     resolveDir: fileURLToPath(new URL('..', import.meta.url)), loader: 'jsx'
   },
   bundle: true, write: false, platform: 'node', format: 'cjs',
   external: ['react', 'react-dom'], loader: { '.js': 'jsx' },
   define: { 'import.meta.env': '{}' },
   plugins: [{ name: 'inquiry-fixtures', setup(builder) {
+      builder.onResolve({ filter: /\/api\/config$/ }, args => ({ path: args.path, namespace: 'task-api-fixture' }));
+      builder.onLoad({ filter: /.*/, namespace: 'task-api-fixture' }, () => ({ contents: `
+        export const API_BASE_URL = 'https://crm.test/api';
+        export const handleApiError = error => error.message;
+        export const apiClient = {get: async path => {
+          const response = await globalThis.fetch(API_BASE_URL + path);
+          if (!response.ok) throw Error('API request failed');
+          return {data: await response.json()};
+        }};
+      ` }));
+
     builder.onResolve({ filter: /\/useCrm$|\/ModalContext$|\/WhatsAppSidebar$/ }, args => ({
       path: args.path, namespace: 'inquiry-fixtures'
     }));

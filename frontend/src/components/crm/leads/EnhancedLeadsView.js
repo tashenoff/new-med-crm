@@ -1,5 +1,5 @@
 import { LoadingSpinner } from '../../common/LoadingIndicator';
-import { permissionProps, canAction } from '../../../utils/permissions.js';
+import { permissionProps, canAction, hasPermission } from '../../../utils/permissions.js';
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   Users, Phone, Mail, Calendar, Clock, CheckCircle, AlertCircle,
@@ -15,6 +15,8 @@ import { patientsApi } from '../../../api/patients';
 import { useTheme, themeClasses, cn } from '../../../hooks/useTheme';
 import { useModal } from '../../../context/ModalContext';
 import Modal from '../../modals/Modal';
+import TaskComposer from '../tasks/TaskComposer';
+import { apiClient } from '../../../api/config';
 import PanelHeader from '../../common/PanelHeader';
 import PagePanel from '../../common/PagePanel';
 import { openWhatsAppChat, normalizeWhatsAppPhone } from '../../../utils/openWhatsAppChat';
@@ -69,14 +71,6 @@ const EnhancedLeadsView = ({ user }) => {
   const [rooms, setRooms] = useState([]);
   const [appointments, setAppointments] = useState([]);
   const [appointmentForm, setAppointmentForm] = useState({});
-  const [newTask, setNewTask] = useState({
-    title: '',
-    description: '',
-    priority: 'medium',
-    due_date: '',
-    type: 'call',
-    status: 'new'
-  });
   const [taskStatuses, setTaskStatuses] = useState([]);
   const [newLead, setNewLead] = useState({
     first_name: '',
@@ -243,8 +237,9 @@ const EnhancedLeadsView = ({ user }) => {
   }, []);
 
   // Загрузка задач для заявки
-  const loadLeadTasks = async (leadId) => {
-    if (leadTasks[leadId]) return; // Уже загружены
+  const loadLeadTasks = async (leadId, force = false) => {
+    if (!hasPermission(user, 'crm_tasks_view')) return;
+    if (!force && leadTasks[leadId]) return; // Уже загружены
     
     try {
       const tasksData = await fetchLeadTasks(leadId);
@@ -267,16 +262,8 @@ const EnhancedLeadsView = ({ user }) => {
 
   // Функция для получения задач (используем API)
   const fetchLeadTasks = async (leadId) => {
-    const response = await fetch(
-      `${import.meta.env.VITE_BACKEND_URL || 'https://medicodebase.preview.emergentagent.com'}/api/crm/leads/${leadId}/tasks`,
-      {
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
-        }
-      }
-    );
-    if (!response.ok) throw new Error('Failed to fetch tasks');
-    return await response.json();
+    const { data } = await apiClient.get(`/crm/leads/${encodeURIComponent(leadId)}/tasks`);
+    return data;
   };
 
   // Источники заявок
@@ -474,60 +461,6 @@ const EnhancedLeadsView = ({ user }) => {
     }
   };
 
-  const handleCreateTask = async () => {
-    try {
-      const token = localStorage.getItem('token');
-      
-      // Подготовка данных задачи
-      const taskData = {
-        title: newTask.title,
-        type: newTask.type,
-        priority: newTask.priority,
-        status: newTask.status,
-        lead_id: selectedLead?.id
-      };
-      
-      // Добавляем опциональные поля только если они заполнены
-      if (newTask.description) taskData.description = newTask.description;
-      if (newTask.due_date) taskData.due_date = newTask.due_date;
-      
-      const response = await fetch(
-        `${import.meta.env.VITE_BACKEND_URL || 'https://medicodebase.preview.emergentagent.com'}/api/crm/tasks`,
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`
-          },
-          body: JSON.stringify(taskData)
-        }
-      );
-      
-      if (response.ok) {
-        setShowTaskModal(false);
-        setNewTask({
-          title: '',
-          description: '',
-          priority: 'medium',
-          due_date: '',
-          type: 'call',
-          status: 'new'
-        });
-        // Обновляем список задач для этой заявки
-        if (selectedLead) {
-          await loadLeadTasks(selectedLead.id);
-        }
-        alert('Задание успешно создано!');
-      } else {
-        const error = await response.json();
-        alert('Ошибка при создании задания: ' + (error.detail || 'Неизвестная ошибка'));
-      }
-    } catch (error) {
-      console.error('Error creating task:', error);
-      alert('Ошибка при создании задания');
-    }
-  };
-
   // Функции управления колонками
   const handleEditColumn = (column) => {
     if (column.is_system) return;
@@ -594,8 +527,8 @@ const EnhancedLeadsView = ({ user }) => {
                 : "bg-curai-subtle border-curai-border "
             )}
           >
-            <div className={cn("p-2 rounded-md", taskTypes[task.type].color)}>
-              {taskTypes[task.type].icon}
+            <div className={cn("p-2 rounded-md", (taskTypes[task.type] || taskTypes.note).color)}>
+              {(taskTypes[task.type] || taskTypes.note).icon}
             </div>
             <div className="flex-1 min-w-0">
               <div className="flex items-center space-x-2">
@@ -1044,7 +977,7 @@ const EnhancedLeadsView = ({ user }) => {
 
         {/* Tasks and appointment button */}
         <div className="space-y-2">
-          {tasks.length > 0 && (
+          {hasPermission(user, 'crm_tasks_view') && tasks.length > 0 && (
             <div className="flex items-center space-x-2 text-xs">
               <CheckSquare className="w-[14px] h-[14px] text-curai-muted" />
               <span className={themeClasses.text.muted}>
@@ -1070,17 +1003,17 @@ const EnhancedLeadsView = ({ user }) => {
             )}
             
             {/* Кнопка создания задачи */}
-            <button
+            {hasPermission(user, 'crm_tasks_create') && <button
               onClick={(e) => {
                 e.stopPropagation();
                 setSelectedLead(lead);
                 setShowTaskModal(true);
               }}
               className="curai-button curai-button-secondary w-full"
-             {...permissionProps(user, "crm_view", "crm_edit")}>
+             {...permissionProps(user, "crm_tasks_create")}>
               <CheckSquare className="w-[14px] h-[14px]" />
               <span>Создать задачу</span>
-            </button>
+            </button>}
           </div>
         </div>
 
@@ -1477,120 +1410,14 @@ const EnhancedLeadsView = ({ user }) => {
         </div>
       </Modal>
 
-      {/* Create Task Modal */}
-      <Modal 
-        show={showTaskModal} 
-        onClose={() => setShowTaskModal(false)}
-        title={`Новое задание для ${selectedLead?.first_name} ${selectedLead?.last_name}`}
-        size="max-w-md"
-      >
-        <div className="space-y-4">
-          <div>
-            <label className={labelClasses}>Тип задания</label>
-            <select
-              value={newTask.type}
-              onChange={(e) => setNewTask({...newTask, type: e.target.value})}
-              className={inputClasses}
-            >
-              {Object.entries(taskTypes).map(([key, type]) => (
-                <option key={key} value={key}>{type.label}</option>
-              ))}
-            </select>
-          </div>
-          
-          <div>
-            <label className={labelClasses}>Название *</label>
-            <input
-              type="text"
-              value={newTask.title}
-              onChange={(e) => setNewTask({...newTask, title: e.target.value})}
-              className={inputClasses}
-              placeholder="Название задания"
-            />
-          </div>
-          
-          <div>
-            <label className={labelClasses}>Описание</label>
-            <textarea
-              value={newTask.description}
-              onChange={(e) => setNewTask({...newTask, description: e.target.value})}
-              className={inputClasses}
-              rows="3"
-              placeholder="Описание задания..."
-            />
-          </div>
-          
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className={labelClasses}>Приоритет</label>
-              <select
-                value={newTask.priority}
-                onChange={(e) => setNewTask({...newTask, priority: e.target.value})}
-                className={inputClasses}
-              >
-                <option value="low">Низкий</option>
-                <option value="medium">Средний</option>
-                <option value="high">Высокий</option>
-              </select>
-            </div>
-            
-            <div>
-              <label className={labelClasses}>Срок выполнения</label>
-              <input
-                type="datetime-local"
-                value={newTask.due_date}
-                onChange={(e) => setNewTask({...newTask, due_date: e.target.value})}
-                className={inputClasses}
-              />
-            </div>
-          </div>
-
-          {/* Выбор статуса задачи */}
-          <div>
-            <label className={labelClasses}>Статус задачи</label>
-            <select
-              value={newTask.status}
-              onChange={(e) => setNewTask({...newTask, status: e.target.value})}
-              className={inputClasses}
-            >
-              {taskStatuses.length > 0 ? (
-                taskStatuses.map((status) => (
-                  <option key={status.id} value={status.code}>
-                    {status.icon} {status.name}
-                  </option>
-                ))
-              ) : (
-                <>
-                  <option value="new">📋 Новая</option>
-                  <option value="in_progress">⏳ В работе</option>
-                  <option value="completed">✅ Выполнена</option>
-                  <option value="cancelled">❌ Отменена</option>
-                </>
-              )}
-            </select>
-            {taskStatuses.length > 0 && (
-              <p className="mt-1 text-xs text-curai-muted ">
-                Статусы настраиваются в разделе "Справочники → Статусы задач"
-              </p>
-            )}
-          </div>
-        </div>
-        
-        <div className="flex justify-end gap-3 mt-6">
-          <button
-            onClick={() => setShowTaskModal(false)}
-            className="px-4 py-2 text-curai-muted hover:text-curai-ink transition-colors"
-          >
-            Отмена
-          </button>
-          <button
-            onClick={handleCreateTask}
-            disabled={!newTask.title}
-            className="bg-curai-blue text-white px-4 py-2 rounded-md hover:bg-curai-blue disabled:bg-curai-control disabled:cursor-not-allowed transition-colors"
-           {...permissionProps(user, "crm_view", "crm_edit")}>
-            Создать задание
-          </button>
-        </div>
+      {/* Shared task composer, linked to the selected lead. */}
+      <Modal show={showTaskModal && hasPermission(user, 'crm_tasks_create')}
+        onClose={() => setShowTaskModal(false)} title="Задача по сделке" size="max-w-2xl">
+        {showTaskModal && selectedLead && <TaskComposer key={selectedLead.id} user={user} leadId={selectedLead.id}
+          onCancel={() => setShowTaskModal(false)} onSaved={async () => {
+            setShowTaskModal(false);
+            await loadLeadTasks(selectedLead.id, true);
+          }} />}
       </Modal>
 
       {/* Column Edit Modal */}
@@ -1710,18 +1537,18 @@ const EnhancedLeadsView = ({ user }) => {
             <div>
               <div className="flex items-center justify-between mb-4">
                 <h3 className="text-lg font-semibold">✅ Задачи</h3>
-                <button
+                {hasPermission(user, 'crm_tasks_create') && <button
                   onClick={() => {
                     setSelectedLead(selectedLeadForHms);
                     setShowTaskModal(true);
                   }}
                   className="bg-curai-blue text-white px-3 py-1.5 text-sm rounded-md hover:bg-curai-blue transition-colors flex items-center gap-1"
-                 {...permissionProps(user, "crm_view", "crm_edit")}>
+                 {...permissionProps(user, "crm_tasks_create")}>
                   <Plus className="w-4 h-4" />
                   Создать задачу
-                </button>
+                </button>}
               </div>
-              {selectedLeadForHms && leadTasks[selectedLeadForHms.id]?.length > 0 ? (
+              {!hasPermission(user, 'crm_tasks_view') ? <p className="text-sm text-curai-muted">Нет доступа к просмотру задач</p> : selectedLeadForHms && leadTasks[selectedLeadForHms.id]?.length > 0 ? (
                 <div className="space-y-2">
                   {leadTasks[selectedLeadForHms.id].map((task) => {
                     const statusInfo = taskStatuses.find(s => s.code === task.status) || { icon: '📋', name: task.status, color: '#6B7280' };

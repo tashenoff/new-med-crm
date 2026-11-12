@@ -46,7 +46,13 @@ const compiled = await build({
     builder.onResolve({ filter: /\/(usePatients|useDoctors|useRooms|useGlobalRefresh|ServiceSelector|ServicePaymentList|DoctorCashbackWidget|PatientBonusWidget)$/ }, args => ({ path: args.path, namespace: 'appointment-fixtures' }));
     builder.onLoad({ filter: /.*/, namespace: 'appointment-fixtures' }, args => {
       const hook = args.path.split('/').at(-1);
-      const contents = hook === 'axios' ? 'export default new Proxy({}, {get: (_, method) => (...args) => globalThis.appointmentFixture.http(method, ...args)});'
+      const contents = hook === 'axios' ? `
+        const interceptors = {request: {use() {}}, response: {use() {}}};
+        const http = new Proxy({}, {get: (_, method) => method === 'interceptors' ? interceptors : (...args) => globalThis.appointmentFixture.http(method, ...args)});
+        export default new Proxy(http, {get: (target, method) => method === 'create'
+          ? () => ({ ...Object.fromEntries(['get','post','put','delete','patch'].map(key => [key, target[key]])),
+              interceptors: {request: {use() {}}, response: {use() {}}} })
+          : target[method]});`
         : hook === 'useGlobalRefresh' ? 'export const useGlobalRefresh = () => ({refreshTriggers:{}});'
         : ['usePatients','useDoctors','useRooms'].includes(hook)
           ? `export const ${hook} = () => globalThis.appointmentFixture.${hook};`

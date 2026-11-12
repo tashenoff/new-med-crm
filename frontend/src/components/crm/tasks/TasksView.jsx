@@ -1,542 +1,152 @@
+import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { CheckCircle, Edit, RefreshCw } from 'lucide-react';
 import { LoadingSpinner } from '../../common/LoadingIndicator';
-import { canAction, permissionProps } from '../../../utils/permissions.js';
-import React, { useState, useEffect } from 'react';
-import {
-  CheckSquare, Clock, User, AlertCircle, Calendar, Filter, Search,
-  Plus, Edit, Trash2, Phone, Mail, MessageSquare, FileText, CheckCircle
-} from 'lucide-react';
-import { useTheme, themeClasses, cn } from '../../../hooks/useTheme';
 import PanelHeader from '../../common/PanelHeader';
-import PagePanel from '../../common/PagePanel';
 import Modal from '../../modals/Modal';
-import { inputClasses, selectClasses, labelClasses, buttonPrimaryClasses } from '../../modals/modalUtils';
+import TaskComposer from './TaskComposer';
+import { apiClient, handleApiError } from '../../../api/config';
+import { hasTaskPermission } from '../../../utils/permissions';
+
+const PAGE_SIZE = 50;
+const statuses = { new: 'Новая', in_progress: 'В работе', completed: 'Выполнена', cancelled: 'Отменена', overdue: 'Просрочена' };
+const kinds = { task: 'Задача', note: 'Заметка', comment: 'Примечание' };
+const control = 'rounded-md border border-curai-border bg-curai-surface text-curai-ink px-3 py-2 text-sm disabled:opacity-50';
+export const taskIsOverdue = (task, now = Date.now()) =>
+  (task.kind || (task.type === 'note' ? 'note' : 'task')) === 'task' &&
+  !['completed', 'cancelled'].includes(task.status) && Boolean(task.due_date) && new Date(task.due_date).getTime() < now;
 
 const TasksView = ({ user }) => {
+  const canView = hasTaskPermission(user, 'crm_tasks_view');
+  const canCreate = hasTaskPermission(user, 'crm_tasks_create');
+  const canEdit = hasTaskPermission(user, 'crm_tasks_edit');
   const [tasks, setTasks] = useState([]);
-  const [filteredTasks, setFilteredTasks] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [statusFilter, setStatusFilter] = useState('all');
-  const [priorityFilter, setPriorityFilter] = useState('all');
-  const [showCreateModal, setShowCreateModal] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+  const [search, setSearch] = useState('');
+  const [query, setQuery] = useState('');
+  const [status, setStatus] = useState('');
+  const [kind, setKind] = useState('');
+  const [assignee, setAssignee] = useState('');
+  const [assignees, setAssignees] = useState([]);
+  const [page, setPage] = useState(0);
+  const [hasNext, setHasNext] = useState(false);
   const [editingTask, setEditingTask] = useState(null);
-  const [newTask, setNewTask] = useState({
-    title: '',
-    description: '',
-    priority: 'medium',
-    due_date: '',
-    type: 'call',
-    lead_id: ''
-  });
+  const [showEditor, setShowEditor] = useState(false);
+  const [busyId, setBusyId] = useState(null);
+  const generation = useRef(0);
+  const actionLock = useRef(false);
 
-  const { isDarkMode } = useTheme();
+  useEffect(() => {
+    // Only a changed search resets pagination, never the initial mount timer.
+    if (search.trim() === query) return;
+    const timer = setTimeout(() => { setQuery(search.trim()); setPage(0); }, 300);
+    return () => clearTimeout(timer);
+  }, [search, query]);
 
-  // Типы заданий
-  const taskTypes = {
-    call: { label: 'Звонок', icon: Phone, color: "bg-curai-blue" },
-    email: { label: 'Письмо', icon: Mail, color: "bg-curai-positive" },
-    meeting: { label: 'Встреча', icon: Calendar, color: "bg-curai-blue" },
-    follow_up: { label: 'Дозвон', icon: Clock, color: "bg-curai-warning" },
-    note: { label: 'Заметка', icon: FileText, color: "bg-curai-muted" }
-  };
-
-  // Загрузка всех задач
-  const fetchTasks = async () => {
+  const fetchTasks = useCallback(async () => {
+    const request = ++generation.current;
+    if (!canView) { setTasks([]); setLoading(false); return; }
     setLoading(true);
+    setError('');
     try {
-      const token = localStorage.getItem('token');
-      const response = await fetch(
-        `${import.meta.env.VITE_BACKEND_URL || 'https://medicodebase.preview.emergentagent.com'}/api/crm/tasks`,
-        {
-          headers: {
-            'Authorization': `Bearer ${token}`
-          }
-        }
-      );
-      
-      if (response.ok) {
-        const data = await response.json();
-        setTasks(data.tasks || []);
-        setFilteredTasks(data.tasks || []);
-      }
-    } catch (error) {
-      console.error('Error fetching tasks:', error);
+      const { data } = await apiClient.get('/crm/tasks', { params: {
+        skip: page * PAGE_SIZE, limit: PAGE_SIZE + 1, search: query || undefined,
+        status: status === 'overdue' ? undefined : status || undefined,
+        show_overdue: status === 'overdue' ? true : undefined,
+        kind: kind || undefined, assigned_to: assignee || undefined,
+      } });
+      if (request !== generation.current) return;
+      const rows = Array.isArray(data) ? data : data.tasks || [];
+      setHasNext(rows.length > PAGE_SIZE);
+      setTasks(rows.slice(0, PAGE_SIZE));
+    } catch (err) {
+      if (request === generation.current) { setTasks([]); setHasNext(false); setError(handleApiError(err)); }
     } finally {
-      setLoading(false);
+      if (request === generation.current) setLoading(false);
     }
-  };
+  }, [canView, page, query, status, kind, assignee]);
 
+  useEffect(() => { fetchTasks(); return () => { generation.current++; }; }, [fetchTasks]);
   useEffect(() => {
-    fetchTasks();
-  }, []);
+    let current = true;
+    if (canView) apiClient.get('/crm/tasks/assignees').then(({ data }) => {
+      if (current) setAssignees(data.assignees || []);
+    }).catch(() => { if (current) setAssignees([]); });
+    return () => { current = false; };
+  }, [canView]);
 
-  // Фильтрация задач
-  useEffect(() => {
-    let filtered = tasks;
-    
-    if (statusFilter !== 'all') {
-      filtered = filtered.filter(task => task.status === statusFilter);
-    }
-    
-    if (priorityFilter !== 'all') {
-      filtered = filtered.filter(task => task.priority === priorityFilter);
-    }
-    
-    if (searchTerm) {
-      filtered = filtered.filter(task => 
-        task.title?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        task.description?.toLowerCase().includes(searchTerm.toLowerCase())
-      );
-    }
-    
-    setFilteredTasks(filtered);
-  }, [tasks, statusFilter, priorityFilter, searchTerm]);
-
-  // Создание/обновление задачи
-  const handleSaveTask = async (e) => {
-    e.preventDefault();
-    
+  const changeStatus = async (task) => {
+    if (!canEdit || actionLock.current) return;
+    actionLock.current = true;
+    setBusyId(task.id);
     try {
-      const token = localStorage.getItem('token');
-      const url = editingTask 
-        ? `${import.meta.env.VITE_BACKEND_URL || 'https://medicodebase.preview.emergentagent.com'}/api/crm/tasks/${editingTask.id}`
-        : `${import.meta.env.VITE_BACKEND_URL || 'https://medicodebase.preview.emergentagent.com'}/api/crm/tasks`;
-      
-      const response = await fetch(url, {
-        method: editingTask ? 'PUT' : 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(newTask)
-      });
-      
-      if (response.ok) {
-        setShowCreateModal(false);
-        setEditingTask(null);
-        setNewTask({
-          title: '',
-          description: '',
-          priority: 'medium',
-          due_date: '',
-          type: 'call',
-          lead_id: ''
-        });
-        fetchTasks();
-      }
-    } catch (error) {
-      console.error('Error saving task:', error);
-    }
+      await apiClient.put('/crm/tasks/' + encodeURIComponent(task.id), { status: task.status === 'completed' ? 'new' : 'completed' });
+      await fetchTasks();
+    } catch (err) { setError(handleApiError(err)); }
+    finally { actionLock.current = false; setBusyId(null); }
   };
-
-  // Отметить задачу выполненной
-  const handleToggleComplete = async (taskId, currentStatus) => {
-    try {
-      const token = localStorage.getItem('token');
-      const response = await fetch(
-        `${import.meta.env.VITE_BACKEND_URL || 'https://medicodebase.preview.emergentagent.com'}/api/crm/tasks/${taskId}`,
-        {
-          method: 'PUT',
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({
-            status: currentStatus === 'completed' ? 'pending' : 'completed'
-          })
-        }
-      );
-      
-      if (response.ok) {
-        fetchTasks();
-      }
-    } catch (error) {
-      console.error('Error toggling task:', error);
-    }
-  };
-
-  // Удаление задачи
-  const handleDeleteTask = async (taskId) => {
-    if (!confirm('Удалить эту задачу?')) return;
-    
-    try {
-      const token = localStorage.getItem('token');
-      const response = await fetch(
-        `${import.meta.env.VITE_BACKEND_URL || 'https://medicodebase.preview.emergentagent.com'}/api/crm/tasks/${taskId}`,
-        {
-          method: 'DELETE',
-          headers: {
-            'Authorization': `Bearer ${token}`
-          }
-        }
-      );
-      
-      if (response.ok) {
-        fetchTasks();
-      }
-    } catch (error) {
-      console.error('Error deleting task:', error);
-    }
-  };
-
-  // Статистика задач
-  const stats = {
-    total: tasks.length,
-    pending: tasks.filter(t => t.status === 'pending').length,
-    inProgress: tasks.filter(t => t.status === 'in_progress').length,
-    completed: tasks.filter(t => t.status === 'completed').length,
-    overdue: tasks.filter(t => !t.completed && new Date(t.due_date) < new Date()).length
-  };
+  const closeEditor = () => { setShowEditor(false); setEditingTask(null); };
+  const filter = setter => event => { setter(event.target.value); setPage(0); };
+  if (!canView) return <p role="alert" className="p-6 text-curai-muted">Нет доступа к списку задач.</p>;
 
   return (
-    <div className="space-y-6">
-      <PagePanel>
-        <PanelHeader
-          title="Задачи"
-          subtitle="Управление задачами CRM"
-          onAction={canAction(user, "crm_view", "crm_edit") ? (() => setShowCreateModal(true)) : undefined}
-          actionLabel="+ Создать задачу"
-        />
-
-        <div className="curai-page-panel-body p-6 space-y-6">
-          {/* Статистика */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
-            <div className={cn("p-4 rounded-md", themeClasses.bg.card, themeClasses.border.default)}>
-              <div className="flex items-center space-x-3">
-                <CheckSquare className="w-8 h-8 text-curai-blue" />
-                <div>
-                  <p className={cn("text-2xl font-semibold", themeClasses.text.primary)}>{stats.total}</p>
-                  <p className={cn("text-sm", themeClasses.text.muted)}>Всего задач</p>
-                </div>
-              </div>
-            </div>
-            
-            <div className={cn("p-4 rounded-md", themeClasses.bg.card, themeClasses.border.default)}>
-              <div className="flex items-center space-x-3">
-                <Clock className="w-8 h-8 text-curai-warning" />
-                <div>
-                  <p className={cn("text-2xl font-semibold", themeClasses.text.primary)}>{stats.pending}</p>
-                  <p className={cn("text-sm", themeClasses.text.muted)}>В ожидании</p>
-                </div>
-              </div>
-            </div>
-            
-            <div className={cn("p-4 rounded-md", themeClasses.bg.card, themeClasses.border.default)}>
-              <div className="flex items-center space-x-3">
-                <AlertCircle className="w-8 h-8 text-curai-warning" />
-                <div>
-                  <p className={cn("text-2xl font-semibold", themeClasses.text.primary)}>{stats.inProgress}</p>
-                  <p className={cn("text-sm", themeClasses.text.muted)}>В работе</p>
-                </div>
-              </div>
-            </div>
-            
-            <div className={cn("p-4 rounded-md", themeClasses.bg.card, themeClasses.border.default)}>
-              <div className="flex items-center space-x-3">
-                <CheckCircle className="w-8 h-8 text-curai-positive" />
-                <div>
-                  <p className={cn("text-2xl font-semibold", themeClasses.text.primary)}>{stats.completed}</p>
-                  <p className={cn("text-sm", themeClasses.text.muted)}>Выполнено</p>
-                </div>
-              </div>
-            </div>
-            
-            <div className={cn("p-4 rounded-md bg-curai-negativeBg ", themeClasses.border.default)}>
-              <div className="flex items-center space-x-3">
-                <AlertCircle className="w-8 h-8 text-curai-negative" />
-                <div>
-                  <p className="text-2xl font-semibold text-curai-negative ">{stats.overdue}</p>
-                  <p className="text-sm text-curai-negative ">Просрочено</p>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Фильтры */}
-          <div className="flex flex-wrap items-center gap-4">
-            <div className="flex-1 min-w-[200px]">
-              <div className="relative">
-                <Search className="w-4 h-4 absolute left-3 top-1/2 transform -translate-y-1/2 text-curai-muted" />
-                <input
-                  type="text"
-                  placeholder="Поиск задач..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className={cn("pl-9 pr-4 py-2 rounded-md w-full", themeClasses.input.default)}
-                />
-              </div>
-            </div>
-            
-            <select
-              value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
-              className={cn("rounded-md px-3 py-2", themeClasses.input.default)}
-            >
-              <option value="all">Все статусы</option>
-              <option value="pending">В ожидании</option>
-              <option value="in_progress">В работе</option>
-              <option value="completed">Выполнено</option>
-            </select>
-            
-            <select
-              value={priorityFilter}
-              onChange={(e) => setPriorityFilter(e.target.value)}
-              className={cn("rounded-md px-3 py-2", themeClasses.input.default)}
-            >
-              <option value="all">Все приоритеты</option>
-              <option value="high">Высокий</option>
-              <option value="medium">Средний</option>
-              <option value="low">Низкий</option>
-            </select>
-          </div>
-
-          {/* Список задач */}
-          <div className="space-y-3">
-            {loading ? (
-              <div className="text-center py-12">
-                <LoadingSpinner />
-                <p className={cn("mt-4", themeClasses.text.muted)}>Загрузка задач...</p>
-              </div>
-            ) : filteredTasks.length === 0 ? (
-              <div className="text-center py-12">
-                <CheckSquare className="w-16 h-16 text-curai-disabled mx-auto mb-4" />
-                <p className={cn("text-lg", themeClasses.text.secondary)}>Задач нет</p>
-                <p className={cn("text-sm", themeClasses.text.muted)}>Создайте первую задачу</p>
-              </div>
-            ) : (
-              filteredTasks.map((task) => {
-                const TaskIcon = taskTypes[task.type]?.icon || CheckSquare;
-                const isOverdue = task.status !== 'completed' && new Date(task.due_date) < new Date();
-                
-                return (
-                  <div
-                    key={task.id}
-                    className={cn(
-                      "p-4 rounded-md border transition-all hover:shadow-none",
-                      task.status === 'completed' 
-                        ? "bg-curai-positiveBg border-curai-positive "
-                        : isOverdue
-                          ? "bg-curai-negativeBg border-curai-negative "
-                          : themeClasses.bg.card + " " + themeClasses.border.default
-                    )}
-                  >
-                    <div className="flex items-start space-x-4">
-                      {/* Checkbox */}
-                      <button
-                        onClick={() => handleToggleComplete(task.id, task.status)}
-                        className={cn(
-                          "mt-1 w-6 h-6 rounded border-2 flex items-center justify-center transition-colors",
-                          task.status === 'completed'
-                            ? "bg-curai-positive border-curai-positive"
-                            : "border-curai-control hover:border-curai-control"
-                        )}
-                       {...permissionProps(user, "crm_view", "crm_edit")}>
-                        {task.status === 'completed' && <CheckCircle className="w-4 h-4 text-white" />}
-                      </button>
-
-                      {/* Иконка типа */}
-                      <div className={cn(
-                        "p-2 rounded-md",
-                        taskTypes[task.type]?.color || "bg-curai-muted"
-                      )}>
-                        <TaskIcon className="w-5 h-5 text-white" />
-                      </div>
-
-                      {/* Содержимое */}
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center space-x-2 mb-1">
-                          <h3 className={cn(
-                            "font-medium",
-                            task.status === 'completed' 
-                              ? "line-through text-curai-muted"
-                              : themeClasses.text.primary
-                          )}>
-                            {task.title}
-                          </h3>
-                          
-                          <span className={cn(
-                            "px-2 py-1 text-xs rounded-full",
-                            task.priority === 'high' ? "bg-curai-negativeBg text-curai-negative " :
-                            task.priority === 'medium' ? "bg-curai-warningBg text-curai-warning " :
-                            "bg-curai-subtle text-curai-ink "
-                          )}>
-                            {task.priority === 'high' ? '🔴 Высокий' : 
-                             task.priority === 'medium' ? '🟡 Средний' : 
-                             '🟢 Низкий'}
-                          </span>
-                        </div>
-                        
-                        {task.description && (
-                          <p className={cn("text-sm mb-2", themeClasses.text.muted)}>
-                            {task.description}
-                          </p>
-                        )}
-                        
-                        <div className="flex items-center space-x-4 text-xs">
-                          <div className="flex items-center space-x-1">
-                            <Clock className="w-3 h-3" />
-                            <span className={cn(
-                              isOverdue ? "text-curai-negative font-medium" : themeClasses.text.muted
-                            )}>
-                              {new Date(task.due_date).toLocaleString('ru-RU')}
-                              {isOverdue && ' (Просрочено)'}
-                            </span>
-                          </div>
-                          
-                          {task.assigned_to_name && (
-                            <div className="flex items-center space-x-1">
-                              <User className="w-3 h-3" />
-                              <span className={themeClasses.text.muted}>{task.assigned_to_name}</span>
-                            </div>
-                          )}
-                          
-                          {task.lead_name && (
-                            <div className="flex items-center space-x-1">
-                              <FileText className="w-3 h-3" />
-                              <span className={themeClasses.text.muted}>Заявка: {task.lead_name}</span>
-                            </div>
-                          )}
-                        </div>
-                      </div>
-
-                      {/* Действия */}
-                      <div className="flex items-center space-x-2">
-                        <button
-                          onClick={() => {
-                            setEditingTask(task);
-                            setNewTask({
-                              title: task.title,
-                              description: task.description || '',
-                              priority: task.priority,
-                              due_date: task.due_date,
-                              type: task.type,
-                              lead_id: task.lead_id || ''
-                            });
-                            setShowCreateModal(true);
-                          }}
-                          className="p-2 text-curai-blue hover:bg-curai-selected rounded transition-colors"
-                         {...permissionProps(user, "crm_view", "crm_edit")}>
-                          <Edit className="w-4 h-4" />
-                        </button>
-                        
-                        <button
-                          onClick={() => handleDeleteTask(task.id)}
-                          className="p-2 text-curai-negative hover:bg-curai-negativeBg rounded transition-colors"
-                         {...permissionProps(user, "crm_view", "crm_delete")}>
-                          <Trash2 className="w-4 h-4" />
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                );
-              })
-            )}
-          </div>
+    <div className="calendar-container calendar-view-panel rounded-md">
+      <PanelHeader title="Задачи" subtitle="Задачи, заметки и примечания по клиентам"
+        onAction={canCreate ? () => { setEditingTask(null); setShowEditor(true); } : undefined}
+        actionLabel="+ Создать задачу" />
+      <div className="bg-curai-surface rounded-b-md border border-t-0 border-curai-border p-4 space-y-4 shadow-none">
+        <div className="flex flex-wrap items-center gap-3">
+          <input aria-label="Поиск задач" placeholder="Поиск по названию и тексту…" value={search} onChange={event => setSearch(event.target.value)} className={control + ' flex-1 min-w-[200px]'} />
+          <select aria-label="Статус задач" value={status} onChange={filter(setStatus)} className={control}>
+            <option value="">Все статусы</option>{Object.entries(statuses).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+          </select>
+          <select aria-label="Вид записи" value={kind} onChange={filter(setKind)} className={control}>
+            <option value="">Все записи</option>{Object.entries(kinds).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+          </select>
+          <select aria-label="Ответственный" value={assignee} onChange={filter(setAssignee)} className={control}>
+            <option value="">Все ответственные</option>{assignees.map(person => <option key={person.id} value={person.id}>{person.name}</option>)}
+          </select>
+          <button type="button" aria-label="Обновить задачи" onClick={fetchTasks} disabled={loading} className={control}><RefreshCw size={16} /></button>
         </div>
-      </PagePanel>
-
-      {/* Модальное окно создания/редактирования */}
-      <Modal
-        show={showCreateModal}
-        onClose={() => {
-          setShowCreateModal(false);
-          setEditingTask(null);
-          setNewTask({
-            title: '',
-            description: '',
-            priority: 'medium',
-            due_date: '',
-            type: 'call',
-            lead_id: ''
-          });
-        }}
-        title={editingTask ? 'Редактировать задачу' : 'Новая задача'}
-        size="max-w-md"
-      >
-        <form onSubmit={event => { if (!canAction(user, "crm_view", "crm_edit")) { event.preventDefault(); return; } return (handleSaveTask)(event); }} className="space-y-4">
-          <div>
-            <label className={labelClasses}>Название *</label>
-            <input
-              type="text"
-              value={newTask.title}
-              onChange={(e) => setNewTask({...newTask, title: e.target.value})}
-              className={inputClasses}
-              placeholder="Название задачи"
-              required
-            />
+        {error && <div role="alert" className="p-3 rounded-md bg-curai-negativeBg text-curai-negative">{error}</div>}
+        {loading ? <div className="py-12 text-center"><LoadingSpinner /><p className="mt-3 text-curai-muted">Загрузка задач…</p></div> : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm text-left border-collapse text-curai-ink">
+              <thead className="text-xs text-curai-muted bg-curai-subtle">
+                <tr>{['Дата исполнения', 'Ответственный', 'Клиент', 'Название / вид', 'Текст', 'Результат / статус', 'Действия'].map(label => <th key={label} scope="col" className="px-3 py-3 border-b border-curai-border font-medium">{label}</th>)}</tr>
+              </thead>
+              <tbody>{tasks.map(task => {
+                const overdue = taskIsOverdue(task);
+                const recordKind = task.kind || (task.type === 'note' ? 'note' : 'task');
+                return <tr key={task.id} className="border-b border-curai-border hover:bg-curai-subtle">
+                  <td className={'px-3 py-3 whitespace-nowrap ' + (overdue ? 'text-curai-negative' : '')}>
+                    {task.due_date ? new Date(task.due_date).toLocaleString('ru-RU', { dateStyle: 'short', timeStyle: 'short' }) : 'Без срока'}
+                    {overdue && <span className="block text-xs">Просрочена</span>}
+                  </td>
+                  <td className="px-3 py-3">{task.assigned_to_name || (task.assigned_to ? 'Менеджер недоступен' : 'Не назначен')}</td>
+                  <td className="px-3 py-3">{task.chat_name || task.client_name || task.lead_name || task.chat_phone || (task.client_id || task.lead_id ? 'Связанный клиент' : '—')}</td>
+                  <td className="px-3 py-3"><div className="font-medium">{task.title}</div><div className="text-xs text-curai-muted">{kinds[recordKind] || recordKind}</div></td>
+                  <td className="px-3 py-3 max-w-xs whitespace-pre-wrap break-words">{task.description || '—'}</td>
+                  <td className="px-3 py-3 max-w-xs"><div className={task.status === 'completed' ? 'text-curai-positive' : 'text-curai-muted'}>{recordKind === 'task' ? (statuses[task.status] || task.status) : 'Сохранено'}</div>{task.comment && <div className="mt-1 whitespace-pre-wrap break-words">{task.comment}</div>}</td>
+                  <td className="px-3 py-3"><div className="flex gap-2">
+                    {canEdit && recordKind === 'task' && task.status !== 'cancelled' && <button type="button" disabled={busyId !== null} aria-label={(task.status === 'completed' ? 'Вернуть в работу: ' : 'Выполнить: ') + task.title} title={task.status === 'completed' ? 'Вернуть в работу' : 'Отметить выполненной'} onClick={() => changeStatus(task)} className="p-2 rounded text-curai-positive hover:bg-curai-positiveBg disabled:opacity-50"><CheckCircle size={18} /></button>}
+                    {canEdit && <button type="button" aria-label={'Редактировать: ' + task.title} onClick={() => { setEditingTask(task); setShowEditor(true); }} className="p-2 rounded text-curai-blue hover:bg-curai-selected"><Edit size={18} /></button>}
+                  </div></td>
+                </tr>;
+              })}</tbody>
+            </table>
+            {tasks.length === 0 && <p className="py-12 text-center text-curai-muted">{error ? 'Не удалось загрузить список.' : 'Записей по выбранным условиям нет.'}</p>}
           </div>
-          
-          <div>
-            <label className={labelClasses}>Тип задачи</label>
-            <select
-              value={newTask.type}
-              onChange={(e) => setNewTask({...newTask, type: e.target.value})}
-              className={selectClasses}
-            >
-              {Object.entries(taskTypes).map(([key, type]) => (
-                <option key={key} value={key}>{type.label}</option>
-              ))}
-            </select>
-          </div>
-          
-          <div>
-            <label className={labelClasses}>Описание</label>
-            <textarea
-              value={newTask.description}
-              onChange={(e) => setNewTask({...newTask, description: e.target.value})}
-              className={inputClasses}
-              rows="3"
-              placeholder="Описание задачи..."
-            />
-          </div>
-          
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className={labelClasses}>Приоритет</label>
-              <select
-                value={newTask.priority}
-                onChange={(e) => setNewTask({...newTask, priority: e.target.value})}
-                className={selectClasses}
-              >
-                <option value="low">Низкий</option>
-                <option value="medium">Средний</option>
-                <option value="high">Высокий</option>
-              </select>
-            </div>
-            
-            <div>
-              <label className={labelClasses}>Срок выполнения</label>
-              <input
-                type="datetime-local"
-                value={newTask.due_date}
-                onChange={(e) => setNewTask({...newTask, due_date: e.target.value})}
-                className={inputClasses}
-              />
-            </div>
-          </div>
-          
-          <div className="flex justify-end gap-3 mt-6">
-            <button
-              type="button"
-              onClick={() => {
-                setShowCreateModal(false);
-                setEditingTask(null);
-              }}
-              className="px-4 py-2 text-curai-muted hover:text-curai-ink transition-colors"
-            >
-              Отмена
-            </button>
-            <button
-              type="submit"
-              className="bg-curai-blue text-white px-4 py-2 rounded-md hover:bg-curai-blue transition-colors"
-             {...permissionProps(user, "crm_view", "crm_edit")}>
-              {editingTask ? 'Обновить' : 'Создать'}
-            </button>
-          </div>
-        </form>
+        )}
+        <div className="flex justify-between items-center text-sm text-curai-muted">
+          <span>Страница {page + 1}</span>
+          <div className="flex gap-2"><button className={control} disabled={loading || page === 0} onClick={() => setPage(value => value - 1)}>Назад</button><button className={control} disabled={loading || !hasNext} onClick={() => setPage(value => value + 1)}>Далее</button></div>
+        </div>
+      </div>
+      <Modal show={showEditor} onClose={closeEditor} title={editingTask ? 'Редактировать запись' : 'Новая запись'} size="max-w-2xl">
+        {showEditor && <TaskComposer initialTask={editingTask} user={user} onCancel={closeEditor} onSaved={() => { closeEditor(); fetchTasks(); }} />}
       </Modal>
     </div>
   );
 };
-
 export default TasksView;

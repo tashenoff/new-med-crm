@@ -8,6 +8,8 @@ import WhatsAppAudio from './WhatsAppAudio';
 import CuraiIcon from '../../common/CuraiIcon';
 import CuraiButton from '../../common/CuraiButton';
 import ChatCrmStage from './ChatCrmStage';
+import TaskComposer, { ENTRY_KINDS } from '../tasks/TaskComposer';
+import { hasPermission } from '../../../utils/permissions';
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { apiClient, handleApiError, API_BASE_URL } from '../../../api/config';
@@ -38,6 +40,11 @@ const formatMessageTime = value => {
 const WhatsAppInbox = ({ isOpen, onClose, user, openRequest = null, suspended = false, onSuspend }) => {
   const { openModal, closeModal, isModalOpen } = useModal();
   const { refreshAppointments } = useGlobalRefresh();
+
+  const [composeMode, setComposeMode] = useState('chat');
+  const [chatTasks, setChatTasks] = useState([]);
+  const [taskError, setTaskError] = useState('');
+  const [taskRevision, setTaskRevision] = useState(0);
 
   const [chats, setChats] = useState([]);
   const [loadingChats, setLoadingChats] = useState(false);
@@ -75,6 +82,18 @@ const WhatsAppInbox = ({ isOpen, onClose, user, openRequest = null, suspended = 
   const drafts = useRef(new Map());
   const listGeneration = useRef(0);
   useDialogFocus(dialogRef, isOpen && !suspended, onClose);
+
+  const canCreateTask = hasPermission(user, 'crm_tasks_create');
+  const canViewTasks = hasPermission(user, 'crm_tasks_view');
+  useEffect(() => { setComposeMode('chat'); setChatTasks([]); setTaskError(''); }, [selected?.phone, isOpen]);
+  useEffect(() => {
+    if (!isOpen || !selected?.phone || !canViewTasks) return;
+    let cancelled = false;
+    apiClient.get('/crm/tasks/', { params: { chat_phone: selected.phone, limit: 100 } }).then(({ data }) => {
+      if (!cancelled) { setChatTasks(Array.isArray(data) ? data : data.tasks || []); setTaskError(''); }
+    }).catch(e => { if (!cancelled) setTaskError(handleApiError(e)); });
+    return () => { cancelled = true; };
+  }, [isOpen, selected?.phone, canViewTasks, taskRevision]);
 
   const fetchChats = useCallback(async () => {
     if (!chatOpenRef.current) return;
@@ -734,7 +753,12 @@ const WhatsAppInbox = ({ isOpen, onClose, user, openRequest = null, suspended = 
               </div>
 
               {/* Ввод */}
-              <div className="curai-chat-compose">
+              {canViewTasks && <div className="px-3 max-h-32 overflow-y-auto border-t border-curai-border bg-curai-surface" aria-label="Записи CRM по клиенту">
+                {taskError && <p role="alert" className="text-xs text-curai-negative">{taskError}</p>}
+                {chatTasks.map(task => <div key={task.id} className="py-2 border-b border-curai-border text-xs"><strong>{ENTRY_KINDS[task.kind || 'task']}: {task.title}</strong><span className="text-curai-muted">{task.assigned_to_name ? ` · ${task.assigned_to_name}` : ''}{task.due_date ? ` · ${new Date(task.due_date).toLocaleString('ru-RU')}` : ''}{task.status === 'completed' ? ' · Выполнено' : ''}</span>{task.description && <p className="whitespace-pre-wrap break-words mt-1">{task.description}</p>}</div>)}
+              </div>}
+              {canCreateTask && <div className="px-3 py-2 border-t border-curai-border bg-curai-surface"><label className="text-xs text-curai-muted">Режим ввода <select aria-label="Режим ввода" value={composeMode} onChange={e => setComposeMode(e.target.value)} className="ml-2 rounded-md border border-curai-control bg-curai-surface text-curai-ink px-2 py-1"><option value="chat">Чат</option>{Object.entries(ENTRY_KINDS).map(([key, label]) => <option value={key} key={key}>{label}</option>)}</select></label></div>}
+              {canCreateTask && composeMode !== 'chat' ? <TaskComposer key={`${selected.phone}:${composeMode}`} chat={selected} user={user} initialKind={composeMode} onCancel={() => setComposeMode('chat')} onSaved={() => { setTaskRevision(value => value + 1); setComposeMode('chat'); setSysNotes(current => [...current, { id: Date.now(), text: 'Внутренняя запись сохранена в CRM' }]); }} /> : <div className="curai-chat-compose">
                 <input
                   ref={fileInputRef}
                   type="file"
@@ -824,7 +848,7 @@ const WhatsAppInbox = ({ isOpen, onClose, user, openRequest = null, suspended = 
                  {...permissionProps(user, "crm_view", "crm_edit")}>
                   {sending ? '…' : 'Отправить'}
                 </button>
-              </div>
+              </div>}
             </>
           )}
         </div>

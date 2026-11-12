@@ -24,13 +24,14 @@ export const getNavigationMenu = (user, activeSection) => {
       ];
 
       // Справочник CRM - только для админов
-      if (user?.role === 'admin' || user?.role === 'super_admin') {
+      if (user?.role === 'admin' || user?.role === 'super_admin' || hasPermission('directory_view')) {
         crmItems.push({
           key: 'crm-directory',
           label: 'Справочник',
           type: 'accordion',
           subItems: [
-            { key: 'crm-task-statuses', label: 'Статусы задач', type: 'tab' }
+            ...(['admin', 'super_admin'].includes(user?.role) ? [{ key: 'crm-task-statuses', label: 'Статусы задач', type: 'tab' }] : []),
+            { key: 'crm-task-titles', label: 'Названия задач', type: 'tab' }
           ]
         });
       }
@@ -135,7 +136,7 @@ export const getNavigationMenu = (user, activeSection) => {
     }
 
     // Управление персоналом (только для админов)
-    if (user?.role === 'admin' || user?.role === 'super_admin') {
+    if (user?.role === 'admin' || user?.role === 'super_admin' || hasPermission('directory_view')) {
       baseItems.push({ key: 'staff-management', label: 'Управление персоналом', type: 'tab' });
     }
 

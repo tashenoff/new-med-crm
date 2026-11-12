@@ -13,7 +13,8 @@ export const permissionGroups = [
     ['Системные настройки¹', ['system_settings']],
   ] },
   { key: 'crm', title: 'CRM', rows: [
-    ['Заявки, воронка, контакты, задачи, источники, сообщения', ['crm_view', 'crm_edit', 'crm_delete', 'crm_export']],
+    ['Заявки, воронка, контакты, источники, сообщения', ['crm_view', 'crm_edit', 'crm_delete', 'crm_export']],
+    ['Задачи, заметки и примечания', ['crm_tasks_view', 'crm_tasks_create', 'crm_tasks_edit']],
   ] },
   { key: 'warehouse', title: 'Склад', rows: [
     ['Материалы и инвентаризация', ['warehouse_view', 'warehouse_edit', 'warehouse_delete', 'warehouse_export']],
@@ -27,6 +28,7 @@ export const permissionGroups = [
 ];
 export const allPermissionKeys = permissionGroups.flatMap(group => group.rows.flatMap(row => row[1]));
 export const hasPermission = (user, key) => user?.is_active !== false && Boolean(user?.role === 'super_admin' || user?.permissions?.includes(key));
+export const hasTaskPermission = hasPermission;
 export const canAction = (user, ...keys) => keys.every(key => hasPermission(user, key));
 // Spread last: deny must win over a pending/loading disabled expression.
 // For an allowed action, leave its existing busy/validation state untouched.
@@ -39,6 +41,8 @@ export const permissionProps = (user, ...keys) => ({
 export const permissionLabel = key => key === 'system_settings' ? 'Настройки'
   : key === 'admin_bonus_view' ? 'Просмотр начислений'
   : key === 'admin_bonus_manage' ? 'Изменение ставки'
+  : key === 'crm_tasks_create' ? 'Создание'
+  : key === 'crm_tasks_edit' ? 'Изменение'
   : key === 'doctors_create' ? 'Создание врача'
   : key === 'doctors_edit' ? 'Изменение'
   : key === 'payroll_view' ? 'Зарплаты (явное разрешение)'
@@ -47,6 +51,8 @@ export const permissionLabel = key => key === 'system_settings' ? 'Настро�
 export function requiredForPath(path) {
   const key = path.replace(/^\//, '').split('/')[0];
   if (key === 'no-access') return [];
+  if (key === 'crm-tasks') return ['crm_tasks_view'];
+  if (key === 'crm-task-titles') return ['directory_view'];
   if (key === 'finance-salaries') return ['payroll_view'];
   if (key === 'finance-admin-bonuses') return ['admin_bonus_view|admin_bonus_manage'];
   if (key.startsWith('finance')) return ['finance_view'];
@@ -70,12 +76,13 @@ export const canOpenPath = (user, path) => {
   return required !== null && required.every(clause => clause.split('|').some(key => hasPermission(user, key)));
 };
 export const homeForUser = user => [
-  '/calendar', '/patients', '/doctors', '/crm-dashboard', '/warehouse',
+  '/calendar', '/patients', '/doctors', '/crm-dashboard', '/crm-tasks', '/warehouse',
   '/finance-dashboard', '/finance-salaries', '/finance-admin-bonuses', '/staff-management',
   '/service-prices', '/statistics', '/broadcast', '/loyalty', '/quality-assessment',
 ].find(path => canOpenPath(user, path)) || '/no-access';
 export const canOpenSpace = (user, space) => space === 'hms'
   ? permissionGroups[0].rows.some(row => row[1].some(key => hasPermission(user, key)))
+  : space === 'crm' ? hasPermission(user, 'crm_view') || hasPermission(user, 'crm_tasks_view')
   : space === 'finance' ? hasPermission(user, 'finance_view') || hasPermission(user, 'payroll_view') || canOpenPath(user, '/finance-admin-bonuses')
   : hasPermission(user, space + '_view');
 

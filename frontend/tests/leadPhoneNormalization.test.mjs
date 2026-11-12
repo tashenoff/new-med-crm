@@ -126,7 +126,7 @@ test('create-lead phone uses shared normalization for input, duplicate checks an
   // with untouched state to independently guard normalization at the payload boundary.
   const source = await readFile(new URL('../src/components/crm/leads/EnhancedLeadsView.js', import.meta.url), 'utf8');
   const start = source.indexOf('const handleCreateLead =');
-  const end = source.indexOf('const handleCreateTask =', start);
+  const end = source.indexOf('const handleEditColumn =', start);
   assert.ok(start >= 0 && end > start);
   for (const [phone, expected] of cases) {
     await context.test(`untouched state at save: ${phone}`, async () => {

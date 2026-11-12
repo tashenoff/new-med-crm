@@ -32,6 +32,7 @@ import FunnelView from './components/crm/funnel/FunnelView';
 import AcquisitionView from './components/crm/contacts/AcquisitionView';
 import SourcesView from './components/crm/contacts/ContactsView';
 import TasksView from './components/crm/tasks/TasksView';
+import TaskTitles from './components/crm/directory/TaskTitles';
 import TaskStatuses from './components/crm/directory/TaskStatuses';
 
 import FinanceDashboard from './components/finance/dashboard/FinanceDashboard';
@@ -190,7 +191,7 @@ function ClinicApp() {
     
     // При переключении в CRM, устанавливаем первый CRM таб
     if (section === 'crm') {
-      handleTabChange('crm-dashboard');
+      handleTabChange(hasPermission(user, 'crm_view') ? 'crm-dashboard' : 'crm-tasks');
     } else if (section === 'finance') {
       handleTabChange(canViewFinance ? 'finance-dashboard' : hasPermission(user, 'payroll_view') ? 'finance-salaries' : 'finance-admin-bonuses');
     } else if (section === 'warehouse') {
@@ -216,7 +217,7 @@ function ClinicApp() {
         { key: 'crm-deals', label: 'Воронка' },
         { key: 'crm-acquisition', label: 'Привлечение' },
         { key: 'crm-contacts', label: 'Источники' }
-      ];
+      ].filter(tab => canOpenPath(user, '/' + tab.key));
     }
     
     if (activeSection === 'warehouse') {
@@ -372,6 +373,7 @@ function ClinicApp() {
               {activeTab === 'crm-acquisition' && <AcquisitionView user={user} />}
               {activeTab === 'crm-contacts' && <SourcesView user={user} />}
               {activeTab === 'crm-task-statuses' && <TaskStatuses user={user} />}
+              {activeTab === 'crm-task-titles' && <TaskTitles user={user} />}
               {activeTab.startsWith('finance') && (
                 activeTab === 'finance-admin-bonuses' ? <AdminBonuses user={user} refreshVersion={refreshTriggers.treatmentPlans} />
                 : !canViewFinance && activeTab !== 'finance-salaries' ? <Navigate to={homeForUser(user)} replace />
