@@ -373,7 +373,7 @@ async def test_legacy_snapshot_payments_and_auto_clinical_completion_are_separat
         await check_financial_side_effects(request, '/api/treatment-plans/{plan_id}', actor, db)
     db.treatment_plans.rows[0]['payment_completion_policy'] = 'full_payment_v1'
     finance = user(['patients_view', 'finance_view', 'finance_edit'])
-    with pytest.raises(HTTPException):
-        await check_financial_side_effects(request, '/api/treatment-plans/{plan_id}/settle-remaining', finance, db)
+    request.method = 'POST'
+    await check_financial_side_effects(request, '/api/treatment-plans/{plan_id}/settle-remaining', finance, db)
     finance.permissions.append('patients_edit')
     await check_financial_side_effects(request, '/api/treatment-plans/{plan_id}/settle-remaining', finance, db)

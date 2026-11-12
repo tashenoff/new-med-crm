@@ -13,6 +13,7 @@ from routers.auth import get_current_active_user
 from database import get_database
 from clinic_boundary import assert_single_clinic
 from permission_policy import has_permission
+from treatment_payment_access import PAYMENT_ROUTES, check_payment_staff
 
 PUBLIC = {
     ('POST', '/api/auth/login'), ('POST', '/api/auth/register'),
@@ -41,6 +42,10 @@ def requirements(path, method, module=''):
         return ('admin_bonus_view', 'patients_view') if read else None
     if path == '/api/doctors/salary-report':
         return ('payroll_view',)
+    if path == '/api/lookups/treatment-payment-types':
+        return ('patients_view',) if read else None
+    if method == 'POST' and path in PAYMENT_ROUTES:
+        return ('patients_view',)
     if path == '/api/lookups/doctors':
         return ('calendar_view|patients_view|doctors_view|crm_view|payroll_view',)
     if path == '/api/crm/tasks/contacts':
@@ -135,6 +140,16 @@ def redact_admin_bonus(value):
     return value
 
 
+def redact_treatment_payroll(value):
+    """Treatment receipts expose patient amounts, never staff remuneration."""
+    if isinstance(value, list):
+        return [redact_treatment_payroll(item) for item in value]
+    if isinstance(value, dict):
+        return {key:redact_treatment_payroll(item) for key,item in value.items()
+                if key not in {'compensation_snapshot','compensation_amount_kzt'}}
+    return value
+
+
 def redact_crm_payload(value, user):
     """CRM records can contain joined HMS billing/demographics. Filter nested rows.
 
@@ -185,8 +200,9 @@ async def check_financial_side_effects(request, path, user, db):
     """Clinical/calendar writes cannot create receipts through editable snapshots.
 
     Unchanged legacy payment fields may round-trip without granting finance.
-    Full-payment plans also mark procedures complete, so their receipts require
-    clinical edit in addition to finance. This does not change ledger arithmetic.
+    Scoped staff receipts may trigger existing full-payment auto-completion.
+    Manual completion and snapshot payment edits retain their separate grants.
+    This does not change ledger arithmetic.
     """
     if request.method not in ('POST', 'PUT', 'PATCH', 'DELETE'):
         return
@@ -204,6 +220,11 @@ async def check_financial_side_effects(request, path, user, db):
     identity = request.path_params.get('plan_id')
     previous = await db.treatment_plans.find_one({'id': identity}) if identity else {}
     previous = previous or {}
+    if request.method == 'POST' and path in PAYMENT_ROUTES:
+        check_payment_staff(user)
+        # Existing full-payment auto-completion is an intrinsic receipt effect.
+        # Manual completion and editable snapshots remain separate protected writes.
+        return
     required = requirements(path, request.method)
     if required and 'finance_edit' in required:
         if previous.get('payment_completion_policy') == 'full_payment_v1':
@@ -280,6 +301,11 @@ def install_api_permissions(app):
                     response.body = json.dumps(payload, ensure_ascii=False, separators=(',', ':')).encode('utf-8')
                     response.headers['content-length'] = str(len(response.body))
                 user = getattr(request.state, 'permission_user', None)
+                if ('treatment-plans' in route.path
+                        and 'application/json' in response.headers.get('content-type','')
+                        and (user is None or not has_permission(user,'payroll_view'))):
+                    response.body = json.dumps(redact_treatment_payroll(json.loads(response.body)),ensure_ascii=False,separators=(',',':')).encode('utf-8')
+                    response.headers['content-length'] = str(len(response.body))
                 if ('application/json' in response.headers.get('content-type', '')
                         and b'"admin_bonus"' in response.body
                         and (user is None or not has_permission(user, 'admin_bonus_view'))):

@@ -13,6 +13,7 @@ from models.treatment_plan import TreatmentPlan, TreatmentPlanCreate, TreatmentP
 from models.auth import UserInDB, UserRole
 from routers.auth import get_current_active_user, require_role
 from database import db
+from treatment_payment_access import payment_staff
 
 # Import services
 from services.treatment_plan_service import TreatmentPlanService
@@ -38,7 +39,7 @@ def get_statistics_service():
 async def settle_plan_remaining(
     plan_id: str,
     command: dict = Body(...),
-    current_user: UserInDB = Depends(require_role([UserRole.ADMIN, UserRole.SUPER_ADMIN, UserRole.DOCTOR])),
+    current_user: UserInDB = Depends(payment_staff),
 ):
     from services.payment_completion_service import PaymentCompletionService
     return await PaymentCompletionService(db).settle_remaining(plan_id, command, current_user.id)
@@ -49,7 +50,7 @@ async def record_service_receipt(
     plan_id: str,
     service_row_id: str,
     command: dict = Body(...),
-    current_user: UserInDB = Depends(require_role([UserRole.ADMIN, UserRole.SUPER_ADMIN, UserRole.DOCTOR])),
+    current_user: UserInDB = Depends(payment_staff),
 ):
     body = dict(command)
     if "service_row_id" in body and body.pop("service_row_id") != service_row_id:
@@ -553,7 +554,7 @@ async def pay_complex_remaining(
     plan_id: str,
     service_id: str,
     payment_data: Optional[dict] = Body(None),
-    current_user: UserInDB = Depends(require_role([UserRole.ADMIN, UserRole.SUPER_ADMIN, UserRole.DOCTOR])),
+    current_user: UserInDB = Depends(payment_staff),
     service: TreatmentPlanService = Depends(get_treatment_plan_service),
 ):
     """Оплатить остаток комплексной услуги (все неоплаченные доли)."""
@@ -566,7 +567,7 @@ async def mark_complex_component_paid(
     service_id: str,
     component_service_id: str,
     payment_data: Optional[dict] = Body(None),
-    current_user: UserInDB = Depends(require_role([UserRole.ADMIN, UserRole.SUPER_ADMIN, UserRole.DOCTOR])),
+    current_user: UserInDB = Depends(payment_staff),
     service: TreatmentPlanService = Depends(get_treatment_plan_service),
 ):
     """Отметить оплаченной одну услугу (долю) комплексной услуги в плане."""
@@ -585,7 +586,7 @@ async def mark_service_paid(
     plan_id: str,
     service_id: str,
     payment_data: Optional[dict] = Body(None),
-    current_user: UserInDB = Depends(require_role([UserRole.ADMIN, UserRole.SUPER_ADMIN, UserRole.DOCTOR])),
+    current_user: UserInDB = Depends(payment_staff),
 ):
     """Отметить услугу как оплаченную"""
     # Получить план лечения
@@ -796,7 +797,7 @@ async def mark_session_paid(
     plan_id: str,
     service_id: str,
     session_id: str,
-    current_user: UserInDB = Depends(require_role([UserRole.ADMIN, UserRole.SUPER_ADMIN, UserRole.DOCTOR])),
+    current_user: UserInDB = Depends(payment_staff),
     command: Optional[dict] = Body(None),
 ):
     """Отметить одну сессию курсовой услуги как оплаченную"""
