@@ -59,3 +59,11 @@ test('double submit is locked and unmounted chat does not receive save callback'
   await act(async () => h.root.render(null));
   await act(async () => resolve({ data: { id: 'n' } })); assert.equal(saved, 0);
 });
+
+ test('new task posts to the canonical backend route without trailing slash', async t => {
+  const h = await mount(t, { user: { permissions: ['crm_tasks_create'] }, initialTask: { title: 'Call', kind: 'task', assigned_to: 'staff:admin', due_date: '2026-11-12T12:00:00Z' } });
+  await h.submit();
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].path, '/crm/tasks');
+  assert.equal(calls[0].data.assigned_to, 'staff:admin');
+});

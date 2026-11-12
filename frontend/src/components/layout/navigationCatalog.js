@@ -16,25 +16,12 @@ export const getNavigationMenu = (user, activeSection) => {
       const crmItems = [
         { key: 'crm-dashboard', label: 'Дашборд', type: 'tab' },
         { key: 'crm-leads', label: 'Сделки', type: 'tab' },
-        { key: 'crm-tasks', label: 'Задачи', type: 'tab' },
         { key: 'crm-clients', label: 'Контакты', type: 'tab' },
         { key: 'crm-deals', label: 'Воронка', type: 'tab' },
         { key: 'crm-acquisition', label: 'Привлечение', type: 'tab' },
         { key: 'crm-contacts', label: 'Источники', type: 'tab' }
       ];
 
-      // Справочник CRM - только для админов
-      if (user?.role === 'admin' || user?.role === 'super_admin' || hasPermission('directory_view')) {
-        crmItems.push({
-          key: 'crm-directory',
-          label: 'Справочник',
-          type: 'accordion',
-          subItems: [
-            ...(['admin', 'super_admin'].includes(user?.role) ? [{ key: 'crm-task-statuses', label: 'Статусы задач', type: 'tab' }] : []),
-            { key: 'crm-task-titles', label: 'Названия задач', type: 'tab' }
-          ]
-        });
-      }
 
       return crmItems;
     }
@@ -66,6 +53,10 @@ export const getNavigationMenu = (user, activeSection) => {
 
     // HMS меню с проверкой прав доступа
     const baseItems = [];
+
+    if (hasPermission('crm_tasks_view')) {
+      baseItems.push({ key: 'crm-tasks', label: 'Задачи', type: 'tab' });
+    }
 
     // Календарь доступен если есть право calendar_view
     if (hasPermission('calendar_view')) {
@@ -124,6 +115,8 @@ export const getNavigationMenu = (user, activeSection) => {
         label: 'Справочник',
         type: 'accordion',
         subItems: [
+          { key: 'crm-task-titles', label: 'Названия задач', type: 'tab' },
+          ...(['admin', 'super_admin'].includes(user?.role) ? [{ key: 'crm-task-statuses', label: 'Статусы задач', type: 'tab' }] : []),
           { key: 'service-prices', label: 'Ценовая политика', type: 'tab' },
           { key: 'laboratories', label: 'Лаборатории', type: 'tab' },
           { key: 'lab-price-statistics', label: 'Статистика прайса лаборатории', type: 'tab' },

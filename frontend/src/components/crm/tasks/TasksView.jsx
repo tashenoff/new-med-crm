@@ -10,7 +10,7 @@ import { hasTaskPermission } from '../../../utils/permissions';
 const PAGE_SIZE = 50;
 const statuses = { new: 'Новая', in_progress: 'В работе', completed: 'Выполнена', cancelled: 'Отменена', overdue: 'Просрочена' };
 const kinds = { task: 'Задача', note: 'Заметка', comment: 'Примечание' };
-const control = 'rounded-md border border-curai-border bg-curai-surface text-curai-ink px-3 py-2 text-sm disabled:opacity-50';
+const control = 'h-10 w-full min-w-0 rounded-md border border-curai-border bg-curai-surface text-curai-ink px-3 py-2 text-sm disabled:opacity-50';
 export const taskIsOverdue = (task, now = Date.now()) =>
   (task.kind || (task.type === 'note' ? 'note' : 'task')) === 'task' &&
   !['completed', 'cancelled'].includes(task.status) && Boolean(task.due_date) && new Date(task.due_date).getTime() < now;
@@ -90,13 +90,13 @@ const TasksView = ({ user }) => {
   if (!canView) return <p role="alert" className="p-6 text-curai-muted">Нет доступа к списку задач.</p>;
 
   return (
-    <div className="calendar-container calendar-view-panel rounded-md">
+    <div className="calendar-container calendar-view-panel rounded-md min-w-0">
       <PanelHeader title="Задачи" subtitle="Задачи, заметки и примечания по клиентам"
         onAction={canCreate ? () => { setEditingTask(null); setShowEditor(true); } : undefined}
-        actionLabel="+ Создать задачу" />
+        actionLabel="+ Создать задачу" className="px-5 py-4 border-b border-curai-border" />
       <div className="bg-curai-surface rounded-b-md border border-t-0 border-curai-border p-4 space-y-4 shadow-none">
-        <div className="flex flex-wrap items-center gap-3">
-          <input aria-label="Поиск задач" placeholder="Поиск по названию и тексту…" value={search} onChange={event => setSearch(event.target.value)} className={control + ' flex-1 min-w-[200px]'} />
+        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-[minmax(200px,2fr)_minmax(140px,1fr)_minmax(140px,1fr)_minmax(160px,1fr)_40px] gap-3 items-end">
+          <input aria-label="Поиск задач" placeholder="Поиск по названию и тексту…" value={search} onChange={event => setSearch(event.target.value)} className={control} />
           <select aria-label="Статус задач" value={status} onChange={filter(setStatus)} className={control}>
             <option value="">Все статусы</option>{Object.entries(statuses).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
           </select>
@@ -106,12 +106,12 @@ const TasksView = ({ user }) => {
           <select aria-label="Ответственный" value={assignee} onChange={filter(setAssignee)} className={control}>
             <option value="">Все ответственные</option>{assignees.map(person => <option key={person.id} value={person.id}>{person.name}</option>)}
           </select>
-          <button type="button" aria-label="Обновить задачи" onClick={fetchTasks} disabled={loading} className={control}><RefreshCw size={16} /></button>
+          <button type="button" aria-label="Обновить задачи" onClick={fetchTasks} disabled={loading} className={control + ' flex items-center justify-center'}><RefreshCw size={16} /></button>
         </div>
         {error && <div role="alert" className="p-3 rounded-md bg-curai-negativeBg text-curai-negative">{error}</div>}
         {loading ? <div className="py-12 text-center"><LoadingSpinner /><p className="mt-3 text-curai-muted">Загрузка задач…</p></div> : (
           <div className="overflow-x-auto">
-            <table className="w-full text-sm text-left border-collapse text-curai-ink">
+            <table className="w-full min-w-[900px] text-sm text-left border-collapse text-curai-ink [&_td]:align-top">
               <thead className="text-xs text-curai-muted bg-curai-subtle">
                 <tr>{['Дата исполнения', 'Ответственный', 'Клиент', 'Название / вид', 'Текст', 'Результат / статус', 'Действия'].map(label => <th key={label} scope="col" className="px-3 py-3 border-b border-curai-border font-medium">{label}</th>)}</tr>
               </thead>

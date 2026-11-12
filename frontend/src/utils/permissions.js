@@ -81,8 +81,8 @@ export const homeForUser = user => [
   '/service-prices', '/statistics', '/broadcast', '/loyalty', '/quality-assessment',
 ].find(path => canOpenPath(user, path)) || '/no-access';
 export const canOpenSpace = (user, space) => space === 'hms'
-  ? permissionGroups[0].rows.some(row => row[1].some(key => hasPermission(user, key)))
-  : space === 'crm' ? hasPermission(user, 'crm_view') || hasPermission(user, 'crm_tasks_view')
+  ? hasPermission(user, 'crm_tasks_view') || permissionGroups[0].rows.some(row => row[1].some(key => hasPermission(user, key)))
+  : space === 'crm' ? hasPermission(user, 'crm_view')
   : space === 'finance' ? hasPermission(user, 'finance_view') || hasPermission(user, 'payroll_view') || canOpenPath(user, '/finance-admin-bonuses')
   : hasPermission(user, space + '_view');
 

@@ -117,6 +117,8 @@ function ClinicApp() {
   };
 
   const getSectionFromPath = (pathname) => {
+    // Preserve existing task URLs, but show task management in the HMS workspace.
+    if (['/crm-tasks', '/crm-task-titles', '/crm-task-statuses'].includes(pathname.replace(/\/$/, ''))) return 'hms';
     if (pathname.startsWith('/crm')) return 'crm';
     if (pathname.startsWith('/finance')) return 'finance';
     if (pathname.startsWith('/warehouse')) return 'warehouse';
@@ -191,14 +193,14 @@ function ClinicApp() {
     
     // При переключении в CRM, устанавливаем первый CRM таб
     if (section === 'crm') {
-      handleTabChange(hasPermission(user, 'crm_view') ? 'crm-dashboard' : 'crm-tasks');
+      handleTabChange('crm-dashboard');
     } else if (section === 'finance') {
       handleTabChange(canViewFinance ? 'finance-dashboard' : hasPermission(user, 'payroll_view') ? 'finance-salaries' : 'finance-admin-bonuses');
     } else if (section === 'warehouse') {
       handleTabChange('warehouse');
     } else {
       // При переключении в HMS, устанавливаем календарь
-      handleTabChange('calendar');
+      handleTabChange(hasPermission(user, 'calendar_view') ? 'calendar' : hasPermission(user, 'crm_tasks_view') ? 'crm-tasks' : homeForUser(user).replace(/^\//, ''));
     }
   };
 
@@ -212,7 +214,6 @@ function ClinicApp() {
       return [
         { key: 'crm-dashboard', label: 'Дашборд' },
         { key: 'crm-leads', label: 'Сделки' },
-        { key: 'crm-tasks', label: 'Задачи' },
         { key: 'crm-clients', label: 'Контакты' },
         { key: 'crm-deals', label: 'Воронка' },
         { key: 'crm-acquisition', label: 'Привлечение' },
@@ -228,6 +229,7 @@ function ClinicApp() {
     const tabs = [
       { key: 'calendar', label: 'Календарь' }
     ];
+    if (hasPermission(user, 'crm_tasks_view')) tabs.push({ key: 'crm-tasks', label: 'Задачи' });
     
     if (user?.role === 'admin' || user?.role === 'doctor') {
       tabs.push({ key: 'patients', label: 'Пациенты' });
