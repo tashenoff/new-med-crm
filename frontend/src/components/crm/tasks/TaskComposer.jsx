@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { apiClient, handleApiError } from '../../../api/config';
+import TaskContactPicker from './TaskContactPicker';
 import CuraiButton from '../../common/CuraiButton';
 import { hasPermission } from '../../../utils/permissions';
 
@@ -17,6 +18,12 @@ export default function TaskComposer({ initialTask, chat, leadId, user, onSaved,
   const [draft, setDraft] = useState(() => ({ kind: initialTask?.kind || initialKind, title_id: initialTask?.title_id || '', title: initialTask?.title || '', description: initialTask?.description || '', assigned_to: initialTask?.assigned_to || '', due_date: localDateTime(initialTask?.due_date), priority: initialTask?.priority || 'medium' }));
   const [titles, setTitles] = useState([]), [assignees, setAssignees] = useState([]);
   const [loading, setLoading] = useState(true), [saving, setSaving] = useState(false), [error, setError] = useState('');
+  const standalone = !chat && !leadId;
+  const [contact, setContact] = useState(() => {
+    const id = initialTask?.contact_id || (initialTask?.client_id ? `patient:${initialTask.client_id}` : initialTask?.lead_id ? `lead:${initialTask.lead_id}` : null);
+    return id || initialTask?.chat_phone ? { id, name: initialTask?.contact_name || initialTask?.client_name || initialTask?.lead_name || initialTask?.chat_name || 'Связанный контакт', phone: initialTask?.chat_phone } : null;
+  });
+  const [contactChanged, setContactChanged] = useState(false);
   const [dateOpen, setDateOpen] = useState(false);
   const locked = useRef(false), alive = useRef(true);
   const allowed = hasPermission(user, initialTask?.id ? 'crm_tasks_edit' : 'crm_tasks_create');
@@ -40,6 +47,7 @@ export default function TaskComposer({ initialTask, chat, leadId, user, onSaved,
     locked.current = true; setSaving(true); setError('');
     try {
       const payload = { ...draft, title: draft.title.trim(), title_id: draft.title_id || null, assigned_to: draft.assigned_to || null, due_date: date?.toISOString() || null, type: initialTask?.type || (draft.kind === 'task' ? 'custom' : 'note') };
+      if (standalone && contactChanged) payload.contact_id = contact?.id || null;
       if (chat?.phone) payload.chat_phone = chat.phone;
       if (leadId) payload.lead_id = leadId;
       const result = initialTask?.id ? await apiClient.put(`/crm/tasks/${initialTask.id}`, payload) : await apiClient.post('/crm/tasks', payload);
@@ -48,6 +56,8 @@ export default function TaskComposer({ initialTask, chat, leadId, user, onSaved,
     finally { locked.current = false; if (alive.current) setSaving(false); }
   };
   return <form onSubmit={save} className="p-3 space-y-3 border-t border-curai-border bg-curai-surface text-curai-ink" aria-label="Создание записи CRM">
+    {standalone && <TaskContactPicker value={contact} disabled={saving} allowed={allowed && (hasPermission(user, 'patients_view') || hasPermission(user, 'crm_view'))}
+      onChange={next => { setContact(next); setContactChanged(true); }} />}
     <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
       <label className="min-w-0"><span className={fieldLabel}>Вид записи</span><select aria-label="Вид записи" className={control} value={draft.kind} disabled={saving} onChange={e => update('kind', e.target.value)}>{Object.entries(ENTRY_KINDS).map(([key, label]) => <option key={key} value={key}>{label}</option>)}</select></label>
       {draft.kind === 'task' && <div className="min-w-0"><span className={fieldLabel}>Срок выполнения</span><CuraiButton className="!h-10 w-full !justify-start" disabled={saving} aria-expanded={dateOpen} onClick={() => setDateOpen(value => !value)}>{draft.due_date?.slice(0, 10) === localDateTime().slice(0, 10) ? 'Сегодня' : draft.due_date?.slice(0, 10) || 'Выбрать дату'} {draft.due_date?.slice(11)}</CuraiButton></div>}

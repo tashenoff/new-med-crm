@@ -124,7 +124,7 @@ const TasksView = ({ user }) => {
                     {overdue && <span className="block text-xs">Просрочена</span>}
                   </td>
                   <td className="px-3 py-3">{task.assigned_to_name || (task.assigned_to ? 'Менеджер недоступен' : 'Не назначен')}</td>
-                  <td className="px-3 py-3">{task.chat_name || task.client_name || task.lead_name || task.chat_phone || (task.client_id || task.lead_id ? 'Связанный клиент' : '—')}</td>
+                  <td className="px-3 py-3">{task.contact_name || task.chat_name || task.client_name || task.lead_name || task.chat_phone || (task.client_id || task.lead_id ? 'Связанный клиент' : '—')}</td>
                   <td className="px-3 py-3"><div className="font-medium">{task.title}</div><div className="text-xs text-curai-muted">{kinds[recordKind] || recordKind}</div></td>
                   <td className="px-3 py-3 max-w-xs whitespace-pre-wrap break-words">{task.description || '—'}</td>
                   <td className="px-3 py-3 max-w-xs"><div className={task.status === 'completed' ? 'text-curai-positive' : 'text-curai-muted'}>{recordKind === 'task' ? (statuses[task.status] || task.status) : 'Сохранено'}</div>{task.comment && <div className="mt-1 whitespace-pre-wrap break-words">{task.comment}</div>}</td>

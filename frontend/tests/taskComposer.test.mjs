@@ -67,3 +67,19 @@ test('double submit is locked and unmounted chat does not receive save callback'
   assert.equal(calls[0].path, '/crm/tasks');
   assert.equal(calls[0].data.assigned_to, 'staff:admin');
 });
+
+
+test('existing contact stays untouched unless explicitly cleared',async t=>{
+ const h=await mount(t,{user:{permissions:['crm_tasks_edit','patients_view']},initialTask:{id:'n',title:'Note',kind:'note',contact_id:'patient:p',contact_name:'Patient fixture'}});
+ assert.match(document.body.textContent,/Patient fixture/);await h.submit();assert.equal(Object.hasOwn(calls[0].data,'contact_id'),false);
+ await act(async()=>document.querySelector('button[aria-label="Убрать контакт"]').click());await h.submit();assert.equal(calls[1].data.contact_id,null);
+});
+for(const linked of [{chat:{phone:'+70000000000'}},{leadId:'lead'}])test('contextual composer hides standalone contact lookup '+JSON.stringify(linked),async t=>{
+ await mount(t,{user:{permissions:['crm_tasks_create','crm_view','patients_view']},...linked});assert.equal(document.querySelector('[role="combobox"]'),null);
+});
+
+for(const link of [{client_id:'p',client_name:'Legacy patient'},{lead_id:'l',lead_name:'Legacy lead'},{chat_phone:'+70000000000'}])test('legacy linkage remains visible, preserved until explicit clear '+JSON.stringify(link),async t=>{
+ const h=await mount(t,{user:{permissions:['crm_tasks_edit','patients_view','crm_view']},initialTask:{id:'legacy',title:'Note',kind:'note',...link}});
+ assert.ok(document.querySelector('button[aria-label="Убрать контакт"]'));await h.submit();assert.equal(Object.hasOwn(calls[0].data,'contact_id'),false);
+ await act(async()=>document.querySelector('button[aria-label="Убрать контакт"]').click());await h.submit();assert.equal(calls[1].data.contact_id,null);
+});
