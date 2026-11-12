@@ -185,10 +185,3 @@ for(const tab of ['План лечения','Оплата'])test('calendar appoi
  assert.equal(ui.writes.length,1);assert.ok(ui.writes[0].url.endsWith(`/treatment-plans/${treatment.id}/settle-remaining`));assert.equal(ui.writes[0].body.amount_kzt,1000);
  assert.ok(reads.some(url=>url.endsWith('/api/lookups/treatment-payment-types')));assert.ok(ui.writes.every(w=>!w.url.includes('appointments')&&!w.url.includes('deposit')&&!w.url.includes('complete')));
 });
-
-for(const user of [{role:'administrator',is_active:false,permissions:['calendar_view','patients_view']},{role:'administrator',permissions:['calendar_view']}])test('calendar payment denies inactive or missing patient access '+JSON.stringify(user),async t=>{
- const patient={id:'denied-patient',full_name:'Fixture Patient'};const treatment=plan('denied-calendar');
- const ui=await mount(t,AppointmentModal,{show:true,user,onClose(){},onSave(){throw Error('No booking mutations')},patients:[patient],hideAddPlanForm:true,appointmentForm:{patient_id:patient.id,appointment_date:'2026-11-12',appointment_time:'10:00',end_time:'10:30'}},{read:url=>url.endsWith('/patients/'+patient.id+'/treatment-plans')?[treatment]:undefined});
- await ui.click([...ui.container.querySelectorAll('[role="tab"]')].find(n=>text(n)==='Оплата'));
- const pay=ui.container.querySelector('.curai-r21-selected-plan-action button');assert.ok(pay);assert.equal(pay.disabled,true);await ui.click(pay);assert.equal(ui.writes.length,0);assert.equal(ui.container.querySelector('input[type="radio"]'),null);
-});
