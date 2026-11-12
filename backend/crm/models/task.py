@@ -2,9 +2,9 @@
 Task Model - Модель задач CRM
 """
 
-from datetime import datetime
-from typing import Optional
-from pydantic import BaseModel, Field
+from datetime import datetime, timezone
+from typing import Optional, Literal
+from pydantic import BaseModel, Field, field_serializer, model_validator
 from enum import Enum
 
 
@@ -41,6 +41,11 @@ class Task(BaseModel):
     id: Optional[str] = Field(None, description="Уникальный идентификатор")
     
     # Основная информация
+    kind: Literal["task", "note", "comment"] = "task"
+    title_id: Optional[str] = None
+    chat_phone: Optional[str] = None
+    chat_name: Optional[str] = None
+    assigned_to_name: Optional[str] = None
     title: str = Field(..., description="Название задачи")
     type: TaskType = Field(TaskType.CALL, description="Тип задачи")
     custom_type_name: Optional[str] = Field(None, description="Название пользовательского типа")
@@ -80,10 +85,23 @@ class Task(BaseModel):
             datetime: lambda v: v.isoformat()
         }
     
+    @model_validator(mode='before')
+    @classmethod
+    def legacy_note_kind(cls, values):
+        if isinstance(values, dict) and not values.get('kind') and values.get('type') == TaskType.NOTE:
+            values = dict(values, kind='note')
+        return values
+
+    @field_serializer('due_date', 'completed_at', 'created_at', 'updated_at', when_used='json')
+    def serialize_utc_datetime(self, value):
+        if value is None:
+            return None
+        return value.replace(tzinfo=timezone.utc).isoformat() if value.tzinfo is None else value.astimezone(timezone.utc).isoformat()
+
     def is_overdue(self) -> bool:
         """Проверка просрочена ли задача"""
-        if self.due_date and self.status not in [TaskStatus.COMPLETED, TaskStatus.CANCELLED]:
-            return datetime.utcnow() > self.due_date
+        if self.kind == "task" and self.due_date and self.status not in [TaskStatus.COMPLETED, TaskStatus.CANCELLED]:
+            return (datetime.now(timezone.utc) if self.due_date.tzinfo else datetime.utcnow()) > self.due_date
         return False
     
     def mark_completed(self):

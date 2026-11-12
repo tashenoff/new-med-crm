@@ -1,3 +1,4 @@
+from ..task_permissions import view_tasks
 """
 Leads Routes - API маршруты для работы с лидами
 """
@@ -697,6 +698,7 @@ async def schedule_appointment_from_lead(
 @leads_router.get("/{lead_id}/tasks")
 async def get_lead_tasks(
     lead_id: str,
+    current_user=Depends(view_tasks),
     db: AsyncIOMotorDatabase = Depends(get_database)
 ):
     """Получить задачи для конкретной заявки"""

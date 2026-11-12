@@ -43,6 +43,19 @@ def requirements(path, method, module=''):
         return ('payroll_view',)
     if path == '/api/lookups/doctors':
         return ('calendar_view|patients_view|doctors_view|crm_view|payroll_view',)
+    if path == '/api/crm/tasks/assignees':
+        return ('crm_tasks_view|crm_tasks_create|crm_tasks_edit',) if read else None
+    if path == '/api/crm/tasks' or path.startswith('/api/crm/tasks/'):
+        if read:
+            return ('crm_tasks_view',)
+        return ('crm_tasks_create',) if path == '/api/crm/tasks' and method == 'POST' else ('crm_tasks_edit',)
+    if path.startswith('/api/crm/leads/') and path.endswith('/tasks'):
+        return ('crm_tasks_view',) if read else None
+    if path == '/api/crm/task-titles' or path.startswith('/api/crm/task-titles/'):
+        return ('directory_view|crm_tasks_create|crm_tasks_edit',) if read else ('directory_edit',)
+    if read and (path == '/api/crm/task-statuses' or path.startswith('/api/crm/task-statuses/')):
+        return ('crm_view|directory_view|crm_tasks_view|crm_tasks_create|crm_tasks_edit',)
+
     if path.startswith('/api/crm/integration'):
         if 'client-hms-data' in path or 'last-appointment' in path:
             return ('crm_view', 'patients_view')

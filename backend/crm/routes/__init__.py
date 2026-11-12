@@ -32,3 +32,6 @@ crm_router.include_router(tasks_router)
 crm_router.include_router(task_statuses_router)
 
 __all__ = ["crm_router"]
+
+from .task_titles import router as task_titles_router
+crm_router.include_router(task_titles_router)

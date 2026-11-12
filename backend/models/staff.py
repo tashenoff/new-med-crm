@@ -35,6 +35,9 @@ class Permission(str, Enum):
     # CRM
     CRM_VIEW = "crm_view"
     CRM_EDIT = "crm_edit"
+    CRM_TASKS_VIEW = "crm_tasks_view"
+    CRM_TASKS_CREATE = "crm_tasks_create"
+    CRM_TASKS_EDIT = "crm_tasks_edit"
     
     # Склад
     WAREHOUSE_VIEW = "warehouse_view"
