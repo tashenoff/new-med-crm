@@ -30,8 +30,14 @@ class Collection:
     @staticmethod
     def matches(row, query):
         for key, value in query.items():
+            if key == '$or':
+                if not any(Collection.matches(row, condition) for condition in value): return False
+                continue
             if isinstance(value, dict):
                 current = row.get(key)
+                if '$regex' in value:
+                    import re
+                    if not re.search(value['$regex'], str(current or ''), re.I): return False
                 if '$in' in value and current not in value['$in']: return False
                 if '$ne' in value and current == value['$ne']: return False
             elif row.get(key) != value: return False
@@ -50,7 +56,7 @@ class Database(SimpleNamespace):
     def __getitem__(self, key): return getattr(self,key)
 
 def database(permissions=()):
-    return Database(wazzup_chats=Collection(), crm_tasks=Collection(), crm_task_titles=Collection(), crm_managers=Collection([{'id':'manager', 'status':'active', 'first_name':'Manager'}]), crm_leads=Collection([{'id':'lead'}]), staff=Collection([{'_id':'user', 'role':'admin', 'is_active':True, 'permission_mode':'explicit', 'custom_permissions':list(permissions)}]))
+    return Database(patients=Collection([{'id':'patient','full_name':'Patient'}]), wazzup_chats=Collection(), crm_tasks=Collection(), crm_task_titles=Collection(), crm_managers=Collection([{'id':'manager', 'status':'active', 'first_name':'Manager'}]), crm_leads=Collection([{'id':'lead'}]), staff=Collection([{'_id':'user', 'role':'admin', 'is_active':True, 'permission_mode':'explicit', 'custom_permissions':list(permissions)}]))
 
 
 def user(): return SimpleNamespace(id='user', role='admin', is_active=True, permissions=[])
@@ -61,11 +67,11 @@ async def test_explicit_admin_does_not_bypass_grants():
     db.staff.rows[0]['custom_permissions']=['crm_tasks_create']
     assert set(effective_permissions(db.staff.rows[0]))=={'crm_tasks_create'}
     db.staff.rows[0]['is_active']=False
-    inactive=SimpleNamespace(is_active=False,role='admin',permissions=['crm_tasks_create'])
+    inactive=SimpleNamespace(is_active=False,role='admin',permissions=['crm_tasks_create','crm_view','patients_view'])
     assert not has_permission(inactive,'crm_tasks_create')
 
 async def test_create_read_edit_are_independent_permissions():
-    db=database(['crm_tasks_create'])
+    db=database(['crm_tasks_create','crm_view'])
     app=FastAPI(); app.include_router(router,prefix='/api/crm'); app.include_router(titles_router,prefix='/api/crm')
     app.dependency_overrides[get_current_user]=lambda: SimpleNamespace(id='user', role='admin', is_active=True, permissions=db.staff.rows[0]['custom_permissions'])
     app.dependency_overrides[get_database]=lambda:db
@@ -108,12 +114,11 @@ async def test_invalid_links_do_not_write():
 
 async def test_chat_identity_is_verified_and_normalized(monkeypatch):
     db=database(); svc=TaskService(db)
-    get_chat=AsyncMock(return_value={'contact_name':'Client','linked_lead_id':'lead','linked_patient_id':'patient'})
-    monkeypatch.setattr('crm.services.task_service.WazzupChatService.get_chat',get_chat)
+    db.wazzup_chats.rows.append({'phone':'+77011234567','contact_name':'Client','linked_lead_id':'lead','linked_patient_id':'patient'})
     task=await svc.create_task(TaskCreate(title='Call',chat_phone='87011234567'))
     assert task.chat_phone=='+77011234567' and task.chat_name=='Client'
     assert task.lead_id=='lead' and task.client_id=='patient'
-    get_chat.return_value=None
+    db.wazzup_chats.rows.clear()
     with pytest.raises(HTTPException): await svc.create_task(TaskCreate(title='Call',chat_phone='+77011234568'))
     assert len(db.crm_tasks.rows)==1
 
@@ -179,7 +184,7 @@ def test_legacy_note_and_explicit_role_policy():
 async def test_global_boundary_matches_task_contract(monkeypatch):
     import api_permissions
     from routers.auth import get_current_active_user
-    db=database(['crm_tasks_create'])
+    db=database(['crm_tasks_create','crm_view'])
     app=FastAPI(); app.include_router(router,prefix='/api/crm'); app.include_router(titles_router,prefix='/api/crm')
     def hydrated(): return SimpleNamespace(id='user',role='admin',is_active=True,permissions=db.staff.rows[0]['custom_permissions'])
     app.dependency_overrides[get_current_user]=hydrated
@@ -207,12 +212,13 @@ def test_current_super_admin_contract_and_legacy_grants_not_expanded():
     assert not has_permission(SimpleNamespace(is_active=True,role='admin',permissions=[]),'crm_tasks_view')
     assert not has_permission(SimpleNamespace(is_active=False,role='super_admin',permissions=[]),'crm_tasks_view')
     assert 'crm_tasks_create' not in effective_permissions({'role':'admin'})
+    assert requirements('/api/crm/tasks/contacts','GET')==('crm_tasks_create|crm_tasks_edit','crm_view|patients_view')
     assert requirements('/api/crm/leads/{lead_id}/tasks','GET')==('crm_tasks_view',)
     assert requirements('/api/crm/task-statuses','GET')==('crm_view|directory_view|crm_tasks_view|crm_tasks_create|crm_tasks_edit',)
 
 
 async def test_staff_assignment_asgi_and_revocation():
-    db=database(['crm_tasks_create'])
+    db=database(['crm_tasks_create','crm_view'])
     db.staff.rows.extend([
         {'_id':'admin', 'full_name':'Administrator', 'role':'admin', 'is_active':True},
         {'_id':'disabled', 'full_name':'Disabled', 'role':'admin', 'is_active':False},
@@ -246,3 +252,77 @@ async def test_staff_manager_namespace_collision_is_not_assignable():
         await svc.create_task(TaskCreate(title='Ambiguous',assigned_to='staff:admin'))
     legacy=await svc.create_task(TaskCreate(title='Legacy',assigned_to='manager'))
     assert legacy.assigned_to=='manager' and legacy.assigned_to_name=='Manager'
+
+
+async def test_virtual_whatsapp_task_asgi_is_read_only_and_verified():
+    db=database(['crm_tasks_create','crm_view'])
+    db.crm_leads.rows=[{'id':'lead','phone':'87011234567','first_name':'Verified'}]
+    app=FastAPI(redirect_slashes=False); app.include_router(router,prefix='/api/crm')
+    app.dependency_overrides[get_current_user]=lambda: SimpleNamespace(id='user',role='admin',is_active=True,permissions=['crm_tasks_create','crm_view','patients_view'])
+    app.dependency_overrides[get_database]=lambda:db
+    async with AsyncClient(transport=ASGITransport(app=app),base_url='http://test') as client:
+        response=await client.post('/api/crm/tasks',json={'title':'Call','chat_phone':'+77011234567','chat_name':'Spoof','client_id':'Spoof'})
+        assert response.status_code==201, response.text
+        assert response.json()['lead_id']=='lead' and response.json()['chat_name']=='Verified'
+        assert response.json()['client_id'] is None
+        assert db.wazzup_chats.rows==[]
+        assert (await client.post('/api/crm/tasks',json={'title':'Unknown','chat_phone':'+77011234568'})).status_code==404
+        db.crm_leads.rows.append({'id':'duplicate','phone':'+77011234567'})
+        assert (await client.post('/api/crm/tasks',json={'title':'Ambiguous','chat_phone':'+77011234567'})).status_code==409
+        assert len(db.crm_tasks.rows)==1
+        db.wazzup_chats.rows=[{'phone':'+77011234567','contact_name':'Linked','linked_lead_id':'lead'}]
+        saved_chat=deepcopy(db.wazzup_chats.rows)
+        response=await client.post('/api/crm/tasks',json={'title':'Linked chat','chat_phone':'+77011234567'})
+        assert response.status_code==201 and response.json()['lead_id']=='lead'
+        assert db.wazzup_chats.rows==saved_chat
+
+
+async def test_patient_virtual_identity_and_existing_chat_are_preserved():
+    db=database();svc=TaskService(db)
+    db.patients.rows=[{'id':'patient','phone':'+77011234567','full_name':'Verified patient'}]
+    result=await svc.create_task(TaskCreate(title='Call',chat_phone='+77011234567'))
+    assert result.client_id=='patient' and result.chat_name=='Verified patient'
+    db.wazzup_chats.rows=[{'phone':'+77011234568','contact_name':'Existing','linked_lead_id':'lead'}]
+    before=deepcopy(db.wazzup_chats.rows)
+    result=await svc.create_task(TaskCreate(title='Call',chat_phone='+77011234568'))
+    assert result.lead_id=='lead' and result.chat_name=='Existing'
+    assert db.wazzup_chats.rows==before
+
+
+async def test_contact_lookup_binding_and_source_permissions_asgi():
+    db=database(['crm_tasks_create','crm_view','patients_view'])
+    db.crm_leads.rows=[{'id':'lead','first_name':'Shared lead','phone':'+77011234567'},
+        {'id':'converted','first_name':'Shared converted','phone':'+77011234568','converted_to_client_id':'patient'}]
+    db.patients.rows=[{'id':'patient','full_name':'Shared patient','phone':'+77011234567'}]
+    app=FastAPI(redirect_slashes=False);app.include_router(router,prefix='/api/crm')
+    app.dependency_overrides[get_current_user]=lambda:SimpleNamespace(id='user',role='admin',is_active=True,permissions=db.staff.rows[0]['custom_permissions'])
+    app.dependency_overrides[get_database]=lambda:db
+    async with AsyncClient(transport=ASGITransport(app=app),base_url='http://test') as client:
+        rows=(await client.get('/api/crm/tasks/contacts?q=Shared')).json()['contacts']
+        assert {x['id'] for x in rows}=={'lead:lead','patient:patient'}
+        assert (await client.get('/api/crm/tasks/contacts?q=S')).json()=={'contacts':[]}
+        assert (await client.get('/api/crm/tasks/contacts?q=.*')).json()=={'contacts':[]}
+        response=await client.post('/api/crm/tasks',json={'title':'For patient','contact_id':'patient:patient','contact_name':'Spoof'})
+        assert response.status_code==201, response.text
+        task=response.json();assert task['client_id']=='patient' and task['contact_name']=='Shared patient' and task['lead_id'] is None
+        assert (await client.post('/api/crm/tasks',json={'title':'Conflict','contact_id':'patient:patient','lead_id':'lead'})).status_code==422
+        db.staff.rows[0]['custom_permissions']=['crm_tasks_create','crm_view']
+        rows=(await client.get('/api/crm/tasks/contacts?q=Shared')).json()['contacts']
+        assert all(x['source']=='lead' for x in rows)
+        assert (await client.post('/api/crm/tasks',json={'title':'Denied','contact_id':'patient:patient'})).status_code==403
+        assert (await client.post('/api/crm/tasks',json={'title':'Raw denied','client_id':'patient'})).status_code==403
+        assert (await client.post('/api/crm/tasks',json={'title':'Missing','contact_id':'lead:missing'})).status_code==404
+        db.staff.rows[0]['custom_permissions']=['crm_tasks_edit','crm_view']
+        response=await client.put('/api/crm/tasks/'+task['id'],json={'contact_id':'lead:lead'})
+        assert response.status_code==200 and response.json()['client_id'] is None
+        db.staff.rows[0]['custom_permissions']=['crm_tasks_edit']
+        response=await client.put('/api/crm/tasks/'+task['id'],json={'description':'unchanged contact'})
+        assert response.json()['contact_id']=='lead:lead'
+        response=await client.put('/api/crm/tasks/'+task['id'],json={'contact_id':None})
+        assert response.json()['contact_id'] is None and response.json()['lead_id'] is None
+        db.staff.rows[0]['custom_permissions']=['crm_tasks_create']
+        assert (await client.get('/api/crm/tasks/contacts?q=Shared')).status_code==403
+        for payload in [{'chat_phone':'invalid'},{'chat_phone':'+77011234567'},{'chat_phone':'+77011234569'},{'lead_id':'missing'},{'client_id':'missing'}]:
+            assert (await client.post('/api/crm/tasks',json={'title':'No source',**payload})).status_code==403
+        db.staff.rows[0]['custom_permissions']=['crm_tasks_view','crm_view']
+        assert (await client.get('/api/crm/tasks/contacts?q=Shared')).status_code==403

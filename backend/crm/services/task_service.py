@@ -8,14 +8,22 @@ from motor.motor_asyncio import AsyncIOMotorDatabase
 from ..models.task import Task, TaskStatus
 from ..schemas.task_schemas import TaskCreate, TaskUpdate, TaskSearchFilters
 from services.wazzup_chat_service import WazzupChatService
+from .task_contact_service import TaskContactService
+from permission_policy import has_permission
 
 class TaskService:
     def __init__(self, db: AsyncIOMotorDatabase):
         self.db = db
         self.collection = db.crm_tasks
 
-    async def _prepare(self, values, existing=None):
+    async def _prepare(self, values, existing=None, current_user=None):
         existing = existing or {}
+        # Authorize source access before probing whether an identity exists.
+        if current_user is not None:
+            for field, permission in (('chat_phone','crm_view'),('lead_id','crm_view'),('client_id','patients_view')):
+                if values.get(field) and (not existing or values[field] != existing.get(field) or values.get('chat_phone')):
+                    if not has_permission(current_user,permission):
+                        raise HTTPException(403, 'Contact source access denied')
         for required in ('title', 'kind', 'type', 'status', 'priority'):
             if required in values and values[required] is None:
                 raise HTTPException(422, f'{required} cannot be null')
@@ -41,7 +49,7 @@ class TaskService:
                 phone = WazzupChatService._norm_phone(values['chat_phone'])
                 if not re.fullmatch(r'\+\d{7,15}', phone):
                     raise HTTPException(422, 'Некорректный телефон чата')
-                chat = await WazzupChatService(self.db).get_chat(phone)
+                chat = await self._task_chat_identity(phone)
                 if not chat:
                     raise HTTPException(404, 'Чат не найден')
                 values.update(chat_phone=phone, chat_name=chat.get('contact_name') or chat.get('patient_name') or phone)
@@ -50,12 +58,65 @@ class TaskService:
                 values['client_id'] = chat.get('linked_patient_id') or chat.get('patient_id')
             else:
                 values['chat_name'] = None
+        contacts = TaskContactService(self.db)
+        supplied_contact = values.get('contact_id')
+        if supplied_contact:
+            if values.get('chat_phone') or values.get('lead_id') or values.get('client_id'):
+                raise HTTPException(422, 'Use one contact context')
+            contact = await contacts.resolve(supplied_contact, current_user)
+            source, raw_id = contact['id'].split(':', 1)
+            values.update(lead_id=raw_id if source == 'lead' else None,
+                          client_id=raw_id if source == 'patient' else None,
+                          contact_name=contact['name'], chat_phone=None, chat_name=None)
+        elif 'contact_id' in values and values['contact_id'] is None and existing and not any(values.get(k) for k in ('lead_id','client_id','chat_phone')):
+            values.update(lead_id=None,client_id=None,contact_name=None,chat_phone=None,chat_name=None)
+        # Legacy kanban/chat payloads still resolve against canonical sources.
+        if not supplied_contact:
+            bound = []
+            for field, source in (('lead_id','lead'),('client_id','patient')):
+                if values.get(field) and (not existing or values[field] != existing.get(field) or values.get('chat_phone')):
+                    bound.append(await contacts.resolve(source + ':' + values[field],current_user))
+            if bound:
+                contact = bound[-1]
+                values.update(contact_id=contact['id'],contact_name=contact['name'])
         if values.get('kind', existing.get('kind', 'task')) != 'task':
             values.update(due_date=None, due_time=None)
         return values
 
-    async def create_task(self, task_data: TaskCreate, created_by=None) -> Task:
-        values = await self._prepare(task_data.model_dump())
+    async def _task_chat_identity(self, phone):
+        """Read-only identity resolution, including leads with no messages yet.
+
+        Do not use get_chat: its enrichment writes to the chat collection.
+        Never choose an arbitrary person when a shared number is ambiguous.
+        """
+        chat = await self.db.wazzup_chats.find_one({'phone': phone})
+        if chat and (chat.get('linked_lead_id') or chat.get('linked_patient_id')):
+            return chat
+        leads = await self.db.crm_leads.find({}, {
+            'id': 1, 'phone': 1, 'first_name': 1, 'last_name': 1,
+            'middle_name': 1, 'name': 1, 'converted_to_client_id': 1,
+        }).to_list(length=None)
+        patients = await self.db.patients.find({}, {
+            'id': 1, 'phone': 1, 'full_name': 1,
+        }).to_list(length=None)
+        matching_leads = [d for d in leads if d.get('id') and not d.get('converted_to_client_id')
+                          and WazzupChatService._norm_phone(d.get('phone') or '') == phone]
+        matching_patients = [d for d in patients if d.get('id')
+                             and WazzupChatService._norm_phone(d.get('phone') or '') == phone]
+        if len(matching_leads) + len(matching_patients) > 1:
+            raise HTTPException(409, 'Several clients share this phone; link the conversation to one client first')
+        result = dict(chat or {})
+        if matching_leads:
+            lead = matching_leads[0]
+            name = ' '.join(filter(None, [lead.get('first_name'), lead.get('last_name'), lead.get('middle_name')])) or lead.get('name')
+            result.update(linked_lead_id=lead['id'], contact_name=name or phone)
+        elif matching_patients:
+            patient = matching_patients[0]
+            result.update(linked_patient_id=patient['id'], contact_name=patient.get('full_name') or phone)
+        return result or None
+
+    async def create_task(self, task_data: TaskCreate, created_by=None, current_user=None) -> Task:
+        values = await self._prepare(task_data.model_dump(), current_user=current_user)
         now = datetime.utcnow()
         task = Task(**dict(values, id=str(uuid.uuid4()), created_by=created_by, created_at=now, updated_at=now))
         if task.is_overdue():
@@ -67,11 +128,11 @@ class TaskService:
         document = await self.collection.find_one({'id': task_id})
         return Task(**document) if document else None
 
-    async def update_task(self, task_id, update_data: TaskUpdate) -> Optional[Task]:
+    async def update_task(self, task_id, update_data: TaskUpdate, current_user=None) -> Optional[Task]:
         existing = await self.get_task_by_id(task_id)
         if not existing:
             return None
-        values = await self._prepare(update_data.model_dump(exclude_unset=True), existing.model_dump())
+        values = await self._prepare(update_data.model_dump(exclude_unset=True), existing.model_dump(),current_user=current_user)
         values['updated_at'] = datetime.utcnow()
         if values.get('status') == TaskStatus.COMPLETED:
             values['completed_at'] = datetime.utcnow()

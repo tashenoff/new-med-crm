@@ -43,6 +43,8 @@ class Task(BaseModel):
     # Основная информация
     kind: Literal["task", "note", "comment"] = "task"
     title_id: Optional[str] = None
+    contact_id: Optional[str] = None
+    contact_name: Optional[str] = None
     chat_phone: Optional[str] = None
     chat_name: Optional[str] = None
     assigned_to_name: Optional[str] = None

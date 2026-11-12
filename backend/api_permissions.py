@@ -43,6 +43,8 @@ def requirements(path, method, module=''):
         return ('payroll_view',)
     if path == '/api/lookups/doctors':
         return ('calendar_view|patients_view|doctors_view|crm_view|payroll_view',)
+    if path == '/api/crm/tasks/contacts':
+        return ('crm_tasks_create|crm_tasks_edit', 'crm_view|patients_view') if read else None
     if path == '/api/crm/tasks/assignees':
         return ('crm_tasks_view|crm_tasks_create|crm_tasks_edit',) if read else None
     if path == '/api/crm/tasks' or path.startswith('/api/crm/tasks/'):

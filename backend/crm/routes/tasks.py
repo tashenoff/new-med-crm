@@ -5,6 +5,8 @@ from database import get_database
 from ..models.task import Task, TaskStatus, TaskType, TaskPriority
 from ..schemas.task_schemas import TaskCreate, TaskUpdate, TaskSearchFilters
 from ..services.task_service import TaskService
+from ..services.task_contact_service import TaskContactService
+from ..task_permissions import require_task_permission
 from ..task_permissions import view_tasks, create_tasks, edit_tasks, compose_tasks
 
 router = APIRouter(prefix='/tasks', tags=['CRM Tasks'])
@@ -16,9 +18,14 @@ def get_task_service():
 async def assignees(user=Depends(compose_tasks), db=Depends(get_database)):
     return {'assignees': await TaskService(db).assignees()}
 
+@router.get('/contacts')
+async def contacts(q: str = Query('', max_length=100), limit: int = Query(20, ge=1, le=50),
+    user=Depends(require_task_permission('crm_tasks_create','crm_tasks_edit')), db=Depends(get_database)):
+    return {'contacts': await TaskContactService(db).search(q,user,limit)}
+
 @router.post('', response_model=Task, status_code=201)
 async def create_task(task_data: TaskCreate, current_user=Depends(create_tasks), db=Depends(get_database)):
-    return await TaskService(db).create_task(task_data, created_by=current_user.id)
+    return await TaskService(db).create_task(task_data, created_by=current_user.id,current_user=current_user)
 
 def filters_for(status=None, type=None, priority=None, **kwargs):
     try:
@@ -76,7 +83,7 @@ async def get_task(task_id: str, current_user=Depends(view_tasks), db=Depends(ge
 
 @router.put('/{task_id}', response_model=Task)
 async def update_task(task_id: str, update_data: TaskUpdate, current_user=Depends(edit_tasks), db=Depends(get_database)):
-    return require_found(await TaskService(db).update_task(task_id, update_data))
+    return require_found(await TaskService(db).update_task(task_id, update_data,current_user=current_user))
 
 @router.delete('/{task_id}')
 async def delete_task(task_id: str, current_user=Depends(edit_tasks), db=Depends(get_database)):

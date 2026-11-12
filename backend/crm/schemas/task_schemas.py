@@ -24,6 +24,7 @@ class TaskCreate(TaskFields):
     title: str = Field(..., min_length=1, max_length=250)
     kind: Literal['task', 'note', 'comment'] = 'task'
     title_id: Optional[str] = Field(None, max_length=100)
+    contact_id: Optional[str] = Field(None, max_length=150)
     chat_phone: Optional[str] = Field(None, max_length=40)
     type: TaskType = TaskType.CALL
     custom_type_name: Optional[str] = Field(None, max_length=250)
@@ -43,6 +44,7 @@ class TaskUpdate(TaskFields):
     title: Optional[str] = Field(None, min_length=1, max_length=250)
     kind: Optional[Literal['task', 'note', 'comment']] = None
     title_id: Optional[str] = Field(None, max_length=100)
+    contact_id: Optional[str] = Field(None, max_length=150)
     chat_phone: Optional[str] = Field(None, max_length=40)
     type: Optional[TaskType] = None
     custom_type_name: Optional[str] = Field(None, max_length=250)
