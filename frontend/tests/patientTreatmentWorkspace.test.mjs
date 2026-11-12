@@ -10,10 +10,10 @@ const bootstrap = new JSDOM('<html><body></body></html>');
 globalThis.window = bootstrap.window; globalThis.document = bootstrap.window.document;
 const { createRoot } = await import('react-dom/client');
 delete globalThis.window; delete globalThis.document; bootstrap.window.close();
-const compiled = await build({ stdin: { contents: `export { default as Workspace } from './src/components/treatment/PatientTreatmentWorkspace.jsx'; export { default as PatientModal } from './src/components/modals/PatientModal.js'; export { GlobalRefreshProvider } from './src/hooks/useGlobalRefresh.js';`, resolveDir: fileURLToPath(new URL('..', import.meta.url)), loader: 'jsx' }, bundle: true, write: false, platform: 'node', format: 'cjs', external: ['react', 'react-dom', 'react-dom/client'], loader: { '.js': 'jsx' }, define: { 'import.meta.env': '{"VITE_BACKEND_URL":"https://crm.test"}' } });
+const compiled = await build({ stdin: { contents: `export { default as AppointmentModal } from './src/components/modals/AppointmentModal.js'; export { default as Workspace } from './src/components/treatment/PatientTreatmentWorkspace.jsx'; export { default as PatientModal } from './src/components/modals/PatientModal.js'; export { GlobalRefreshProvider } from './src/hooks/useGlobalRefresh.js';`, resolveDir: fileURLToPath(new URL('..', import.meta.url)), loader: 'jsx' }, bundle: true, write: false, platform: 'node', format: 'cjs', external: ['react', 'react-dom', 'react-dom/client'], loader: { '.js': 'jsx' }, define: { 'import.meta.env': '{"VITE_BACKEND_URL":"https://crm.test"}' } });
 const loaded = { exports: {} };
 new Function('require', 'module', 'exports', compiled.outputFiles[0].text)(createRequire(import.meta.url), loaded, loaded.exports);
-const { Workspace, PatientModal, GlobalRefreshProvider } = loaded.exports;
+const { Workspace, PatientModal, AppointmentModal, GlobalRefreshProvider } = loaded.exports;
 const text = node => node.textContent.replace(/[\s\u00a0\u202f]+/g, ' ').trim();
 const findButton = (container, label) => [...container.querySelectorAll('button')].find(node => text(node).replace(/[⌃⌄]/g, '').trim() === label);
 const plan = (id, total = 1000, paid = 0) => ({ id, title: `План ${id}`, created_at: '2026-10-19T09:40:00', created_by_name: 'Сотрудник проверки', total_cost: total, paid_amount: paid, accounting_events: [], payment_completion_policy: 'full_payment_v1', services: [{ service_id: `service-${id}`, service_row_id: `row-${id}`, service_name: `Услуга ${id}`, total_price: total, paid_amount: paid, quantity_total: 1, quantity_completed: 0, occurrence_ids: [`occ-${id}`], payment_status: paid >= total ? 'paid' : paid ? 'partially_paid' : 'unpaid' }] });
@@ -42,6 +42,7 @@ async function mount(t, Component, props, options = {}) {
   const dom = new JSDOM('<div id="root"></div>', { url: 'https://crm.test' }), writes = [], previous = new Map();
   const globals = { window: dom.window, document: dom.window.document, localStorage: dom.window.localStorage, HTMLElement: dom.window.HTMLElement, IS_REACT_ACT_ENVIRONMENT: true, alert() {}, fetch: async (url, command = {}) => {
     if ((command.method || 'GET') !== 'GET') { assert.ok(options.writeResponse, 'Display actions must not issue writes'); writes.push({ url: String(url), body: JSON.parse(command.body) }); return { ok: true, json: async () => options.writeResponse }; }
+    if (options.response) { const response = await options.response(String(url)); if (response) return response; }
     const value = options.read ? options.read(String(url)) : undefined;
     return { ok: true, status: 200, json: async () => value !== undefined ? value : String(url).endsWith('/lookups/treatment-payment-types') ? [{ id: 'cash', name: 'Касса' }] : String(url).endsWith('/consultation') ? options.clinical || null : [] };
   } };
@@ -167,4 +168,27 @@ test('changing patient ignores the previous pending plan response in both treatm
   await ui.click([...ui.container.querySelectorAll('[role="tab"]')].find(node => text(node) === 'Оплата'));
   assert.equal(ui.container.querySelector('.curai-r21-plan-details h4').textContent, planB.title);
   assert.equal(ui.container.querySelector('.curai-dialog-header h3').textContent, b.full_name); assert.equal(ui.writes.length, 0);
+});
+
+
+for(const tab of ['План лечения','Оплата'])test('calendar appointment '+tab+' permits treatment receipt for administrator without finance, preserving manual clinical gate',async t=>{
+ const patient={id:'calendar-patient',full_name:'Fixture Patient',phone:'+70000000000'};
+ const treatment=plan(tab==='Оплата'?'calendar-payment-tab':'calendar-treatment-tab');const reads=[];
+ const props={show:true,user:{role:'administrator',is_active:true,permissions:['calendar_view','patients_view']},onClose(){},onSave(){throw Error('Appointment/deposit must not be saved')},patients:[patient],doctors:[],hideAddPlanForm:true,appointmentForm:{id:'appointment',patient_id:patient.id,appointment_date:'2026-11-12',appointment_time:'10:00',end_time:'10:30'},editingItem:{id:'appointment'}};
+ const ui=await mount(t,AppointmentModal,props,{response:url=>url.endsWith('/api/payment-types')?{ok:false,status:403,json:async()=>({detail:'Dictionary access denied'})}:undefined,read:url=>{reads.push(url);if(url.endsWith('/patients/'+patient.id+'/treatment-plans'))return [treatment];},writeResponse:{plan:{...treatment,paid_amount:1000}}});
+ await ui.click([...ui.container.querySelectorAll('[role="tab"]')].find(node=>text(node)===tab));
+ const pay=tab==='Оплата'?ui.container.querySelector('.curai-r21-selected-plan-action button'):findButton(ui.container,'Оплатить остаток');assert.ok(pay);assert.equal(pay.disabled,false);
+ if(tab==='План лечения')assert.equal(ui.container.querySelector('.curai-treatment-mark').disabled,true);
+ await ui.click(pay);assert.ok(ui.container.querySelector('input[type="radio"]'));await ui.click(ui.container.querySelector('input[type="radio"]'));
+ const receiptDialog=[...ui.container.querySelectorAll('[role="dialog"]')].at(-1);
+ await ui.click([...receiptDialog.querySelectorAll('button')].find(node=>text(node).startsWith('Оплатить 1')));
+ assert.equal(ui.writes.length,1);assert.ok(ui.writes[0].url.endsWith(`/treatment-plans/${treatment.id}/settle-remaining`));assert.equal(ui.writes[0].body.amount_kzt,1000);
+ assert.ok(reads.some(url=>url.endsWith('/api/lookups/treatment-payment-types')));assert.ok(ui.writes.every(w=>!w.url.includes('appointments')&&!w.url.includes('deposit')&&!w.url.includes('complete')));
+});
+
+for(const user of [{role:'administrator',is_active:false,permissions:['calendar_view','patients_view']},{role:'administrator',permissions:['calendar_view']}])test('calendar payment denies inactive or missing patient access '+JSON.stringify(user),async t=>{
+ const patient={id:'denied-patient',full_name:'Fixture Patient'};const treatment=plan('denied-calendar');
+ const ui=await mount(t,AppointmentModal,{show:true,user,onClose(){},onSave(){throw Error('No booking mutations')},patients:[patient],hideAddPlanForm:true,appointmentForm:{patient_id:patient.id,appointment_date:'2026-11-12',appointment_time:'10:00',end_time:'10:30'}},{read:url=>url.endsWith('/patients/'+patient.id+'/treatment-plans')?[treatment]:undefined});
+ await ui.click([...ui.container.querySelectorAll('[role="tab"]')].find(n=>text(n)==='Оплата'));
+ const pay=ui.container.querySelector('.curai-r21-selected-plan-action button');assert.ok(pay);assert.equal(pay.disabled,true);await ui.click(pay);assert.equal(ui.writes.length,0);assert.equal(ui.container.querySelector('input[type="radio"]'),null);
 });
