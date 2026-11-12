@@ -42,6 +42,7 @@ const WhatsAppInbox = ({ isOpen, onClose, user, openRequest = null, suspended = 
   const { refreshAppointments } = useGlobalRefresh();
 
   const [composeMode, setComposeMode] = useState('chat');
+  const [taskMenuOpen, setTaskMenuOpen] = useState(false);
   const [chatTasks, setChatTasks] = useState([]);
   const [taskError, setTaskError] = useState('');
   const [taskRevision, setTaskRevision] = useState(0);
@@ -85,11 +86,11 @@ const WhatsAppInbox = ({ isOpen, onClose, user, openRequest = null, suspended = 
 
   const canCreateTask = hasPermission(user, 'crm_tasks_create');
   const canViewTasks = hasPermission(user, 'crm_tasks_view');
-  useEffect(() => { setComposeMode('chat'); setChatTasks([]); setTaskError(''); }, [selected?.phone, isOpen]);
+  useEffect(() => { setComposeMode('chat'); setTaskMenuOpen(false); setChatTasks([]); setTaskError(''); }, [selected?.phone, isOpen]);
   useEffect(() => {
     if (!isOpen || !selected?.phone || !canViewTasks) return;
     let cancelled = false;
-    apiClient.get('/crm/tasks/', { params: { chat_phone: selected.phone, limit: 100 } }).then(({ data }) => {
+    apiClient.get('/crm/tasks', { params: { chat_phone: selected.phone, limit: 100 } }).then(({ data }) => {
       if (!cancelled) { setChatTasks(Array.isArray(data) ? data : data.tasks || []); setTaskError(''); }
     }).catch(e => { if (!cancelled) setTaskError(handleApiError(e)); });
     return () => { cancelled = true; };
@@ -753,11 +754,10 @@ const WhatsAppInbox = ({ isOpen, onClose, user, openRequest = null, suspended = 
               </div>
 
               {/* Ввод */}
-              {canViewTasks && <div className="px-3 max-h-32 overflow-y-auto border-t border-curai-border bg-curai-surface" aria-label="Записи CRM по клиенту">
+              {canViewTasks && (chatTasks.length > 0 || taskError) && <div className="px-6 py-2 max-h-32 overflow-y-auto border-t border-curai-border bg-curai-surface" aria-label="Записи CRM по клиенту">
                 {taskError && <p role="alert" className="text-xs text-curai-negative">{taskError}</p>}
                 {chatTasks.map(task => <div key={task.id} className="py-2 border-b border-curai-border text-xs"><strong>{ENTRY_KINDS[task.kind || 'task']}: {task.title}</strong><span className="text-curai-muted">{task.assigned_to_name ? ` · ${task.assigned_to_name}` : ''}{task.due_date ? ` · ${new Date(task.due_date).toLocaleString('ru-RU')}` : ''}{task.status === 'completed' ? ' · Выполнено' : ''}</span>{task.description && <p className="whitespace-pre-wrap break-words mt-1">{task.description}</p>}</div>)}
               </div>}
-              {canCreateTask && <div className="px-3 py-2 border-t border-curai-border bg-curai-surface"><label className="text-xs text-curai-muted">Режим ввода <select aria-label="Режим ввода" value={composeMode} onChange={e => setComposeMode(e.target.value)} className="ml-2 rounded-md border border-curai-control bg-curai-surface text-curai-ink px-2 py-1"><option value="chat">Чат</option>{Object.entries(ENTRY_KINDS).map(([key, label]) => <option value={key} key={key}>{label}</option>)}</select></label></div>}
               {canCreateTask && composeMode !== 'chat' ? <TaskComposer key={`${selected.phone}:${composeMode}`} chat={selected} user={user} initialKind={composeMode} onCancel={() => setComposeMode('chat')} onSaved={() => { setTaskRevision(value => value + 1); setComposeMode('chat'); setSysNotes(current => [...current, { id: Date.now(), text: 'Внутренняя запись сохранена в CRM' }]); }} /> : <div className="curai-chat-compose">
                 <input
                   ref={fileInputRef}
@@ -828,6 +828,17 @@ const WhatsAppInbox = ({ isOpen, onClose, user, openRequest = null, suspended = 
                     </div>
                   )}
                 </div>
+                {canCreateTask && <details key={selected.phone} open={taskMenuOpen} data-curai-popover={taskMenuOpen ? 'task-menu' : undefined} className="relative shrink-0"
+                  onBlur={e => { if (!e.currentTarget.contains(e.relatedTarget)) setTaskMenuOpen(false); }}
+                  onKeyDown={e => { if (e.key === 'Escape') { e.stopPropagation(); setTaskMenuOpen(false); e.currentTarget.querySelector('summary')?.focus(); } }}>
+                  <summary tabIndex={0} onClick={e => { e.preventDefault(); setAttachMenuOpen(false); setTaskMenuOpen(value => !value); }} aria-label="Добавить запись CRM" title="Задача, заметка или примечание"
+                    className="list-none [&::-webkit-details-marker]:hidden w-9 h-9 flex items-center justify-center rounded-md text-curai-muted hover:bg-curai-subtle cursor-pointer text-xl focus-visible:outline focus-visible:outline-2 focus-visible:outline-curai-focus">+</summary>
+                  <div className="absolute bottom-12 left-0 w-48 rounded-md border border-curai-border bg-curai-surface shadow-lg z-50 p-1">
+                    {Object.entries(ENTRY_KINDS).map(([key, label]) => <button key={key} type="button"
+                      className="block w-full text-left px-3 py-2 text-sm text-curai-ink rounded hover:bg-curai-subtle"
+                      onClick={e => { setTaskMenuOpen(false); setAttachMenuOpen(false); setComposeMode(key); }}>{label}</button>)}
+                  </div>
+                </details>}
                 <textarea
                   value={newMessage}
                   onChange={(e) => setDraft(e.target.value)}

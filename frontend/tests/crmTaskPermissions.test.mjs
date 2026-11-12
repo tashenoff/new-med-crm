@@ -41,3 +41,12 @@ test("active super-admin retains canonical full access", () => {
  assert.equal(canOpenPath({role: "super_admin"}, "/crm-tasks"), true);
  assert.equal(canOpenPath({role: "super_admin", is_active: false}, "/crm-tasks"), false);
 });
+
+test('HMS tasks immediately follow dictionary and retain their position when dictionary is hidden', () => {
+  const withDirectory = getNavigationMenu({ permissions: ['calendar_view', 'directory_view', 'crm_tasks_view', 'staff_view'] }, 'hms').map(item => item.key);
+  assert.equal(withDirectory.indexOf('crm-tasks'), withDirectory.indexOf('directory') + 1);
+  const withoutDirectory = getNavigationMenu({ role: 'admin', permissions: ['calendar_view', 'crm_tasks_view', 'staff_view'] }, 'hms').map(item => item.key);
+  assert.equal(withoutDirectory.includes('directory'), false);
+  assert.equal(withoutDirectory.indexOf('crm-tasks'), withoutDirectory.indexOf('doctor-schedule') + 1);
+  assert.equal(withoutDirectory.indexOf('staff-management'), withoutDirectory.indexOf('crm-tasks') + 1);
+});

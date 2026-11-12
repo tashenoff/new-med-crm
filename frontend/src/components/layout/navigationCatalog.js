@@ -54,10 +54,6 @@ export const getNavigationMenu = (user, activeSection) => {
     // HMS меню с проверкой прав доступа
     const baseItems = [];
 
-    if (hasPermission('crm_tasks_view')) {
-      baseItems.push({ key: 'crm-tasks', label: 'Задачи', type: 'tab' });
-    }
-
     // Календарь доступен если есть право calendar_view
     if (hasPermission('calendar_view')) {
       baseItems.push({ key: 'calendar', label: 'Календарь', type: 'tab' });
@@ -126,6 +122,10 @@ export const getNavigationMenu = (user, activeSection) => {
           { key: 'loyalty', label: 'Программа лояльности', type: 'tab' }
         ]
       });
+    }
+
+    if (hasPermission('crm_tasks_view')) {
+      baseItems.push({ key: 'crm-tasks', label: 'Задачи', type: 'tab' });
     }
 
     // Управление персоналом (только для админов)

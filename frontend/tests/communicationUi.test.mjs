@@ -238,3 +238,78 @@ test('audio preserves HTMLAudioElement play/pause, timeline and preload none wit
  audio.currentTime=13;await act(async()=>audio.dispatchEvent(new ui.dom.window.Event('timeupdate')));assert.match(text(ui.body),/0:13/);assert.match(text(ui.body),/0:34/);
  await ui.click(ui.body.querySelector('.curai-whatsapp-audio button'));assert.equal(ui.body.querySelector('.curai-whatsapp-audio button').getAttribute('aria-label'),'Воспроизвести аудио');assert.equal(ui.body.querySelectorAll('.curai-whatsapp-audio button').length,1);
 });
+
+
+test('opening a WhatsApp chat reads internal tasks from canonical endpoint, never sends a message', async t => {
+ const ui = await mount(t, 'inbox', {isOpen:true,onClose(){}}, {api:async(method,path)=> {
+  if(method==='GET' && path==='/crm/tasks') return {data:{tasks:[{id:'internal',kind:'note',title:'Internal fixture note'}]}};
+ }});
+ assert.equal(ui.requests.some(r=>r.path.startsWith('/crm/tasks')), false);
+ await ui.click([...ui.body.querySelectorAll('.curai-chat-sidebar button')].find(b=>b.textContent.includes(patientChat.patient_name)));
+ const reads=ui.requests.filter(r=>r.path.startsWith('/crm/tasks'));
+ assert.equal(reads.length,1); assert.equal(reads[0].method,'GET'); assert.equal(reads[0].path,'/crm/tasks');
+ assert.deepEqual(reads[0].body,{params:{chat_phone:patientChat.phone,limit:100}});
+ assert.match(ui.body.querySelector('[aria-label="Записи CRM по клиенту"]').textContent,/Internal fixture note/);
+ assert.ok(ui.body.querySelector('textarea'));
+ assert.equal(ui.requests.some(r=>r.method==='POST'),false);
+});
+
+test('task read failure stays inside internal records and does not break WhatsApp chat', async t => {
+ const ui=await mount(t,'inbox',{isOpen:true,onClose(){}},{messages:[{id:'history',text:'Fixture incoming message',direction:'incoming',message_type:'text'}],api:async(method,path)=>{
+  if(method==='GET'&&path==='/crm/tasks')throw {response:{data:{detail:'Fixture tasks unavailable'}}};
+ }});
+ await ui.click([...ui.body.querySelectorAll('.curai-chat-sidebar button')].find(b=>b.textContent.includes(patientChat.patient_name)));
+ const records=ui.body.querySelector('[aria-label="Записи CRM по клиенту"]');
+ assert.match(records.querySelector('[role="alert"]').textContent,/Fixture tasks unavailable/);
+ assert.equal([...ui.body.querySelectorAll('[role="alert"]')].filter(el=>!records.contains(el)&&el.textContent.includes('Fixture tasks unavailable')).length,0);
+ assert.equal(ui.body.querySelector('textarea').disabled,false);
+ assert.ok(ui.requests.some(r=>r.path.startsWith('/wazzup/messages/history/')));
+ assert.equal(ui.requests.some(r=>r.method==='POST'),false);
+});
+
+test('chat access without task view never loads internal task records',async t=>{
+ const ui=await mount(t,'inbox',{isOpen:true,onClose(){}},{user:{role:'marketer',permissions:['crm_view','crm_edit','patients_view']}});
+ await ui.click([...ui.body.querySelectorAll('.curai-chat-sidebar button')].find(b=>b.textContent.includes(patientChat.patient_name)));
+ assert.equal(ui.requests.some(r=>r.path.startsWith('/crm/tasks')),false);
+ assert.equal(ui.body.querySelector('[aria-label="Записи CRM по клиенту"]'),null);
+ assert.ok(ui.body.querySelector('textarea'));assert.equal(ui.requests.some(r=>r.method==='POST'),false);
+});
+
+
+test('plus menu offers internal entry types, preserves unsent draft on cancel and hides empty strip',async t=>{
+ const ui=await mount(t,'inbox',{isOpen:true,onClose(){}},{api:async(method,path)=>method==='GET'&&path==='/crm/tasks'?{data:{tasks:[]}}:undefined});
+ await ui.click([...ui.body.querySelectorAll('.curai-chat-sidebar button')].find(b=>b.textContent.includes(patientChat.patient_name)));
+ assert.equal(ui.body.querySelector('[aria-label="Записи CRM по клиенту"]'),null);
+ assert.doesNotMatch(text(ui.body),/Режим ввода/);
+ const textarea=ui.body.querySelector('textarea');
+ await act(async()=>{Object.getOwnPropertyDescriptor(ui.dom.window.HTMLTextAreaElement.prototype,'value').set.call(textarea,'Unsent fixture draft');textarea.dispatchEvent(new ui.dom.window.Event('input',{bubbles:true}));});
+ const summary=ui.body.querySelector('summary[aria-label="Добавить запись CRM"]');assert.ok(summary);
+ await ui.click(summary);const menu=summary.closest('details');assert.equal(menu.open,true);
+ assert.deepEqual([...menu.querySelectorAll('button')].map(text),['Задача','Заметка','Примечание']);
+ await ui.click([...menu.querySelectorAll('button')].find(b=>text(b)==='Заметка'));
+ assert.ok(ui.body.querySelector('form'));assert.match(text(ui.body),/Клиенту в WhatsApp не отправляется/);
+ await ui.click(ui.button('Отмена'));
+ assert.equal(ui.body.querySelector('textarea').value,'Unsent fixture draft');
+ assert.equal(ui.requests.some(r=>r.method==='POST'),false);
+ await ui.click(ui.body.querySelector('summary[aria-label="Добавить запись CRM"]'));
+ const reopened=ui.body.querySelector('summary[aria-label="Добавить запись CRM"]').closest('details');await act(async()=>reopened.dispatchEvent(new ui.dom.window.KeyboardEvent('keydown',{key:'Escape',bubbles:true})));
+ assert.equal(reopened.open,false);
+});
+
+
+test('saving an internal note from WhatsApp posts canonical tasks route and never sends WhatsApp',async t=>{
+ const ui=await mount(t,'inbox',{isOpen:true,onClose(){}},{api:async(method,path)=>{
+  if(method==='GET'&&path==='/crm/tasks')return {data:{tasks:[]}};
+  if(method==='POST'&&path==='/crm/tasks')return {data:{id:'note-created'}};
+ }});
+ await ui.click([...ui.body.querySelectorAll('.curai-chat-sidebar button')].find(b=>b.textContent.includes(patientChat.patient_name)));
+ await ui.click(ui.body.querySelector('summary[aria-label="Добавить запись CRM"]'));
+ await ui.click([...ui.body.querySelector('summary[aria-label="Добавить запись CRM"]').closest('details').querySelectorAll('button')].find(b=>text(b)==='Заметка'));
+ const title=ui.body.querySelector('input[aria-label="Название записи"]');
+ await act(async()=>{Object.getOwnPropertyDescriptor(ui.dom.window.HTMLInputElement.prototype,'value').set.call(title,'Internal fixture note');title.dispatchEvent(new ui.dom.window.Event('input',{bubbles:true}));});
+ await act(async()=>ui.body.querySelector('form').dispatchEvent(new ui.dom.window.Event('submit',{bubbles:true,cancelable:true})));
+ const writes=ui.requests.filter(r=>r.method==='POST');assert.equal(writes.length,1);assert.equal(writes[0].path,'/crm/tasks');
+ assert.equal(writes[0].body.kind,'note');assert.equal(writes[0].body.chat_phone,patientChat.phone);
+ assert.equal(writes[0].body.title,'Internal fixture note');
+ assert.equal(ui.requests.some(r=>r.path.includes('/messages/send')),false);assert.equal(ui.body.querySelector('form'),null);
+});
