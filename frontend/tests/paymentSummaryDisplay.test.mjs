@@ -34,9 +34,9 @@ async function mount(t, Component, plan) {
     fetch: async (url, options = {}) => {
       assert.equal(options.method || 'GET', 'GET', 'Display tests cannot issue payment commands');
       const path = new URL(url).pathname;
-      assert.ok(['/api/payment-types', '/api/treatment-plans/plan-fixture/consultation'].includes(path), path);
+      assert.ok(['/api/lookups/treatment-payment-types', '/api/treatment-plans/plan-fixture/consultation'].includes(path), path);
       reads.push(path);
-      return { ok: true, json: async () => path === '/api/payment-types' ? [] : null };
+      return { ok: true, json: async () => path === '/api/lookups/treatment-payment-types' ? [] : null };
     },
   };
   const previous = new Map();

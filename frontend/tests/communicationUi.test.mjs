@@ -167,7 +167,7 @@ for(const fail of [false,true])test(`shared calendar payment workspace ${fail?'f
  const paymentPlan={id:`cross-payment-${fail}`,patient_id:'patient',title:'План',total_cost:1000,paid_amount:0,accounting_events:[],services:[{service_id:'service',service_row_id:'row',service_name:'Услуга',total_price:1000,paid_amount:0,payment_status:'unpaid',quantity_total:1}]};
  const ui=await mount(t,'paymentStage',{phone:patientChat.phone},{paymentPlan,fetch:async(url,init,f)=>{
   if(url.includes('/whatsapp/kanban-stage'))return undefined;
-  if(url.endsWith('/payment-types'))return {ok:true,json:async()=>[{id:'cash',name:'Касса'}]};
+  if(url.endsWith('/lookups/treatment-payment-types'))return {ok:true,json:async()=>[{id:'cash',name:'Касса'}]};
   if(init.method==='POST'){
    assert.ok(url.endsWith(`/api/treatment-plans/${paymentPlan.id}/service-rows/row/receipts`));
    if(fail)return {ok:false,status:409,json:async()=>({detail:'Fixture payment rejected'})};
@@ -204,7 +204,7 @@ test('payment finishing after a chat switch refreshes the newly selected deal wi
  const paymentPlan={id:'switch-payment',patient_id:'patient',title:'План',total_cost:1000,paid_amount:0,accounting_events:[],services:[{service_id:'service',service_row_id:'row',service_name:'Услуга',total_price:1000,paid_amount:0,payment_status:'unpaid',quantity_total:1}]};
  const ui=await mount(t,'paymentStage',{phone:patientChat.phone},{paymentPlan,stages:{[patientChat.phone]:context(),[leadChat.phone]:other},fetch:async(url,init,f)=>{
   if(url.includes('/whatsapp/kanban-stage'))return undefined;
-  if(url.endsWith('/payment-types'))return {ok:true,json:async()=>[{id:'cash',name:'Касса'}]};
+  if(url.endsWith('/lookups/treatment-payment-types'))return {ok:true,json:async()=>[{id:'cash',name:'Касса'}]};
   if(init.method==='POST'){
    await gate;f.stages[patientChat.phone].current_column_id='closed';f.stages[patientChat.phone].current_label='Оплачено';
    return {ok:true,json:async()=>({plan:{...paymentPlan,paid_amount:1000,services:[{...paymentPlan.services[0],paid_amount:1000,payment_status:'paid'}]}})};

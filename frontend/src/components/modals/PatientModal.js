@@ -1,3 +1,4 @@
+import { canReceiveTreatmentPayment } from '../../utils/treatmentPaymentAccess';
 import { LoadingSpinner } from '../common/LoadingIndicator';
 import { downloadPatientDocument } from '../../utils/documentDownload';
 import { canAction, permissionProps as documentPermissionProps } from '../../utils/permissions';
@@ -1450,7 +1451,7 @@ const PatientModal = ({
               </div>
             </div>
             )}
-<PatientTreatmentWorkspace allowPayment={canAction(user, 'patients_view', 'finance_view', 'finance_edit')} allowCompletion={canAction(user, 'patients_view', 'patients_edit')} plans={currentTreatmentPlans} patientId={currentPatientId} paymentFilter={paymentFilter} onPaymentFilter={setPaymentFilter} procedureFilter={procedureFilter} onProcedureFilter={setProcedureFilter}
+<PatientTreatmentWorkspace allowPayment={canReceiveTreatmentPayment(user)} allowCompletion={canAction(user, 'patients_view', 'patients_edit')} plans={currentTreatmentPlans} patientId={currentPatientId} paymentFilter={paymentFilter} onPaymentFilter={setPaymentFilter} procedureFilter={procedureFilter} onProcedureFilter={setProcedureFilter}
 onUpdate={(updatedPlan) => {
                           // Обновить план в списке
                           setTreatmentPlans(plans =>
@@ -1508,7 +1509,7 @@ onUpdate={(updatedPlan) => {
                   )}
 
                   {/* Payment Tab - поэтапная оплата */}
-        {activeTab === 'payment' && editingItem && (<PatientPaymentWorkspace allowPayment={canAction(user, 'patients_view', 'finance_view', 'finance_edit')} allowCompletion={canAction(user, 'patients_view', 'patients_edit')} patientId={currentPatientId} plans={currentTreatmentPlans} onUpdate={(updatedPlan) => {
+        {activeTab === 'payment' && editingItem && (<PatientPaymentWorkspace allowPayment={canReceiveTreatmentPayment(user)} allowCompletion={canAction(user, 'patients_view', 'patients_edit')} patientId={currentPatientId} plans={currentTreatmentPlans} onUpdate={(updatedPlan) => {
                       setTreatmentPlans(plans =>
                         plans.map(p => p.id === updatedPlan.id ? updatedPlan : p)
                       );

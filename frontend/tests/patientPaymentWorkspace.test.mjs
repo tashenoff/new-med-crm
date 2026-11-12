@@ -33,7 +33,7 @@ async function mount(t, Component, props, writeResponse = null) {
         return { ok: true, json: async () => writeResponse };
       }
       reads.push(String(url));
-      const data = String(url).endsWith('/payment-types') ? [{ id: 'cash', name: 'Касса' }] : String(url).endsWith('/consultation') ? null : writeResponse?.plan || writeResponse;
+      const data = String(url).endsWith('/lookups/treatment-payment-types') ? [{ id: 'cash', name: 'Касса' }] : String(url).endsWith('/consultation') ? null : writeResponse?.plan || writeResponse;
       return { ok: true, json: async () => data };
     } };
   const previous = new Map();
@@ -126,4 +126,22 @@ test('a settled rerender removes the pinned action and does not subtract deposit
   assert.match(normalized(ui.container), /План лечения полностью оплачен/);
   assert.equal(normalized(ui.container.querySelector('.curai-r21-total-due')), 'Оплачено');
   assert.equal(ui.writes.length, 0);
+});
+
+
+test('patient-access staff can receive ordinary payment without finance grants and cannot complete procedures',async t=>{
+ const {canReceiveTreatmentPayment}=await import('../src/utils/treatmentPaymentAccess.js');
+ const user={role:'doctor',is_active:true,permissions:['patients_view']};
+ const current=plan('limited-payment',1000);const ui=await mount(t,Workspace,{plans:[current],allowPayment:canReceiveTreatmentPayment(user),allowCompletion:false},{plan:{...current,paid_amount:1000}});
+ assert.ok(ui.reads.some(u=>u.endsWith('/api/lookups/treatment-payment-types')));assert.equal(ui.reads.some(u=>u.endsWith('/api/payment-types')),false);
+ const pay=button(ui.container,'Оплатить остаток плана');assert.equal(pay.disabled,false);await ui.click(pay);await ui.click(ui.container.querySelector('input[type="radio"]'));await ui.click(button(ui.container.querySelector('[role="dialog"]'),'Оплатить 1'));
+ assert.equal(ui.writes.length,1);assert.ok(ui.writes.every(w=>!w.url.includes('complete')));
+});
+test('full-payment policy keeps intrinsic automatic completion without granting manual completion',async t=>{
+ const current={...plan('coupled-payment',1000),payment_completion_policy:'full_payment_v1'};
+ const ui=await mount(t,Workspace,{plans:[current],allowPayment:true,allowCompletion:false},{plan:{...current,paid_amount:1000,execution_status:'completed'}});
+ const pay=button(ui.container,'Оплатить остаток плана');assert.equal(pay.disabled,false);await ui.click(pay);
+ assert.match(document.body.textContent,/Полная оплата автоматически/);
+ await ui.click(ui.container.querySelector('input[type="radio"]'));await ui.click(button(ui.container.querySelector('[role="dialog"]'),'Оплатить 1'));
+ assert.equal(ui.writes.length,1);assert.ok(ui.writes[0].url.endsWith('/settle-remaining'));assert.ok(ui.writes.every(w=>!w.url.includes('complete')));
 });

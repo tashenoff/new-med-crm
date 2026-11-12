@@ -111,7 +111,7 @@ const ServicePaymentList = ({ allowPayment = true, allowCompletion = true, plan,
       setLoadingPaymentTypes(true);
       try {
         const token = localStorage.getItem('token');
-        const response = await fetch(`${API}/api/payment-types`, {
+        const response = await fetch(`${API}/api/lookups/treatment-payment-types`, {
           headers: { 'Authorization': `Bearer ${token}` }
         });
         if (response.ok) {
@@ -194,7 +194,7 @@ const ServicePaymentList = ({ allowPayment = true, allowCompletion = true, plan,
 
   // Открыть модальное окно выбора способа оплаты для оплаты услуги
   const openPaymentModalForService = (serviceId, serviceRowId) => {
-    if (!allowPayment || (autoCompletion && !allowCompletion)) return;
+    if (!allowPayment) return;
     setPendingPaymentData({ type: 'service', serviceId, serviceRowId });
     setShowPaymentModal(true);
   };
@@ -232,27 +232,27 @@ const ServicePaymentList = ({ allowPayment = true, allowCompletion = true, plan,
   };
 
   const openPaymentModalForComplexRemaining = (serviceId, serviceRowId) => {
-    if (!allowPayment || (autoCompletion && !allowCompletion)) return;
+    if (!allowPayment) return;
     setPendingPaymentData({ type: 'complex-remaining', serviceId, serviceRowId });
     setShowPaymentModal(true);
   };
 
   const openPaymentModalForComponent = (serviceId, componentServiceId, serviceRowId, componentId) => {
-    if (!allowPayment || (autoCompletion && !allowCompletion)) return;
+    if (!allowPayment) return;
     setPendingPaymentData({ type: 'component', serviceId, componentServiceId, serviceRowId, componentId });
     setShowPaymentModal(true);
   };
 
   // Открыть модальное окно выбора способа оплаты для оплаты остатка
   const openPaymentModalForRemaining = () => {
-    if (!allowPayment || (autoCompletion && !allowCompletion)) return;
+    if (!allowPayment) return;
     setPendingPaymentData({ type: 'remaining', serviceId: null });
     setShowPaymentModal(true);
   };
 
   // Выполнить оплату с выбранным способом оплаты и скидкой
   const executePayment = async (paymentType, discount = 0) => {
-    if (!allowPayment || (autoCompletion && !allowCompletion)) return;
+    if (!allowPayment) return;
     if (!pendingPaymentData || !paymentType || paymentInFlight.current) return;
     paymentInFlight.current = true;
 
@@ -401,14 +401,14 @@ const ServicePaymentList = ({ allowPayment = true, allowCompletion = true, plan,
   };
 
   const markServicePaid = async (serviceId, serviceRowId) => {
-    if (!allowPayment || (autoCompletion && !allowCompletion)) return;
+    if (!allowPayment) return;
     // Сначала показываем выбор способа оплаты
     openPaymentModalForService(serviceId, serviceRowId);
   };
 
   // Функция для оплаты остатка (доплаты из депозита)
   const payRemainingDebt = async () => {
-    if (!allowPayment || (autoCompletion && !allowCompletion)) return;
+    if (!allowPayment) return;
     // Сначала показываем выбор способа оплаты
     openPaymentModalForRemaining();
   };
@@ -539,7 +539,7 @@ const ServicePaymentList = ({ allowPayment = true, allowCompletion = true, plan,
 
   const sessionRemaining = (service, session) => Math.max(0, Number(session.price ?? service.session_price ?? service.price_per_unit ?? 0) - Number(session.paid_amount || 0));
   const openSessionPayment = service => {
-    if (!allowPayment || (autoCompletion && !allowCompletion)) return;
+    if (!allowPayment) return;
     try {
       const session = (service.sessions || []).find(s => sessionRemaining(service, s) > 0);
       const sessionId = requireSessionId(session);
@@ -732,7 +732,7 @@ const paymentModal = (<PaymentModal
         total={payableTarget()}
         onPay={(pType, d) => executePayment(pType, d)}
       />);
-const presentation = { allowPayment: allowPayment && (!autoCompletion || allowCompletion), allowCompletion, plan, services: filteredServices, paidAmount, totalAmount, remainingToPay: actualRemainingToPay, loading, autoCompletion, servicePaymentView, sessionRemaining,
+const presentation = { allowPayment, allowCompletion, plan, services: filteredServices, paidAmount, totalAmount, remainingToPay: actualRemainingToPay, loading, autoCompletion, servicePaymentView, sessionRemaining,
 onPayRemaining: payRemainingDebt, onPayService: markServicePaid, onPayComplex: openPaymentModalForComplexRemaining, onPayComponent: openPaymentModalForComponent, onPaySession: openSessionPayment, consultationContent, paymentModal };
 if (layout === 'workspace') return <PaymentPlanDetails {...presentation}/>;
 if (layout === 'treatment') return <TreatmentPlanDetails {...presentation} onUpdate={onUpdate} contextActions={contextActions}/>;

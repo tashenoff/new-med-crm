@@ -148,7 +148,7 @@ test('no-deposit ledger complex component payment sends the official receipt and
       { ...component, paid: true, paid_amount: receiptAmount }, service.components[1]] }] };
   const updated = [];
   const ui = await mount(context, ServicePaymentList, { plan, onUpdate: value => updated.push(value) }, (url, body) => {
-    if (url.endsWith('/api/payment-types') && !body) return [method];
+    if (url.endsWith('/api/lookups/treatment-payment-types') && !body) return [method];
     const valid = url.endsWith(path) && uuid.test(body?.operation_id)
       && body.service_row_id === service.service_row_id && body.component_id === component.component_id
       && body.amount_kzt === receiptAmount && body.discount_amount_kzt === discountAmount
@@ -223,7 +223,7 @@ test('doctor-free analysis payment keeps payment-type selection and fixed discou
   });
   await ui.click(ui.container.querySelector('button'));
   await ui.click([...ui.container.querySelectorAll('button')].filter(element => element.textContent.includes('Оплатить')).at(-1));
-  assert.ok(ui.requests.some(request => request.url.endsWith('/api/payment-types')));
+  assert.ok(ui.requests.some(request => request.url.endsWith('/api/lookups/treatment-payment-types')));
   assert.equal(ui.container.querySelector('[aria-label="Источник оплаты"]'), null);
   assert.equal(ui.container.querySelector('[aria-label="Фактически получено, ₸"]'), null);
   assert.equal(ui.container.querySelector('[aria-label^="Сумма распределения"]'), null);

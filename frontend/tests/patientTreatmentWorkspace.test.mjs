@@ -30,10 +30,11 @@ test('read-only treatment keeps disclosures available but disables receipts and 
   assert.equal(ui.container.querySelector('[role="dialog"]'), null);
 });
 
-test('auto-completion payment requires both finance and clinical write capability', async t => {
+test('auto-completion payment is independent from manual clinical write capability', async t => {
   const ui = await mount(t, ControlledWorkspace, {plans: [plan('finance-without-clinical')], allowPayment: true, allowCompletion: false});
-  assert.equal(ui.container.querySelector('.curai-treatment-pay').disabled, true);
+  assert.equal(ui.container.querySelector('.curai-treatment-pay').disabled, false);
   assert.equal(ui.container.querySelector('.curai-treatment-mark').disabled, true);
+  await ui.click(ui.container.querySelector('.curai-treatment-mark'));
   assert.equal(ui.writes.length, 0);
 });
 
@@ -42,7 +43,7 @@ async function mount(t, Component, props, options = {}) {
   const globals = { window: dom.window, document: dom.window.document, localStorage: dom.window.localStorage, HTMLElement: dom.window.HTMLElement, IS_REACT_ACT_ENVIRONMENT: true, alert() {}, fetch: async (url, command = {}) => {
     if ((command.method || 'GET') !== 'GET') { assert.ok(options.writeResponse, 'Display actions must not issue writes'); writes.push({ url: String(url), body: JSON.parse(command.body) }); return { ok: true, json: async () => options.writeResponse }; }
     const value = options.read ? options.read(String(url)) : undefined;
-    return { ok: true, status: 200, json: async () => value !== undefined ? value : String(url).endsWith('/payment-types') ? [{ id: 'cash', name: 'Касса' }] : String(url).endsWith('/consultation') ? options.clinical || null : [] };
+    return { ok: true, status: 200, json: async () => value !== undefined ? value : String(url).endsWith('/lookups/treatment-payment-types') ? [{ id: 'cash', name: 'Касса' }] : String(url).endsWith('/consultation') ? options.clinical || null : [] };
   } };
   for (const [key, value] of Object.entries(globals)) { previous.set(key, Object.getOwnPropertyDescriptor(globalThis, key)); Object.defineProperty(globalThis, key, { configurable: true, writable: true, value }); }
   const root = createRoot(document.getElementById('root'));
