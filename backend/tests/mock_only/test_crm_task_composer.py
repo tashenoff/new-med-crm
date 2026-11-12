@@ -209,3 +209,40 @@ def test_current_super_admin_contract_and_legacy_grants_not_expanded():
     assert 'crm_tasks_create' not in effective_permissions({'role':'admin'})
     assert requirements('/api/crm/leads/{lead_id}/tasks','GET')==('crm_tasks_view',)
     assert requirements('/api/crm/task-statuses','GET')==('crm_view|directory_view|crm_tasks_view|crm_tasks_create|crm_tasks_edit',)
+
+
+async def test_staff_assignment_asgi_and_revocation():
+    db=database(['crm_tasks_create'])
+    db.staff.rows.extend([
+        {'_id':'admin', 'full_name':'Administrator', 'role':'admin', 'is_active':True},
+        {'_id':'disabled', 'full_name':'Disabled', 'role':'admin', 'is_active':False},
+    ])
+    app=FastAPI(redirect_slashes=False); app.include_router(router,prefix='/api/crm')
+    app.dependency_overrides[get_current_user]=lambda: SimpleNamespace(id='user', role='admin', is_active=True, permissions=db.staff.rows[0]['custom_permissions'])
+    app.dependency_overrides[get_database]=lambda: db
+    async with AsyncClient(transport=ASGITransport(app=app),base_url='http://test') as client:
+        choices=(await client.get('/api/crm/tasks/assignees')).json()['assignees']
+        assert {'id':'staff:admin','name':'Administrator'} in choices
+        assert not any(x['id']=='staff:disabled' for x in choices)
+        response=await client.post('/api/crm/tasks',json={'title':'Follow up','assigned_to':'staff:admin'})
+        assert response.status_code==201, response.text
+        assert response.json()['assigned_to_name']=='Administrator'
+        assert (await client.post('/api/crm/tasks/',json={'title':'Wrong URL'})).status_code==404
+        db.staff.rows[1]['is_active']=False
+        assert (await client.post('/api/crm/tasks',json={'title':'Inactive','assigned_to':'staff:admin'})).status_code==422
+        db.staff.rows[0]['custom_permissions']=[]
+        assert (await client.get('/api/crm/tasks/assignees')).status_code==403
+        assert (await client.post('/api/crm/tasks',json={'title':'Denied'})).status_code==403
+        assert len(db.crm_tasks.rows)==1
+
+
+async def test_staff_manager_namespace_collision_is_not_assignable():
+    db=database()
+    db.staff.rows.append({'_id':'admin','full_name':'Admin','is_active':True})
+    db.crm_managers.rows.append({'id':'staff:admin','status':'active','first_name':'Other person'})
+    svc=TaskService(db)
+    assert not any(x['id']=='staff:admin' for x in await svc.assignees())
+    with pytest.raises(HTTPException):
+        await svc.create_task(TaskCreate(title='Ambiguous',assigned_to='staff:admin'))
+    legacy=await svc.create_task(TaskCreate(title='Legacy',assigned_to='manager'))
+    assert legacy.assigned_to=='manager' and legacy.assigned_to_name=='Manager'

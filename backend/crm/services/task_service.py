@@ -29,10 +29,11 @@ class TaskService:
             values['title'] = title['name']
         if 'assigned_to' in values:
             if values['assigned_to']:
-                manager = await self.db.crm_managers.find_one({'id': values['assigned_to']})
-                if not manager or manager.get('status', 'active') != 'active':
-                    raise HTTPException(422, 'Ответственный менеджер не найден или неактивен')
-                values['assigned_to_name'] = ' '.join(filter(None, [manager.get('last_name'), manager.get('first_name'), manager.get('middle_name')]))
+                choices = await self.assignees()
+                assignee = next((item for item in choices if item['id'] == values['assigned_to']), None)
+                if not assignee:
+                    raise HTTPException(422, 'Responsible employee not found or inactive')
+                values['assigned_to_name'] = assignee['name']
             else:
                 values['assigned_to_name'] = None
         if 'chat_phone' in values:
@@ -150,5 +151,30 @@ class TaskService:
         return result.modified_count
 
     async def assignees(self):
-        documents = await self.db.crm_managers.find({'status': 'active'}, {'id': 1, 'first_name': 1, 'last_name': 1, 'middle_name': 1}).sort('last_name', 1).to_list(length=1000)
-        return [{'id': document['id'], 'name': ' '.join(filter(None, [document.get('last_name'), document.get('first_name'), document.get('middle_name')]))} for document in documents if document.get('id')]
+        # Staff is the personnel source of truth; users is its authentication
+        # mirror and must not produce duplicate people. Preserve legacy CRM IDs.
+        managers = await self.db.crm_managers.find({}, {
+            'id': 1, 'first_name': 1, 'last_name': 1, 'middle_name': 1,
+            'status': 1,
+        }).to_list(length=None)
+        staff = await self.db.staff.find({}, {
+            '_id': 1, 'full_name': 1, 'is_active': 1,
+        }).to_list(length=None)
+        legacy_ids = {str(item['id']) for item in managers if item.get('id')}
+        result = []
+        for item in managers:
+            identifier = item.get('id')
+            if identifier and item.get('status', 'active') == 'active':
+                # Reserved namespace collisions are ambiguous: do not reassign.
+                if str(identifier).startswith('staff:'):
+                    continue
+                name = ' '.join(filter(None, [item.get('last_name'), item.get('first_name'), item.get('middle_name')]))
+                result.append({'id': str(identifier), 'name': name or str(identifier)})
+        for item in staff:
+            if item.get('_id') is None or item.get('is_active') is not True:
+                continue
+            identifier = 'staff:' + str(item['_id'])
+            name = (item.get('full_name') or '').strip()
+            if name and identifier not in legacy_ids:
+                result.append({'id': identifier, 'name': name})
+        return sorted(result, key=lambda item: (item['name'].casefold(), item['id']))
